@@ -1,0 +1,69 @@
+package vg;
+
+
+message Graph {
+    repeated Node nodes = 1;
+}
+
+// Nodes store sequence data and also links to other nodes.
+// The graph is doubly-linked via IDs in prev/next fields in the Node objects.
+
+message Node {
+    required string sequence = 1;
+    optional string name = 2;
+    optional int64 id = 3;
+    // IDs of upstream (5') nodes
+    repeated int64 prev = 4;
+    // IDs of downsteram (3') nodes
+    repeated int64 next = 5;
+}
+
+// Edit operations describe how to do from one sequence to another.
+// The operation can either MATCH, in which case the EditOperation.sequence 
+// is ignored, or it can be REPLACE, in which case the length characters
+// from the node should be removed and replaced with the sequence.
+
+message EditOperation {
+    required int32 length = 1;
+    enum OperationType {
+        MATCH = 0;
+        REPLACE = 1;
+        CLIP = 2;
+    }
+    required OperationType type = 2;
+    optional string sequence = 3;
+}
+
+// A node mapping defines the relationship between a target (node)
+// and query (sequence or other node we are relating to the target).
+
+message NodeMapping {
+    required int64 node_id = 1;
+    required Mapping mapping = 2;
+}
+
+message Mapping {
+    optional int32 target_start_position = 1;
+    optional int32 query_start_position = 2;
+    repeated EditOperation edits = 3;
+}
+
+// Paths can represent:
+//    - haplotypes as series of node mappings that have no edit information
+//    - mappings of reads, or alignments, by including edits
+//    - relationships between nodes
+
+message Path {
+    repeated NodeMapping nodes = 1;
+}
+
+// Alignments link query strings or reads to paths.
+
+message Alignment {
+    optional string sequence = 1;
+    optional Path path = 2;
+    optional string name = 3;
+    optional bytes quality = 4;
+    optional int32 mapping_quality = 5;
+    optional bytes data = 6;
+}
