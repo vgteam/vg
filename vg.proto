@@ -27,8 +27,10 @@ message EditOperation {
     required int32 length = 1;
     enum OperationType {
         MATCH = 0;
-        REPLACE = 1;
-        CLIP = 2;
+        INSERTION = 1;
+        DELETION = 2;
+        MISMATCH = 3;
+        CLIP = 4;
     }
     required OperationType type = 2;
     optional string sequence = 3;
