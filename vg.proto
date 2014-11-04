@@ -3,6 +3,7 @@ package vg;
 
 message Graph {
     repeated Node nodes = 1;
+    repeated Edge edges = 2;
 }
 
 // Nodes store sequence data and also links to other nodes.
@@ -16,12 +17,23 @@ message Node {
     repeated int64 prev = 4;
     // IDs of downsteram (3') nodes
     repeated int64 next = 5;
+    // annotations
+    optional bytes data = 6;
 }
 
-// Edit operations describe how to do from one sequence to another.
-// The operation can either MATCH, in which case the EditOperation.sequence 
-// is ignored, or it can be REPLACE, in which case the length characters
-// from the node should be removed and replaced with the sequence.
+// Edges are not essential (as they can be implicitly represented)
+// but we may like to relate information to them
+message Edge {
+    // ID of upstream node
+    required int64 prev = 1;
+    // ID of downstream node
+    required int64 next = 2;
+    // annotations
+    optional bytes data = 3;
+}
+
+// Edit operations describe positional mapping between two sequences.
+// They are conceptually equivalent to SAM cigars
 
 message EditOperation {
     required int32 length = 1;
