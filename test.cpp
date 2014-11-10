@@ -21,6 +21,7 @@ int main(int argc,char *argv[])
 
     Graph g;
     Node* m = g.add_nodes();
+    cerr << "node pointer is " << m << endl;
     *m = n;
     m = g.add_nodes();
     *m = n;

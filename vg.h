@@ -1,9 +1,12 @@
 #ifndef VG_H
 #define VG_H
 
+#include <vector>
+#include <string>
 #include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"
+
 
 namespace vg {
 
@@ -30,7 +33,7 @@ public:
     VariantGraph(vector<Node>& nodes);
 
     // construct from VCF records
-    VariantGraph(vcf::VariantCallFile variantCallFile, FastaReference& reference);
+    VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
 
     // use the VariantGraph class to generate ids
     Node* create_node(string seq);
