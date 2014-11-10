@@ -19,10 +19,22 @@ int main(int argc,char *argv[])
         cout << n.prev(i) << endl;
     }
 
+    Graph g;
+    Node* m = g.add_nodes();
+    *m = n;
+    m = g.add_nodes();
+    *m = n;
+    m = g.add_nodes();
+    *m = n;
+
     ofstream of("test.vg");
     n.SerializeToOstream(&of);
 	char *json2 = pb2json(n);
 	cout<<json2<<endl;
 	free(json2);
+
+	char *json3 = pb2json(g);
+	cout<<json3<<endl;
+	free(json3);
     return 0;
 }

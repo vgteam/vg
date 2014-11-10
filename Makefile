@@ -4,8 +4,8 @@ CXX=g++
 pb2json=pb2json/libpb2json.a
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
-INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB)/
-LDFLAGS=-Lpb2json -lpb2json -lprotobuf -lpthread -ljansson -lz
+INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB)/ -Ifastahack/
+LDFLAGS=-Lpb2json -lpb2json -Lvcflib -lvcflib -lprotobuf -lpthread -ljansson -lz
 
 all: $(pb2json) cpp/vg.bp.h test
 
@@ -25,8 +25,8 @@ $(LIBVCFLIB): vcflib/src/Variant.h vcflib/src/Variant.cpp
 fastahack/Fasta.o: fastahack/Fasta.h fastahack/Fasta.cpp
 	cd fastahack && $(MAKE)
 
-vg: vg.cpp cpp/vg.bp.h $(LIBVCFLIB)
-	$(CXX) vg.cpp -o vg cpp/vg.pb.cc $(pb2json) $(LIBVCFLIB) $(INCLUDES) $(LDFLAGS)
+vg: vg.cpp vg.h cpp/vg.bp.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json)
+	$(CXX) -o vg main.cpp vg.cpp cpp/vg.pb.cc $(INCLUDES) $(LDFLAGS)
 
 clean:
 	rm -f cpp/*

@@ -4,7 +4,7 @@
 #include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"
-#include "construct.h"
+#include "vg.h"
 
 using namespace std;
 using namespace google::protobuf;
