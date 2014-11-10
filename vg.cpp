@@ -62,13 +62,11 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
         string seq = reference.getSequence(seqName);
 
         Node* ref_node = create_node(seq);
-        cerr << "ref node " << ref_node << endl;
         reference_path[0] = ref_node;
 
         variantCallFile.setRegion(seqName);
         vcf::Variant var(variantCallFile);
         while (variantCallFile.getNextVariant(var)) {
-            cerr << var << endl;
 
             int current_pos = (long int) var.position - 1;
             // decompose the alt
@@ -79,7 +77,6 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
 
                 for (vector<vcf::VariantAllele>::iterator a = alleles.begin(); a != alleles.end(); ++a) {
                     vcf::VariantAllele& allele = *a;
-                    cerr << "allele = " << allele << endl;
 
                     // reference alleles are provided naturally by the reference itself
                     if (allele.ref == allele.alt) {
@@ -88,7 +85,6 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
 
                     long allele_start_pos = allele.position - 1;  // 0/1 based conversion... thanks vcflib!
                     long allele_end_pos = allele_start_pos + allele.ref.size();
-                    cerr << "allele start, end = " << allele_start_pos << " " << allele_end_pos << endl;
 
                     Node* left_ref_node = NULL;
                     Node* middle_ref_node = NULL;
@@ -99,7 +95,7 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
                                 allele_start_pos,
                                 left_ref_node,
                                 right_ref_node);
-                    cerr << "returned from divide ref path" << endl;
+
                     // if the ref portion of the allele is not empty, then we need to make another cut
                     if (!allele.ref.empty()) {
                         divide_path(reference_path,
@@ -156,10 +152,7 @@ void VariantGraph::destroy_node(Node* node) {
 void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
     // make our left node
-    cerr << "before create" << endl;
-    cerr << node << endl;
     left = create_node(node->sequence().substr(0,pos));
-    cerr << "after create" << endl;
 
     // replace node connections to prev (left)
     for (int i = 0; i < node->prev_size(); ++i) {
@@ -200,7 +193,6 @@ void VariantGraph::divide_path(map<long, Node*>& path, long pos, Node*& left, No
     
     // nothing to do
     if (node_pos == pos) {
-        cerr << "node pos == pos" << endl;
         map<long, Node*>::iterator n = target; --n;
         left = n->second;
         right = target->second;
