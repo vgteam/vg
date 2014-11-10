@@ -46,7 +46,7 @@ int construct_main(int argc, char** argv) {
     }
 
     string fasta_file_name, vcf_file_name;
-    bool output_VG=true, output_GFA=false, output_JSON=false;
+    string output_type = "VG";
 
     int c;
     while (true) {
@@ -81,15 +81,15 @@ int construct_main(int argc, char** argv) {
             break;
 
         case 'P':
-            output_VG = true;
+            output_type = "VG";
             break;
  
         case 'G':
-            output_GFA = true;
+            output_type = "GFA";
             break;
  
         case 'J':
-            output_JSON = true;
+            output_type = "JSON";
             break;
  
         case '?':
@@ -101,27 +101,6 @@ int construct_main(int argc, char** argv) {
         default:
             abort ();
         }
-    }
-
-    // check that we are only outputting a single stream type
-    bool single_output_type = true;
-    if (output_VG) {
-        if (output_GFA || output_JSON) {
-            single_output_type = false;
-        }
-    } else if (output_GFA) {
-        if (output_VG || output_JSON) {
-            single_output_type = false;
-        }
-    } else if (output_JSON) {
-        if (output_VG || output_GFA) {
-            single_output_type = false;
-        }
-    }
-
-    if (!single_output_type) {
-        cerr << "error:[vg construct] can only output a single graph format (one of VG, GFA, JSON)" << endl;
-        return 1;
     }
 
     // set up our inputs
@@ -146,9 +125,14 @@ int construct_main(int argc, char** argv) {
 
     VariantGraph graph(variant_file, reference);
 
-    char *json2 = pb2json(graph);
-	cout<<json2<<endl;
-	free(json2);
+    if (output_type == "VG") {
+        //ofstream of("test.vg");
+        graph.SerializeToOstream(&std::cout);
+    } else if (output_type == "JSON") {
+        char *json2 = pb2json(graph);
+        cout<<json2<<endl;
+        free(json2);
+    }
 
     return 0;
 }
