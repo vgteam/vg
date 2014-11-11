@@ -32,7 +32,7 @@ public:
     // constructors
     //VariantGraph(void) { };
     // construct from protobufs
-    VariantGraph(ifstream& in);
+    VariantGraph(istream& in);
     VariantGraph(Graph& graph);
     VariantGraph(vector<Node>& nodes);
 
@@ -46,13 +46,16 @@ public:
     Edge* create_edge(int64_t from, int64_t to);
     void destroy_edge(Edge* edge);
     Edge* add_edge(Node* from, Node* to);
-    void remove_edge_from_node(Node* node, Edge* edge);
+    void remove_prev_from_node(Node* node, Edge* edge);
+    void remove_next_from_node(Node* node, Edge* edge);
 
     // utilities
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
     void divide_path(map<long, Node*>& path, long pos, Node*& left, Node*& right);
     void node_replace_prev(Node* node, Node* before, Node* after);
     void node_replace_next(Node* node, Node* before, Node* after);
+
+    void to_dot(ostream& out);
 
     //void align(Alignment& alignment);
 

@@ -7,13 +7,18 @@ using namespace vg;
 
 //VariantGraph::VariantGraph(void) { };
 // construct from protobufs
-VariantGraph::VariantGraph(ifstream& in) {
+VariantGraph::VariantGraph(istream& in) {
     ParseFromIstream(&in);
     // populate by-id node index
     for (int64_t i = 0; i < nodes_size(); ++i) {
         Node* n = mutable_nodes(i);
         node_index[n] = i;
         node_by_id[n->id()] = n;
+    }
+    for (int64_t i = 0; i < edges_size(); ++i) {
+        Edge* e = mutable_edges(i);
+        edge_index[e] = i;
+        edge_by_ids[make_pair(e->prev(), e->next())] = e;
     }
 }
 
@@ -128,37 +133,55 @@ Edge* VariantGraph::create_edge(int64_t from, int64_t to) {
     return edge;
 }
 
-void VariantGraph::remove_edge_from_node(Node* node, Edge* edge) {
+void VariantGraph::remove_prev_from_node(Node* node, Edge* edge) {
+    cerr << "removing prev edge " << edge->prev() << " -> " << edge->next() << " from node " << node->id() << endl;
     int64_t prev_id = edge->prev();
     for (int i = 0; i < node->prev_size(); ++i) {
+        cerr << prev_id << " ?= " << node->prev(i)  << endl;
         if (node->prev(i) == prev_id) {
+            cerr << "found matching prev! " << node->prev(i) << endl;
             node->mutable_prev()->SwapElements(i, node->prev_size()-1);
             node->mutable_prev()->RemoveLast();
-            return;
+            break;
         }
     }
+    cerr << "prev edges for node " << node->id() << endl;
+    for (int i = 0; i < node->prev_size(); ++i) {
+        cerr << node->prev(i) << " -> " << node->id() << endl;
+    }
+}
+
+void VariantGraph::remove_next_from_node(Node* node, Edge* edge) {
+    cerr << "removing next edge " << edge->prev() << " -> " << edge->next() << " from node " << node->id() << endl;
     int64_t next_id = edge->next();
     for (int i = 0; i < node->next_size(); ++i) {
         if (node->next(i) == next_id) {
             node->mutable_next()->SwapElements(i, node->next_size()-1);
             node->mutable_next()->RemoveLast();
-            return;
+            break;
         }
+    }
+    cerr << "next edges for node " << node->id() << endl;
+    for (int i = 0; i < node->next_size(); ++i) {
+        cerr << node->id() << " -> " << node->next(i) << endl;
     }
 }
 
 void VariantGraph::destroy_edge(Edge* edge) {
+    cerr << "destroying edge " << edge->prev() << " -> " << edge->next() << endl;
     int lei = edges_size()-1;
     int tei = edge_index[edge];
-    remove_edge_from_node(node_by_id[edge->prev()], edge);
-    remove_edge_from_node(node_by_id[edge->next()], edge);
+    remove_prev_from_node(node_by_id[edge->next()], edge);
+    remove_next_from_node(node_by_id[edge->prev()], edge);
+    edge_by_ids.erase(make_pair(edge->prev(), edge->next()));
+    edge_index.erase(edge);
+
     Edge* last = mutable_edges(lei);
     mutable_edges()->SwapElements(tei, lei);
     Edge* elast = mutable_edges(tei);
     edge_by_ids[make_pair(last->prev(), last->next())] = elast;
     edge_index.erase(last);
     edge_index[elast] = tei;
-    edge_index.erase(edge);
     mutable_edges()->RemoveLast();
 }
 
@@ -168,6 +191,7 @@ Node* VariantGraph::create_node(string seq) {
     Node* node = add_nodes();
     node->set_sequence(seq);
     node->set_id(current_id());
+    cerr << "creating node " << node->id() << endl;
     set_current_id(current_id()+1);
     // copy it into the graph
     // and drop into our id index
@@ -177,6 +201,19 @@ Node* VariantGraph::create_node(string seq) {
 }
 
 void VariantGraph::destroy_node(Node* node) {
+    cerr << "destroying node " << node->id() << endl;
+    // remove edges associated with node
+    while (node->prev_size() > 0) {
+        cerr << node->prev(0) << " -> " << node->id() << endl;
+        
+        Edge* edge = edge_by_ids[make_pair(node->id(), node->prev(0))];
+        cerr << edge << endl;
+        destroy_edge(edge);
+        cerr << "done destroyed edge" << endl;
+    }
+    while (node->next_size() > 0) {
+        destroy_edge(edge_by_ids[make_pair(node->id(), node->next(0))]);
+    }
     // swap node with the last in nodes
     // call RemoveLast() to drop the node
     int lni = nodes_size()-1;
@@ -187,6 +224,7 @@ void VariantGraph::destroy_node(Node* node) {
     node_by_id[last->id()] = nlast;
     node_index.erase(last);
     node_index[nlast] = tni;
+    node_by_id.erase(node->id());
     node_index.erase(node);
     mutable_nodes()->RemoveLast();
 }
@@ -219,6 +257,7 @@ void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 }
 
 Edge* VariantGraph::add_edge(Node* from, Node* to) {
+    cerr << "adding edge " << from->id() << " -> " << to->id() << endl;
     from->add_next(to->id());
     to->add_prev(from->id());
     return create_edge(from->id(), to->id());
@@ -264,4 +303,19 @@ void VariantGraph::node_replace_next(Node* node, Node* before, Node* after) {
     add_edge(node, after);
 }
 
-//void align(Alignment& alignment);
+
+void VariantGraph::to_dot(ostream& out) {
+    out << "digraph graphname {" << endl;
+    for (int i = 0; i < edges_size(); ++i) {
+        Edge* e = mutable_edges(i);
+        out << e << endl;
+        out << e->prev() << " " << e->next() << endl;
+        Node* p = node_by_id[e->prev()];
+        out << p->id() << endl;
+        Node* n = node_by_id[e->next()];
+        out << n->id() << endl;
+        out << n->id() << " -> " << p->id() << ";" << endl;
+    }
+    out << "}" << endl;
+}
+
