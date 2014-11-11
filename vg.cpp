@@ -119,6 +119,49 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
     }
 }
 
+Edge* VariantGraph::create_edge(int64_t from, int64_t to) {
+    Edge* edge = add_edges();
+    edge->set_prev(from);
+    edge->set_next(to);
+    edge_by_ids[make_pair(from, to)] = edge;
+    edge_index[edge] = edges_size()-1;
+    return edge;
+}
+
+void VariantGraph::remove_edge_from_node(Node* node, Edge* edge) {
+    int64_t prev_id = edge->prev();
+    for (int i = 0; i < node->prev_size(); ++i) {
+        if (node->prev(i) == prev_id) {
+            node->mutable_prev()->SwapElements(i, node->prev_size()-1);
+            node->mutable_prev()->RemoveLast();
+            return;
+        }
+    }
+    int64_t next_id = edge->next();
+    for (int i = 0; i < node->next_size(); ++i) {
+        if (node->next(i) == next_id) {
+            node->mutable_next()->SwapElements(i, node->next_size()-1);
+            node->mutable_next()->RemoveLast();
+            return;
+        }
+    }
+}
+
+void VariantGraph::destroy_edge(Edge* edge) {
+    int lei = edges_size()-1;
+    int tei = edge_index[edge];
+    remove_edge_from_node(node_by_id[edge->prev()], edge);
+    remove_edge_from_node(node_by_id[edge->next()], edge);
+    Edge* last = mutable_edges(lei);
+    mutable_edges()->SwapElements(tei, lei);
+    Edge* elast = mutable_edges(tei);
+    edge_by_ids[make_pair(last->prev(), last->next())] = elast;
+    edge_index.erase(last);
+    edge_index[elast] = tei;
+    edge_index.erase(edge);
+    mutable_edges()->RemoveLast();
+}
+
 // use the VariantGraph class to generate ids
 Node* VariantGraph::create_node(string seq) {
     // create the node
@@ -157,8 +200,7 @@ void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     // replace node connections to prev (left)
     for (int i = 0; i < node->prev_size(); ++i) {
         Node* p = node_by_id[node->prev(i)];
-        node_replace_prev(p, node, left);
-        left->add_prev(p->id());
+        node_replace_next(p, node, left);
     }
 
     // make our right node
@@ -167,8 +209,7 @@ void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     // replace node connections to next (right)
     for (int i = 0; i < node->next_size(); ++i) {
         Node* n = node_by_id[node->next(i)];
-        node_replace_next(n, node, right);
-        right->add_prev(n->id());
+        node_replace_prev(n, node, right);
     }
 
     // connect left to right
@@ -177,9 +218,10 @@ void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     destroy_node(node);
 }
 
-void VariantGraph::add_edge(Node* from, Node* to) {
+Edge* VariantGraph::add_edge(Node* from, Node* to) {
     from->add_next(to->id());
     to->add_prev(from->id());
+    return create_edge(from->id(), to->id());
 }
 
 // for dividing a path of nodes with an underlying coordinate system
@@ -212,20 +254,14 @@ void VariantGraph::divide_path(map<long, Node*>& path, long pos, Node*& left, No
     }
 }
 
-void VariantGraph::node_replace_prev(Node* node, Node* from, Node* to) {
-    for (int i = 0; i < node->prev_size(); ++i) {
-        if (node->prev(i) == from->id()) {
-            node->set_prev(i, to->id());
-        }
-    }
+void VariantGraph::node_replace_prev(Node* node, Node* before, Node* after) {
+    destroy_edge(edge_by_ids[make_pair(before->id(), node->id())]);
+    add_edge(after, node);
 }
 
-void VariantGraph::node_replace_next(Node* node, Node* from, Node* to) {
-    for (int i = 0; i < node->next_size(); ++i) {
-        if (node->next(i) == from->id()) {
-            node->set_next(i, to->id());
-        }
-    }
+void VariantGraph::node_replace_next(Node* node, Node* before, Node* after) {
+    destroy_edge(edge_by_ids[make_pair(node->id(), before->id())]);
+    add_edge(node, after);
 }
 
 //void align(Alignment& alignment);
