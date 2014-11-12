@@ -2,6 +2,7 @@
 #define VG_H
 
 #include <vector>
+#include <set>
 #include <string>
 #include "vg.pb.h"
 #include "Variant.h"
@@ -23,7 +24,8 @@ public:
     map<Node*, int> node_index;
 
     // edges indexed by nodes they connect
-    map<pair<int64_t, int64_t>, Edge*> edge_by_ids;
+    map<int64_t, map<int64_t, Edge*> > edge_from_to;
+    map<int64_t, map<int64_t, Edge*> > edge_to_from;
 
     // edges by position in edges repeated field
     // same as for nodes, this allows fast deletion
@@ -43,19 +45,18 @@ public:
     Node* create_node(string seq);
     void destroy_node(Node* node);
 
+    Edge* create_edge(Node* from, Node* to);
     Edge* create_edge(int64_t from, int64_t to);
     void destroy_edge(Edge* edge);
-    Edge* add_edge(Node* from, Node* to);
-    void remove_prev_from_node(Node* node, Edge* edge);
-    void remove_next_from_node(Node* node, Edge* edge);
 
     // utilities
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
     void divide_path(map<long, Node*>& path, long pos, Node*& left, Node*& right);
-    void node_replace_prev(Node* node, Node* before, Node* after);
-    void node_replace_next(Node* node, Node* before, Node* after);
+    //void node_replace_prev(Node* node, Node* before, Node* after);
+    //void node_replace_next(Node* node, Node* before, Node* after);
 
     void to_dot(ostream& out);
+    bool is_valid(void);
 
     //void align(Alignment& alignment);
 

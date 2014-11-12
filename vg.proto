@@ -14,21 +14,17 @@ message Node {
     required string sequence = 1;
     optional string name = 2;
     optional int64 id = 3;
-    // IDs of upstream (5') nodes
-    repeated int64 prev = 4;
-    // IDs of downsteram (3') nodes
-    repeated int64 next = 5;
     // annotations
     optional bytes data = 6;
 }
 
-// Edges are not essential (as they can be implicitly represented)
-// but we may like to relate information to them
+// Edges describe linkages between nodes. They are directed: from=prev, to=next.
+// As in GFA, they can possibly describe an overlap structure between nodes
 message Edge {
     // ID of upstream node
-    required int64 prev = 1;
+    required int64 from = 1;
     // ID of downstream node
-    required int64 next = 2;
+    required int64 to = 2;
     // annotations
     optional bytes data = 3;
 }

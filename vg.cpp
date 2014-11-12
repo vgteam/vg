@@ -18,7 +18,8 @@ VariantGraph::VariantGraph(istream& in) {
     for (int64_t i = 0; i < edges_size(); ++i) {
         Edge* e = mutable_edges(i);
         edge_index[e] = i;
-        edge_by_ids[make_pair(e->prev(), e->next())] = e;
+        edge_from_to[e->from()][e->to()] = e;
+        edge_to_from[e->to()][e->from()] = e;
     }
 }
 
@@ -53,10 +54,6 @@ VariantGraph::VariantGraph(vector<Node>& nodesv) {
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
 VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
-//// .... XXX
-
-    //cerr << "target sequence " << targetSequence << endl;
-    //cerr << "starts at " << offset << endl;
 
     for (vector<string>::iterator r = reference.index->sequenceNames.begin();
          r != reference.index->sequenceNames.end(); ++r) {
@@ -73,6 +70,11 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
         vcf::Variant var(variantCallFile);
         while (variantCallFile.getNextVariant(var)) {
 
+            cerr << "variant: " << var << endl;
+
+            // track the last nodes so that we can connect everything completely when variants occur in succession
+            map<long, set<Node*> > nodes_by_end_position;
+
             int current_pos = (long int) var.position - 1;
             // decompose the alt
             bool flat_input_vcf = false; // hack
@@ -83,6 +85,8 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
                 for (vector<vcf::VariantAllele>::iterator a = alleles.begin(); a != alleles.end(); ++a) {
                     vcf::VariantAllele& allele = *a;
 
+                    cerr << "allele: " << allele << endl;
+
                     // reference alleles are provided naturally by the reference itself
                     if (allele.ref == allele.alt) {
                         continue;
@@ -90,6 +94,11 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
 
                     long allele_start_pos = allele.position - 1;  // 0/1 based conversion... thanks vcflib!
                     long allele_end_pos = allele_start_pos + allele.ref.size();
+
+                    if (allele_start_pos == 0) {
+                        Node* root = create_node(""); // ensures that we can handle variation at first position (important when aligning)
+                        reference_path[-1] = root;
+                    }
 
                     Node* left_ref_node = NULL;
                     Node* middle_ref_node = NULL;
@@ -101,88 +110,128 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
                                 left_ref_node,
                                 right_ref_node);
 
+                    cerr << "nodes: left: " << left_ref_node->id() << " right: " << right_ref_node->id() << endl;
+
                     // if the ref portion of the allele is not empty, then we need to make another cut
                     if (!allele.ref.empty()) {
                         divide_path(reference_path,
-                                    allele_start_pos,
+                                    allele_end_pos,
                                     middle_ref_node,
                                     right_ref_node);
                     }
 
+                    Node* alt_node;
                     // create a new alt node and connect the pieces from before
-                    if (!allele.alt.empty()) {
-                        Node* alt_node = create_node(allele.alt);
+                    if (!allele.alt.empty() && !allele.ref.empty()) {
+                        alt_node = create_node(allele.alt);
                         //ref_map.add_node(alt_node, allele_start_pos, );
-                        add_edge(left_ref_node, alt_node);
-                        add_edge(alt_node, right_ref_node);
+                        cerr << "adding edges: " << left_ref_node->id() << "->" << alt_node->id() << "|" << middle_ref_node->id() << "->" << right_ref_node->id() << endl;
+                        create_edge(left_ref_node, alt_node);
+                        create_edge(alt_node, right_ref_node);
+
+                        // XXXXXXXX middle is borked
+                        // why do we have to force this edge back in?
+                        create_edge(left_ref_node, middle_ref_node);
+                        // this one is not needed
+                        //create_edge(middle_ref_node, right_ref_node);
+                        cerr << "done adding edges" << endl;
+                        nodes_by_end_position[allele_end_pos].insert(alt_node);
+                        nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
+                    } else if (!allele.alt.empty()) { // insertion
+                        alt_node = create_node(allele.alt);
+                        create_edge(left_ref_node, alt_node);
+                        create_edge(alt_node, right_ref_node);
+                        nodes_by_end_position[allele_end_pos].insert(alt_node);
+                        nodes_by_end_position[allele_end_pos].insert(left_ref_node);
                     } else {// otherwise, we have a deletion
-                        add_edge(left_ref_node, right_ref_node);
+                        create_edge(left_ref_node, right_ref_node);
+                        nodes_by_end_position[allele_end_pos].insert(left_ref_node);
                     }
+
+                    if (allele_end_pos == seq.size()) {
+                        Node* end = create_node(""); // ensures that we can handle variation at first position (important when aligning)
+                        reference_path[allele_end_pos] = end;
+                        create_edge(alt_node, end);
+                        create_edge(middle_ref_node, end);
+                    }
+
+                    // if there are previous nodes, connect them
+                    /*
+                    map<long, set<Node*> >::iterator ep = nodes_by_end_position.find(allele_start_pos);
+                    if (ep != nodes_by_end_position.end()) {
+                        set<Node*>& previous_nodes = ep->second;
+                        for (set<Node*>::iterator n = previous_nodes.begin(); n != previous_nodes.end(); ++n) {
+                            if (node_index.find(*n) != node_index.end()) {
+                                if (middle_ref_node) {
+                                    create_edge(*n, middle_ref_node);
+                                }
+                                create_edge(*n, alt_node);
+                            }
+                        }
+                    }
+                    */
+                    nodes_by_end_position.clear();
+
+                    /*
+                    if (!is_valid()) {
+                        cerr << "graph is invalid after variant" << endl
+                             << var << endl;
+                        exit(1);
+                    }
+                    */
                 }
             }
         }
     }
 }
 
+Edge* VariantGraph::create_edge(Node* from, Node* to) {
+    return create_edge(from->id(), to->id());
+}
+
 Edge* VariantGraph::create_edge(int64_t from, int64_t to) {
-    Edge* edge = add_edges();
-    edge->set_prev(from);
-    edge->set_next(to);
-    edge_by_ids[make_pair(from, to)] = edge;
+    // ensure the edge does not already exist
+    Edge* edge = edge_from_to[from][to];
+    if (edge) return edge;
+    // if not, create it
+    edge = add_edges();
+    edge->set_from(from);
+    edge->set_to(to);
+    edge_from_to[from][to] = edge;
+    edge_to_from[to][from] = edge;
     edge_index[edge] = edges_size()-1;
     return edge;
 }
 
-void VariantGraph::remove_prev_from_node(Node* node, Edge* edge) {
-    cerr << "removing prev edge " << edge->prev() << " -> " << edge->next() << " from node " << node->id() << endl;
-    int64_t prev_id = edge->prev();
-    for (int i = 0; i < node->prev_size(); ++i) {
-        cerr << prev_id << " ?= " << node->prev(i)  << endl;
-        if (node->prev(i) == prev_id) {
-            cerr << "found matching prev! " << node->prev(i) << endl;
-            node->mutable_prev()->SwapElements(i, node->prev_size()-1);
-            node->mutable_prev()->RemoveLast();
-            break;
-        }
-    }
-    cerr << "prev edges for node " << node->id() << endl;
-    for (int i = 0; i < node->prev_size(); ++i) {
-        cerr << node->prev(i) << " -> " << node->id() << endl;
-    }
-}
-
-void VariantGraph::remove_next_from_node(Node* node, Edge* edge) {
-    cerr << "removing next edge " << edge->prev() << " -> " << edge->next() << " from node " << node->id() << endl;
-    int64_t next_id = edge->next();
-    for (int i = 0; i < node->next_size(); ++i) {
-        if (node->next(i) == next_id) {
-            node->mutable_next()->SwapElements(i, node->next_size()-1);
-            node->mutable_next()->RemoveLast();
-            break;
-        }
-    }
-    cerr << "next edges for node " << node->id() << endl;
-    for (int i = 0; i < node->next_size(); ++i) {
-        cerr << node->id() << " -> " << node->next(i) << endl;
-    }
-}
-
 void VariantGraph::destroy_edge(Edge* edge) {
-    cerr << "destroying edge " << edge->prev() << " -> " << edge->next() << endl;
+    //if (!is_valid()) cerr << "graph ain't valid" << endl;
+    // erase from indexes
+    edge_from_to[edge->from()].erase(edge->to());
+    edge_to_from[edge->to()].erase(edge->from());
+
+    // erase from edges by moving to end and dropping
     int lei = edges_size()-1;
     int tei = edge_index[edge];
-    remove_prev_from_node(node_by_id[edge->next()], edge);
-    remove_next_from_node(node_by_id[edge->prev()], edge);
-    edge_by_ids.erase(make_pair(edge->prev(), edge->next()));
+    Edge* last = mutable_edges(lei);
+    edge_index.erase(last);
     edge_index.erase(edge);
 
-    Edge* last = mutable_edges(lei);
+    // swap
     mutable_edges()->SwapElements(tei, lei);
-    Edge* elast = mutable_edges(tei);
-    edge_by_ids[make_pair(last->prev(), last->next())] = elast;
-    edge_index.erase(last);
-    edge_index[elast] = tei;
+
+    // point to new position
+    Edge* nlast = mutable_edges(tei);
+
+    // insert the new edge index position
+    edge_index[nlast] = tei;
+
+    // and fix edge indexes for moved edge object
+    edge_from_to[nlast->from()][nlast->to()] = nlast;
+    edge_to_from[nlast->to()][nlast->from()] = nlast;
+
+    // drop the last position, erasing the node
     mutable_edges()->RemoveLast();
+
 }
 
 // use the VariantGraph class to generate ids
@@ -191,7 +240,6 @@ Node* VariantGraph::create_node(string seq) {
     Node* node = add_nodes();
     node->set_sequence(seq);
     node->set_id(current_id());
-    cerr << "creating node " << node->id() << endl;
     set_current_id(current_id()+1);
     // copy it into the graph
     // and drop into our id index
@@ -201,19 +249,31 @@ Node* VariantGraph::create_node(string seq) {
 }
 
 void VariantGraph::destroy_node(Node* node) {
-    cerr << "destroying node " << node->id() << endl;
+    //if (!is_valid()) cerr << "graph is invalid before destroy_node" << endl;
     // remove edges associated with node
-    while (node->prev_size() > 0) {
-        cerr << node->prev(0) << " -> " << node->id() << endl;
-        
-        Edge* edge = edge_by_ids[make_pair(node->id(), node->prev(0))];
-        cerr << edge << endl;
-        destroy_edge(edge);
-        cerr << "done destroyed edge" << endl;
+    set<Edge*> edges_to_destroy;
+    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
+    if (e != edge_from_to.end()) {
+        for (map<int64_t, Edge*>::iterator f = e->second.begin();
+             f != e->second.end(); ++f) {
+            edges_to_destroy.insert(f->second);
+        }
     }
-    while (node->next_size() > 0) {
-        destroy_edge(edge_by_ids[make_pair(node->id(), node->next(0))]);
+    e = edge_to_from.find(node->id());
+    if (e != edge_to_from.end()) {
+        for (map<int64_t, Edge*>::iterator f = e->second.begin();
+             f != e->second.end(); ++f) {
+            edges_to_destroy.insert(f->second);
+        }
     }
+    for (set<Edge*>::iterator e = edges_to_destroy.begin();
+         e != edges_to_destroy.end(); ++e) {
+        destroy_edge(*e);
+    }
+    // assert cleanup
+    edge_to_from.erase(node->id());
+    edge_from_to.erase(node->id());
+
     // swap node with the last in nodes
     // call RemoveLast() to drop the node
     int lni = nodes_size()-1;
@@ -227,40 +287,50 @@ void VariantGraph::destroy_node(Node* node) {
     node_by_id.erase(node->id());
     node_index.erase(node);
     mutable_nodes()->RemoveLast();
+    //if (!is_valid()) cerr << "graph is invalid after destroy_node" << endl;
 }
 
 // utilities
 void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
+    cerr << "divide node " << node->id() << " @" << pos << endl;
+
+    map<int64_t, map<int64_t, Edge*> >::iterator e;
+
     // make our left node
     left = create_node(node->sequence().substr(0,pos));
 
     // replace node connections to prev (left)
-    for (int i = 0; i < node->prev_size(); ++i) {
-        Node* p = node_by_id[node->prev(i)];
-        node_replace_next(p, node, left);
+    e = edge_to_from.find(node->id());
+    if (e != edge_to_from.end()) {
+        for (map<int64_t, Edge*>::iterator p = e->second.begin();
+             p != e->second.end(); ++p) {
+            cerr << "in replace prev" << endl;
+            cerr << p->first << endl;
+            create_edge(p->first, left->id());
+        }
     }
 
     // make our right node
     right = create_node(node->sequence().substr(pos,node->sequence().size()-1));
 
     // replace node connections to next (right)
-    for (int i = 0; i < node->next_size(); ++i) {
-        Node* n = node_by_id[node->next(i)];
-        node_replace_prev(n, node, right);
+    e = edge_from_to.find(node->id());
+    if (e != edge_from_to.end()) {
+        for (map<int64_t, Edge*>::iterator n = e->second.begin();
+             n != e->second.end(); ++n) {
+            cerr << "in replace next" << endl;
+            cerr << n->first << endl;
+            create_edge(right->id(), n->first);
+        }
     }
 
     // connect left to right
-    add_edge(left, right);
+    cerr << "connecting left to right" << endl;
+    create_edge(left, right);
 
     destroy_node(node);
-}
 
-Edge* VariantGraph::add_edge(Node* from, Node* to) {
-    cerr << "adding edge " << from->id() << " -> " << to->id() << endl;
-    from->add_next(to->id());
-    to->add_prev(from->id());
-    return create_edge(from->id(), to->id());
 }
 
 // for dividing a path of nodes with an underlying coordinate system
@@ -274,9 +344,12 @@ void VariantGraph::divide_path(map<long, Node*>& path, long pos, Node*& left, No
     
     // nothing to do
     if (node_pos == pos) {
+
         map<long, Node*>::iterator n = target; --n;
         left = n->second;
         right = target->second;
+
+        cerr << "divide_path " << pos << " " << left->id() << "|" << right->id() << endl;
 
     } else {
 
@@ -293,28 +366,46 @@ void VariantGraph::divide_path(map<long, Node*>& path, long pos, Node*& left, No
     }
 }
 
-void VariantGraph::node_replace_prev(Node* node, Node* before, Node* after) {
-    destroy_edge(edge_by_ids[make_pair(before->id(), node->id())]);
-    add_edge(after, node);
+bool VariantGraph::is_valid(void) {
+    for (int i = 0; i < nodes_size(); ++i) {
+        Node* n = mutable_nodes(i);
+    }
+    for (int i = 0; i < edges_size(); ++i) {
+        Edge* e = mutable_edges(i);
+        int64_t f = e->from();
+        int64_t t = e->to();
+        if (node_by_id.find(f) == node_by_id.end()) {
+            cerr << "graph invalid: edge index=" << i << " cannot find node (from) " << f << endl;
+            return false;
+        }
+        if (node_by_id.find(t) == node_by_id.end()) {
+            cerr << "graph invalid: edge index=" << i << " cannot find node (to) " << t << endl;
+            return false;
+        }
+        if (edge_from_to.find(f) == edge_from_to.end()) {
+            cerr << "graph invalid: edge index=" << i << " could not find entry in edges_from_to for node " << f << endl;
+            return false;
+        }
+        if (edge_to_from.find(t) == edge_to_from.end()) {
+            cerr << "graph invalid: edge index=" << i << " could not find entry in edges_to_from for node " << t << endl;
+            return false;
+        }
+    }
+    return true;
 }
-
-void VariantGraph::node_replace_next(Node* node, Node* before, Node* after) {
-    destroy_edge(edge_by_ids[make_pair(node->id(), before->id())]);
-    add_edge(node, after);
-}
-
 
 void VariantGraph::to_dot(ostream& out) {
     out << "digraph graphname {" << endl;
+    out << "    node [shape=plaintext];" << endl;
+    for (int i = 0; i < nodes_size(); ++i) {
+        Node* n = mutable_nodes(i);
+        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\"];" << endl;
+    }
     for (int i = 0; i < edges_size(); ++i) {
         Edge* e = mutable_edges(i);
-        out << e << endl;
-        out << e->prev() << " " << e->next() << endl;
-        Node* p = node_by_id[e->prev()];
-        out << p->id() << endl;
-        Node* n = node_by_id[e->next()];
-        out << n->id() << endl;
-        out << n->id() << " -> " << p->id() << ";" << endl;
+        Node* p = node_by_id[e->from()];
+        Node* n = node_by_id[e->to()];
+        out << "    " << p->id() << " -> " << n->id() << ";" << endl;
     }
     out << "}" << endl;
 }
