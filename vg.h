@@ -4,6 +4,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include "gssw.h"
 #include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"
@@ -58,9 +59,27 @@ public:
     void to_dot(ostream& out);
     bool is_valid(void);
 
-    //void align(Alignment& alignment);
+    void destroy_alignable_graph(void);
+    gssw_graph* create_alignable_graph(
+        int32_t match = 2,
+        int32_t mismatch = 2,
+        int32_t gap_open = 3,
+        int32_t gap_extension = 1);
+    void align(string& sequence);
+    void align(Alignment& alignment);
+    
+    //void topological_sort(void); // badly needed
 
-    //void topological_sort(void); // possibly unnecissary
+private:
+
+    map<int64_t, gssw_node*> gssw_nodes;
+    gssw_graph* _gssw_graph;
+    int8_t* _gssw_nt_table;
+    int8_t* _gssw_score_matrix;
+    int32_t _gssw_match;
+    int32_t _gssw_mismatch;
+    int32_t _gssw_gap_open;
+    int32_t _gssw_gap_extension;
 
 };
 

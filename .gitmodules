@@ -7,3 +7,6 @@
 [submodule "fastahack"]
 	path = fastahack
 	url = https://github.com/ekg/fastahack.git
+[submodule "gssw"]
+	path = gssw
+	url = https://github.com/ekg/gssw.git

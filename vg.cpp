@@ -408,3 +408,128 @@ void VariantGraph::to_dot(ostream& out) {
     out << "}" << endl;
 }
 
+void VariantGraph::destroy_alignable_graph(void) {
+    if (_gssw_graph) gssw_graph_destroy(_gssw_graph);
+    gssw_nodes.clear(); // these are freed via gssw_graph_destroy
+    if (_gssw_nt_table) free(_gssw_nt_table);
+    if (_gssw_score_matrix) free(_gssw_score_matrix);
+}
+
+gssw_graph* VariantGraph::create_alignable_graph(
+    int32_t match,
+    int32_t mismatch,
+    int32_t gap_open,
+    int32_t gap_extension
+) {
+
+    _gssw_match = match;
+    _gssw_mismatch = mismatch;
+    _gssw_gap_open = gap_open;
+    _gssw_gap_extension = gap_extension;
+
+    // these are used when setting up the nodes
+    // they can be cleaned up via destroy_alignable_graph()
+    _gssw_nt_table = gssw_create_nt_table();
+	_gssw_score_matrix = gssw_create_score_matrix(_gssw_match, _gssw_mismatch);
+
+    _gssw_graph = gssw_graph_create(nodes_size());
+
+    for (int i = 0; i < nodes_size(); ++i) {
+        Node* n = mutable_nodes(i);
+        gssw_nodes[n->id()] = (gssw_node*)gssw_node_create(NULL, n->id(),
+                                                           n->sequence().c_str(),
+                                                           _gssw_nt_table,
+                                                           _gssw_score_matrix);
+    }
+
+    for (int i = 0; i < edges_size(); ++i) {
+        Edge* e = mutable_edges(i);
+        gssw_nodes_add_edge(gssw_nodes[e->from()], gssw_nodes[e->to()]);
+    }
+
+    for (map<int64_t, gssw_node*>::iterator n = gssw_nodes.begin(); n != gssw_nodes.end(); ++n) {
+        gssw_graph_add_node(_gssw_graph, n->second);
+    }
+
+}
+
+void VariantGraph::align(string& sequence) {
+    
+    gssw_graph_fill(_gssw_graph, sequence.c_str(),
+                    _gssw_nt_table, _gssw_score_matrix,
+                    _gssw_gap_open, _gssw_gap_extension, 15, 2);
+
+    gssw_graph_print_score_matrices(_gssw_graph, sequence.c_str(), sequence.size());
+    gssw_graph_mapping* gm = gssw_graph_trace_back (_gssw_graph,
+                                                    sequence.c_str(),
+                                                    sequence.size(),
+                                                    _gssw_match,
+                                                    _gssw_mismatch,
+                                                    _gssw_gap_open,
+                                                    _gssw_gap_extension);
+
+    gssw_print_graph_mapping(gm);
+    gssw_graph_mapping_destroy(gm);
+
+}
+
+/*
+
+	int32_t match = 2, mismatch = 2, gap_open = 3, gap_extension = 1;
+    // from Mengyao's example about the importance of using all three matrices in traceback.
+    // int32_t l, m, k, match = 2, mismatch = 1, gap_open = 2, gap_extension = 1;
+
+    char *ref_seq_1 = argv[1];
+    char *ref_seq_2 = argv[2];
+    char *ref_seq_3 = argv[3];
+    char *ref_seq_4 = argv[4];
+    char *read_seq = argv[5];
+
+    int8_t* nt_table = gssw_create_nt_table();
+    
+	// initialize scoring matrix for genome sequences
+	//  A  C  G  T	N (or other ambiguous code)
+	//  2 -2 -2 -2 	0	A
+	// -2  2 -2 -2 	0	C
+	// -2 -2  2 -2 	0	G
+	// -2 -2 -2  2 	0	T
+	//	0  0  0  0  0	N (or other ambiguous code)
+	int8_t* mat = gssw_create_score_matrix(match, mismatch);
+
+    gssw_node* nodes[4];
+    nodes[0] = (gssw_node*)gssw_node_create("A", 1, ref_seq_1, nt_table, mat);
+    nodes[1] = (gssw_node*)gssw_node_create("B", 2, ref_seq_2, nt_table, mat);
+    nodes[2] = (gssw_node*)gssw_node_create("C", 3, ref_seq_3, nt_table, mat);
+    nodes[3] = (gssw_node*)gssw_node_create("D", 4, ref_seq_4, nt_table, mat);
+
+    // makes a diamond
+    gssw_nodes_add_edge(nodes[0], nodes[1]);
+    gssw_nodes_add_edge(nodes[0], nodes[2]);
+    gssw_nodes_add_edge(nodes[1], nodes[3]);
+    gssw_nodes_add_edge(nodes[2], nodes[3]);
+
+
+    gssw_graph* graph = gssw_graph_create(4);
+    //memcpy((void*)graph->nodes, (void*)nodes, 4*sizeof(gssw_node*));
+    //graph->size = 4;
+    gssw_graph_add_node(graph, nodes[0]);
+    gssw_graph_add_node(graph, nodes[1]);
+    gssw_graph_add_node(graph, nodes[2]);
+    gssw_graph_add_node(graph, nodes[3]);
+
+    gssw_graph_fill(graph, read_seq, nt_table, mat, gap_open, gap_extension, 15, 2);
+    gssw_graph_print_score_matrices(graph, read_seq, strlen(read_seq));
+    gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
+                                                    read_seq,
+                                                    strlen(read_seq),
+                                                    match,
+                                                    mismatch,
+                                                    gap_open,
+                                                    gap_extension);
+
+    gssw_print_graph_mapping(gm);
+    gssw_graph_mapping_destroy(gm);
+    // note that nodes which are referred to in this graph are destroyed as well
+    gssw_graph_destroy(graph);
+
+*/

@@ -16,11 +16,18 @@ void main_help(char** argv) {
          << endl
          << "commands:" << endl 
          << "  -- construct     graph construction" << endl
-         << "  -- view          conversion (protobuf/json/GFA)" << endl;
+         << "  -- view          conversion (protobuf/json/GFA)" << endl
+         << "  -- align         alignment" << endl;
+}
+
+void align_help(char** argv) {
+    cerr << "usage: " << argv[0] << " align [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg" << endl;
 }
 
 void view_help(char** argv) {
-    cerr << "usage: " << argv[0] << " view [options] <file>" << endl
+    cerr << "usage: " << argv[0] << " view [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -d, --dot             output dot format (default)" << endl
          << "    -g, --gfa             output GFA format" << endl
@@ -35,6 +42,72 @@ void construct_help(char** argv) {
          << "    -p, --protobuf        output VG protobuf format (default)" << endl
          << "    -g, --gfa             output GFA format" << endl
          << "    -j, --json            output VG JSON format" << endl;
+}
+
+
+int align_main(int argc, char** argv) {
+
+    string seq;
+
+    if (argc == 2) {
+        align_help(argv);
+        return 1;
+    }
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                /* These options set a flag. */
+                //{"verbose", no_argument,       &verbose_flag, 1},
+                {"sequence", required_argument, 0, 's'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "s:",
+                         long_options, &option_index);
+        
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+        case 's':
+            seq = optarg;
+            break;
+ 
+        case '?':
+            /* getopt_long already printed an error message. */
+            construct_help(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    VariantGraph* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        graph = new VariantGraph(std::cin);
+    } else {
+        ifstream in;
+        in.open(file_name.c_str());
+        graph = new VariantGraph(in);
+    }
+
+    graph->create_alignable_graph();
+    graph->align(seq);
+    graph->destroy_alignable_graph();
+
+    delete graph;
+
+    return 0; // not implemented
+
 }
 
 int view_main(int argc, char** argv) {
@@ -227,6 +300,8 @@ int main(int argc, char *argv[])
         return construct_main(argc, argv);
     } else if (command == "view") {
         return view_main(argc, argv);
+    } else if (command == "align") {
+        return align_main(argc, argv);
     }
 
     return 0;
