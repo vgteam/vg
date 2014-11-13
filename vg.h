@@ -67,8 +67,14 @@ public:
         int32_t gap_extension = 1);
     void align(string& sequence);
     void align(Alignment& alignment);
-    
-    //void topological_sort(void); // badly needed
+
+    // needed when constructing an alignable graph from the nodes
+    void topological_sort(list<gssw_node*>& sorted_nodes);
+
+    void visit_node(gssw_node* node,
+                    list<gssw_node*>& sorted_nodes,
+                    set<gssw_node*>& unmarked_nodes,
+                    set<gssw_node*>& temporary_marks);
 
 private:
 

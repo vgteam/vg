@@ -447,8 +447,11 @@ gssw_graph* VariantGraph::create_alignable_graph(
         gssw_nodes_add_edge(gssw_nodes[e->from()], gssw_nodes[e->to()]);
     }
 
-    for (map<int64_t, gssw_node*>::iterator n = gssw_nodes.begin(); n != gssw_nodes.end(); ++n) {
-        gssw_graph_add_node(_gssw_graph, n->second);
+    list<gssw_node*> sorted_nodes;
+    topological_sort(sorted_nodes);
+
+    for (list<gssw_node*>::iterator n = sorted_nodes.begin(); n != sorted_nodes.end(); ++n) {
+        gssw_graph_add_node(_gssw_graph, *n);
     }
 
 }
@@ -459,7 +462,7 @@ void VariantGraph::align(string& sequence) {
                     _gssw_nt_table, _gssw_score_matrix,
                     _gssw_gap_open, _gssw_gap_extension, 15, 2);
 
-    gssw_graph_print_score_matrices(_gssw_graph, sequence.c_str(), sequence.size());
+    //gssw_graph_print_score_matrices(_gssw_graph, sequence.c_str(), sequence.size());
     gssw_graph_mapping* gm = gssw_graph_trace_back (_gssw_graph,
                                                     sequence.c_str(),
                                                     sequence.size(),
@@ -473,63 +476,60 @@ void VariantGraph::align(string& sequence) {
 
 }
 
-/*
+    /*
+Tarjan's topological sort
 
-	int32_t match = 2, mismatch = 2, gap_open = 3, gap_extension = 1;
-    // from Mengyao's example about the importance of using all three matrices in traceback.
-    // int32_t l, m, k, match = 2, mismatch = 1, gap_open = 2, gap_extension = 1;
-
-    char *ref_seq_1 = argv[1];
-    char *ref_seq_2 = argv[2];
-    char *ref_seq_3 = argv[3];
-    char *ref_seq_4 = argv[4];
-    char *read_seq = argv[5];
-
-    int8_t* nt_table = gssw_create_nt_table();
-    
-	// initialize scoring matrix for genome sequences
-	//  A  C  G  T	N (or other ambiguous code)
-	//  2 -2 -2 -2 	0	A
-	// -2  2 -2 -2 	0	C
-	// -2 -2  2 -2 	0	G
-	// -2 -2 -2  2 	0	T
-	//	0  0  0  0  0	N (or other ambiguous code)
-	int8_t* mat = gssw_create_score_matrix(match, mismatch);
-
-    gssw_node* nodes[4];
-    nodes[0] = (gssw_node*)gssw_node_create("A", 1, ref_seq_1, nt_table, mat);
-    nodes[1] = (gssw_node*)gssw_node_create("B", 2, ref_seq_2, nt_table, mat);
-    nodes[2] = (gssw_node*)gssw_node_create("C", 3, ref_seq_3, nt_table, mat);
-    nodes[3] = (gssw_node*)gssw_node_create("D", 4, ref_seq_4, nt_table, mat);
-
-    // makes a diamond
-    gssw_nodes_add_edge(nodes[0], nodes[1]);
-    gssw_nodes_add_edge(nodes[0], nodes[2]);
-    gssw_nodes_add_edge(nodes[1], nodes[3]);
-    gssw_nodes_add_edge(nodes[2], nodes[3]);
+L <- Empty list that will contain the sorted nodes
+while there are unmarked nodes do
+    select an unmarked node n
+    visit(n) 
+function visit(node n)
+    if n has a temporary mark then stop (not a DAG)
+    if n is not marked (i.e. has not been visited yet) then
+        mark n temporarily
+        for each node m with an edge from n to m do
+            visit(m)
+        mark n permanently
+        add n to head of L
+    */
 
 
-    gssw_graph* graph = gssw_graph_create(4);
-    //memcpy((void*)graph->nodes, (void*)nodes, 4*sizeof(gssw_node*));
-    //graph->size = 4;
-    gssw_graph_add_node(graph, nodes[0]);
-    gssw_graph_add_node(graph, nodes[1]);
-    gssw_graph_add_node(graph, nodes[2]);
-    gssw_graph_add_node(graph, nodes[3]);
+void VariantGraph::topological_sort(list<gssw_node*>& sorted_nodes) {
+    set<gssw_node*> unmarked_nodes;
+    set<gssw_node*> temporary_marks;
+    for (map<int64_t, gssw_node*>::iterator n = gssw_nodes.begin();
+         n != gssw_nodes.end(); ++n) {
+        unmarked_nodes.insert(n->second);
+    }
+    while (!unmarked_nodes.empty()) {
+        gssw_node* node = *(unmarked_nodes.begin());
+        visit_node(node,
+                   sorted_nodes,
+                   unmarked_nodes,
+                   temporary_marks);
+    }
+}
 
-    gssw_graph_fill(graph, read_seq, nt_table, mat, gap_open, gap_extension, 15, 2);
-    gssw_graph_print_score_matrices(graph, read_seq, strlen(read_seq));
-    gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
-                                                    read_seq,
-                                                    strlen(read_seq),
-                                                    match,
-                                                    mismatch,
-                                                    gap_open,
-                                                    gap_extension);
+void VariantGraph::visit_node(gssw_node* node,
+                list<gssw_node*>& sorted_nodes,
+                set<gssw_node*>& unmarked_nodes,
+                set<gssw_node*>& temporary_marks) {
+    /*
+    if (temporary_marks.find(node) != temporary_marks.end()) {
+        cerr << "cannot sort graph because it is not a DAG!" << endl;
+        exit(1);
+    }
+    */
+    if (unmarked_nodes.find(node) != unmarked_nodes.end()) {
+        temporary_marks.insert(node);
+        for (int i = 0; i < node->count_next; ++i) {
+            visit_node(node->next[i],
+                       sorted_nodes,
+                       unmarked_nodes,
+                       temporary_marks);
+        }
+        unmarked_nodes.erase(node);
+        sorted_nodes.push_front(node);
+    }
+}
 
-    gssw_print_graph_mapping(gm);
-    gssw_graph_mapping_destroy(gm);
-    // note that nodes which are referred to in this graph are destroyed as well
-    gssw_graph_destroy(graph);
-
-*/
