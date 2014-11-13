@@ -41,5 +41,7 @@ vg: main.o vg.o cpp/vg.pb.o $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json)
 
 clean:
 	rm -f cpp/*
+	rm -f test
+	rm -f vg
 	cd pb2json && $(MAKE) clean
 	cd vcflib && $(MAKE) clean

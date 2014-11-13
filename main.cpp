@@ -47,6 +47,7 @@ int view_main(int argc, char** argv) {
     string output_type = "dot";
 
     int c;
+    optind = 2; // force optind past "view" argument
     while (true) {
         static struct option long_options[] =
             {
@@ -91,17 +92,25 @@ int view_main(int argc, char** argv) {
         }
     }
 
-    ifstream in;
-    in.open(argv[2]);
-    VariantGraph graph(in);
+    VariantGraph* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        graph = new VariantGraph(std::cin);
+    } else {
+        ifstream in;
+        in.open(file_name.c_str());
+        graph = new VariantGraph(in);
+    }
 
     if (output_type == "dot") {
-        graph.to_dot(std::cout);
+        graph->to_dot(std::cout);
     } else if (output_type == "JSON") {
-        char *json2 = pb2json(graph);
+        char *json2 = pb2json(*graph);
         cout<<json2<<endl;
         free(json2);
     }
+
+    delete graph;
 
     return 0; // not implemented
 }
