@@ -66,14 +66,13 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
         Node* ref_node = create_node(seq);
         reference_path[0] = ref_node;
 
+        // track the last nodes so that we can connect everything completely when variants occur in succession
+        map<long, set<Node*> > nodes_by_end_position;
+
         variantCallFile.setRegion(seqName);
         vcf::Variant var(variantCallFile);
+
         while (variantCallFile.getNextVariant(var)) {
-
-            cerr << "variant: " << var << endl;
-
-            // track the last nodes so that we can connect everything completely when variants occur in succession
-            map<long, set<Node*> > nodes_by_end_position;
 
             int current_pos = (long int) var.position - 1;
             // decompose the alt
@@ -84,8 +83,6 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
 
                 for (vector<vcf::VariantAllele>::iterator a = alleles.begin(); a != alleles.end(); ++a) {
                     vcf::VariantAllele& allele = *a;
-
-                    cerr << "allele: " << allele << endl;
 
                     // reference alleles are provided naturally by the reference itself
                     if (allele.ref == allele.alt) {
@@ -110,7 +107,7 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
                                 left_ref_node,
                                 right_ref_node);
 
-                    cerr << "nodes: left: " << left_ref_node->id() << " right: " << right_ref_node->id() << endl;
+                    //cerr << "nodes: left: " << left_ref_node->id() << " right: " << right_ref_node->id() << endl;
 
                     // if the ref portion of the allele is not empty, then we need to make another cut
                     if (!allele.ref.empty()) {
@@ -123,40 +120,44 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
                     Node* alt_node;
                     // create a new alt node and connect the pieces from before
                     if (!allele.alt.empty() && !allele.ref.empty()) {
+
                         alt_node = create_node(allele.alt);
                         //ref_map.add_node(alt_node, allele_start_pos, );
-                        cerr << "adding edges: " << left_ref_node->id() << "->" << alt_node->id() << "|" << middle_ref_node->id() << "->" << right_ref_node->id() << endl;
                         create_edge(left_ref_node, alt_node);
                         create_edge(alt_node, right_ref_node);
 
                         // XXXXXXXX middle is borked
                         // why do we have to force this edge back in?
+                        // ... because it's not in the ref map?? (??)
                         create_edge(left_ref_node, middle_ref_node);
-                        // this one is not needed
-                        //create_edge(middle_ref_node, right_ref_node);
-                        cerr << "done adding edges" << endl;
+
                         nodes_by_end_position[allele_end_pos].insert(alt_node);
                         nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
+
                     } else if (!allele.alt.empty()) { // insertion
+
                         alt_node = create_node(allele.alt);
                         create_edge(left_ref_node, alt_node);
                         create_edge(alt_node, right_ref_node);
                         nodes_by_end_position[allele_end_pos].insert(alt_node);
                         nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+
                     } else {// otherwise, we have a deletion
+
                         create_edge(left_ref_node, right_ref_node);
                         nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+
                     }
 
                     if (allele_end_pos == seq.size()) {
-                        Node* end = create_node(""); // ensures that we can handle variation at first position (important when aligning)
+                        // ensures that we can handle variation at first position (important when aligning)
+                        Node* end = create_node("");
                         reference_path[allele_end_pos] = end;
                         create_edge(alt_node, end);
                         create_edge(middle_ref_node, end);
                     }
 
                     // if there are previous nodes, connect them
-                    /*
                     map<long, set<Node*> >::iterator ep = nodes_by_end_position.find(allele_start_pos);
                     if (ep != nodes_by_end_position.end()) {
                         set<Node*>& previous_nodes = ep->second;
@@ -169,8 +170,10 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
                             }
                         }
                     }
-                    */
-                    nodes_by_end_position.clear();
+                    // clean up previous
+                    while (nodes_by_end_position.begin()->first < allele_start_pos) {
+                        nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
+                    }
 
                     /*
                     if (!is_valid()) {
@@ -190,6 +193,8 @@ Edge* VariantGraph::create_edge(Node* from, Node* to) {
 }
 
 Edge* VariantGraph::create_edge(int64_t from, int64_t to) {
+    // prevent self-linking (violates DAG/partial ordering property)
+    if (to == from) return NULL;
     // ensure the edge does not already exist
     Edge* edge = edge_from_to[from][to];
     if (edge) return edge;
@@ -293,7 +298,7 @@ void VariantGraph::destroy_node(Node* node) {
 // utilities
 void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
-    cerr << "divide node " << node->id() << " @" << pos << endl;
+    //cerr << "divide node " << node->id() << " @" << pos << endl;
 
     map<int64_t, map<int64_t, Edge*> >::iterator e;
 
@@ -305,8 +310,6 @@ void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     if (e != edge_to_from.end()) {
         for (map<int64_t, Edge*>::iterator p = e->second.begin();
              p != e->second.end(); ++p) {
-            cerr << "in replace prev" << endl;
-            cerr << p->first << endl;
             create_edge(p->first, left->id());
         }
     }
@@ -319,14 +322,11 @@ void VariantGraph::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     if (e != edge_from_to.end()) {
         for (map<int64_t, Edge*>::iterator n = e->second.begin();
              n != e->second.end(); ++n) {
-            cerr << "in replace next" << endl;
-            cerr << n->first << endl;
             create_edge(right->id(), n->first);
         }
     }
 
     // connect left to right
-    cerr << "connecting left to right" << endl;
     create_edge(left, right);
 
     destroy_node(node);
@@ -348,8 +348,6 @@ void VariantGraph::divide_path(map<long, Node*>& path, long pos, Node*& left, No
         map<long, Node*>::iterator n = target; --n;
         left = n->second;
         right = target->second;
-
-        cerr << "divide_path " << pos << " " << left->id() << "|" << right->id() << endl;
 
     } else {
 
