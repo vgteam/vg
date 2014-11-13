@@ -8,6 +8,7 @@ using namespace vg;
 //VariantGraph::VariantGraph(void) { };
 // construct from protobufs
 VariantGraph::VariantGraph(istream& in) {
+    init();
     graph.ParseFromIstream(&in);
     // populate by-id node index
     for (int64_t i = 0; i < graph.nodes_size(); ++i) {
@@ -23,7 +24,16 @@ VariantGraph::VariantGraph(istream& in) {
     }
 }
 
+VariantGraph::~VariantGraph(void) {
+    destroy_alignable_graph();
+}
+
+void VariantGraph::init(void) {
+    _gssw_graph = NULL;
+}
+
 VariantGraph::VariantGraph(vector<Node>& nodesv) {
+    init();
     for (vector<Node>::iterator n = nodesv.begin(); n != nodesv.end(); ++n) {
         Node& node = *n;
         int64_t id = node.id();
@@ -54,7 +64,7 @@ VariantGraph::VariantGraph(vector<Node>& nodesv) {
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
 VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
-
+    init();
     for (vector<string>::iterator r = reference.index->sequenceNames.begin();
          r != reference.index->sequenceNames.end(); ++r) {
 
@@ -409,10 +419,12 @@ void VariantGraph::to_dot(ostream& out) {
 }
 
 void VariantGraph::destroy_alignable_graph(void) {
-    if (_gssw_graph) gssw_graph_destroy(_gssw_graph);
-    gssw_nodes.clear(); // these are freed via gssw_graph_destroy
-    if (_gssw_nt_table) free(_gssw_nt_table);
-    if (_gssw_score_matrix) free(_gssw_score_matrix);
+    if (_gssw_graph) {
+        gssw_graph_destroy(_gssw_graph);
+        _gssw_nodes.clear(); // these are freed via gssw_graph_destroy
+        free(_gssw_nt_table);
+        free(_gssw_score_matrix);
+    }
 }
 
 gssw_graph* VariantGraph::create_alignable_graph(
@@ -436,7 +448,7 @@ gssw_graph* VariantGraph::create_alignable_graph(
 
     for (int i = 0; i < graph.nodes_size(); ++i) {
         Node* n = graph.mutable_nodes(i);
-        gssw_nodes[n->id()] = (gssw_node*)gssw_node_create(NULL, n->id(),
+        _gssw_nodes[n->id()] = (gssw_node*)gssw_node_create(NULL, n->id(),
                                                            n->sequence().c_str(),
                                                            _gssw_nt_table,
                                                            _gssw_score_matrix);
@@ -444,7 +456,7 @@ gssw_graph* VariantGraph::create_alignable_graph(
 
     for (int i = 0; i < graph.edges_size(); ++i) {
         Edge* e = graph.mutable_edges(i);
-        gssw_nodes_add_edge(gssw_nodes[e->from()], gssw_nodes[e->to()]);
+        gssw_nodes_add_edge(_gssw_nodes[e->from()], _gssw_nodes[e->to()]);
     }
 
     list<gssw_node*> sorted_nodes;
@@ -456,7 +468,7 @@ gssw_graph* VariantGraph::create_alignable_graph(
 
 }
 
-void VariantGraph::align(string& sequence) {
+Alignment VariantGraph::align(string& sequence) {
     
     gssw_graph_fill(_gssw_graph, sequence.c_str(),
                     _gssw_nt_table, _gssw_score_matrix,
@@ -471,9 +483,63 @@ void VariantGraph::align(string& sequence) {
                                                     _gssw_gap_open,
                                                     _gssw_gap_extension);
 
-    gssw_print_graph_mapping(gm);
+
+    Alignment alignment;
+    alignment.set_sequence(sequence);
+    gssw_mapping_to_alignment(gm, alignment);
+
+    //gssw_print_graph_mapping(gm);
     gssw_graph_mapping_destroy(gm);
 
+    return alignment;
+
+}
+
+void VariantGraph::gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& alignment) {
+
+    alignment.set_score(gm->score);
+    alignment.set_query_position(0);
+    alignment.set_target_position(gm->position);
+    Path* path = alignment.mutable_path();
+
+    gssw_graph_cigar* gc = &gm->cigar;
+    gssw_node_cigar* nc = gc->elements;
+
+    for (int i = 0; i < gc->length; ++i, ++nc) {
+
+        Mapping* mapping = path->add_nodes();
+        mapping->set_node_id(nc->node->id);
+        gssw_cigar* c = nc->cigar;
+        int l = c->length;
+        gssw_cigar_element* e = c->elements;
+
+        for (int j=0; j < l; ++j, ++e) {
+
+            Edit* edit = mapping->add_edits();
+            edit->set_length(e->length);
+
+            switch (e->type) {
+            case 'M':
+                edit->set_type(Edit_Type_MATCH);
+                break;
+            case 'D':
+                edit->set_type(Edit_Type_DELETION);
+                break;
+            case 'I':
+                edit->set_type(Edit_Type_INSERTION);
+                break;
+            case 'S':
+                edit->set_type(Edit_Type_SOFTCLIP);
+                break;
+            default:
+                cerr << "error [VariantGraph::gssw_mapping_to_alignment] "
+                     << "unsupported cigar op type " << e->type << endl;
+                exit(1);
+                break;
+
+            }
+        }
+    }
 }
 
     /*
@@ -493,12 +559,11 @@ function visit(node n)
         add n to head of L
     */
 
-
 void VariantGraph::topological_sort(list<gssw_node*>& sorted_nodes) {
     set<gssw_node*> unmarked_nodes;
     set<gssw_node*> temporary_marks;
-    for (map<int64_t, gssw_node*>::iterator n = gssw_nodes.begin();
-         n != gssw_nodes.end(); ++n) {
+    for (map<int64_t, gssw_node*>::iterator n = _gssw_nodes.begin();
+         n != _gssw_nodes.end(); ++n) {
         unmarked_nodes.insert(n->second);
     }
     while (!unmarked_nodes.empty()) {

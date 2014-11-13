@@ -32,31 +32,25 @@ message Edge {
 // Edit operations describe positional mapping between two sequences.
 // They are conceptually equivalent to SAM cigars
 
-message EditOperation {
+message Edit {
     required int32 length = 1;
-    enum OperationType {
+    enum Type {
         MATCH = 0;
         INSERTION = 1;
         DELETION = 2;
         MISMATCH = 3;
         SOFTCLIP = 4;
     }
-    required OperationType type = 2;
+    required Type type = 2;
     optional string sequence = 3;
 }
 
 // A node mapping defines the relationship between a target (node)
 // and query (sequence or other node we are relating to the target).
 
-message NodeMapping {
-    required int64 node_id = 1;
-    required Mapping mapping = 2;
-}
-
 message Mapping {
-    optional int32 target_start_position = 1;
-    optional int32 query_start_position = 2;
-    repeated EditOperation edits = 3;
+    required int64 node_id = 1;
+    repeated Edit edits = 2;
 }
 
 // Paths can represent:
@@ -65,7 +59,7 @@ message Mapping {
 //    - relationships between nodes
 
 message Path {
-    repeated NodeMapping nodes = 1;
+    repeated Mapping nodes = 1;
 }
 
 // Alignments link query strings or reads to paths.
@@ -76,5 +70,8 @@ message Alignment {
     optional string name = 3;
     optional bytes quality = 4;
     optional int32 mapping_quality = 5;
-    optional bytes data = 6;
+    optional int32 score = 6;
+    optional int32 target_position = 7;
+    optional int32 query_position = 8;
+    optional bytes data = 9;
 }

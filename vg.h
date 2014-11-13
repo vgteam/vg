@@ -42,6 +42,7 @@ public:
     VariantGraph(istream& in);
     VariantGraph(Graph& graph);
     VariantGraph(vector<Node>& nodes);
+    ~VariantGraph(void);
 
     // construct from VCF records
     VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
@@ -63,14 +64,16 @@ public:
     void to_dot(ostream& out);
     bool is_valid(void);
 
-    void destroy_alignable_graph(void);
     gssw_graph* create_alignable_graph(
         int32_t match = 2,
         int32_t mismatch = 2,
         int32_t gap_open = 3,
         int32_t gap_extension = 1);
-    void align(string& sequence);
-    void align(Alignment& alignment);
+    void destroy_alignable_graph(void);
+
+    Alignment align(string& sequence);
+    Alignment& align(Alignment& alignment);
+    void gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& alignment);
 
     // needed when constructing an alignable graph from the nodes
     void topological_sort(list<gssw_node*>& sorted_nodes);
@@ -82,7 +85,8 @@ public:
 
 private:
 
-    map<int64_t, gssw_node*> gssw_nodes;
+    void init(void); // setup, ensures that _gssw_graph == NULL on startup
+    map<int64_t, gssw_node*> _gssw_nodes;
     gssw_graph* _gssw_graph;
     int8_t* _gssw_nt_table;
     int8_t* _gssw_score_matrix;

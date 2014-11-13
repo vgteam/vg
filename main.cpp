@@ -23,7 +23,9 @@ void main_help(char** argv) {
 void align_help(char** argv) {
     cerr << "usage: " << argv[0] << " align [options] <graph.vg>" << endl
          << "options:" << endl
-         << "    -s, --sequence STR    align a string to the graph in graph.vg" << endl;
+         << "    -s, --sequence STR    align a string to the graph in graph.vg" << endl
+        //<< "    -p, --print-cigar     output graph cigar for alignments" << endl
+         << "    -j, --json            output alignments in JSON format (default)" << endl;
 }
 
 void view_help(char** argv) {
@@ -54,6 +56,9 @@ int align_main(int argc, char** argv) {
         return 1;
     }
 
+    bool print_cigar = false;
+    bool output_json = true;
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -66,7 +71,7 @@ int align_main(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:",
+        c = getopt_long (argc, argv, "s:j",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -77,6 +82,16 @@ int align_main(int argc, char** argv) {
         {
         case 's':
             seq = optarg;
+            break;
+
+            /*
+        case 'p':
+            print_cigar = true;
+            break;
+            */
+
+        case 'j':
+            output_json = true;
             break;
  
         case '?':
@@ -101,8 +116,11 @@ int align_main(int argc, char** argv) {
     }
 
     graph->create_alignable_graph();
-    graph->align(seq);
-    graph->destroy_alignable_graph();
+    Alignment alignment = graph->align(seq);
+
+    char *json2 = pb2json(alignment);
+    cout<<json2<<endl;
+    free(json2);
 
     delete graph;
 
@@ -178,7 +196,7 @@ int view_main(int argc, char** argv) {
     if (output_type == "dot") {
         graph->to_dot(std::cout);
     } else if (output_type == "JSON") {
-        char *json2 = pb2json(*graph);
+        char *json2 = pb2json(graph->graph);
         cout<<json2<<endl;
         free(json2);
     }
@@ -277,9 +295,9 @@ int construct_main(int argc, char** argv) {
 
     if (output_type == "VG") {
         //ofstream of("test.vg");
-        graph.SerializeToOstream(&std::cout);
+        graph.graph.SerializeToOstream(&std::cout);
     } else if (output_type == "JSON") {
-        char *json2 = pb2json(graph);
+        char *json2 = pb2json(graph.graph);
         cout<<json2<<endl;
         free(json2);
     }
