@@ -12,7 +12,7 @@ LDFLAGS=$(pb2json) -Lpb2json -lpb2json -Lvcflib -lvcflib -Lgssw/src -lgssw -lpro
 all: vg
 
 $(pb2json):
-	cd pb2json && $(MAKE)
+	cd pb2json && $(MAKE) libpb2json.a
 
 cpp/vg.pb.cc: cpp/vg.pb.h
 cpp/vg.pb.h: vg.proto
