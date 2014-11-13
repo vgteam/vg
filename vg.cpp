@@ -8,15 +8,15 @@ using namespace vg;
 //VariantGraph::VariantGraph(void) { };
 // construct from protobufs
 VariantGraph::VariantGraph(istream& in) {
-    ParseFromIstream(&in);
+    graph.ParseFromIstream(&in);
     // populate by-id node index
-    for (int64_t i = 0; i < nodes_size(); ++i) {
-        Node* n = mutable_nodes(i);
+    for (int64_t i = 0; i < graph.nodes_size(); ++i) {
+        Node* n = graph.mutable_nodes(i);
         node_index[n] = i;
         node_by_id[n->id()] = n;
     }
-    for (int64_t i = 0; i < edges_size(); ++i) {
-        Edge* e = mutable_edges(i);
+    for (int64_t i = 0; i < graph.edges_size(); ++i) {
+        Edge* e = graph.mutable_edges(i);
         edge_index[e] = i;
         edge_from_to[e->from()][e->to()] = e;
         edge_to_from[e->to()][e->from()] = e;
@@ -27,15 +27,15 @@ VariantGraph::VariantGraph(vector<Node>& nodesv) {
     for (vector<Node>::iterator n = nodesv.begin(); n != nodesv.end(); ++n) {
         Node& node = *n;
         int64_t id = node.id();
-        if (current_id() < id) {
-            set_current_id(id);
+        if (graph.current_id() < id) {
+            graph.set_current_id(id);
         }
-        Node* new_node = add_nodes(); // add it to the graph
+        Node* new_node = graph.add_nodes(); // add it to the graph
         new_node->set_sequence(node.sequence());
         new_node->set_id(node.id());
-        //Node& new_node = nodes(nodes_size()-1); // get a reference to it
+        //Node& new_node = nodes(graph.nodes_size()-1); // get a reference to it
         node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
-        node_index[new_node] = nodes_size()-1;
+        node_index[new_node] = graph.nodes_size()-1;
     }
 }
 
@@ -199,12 +199,12 @@ Edge* VariantGraph::create_edge(int64_t from, int64_t to) {
     Edge* edge = edge_from_to[from][to];
     if (edge) return edge;
     // if not, create it
-    edge = add_edges();
+    edge = graph.add_edges();
     edge->set_from(from);
     edge->set_to(to);
     edge_from_to[from][to] = edge;
     edge_to_from[to][from] = edge;
-    edge_index[edge] = edges_size()-1;
+    edge_index[edge] = graph.edges_size()-1;
     return edge;
 }
 
@@ -215,17 +215,17 @@ void VariantGraph::destroy_edge(Edge* edge) {
     edge_to_from[edge->to()].erase(edge->from());
 
     // erase from edges by moving to end and dropping
-    int lei = edges_size()-1;
+    int lei = graph.edges_size()-1;
     int tei = edge_index[edge];
-    Edge* last = mutable_edges(lei);
+    Edge* last = graph.mutable_edges(lei);
     edge_index.erase(last);
     edge_index.erase(edge);
 
     // swap
-    mutable_edges()->SwapElements(tei, lei);
+    graph.mutable_edges()->SwapElements(tei, lei);
 
     // point to new position
-    Edge* nlast = mutable_edges(tei);
+    Edge* nlast = graph.mutable_edges(tei);
 
     // insert the new edge index position
     edge_index[nlast] = tei;
@@ -235,21 +235,21 @@ void VariantGraph::destroy_edge(Edge* edge) {
     edge_to_from[nlast->to()][nlast->from()] = nlast;
 
     // drop the last position, erasing the node
-    mutable_edges()->RemoveLast();
+    graph.mutable_edges()->RemoveLast();
 
 }
 
 // use the VariantGraph class to generate ids
 Node* VariantGraph::create_node(string seq) {
     // create the node
-    Node* node = add_nodes();
+    Node* node = graph.add_nodes();
     node->set_sequence(seq);
-    node->set_id(current_id());
-    set_current_id(current_id()+1);
+    node->set_id(graph.current_id());
+    graph.set_current_id(graph.current_id()+1);
     // copy it into the graph
     // and drop into our id index
     node_by_id[node->id()] = node;
-    node_index[node] = nodes_size()-1;
+    node_index[node] = graph.nodes_size()-1;
     return node;
 }
 
@@ -281,17 +281,17 @@ void VariantGraph::destroy_node(Node* node) {
 
     // swap node with the last in nodes
     // call RemoveLast() to drop the node
-    int lni = nodes_size()-1;
+    int lni = graph.nodes_size()-1;
     int tni = node_index[node];
-    Node* last = mutable_nodes(lni);
-    mutable_nodes()->SwapElements(tni, lni);
-    Node* nlast = mutable_nodes(tni);
+    Node* last = graph.mutable_nodes(lni);
+    graph.mutable_nodes()->SwapElements(tni, lni);
+    Node* nlast = graph.mutable_nodes(tni);
     node_by_id[last->id()] = nlast;
     node_index.erase(last);
     node_index[nlast] = tni;
     node_by_id.erase(node->id());
     node_index.erase(node);
-    mutable_nodes()->RemoveLast();
+    graph.mutable_nodes()->RemoveLast();
     //if (!is_valid()) cerr << "graph is invalid after destroy_node" << endl;
 }
 
@@ -365,11 +365,11 @@ void VariantGraph::divide_path(map<long, Node*>& path, long pos, Node*& left, No
 }
 
 bool VariantGraph::is_valid(void) {
-    for (int i = 0; i < nodes_size(); ++i) {
-        Node* n = mutable_nodes(i);
+    for (int i = 0; i < graph.nodes_size(); ++i) {
+        Node* n = graph.mutable_nodes(i);
     }
-    for (int i = 0; i < edges_size(); ++i) {
-        Edge* e = mutable_edges(i);
+    for (int i = 0; i < graph.edges_size(); ++i) {
+        Edge* e = graph.mutable_edges(i);
         int64_t f = e->from();
         int64_t t = e->to();
         if (node_by_id.find(f) == node_by_id.end()) {
@@ -395,12 +395,12 @@ bool VariantGraph::is_valid(void) {
 void VariantGraph::to_dot(ostream& out) {
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
-    for (int i = 0; i < nodes_size(); ++i) {
-        Node* n = mutable_nodes(i);
+    for (int i = 0; i < graph.nodes_size(); ++i) {
+        Node* n = graph.mutable_nodes(i);
         out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\"];" << endl;
     }
-    for (int i = 0; i < edges_size(); ++i) {
-        Edge* e = mutable_edges(i);
+    for (int i = 0; i < graph.edges_size(); ++i) {
+        Edge* e = graph.mutable_edges(i);
         Node* p = node_by_id[e->from()];
         Node* n = node_by_id[e->to()];
         out << "    " << p->id() << " -> " << n->id() << ";" << endl;
@@ -432,18 +432,18 @@ gssw_graph* VariantGraph::create_alignable_graph(
     _gssw_nt_table = gssw_create_nt_table();
 	_gssw_score_matrix = gssw_create_score_matrix(_gssw_match, _gssw_mismatch);
 
-    _gssw_graph = gssw_graph_create(nodes_size());
+    _gssw_graph = gssw_graph_create(graph.nodes_size());
 
-    for (int i = 0; i < nodes_size(); ++i) {
-        Node* n = mutable_nodes(i);
+    for (int i = 0; i < graph.nodes_size(); ++i) {
+        Node* n = graph.mutable_nodes(i);
         gssw_nodes[n->id()] = (gssw_node*)gssw_node_create(NULL, n->id(),
                                                            n->sequence().c_str(),
                                                            _gssw_nt_table,
                                                            _gssw_score_matrix);
     }
 
-    for (int i = 0; i < edges_size(); ++i) {
-        Edge* e = mutable_edges(i);
+    for (int i = 0; i < graph.edges_size(); ++i) {
+        Edge* e = graph.mutable_edges(i);
         gssw_nodes_add_edge(gssw_nodes[e->from()], gssw_nodes[e->to()]);
     }
 

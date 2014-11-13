@@ -13,9 +13,13 @@
 namespace vg {
 
 
-class VariantGraph : public Graph {
+class VariantGraph {
 
 public:
+
+    // protobuf-based representation
+    // NB: we can't subclass this safely, so it's best as a member
+    Graph graph;
 
     // nodes by id
     map<int64_t, Node*> node_by_id;
