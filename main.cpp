@@ -115,7 +115,6 @@ int align_main(int argc, char** argv) {
         graph = new VariantGraph(in);
     }
 
-    graph->create_alignable_graph();
     Alignment alignment = graph->align(seq);
 
     char *json2 = pb2json(alignment);

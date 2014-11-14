@@ -8,6 +8,7 @@ LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
 INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB)/ -Ifastahack/ -Igssw/src/
 LDFLAGS=$(pb2json) -Lpb2json -lpb2json -Lvcflib -lvcflib -Lgssw/src -lgssw -lprotobuf -lpthread -ljansson -lz
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o
 
 all: vg
 
@@ -37,11 +38,14 @@ cpp/vg.pb.o: cpp/vg.pb.h cpp/vg.pb.cc
 vg.o: vg.cpp vg.h cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(INCLUDES)
 
+gssw_aligner.o: gssw_aligner.cpp gssw_aligner.h cpp/vg.pb.h $(LIBGSSW)
+	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(INCLUDES)
+
 main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
 
-vg: main.o vg.o cpp/vg.pb.o $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
-	$(CXX) $(CXXFLAGS) -o vg vg.o cpp/vg.pb.o main.o $(INCLUDES) $(LDFLAGS)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
+	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 clean:
 	rm -f cpp/*

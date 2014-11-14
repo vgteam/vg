@@ -5,6 +5,7 @@
 #include <set>
 #include <string>
 #include "gssw.h"
+#include "gssw_aligner.h"
 #include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"
@@ -64,39 +65,17 @@ public:
     void to_dot(ostream& out);
     bool is_valid(void);
 
-    gssw_graph* create_alignable_graph(
-        int32_t match = 2,
-        int32_t mismatch = 2,
-        int32_t gap_open = 3,
-        int32_t gap_extension = 1);
+    Alignment align(string& sequence);
+    //Alignment& align(Alignment& alignment);
     void destroy_alignable_graph(void);
 
-    Alignment align(string& sequence);
-    Alignment& align(Alignment& alignment);
-    void gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& alignment);
-
-    // needed when constructing an alignable graph from the nodes
-    void topological_sort(list<gssw_node*>& sorted_nodes);
-
-    void visit_node(gssw_node* node,
-                    list<gssw_node*>& sorted_nodes,
-                    set<gssw_node*>& unmarked_nodes,
-                    set<gssw_node*>& temporary_marks);
+    GSSWAligner* gssw_aligner;
 
 private:
 
-    void init(void); // setup, ensures that _gssw_graph == NULL on startup
-    map<int64_t, gssw_node*> _gssw_nodes;
-    gssw_graph* _gssw_graph;
-    int8_t* _gssw_nt_table;
-    int8_t* _gssw_score_matrix;
-    int32_t _gssw_match;
-    int32_t _gssw_mismatch;
-    int32_t _gssw_gap_open;
-    int32_t _gssw_gap_extension;
+    void init(void); // setup, ensures that gssw == NULL on startup
 
 };
-
 
 } // end namespace vg
 
