@@ -6,11 +6,22 @@ pb2json=pb2json/libpb2json.a
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
-INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB)/ -Ifastahack/ -Igssw/src/
-LDFLAGS=$(pb2json) -Lpb2json -lpb2json -Lvcflib -lvcflib -Lgssw/src -lgssw -lprotobuf -lpthread -ljansson -lz
+LIBSNAPPY=snappy/build/lib/libsnappy.a
+LIBLEVELDB=libleveldb/libleveldb.a
+INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Ileveldb/include
+LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy/build/lib -Lleveldb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lsnappy -lleveldb -lz
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o
 
 all: vg
+
+$(LIBSNAPPY): snappy/*cc snappy/*h
+	cd snappy && mkdir -p build && ./autogen.sh && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
+
+$(LIBLEVELDB): leveldb/include/leveldb/*.h leveldb/db/*.c leveldb/db/*.cc leveldb/db/*.h
+	cd leveldb && $(MAKE) libleveldb.a
+
+#test: libsnappy.a libleveldb.a
+#        g++ -pthread -Ileveldb/include test.cpp -o test -L. -lleveldb -lsnappy
 
 $(pb2json):
 	cd pb2json && $(MAKE) libpb2json.a
@@ -44,7 +55,7 @@ gssw_aligner.o: gssw_aligner.cpp gssw_aligner.h cpp/vg.pb.h $(LIBGSSW)
 main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBLEVELDB) $(LIBSNAPPY)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 clean:
@@ -53,3 +64,5 @@ clean:
 	rm -f vg
 	cd pb2json && $(MAKE) clean
 	cd vcflib && $(MAKE) clean
+	cd snappy && $(MAKE) clean
+	cd leveldb && $(MAKE) clean
