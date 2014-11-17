@@ -17,6 +17,7 @@ void main_help(char** argv) {
          << "commands:" << endl 
          << "  -- construct     graph construction" << endl
          << "  -- view          conversion (protobuf/json/GFA)" << endl
+         << "  -- index         index features of the graph in a disk-backed key/value store" << endl
          << "  -- align         alignment" << endl;
 }
 
@@ -46,6 +47,13 @@ void construct_help(char** argv) {
          << "    -j, --json            output VG JSON format" << endl;
 }
 
+void index_help(char** argv) {
+    cerr << "usage: " << argv[0] << " index [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -k, --kmer-size N     use a kmer of size N to generate index" << endl
+         << "    -p, --positions       index nodes and edges by position" << endl
+         << "    -d, --db-name DIR     create leveldb in DIR (defaults to <graph>.index/)" << endl;
+}
 
 int align_main(int argc, char** argv) {
 
