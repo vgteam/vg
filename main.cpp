@@ -7,6 +7,7 @@
 #include "Fasta.h"
 #include "index.h"
 #include "vg.h"
+#include "leveldb/db.h"
 
 using namespace std;
 using namespace google::protobuf;
@@ -19,6 +20,7 @@ void main_help(char** argv) {
          << "  -- construct     graph construction" << endl
          << "  -- view          conversion (protobuf/json/GFA)" << endl
          << "  -- index         index features of the graph in a disk-backed key/value store" << endl
+         << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
          << "  -- align         alignment" << endl;
 }
 
@@ -51,21 +53,35 @@ void construct_help(char** argv) {
 void index_help(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph.vg>" << endl
          << "options:" << endl
+         << "    -s, --store           store graph (do this first to build db!)" << endl
          << "    -k, --kmer-size N     use a kmer of size N to generate index (default 15)" << endl
          << "    -p, --positions       index nodes and edges by position" << endl
+         << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -d, --db-name DIR     create leveldb in DIR (defaults to <graph>.index/)" << endl;
 }
 
-int index_main(int argc, char** argv) {
+void find_help(char** argv) {
+    cerr << "usage: " << argv[0] << " find [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -n, --node ID         find node" << endl
+         << "    -f, --edges-from ID   return edges from node with ID" << endl
+         << "    -t, --edges-to ID     return edges from node with ID" << endl
+         << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
+         << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
+         << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
+}
+
+int find_main(int argc, char** argv) {
 
     if (argc == 2) {
-        index_help(argv);
+        find_help(argv);
         return 1;
     }
 
     string db_name;
-    bool index_by_position = false;
-    int kmer_size = 15;
+    string kmer;
+    string output_format;
+    int64_t node_id, from_id, to_id;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -74,13 +90,16 @@ int index_main(int argc, char** argv) {
             {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"db-name", required_argument, 0, 'd'},
-                {"kmer-size", required_argument, 0, 'k'},
-                {"positions", no_argument, 0, 'p'},
+                {"node", required_argument, 0, 'n'},
+                {"edges-from", required_argument, 0, 'f'},
+                {"edges-to", required_argument, 0, 't'},
+                {"kmer", required_argument, 0, 'k'},
+                {"output", required_argument, 0, 'o'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:p",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -94,11 +113,23 @@ int index_main(int argc, char** argv) {
             break;
 
         case 'k':
-            kmer_size = atoi(optarg);
+            kmer = optarg;
             break;
 
-        case 'p':
-            index_by_position = true;
+        case 'n':
+            node_id = atoi(optarg);
+            break;
+
+        case 'f':
+            from_id = atoi(optarg);
+            break;
+
+        case 't':
+            to_id = atoi(optarg);
+            break;
+
+        case 'o':
+            output_format = optarg;
             break;
  
         case '?':
@@ -129,7 +160,116 @@ int index_main(int argc, char** argv) {
     }
 
     Index graph_index(db_name);
-    graph_index.load_graph(*graph);
+
+    Node node;
+    leveldb::Status s = graph_index.get_node(node_id, node);
+    if (s.ok()) {
+        char *json2 = pb2json(node);
+        cout<<json2<<endl;
+        free(json2);
+    } else {
+        cerr << "node " << node_id << " not found in graph" << endl;
+    }
+    
+    delete graph;
+
+    return 0;
+
+}
+
+int index_main(int argc, char** argv) {
+
+    if (argc == 2) {
+        index_help(argv);
+        return 1;
+    }
+
+    string db_name;
+    bool index_by_position = false;
+    int kmer_size = 15;
+    bool store_graph = false;
+    bool dump_index = false;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                //{"verbose", no_argument,       &verbose_flag, 1},
+                {"db-name", required_argument, 0, 'd'},
+                {"kmer-size", required_argument, 0, 'k'},
+                {"positions", no_argument, 0, 'p'},
+                {"store", no_argument, 0, 's'},
+                {"dump", no_argument, 0, 'D'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "d:k:pDs",
+                         long_options, &option_index);
+        
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+        case 'd':
+            db_name = optarg;
+            break;
+
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
+
+        case 'p':
+            index_by_position = true;
+            break;
+
+        case 'D':
+            dump_index = true;
+            break;
+
+        case 's':
+            store_graph = true;
+            break;
+ 
+        case '?':
+            index_help(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    VariantGraph* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        if (db_name.empty()) {
+            cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
+            return 1;
+        }
+        graph = new VariantGraph(std::cin);
+    } else {
+        ifstream in;
+        if (db_name.empty()) {
+            db_name = file_name + ".index";
+        }
+        in.open(file_name.c_str());
+        graph = new VariantGraph(in);
+    }
+
+    Index graph_index(db_name);
+
+    if (store_graph) {
+        graph_index.load_graph(*graph);
+    }
+
+    if (dump_index) {
+        graph_index.dump(cout);
+    }
 
     delete graph;
 
@@ -411,6 +551,8 @@ int main(int argc, char *argv[])
         return align_main(argc, argv);
     } else if (command == "index") {
         return index_main(argc, argv);
+    } else if (command == "find") {
+        return find_main(argc, argv);
     }
 
     return 0;

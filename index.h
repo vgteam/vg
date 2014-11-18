@@ -6,9 +6,29 @@
 #include "leveldb/db.h"
 #include "vg.h"
 
-using namespace std;
-
 namespace vg {
+
+/*
+
+  Cache our variant graph in a database (leveldb-backed) which enables us to quickly:
+  1) obtain specific nodes and edges from a large graph
+  2) search nodes and edges by kmers that they contain or overlap them
+  3) use a positional index to quickly build a small portion of the overall
+
+  Each of these functions uses a different subset of the namespace. Our key format is:
+
+  +=\xff is our default separtor
+  (-=\x00 also has use in some cases?)
+  ids are stored as raw int64_t
+
+  +m+metadata_key       value // various information about the table
+  +g+node_id            node [protobuf]
+  +g+from_id+f+to_id    edge [protobuf]
+  +g+to_id+t+from_id    null // already stored under from_id+to_id, but this provides reverse index
+  +k+kmer               kmer hits [protobuf]
+  +p+position           position overlaps [protobuf]
+
+ */
 
 class Index {
 
@@ -20,21 +40,24 @@ public:
     leveldb::DB* db;
     leveldb::Options options;
 
-    // or should it be "index_graph" ?
-    // we're storing it in the leveldb
     void load_graph(VariantGraph& graph);
+    void dump(std::ostream& out);
 
     void put_node(const Node& node);
     void put_edge(const Edge& edge);
 
+    leveldb::Status get_node(int64_t id, Node& node);
+    leveldb::Status get_edge(int64_t from, int64_t to, Edge& edge);
+    
     const string key_for_node(int64_t id);
-    const string key_for_edge(int64_t from, int64_t to);
+    const string key_for_edge_from_to(int64_t from, int64_t to);
+    const string key_for_edge_to_from(int64_t to, int64_t from);
 
     void index_kmers(VariantGraph& graph, int kmer_size = 15);
-    void index_positions(VariantGraph& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path);
+    void index_positions(VariantGraph& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
 
     // once we have indexed the kmers, we can get the nodes and edges matching
-    void kmer_matches(string& kmer, set<int64_t>& node_ids, set<int64_t>& edge_ids);
+    void kmer_matches(std::string& kmer, std::set<int64_t>& node_ids, std::set<int64_t>& edge_ids);
 
 };
 
@@ -43,6 +66,14 @@ class indexOpenException: public exception
     virtual const char* what() const throw()
     {
         return "unable to open variant graph index";
+    }
+};
+
+class keyNotFoundException: public exception
+{
+    virtual const char* what() const throw()
+    {
+        return "unable to find key in index";
     }
 };
 
