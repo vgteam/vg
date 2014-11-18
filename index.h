@@ -3,7 +3,9 @@
 
 #include <iostream>
 #include <exception>
+#include <sstream>
 #include "leveldb/db.h"
+#include "pb2json.h"
 #include "vg.h"
 
 namespace vg {
@@ -52,6 +54,13 @@ public:
     const string key_for_node(int64_t id);
     const string key_for_edge_from_to(int64_t from, int64_t to);
     const string key_for_edge_to_from(int64_t to, int64_t from);
+
+    // for dumping graph state/ inspection
+    string entry_to_string(const string& key, const string& value);
+    string graph_entry_to_string(const string& key, const string& value);
+    string kmer_entry_to_string(const string& key, const string& value);
+    string position_entry_to_string(const string& key, const string& value);
+    string metadata_entry_to_string(const string& key, const string& value);
 
     void index_kmers(VariantGraph& graph, int kmer_size = 15);
     void index_positions(VariantGraph& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
