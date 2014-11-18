@@ -196,6 +196,28 @@ VariantGraph::VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference
             }
         }
     }
+
+    topologically_sort_graph();
+
+}
+
+void VariantGraph::topologically_sort_graph(void) {
+    list<Node*> sorted_nodes;
+    topological_sort(sorted_nodes);
+    list<Node*>::iterator n = sorted_nodes.begin();
+    int i = 0;
+    for ( ; i < graph.nodes_size() && n != sorted_nodes.end();
+         ++i, ++n) {
+        swap_nodes(graph.mutable_nodes(i), *n);
+    }
+}
+
+void VariantGraph::swap_nodes(Node* a, Node* b) {
+    int aidx = node_index[a];
+    int bidx = node_index[b];
+    graph.mutable_nodes()->SwapElements(aidx, bidx);
+    node_index[a] = bidx;
+    node_index[b] = aidx;
 }
 
 Edge* VariantGraph::create_edge(Node* from, Node* to) {
@@ -436,4 +458,57 @@ Alignment VariantGraph::align(string& sequence) {
 
     return alignment;
 
+}
+
+    /*
+Tarjan's topological sort
+
+L <- Empty list that will contain the sorted nodes
+while there are unmarked nodes do
+    select an unmarked node n
+    visit(n) 
+function visit(node n)
+    if n has a temporary mark then stop (not a DAG)
+    if n is not marked (i.e. has not been visited yet) then
+        mark n temporarily
+        for each node m with an edge from n to m do
+            visit(m)
+        mark n permanently
+        add n to head of L
+    */
+
+void VariantGraph::topological_sort(list<Node*>& sorted_nodes) {
+    set<Node*> unmarked_nodes;
+    set<Node*> temporary_marks;
+    for (int i = 0; i < graph.nodes_size(); ++i) {
+        unmarked_nodes.insert(graph.mutable_nodes(i));
+    }
+    while (!unmarked_nodes.empty()) {
+        Node* node = *(unmarked_nodes.begin());
+        visit_node(node,
+                   sorted_nodes,
+                   unmarked_nodes,
+                   temporary_marks);
+    }
+}
+
+void VariantGraph::visit_node(Node* node,
+                              list<Node*>& sorted_nodes,
+                              set<Node*>& unmarked_nodes,
+                              set<Node*>& temporary_marks) {
+    if (unmarked_nodes.find(node) != unmarked_nodes.end()) {
+        temporary_marks.insert(node);
+        map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
+        if (e != edge_from_to.end()) {
+            for (map<int64_t, Edge*>::iterator f = e->second.begin(); f != e->second.end(); ++f) {
+                Node* to = node_by_id[f->second->to()];
+                visit_node(to,
+                           sorted_nodes,
+                           unmarked_nodes,
+                           temporary_marks);
+            }
+        }
+        unmarked_nodes.erase(node);
+        sorted_nodes.push_front(node);
+    }
 }

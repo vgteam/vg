@@ -65,6 +65,14 @@ public:
     void to_dot(ostream& out);
     bool is_valid(void);
 
+    void topologically_sort_graph(void);
+    void topological_sort(list<Node*>& sorted_nodes);
+    void visit_node(Node* node,
+                    list<Node*>& sorted_nodes,
+                    set<Node*>& unmarked_nodes,
+                    set<Node*>& temporary_marks);
+    void swap_nodes(Node* a, Node* b);
+
     Alignment align(string& sequence);
     //Alignment& align(Alignment& alignment);
     void destroy_alignable_graph(void);

@@ -10,7 +10,7 @@ using namespace std;
 
 namespace vg {
 
-class Index : public leveldb::DB {
+class Index {
 
 public:
 
@@ -23,6 +23,12 @@ public:
     // or should it be "index_graph" ?
     // we're storing it in the leveldb
     void load_graph(VariantGraph& graph);
+
+    void put_node(const Node& node);
+    void put_edge(const Edge& edge);
+
+    const string key_for_node(int64_t id);
+    const string key_for_edge(int64_t from, int64_t to);
 
     void index_kmers(VariantGraph& graph, int kmer_size = 15);
     void index_positions(VariantGraph& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path);
@@ -38,7 +44,7 @@ class indexOpenException: public exception
     {
         return "unable to open variant graph index";
     }
-} indexOpenException;
+};
 
 }
 

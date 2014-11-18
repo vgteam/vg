@@ -5,6 +5,7 @@
 #include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"
+#include "index.h"
 #include "vg.h"
 
 using namespace std;
@@ -50,9 +51,90 @@ void construct_help(char** argv) {
 void index_help(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph.vg>" << endl
          << "options:" << endl
-         << "    -k, --kmer-size N     use a kmer of size N to generate index" << endl
+         << "    -k, --kmer-size N     use a kmer of size N to generate index (default 15)" << endl
          << "    -p, --positions       index nodes and edges by position" << endl
          << "    -d, --db-name DIR     create leveldb in DIR (defaults to <graph>.index/)" << endl;
+}
+
+int index_main(int argc, char** argv) {
+
+    if (argc == 2) {
+        index_help(argv);
+        return 1;
+    }
+
+    string db_name;
+    bool index_by_position = false;
+    int kmer_size = 15;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                //{"verbose", no_argument,       &verbose_flag, 1},
+                {"db-name", required_argument, 0, 'd'},
+                {"kmer-size", required_argument, 0, 'k'},
+                {"positions", no_argument, 0, 'p'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "d:k:p",
+                         long_options, &option_index);
+        
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+        case 'd':
+            db_name = optarg;
+            break;
+
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
+
+        case 'p':
+            index_by_position = true;
+            break;
+ 
+        case '?':
+            index_help(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    VariantGraph* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        if (db_name.empty()) {
+            cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
+            return 1;
+        }
+        graph = new VariantGraph(std::cin);
+    } else {
+        ifstream in;
+        if (db_name.empty()) {
+            db_name = file_name + ".index";
+        }
+        in.open(file_name.c_str());
+        graph = new VariantGraph(in);
+    }
+
+    Index graph_index(db_name);
+    graph_index.load_graph(*graph);
+
+    delete graph;
+
+    return 0;
+
 }
 
 int align_main(int argc, char** argv) {
@@ -131,7 +213,7 @@ int align_main(int argc, char** argv) {
 
     delete graph;
 
-    return 0; // not implemented
+    return 0;
 
 }
 
@@ -181,7 +263,7 @@ int view_main(int argc, char** argv) {
  
         case '?':
             /* getopt_long already printed an error message. */
-            construct_help(argv);
+            view_help(argv);
             exit(1);
             break;
  
@@ -210,7 +292,7 @@ int view_main(int argc, char** argv) {
 
     delete graph;
 
-    return 0; // not implemented
+    return 0;
 }
 
 int construct_main(int argc, char** argv) {
@@ -327,6 +409,8 @@ int main(int argc, char *argv[])
         return view_main(argc, argv);
     } else if (command == "align") {
         return align_main(argc, argv);
+    } else if (command == "index") {
+        return index_main(argc, argv);
     }
 
     return 0;

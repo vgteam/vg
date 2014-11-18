@@ -6,16 +6,17 @@ pb2json=pb2json/libpb2json.a
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
-LIBSNAPPY=snappy/build/lib/libsnappy.a
+LIBSNAPPY=snappy/libsnappy.a
 LIBLEVELDB=libleveldb/libleveldb.a
 INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Ileveldb/include
-LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy/build/lib -Lleveldb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lsnappy -lleveldb -lz
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o
+LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lleveldb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lleveldb -lsnappy -lz
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o
 
 all: vg
 
 $(LIBSNAPPY): snappy/*cc snappy/*h
 	cd snappy && mkdir -p build && ./autogen.sh && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
+	cp snappy/build/lib/libsnappy.a snappy/
 
 $(LIBLEVELDB): leveldb/include/leveldb/*.h leveldb/db/*.c leveldb/db/*.cc leveldb/db/*.h
 	cd leveldb && $(MAKE) libleveldb.a
@@ -68,4 +69,5 @@ clean:
 	cd pb2json && $(MAKE) clean
 	cd vcflib && $(MAKE) clean
 	cd snappy && $(MAKE) clean
+	rm snappy/libsnappy.a
 	cd leveldb && $(MAKE) clean

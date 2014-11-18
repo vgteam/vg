@@ -41,6 +41,7 @@ GSSWAligner::GSSWAligner(
         gssw_nodes_add_edge(nodes[e->from()], nodes[e->to()]);
     }
 
+    // this could be considered unnecessary as we now sort the graph in construction
     list<gssw_node*> sorted_nodes;
     topological_sort(sorted_nodes);
 
