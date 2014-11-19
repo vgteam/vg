@@ -170,6 +170,8 @@ int find_main(int argc, char** argv) {
     } else {
         cerr << "node " << node_id << " not found in graph" << endl;
     }
+    vector<Edge> edges;
+    graph_index.get_edges_of(node_id, edges);
     
     delete graph;
 

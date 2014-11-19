@@ -7,6 +7,7 @@
 #include "leveldb/db.h"
 #include "pb2json.h"
 #include "vg.h"
+#include "portable_endian.h"
 
 namespace vg {
 
@@ -39,6 +40,9 @@ public:
     Index(string& name);
     ~Index(void);
 
+    char start_sep;
+    char end_sep;
+
     leveldb::DB* db;
     leveldb::Options options;
 
@@ -54,6 +58,12 @@ public:
     const string key_for_node(int64_t id);
     const string key_for_edge_from_to(int64_t from, int64_t to);
     const string key_for_edge_to_from(int64_t to, int64_t from);
+    void parse_node(const string& key, const string& value, int64_t& id, Node& node);
+    void parse_edge(const string& key, const string& value, char& type, int64_t& id1, int64_t& id2, Edge& edge);
+
+    void get_edges_of(int64_t id, vector<Edge>& edges);
+    void get_edges_from(int64_t from, vector<Edge>& edges);
+    void get_edges_to(int64_t to, vector<Edge>& edges);
 
     // for dumping graph state/ inspection
     string entry_to_string(const string& key, const string& value);
