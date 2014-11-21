@@ -159,25 +159,15 @@ int find_main(int argc, char** argv) {
         graph = new VariantGraph(in);
     }
 
+    // open index
     Index graph_index(db_name);
-
+    // our result
     VariantGraph result_graph;
-
-    /*
-    Node node;
-    leveldb::Status s = graph_index.get_node(node_id, node);
-    if (s.ok()) {
-        //result_graph.add_node(node);
-        //char *json2 = pb2json(node);
-        //cout<<json2<<endl;
-        //free(json2);
-    } else {
-        cerr << "node " << node_id << " not found in graph" << endl;
-    }
-    */
-
+    // get the context of the node
     graph_index.get_context(node_id, result_graph);
+    // return it
     result_graph.graph.SerializeToOstream(&cout);
+    // todo--- constraints on graph size
     
     delete graph;
 
