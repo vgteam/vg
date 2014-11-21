@@ -40,10 +40,18 @@ public:
     // constructors
     //VariantGraph(void) { };
     // construct from protobufs
+    VariantGraph(void);
     VariantGraph(istream& in);
     VariantGraph(Graph& graph);
     VariantGraph(vector<Node>& nodes);
     ~VariantGraph(void);
+
+    void clear_indexes(void);
+    void extend(Graph& g);
+    void add_node(Node& node);
+    void add_nodes(vector<Node>& nodes);
+    void add_edge(Edge& edge);
+    void add_edges(vector<Edge>& edges);
 
     // construct from VCF records
     VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
@@ -73,7 +81,7 @@ public:
                     set<Node*>& temporary_marks);
     void swap_nodes(Node* a, Node* b);
 
-    Alignment align(string& sequence);
+    Alignment align(string& sequence, bool reuse_gssw = false);
     //Alignment& align(Alignment& alignment);
     void destroy_alignable_graph(void);
 

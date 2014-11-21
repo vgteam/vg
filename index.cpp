@@ -19,6 +19,7 @@ Index::~Index(void) {
     delete db;
 }
 
+// todo: replace with union / struct
 const string Index::key_for_node(int64_t id) {
     string key;
     id = htobe64(id);
@@ -59,12 +60,17 @@ const string Index::key_for_edge_to_from(int64_t to, int64_t from) {
     k[0] = start_sep;
     k[1] = 'g'; // graph elements
     k[2] = start_sep;
-    memcpy((void*)(k + sizeof(char)*3), &from, sizeof(int64_t));
+    memcpy((void*)(k + sizeof(char)*3), &to, sizeof(int64_t));
     k[3 + sizeof(int64_t)] = start_sep;
     k[3 + sizeof(int64_t) + 1] = 't';
     k[3 + sizeof(int64_t) + 2] = start_sep;
-    memcpy((void*)(k + sizeof(char)*3 + sizeof(int64_t) + 3*sizeof(char)), &to, sizeof(int64_t));
+    memcpy((void*)(k + sizeof(char)*3 + sizeof(int64_t) + 3*sizeof(char)), &from, sizeof(int64_t));
     return key;
+}
+
+char Index::graph_key_type(string& key) {
+    if (key.size() == (3*sizeof(char) + sizeof(int64_t))) return 'n';
+    return key.c_str()[4*sizeof(char) + sizeof(int64_t)];
 }
 
 string Index::entry_to_string(const string& key, const string& value) {
@@ -109,26 +115,35 @@ void Index::parse_edge(const string& key, const string& value, char& type, int64
 string Index::graph_entry_to_string(const string& key, const string& value) {
     // do we have a node or edge?
     stringstream s;
-    if (key.size() == (3*sizeof(char) + sizeof(int64_t))) {
+    switch (graph_key_type((string&)key)) {
+    case 'n': {
         // it's a node
         int64_t id;
         Node node;
         parse_node(key, value, id, node);
         char *json2 = pb2json(node);
-        s << "{\"key\":\"+g+" << id << "\", \"value\":"<<json2 << "}";
+        s << "{\"key\":\"+g+" << id << "+n\", \"value\":"<<json2 << "}";
         free(json2);
-    } else {
+    } break;
+    case 'f': {
         Edge edge;
         int64_t id1, id2;
         char type;
         parse_edge(key, value, type, id1, id2, edge);
-        if (type == 'f') { // from
-            char *json2 = pb2json(edge);
-            s << "{\"key\":\"+g+" << id1 << "+f+" << id2 << "\", \"value\":"<<json2 << "}";
-            free(json2);
-        } else {
-            s << "{\"key\":\"+g+" << id1 << "+t+" << id2 << "\", \"value\":null}";
-        }
+        char *json2 = pb2json(edge);
+        s << "{\"key\":\"+g+" << id1 << "+f+" << id2 << "\", \"value\":"<<json2 << "}";
+        free(json2);
+    } break;
+    case 't': {
+        Edge edge;
+        int64_t id1, id2;
+        char type;
+        parse_edge(key, value, type, id1, id2, edge);
+        get_edge(id2, id1, edge);
+        char *json2 = pb2json(edge);
+        s << "{\"key\":\"+g+" << id1 << "+t+" << id2 << "\", \"value\":"<<json2 << "}";
+        free(json2);
+    } break;
     }
     return s.str();
 }
@@ -147,7 +162,6 @@ void Index::dump(ostream& out) {
     leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         out << entry_to_string(it->key().ToString(), it->value().ToString()) << endl;
-        //out << it->key().ToString() << ": "  << it->value().ToString() << endl;
     }
     assert(it->status().ok());  // Check for any errors found during the scan
     delete it;
@@ -197,16 +211,52 @@ leveldb::Status Index::get_edge(int64_t from, int64_t to, Edge& edge) {
     return s;
 }
 
-void Index::get_edges_of(int64_t id, vector<Edge>& edges) {
+void Index::get_context(int64_t id, VariantGraph& graph) {
     leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
-    string key_start = key_for_node(id);
+    string key_start = key_for_node(id).substr(0,3+sizeof(int64_t));
     leveldb::Slice start = leveldb::Slice(key_start);
     string key_end = key_start+end_sep;
     leveldb::Slice end = leveldb::Slice(key_end);
+    // TODO ... uhhh return a valid graph
     for (it->Seek(start);
          it->Valid() && it->key().ToString() < key_end;
          it->Next()) {
-        cout << entry_to_string(it->key().ToString(), it->value().ToString()) << endl;
+        string s = it->key().ToString();
+        char keyt = graph_key_type(s);
+        switch (keyt) {
+        case 'n': {
+            Node node;
+            node.ParseFromString(it->value().ToString());
+            graph.add_node(node);
+        } break;
+        case 'f': {
+            Edge edge;
+            int64_t id1, id2;
+            char type;
+            parse_edge(it->key().ToString(), it->value().ToString(), type, id1, id2, edge);
+            graph.add_edge(edge);
+            // get to node
+            Node node;
+            get_node(id2, node);
+            graph.add_node(node);
+        } break;
+        case 't': {
+            Edge edge;
+            int64_t id1, id2;
+            char type;
+            parse_edge(it->key().ToString(), it->value().ToString(), type, id1, id2, edge);
+            get_edge(id2, id1, edge);
+            graph.add_edge(edge);
+            // get from node
+            Node node;
+            get_node(id2, node);
+            graph.add_node(node);
+        } break;
+        default:
+            cerr << "vg::Index unrecognized key type " << keyt << endl;
+            exit(1);
+            break;
+        }
     }
     delete it;
 }

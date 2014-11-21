@@ -28,6 +28,10 @@ VariantGraph::~VariantGraph(void) {
     destroy_alignable_graph();
 }
 
+VariantGraph::VariantGraph(void) {
+    init();
+}
+
 void VariantGraph::init(void) {
     gssw_aligner = NULL;
 }
@@ -48,6 +52,63 @@ VariantGraph::VariantGraph(vector<Node>& nodesv) {
         node_index[new_node] = graph.nodes_size()-1;
     }
 }
+
+// these are quite unsafe--- perhaps they should check if there are conflicts?
+
+void VariantGraph::add_nodes(vector<Node>& nodes) {
+    for (vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
+        add_node(*n);
+    }
+}
+
+void VariantGraph::add_edges(vector<Edge>& edges) {
+    for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
+        add_edge(*e);
+    }
+}
+
+void VariantGraph::add_node(Node& node) {
+    Node* new_node = graph.add_nodes(); // add it to the graph
+    new_node->set_sequence(node.sequence());
+    new_node->set_id(node.id());
+    node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
+    node_index[new_node] = graph.nodes_size()-1;
+}
+
+void VariantGraph::add_edge(Edge& edge) {
+    Edge* new_edge = graph.add_edges(); // add it to the graph
+    new_edge->set_from(edge.from());
+    new_edge->set_to(edge.to());
+    edge_from_to[edge.from()][edge.to()] = new_edge;
+    edge_to_from[edge.to()][edge.from()] = new_edge;
+    edge_index[new_edge] = graph.edges_size()-1;
+}
+
+void VariantGraph::clear_indexes(void) {
+    node_index.clear();
+    node_by_id.clear();
+    edge_index.clear();
+    edge_from_to.clear();
+    edge_to_from.clear();
+}
+
+void VariantGraph::extend(Graph& g) {
+    graph.mutable_nodes()->MergeFrom(g.nodes());
+    graph.mutable_edges()->MergeFrom(g.edges());
+    clear_indexes();
+    for (int64_t i = 0; i < graph.nodes_size(); ++i) {
+        Node* n = graph.mutable_nodes(i);
+        node_index[n] = i;
+        node_by_id[n->id()] = n;
+    }
+    for (int64_t i = 0; i < graph.edges_size(); ++i) {
+        Edge* e = graph.mutable_edges(i);
+        edge_index[e] = i;
+        edge_from_to[e->from()][e->to()] = e;
+        edge_to_from[e->to()][e->from()] = e;
+    }
+}
+
 
 // construct from VCF records
 // --------------------------
@@ -441,20 +502,25 @@ void VariantGraph::to_dot(ostream& out) {
 }
 
 void VariantGraph::destroy_alignable_graph(void) {
-    if (gssw_aligner) {
+    if (gssw_aligner != NULL) {
         delete gssw_aligner;
     }
 }
 
-Alignment VariantGraph::align(string& sequence) {
+Alignment VariantGraph::align(string& sequence, bool reuse_gssw) {
 
-    if (!gssw_aligner) {
+    if (reuse_gssw && !gssw_aligner) {
         gssw_aligner = new GSSWAligner(graph);
     }
 
     Alignment alignment;
     alignment.set_sequence(sequence);
     gssw_aligner->align(alignment);
+
+    if (!reuse_gssw) {
+        delete gssw_aligner;
+        gssw_aligner = NULL;
+    }
 
     return alignment;
 

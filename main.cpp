@@ -63,11 +63,11 @@ void index_help(char** argv) {
 void find_help(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] <graph.vg>" << endl
          << "options:" << endl
-         << "    -n, --node ID         find node" << endl
-         << "    -f, --edges-from ID   return edges from node with ID" << endl
-         << "    -t, --edges-to ID     return edges from node with ID" << endl
-         << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
-         << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
+         << "    -n, --node ID         find node, return 1-hop context as graph" << endl
+        // << "    -f, --edges-from ID   return edges from node with ID" << endl
+        // << "    -t, --edges-to ID     return edges from node with ID" << endl
+        // << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
+        // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
 }
 
@@ -161,17 +161,23 @@ int find_main(int argc, char** argv) {
 
     Index graph_index(db_name);
 
+    VariantGraph result_graph;
+
+    /*
     Node node;
     leveldb::Status s = graph_index.get_node(node_id, node);
     if (s.ok()) {
-        char *json2 = pb2json(node);
-        cout<<json2<<endl;
-        free(json2);
+        //result_graph.add_node(node);
+        //char *json2 = pb2json(node);
+        //cout<<json2<<endl;
+        //free(json2);
     } else {
         cerr << "node " << node_id << " not found in graph" << endl;
     }
-    vector<Edge> edges;
-    graph_index.get_edges_of(node_id, edges);
+    */
+
+    graph_index.get_context(node_id, result_graph);
+    result_graph.graph.SerializeToOstream(&cout);
     
     delete graph;
 

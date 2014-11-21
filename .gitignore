@@ -1,3 +1,9 @@
 *.o
 vg
 *.a
+*~
+*.vg
+*.dot
+*.png
+*.gz
+trash
