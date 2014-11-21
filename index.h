@@ -7,7 +7,6 @@
 #include "leveldb/db.h"
 #include "pb2json.h"
 #include "vg.h"
-#include "portable_endian.h"
 
 namespace vg {
 
