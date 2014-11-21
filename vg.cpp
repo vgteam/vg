@@ -67,21 +67,34 @@ void VariantGraph::add_edges(vector<Edge>& edges) {
     }
 }
 
+bool VariantGraph::node_exists(Node& node) {
+    return node_by_id.find(node.id()) != node_by_id.end();
+}
+
+bool VariantGraph::edge_exists(Edge& edge) {
+    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(edge.from());
+    return e != edge_from_to.end() && e->second.find(edge.to()) != e->second.end();
+}
+
 void VariantGraph::add_node(Node& node) {
-    Node* new_node = graph.add_nodes(); // add it to the graph
-    new_node->set_sequence(node.sequence());
-    new_node->set_id(node.id());
-    node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
-    node_index[new_node] = graph.nodes_size()-1;
+    if (!node_exists(node)) {
+        Node* new_node = graph.add_nodes(); // add it to the graph
+        new_node->set_sequence(node.sequence());
+        new_node->set_id(node.id());
+        node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
+        node_index[new_node] = graph.nodes_size()-1;
+    }
 }
 
 void VariantGraph::add_edge(Edge& edge) {
-    Edge* new_edge = graph.add_edges(); // add it to the graph
-    new_edge->set_from(edge.from());
-    new_edge->set_to(edge.to());
-    edge_from_to[edge.from()][edge.to()] = new_edge;
-    edge_to_from[edge.to()][edge.from()] = new_edge;
-    edge_index[new_edge] = graph.edges_size()-1;
+    if (!edge_exists(edge)) {
+        Edge* new_edge = graph.add_edges(); // add it to the graph
+        new_edge->set_from(edge.from());
+        new_edge->set_to(edge.to());
+        edge_from_to[edge.from()][edge.to()] = new_edge;
+        edge_to_from[edge.to()][edge.from()] = new_edge;
+        edge_index[new_edge] = graph.edges_size()-1;
+    }
 }
 
 void VariantGraph::clear_indexes(void) {
@@ -90,6 +103,10 @@ void VariantGraph::clear_indexes(void) {
     edge_index.clear();
     edge_from_to.clear();
     edge_to_from.clear();
+}
+
+void VariantGraph::extend(VariantGraph& g) {
+    extend(g.graph);
 }
 
 void VariantGraph::extend(Graph& g) {

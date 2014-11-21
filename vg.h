@@ -48,6 +48,11 @@ public:
 
     void clear_indexes(void);
     void extend(Graph& g);
+    void extend(VariantGraph& g);
+
+    bool node_exists(Node& node);
+    bool edge_exists(Edge& edge);
+
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
     void add_edge(Edge& edge);
