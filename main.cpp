@@ -54,7 +54,7 @@ void index_help(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -s, --store           store graph (do this first to build db!)" << endl
-         << "    -k, --kmer-size N     use a kmer of size N to generate index (default 15)" << endl
+         << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
          << "    -p, --positions       index nodes and edges by position" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -d, --db-name DIR     create leveldb in DIR (defaults to <graph>.index/)" << endl;
@@ -184,7 +184,7 @@ int index_main(int argc, char** argv) {
 
     string db_name;
     bool index_by_position = false;
-    int kmer_size = 15;
+    int kmer_size = 0;
     bool store_graph = false;
     bool dump_index = false;
 
@@ -264,6 +264,12 @@ int index_main(int argc, char** argv) {
     if (store_graph) {
         graph_index.load_graph(*graph);
     }
+
+    /*
+    if (kmer_size != 0) {
+        graph_index.index_kmers(*graph, kmer_size);
+    }
+    */
 
     if (dump_index) {
         graph_index.dump(cout);

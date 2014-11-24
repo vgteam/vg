@@ -474,6 +474,83 @@ void VariantGraph::divide_path(map<long, Node*>& path, long pos, Node*& left, No
     }
 }
 
+void VariantGraph::nodes_prev(Node* node, vector<Node*>& nodes) {
+    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_to_from.find(node->id());
+    if (e != edge_to_from.end()) {
+        for (map<int64_t, Edge*>::iterator f = e->second.begin(); f != e->second.end(); ++f) {
+            nodes.push_back(node_by_id[f->first]);
+        }
+    }
+}
+
+void VariantGraph::nodes_next(Node* node, vector<Node*>& nodes) {
+    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
+    if (e != edge_from_to.end()) {
+        for (map<int64_t, Edge*>::iterator t = e->second.begin(); t != e->second.end(); ++t) {
+            nodes.push_back(node_by_id[t->first]);
+        }
+    }
+}
+
+void VariantGraph::bounded_prev_paths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths) {
+    if (length == 0) { return; }
+    // start at node
+    // do a leftward DFS up to length limit to establish paths from the left of the node
+    postfix.push_front(node);
+    vector<Node*> prev_nodes;
+    nodes_prev(node, prev_nodes);
+    for (vector<Node*>::iterator p = prev_nodes.begin(); p != prev_nodes.end(); ++p) {
+        if ((*p)->sequence().size() < length) {
+            bounded_prev_paths_from_node(*p, length - (*p)->sequence().size(), postfix, paths);
+        } else {
+            // create a path for this node
+            list<Node*> new_path = postfix;
+            new_path.push_front(*p);
+            paths.insert(new_path);
+        }
+    }
+}
+
+void VariantGraph::bounded_next_paths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths) {
+    if (length == 0) { return; }
+    // start at node
+    // do a leftward DFS up to length limit to establish paths from the left of the node
+    prefix.push_back(node);
+    vector<Node*> next_nodes;
+    nodes_next(node, next_nodes);
+    for (vector<Node*>::iterator n = next_nodes.begin(); n != next_nodes.end(); ++n) {
+        if ((*n)->sequence().size() < length) {
+            bounded_prev_paths_from_node(*n, length - (*n)->sequence().size(), prefix, paths);
+        } else {
+            // create a path for this node
+            list<Node*> new_path = prefix;
+            new_path.push_back(*n);
+            paths.insert(new_path);
+        }
+    }
+}
+
+void VariantGraph::bounded_paths(Node* node, vector<list<Node*> >& paths, int length) {
+    // get left, then right
+    set<list<Node*> > prev_paths;
+    set<list<Node*> > next_paths;
+    list<Node*> empty_list;
+    bounded_prev_paths_from_node(node, length, empty_list, prev_paths);
+    bounded_next_paths_from_node(node, length, empty_list, next_paths);
+    // now take the cross and put into paths
+    for (set<list<Node*> >::iterator p = prev_paths.begin(); p != prev_paths.end(); ++p) {
+        for (set<list<Node*> >::iterator n = next_paths.begin(); n != next_paths.end(); ++n) {
+            list<Node*> path = *p;
+            list<Node*>::const_iterator m = n->begin(); ++m; // skips current node, which is included in *p
+            while (m != n->end()) {
+                path.push_back(*m);
+                ++m;
+            }
+            paths.push_back(path);
+        }
+    }
+}
+
 bool VariantGraph::is_valid(void) {
     for (int i = 0; i < graph.nodes_size(); ++i) {
         Node* n = graph.mutable_nodes(i);

@@ -268,7 +268,14 @@ void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
 }
 
 void index_kmers(VariantGraph& graph, int kmer_size = 15) {
-// 
+// algorithm
+// ~ for each node
+//    index kmers of length kmer_size across node and across all links in context
+// things to do
+// --- helper functions
+//    get local context out to N bp away
+//    given a graph, enumerate all the paths
+//    given a path, generate all kmers
 }
 
 void index_positions(VariantGraph& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path) {
