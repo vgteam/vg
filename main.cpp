@@ -21,6 +21,7 @@ void main_help(char** argv) {
          << "  -- view          conversion (protobuf/json/GFA)" << endl
          << "  -- index         index features of the graph in a disk-backed key/value store" << endl
          << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
+         << "  -- paths         traverse paths in the graph" << endl
          << "  -- align         alignment" << endl;
 }
 
@@ -71,6 +72,94 @@ void find_help(char** argv) {
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
 }
 
+void paths_help(char** argv) {
+    cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -n, --node ID         starting at node with ID" << endl
+         << "    -l, --max-length N    generate paths of at most length N" << endl;
+}
+
+int paths_main(int argc, char** argv) {
+
+    if (argc == 2) {
+        paths_help(argv);
+        return 1;
+    }
+
+    string db_name;
+//    string output_format;
+    int max_length = 0;
+    int64_t node_id;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"node", required_argument, 0, 'n'},
+                {"max-length", required_argument, 0, 'l'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "n:l:h",
+                         long_options, &option_index);
+        
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+        case 'n':
+            node_id = atoll(optarg);
+            break;
+
+        case 'l':
+            max_length = atoi(optarg);
+            break;
+
+        case 'h':
+        case '?':
+            paths_help(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    VariantGraph* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        if (db_name.empty()) {
+            cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
+            return 1;
+        }
+        graph = new VariantGraph(std::cin);
+    } else {
+        ifstream in;
+        if (db_name.empty()) {
+            db_name = file_name + ".index";
+        }
+        in.open(file_name.c_str());
+        graph = new VariantGraph(in);
+    }
+
+    vector<Path> paths;
+    if (node_id) {
+        graph->bounded_paths(node_id, paths, max_length);
+    }
+
+    for (vector<Path>::iterator p = paths.begin(); p != paths.end(); ++p) {
+        char *json2 = pb2json(*p);
+        cout<<json2<<endl;
+        free(json2);
+    }
+
+}
+
 int find_main(int argc, char** argv) {
 
     if (argc == 2) {
@@ -99,7 +188,7 @@ int find_main(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:h",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -131,9 +220,10 @@ int find_main(int argc, char** argv) {
         case 'o':
             output_format = optarg;
             break;
- 
+
+        case 'h':
         case '?':
-            index_help(argv);
+            find_help(argv);
             exit(1);
             break;
  
@@ -203,7 +293,7 @@ int index_main(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:pDs",
+        c = getopt_long (argc, argv, "d:k:pDsh",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -232,6 +322,7 @@ int index_main(int argc, char** argv) {
             store_graph = true;
             break;
  
+        case 'h':
         case '?':
             index_help(argv);
             exit(1);
@@ -305,7 +396,7 @@ int align_main(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j",
+        c = getopt_long (argc, argv, "s:jh",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -328,9 +419,10 @@ int align_main(int argc, char** argv) {
             output_json = true;
             break;
  
+        case 'h':
         case '?':
             /* getopt_long already printed an error message. */
-            construct_help(argv);
+            align_help(argv);
             exit(1);
             break;
  
@@ -384,7 +476,7 @@ int view_main(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgj",
+        c = getopt_long (argc, argv, "dgjh",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -404,7 +496,8 @@ int view_main(int argc, char** argv) {
         case 'j':
             output_type = "JSON";
             break;
- 
+
+        case 'h':
         case '?':
             /* getopt_long already printed an error message. */
             view_help(argv);
@@ -464,7 +557,7 @@ int construct_main(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:pgj",
+        c = getopt_long (argc, argv, "v:r:pgjh",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -493,6 +586,7 @@ int construct_main(int argc, char** argv) {
             output_type = "JSON";
             break;
  
+        case 'h':
         case '?':
             /* getopt_long already printed an error message. */
             construct_help(argv);
@@ -557,6 +651,8 @@ int main(int argc, char *argv[])
         return index_main(argc, argv);
     } else if (command == "find") {
         return find_main(argc, argv);
+    } else if (command == "paths") {
+        return paths_main(argc, argv);
     }
 
     return 0;

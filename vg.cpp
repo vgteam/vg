@@ -499,6 +499,10 @@ void VariantGraph::bounded_prev_paths_from_node(Node* node, int length, list<Nod
     postfix.push_front(node);
     vector<Node*> prev_nodes;
     nodes_prev(node, prev_nodes);
+    if (prev_nodes.empty()) {
+        list<Node*> new_path = postfix;
+        paths.insert(new_path);
+    } // implicit else
     for (vector<Node*>::iterator p = prev_nodes.begin(); p != prev_nodes.end(); ++p) {
         if ((*p)->sequence().size() < length) {
             bounded_prev_paths_from_node(*p, length - (*p)->sequence().size(), postfix, paths);
@@ -518,9 +522,13 @@ void VariantGraph::bounded_next_paths_from_node(Node* node, int length, list<Nod
     prefix.push_back(node);
     vector<Node*> next_nodes;
     nodes_next(node, next_nodes);
+    if (next_nodes.empty()) {
+        list<Node*> new_path = prefix;
+        paths.insert(new_path);
+    } // implicit else
     for (vector<Node*>::iterator n = next_nodes.begin(); n != next_nodes.end(); ++n) {
         if ((*n)->sequence().size() < length) {
-            bounded_prev_paths_from_node(*n, length - (*n)->sequence().size(), prefix, paths);
+            bounded_next_paths_from_node(*n, length - (*n)->sequence().size(), prefix, paths);
         } else {
             // create a path for this node
             list<Node*> new_path = prefix;
@@ -530,8 +538,9 @@ void VariantGraph::bounded_next_paths_from_node(Node* node, int length, list<Nod
     }
 }
 
-void VariantGraph::bounded_paths(Node* node, vector<list<Node*> >& paths, int length) {
+void VariantGraph::bounded_paths(Node* node, vector<Path>& paths, int length) {
     // get left, then right
+    set<list<Node*> > unique_paths;
     set<list<Node*> > prev_paths;
     set<list<Node*> > next_paths;
     list<Node*> empty_list;
@@ -546,8 +555,29 @@ void VariantGraph::bounded_paths(Node* node, vector<list<Node*> >& paths, int le
                 path.push_back(*m);
                 ++m;
             }
-            paths.push_back(path);
+            unique_paths.insert(path);
         }
+    }
+    for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
+        Path path = create_path(*p);
+        paths.push_back(path);
+    }
+}
+
+Path VariantGraph::create_path(const list<Node*>& nodes) {
+    Path path;
+    for (list<Node*>::const_iterator n = nodes.begin(); n != nodes.end(); ++n) {
+        Mapping* mapping = path.add_nodes();
+        mapping->set_node_id((*n)->id());
+    }
+    return path;
+}
+
+void VariantGraph::bounded_paths(int64_t node_id, vector<Path>& paths, int length) {
+    map<int64_t, Node*>::iterator n = node_by_id.find(node_id);
+    if (n != node_by_id.end()) {
+        Node* node = n->second;
+        bounded_paths(node, paths, length);
     }
 }
 
