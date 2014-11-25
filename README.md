@@ -12,4 +12,24 @@ Now, obtain the repo and its submodules:
 
     git clone --recursive https://github.com/ekg/vg.git
 
-Then build with `make`, and test with `test`.
+Then build with `make`, and run with `./vg`.
+
+### Done
+
+- data models for reference graph and alignments against it (vg.proto)
+- local alignment against the graph (vg.cpp)
+- index capable of storing large graphs on disk and efficiently retrieving subgraphs (index.cpp)
+- protobuf, json, and dot format serialization (view)
+- command-line interfaces: construct, view, index, find, align (main.cpp)
+
+### To do
+
+- GFA input and output (efficient use requires bluntifying the graph, removing node-node overlaps)
+- kmer-based indexing of the graph
+- positional indexing (can be done on graph constructed from VCF+fasta reference)
+- interface harmonization of in-memory and on-disk graph representations
+- per-node, per-sample quality and count information
+- dynamic programming method to estimate path qualities given per-node qualities and counts
+- genotype likelihood generation (given a source and sink, genotype paths)
+- genotyping using freebayes genotyping model
+- generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
