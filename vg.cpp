@@ -11,13 +11,13 @@ VariantGraph::VariantGraph(istream& in) {
     init();
     graph.ParseFromIstream(&in);
     // populate by-id node index
-    for (int64_t i = 0; i < graph.nodes_size(); ++i) {
-        Node* n = graph.mutable_nodes(i);
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
         node_index[n] = i;
         node_by_id[n->id()] = n;
     }
-    for (int64_t i = 0; i < graph.edges_size(); ++i) {
-        Edge* e = graph.mutable_edges(i);
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
         edge_from_to[e->from()][e->to()] = e;
         edge_to_from[e->to()][e->from()] = e;
@@ -45,11 +45,11 @@ VariantGraph::VariantGraph(vector<Node>& nodesv) {
         if (graph.current_id() < id) {
             graph.set_current_id(id);
         }
-        Node* new_node = graph.add_nodes(); // add it to the graph
+        Node* new_node = graph.add_node(); // add it to the graph
         new_node->set_sequence(node.sequence());
         new_node->set_id(node.id());
         node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
-        node_index[new_node] = graph.nodes_size()-1;
+        node_index[new_node] = graph.node_size()-1;
     }
 }
 
@@ -78,22 +78,22 @@ bool VariantGraph::edge_exists(Edge& edge) {
 
 void VariantGraph::add_node(Node& node) {
     if (!node_exists(node)) {
-        Node* new_node = graph.add_nodes(); // add it to the graph
+        Node* new_node = graph.add_node(); // add it to the graph
         new_node->set_sequence(node.sequence());
         new_node->set_id(node.id());
         node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
-        node_index[new_node] = graph.nodes_size()-1;
+        node_index[new_node] = graph.node_size()-1;
     }
 }
 
 void VariantGraph::add_edge(Edge& edge) {
     if (!edge_exists(edge)) {
-        Edge* new_edge = graph.add_edges(); // add it to the graph
+        Edge* new_edge = graph.add_edge(); // add it to the graph
         new_edge->set_from(edge.from());
         new_edge->set_to(edge.to());
         edge_from_to[edge.from()][edge.to()] = new_edge;
         edge_to_from[edge.to()][edge.from()] = new_edge;
-        edge_index[new_edge] = graph.edges_size()-1;
+        edge_index[new_edge] = graph.edge_size()-1;
     }
 }
 
@@ -110,16 +110,16 @@ void VariantGraph::extend(VariantGraph& g) {
 }
 
 void VariantGraph::extend(Graph& g) {
-    graph.mutable_nodes()->MergeFrom(g.nodes());
-    graph.mutable_edges()->MergeFrom(g.edges());
+    graph.mutable_node()->MergeFrom(g.node());
+    graph.mutable_edge()->MergeFrom(g.edge());
     clear_indexes();
-    for (int64_t i = 0; i < graph.nodes_size(); ++i) {
-        Node* n = graph.mutable_nodes(i);
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
         node_index[n] = i;
         node_by_id[n->id()] = n;
     }
-    for (int64_t i = 0; i < graph.edges_size(); ++i) {
-        Edge* e = graph.mutable_edges(i);
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
         edge_from_to[e->from()][e->to()] = e;
         edge_to_from[e->to()][e->from()] = e;
@@ -284,16 +284,16 @@ void VariantGraph::topologically_sort_graph(void) {
     topological_sort(sorted_nodes);
     list<Node*>::iterator n = sorted_nodes.begin();
     int i = 0;
-    for ( ; i < graph.nodes_size() && n != sorted_nodes.end();
+    for ( ; i < graph.node_size() && n != sorted_nodes.end();
          ++i, ++n) {
-        swap_nodes(graph.mutable_nodes(i), *n);
+        swap_nodes(graph.mutable_node(i), *n);
     }
 }
 
 void VariantGraph::swap_nodes(Node* a, Node* b) {
     int aidx = node_index[a];
     int bidx = node_index[b];
-    graph.mutable_nodes()->SwapElements(aidx, bidx);
+    graph.mutable_node()->SwapElements(aidx, bidx);
     node_index[a] = bidx;
     node_index[b] = aidx;
 }
@@ -309,12 +309,12 @@ Edge* VariantGraph::create_edge(int64_t from, int64_t to) {
     Edge* edge = edge_from_to[from][to];
     if (edge) return edge;
     // if not, create it
-    edge = graph.add_edges();
+    edge = graph.add_edge();
     edge->set_from(from);
     edge->set_to(to);
     edge_from_to[from][to] = edge;
     edge_to_from[to][from] = edge;
-    edge_index[edge] = graph.edges_size()-1;
+    edge_index[edge] = graph.edge_size()-1;
     return edge;
 }
 
@@ -325,17 +325,17 @@ void VariantGraph::destroy_edge(Edge* edge) {
     edge_to_from[edge->to()].erase(edge->from());
 
     // erase from edges by moving to end and dropping
-    int lei = graph.edges_size()-1;
+    int lei = graph.edge_size()-1;
     int tei = edge_index[edge];
-    Edge* last = graph.mutable_edges(lei);
+    Edge* last = graph.mutable_edge(lei);
     edge_index.erase(last);
     edge_index.erase(edge);
 
     // swap
-    graph.mutable_edges()->SwapElements(tei, lei);
+    graph.mutable_edge()->SwapElements(tei, lei);
 
     // point to new position
-    Edge* nlast = graph.mutable_edges(tei);
+    Edge* nlast = graph.mutable_edge(tei);
 
     // insert the new edge index position
     edge_index[nlast] = tei;
@@ -345,21 +345,21 @@ void VariantGraph::destroy_edge(Edge* edge) {
     edge_to_from[nlast->to()][nlast->from()] = nlast;
 
     // drop the last position, erasing the node
-    graph.mutable_edges()->RemoveLast();
+    graph.mutable_edge()->RemoveLast();
 
 }
 
 // use the VariantGraph class to generate ids
 Node* VariantGraph::create_node(string seq) {
     // create the node
-    Node* node = graph.add_nodes();
+    Node* node = graph.add_node();
     node->set_sequence(seq);
     node->set_id(graph.current_id());
     graph.set_current_id(graph.current_id()+1);
     // copy it into the graph
     // and drop into our id index
     node_by_id[node->id()] = node;
-    node_index[node] = graph.nodes_size()-1;
+    node_index[node] = graph.node_size()-1;
     return node;
 }
 
@@ -391,17 +391,17 @@ void VariantGraph::destroy_node(Node* node) {
 
     // swap node with the last in nodes
     // call RemoveLast() to drop the node
-    int lni = graph.nodes_size()-1;
+    int lni = graph.node_size()-1;
     int tni = node_index[node];
-    Node* last = graph.mutable_nodes(lni);
-    graph.mutable_nodes()->SwapElements(tni, lni);
-    Node* nlast = graph.mutable_nodes(tni);
+    Node* last = graph.mutable_node(lni);
+    graph.mutable_node()->SwapElements(tni, lni);
+    Node* nlast = graph.mutable_node(tni);
     node_by_id[last->id()] = nlast;
     node_index.erase(last);
     node_index[nlast] = tni;
     node_by_id.erase(node->id());
     node_index.erase(node);
-    graph.mutable_nodes()->RemoveLast();
+    graph.mutable_node()->RemoveLast();
     //if (!is_valid()) cerr << "graph is invalid after destroy_node" << endl;
 }
 
@@ -538,9 +538,8 @@ void VariantGraph::bounded_next_paths_from_node(Node* node, int length, list<Nod
     }
 }
 
-void VariantGraph::bounded_paths(Node* node, vector<Path>& paths, int length) {
+void VariantGraph::bounded_paths(Node* node, set<list<Node*> >& paths, int length) {
     // get left, then right
-    set<list<Node*> > unique_paths;
     set<list<Node*> > prev_paths;
     set<list<Node*> > next_paths;
     list<Node*> empty_list;
@@ -555,9 +554,30 @@ void VariantGraph::bounded_paths(Node* node, vector<Path>& paths, int length) {
                 path.push_back(*m);
                 ++m;
             }
-            unique_paths.insert(path);
+            paths.insert(path);
         }
     }
+}
+
+void VariantGraph::bounded_paths(Node* node, vector<Path>& paths, int length) {
+    set<list<Node*> > unique_paths;
+    bounded_paths(node, unique_paths, length);
+    for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
+        Path path = create_path(*p);
+        paths.push_back(path);
+    }
+}
+
+void VariantGraph::bounded_paths(set<list<Node*> >& paths, int length) {
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* node = graph.mutable_node(i);
+        bounded_paths(node, paths, length);
+    }
+}
+
+void VariantGraph::bounded_paths(vector<Path>& paths, int length) {
+    set<list<Node*> > unique_paths;
+    bounded_paths(unique_paths, length);
     for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
         Path path = create_path(*p);
         paths.push_back(path);
@@ -567,10 +587,47 @@ void VariantGraph::bounded_paths(Node* node, vector<Path>& paths, int length) {
 Path VariantGraph::create_path(const list<Node*>& nodes) {
     Path path;
     for (list<Node*>::const_iterator n = nodes.begin(); n != nodes.end(); ++n) {
-        Mapping* mapping = path.add_nodes();
+        Mapping* mapping = path.add_mapping();
         mapping->set_node_id((*n)->id());
     }
     return path;
+}
+
+string VariantGraph::path_string(const list<Node*>& nodes) {
+    string seq;
+    for (list<Node*>::const_iterator n = nodes.begin(); n != nodes.end(); ++n) {
+        seq.append((*n)->sequence());
+    }
+    return seq;
+}
+
+string VariantGraph::path_string(Path& path) {
+    string seq;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        Mapping* m = path.mutable_mapping(i);
+        Node* n = node_by_id[m->node_id()];
+        seq.append(n->sequence());
+    }
+    return seq;
+}
+
+void VariantGraph::expand_path(const list<Node*>& path, vector<Node*>& expanded) {
+    for (list<Node*>::const_iterator n = path.begin(); n != path.end(); ++n) {
+        Node* node = *n;
+        int s = node->sequence().size();
+        for (int i = 0; i < s; ++i) {
+            expanded.push_back(node);
+        }
+    }
+}
+
+void VariantGraph::node_starts_in_path(const list<Node*>& path, map<Node*, int>& node_start) {
+    int i = 0;
+    for (list<Node*>::const_iterator n = path.begin(); n != path.end(); ++n) {
+        node_start[*n] = i;
+        int l = (*n)->sequence().size();
+        i += l;
+    }
 }
 
 void VariantGraph::bounded_paths(int64_t node_id, vector<Path>& paths, int length) {
@@ -582,11 +639,11 @@ void VariantGraph::bounded_paths(int64_t node_id, vector<Path>& paths, int lengt
 }
 
 bool VariantGraph::is_valid(void) {
-    for (int i = 0; i < graph.nodes_size(); ++i) {
-        Node* n = graph.mutable_nodes(i);
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
     }
-    for (int i = 0; i < graph.edges_size(); ++i) {
-        Edge* e = graph.mutable_edges(i);
+    for (int i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
         int64_t f = e->from();
         int64_t t = e->to();
         if (node_by_id.find(f) == node_by_id.end()) {
@@ -612,12 +669,12 @@ bool VariantGraph::is_valid(void) {
 void VariantGraph::to_dot(ostream& out) {
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
-    for (int i = 0; i < graph.nodes_size(); ++i) {
-        Node* n = graph.mutable_nodes(i);
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
         out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\"];" << endl;
     }
-    for (int i = 0; i < graph.edges_size(); ++i) {
-        Edge* e = graph.mutable_edges(i);
+    for (int i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
         Node* p = node_by_id[e->from()];
         Node* n = node_by_id[e->to()];
         out << "    " << p->id() << " -> " << n->id() << ";" << endl;
@@ -633,22 +690,75 @@ void VariantGraph::destroy_alignable_graph(void) {
 
 Alignment VariantGraph::align(string& sequence, bool reuse_gssw) {
 
-    if (reuse_gssw && !gssw_aligner) {
-        gssw_aligner = new GSSWAligner(graph);
-    }
+    //if (reuse_gssw && !gssw_aligner) {
+    gssw_aligner = new GSSWAligner(graph);
+    //}
 
     Alignment alignment;
     alignment.set_sequence(sequence);
     gssw_aligner->align(alignment);
 
-    if (!reuse_gssw) {
-        delete gssw_aligner;
-        gssw_aligner = NULL;
-    }
+    //if (!reuse_gssw) {
+    delete gssw_aligner;
+    gssw_aligner = NULL;
+    //}
 
     return alignment;
 
 }
+
+
+void VariantGraph::kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_size) {
+
+    // get the bounded paths of the graph
+    // these are paths of up to length kmer_size from a root node to neighbors
+    set<list<Node*> > paths;
+
+    // we use half the kmer size + 1 here
+    bounded_paths(paths, kmer_size/2 + 1);
+
+    // the kmer_map is the map which we will use to temporarily store the mappings
+    // this could be really big before serializing to disk
+
+    // for each path...
+    for (set<list<Node*> >::iterator p = paths.begin(); p != paths.end(); ++p) {
+        const list<Node*>& path = *p;
+
+        // expand the path into a vector :: 1,1,1,2,2,2,2,3,3 ... etc.
+        // this makes it much easier to quickly get all the node matches of each kmer
+        vector<Node*> node_by_path_position;
+        expand_path(path, node_by_path_position);
+
+        map<Node*, int> node_start;
+        node_starts_in_path(path, node_start);
+        
+        // now process the kmers of this sequence
+        // by first getting the sequence
+        string seq = path_string(path);
+
+        // and then stepping across the path, finding the kmers, and then implied node overlaps
+        for (int i = 0; i < seq.size() - kmer_size; ++i) {
+
+            // get the kmer
+            string kmer = seq.substr(i, kmer_size);
+
+            // create our kmer node match set if it doesn't exist
+            map<Node*, int>& nodes = kmer_map[kmer];
+
+            // drop the node overlaps of this kmer into our index
+            int j = 0;
+            while (j < kmer_size) {
+                Node* node = node_by_path_position[i+j];
+                int node_position = node_start[node];
+                int kmer_relative_start = i - node_position;
+                nodes[node] = kmer_relative_start;
+                j += node->sequence().size();
+            }
+        }
+    }
+}
+
+
 
     /*
 Tarjan's topological sort
@@ -670,8 +780,8 @@ function visit(node n)
 void VariantGraph::topological_sort(list<Node*>& sorted_nodes) {
     set<Node*> unmarked_nodes;
     set<Node*> temporary_marks;
-    for (int i = 0; i < graph.nodes_size(); ++i) {
-        unmarked_nodes.insert(graph.mutable_nodes(i));
+    for (int i = 0; i < graph.node_size(); ++i) {
+        unmarked_nodes.insert(graph.mutable_node(i));
     }
     while (!unmarked_nodes.empty()) {
         Node* node = *(unmarked_nodes.begin());

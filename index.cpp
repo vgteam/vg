@@ -68,6 +68,17 @@ const string Index::key_for_edge_to_from(int64_t to, int64_t from) {
     return key;
 }
 
+const string Index::key_for_kmer(const string& kmer) {
+    string key;
+    key.resize(3*sizeof(char) + sizeof(kmer));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'k'; // kmers
+    k[2] = start_sep;
+    memcpy((void*)(k + sizeof(char)*3), (char*)kmer.c_str(), kmer.size());
+    return key;
+}
+
 char Index::graph_key_type(string& key) {
     if (key.size() == (3*sizeof(char) + sizeof(int64_t))) return 'n';
     return key.c_str()[4*sizeof(char) + sizeof(int64_t)];
@@ -185,11 +196,11 @@ void Index::put_edge(const Edge& edge) {
 
 void Index::load_graph(VariantGraph& graph) {
     Graph& g = graph.graph;
-    for (int i = 0; i < g.nodes_size(); ++i) {
-        put_node(g.nodes(i));
+    for (int i = 0; i < g.node_size(); ++i) {
+        put_node(g.node(i));
     }
-    for (int i = 0; i < g.edges_size(); ++i) {
-        put_edge(g.edges(i));
+    for (int i = 0; i < g.edge_size(); ++i) {
+        put_edge(g.edge(i));
     }
 }
 
@@ -267,15 +278,30 @@ void Index::get_edges_from(int64_t from, vector<Edge>& edges) {
 void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
 }
 
-void index_kmers(VariantGraph& graph, int kmer_size = 15) {
-// algorithm
-// ~ for each node
-//    index kmers of length kmer_size across node and across all links in context
-// things to do
-// --- helper functions
-//    get local context out to N bp away
-//    given a graph, enumerate all the paths
-//    given a path, generate all kmers
+void Index::put_kmer(const string& kmer, const Matches& matches) {
+    string data;
+    matches.SerializeToString(&data);
+    db->Put(leveldb::WriteOptions(), key_for_kmer(kmer), data);
+}
+
+void Index::populate_matches(Matches& matches, map<Node*, int>& kmer_node_pos) {
+    for (map<Node*, int>::iterator m = kmer_node_pos.begin(); m != kmer_node_pos.end(); ++m) {
+        Node* n = m->first;
+        int pos = m->second;
+        Match* match = matches.add_match();
+        match->set_node_id(n->id());
+        match->set_position(pos);
+    }
+}
+
+void Index::store_kmers(map<string, map<Node*, int> >& kmer_map) {
+    for (map<string, map<Node*, int> >::iterator k = kmer_map.begin(); k != kmer_map.end(); ++k) {
+        const string& kmer = k->first;
+        map<Node*, int>& kmer_node_pos = k->second;
+        Matches matches;
+        populate_matches(matches, kmer_node_pos);
+        put_kmer(kmer, matches);
+    }
 }
 
 void index_positions(VariantGraph& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path) {

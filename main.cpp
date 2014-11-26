@@ -89,7 +89,7 @@ int paths_main(int argc, char** argv) {
     string db_name;
 //    string output_format;
     int max_length = 0;
-    int64_t node_id;
+    int64_t node_id = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -150,6 +150,8 @@ int paths_main(int argc, char** argv) {
     vector<Path> paths;
     if (node_id) {
         graph->bounded_paths(node_id, paths, max_length);
+    } else {
+        graph->bounded_paths(paths, max_length);
     }
 
     for (vector<Path>::iterator p = paths.begin(); p != paths.end(); ++p) {

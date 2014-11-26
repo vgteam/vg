@@ -24,10 +24,10 @@ namespace vg {
   ids are stored as raw int64_t
 
   +m+metadata_key       value // various information about the table
-  +g+node_id            node [protobuf]
-  +g+from_id+f+to_id    edge [protobuf]
+  +g+node_id            node [vg::Node]
+  +g+from_id+f+to_id    edge [vg::Edge]
   +g+to_id+t+from_id    null // already stored under from_id+to_id, but this provides reverse index
-  +k+kmer               kmer hits [protobuf]
+  +k+kmer               kmer hits [vg::Match]
   +p+position           position overlaps [protobuf]
 
  */
@@ -50,6 +50,7 @@ public:
 
     void put_node(const Node& node);
     void put_edge(const Edge& edge);
+    void put_kmer(const string& kmer, const Matches& matches);
 
     leveldb::Status get_node(int64_t id, Node& node);
     leveldb::Status get_edge(int64_t from, int64_t to, Edge& edge);
@@ -57,6 +58,7 @@ public:
     const string key_for_node(int64_t id);
     const string key_for_edge_from_to(int64_t from, int64_t to);
     const string key_for_edge_to_from(int64_t to, int64_t from);
+    const string key_for_kmer(const string& kmer);
 
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);
     void parse_edge(const string& key, const string& value, char& type, int64_t& id1, int64_t& id2, Edge& edge);
@@ -73,11 +75,12 @@ public:
     string position_entry_to_string(const string& key, const string& value);
     string metadata_entry_to_string(const string& key, const string& value);
 
-    void index_kmers(VariantGraph& graph, int kmer_size = 15);
-    void index_positions(VariantGraph& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
+    void store_kmers(map<string, map<Node*, int> >& kmer_map);
+    //void store_positions(VariantGraph& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
 
     // once we have indexed the kmers, we can get the nodes and edges matching
     void kmer_matches(std::string& kmer, std::set<int64_t>& node_ids, std::set<int64_t>& edge_ids);
+    void populate_matches(Matches& matches, map<Node*, int>& kmer_node_pos);
 
     char graph_key_type(string& key);
 

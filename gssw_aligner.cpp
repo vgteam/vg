@@ -26,18 +26,18 @@ GSSWAligner::GSSWAligner(
     nt_table = gssw_create_nt_table();
 	score_matrix = gssw_create_score_matrix(match, mismatch);
 
-    graph = gssw_graph_create(g.nodes_size());
+    graph = gssw_graph_create(g.node_size());
 
-    for (int i = 0; i < g.nodes_size(); ++i) {
-        Node* n = g.mutable_nodes(i);
+    for (int i = 0; i < g.node_size(); ++i) {
+        Node* n = g.mutable_node(i);
         nodes[n->id()] = (gssw_node*)gssw_node_create(NULL, n->id(),
                                                       n->sequence().c_str(),
                                                       nt_table,
                                                       score_matrix);
     }
 
-    for (int i = 0; i < g.edges_size(); ++i) {
-        Edge* e = g.mutable_edges(i);
+    for (int i = 0; i < g.edge_size(); ++i) {
+        Edge* e = g.mutable_edge(i);
         gssw_nodes_add_edge(nodes[e->from()], nodes[e->to()]);
     }
 
@@ -88,7 +88,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& a
 
     for (int i = 0; i < gc->length; ++i, ++nc) {
 
-        Mapping* mapping = path->add_nodes();
+        Mapping* mapping = path->add_mapping();
         mapping->set_node_id(nc->node->id);
         gssw_cigar* c = nc->cigar;
         int l = c->length;
@@ -96,7 +96,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& a
 
         for (int j=0; j < l; ++j, ++e) {
 
-            Edit* edit = mapping->add_edits();
+            Edit* edit = mapping->add_edit();
             edit->set_length(e->length);
 
             switch (e->type) {

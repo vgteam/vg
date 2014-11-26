@@ -93,26 +93,36 @@ public:
     GSSWAligner* gssw_aligner;
 
     // returns all node-crossing paths with up to length across node boundaries
+    void bounded_paths(vector<Path>& paths, int length);
+    void bounded_paths(set<list<Node*> >& paths, int length);
+    void bounded_paths(Node* node, set<list<Node*> >& paths, int length);
     void bounded_paths(Node* node, vector<Path>& paths, int length);
     void bounded_paths(int64_t node_id, vector<Path>& paths, int length);
     void bounded_prev_paths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths);
     void bounded_next_paths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths);
-    void paths(Node* from, Node* to, vector<Path>& paths);
-    void paths(int64_t from, int64_t to, vector<Path>& paths);
+
+    void paths_between(Node* from, Node* to, vector<Path>& paths);
+    void paths_between(int64_t from, int64_t to, vector<Path>& paths);
     void likelihoods(vector<Alignment>& alignments, vector<Path>& paths, vector<long double>& likelihoods);
 
     void nodes_prev(Node* n, vector<Node*>& nodes);
     void nodes_next(Node* n, vector<Node*>& nodes);
 
-    // create paths
     Path create_path(const list<Node*>& nodes);
     Path create_path(const vector<Node*>& nodes);
+    string path_string(const list<Node*>& nodes);
+    string path_string(Path& path);
+    void expand_path(const list<Node*>& path, vector<Node*>& expanded);
+    void node_starts_in_path(const list<Node*>& path, map<Node*, int>& node_start);
+
+    void kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_size);
 
 private:
 
     void init(void); // setup, ensures that gssw == NULL on startup
 
 };
+
 
 } // end namespace vg
 

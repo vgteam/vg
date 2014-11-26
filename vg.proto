@@ -3,8 +3,8 @@ package vg;
 
 message Graph {
     optional int64 current_id = 1;
-    repeated Node nodes = 2;
-    repeated Edge edges = 3;
+    repeated Node node = 2;
+    repeated Edge edge = 3;
 }
 
 // Nodes store sequence data and also links to other nodes.
@@ -15,7 +15,9 @@ message Node {
     optional string name = 2;
     required int64 id = 3;
     // annotations
-    optional bytes data = 4;
+    optional double quality = 4;
+    optional int32 coverage = 5;
+    optional bytes data = 6;
 }
 
 // Edges describe linkages between nodes. They are directed: from=prev, to=next.
@@ -50,7 +52,8 @@ message Edit {
 
 message Mapping {
     required int64 node_id = 1;
-    repeated Edit edits = 2;
+    repeated Edit edit = 2;
+    // todo should there be a position here?
 }
 
 // Paths can represent:
@@ -59,7 +62,7 @@ message Mapping {
 //    - relationships between nodes
 
 message Path {
-    repeated Mapping nodes = 1;
+    repeated Mapping mapping = 1;
 }
 
 // Alignments link query strings or reads to paths.
@@ -74,4 +77,16 @@ message Alignment {
     optional int32 target_position = 7;
     optional int32 query_position = 8;
     optional bytes data = 9;
+}
+
+// used to specify a match starting a specified position
+// the context of this is dependent on implementation, use in db, etc.
+
+message Match {
+    optional int64 node_id = 1;
+    optional int32 position = 2;
+}
+
+message Matches {
+    repeated Match match = 1;
 }

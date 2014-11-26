@@ -20,14 +20,14 @@ Then build with `make`, and run with `./vg`.
 - local alignment against the graph (vg.cpp)
 - index capable of storing large graphs on disk and efficiently retrieving subgraphs (index.cpp)
 - protobuf, json, and dot format serialization (view)
-- command-line interfaces: construct, view, index, find, align (main.cpp)
+- command-line interfaces: construct, view, index, find, align, paths (main.cpp)
 
 ### To do
 
 - GFA input and output (efficient use requires bluntifying the graph, removing node-node overlaps)
 - kmer-based indexing of the graph
 - positional indexing (can be done on graph constructed from VCF+fasta reference)
-- interface harmonization of in-memory and on-disk graph representations
+- interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - per-node, per-sample quality and count information
 - dynamic programming method to estimate path qualities given per-node qualities and counts
 - genotype likelihood generation (given a source and sink, genotype paths)
