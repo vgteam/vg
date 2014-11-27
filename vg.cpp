@@ -10,18 +10,7 @@ using namespace vg;
 VariantGraph::VariantGraph(istream& in) {
     init();
     graph.ParseFromIstream(&in);
-    // populate by-id node index
-    for (int64_t i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        node_index[n] = i;
-        node_by_id[n->id()] = n;
-    }
-    for (int64_t i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
-        edge_index[e] = i;
-        edge_from_to[e->from()][e->to()] = e;
-        edge_to_from[e->to()][e->from()] = e;
-    }
+    build_indexes();
 }
 
 VariantGraph::~VariantGraph(void) {
@@ -53,7 +42,7 @@ VariantGraph::VariantGraph(vector<Node>& nodesv) {
     }
 }
 
-// these are quite unsafe--- perhaps they should check if there are conflicts?
+// check for conflict (duplicate nodes and edges) occurs within add_* functions
 
 void VariantGraph::add_nodes(vector<Node>& nodes) {
     for (vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
@@ -94,6 +83,20 @@ void VariantGraph::add_edge(Edge& edge) {
         edge_from_to[edge.from()][edge.to()] = new_edge;
         edge_to_from[edge.to()][edge.from()] = new_edge;
         edge_index[new_edge] = graph.edge_size()-1;
+    }
+}
+
+void VariantGraph::build_indexes(void) {
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        node_index[n] = i;
+        node_by_id[n->id()] = n;
+    }
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        edge_index[e] = i;
+        edge_from_to[e->from()][e->to()] = e;
+        edge_to_from[e->to()][e->from()] = e;
     }
 }
 

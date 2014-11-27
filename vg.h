@@ -45,10 +45,19 @@ public:
     VariantGraph(Graph& graph);
     VariantGraph(vector<Node>& nodes);
     ~VariantGraph(void);
+    VariantGraph& operator=(const VariantGraph& other) {
+        if (this != &other) {
+            // cleanup
+            clear_indexes();
+            // assign
+            graph = other.graph;
+            // re-index
+        build_indexes();
+        }
+        return *this;
+    }
 
-    // XXXX TODO copy assignment!!!
-    //VariantGraph& operator=(const VariantGraph& other);
-
+    void build_indexes(void);
     void clear_indexes(void);
     void extend(Graph& g);
     void extend(VariantGraph& g);
