@@ -52,7 +52,7 @@ public:
             // assign
             graph = other.graph;
             // re-index
-        build_indexes();
+            build_indexes();
         }
         return *this;
     }

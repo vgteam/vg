@@ -251,19 +251,22 @@ int find_main(int argc, char** argv) {
         graph = new VariantGraph(in);
     }
 
+    Index index(db_name);
+
     if (node_id != 0) {
         // open index
-        Index graph_index(db_name);
         // our result
         VariantGraph result_graph;
         // get the context of the node
-        graph_index.get_context(node_id, result_graph);
+        index.get_context(node_id, result_graph);
         // return it
         result_graph.graph.SerializeToOstream(&cout);
     }
 
     if (!kmer.empty()) {
-        
+        VariantGraph result_graph;
+        index.get_kmer_subgraph(kmer, result_graph);
+        result_graph.graph.SerializeToOstream(&cout);
     }
     
     delete graph;

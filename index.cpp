@@ -286,6 +286,18 @@ void Index::get_context(int64_t id, VariantGraph& graph) {
     delete it;
 }
 
+void Index::get_kmer_subgraph(const string& kmer, VariantGraph& graph) {
+    string value;
+    leveldb::Status s = db->Get(leveldb::ReadOptions(), key_for_kmer(kmer), &value);
+    if (!s.ok()) cerr << "read of kmer " << kmer << " is not OK" << endl;
+    Matches matches;
+    matches.ParseFromString(value);
+    for (int i = 0; i < matches.match_size(); ++i) {
+        Match* match = matches.mutable_match(i);
+        get_context(match->node_id(), graph);
+    }
+}
+
 void Index::get_edges_from(int64_t from, vector<Edge>& edges) {
 }
 

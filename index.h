@@ -70,6 +70,7 @@ public:
     void get_edges_of(int64_t id, vector<Edge>& edges);
     void get_edges_from(int64_t from, vector<Edge>& edges);
     void get_edges_to(int64_t to, vector<Edge>& edges);
+    void get_kmer_subgraph(const string& kmer, VariantGraph& graph);
 
     // for dumping graph state/ inspection
     string entry_to_string(const string& key, const string& value);
