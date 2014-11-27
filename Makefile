@@ -7,12 +7,16 @@ VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
 LIBSNAPPY=snappy/libsnappy.a
-LIBLEVELDB=libleveldb/libleveldb.a
+#LIBHYPERLEVELDB=HyperLevelDB/libhyperleveldb.a
+LIBLEVELDB=leveldb/libleveldb.a
 INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Ileveldb/include
 LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lleveldb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lleveldb -lsnappy -lz
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o
 
 all: vg
+
+profiling:
+	$(MAKE) CXXFLAGS="$(CXXFLAGS) -g" all
 
 $(LIBSNAPPY): snappy/*cc snappy/*h
 	cd snappy && mkdir -p build && ./autogen.sh && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
@@ -20,6 +24,9 @@ $(LIBSNAPPY): snappy/*cc snappy/*h
 
 $(LIBLEVELDB): leveldb/include/leveldb/*.h leveldb/db/*.c leveldb/db/*.cc leveldb/db/*.h
 	cd leveldb && $(MAKE) libleveldb.a
+
+#$(LIBHYPERLEVELDB):
+#	cd HyperLevelDB && autoreconf -i && mkdir -p build && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
 
 #test: libsnappy.a libleveldb.a
 #        g++ -pthread -Ileveldb/include test.cpp -o test -L. -lleveldb -lsnappy

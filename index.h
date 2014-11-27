@@ -5,6 +5,7 @@
 #include <exception>
 #include <sstream>
 #include "leveldb/db.h"
+#include "leveldb/write_batch.h"
 #include "pb2json.h"
 #include "vg.h"
 

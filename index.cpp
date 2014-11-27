@@ -281,7 +281,10 @@ void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
 void Index::put_kmer(const string& kmer, const Matches& matches) {
     string data;
     matches.SerializeToString(&data);
-    db->Put(leveldb::WriteOptions(), key_for_kmer(kmer), data);
+    string key = key_for_kmer(kmer);
+    cerr << "putting key : " << key << endl;
+    db->Put(leveldb::WriteOptions(), key, data);
+    cerr << "...." << endl;
 }
 
 void Index::populate_matches(Matches& matches, map<Node*, int>& kmer_node_pos) {
@@ -295,13 +298,22 @@ void Index::populate_matches(Matches& matches, map<Node*, int>& kmer_node_pos) {
 }
 
 void Index::store_kmers(map<string, map<Node*, int> >& kmer_map) {
+    //leveldb::WriteBatch batch;
     for (map<string, map<Node*, int> >::iterator k = kmer_map.begin(); k != kmer_map.end(); ++k) {
         const string& kmer = k->first;
         map<Node*, int>& kmer_node_pos = k->second;
         Matches matches;
+        cerr << kmer << " with " << k->second.size() << " matches ";
         populate_matches(matches, kmer_node_pos);
+        cerr << "...";
         put_kmer(kmer, matches);
+        //string data;
+        //matches.SerializeToString(&data);
+        //batch.Put(key_for_kmer(kmer), data);
+        cerr << "inserted!" << endl;
     }
+    //leveldb::Status s = db->Write(leveldb::WriteOptions(), &batch);
+    //if (!s.ok()) cerr << "an error occurred while inserting kmers" << endl;
 }
 
 void index_positions(VariantGraph& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path) {

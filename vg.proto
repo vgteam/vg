@@ -84,7 +84,7 @@ message Alignment {
 
 message Match {
     optional int64 node_id = 1;
-    optional int32 position = 2;
+    optional sint32 position = 2;
 }
 
 message Matches {

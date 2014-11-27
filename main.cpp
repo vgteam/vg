@@ -352,20 +352,26 @@ int index_main(int argc, char** argv) {
         graph = new VariantGraph(in);
     }
 
-    Index graph_index(db_name);
+    Index index(db_name);
 
     if (store_graph) {
-        graph_index.load_graph(*graph);
+        index.load_graph(*graph);
     }
 
-    /*
     if (kmer_size != 0) {
-        graph_index.index_kmers(*graph, kmer_size);
+        map<string, map<Node*, int> > kmer_map;
+        graph->kmers_of(kmer_map, kmer_size);
+        cerr << "got " << kmer_map.size() << " kmers" << endl;
+        for (map<string, map<Node*, int> >::iterator m = kmer_map.begin(); m != kmer_map.end(); ++m) {
+            for (map<Node*, int>::iterator n = m->second.begin(); n != m->second.end(); ++n) {
+                cerr << m->first << ": " << n->first->id() << " @ " << n->second << endl;
+            }
+        }
+        index.store_kmers(kmer_map);
     }
-    */
 
     if (dump_index) {
-        graph_index.dump(cout);
+        index.dump(cout);
     }
 
     delete graph;
