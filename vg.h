@@ -46,6 +46,9 @@ public:
     VariantGraph(vector<Node>& nodes);
     ~VariantGraph(void);
 
+    // XXXX TODO copy assignment!!!
+    //VariantGraph& operator=(const VariantGraph& other);
+
     void clear_indexes(void);
     void extend(Graph& g);
     void extend(VariantGraph& g);

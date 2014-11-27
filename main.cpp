@@ -67,7 +67,7 @@ void find_help(char** argv) {
          << "    -n, --node ID         find node, return 1-hop context as graph" << endl
         // << "    -f, --edges-from ID   return edges from node with ID" << endl
         // << "    -t, --edges-to ID     return edges from node with ID" << endl
-        // << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
+         << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
         // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
 }
@@ -172,7 +172,7 @@ int find_main(int argc, char** argv) {
     string db_name;
     string kmer;
     string output_format;
-    int64_t node_id, from_id, to_id;
+    int64_t node_id=0, from_id=0, to_id=0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -251,15 +251,20 @@ int find_main(int argc, char** argv) {
         graph = new VariantGraph(in);
     }
 
-    // open index
-    Index graph_index(db_name);
-    // our result
-    VariantGraph result_graph;
-    // get the context of the node
-    graph_index.get_context(node_id, result_graph);
-    // return it
-    result_graph.graph.SerializeToOstream(&cout);
-    // todo--- constraints on graph size
+    if (node_id != 0) {
+        // open index
+        Index graph_index(db_name);
+        // our result
+        VariantGraph result_graph;
+        // get the context of the node
+        graph_index.get_context(node_id, result_graph);
+        // return it
+        result_graph.graph.SerializeToOstream(&cout);
+    }
+
+    if (!kmer.empty()) {
+        
+    }
     
     delete graph;
 
@@ -361,12 +366,6 @@ int index_main(int argc, char** argv) {
     if (kmer_size != 0) {
         map<string, map<Node*, int> > kmer_map;
         graph->kmers_of(kmer_map, kmer_size);
-        cerr << "got " << kmer_map.size() << " kmers" << endl;
-        for (map<string, map<Node*, int> >::iterator m = kmer_map.begin(); m != kmer_map.end(); ++m) {
-            for (map<Node*, int>::iterator n = m->second.begin(); n != m->second.end(); ++n) {
-                cerr << m->first << ": " << n->first->id() << " @ " << n->second << endl;
-            }
-        }
         index.store_kmers(kmer_map);
     }
 

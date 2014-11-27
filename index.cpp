@@ -70,12 +70,12 @@ const string Index::key_for_edge_to_from(int64_t to, int64_t from) {
 
 const string Index::key_for_kmer(const string& kmer) {
     string key;
-    key.resize(3*sizeof(char) + sizeof(kmer));
+    key.resize(3*sizeof(char) + kmer.size());
     char* k = (char*) key.c_str();
     k[0] = start_sep;
     k[1] = 'k'; // kmers
     k[2] = start_sep;
-    memcpy((void*)(k + sizeof(char)*3), (char*)kmer.c_str(), kmer.size());
+    memcpy((char*)(k + sizeof(char)*3), (char*)kmer.c_str(), kmer.size());
     return key;
 }
 
@@ -132,18 +132,18 @@ string Index::graph_entry_to_string(const string& key, const string& value) {
         int64_t id;
         Node node;
         parse_node(key, value, id, node);
-        char *json2 = pb2json(node);
-        s << "{\"key\":\"+g+" << id << "+n\", \"value\":"<<json2 << "}";
-        free(json2);
+        char *json = pb2json(node);
+        s << "{\"key\":\"+g+" << id << "+n\", \"value\":"<<json << "}";
+        free(json);
     } break;
     case 'f': {
         Edge edge;
         int64_t id1, id2;
         char type;
         parse_edge(key, value, type, id1, id2, edge);
-        char *json2 = pb2json(edge);
-        s << "{\"key\":\"+g+" << id1 << "+f+" << id2 << "\", \"value\":"<<json2 << "}";
-        free(json2);
+        char *json = pb2json(edge);
+        s << "{\"key\":\"+g+" << id1 << "+f+" << id2 << "\", \"value\":"<<json << "}";
+        free(json);
     } break;
     case 't': {
         Edge edge;
@@ -151,15 +151,29 @@ string Index::graph_entry_to_string(const string& key, const string& value) {
         char type;
         parse_edge(key, value, type, id1, id2, edge);
         get_edge(id2, id1, edge);
-        char *json2 = pb2json(edge);
-        s << "{\"key\":\"+g+" << id1 << "+t+" << id2 << "\", \"value\":"<<json2 << "}";
-        free(json2);
+        char *json = pb2json(edge);
+        s << "{\"key\":\"+g+" << id1 << "+t+" << id2 << "\", \"value\":"<<json << "}";
+        free(json);
     } break;
     }
     return s.str();
 }
 
+void Index::parse_kmer(const string& key, const string& value, string& kmer, Matches& matches) {
+    const char* k = key.c_str();
+    kmer = string(k+3*sizeof(char));
+    matches.ParseFromString(value);
+}
+
 string Index::kmer_entry_to_string(const string& key, const string& value) {
+    stringstream s;
+    Matches matches;
+    string kmer;
+    parse_kmer(key, value, kmer, matches);
+    char *json = pb2json(matches);
+    s << "{\"key\":\"+k+" << kmer << "\", \"value\":"<<json << "}";
+    free(json);
+    return s.str();
 }
 
 string Index::position_entry_to_string(const string& key, const string& value) {
@@ -282,9 +296,15 @@ void Index::put_kmer(const string& kmer, const Matches& matches) {
     string data;
     matches.SerializeToString(&data);
     string key = key_for_kmer(kmer);
-    cerr << "putting key : " << key << endl;
-    db->Put(leveldb::WriteOptions(), key, data);
-    cerr << "...." << endl;
+    leveldb::Status s = db->Put(leveldb::WriteOptions(), key, data);
+    if (!s.ok()) cerr << "s is not OK" << endl;
+}
+
+void Index::batch_kmer(const string& kmer, const Matches& matches, leveldb::WriteBatch& batch) {
+    string data;
+    matches.SerializeToString(&data);
+    string key = key_for_kmer(kmer);
+    batch.Put(key, data);
 }
 
 void Index::populate_matches(Matches& matches, map<Node*, int>& kmer_node_pos) {
@@ -298,22 +318,16 @@ void Index::populate_matches(Matches& matches, map<Node*, int>& kmer_node_pos) {
 }
 
 void Index::store_kmers(map<string, map<Node*, int> >& kmer_map) {
-    //leveldb::WriteBatch batch;
+    leveldb::WriteBatch batch;
     for (map<string, map<Node*, int> >::iterator k = kmer_map.begin(); k != kmer_map.end(); ++k) {
         const string& kmer = k->first;
         map<Node*, int>& kmer_node_pos = k->second;
         Matches matches;
-        cerr << kmer << " with " << k->second.size() << " matches ";
         populate_matches(matches, kmer_node_pos);
-        cerr << "...";
-        put_kmer(kmer, matches);
-        //string data;
-        //matches.SerializeToString(&data);
-        //batch.Put(key_for_kmer(kmer), data);
-        cerr << "inserted!" << endl;
+        batch_kmer(kmer, matches, batch);
     }
-    //leveldb::Status s = db->Write(leveldb::WriteOptions(), &batch);
-    //if (!s.ok()) cerr << "an error occurred while inserting kmers" << endl;
+    leveldb::Status s = db->Write(leveldb::WriteOptions(), &batch);
+    if (!s.ok()) cerr << "an error occurred while inserting kmers" << endl;
 }
 
 void index_positions(VariantGraph& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path) {

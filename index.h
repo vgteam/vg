@@ -52,6 +52,7 @@ public:
     void put_node(const Node& node);
     void put_edge(const Edge& edge);
     void put_kmer(const string& kmer, const Matches& matches);
+    void batch_kmer(const string& kmer, const Matches& matches, leveldb::WriteBatch& batch);
 
     leveldb::Status get_node(int64_t id, Node& node);
     leveldb::Status get_edge(int64_t from, int64_t to, Edge& edge);
@@ -63,6 +64,7 @@ public:
 
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);
     void parse_edge(const string& key, const string& value, char& type, int64_t& id1, int64_t& id2, Edge& edge);
+    void parse_kmer(const string& key, const string& value, string& kmer, Matches& matches);
 
     void get_context(int64_t id, VariantGraph& graph);
     void get_edges_of(int64_t id, vector<Edge>& edges);
