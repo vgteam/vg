@@ -28,7 +28,7 @@ void main_help(char** argv) {
 void align_help(char** argv) {
     cerr << "usage: " << argv[0] << " align [options] <graph.vg>" << endl
          << "options:" << endl
-         << "    -s, --sequence STR    align a string to the graph in graph.vg" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
         //<< "    -p, --print-cigar     output graph cigar for alignments" << endl
          << "    -j, --json            output alignments in JSON format (default)" << endl;
 }
@@ -68,6 +68,7 @@ void find_help(char** argv) {
         // << "    -f, --edges-from ID   return edges from node with ID" << endl
         // << "    -t, --edges-to ID     return edges from node with ID" << endl
          << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
+         << "    -c, --context STEPS   expand the context of the kmer hit subgraphs" << endl
         // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
 }
@@ -173,6 +174,7 @@ int find_main(int argc, char** argv) {
     string kmer;
     string output_format;
     int64_t node_id=0, from_id=0, to_id=0;
+    int context_size=0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -186,11 +188,12 @@ int find_main(int argc, char** argv) {
                 {"edges-to", required_argument, 0, 't'},
                 {"kmer", required_argument, 0, 'k'},
                 {"output", required_argument, 0, 'o'},
+                {"context", required_argument, 0, 'c'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:h",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -205,6 +208,10 @@ int find_main(int argc, char** argv) {
 
         case 'k':
             kmer = optarg;
+            break;
+
+        case 'c':
+            context_size = atoi(optarg);
             break;
 
         case 'n':
@@ -238,7 +245,7 @@ int find_main(int argc, char** argv) {
     string file_name = argv[optind];
     if (file_name == "-") {
         if (db_name.empty()) {
-            cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
+            cerr << "error:[vg find] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
             return 1;
         }
         graph = new VariantGraph(std::cin);
@@ -259,6 +266,9 @@ int find_main(int argc, char** argv) {
         VariantGraph result_graph;
         // get the context of the node
         index.get_context(node_id, result_graph);
+        if (context_size > 0) {
+            index.expand_context(result_graph, context_size);
+        }
         // return it
         result_graph.graph.SerializeToOstream(&cout);
     }
@@ -266,6 +276,9 @@ int find_main(int argc, char** argv) {
     if (!kmer.empty()) {
         VariantGraph result_graph;
         index.get_kmer_subgraph(kmer, result_graph);
+        if (context_size > 0) {
+            index.expand_context(result_graph, context_size);
+        }
         result_graph.graph.SerializeToOstream(&cout);
     }
     

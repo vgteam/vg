@@ -691,23 +691,18 @@ void VariantGraph::destroy_alignable_graph(void) {
     }
 }
 
-Alignment VariantGraph::align(string& sequence, bool reuse_gssw) {
-
-    //if (reuse_gssw && !gssw_aligner) {
+Alignment& VariantGraph::align(Alignment& alignment) {
     gssw_aligner = new GSSWAligner(graph);
-    //}
-
-    Alignment alignment;
-    alignment.set_sequence(sequence);
     gssw_aligner->align(alignment);
-
-    //if (!reuse_gssw) {
     delete gssw_aligner;
     gssw_aligner = NULL;
-    //}
-
     return alignment;
+}
 
+Alignment VariantGraph::align(string& sequence) {
+    Alignment alignment;
+    alignment.set_sequence(sequence);
+    return align(alignment);
 }
 
 

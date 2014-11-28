@@ -67,6 +67,7 @@ public:
     void parse_kmer(const string& key, const string& value, string& kmer, Matches& matches);
 
     void get_context(int64_t id, VariantGraph& graph);
+    void expand_context(VariantGraph& graph, int steps);
     void get_edges_of(int64_t id, vector<Edge>& edges);
     void get_edges_from(int64_t from, vector<Edge>& edges);
     void get_edges_to(int64_t to, vector<Edge>& edges);

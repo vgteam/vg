@@ -98,7 +98,8 @@ public:
                     set<Node*>& temporary_marks);
     void swap_nodes(Node* a, Node* b);
 
-    Alignment align(string& sequence, bool reuse_gssw = false);
+    Alignment& align(Alignment& alignment);
+    Alignment align(string& sequence);
     //Alignment& align(Alignment& alignment);
     void destroy_alignable_graph(void);
 

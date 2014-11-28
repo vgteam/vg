@@ -11,7 +11,7 @@ message Graph {
 // The graph is doubly-linked via IDs in prev/next fields in the Node objects.
 
 message Node {
-    required string sequence = 1;
+    optional string sequence = 1;
     optional string name = 2;
     required int64 id = 3;
     // annotations
@@ -71,7 +71,7 @@ message Alignment {
     optional string sequence = 1;
     optional Path path = 2;
     optional string name = 3;
-    optional bytes quality = 4;
+    optional string quality = 4;
     optional int32 mapping_quality = 5;
     optional int32 score = 6;
     optional int32 target_position = 7;

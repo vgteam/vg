@@ -236,6 +236,20 @@ leveldb::Status Index::get_edge(int64_t from, int64_t to, Edge& edge) {
     return s;
 }
 
+void Index::expand_context(VariantGraph& graph, int steps = 1) {
+    Graph& g = graph.graph; // ugly
+    for (int step = 0; step < steps; ++step) {
+        vector<int64_t> ids;
+        for (int i = 0; i < g.node_size(); ++i) {
+            Node* node = g.mutable_node(i);
+            ids.push_back(node->id());
+        }
+        for (vector<int64_t>::iterator id = ids.begin(); id != ids.end(); ++id) {
+            get_context(*id, graph);
+        }
+    }
+}
+
 void Index::get_context(int64_t id, VariantGraph& graph) {
     leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
     string key_start = key_for_node(id).substr(0,3+sizeof(int64_t));
@@ -289,7 +303,7 @@ void Index::get_context(int64_t id, VariantGraph& graph) {
 void Index::get_kmer_subgraph(const string& kmer, VariantGraph& graph) {
     string value;
     leveldb::Status s = db->Get(leveldb::ReadOptions(), key_for_kmer(kmer), &value);
-    if (!s.ok()) cerr << "read of kmer " << kmer << " is not OK" << endl;
+    //if (!s.ok()) cerr << "read of kmer " << kmer << " is not OK" << endl;
     Matches matches;
     matches.ParseFromString(value);
     for (int i = 0; i < matches.match_size(); ++i) {
@@ -309,7 +323,7 @@ void Index::put_kmer(const string& kmer, const Matches& matches) {
     matches.SerializeToString(&data);
     string key = key_for_kmer(kmer);
     leveldb::Status s = db->Put(leveldb::WriteOptions(), key, data);
-    if (!s.ok()) cerr << "s is not OK" << endl;
+    if (!s.ok()) cerr << "put failed" << endl;
 }
 
 void Index::batch_kmer(const string& kmer, const Matches& matches, leveldb::WriteBatch& batch) {
