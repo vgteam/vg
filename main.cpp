@@ -23,7 +23,8 @@ void vg_help(char** argv) {
          << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
          << "  -- paths         traverse paths in the graph" << endl
          << "  -- align         local alignment" << endl
-         << "  -- stats         metrics describing graph properties" << endl;
+         << "  -- stats         metrics describing graph properties" << endl
+         << "  -- join          combine graphs" << endl;
 }
 
 void help_align(char** argv) {
@@ -89,6 +90,80 @@ void help_stats(char** argv) {
          << "    -z, --size            size of graph" << endl
          << "    -l, --length          length of sequences in graph" << endl
          << "    -s, --subgraphs       describe subgraphs of graph" << endl;
+}
+
+void help_join(char** argv) {
+    cerr << "usage: " << argv[0] << " join [options] <graph1.vg> [graph2.vg ...]" << endl
+         << "joins graphs and sub-graphs into a single variant graph" << endl
+         << "a single root node with sequence 'N' is added" << endl
+         << "assumes a single id namespace for all graphs to join" << endl;
+}
+
+
+int main_join(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_join(argv);
+        return 1;
+    }
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"help", no_argument, 0, 'h'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "h",
+                         long_options, &option_index);
+        
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+        case 'h':
+        case '?':
+            help_join(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    list<VariantGraph*> graphs;
+
+    while (optind < argc) {
+        VariantGraph* graph;
+        string file_name = argv[optind++];
+        if (file_name == "-") {
+            graph = new VariantGraph(std::cin);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            graph = new VariantGraph(in);
+        }
+        graphs.push_back(graph);
+    }
+
+    VariantGraph joined;
+    for (list<VariantGraph*>::iterator g = graphs.begin(); g != graphs.end(); ++g) {
+        joined.extend(**g);
+    }
+
+    // combine all subgraphs
+    joined.join_heads();
+
+    // output
+    joined.graph.SerializeToOstream(&std::cout);
+
+    return 0;
 }
 
 int main_stats(int argc, char** argv) {
@@ -814,6 +889,8 @@ int main(int argc, char *argv[])
         return main_paths(argc, argv);
     } else if (command == "stats") {
         return main_stats(argc, argv);
+    } else if (command == "join") {
+        return main_join(argc, argv);
     }
 
     return 0;
