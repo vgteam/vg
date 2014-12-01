@@ -25,25 +25,6 @@ void VariantGraph::init(void) {
     gssw_aligner = NULL;
 }
 
-// TODO add edges
-/*
-VariantGraph::VariantGraph(vector<Node>& nodesv) {
-    init();
-    for (vector<Node>::iterator n = nodesv.begin(); n != nodesv.end(); ++n) {
-        Node& node = *n;
-        int64_t id = node.id();
-        if (graph.current_id() < id) {
-            graph.set_current_id(id);
-        }
-        Node* new_node = graph.add_node(); // add it to the graph
-        new_node->set_sequence(node.sequence());
-        new_node->set_id(node.id());
-        node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
-        node_index[new_node] = graph.node_size()-1;
-    }
-}
-*/
-
 VariantGraph::VariantGraph(set<Node*>& nodes, set<Edge*>& edges) {
     init();
     add_nodes(nodes);

@@ -38,14 +38,12 @@ public:
     map<Edge*, int> edge_index;
 
     // constructors
-    //VariantGraph(void) { };
-    // construct from protobufs
     VariantGraph(void);
+    // construct from protobufs
     VariantGraph(istream& in);
     VariantGraph(Graph& graph);
-    VariantGraph(vector<Node>& nodes);
+    // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VariantGraph(set<Node*>& nodes, set<Edge*>& edges);
-    VariantGraph(vector<Node*>& nodes, vector<Edge*>& edges);
     // construct from VCF records
     VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
     ~VariantGraph(void);
