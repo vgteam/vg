@@ -13,7 +13,7 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
-void main_help(char** argv) {
+void vg_help(char** argv) {
     cerr << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
          << "commands:" << endl 
@@ -22,10 +22,11 @@ void main_help(char** argv) {
          << "  -- index         index features of the graph in a disk-backed key/value store" << endl
          << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
          << "  -- paths         traverse paths in the graph" << endl
-         << "  -- align         alignment" << endl;
+         << "  -- align         local alignment" << endl
+         << "  -- stats         metrics describing graph properties" << endl;
 }
 
-void align_help(char** argv) {
+void help_align(char** argv) {
     cerr << "usage: " << argv[0] << " align [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
@@ -33,7 +34,7 @@ void align_help(char** argv) {
          << "    -j, --json            output alignments in JSON format (default)" << endl;
 }
 
-void view_help(char** argv) {
+void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -d, --dot             output dot format (default)" << endl
@@ -41,7 +42,7 @@ void view_help(char** argv) {
          << "    -j, --json            output VG JSON format" << endl;
 }
 
-void construct_help(char** argv) {
+void help_construct(char** argv) {
     cerr << "usage: " << argv[0] << " construct [options]" << endl
          << "options:" << endl
          << "    -v, --vcf FILE        input VCF" << endl
@@ -51,7 +52,7 @@ void construct_help(char** argv) {
          << "    -j, --json            output VG JSON format" << endl;
 }
 
-void index_help(char** argv) {
+void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -s, --store           store graph (do this first to build db!)" << endl
@@ -61,7 +62,7 @@ void index_help(char** argv) {
          << "    -d, --db-name DIR     create leveldb in DIR (defaults to <graph>.index/)" << endl;
 }
 
-void find_help(char** argv) {
+void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -n, --node ID         find node, return 1-hop context as graph" << endl
@@ -75,17 +76,122 @@ void find_help(char** argv) {
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
 }
 
-void paths_help(char** argv) {
+void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -n, --node ID         starting at node with ID" << endl
          << "    -l, --max-length N    generate paths of at most length N" << endl;
 }
 
-int paths_main(int argc, char** argv) {
+void help_stats(char** argv) {
+    cerr << "usage: " << argv[0] << " stats [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -z, --size            size of graph" << endl
+         << "    -l, --length          length of sequences in graph" << endl
+         << "    -s, --subgraphs       describe subgraphs of graph" << endl;
+}
+
+int main_stats(int argc, char** argv) {
 
     if (argc == 2) {
-        paths_help(argv);
+        help_stats(argv);
+        return 1;
+    }
+
+    bool stats_size = false;
+    bool stats_length = false;
+    bool stats_subgraphs = false;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"size", no_argument, 0, 'z'},
+                {"length", no_argument, 0, 'l'},
+                {"subgraphs", no_argument, 0, 's'},
+                {"help", no_argument, 0, 'h'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hzls",
+                         long_options, &option_index);
+        
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+        case 'z':
+            stats_size = true;
+            break;
+
+        case 'l':
+            stats_length = true;
+            break;
+
+        case 's':
+            stats_subgraphs = true;
+            break;
+
+        case 'h':
+        case '?':
+            help_stats(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    VariantGraph* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        graph = new VariantGraph(std::cin);
+    } else {
+        ifstream in;
+        in.open(file_name.c_str());
+        graph = new VariantGraph(in);
+    }
+
+    if (stats_size) {
+        cout << "nodes" << "\t" << graph->node_count() << endl
+             << "edges" << "\t" << graph->edge_count() << endl;
+    }
+
+    if (stats_length) {
+        cout << "length" << "\t" << graph->total_length_of_nodes() << endl;
+    }
+
+    if (stats_subgraphs) {
+        list<VariantGraph> subgraphs;
+        graph->disjoint_subgraphs(subgraphs);
+        // these are topologically-sorted
+        for (list<VariantGraph>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
+            VariantGraph& subgraph = *s;
+            vector<Node*> heads;
+            subgraph.head_nodes(heads);
+            int64_t length = subgraph.total_length_of_nodes();
+            for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
+                cout << (h==heads.begin()?"":",") << (*h)->id();
+            }
+            cout << "\t" << length << endl;
+        }
+    }
+
+    delete graph;
+
+    return 0;
+
+}
+
+int main_paths(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_paths(argv);
         return 1;
     }
 
@@ -124,7 +230,7 @@ int paths_main(int argc, char** argv) {
 
         case 'h':
         case '?':
-            paths_help(argv);
+            help_paths(argv);
             exit(1);
             break;
  
@@ -163,12 +269,16 @@ int paths_main(int argc, char** argv) {
         free(json2);
     }
 
+    delete graph;
+
+    return 0;
+
 }
 
-int find_main(int argc, char** argv) {
+int main_find(int argc, char** argv) {
 
     if (argc == 2) {
-        find_help(argv);
+        help_find(argv);
         return 1;
     }
 
@@ -246,7 +356,7 @@ int find_main(int argc, char** argv) {
 
         case 'h':
         case '?':
-            find_help(argv);
+            help_find(argv);
             exit(1);
             break;
  
@@ -298,7 +408,6 @@ int find_main(int argc, char** argv) {
     }
 
     if (!kmers.empty()) {
-        cerr << "kmers not empty" << endl;
         VariantGraph result_graph;
         for (vector<string>::iterator k = kmers.begin(); k != kmers.end(); ++k) {
             index.get_kmer_subgraph(*k, result_graph);
@@ -315,10 +424,10 @@ int find_main(int argc, char** argv) {
 
 }
 
-int index_main(int argc, char** argv) {
+int main_index(int argc, char** argv) {
 
     if (argc == 2) {
-        index_help(argv);
+        help_index(argv);
         return 1;
     }
 
@@ -374,7 +483,7 @@ int index_main(int argc, char** argv) {
  
         case 'h':
         case '?':
-            index_help(argv);
+            help_index(argv);
             exit(1);
             break;
  
@@ -422,12 +531,12 @@ int index_main(int argc, char** argv) {
 
 }
 
-int align_main(int argc, char** argv) {
+int main_align(int argc, char** argv) {
 
     string seq;
 
     if (argc == 2) {
-        align_help(argv);
+        help_align(argv);
         return 1;
     }
 
@@ -472,7 +581,7 @@ int align_main(int argc, char** argv) {
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
-            align_help(argv);
+            help_align(argv);
             exit(1);
             break;
  
@@ -503,10 +612,10 @@ int align_main(int argc, char** argv) {
 
 }
 
-int view_main(int argc, char** argv) {
+int main_view(int argc, char** argv) {
 
     if (argc == 2) {
-        view_help(argv);
+        help_view(argv);
         return 1;
     }
 
@@ -550,7 +659,7 @@ int view_main(int argc, char** argv) {
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
-            view_help(argv);
+            help_view(argv);
             exit(1);
             break;
  
@@ -582,10 +691,10 @@ int view_main(int argc, char** argv) {
     return 0;
 }
 
-int construct_main(int argc, char** argv) {
+int main_construct(int argc, char** argv) {
 
     if (argc == 2) {
-        construct_help(argv);
+        help_construct(argv);
         return 1;
     }
 
@@ -639,7 +748,7 @@ int construct_main(int argc, char** argv) {
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
-            construct_help(argv);
+            help_construct(argv);
             exit(1);
             break;
  
@@ -686,23 +795,25 @@ int main(int argc, char *argv[])
 {
 
     if (argc == 1) {
-        main_help(argv);
+        vg_help(argv);
         return 1;
     }
 
     string command = argv[1];
     if (command == "construct") {
-        return construct_main(argc, argv);
+        return main_construct(argc, argv);
     } else if (command == "view") {
-        return view_main(argc, argv);
+        return main_view(argc, argv);
     } else if (command == "align") {
-        return align_main(argc, argv);
+        return main_align(argc, argv);
     } else if (command == "index") {
-        return index_main(argc, argv);
+        return main_index(argc, argv);
     } else if (command == "find") {
-        return find_main(argc, argv);
+        return main_find(argc, argv);
     } else if (command == "paths") {
-        return paths_main(argc, argv);
+        return main_paths(argc, argv);
+    } else if (command == "stats") {
+        return main_stats(argc, argv);
     }
 
     return 0;

@@ -26,6 +26,7 @@ void VariantGraph::init(void) {
 }
 
 // TODO add edges
+/*
 VariantGraph::VariantGraph(vector<Node>& nodesv) {
     init();
     for (vector<Node>::iterator n = nodesv.begin(); n != nodesv.end(); ++n) {
@@ -41,8 +42,28 @@ VariantGraph::VariantGraph(vector<Node>& nodesv) {
         node_index[new_node] = graph.node_size()-1;
     }
 }
+*/
+
+VariantGraph::VariantGraph(set<Node*>& nodes, set<Edge*>& edges) {
+    init();
+    add_nodes(nodes);
+    add_edges(edges);
+    topologically_sort_graph();
+}
 
 // check for conflict (duplicate nodes and edges) occurs within add_* functions
+
+void VariantGraph::add_nodes(set<Node*>& nodes) {
+    for (set<Node*>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
+        add_node(**n);
+    }
+}
+
+void VariantGraph::add_edges(set<Edge*>& edges) {
+    for (set<Edge*>::iterator e = edges.begin(); e != edges.end(); ++e) {
+        add_edge(**e);
+    }
+}
 
 void VariantGraph::add_nodes(vector<Node>& nodes) {
     for (vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
@@ -84,6 +105,68 @@ void VariantGraph::add_edge(Edge& edge) {
         edge_to_from[edge.to()][edge.from()] = new_edge;
         edge_index[new_edge] = graph.edge_size()-1;
     }
+}
+
+int64_t VariantGraph::node_count(void) {
+    return graph.node_size();
+}
+
+int64_t VariantGraph::edge_count(void) {
+    return graph.edge_size();
+}
+
+int VariantGraph::in_degree(Node* node) {
+    map<int64_t, map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
+    if (in == edge_to_from.end()) {
+        return 0;
+    } else {
+        return in->second.size();
+    }
+}
+
+int VariantGraph::out_degree(Node* node) {
+    map<int64_t, map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
+    if (out == edge_from_to.end()) {
+        return 0;
+    } else {
+        return out->second.size();
+    }
+}
+
+void VariantGraph::edges_of_node(Node* node, vector<Edge*>& edges) {
+    map<int64_t, map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
+    if (in != edge_to_from.end()) {
+        map<int64_t, Edge*>::iterator e = in->second.begin();
+        for (; e != in->second.end(); ++e) {
+            edges.push_back(e->second);
+        }
+    }
+    map<int64_t, map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
+    if (out != edge_from_to.end()) {
+        map<int64_t, Edge*>::iterator e = out->second.begin();
+        for (; e != out->second.end(); ++e) {
+            edges.push_back(e->second);
+        }
+    }
+}
+
+void VariantGraph::edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges) {
+    for (set<Node*>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
+        vector<Edge*> ev;
+        edges_of_node(*n, ev);
+        for (vector<Edge*>::iterator e = ev.begin(); e != ev.end(); ++e) {
+            edges.insert(*e);
+        }
+    }
+}
+
+int64_t VariantGraph::total_length_of_nodes(void) {
+    int64_t length = 0;
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        length += n->sequence().size();
+    }
+    return length;
 }
 
 void VariantGraph::build_indexes(void) {
@@ -757,7 +840,72 @@ void VariantGraph::kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_si
     }
 }
 
+void VariantGraph::collect_subgraph(Node* node, set<Node*>& subgraph) {
 
+    // add node to subgraph
+    subgraph.insert(node);
+
+    // for each predecessor of node
+    vector<Node*> prev;
+    nodes_prev(node, prev);
+    for (vector<Node*>::iterator p = prev.begin(); p != prev.end(); ++p) {
+        // if it's not already been examined, collect its neighborhood
+        if (!subgraph.count(*p)) {
+            collect_subgraph(*p, subgraph);
+        }
+    }
+
+    // for each successor of node
+    vector<Node*> next;
+    nodes_next(node, next);
+    for (vector<Node*>::iterator n = next.begin(); n != next.end(); ++n) {
+        if (!subgraph.count(*n)) {
+            collect_subgraph(*n, subgraph);
+        }
+    }
+
+}
+
+void VariantGraph::disjoint_subgraphs(list<VariantGraph>& subgraphs) {
+    vector<Node*> heads;
+    head_nodes(heads);
+    map<Node*, set<Node*> > subgraph_by_head;
+    map<Node*, set<Node*>* > subgraph_membership;
+    // start at the heads, but keep in mind that we need to explore fully
+    for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
+        if (subgraph_membership.find(*h) == subgraph_membership.end()) {
+            set<Node*>& subgraph = subgraph_by_head[*h];
+            collect_subgraph(*h, subgraph);
+            for (set<Node*>::iterator n = subgraph.begin(); n != subgraph.end(); ++n) {
+                subgraph_membership[*n] = &subgraph;
+            }
+        }
+    }
+    for (map<Node*, set<Node*> >::iterator g = subgraph_by_head.begin();
+         g != subgraph_by_head.end(); ++ g) {
+        set<Node*>& nodes = g->second;
+        set<Edge*> edges;
+        edges_of_nodes(nodes, edges);
+        subgraphs.push_back(VariantGraph(nodes, edges));
+    }
+}
+
+void VariantGraph::head_nodes(vector<Node*>& nodes) {
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        if (edge_to_from.find(n->id()) == edge_to_from.end()) {
+            nodes.push_back(n);
+        }
+    }
+}
+
+void VariantGraph::add_null_root_node(void) {
+    
+}
+
+void VariantGraph::connect_to_null_root(vector<Node*>& nodes) {
+    
+}
 
     /*
 Tarjan's topological sort

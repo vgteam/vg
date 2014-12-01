@@ -44,6 +44,10 @@ public:
     VariantGraph(istream& in);
     VariantGraph(Graph& graph);
     VariantGraph(vector<Node>& nodes);
+    VariantGraph(set<Node*>& nodes, set<Edge*>& edges);
+    VariantGraph(vector<Node*>& nodes, vector<Edge*>& edges);
+    // construct from VCF records
+    VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
     ~VariantGraph(void);
     VariantGraph& operator=(const VariantGraph& other) {
         if (this != &other) {
@@ -69,9 +73,16 @@ public:
     void add_nodes(vector<Node>& nodes);
     void add_edge(Edge& edge);
     void add_edges(vector<Edge>& edges);
+    void add_nodes(set<Node*>& nodes);
+    void add_edges(set<Edge*>& edges);
 
-    // construct from VCF records
-    VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
+    int64_t node_count(void);
+    int64_t edge_count(void);
+    int64_t total_length_of_nodes(void);
+    int in_degree(Node* node);
+    int out_degree(Node* node);
+    void edges_of_node(Node* node, vector<Edge*>& edges);
+    void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
 
     // use the VariantGraph class to generate ids
     Node* create_node(string seq);
@@ -118,9 +129,11 @@ public:
     void paths_between(int64_t from, int64_t to, vector<Path>& paths);
     void likelihoods(vector<Alignment>& alignments, vector<Path>& paths, vector<long double>& likelihoods);
 
+    // traversal
     void nodes_prev(Node* n, vector<Node*>& nodes);
     void nodes_next(Node* n, vector<Node*>& nodes);
 
+    // paths
     Path create_path(const list<Node*>& nodes);
     Path create_path(const vector<Node*>& nodes);
     string path_string(const list<Node*>& nodes);
@@ -128,7 +141,16 @@ public:
     void expand_path(const list<Node*>& path, vector<Node*>& expanded);
     void node_starts_in_path(const list<Node*>& path, map<Node*, int>& node_start);
 
+    // kmers
     void kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_size);
+
+    // subgraphs
+    void disjoint_subgraphs(list<VariantGraph>& subgraphs);
+    void head_nodes(vector<Node*>& nodes);
+    void collect_subgraph(Node* node, set<Node*>& subgraph);
+
+    void add_null_root_node(void);
+    void connect_to_null_root(vector<Node*>& nodes);
 
 private:
 
