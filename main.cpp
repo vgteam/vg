@@ -69,6 +69,8 @@ void find_help(char** argv) {
         // << "    -t, --edges-to ID     return edges from node with ID" << endl
          << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
          << "    -c, --context STEPS   expand the context of the kmer hit subgraphs" << endl
+         << "    -s, --sequence STR    search for sequence STR using --kmer-size kmers" << endl
+         << "    -z, --kmer-size N     split up --sequence into kmers of size N" << endl
         // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
 }
@@ -171,7 +173,9 @@ int find_main(int argc, char** argv) {
     }
 
     string db_name;
-    string kmer;
+    string sequence;
+    int kmer_size=0;
+    vector<string> kmers;
     string output_format;
     int64_t node_id=0, from_id=0, to_id=0;
     int context_size=0;
@@ -187,13 +191,15 @@ int find_main(int argc, char** argv) {
                 {"edges-from", required_argument, 0, 'f'},
                 {"edges-to", required_argument, 0, 't'},
                 {"kmer", required_argument, 0, 'k'},
+                {"sequence", required_argument, 0, 's'},
+                {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
                 {"context", required_argument, 0, 'c'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -207,7 +213,15 @@ int find_main(int argc, char** argv) {
             break;
 
         case 'k':
-            kmer = optarg;
+            kmers.push_back(optarg);
+            break;
+
+        case 's':
+            sequence = optarg;
+            break;
+
+        case 'z':
+            kmer_size = atoi(optarg);
             break;
 
         case 'c':
@@ -273,11 +287,24 @@ int find_main(int argc, char** argv) {
         result_graph.graph.SerializeToOstream(&cout);
     }
 
-    if (!kmer.empty()) {
+    if (!sequence.empty()) {
+        if (kmer_size == 0) {
+            cerr << "--kmer-size is required when supplying --sequence" << endl;
+            return 1;
+        }
+        for (int i = 0; i < sequence.size()-kmer_size; ++i) {
+            kmers.push_back(sequence.substr(i,kmer_size));
+        }
+    }
+
+    if (!kmers.empty()) {
+        cerr << "kmers not empty" << endl;
         VariantGraph result_graph;
-        index.get_kmer_subgraph(kmer, result_graph);
-        if (context_size > 0) {
-            index.expand_context(result_graph, context_size);
+        for (vector<string>::iterator k = kmers.begin(); k != kmers.end(); ++k) {
+            index.get_kmer_subgraph(*k, result_graph);
+            if (context_size > 0) {
+                index.expand_context(result_graph, context_size);
+            }
         }
         result_graph.graph.SerializeToOstream(&cout);
     }

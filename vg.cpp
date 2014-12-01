@@ -692,6 +692,7 @@ void VariantGraph::destroy_alignable_graph(void) {
 }
 
 Alignment& VariantGraph::align(Alignment& alignment) {
+    // to be aligned, the graph's head nodes need to be fully-connected to a common root
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(alignment);
     delete gssw_aligner;
