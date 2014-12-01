@@ -755,12 +755,33 @@ void VariantGraph::destroy_alignable_graph(void) {
     }
 }
 
+void VariantGraph::connect_node_to_nodes(Node* node, vector<Node*>& nodes) {
+    for (vector<Node*>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
+        create_edge(node->id(), (*n)->id());
+    }
+}
+
+Node* VariantGraph::join_heads(void) {
+    Node* root = create_node("N");
+    vector<Node*> heads;
+    head_nodes(heads);
+    connect_node_to_nodes(root, heads);
+    return root;
+}
+
 Alignment& VariantGraph::align(Alignment& alignment) {
-    // to be aligned, the graph's head nodes need to be fully-connected to a common root
+
+    // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
+    Node* root = join_heads();
+
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(alignment);
     delete gssw_aligner;
     gssw_aligner = NULL;
+
+    // remove root
+    destroy_node(root);
+    
     return alignment;
 }
 
@@ -880,13 +901,6 @@ void VariantGraph::head_nodes(vector<Node*>& nodes) {
     }
 }
 
-void VariantGraph::add_null_root_node(void) {
-    
-}
-
-void VariantGraph::connect_to_null_root(vector<Node*>& nodes) {
-    
-}
 
     /*
 Tarjan's topological sort

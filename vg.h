@@ -86,9 +86,13 @@ public:
     Node* create_node(string seq);
     void destroy_node(Node* node);
 
+    // edges
     Edge* create_edge(Node* from, Node* to);
     Edge* create_edge(int64_t from, int64_t to);
     void destroy_edge(Edge* edge);
+
+    // connect node -> nodes
+    void connect_node_to_nodes(Node* node, vector<Node*>& nodes);
 
     // utilities
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
@@ -147,8 +151,8 @@ public:
     void head_nodes(vector<Node*>& nodes);
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
-    void add_null_root_node(void);
-    void connect_to_null_root(vector<Node*>& nodes);
+    // join head nodes of graph to common null node
+    Node* join_heads(void);
 
 private:
 
