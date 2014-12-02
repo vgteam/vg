@@ -61,9 +61,19 @@ public:
 
     void build_indexes(void);
     void clear_indexes(void);
-    void extend(Graph& g);
-    void extend(VariantGraph& g);
+
+    // literally merge protobufs
+    void merge(Graph& g);
+
+    // merge protobufs after removing overlaps
+    // good when there aren't many overlaps
+    void merge(VariantGraph& g);
+    // helper to merge
     void remove_duplicated_in(VariantGraph& g);
+
+    // iteratively add when nodes and edges are novel
+    // good when there are very many overlaps
+    void extend(VariantGraph& g);
 
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);

@@ -215,15 +215,17 @@ void VariantGraph::remove_duplicated_in(VariantGraph& g) {
     }
 }
 
-void VariantGraph::extend(VariantGraph& g) {
-    // remove duplicates
+void VariantGraph::merge(VariantGraph& g) {
+    // remove duplicates, then merge
     remove_duplicated_in(g);
     if (g.graph.node_size() > 0) {
-        extend(g.graph);
+        merge(g.graph);
     }
 }
 
-void VariantGraph::extend(Graph& g) {
+// this merges without any validity checks
+// this could be rather expensive if the graphs to merge are largely overlapping
+void VariantGraph::merge(Graph& g) {
     graph.mutable_node()->MergeFrom(g.node());
     graph.mutable_edge()->MergeFrom(g.edge());
     clear_indexes();
@@ -237,6 +239,22 @@ void VariantGraph::extend(Graph& g) {
         edge_index[e] = i;
         edge_from_to[e->from()][e->to()] = e;
         edge_to_from[e->to()][e->from()] = e;
+    }
+}
+
+// iterates over nodes and edges, adding them in when they don't already exist
+void VariantGraph::extend(VariantGraph& g) {
+    for (int64_t i = 0; i < g.graph.node_size(); ++i) {
+        Node* n = g.graph.mutable_node(i);
+        if (!has_node(n)) {
+            add_node(*n);
+        }
+    }
+    for (int64_t i = 0; i < g.graph.edge_size(); ++i) {
+        Edge* e = g.graph.mutable_edge(i);
+        if (!has_edge(e)) {
+            add_edge(*e);
+        }
     }
 }
 
