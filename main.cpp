@@ -885,7 +885,7 @@ int main(int argc, char *argv[])
     } else if (command == "join") {
         return main_join(argc, argv);
     } else {
-        cerr << "[vg] command " << command << " not found" << endl;
+        cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
         return 1;
     }
