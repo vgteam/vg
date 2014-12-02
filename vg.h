@@ -63,9 +63,7 @@ public:
     void clear_indexes(void);
     void extend(Graph& g);
     void extend(VariantGraph& g);
-
-    bool node_exists(Node& node);
-    bool edge_exists(Edge& edge);
+    void remove_duplicated_in(VariantGraph& g);
 
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
@@ -84,12 +82,22 @@ public:
 
     // use the VariantGraph class to generate ids
     Node* create_node(string seq);
+    Node* get_node(int64_t id);
     void destroy_node(Node* node);
+    void destroy_node(int64_t id);
+    bool has_node(int64_t id);
+    bool has_node(Node* node);
+    bool has_node(Node& node);
 
     // edges
     Edge* create_edge(Node* from, Node* to);
     Edge* create_edge(int64_t from, int64_t to);
+    Edge* get_edge(int64_t from, int64_t to);
     void destroy_edge(Edge* edge);
+    void destroy_edge(int64_t from, int64_t to);
+    bool has_edge(int64_t from, int64_t to);
+    bool has_edge(Edge* edge);
+    bool has_edge(Edge& edge);
 
     // connect node -> nodes
     void connect_node_to_nodes(Node* node, vector<Node*>& nodes);

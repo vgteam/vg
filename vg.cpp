@@ -58,17 +58,9 @@ void VariantGraph::add_edges(vector<Edge>& edges) {
     }
 }
 
-bool VariantGraph::node_exists(Node& node) {
-    return node_by_id.find(node.id()) != node_by_id.end();
-}
-
-bool VariantGraph::edge_exists(Edge& edge) {
-    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(edge.from());
-    return e != edge_from_to.end() && e->second.find(edge.to()) != e->second.end();
-}
 
 void VariantGraph::add_node(Node& node) {
-    if (!node_exists(node)) {
+    if (!has_node(node)) {
         Node* new_node = graph.add_node(); // add it to the graph
         new_node->set_sequence(node.sequence());
         new_node->set_id(node.id());
@@ -78,7 +70,7 @@ void VariantGraph::add_node(Node& node) {
 }
 
 void VariantGraph::add_edge(Edge& edge) {
-    if (!edge_exists(edge)) {
+    if (!has_edge(edge)) {
         Edge* new_edge = graph.add_edge(); // add it to the graph
         new_edge->set_from(edge.from());
         new_edge->set_to(edge.to());
@@ -172,8 +164,63 @@ void VariantGraph::clear_indexes(void) {
     edge_to_from.clear();
 }
 
+bool VariantGraph::has_node(Node* node) {
+    return node && has_node(node->id());
+}
+
+bool VariantGraph::has_node(Node& node) {
+    return has_node(node.id());
+}
+
+bool VariantGraph::has_node(int64_t id) {
+    return node_by_id.find(id) != node_by_id.end();
+}
+
+bool VariantGraph::has_edge(Edge* edge) {
+    return edge && has_edge(edge->from(), edge->to());
+}
+
+bool VariantGraph::has_edge(Edge& edge) {
+    return has_edge(edge.from(), edge.to());
+}
+
+bool VariantGraph::has_edge(int64_t from, int64_t to) {
+    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
+    return e != edge_from_to.end() && e->second.find(to) != e->second.end();
+}
+
+// remove duplicated nodes and edges that would occur if we merged the graphs
+void VariantGraph::remove_duplicated_in(VariantGraph& g) {
+    vector<Node*> nodes_to_destroy;
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        if (g.has_node(n)) {
+            nodes_to_destroy.push_back(n);
+        }
+    }
+    vector<Edge*> edges_to_destroy;
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        if (g.has_edge(e)) {
+            edges_to_destroy.push_back(e);
+        }
+    }
+    for (vector<Node*>::iterator n = nodes_to_destroy.begin();
+         n != nodes_to_destroy.end(); ++n) {
+        g.destroy_node(g.get_node((*n)->id()));
+    }
+    for (vector<Edge*>::iterator e = edges_to_destroy.begin();
+         e != edges_to_destroy.end(); ++e) {
+        g.destroy_edge(g.get_edge((*e)->from(), (*e)->to()));
+    }
+}
+
 void VariantGraph::extend(VariantGraph& g) {
-    extend(g.graph);
+    // remove duplicates
+    remove_duplicated_in(g);
+    if (g.graph.node_size() > 0) {
+        extend(g.graph);
+    }
 }
 
 void VariantGraph::extend(Graph& g) {
@@ -385,7 +432,23 @@ Edge* VariantGraph::create_edge(int64_t from, int64_t to) {
     return edge;
 }
 
+Edge* VariantGraph::get_edge(int64_t from, int64_t to) {
+    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
+    if (e != edge_from_to.end() && e->second.find(to) != e->second.end()) {
+        return e->second[to];
+    } else {
+        // or error?
+        return NULL;
+    }
+}
+
+void VariantGraph::destroy_edge(int64_t from, int64_t to) {
+    destroy_edge(get_edge(from, to));
+}
+
 void VariantGraph::destroy_edge(Edge* edge) {
+    // noop on NULL pointer or non-existent edge
+    if (!has_edge(edge)) { return; }
     //if (!is_valid()) cerr << "graph ain't valid" << endl;
     // erase from indexes
     edge_from_to[edge->from()].erase(edge->to());
@@ -416,6 +479,16 @@ void VariantGraph::destroy_edge(Edge* edge) {
 
 }
 
+Node* VariantGraph::get_node(int64_t id) {
+    map<int64_t, Node*>::iterator n = node_by_id.find(id);
+    if (n != node_by_id.end()) {
+        return n->second;
+    } else {
+        // again... should this throw an error?
+        return NULL;
+    }
+}
+
 // use the VariantGraph class to generate ids
 Node* VariantGraph::create_node(string seq) {
     // create the node
@@ -430,8 +503,14 @@ Node* VariantGraph::create_node(string seq) {
     return node;
 }
 
+void VariantGraph::destroy_node(int64_t id) {
+    destroy_node(get_node(id));
+}
+
 void VariantGraph::destroy_node(Node* node) {
     //if (!is_valid()) cerr << "graph is invalid before destroy_node" << endl;
+    // noop on NULL/nonexistent node
+    if (!has_node(node)) { return; }
     // remove edges associated with node
     set<Edge*> edges_to_destroy;
     map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());

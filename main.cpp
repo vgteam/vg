@@ -485,10 +485,12 @@ int main_find(int argc, char** argv) {
     if (!kmers.empty()) {
         VariantGraph result_graph;
         for (vector<string>::iterator k = kmers.begin(); k != kmers.end(); ++k) {
-            index.get_kmer_subgraph(*k, result_graph);
+            VariantGraph g;
+            index.get_kmer_subgraph(*k, g);
             if (context_size > 0) {
-                index.expand_context(result_graph, context_size);
+                index.expand_context(g, context_size);
             }
+            result_graph.extend(g);
         }
         result_graph.graph.SerializeToOstream(&cout);
     }
