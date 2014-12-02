@@ -270,8 +270,6 @@ int main_paths(int argc, char** argv) {
         return 1;
     }
 
-    string db_name;
-//    string output_format;
     int max_length = 0;
     int64_t node_id = 0;
 
@@ -317,16 +315,9 @@ int main_paths(int argc, char** argv) {
     VG* graph;
     string file_name = argv[optind];
     if (file_name == "-") {
-        if (db_name.empty()) {
-            cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
-            return 1;
-        }
         graph = new VG(std::cin);
     } else {
         ifstream in;
-        if (db_name.empty()) {
-            db_name = file_name + ".index";
-        }
         in.open(file_name.c_str());
         graph = new VG(in);
     }
@@ -893,6 +884,10 @@ int main(int argc, char *argv[])
         return main_stats(argc, argv);
     } else if (command == "join") {
         return main_join(argc, argv);
+    } else {
+        cerr << "[vg] command " << command << " not found" << endl;
+        vg_help(argv);
+        return 1;
     }
 
     return 0;
