@@ -62,7 +62,8 @@ message Mapping {
 //    - relationships between nodes
 
 message Path {
-    repeated Mapping mapping = 1;
+    optional int32 target_position = 1;
+    repeated Mapping mapping = 2;
 }
 
 // Alignments link query strings or reads to paths.
@@ -74,9 +75,8 @@ message Alignment {
     optional string quality = 4;
     optional int32 mapping_quality = 5;
     optional int32 score = 6;
-    optional int32 target_position = 7;
-    optional int32 query_position = 8;
-    optional bytes data = 9;
+    optional int32 query_position = 7;
+    optional bytes data = 8;
 }
 
 // used to specify a match starting a specified position

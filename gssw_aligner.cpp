@@ -80,8 +80,8 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& a
 
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
-    alignment.set_target_position(gm->position);
     Path* path = alignment.mutable_path();
+    path->set_target_position(gm->position);
 
     gssw_graph_cigar* gc = &gm->cigar;
     gssw_node_cigar* nc = gc->elements;
