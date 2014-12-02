@@ -14,7 +14,7 @@
 namespace vg {
 
 
-class VariantGraph {
+class VG {
 
 public:
 
@@ -38,16 +38,16 @@ public:
     map<Edge*, int> edge_index;
 
     // constructors
-    VariantGraph(void);
+    VG(void);
     // construct from protobufs
-    VariantGraph(istream& in);
-    VariantGraph(Graph& graph);
+    VG(istream& in);
+    VG(Graph& graph);
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
-    VariantGraph(set<Node*>& nodes, set<Edge*>& edges);
+    VG(set<Node*>& nodes, set<Edge*>& edges);
     // construct from VCF records
-    VariantGraph(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
-    ~VariantGraph(void);
-    VariantGraph& operator=(const VariantGraph& other) {
+    VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
+    ~VG(void);
+    VG& operator=(const VG& other) {
         if (this != &other) {
             // cleanup
             clear_indexes();
@@ -67,13 +67,13 @@ public:
 
     // merge protobufs after removing overlaps
     // good when there aren't many overlaps
-    void merge(VariantGraph& g);
+    void merge(VG& g);
     // helper to merge
-    void remove_duplicated_in(VariantGraph& g);
+    void remove_duplicated_in(VG& g);
 
     // iteratively add when nodes and edges are novel
     // good when there are very many overlaps
-    void extend(VariantGraph& g);
+    void extend(VG& g);
 
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
@@ -90,7 +90,7 @@ public:
     void edges_of_node(Node* node, vector<Edge*>& edges);
     void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
 
-    // use the VariantGraph class to generate ids
+    // use the VG class to generate ids
     Node* create_node(string seq);
     Node* get_node(int64_t id);
     void destroy_node(Node* node);
@@ -165,7 +165,7 @@ public:
     void kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_size);
 
     // subgraphs
-    void disjoint_subgraphs(list<VariantGraph>& subgraphs);
+    void disjoint_subgraphs(list<VG>& subgraphs);
     void head_nodes(vector<Node*>& nodes);
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 

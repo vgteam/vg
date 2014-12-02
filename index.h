@@ -46,7 +46,7 @@ public:
     leveldb::DB* db;
     leveldb::Options options;
 
-    void load_graph(VariantGraph& graph);
+    void load_graph(VG& graph);
     void dump(std::ostream& out);
 
     void put_node(const Node& node);
@@ -66,12 +66,12 @@ public:
     void parse_edge(const string& key, const string& value, char& type, int64_t& id1, int64_t& id2, Edge& edge);
     void parse_kmer(const string& key, const string& value, string& kmer, Matches& matches);
 
-    void get_context(int64_t id, VariantGraph& graph);
-    void expand_context(VariantGraph& graph, int steps);
+    void get_context(int64_t id, VG& graph);
+    void expand_context(VG& graph, int steps);
     void get_edges_of(int64_t id, vector<Edge>& edges);
     void get_edges_from(int64_t from, vector<Edge>& edges);
     void get_edges_to(int64_t to, vector<Edge>& edges);
-    void get_kmer_subgraph(const string& kmer, VariantGraph& graph);
+    void get_kmer_subgraph(const string& kmer, VG& graph);
 
     // for dumping graph state/ inspection
     string entry_to_string(const string& key, const string& value);
@@ -81,7 +81,7 @@ public:
     string metadata_entry_to_string(const string& key, const string& value);
 
     void store_kmers(map<string, map<Node*, int> >& kmer_map);
-    //void store_positions(VariantGraph& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
+    //void store_positions(VG& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
 
     // once we have indexed the kmers, we can get the nodes and edges matching
     void kmer_matches(std::string& kmer, std::set<int64_t>& node_ids, std::set<int64_t>& edge_ids);

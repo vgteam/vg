@@ -208,7 +208,7 @@ void Index::put_edge(const Edge& edge) {
     db->Put(leveldb::WriteOptions(), key_for_edge_to_from(edge.to(), edge.from()), null_data);
 }
 
-void Index::load_graph(VariantGraph& graph) {
+void Index::load_graph(VG& graph) {
     Graph& g = graph.graph;
     for (int i = 0; i < g.node_size(); ++i) {
         put_node(g.node(i));
@@ -236,7 +236,7 @@ leveldb::Status Index::get_edge(int64_t from, int64_t to, Edge& edge) {
     return s;
 }
 
-void Index::expand_context(VariantGraph& graph, int steps = 1) {
+void Index::expand_context(VG& graph, int steps = 1) {
     Graph& g = graph.graph; // ugly
     for (int step = 0; step < steps; ++step) {
         vector<int64_t> ids;
@@ -250,7 +250,7 @@ void Index::expand_context(VariantGraph& graph, int steps = 1) {
     }
 }
 
-void Index::get_context(int64_t id, VariantGraph& graph) {
+void Index::get_context(int64_t id, VG& graph) {
     leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
     string key_start = key_for_node(id).substr(0,3+sizeof(int64_t));
     leveldb::Slice start = leveldb::Slice(key_start);
@@ -300,7 +300,7 @@ void Index::get_context(int64_t id, VariantGraph& graph) {
     delete it;
 }
 
-void Index::get_kmer_subgraph(const string& kmer, VariantGraph& graph) {
+void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
     string value;
     leveldb::Status s = db->Get(leveldb::ReadOptions(), key_for_kmer(kmer), &value);
     //if (!s.ok()) cerr << "read of kmer " << kmer << " is not OK" << endl;
@@ -356,7 +356,7 @@ void Index::store_kmers(map<string, map<Node*, int> >& kmer_map) {
     if (!s.ok()) cerr << "an error occurred while inserting kmers" << endl;
 }
 
-void index_positions(VariantGraph& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path) {
+void index_positions(VG& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path) {
 
 }
 

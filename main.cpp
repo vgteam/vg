@@ -137,23 +137,23 @@ int main_join(int argc, char** argv) {
         }
     }
 
-    list<VariantGraph*> graphs;
+    list<VG*> graphs;
 
     while (optind < argc) {
-        VariantGraph* graph;
+        VG* graph;
         string file_name = argv[optind++];
         if (file_name == "-") {
-            graph = new VariantGraph(std::cin);
+            graph = new VG(std::cin);
         } else {
             ifstream in;
             in.open(file_name.c_str());
-            graph = new VariantGraph(in);
+            graph = new VG(in);
         }
         graphs.push_back(graph);
     }
 
-    VariantGraph joined;
-    for (list<VariantGraph*>::iterator g = graphs.begin(); g != graphs.end(); ++g) {
+    VG joined;
+    for (list<VG*>::iterator g = graphs.begin(); g != graphs.end(); ++g) {
         joined.extend(**g);
     }
 
@@ -222,14 +222,14 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    VariantGraph* graph;
+    VG* graph;
     string file_name = argv[optind];
     if (file_name == "-") {
-        graph = new VariantGraph(std::cin);
+        graph = new VG(std::cin);
     } else {
         ifstream in;
         in.open(file_name.c_str());
-        graph = new VariantGraph(in);
+        graph = new VG(in);
     }
 
     if (stats_size) {
@@ -242,11 +242,11 @@ int main_stats(int argc, char** argv) {
     }
 
     if (stats_subgraphs) {
-        list<VariantGraph> subgraphs;
+        list<VG> subgraphs;
         graph->disjoint_subgraphs(subgraphs);
         // these are topologically-sorted
-        for (list<VariantGraph>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
-            VariantGraph& subgraph = *s;
+        for (list<VG>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
+            VG& subgraph = *s;
             vector<Node*> heads;
             subgraph.head_nodes(heads);
             int64_t length = subgraph.total_length_of_nodes();
@@ -314,21 +314,21 @@ int main_paths(int argc, char** argv) {
         }
     }
 
-    VariantGraph* graph;
+    VG* graph;
     string file_name = argv[optind];
     if (file_name == "-") {
         if (db_name.empty()) {
             cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
             return 1;
         }
-        graph = new VariantGraph(std::cin);
+        graph = new VG(std::cin);
     } else {
         ifstream in;
         if (db_name.empty()) {
             db_name = file_name + ".index";
         }
         in.open(file_name.c_str());
-        graph = new VariantGraph(in);
+        graph = new VG(in);
     }
 
     vector<Path> paths;
@@ -440,21 +440,21 @@ int main_find(int argc, char** argv) {
         }
     }
 
-    VariantGraph* graph;
+    VG* graph;
     string file_name = argv[optind];
     if (file_name == "-") {
         if (db_name.empty()) {
             cerr << "error:[vg find] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
             return 1;
         }
-        graph = new VariantGraph(std::cin);
+        graph = new VG(std::cin);
     } else {
         ifstream in;
         if (db_name.empty()) {
             db_name = file_name + ".index";
         }
         in.open(file_name.c_str());
-        graph = new VariantGraph(in);
+        graph = new VG(in);
     }
 
     Index index(db_name);
@@ -462,7 +462,7 @@ int main_find(int argc, char** argv) {
     if (node_id != 0) {
         // open index
         // our result
-        VariantGraph result_graph;
+        VG result_graph;
         // get the context of the node
         index.get_context(node_id, result_graph);
         if (context_size > 0) {
@@ -483,9 +483,9 @@ int main_find(int argc, char** argv) {
     }
 
     if (!kmers.empty()) {
-        VariantGraph result_graph;
+        VG result_graph;
         for (vector<string>::iterator k = kmers.begin(); k != kmers.end(); ++k) {
-            VariantGraph g;
+            VG g;
             index.get_kmer_subgraph(*k, g);
             if (context_size > 0) {
                 index.expand_context(g, context_size);
@@ -569,21 +569,21 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    VariantGraph* graph;
+    VG* graph;
     string file_name = argv[optind];
     if (file_name == "-") {
         if (db_name.empty()) {
             cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
             return 1;
         }
-        graph = new VariantGraph(std::cin);
+        graph = new VG(std::cin);
     } else {
         ifstream in;
         if (db_name.empty()) {
             db_name = file_name + ".index";
         }
         in.open(file_name.c_str());
-        graph = new VariantGraph(in);
+        graph = new VG(in);
     }
 
     Index index(db_name);
@@ -667,14 +667,14 @@ int main_align(int argc, char** argv) {
         }
     }
 
-    VariantGraph* graph;
+    VG* graph;
     string file_name = argv[optind];
     if (file_name == "-") {
-        graph = new VariantGraph(std::cin);
+        graph = new VG(std::cin);
     } else {
         ifstream in;
         in.open(file_name.c_str());
-        graph = new VariantGraph(in);
+        graph = new VG(in);
     }
 
     Alignment alignment = graph->align(seq);
@@ -745,14 +745,14 @@ int main_view(int argc, char** argv) {
         }
     }
 
-    VariantGraph* graph;
+    VG* graph;
     string file_name = argv[optind];
     if (file_name == "-") {
-        graph = new VariantGraph(std::cin);
+        graph = new VG(std::cin);
     } else {
         ifstream in;
         in.open(file_name.c_str());
-        graph = new VariantGraph(in);
+        graph = new VG(in);
     }
 
     if (output_type == "dot") {
@@ -854,7 +854,7 @@ int main_construct(int argc, char** argv) {
     }
     reference.open(fasta_file_name);
 
-    VariantGraph graph(variant_file, reference);
+    VG graph(variant_file, reference);
 
     if (output_type == "VG") {
         //ofstream of("test.vg");
