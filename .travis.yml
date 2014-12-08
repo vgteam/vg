@@ -4,5 +4,6 @@ language: cpp
 compiler: gcc
 before_install:
   - git submodule update --init --recursive
+  - sudo apt-get update -qq
 install: make get-deps
 script: make && make test
