@@ -3,4 +3,4 @@
 language: cpp
 compiler: gcc
 install: make get-deps
-script: make && make test
+script: git submodule update --init --recursive && make && make test
