@@ -62,6 +62,7 @@ A variety of commands are available:
 ### To do
 
 - global mapping against large graphs (depends on indexing of graph and kmers, which are done)
+- alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
 - GFA input and output (efficient use requires bluntifying the graph, removing node-node overlaps)
 - positional indexing (can be done on graph constructed from VCF+fasta reference)
 - interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
