@@ -81,7 +81,8 @@ void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -n, --node ID         starting at node with ID" << endl
-         << "    -l, --max-length N    generate paths of at most length N" << endl;
+         << "    -l, --max-length N    generate paths of at most length N" << endl
+         << "    -s, --as-seqs         write each path as a sequence" << endl;
 }
 
 void help_stats(char** argv) {
@@ -272,6 +273,7 @@ int main_paths(int argc, char** argv) {
 
     int max_length = 0;
     int64_t node_id = 0;
+    bool as_seqs = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -280,11 +282,12 @@ int main_paths(int argc, char** argv) {
             {
                 {"node", required_argument, 0, 'n'},
                 {"max-length", required_argument, 0, 'l'},
+                {"as-seqs", no_argument, 0, 's'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:h",
+        c = getopt_long (argc, argv, "n:l:hs",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -299,6 +302,10 @@ int main_paths(int argc, char** argv) {
 
         case 'l':
             max_length = atoi(optarg);
+            break;
+
+        case 's':
+            as_seqs = true;
             break;
 
         case 'h':
@@ -329,10 +336,16 @@ int main_paths(int argc, char** argv) {
         graph->bounded_paths(paths, max_length);
     }
 
-    for (vector<Path>::iterator p = paths.begin(); p != paths.end(); ++p) {
-        char *json2 = pb2json(*p);
-        cout<<json2<<endl;
-        free(json2);
+    if (as_seqs) {
+        for (vector<Path>::iterator p = paths.begin(); p != paths.end(); ++p) {
+            cout << graph->path_sequence(*p) << endl;
+        }
+    } else {
+        for (vector<Path>::iterator p = paths.begin(); p != paths.end(); ++p) {
+            char *json2 = pb2json(*p);
+            cout<<json2<<endl;
+            free(json2);
+        }
     }
 
     delete graph;

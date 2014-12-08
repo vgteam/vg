@@ -802,6 +802,14 @@ void VG::bounded_paths(int64_t node_id, vector<Path>& paths, int length) {
     }
 }
 
+string VG::path_sequence(Path& path) {
+    string sequence;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        sequence.append(node_by_id[path.mapping(i).node_id()]->sequence());
+    }
+    return sequence;
+}
+
 bool VG::is_valid(void) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);

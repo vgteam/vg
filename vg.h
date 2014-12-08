@@ -149,6 +149,8 @@ public:
     void paths_between(int64_t from, int64_t to, vector<Path>& paths);
     void likelihoods(vector<Alignment>& alignments, vector<Path>& paths, vector<long double>& likelihoods);
 
+    string path_sequence(Path& path);
+
     // traversal
     void nodes_prev(Node* n, vector<Node*>& nodes);
     void nodes_next(Node* n, vector<Node*>& nodes);

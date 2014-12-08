@@ -256,7 +256,6 @@ void Index::get_context(int64_t id, VG& graph) {
     leveldb::Slice start = leveldb::Slice(key_start);
     string key_end = key_start+end_sep;
     leveldb::Slice end = leveldb::Slice(key_end);
-    // TODO ... uhhh return a valid graph
     for (it->Seek(start);
          it->Valid() && it->key().ToString() < key_end;
          it->Next()) {
@@ -308,7 +307,9 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
     matches.ParseFromString(value);
     for (int i = 0; i < matches.match_size(); ++i) {
         Match* match = matches.mutable_match(i);
-        get_context(match->node_id(), graph);
+        Node node;
+        get_node(match->node_id(), node);
+        graph.add_node(node);
     }
 }
 
