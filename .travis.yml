@@ -2,5 +2,7 @@
 
 language: cpp
 compiler: gcc
+before_install:
+  - git submodule update --init --recursive
 install: make get-deps
-script: git submodule update --init --recursive && make && make test
+script: make && make test
