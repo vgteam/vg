@@ -8,7 +8,7 @@ vg=../vg
 
 all: test clean
 
-test: make_graph
+test: make_graph $(vg)
 	prove t
 
 $(vg):
@@ -17,8 +17,5 @@ $(vg):
 make_graph: make_graph.cpp
 	$(CXX) make_graph.cpp $(INCLUDES) $(LDFLAGS) -o make_graph
 
-vg_construct: $(vg)
-	./vg_construct.sh
-
 clean:
-	rm make_graph
+	rm -f make_graph

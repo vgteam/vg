@@ -16,7 +16,7 @@ LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o
 all: vg libvg.a
 
 test:
-	cd test && make
+	cd test && $(MAKE)
 
 profiling:
 	$(MAKE) CXXFLAGS="$(CXXFLAGS) -g" all
@@ -74,10 +74,10 @@ libvg.a: vg
 
 clean:
 	rm -f cpp/*
-	rm -f test
 	rm -f vg
+	cd test && $(MAKE) clean
 	cd pb2json && $(MAKE) clean
 	cd vcflib && $(MAKE) clean
 	cd snappy && $(MAKE) clean
-	rm snappy/libsnappy.a
+	rm -f snappy/libsnappy.a
 	cd leveldb && $(MAKE) clean
