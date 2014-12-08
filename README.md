@@ -12,7 +12,7 @@ If we know about variation in a given population, we should include that knowled
 
 You'll need the protobuf and jansson development libraries installed on your server.
 
-    sudo apt-get install libprotoc-dev libjansson-dev
+    sudo apt-get install protobuf-compiler libprotoc-dev libjansson-dev
 
 Now, obtain the repo and its submodules:
 
