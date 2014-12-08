@@ -1,0 +1,6 @@
+# Control file for continuous integration testing at http://travis-ci.org/
+
+language: cpp
+compiler: gcc
+install: make get-deps
+script: make && make test

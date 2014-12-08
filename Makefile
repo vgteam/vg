@@ -1,4 +1,4 @@
-.PHONY: all clean test
+.PHONY: all clean test get-deps
 
 CXX=g++
 CXXFLAGS=-O3
@@ -14,6 +14,9 @@ LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lleveldb -lpb2json -lvcflib -lgs
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o
 
 all: vg libvg.a
+
+get-deps:
+	sudo apt-get install libprotoc-dev libjansson-dev
 
 test:
 	cd test && $(MAKE)
