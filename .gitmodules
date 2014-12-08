@@ -16,3 +16,6 @@
 [submodule "snappy"]
 	path = snappy
 	url = https://github.com/google/snappy.git
+[submodule "bash-tap"]
+	path = bash-tap
+	url = https://github.com/illusori/bash-tap.git

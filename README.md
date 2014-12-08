@@ -1,6 +1,8 @@
 # vg
 
-## variant graph data structures, interchange, and methods
+[![Build Status](https://travis-ci.org/ekg/multinomial-ln.svg)](https://travis-ci.org/ekg/multinomial-ln)
+
+## variant graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
 ### building
 
@@ -21,11 +23,11 @@ Then build with `make`, and run with `./vg`.
 - index capable of storing large graphs on disk and efficiently retrieving subgraphs (index.cpp)
 - protobuf, json, and dot format serialization (view)
 - command-line interfaces: construct, view, index, find, align, paths (main.cpp)
+- tap-compliant tests
 
 ### To do
 
 - GFA input and output (efficient use requires bluntifying the graph, removing node-node overlaps)
-- kmer-based indexing of the graph
 - positional indexing (can be done on graph constructed from VCF+fasta reference)
 - interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - per-node, per-sample quality and count information

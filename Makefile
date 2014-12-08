@@ -1,4 +1,4 @@
-.PHONY: all clean
+.PHONY: all clean test
 
 CXX=g++
 CXXFLAGS=-O3
@@ -13,7 +13,10 @@ INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Ile
 LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lleveldb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lleveldb -lsnappy -lz
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o
 
-all: vg
+all: vg libvg.a
+
+test:
+	cd test && make
 
 profiling:
 	$(MAKE) CXXFLAGS="$(CXXFLAGS) -g" all
@@ -38,9 +41,6 @@ cpp/vg.pb.cc: cpp/vg.pb.h
 cpp/vg.pb.h: vg.proto
 	mkdir -p cpp
 	protoc vg.proto --cpp_out=cpp
-
-test: test.cpp cpp/vg.pb.o
-	$(CXX) $(CXXFLAGS) test.cpp -o test cpp/vg.pb.o $(INCLUDES) $(LDFLAGS)
 
 $(LIBVCFLIB): vcflib/src/Variant.h vcflib/src/Variant.cpp
 	cd vcflib && $(MAKE) libvcflib.a
@@ -68,6 +68,9 @@ index.o: index.cpp index.h
 
 vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBLEVELDB) $(LIBSNAPPY)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
+
+libvg.a: vg
+	ar rs libvg.a gssw_aligner.o index.o vg.o cpp/vg.pb.o
 
 clean:
 	rm -f cpp/*
