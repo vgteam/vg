@@ -11,13 +11,18 @@ message Graph {
 // The graph is doubly-linked via IDs in prev/next fields in the Node objects.
 
 message Node {
+    // sequence, name, and id
     optional string sequence = 1;
     optional string name = 2;
+    // an id is required; a node is an element in a graph identified by an id
     required int64 id = 3;
     // annotations
     optional double quality = 4;
     optional int32 coverage = 5;
-    optional bytes data = 6;
+    // amount of sequence trimmed from the 5' end vs. the reference node this was generated from
+    optional int32 trim = 6;
+    // user-defined annotations, possibly a string, possibly more binary data
+    optional bytes data = 7;
 }
 
 // Edges describe linkages between nodes. They are directed: from=prev, to=next.
