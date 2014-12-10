@@ -58,12 +58,14 @@ A variety of commands are available:
 - subgraph decomposition
 - k-path enumeration
 - graph joining: combine subgraphs represented in a single or different .vg files
+- GFA output
 
 ### To do
 
 - global mapping against large graphs (depends on indexing of graph and kmers, which are done)
 - alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
-- GFA input and output (efficient use requires bluntifying the graph, removing node-node overlaps)
+- GFA input (efficient use requires bluntifying the graph, removing node-node overlaps)
+- index metadata (to quickly check if we have kmer index of size >=N)
 - positional indexing (can be done on graph constructed from VCF+fasta reference)
 - interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - per-node, per-sample quality and count information
