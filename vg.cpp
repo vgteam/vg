@@ -785,7 +785,8 @@ void VG::expand_path(const list<Node*>& path, vector<Node*>& expanded) {
     }
 }
 
-void VG::node_starts_in_path(const list<Node*>& path, map<Node*, int>& node_start) {
+void VG::node_starts_in_path(const list<Node*>& path,
+                             map<Node*, int>& node_start) {
     int i = 0;
     for (list<Node*>::const_iterator n = path.begin(); n != path.end(); ++n) {
         node_start[*n] = i;
@@ -960,10 +961,12 @@ void VG::kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_size) {
             int j = 0;
             while (j < kmer_size) {
                 Node* node = node_by_path_position[i+j];
-                int node_position = node_start[node];
-                int kmer_relative_start = i - node_position;
-                nodes[node] = kmer_relative_start;
-                j += node->sequence().size();
+                if (nodes.find(node) == nodes.end()) {
+                    int node_position = node_start[node];
+                    int kmer_relative_start = i - node_position;
+                    nodes[node] = kmer_relative_start;
+                }
+                ++j;
             }
         }
     }

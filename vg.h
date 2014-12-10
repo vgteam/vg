@@ -162,7 +162,8 @@ public:
     string path_string(const list<Node*>& nodes);
     string path_string(Path& path);
     void expand_path(const list<Node*>& path, vector<Node*>& expanded);
-    void node_starts_in_path(const list<Node*>& path, map<Node*, int>& node_start);
+    void node_starts_in_path(const list<Node*>& path,
+                             map<Node*, int>& node_start);
 
     // kmers
     void kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_size);

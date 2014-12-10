@@ -5,4 +5,5 @@ vg
 *.vg
 *.dot
 *.png
+test/make_graph
 trash
