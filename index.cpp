@@ -319,6 +319,7 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
     string value;
     leveldb::Status s = db->Get(leveldb::ReadOptions(), key_for_kmer(kmer), &value);
     //if (!s.ok()) cerr << "read of kmer " << kmer << " is not OK" << endl;
+    // get the kmer matches and store the nodes in the graph
     Matches matches;
     matches.ParseFromString(value);
     for (int i = 0; i < matches.match_size(); ++i) {
@@ -326,6 +327,18 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
         Node node;
         get_node(match->node_id(), node);
         graph.add_node(node);
+    }
+    // get the edges between the nodes
+    for (int i = 0; i < graph.graph.node_size(); ++i) {
+        Node* n = graph.graph.mutable_node(i);
+        vector<Edge> edges;
+        get_edges_from(n->id(), edges);
+        get_edges_to(n->id(), edges);
+        for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
+            if (graph.has_node(e->to()) && graph.has_node(e->from())) {
+                graph.add_edge(*e);
+            }
+        }
     }
 }
 
