@@ -79,6 +79,22 @@ const string Index::key_for_kmer(const string& kmer) {
     return key;
 }
 
+const string Index::key_prefix_for_edges_from_node(int64_t from) {
+    string key = key_for_node(from);
+    key.resize(key.size() + 2);
+    key[key.size() - 2] = start_sep;
+    key[key.size() - 1] = 'f';
+    return key;
+}
+
+const string Index::key_prefix_for_edges_to_node(int64_t to) {
+    string key = key_for_node(to);
+    key.resize(key.size() + 2);
+    key[key.size() - 2] = start_sep;
+    key[key.size() - 1] = 't';
+    return key;
+}
+
 char Index::graph_key_type(string& key) {
     if (key.size() == (3*sizeof(char) + sizeof(int64_t))) return 'n';
     return key.c_str()[4*sizeof(char) + sizeof(int64_t)];
@@ -314,9 +330,60 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
 }
 
 void Index::get_edges_from(int64_t from, vector<Edge>& edges) {
+    leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
+    string key_start = key_prefix_for_edges_from_node(from);
+    leveldb::Slice start = leveldb::Slice(key_start);
+    string key_end = key_start+end_sep;
+    leveldb::Slice end = leveldb::Slice(key_end);
+    for (it->Seek(start);
+         it->Valid() && it->key().ToString() < key_end;
+         it->Next()) {
+        string s = it->key().ToString();
+        char keyt = graph_key_type(s);
+        switch (keyt) {
+        case 'f': {
+            Edge edge;
+            int64_t id1, id2;
+            char type;
+            parse_edge(it->key().ToString(), it->value().ToString(), type, id1, id2, edge);
+            edges.push_back(edge);
+        } break;
+        default:
+            // there should only be edges from here
+            cerr << keyt << endl;
+            assert(false);
+            break;
+        }
+    }
 }
 
 void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
+    leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
+    string key_start = key_prefix_for_edges_to_node(to);
+    leveldb::Slice start = leveldb::Slice(key_start);
+    string key_end = key_start+end_sep;
+    leveldb::Slice end = leveldb::Slice(key_end);
+    for (it->Seek(start);
+         it->Valid() && it->key().ToString() < key_end;
+         it->Next()) {
+        string s = it->key().ToString();
+        char keyt = graph_key_type(s);
+        switch (keyt) {
+        case 't': {
+            Edge edge;
+            int64_t id1, id2;
+            char type;
+            parse_edge(it->key().ToString(), it->value().ToString(), type, id1, id2, edge);
+            get_edge(id2, id1, edge);
+            edges.push_back(edge);
+        } break;
+        default:
+            // there should only be edges from here
+            cerr << keyt << endl;
+            assert(false);
+            break;
+        }
+    }
 }
 
 void Index::put_kmer(const string& kmer, const Matches& matches) {

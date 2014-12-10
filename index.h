@@ -60,6 +60,8 @@ public:
     const string key_for_node(int64_t id);
     const string key_for_edge_from_to(int64_t from, int64_t to);
     const string key_for_edge_to_from(int64_t to, int64_t from);
+    const string key_prefix_for_edges_from_node(int64_t from);
+    const string key_prefix_for_edges_to_node(int64_t to);
     const string key_for_kmer(const string& kmer);
 
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);

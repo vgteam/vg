@@ -67,8 +67,8 @@ void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -n, --node ID         find node, return 1-hop context as graph" << endl
-        // << "    -f, --edges-from ID   return edges from node with ID" << endl
-        // << "    -t, --edges-to ID     return edges from node with ID" << endl
+         << "    -f, --edges-from ID   return edges from node with ID" << endl
+         << "    -t, --edges-to ID     return edges from node with ID" << endl
          << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
          << "    -c, --context STEPS   expand the context of the kmer hit subgraphs" << endl
          << "    -s, --sequence STR    search for sequence STR using --kmer-size kmers" << endl
@@ -474,6 +474,18 @@ int main_find(int argc, char** argv) {
         }
         // return it
         result_graph.graph.SerializeToOstream(&cout);
+    } else if (from_id != 0) {
+        vector<Edge> edges;
+        index.get_edges_from(from_id, edges);
+        for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
+            cout << e->from() << "\t" << e->to() << endl;
+        }
+    } else if (to_id != 0) {
+        vector<Edge> edges;
+        index.get_edges_to(to_id, edges);
+        for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
+            cout << e->from() << "\t" << e->to() << endl;
+        }
     }
 
     if (!sequence.empty()) {
