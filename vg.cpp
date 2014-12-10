@@ -884,6 +884,14 @@ Alignment& VG::align(Alignment& alignment) {
     delete gssw_aligner;
     gssw_aligner = NULL;
 
+    // adjust the alignment position to respect the trim of the first node
+    Path* path = alignment.mutable_path();
+    Node* first_node = node_by_id[path->mutable_mapping(0)->node_id()];
+    if (first_node->has_trim()) {
+        int32 t = path->target_position();
+        path->set_target_position(t - first_node->trim());
+    }
+
     // remove root
     destroy_node(root);
     
