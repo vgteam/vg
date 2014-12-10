@@ -765,6 +765,8 @@ int main_view(int argc, char** argv) {
         char *json2 = pb2json(graph->graph);
         cout<<json2<<endl;
         free(json2);
+    } else if (output_type == "GFA") {
+        graph->to_gfa(std::cout);
     }
 
     delete graph;

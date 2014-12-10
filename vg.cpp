@@ -854,6 +854,20 @@ void VG::to_dot(ostream& out) {
     out << "}" << endl;
 }
 
+void VG::to_gfa(ostream& out) {
+    out << "H" << "\t" << "HVN:Z:1.0" << endl;
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        out << "S" << "\t" << n->id() << "\t" << n->sequence() << endl;
+    }
+    for (int i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        Node* p = node_by_id[e->from()];
+        Node* n = node_by_id[e->to()];
+        out << "L" << "\t" << p->id() << "\t" << "-" << "\t" << n->id() << "\t" << "+" << "\t" << "0M" << endl;
+    }
+}
+
 void VG::destroy_alignable_graph(void) {
     if (gssw_aligner != NULL) {
         delete gssw_aligner;

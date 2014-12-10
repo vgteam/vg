@@ -119,6 +119,7 @@ public:
     //void node_replace_next(Node* node, Node* before, Node* after);
 
     void to_dot(ostream& out);
+    void to_gfa(ostream& out);
     bool is_valid(void);
 
     void topologically_sort_graph(void);
