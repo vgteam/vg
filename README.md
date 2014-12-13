@@ -44,35 +44,33 @@ A variety of commands are available:
 
 ## Development
 
-### Done
-
-- data models for reference graph and alignments against it (vg.proto)
-- local alignment against the graph (vg.cpp)
-- index capable of storing large graphs on disk and efficiently retrieving subgraphs (index.cpp)
-- protobuf, json, and dot format serialization (view)
-- binary format for graph and alignments against it
-- command-line interfaces: construct, view, index, find, align, paths (main.cpp)
-- tap-compliant tests
-- kmer-based indexing of the graph
-- graph statistics
-- subgraph decomposition
-- k-path enumeration
-- graph joining: combine subgraphs represented in a single or different .vg files
-- GFA output
-
-### To do
-
-- global mapping against large graphs (depends on indexing of graph and kmers, which are done)
-- alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
-- GFA input (efficient use requires bluntifying the graph, removing node-node overlaps)
-- index metadata (to quickly check if we have kmer index of size >=N)
-- positional indexing (can be done on graph constructed from VCF+fasta reference)
-- interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
-- per-node, per-sample quality and count information
-- dynamic programming method to estimate path qualities given per-node qualities and counts
-- genotype likelihood generation (given a source and sink, genotype paths)
-- genotyping of paths using freebayes-like genotyping model
-- generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
+- [x] data models for reference graph and alignments against it (vg.proto)
+- [x] local alignment against the graph (vg.cpp)
+- [x] index capable of storing large graphs on disk and efficiently retrieving subgraphs (index.cpp)
+- [x] protobuf, json, and dot format serialization (view)
+- [x] binary format for graph and alignments against it
+- [x] command-line interfaces: construct, view, index, find, align, paths (main.cpp)
+- [x] tap-compliant tests
+- [x] kmer-based indexing of the graph
+- [x] graph statistics
+- [x] subgraph decomposition
+- [x] k-path enumeration
+- [x] graph joining: combine subgraphs represented in a single or different .vg files
+- [x] GFA output
+- [x] global mapping against large graphs (depends on indexing of graph and kmers, which are done)
+- [ ] efficient construction for large DAGs (e.g. 1000G phase3): current approach is very slow for long reference sequences due to string copying
+- [ ] alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
+- [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps)
+- [ ] index metadata (to quickly check if we have kmer index of size >=N)
+- [ ] positional indexing (can be done on graph constructed from VCF+fasta reference)
+- [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
+- [ ] per-node, per-sample quality and count information on graph
+- [ ] compress a sample's sequencing results into a single graph
+- [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
+- [ ] genotype likelihood generation (given a source and sink, genotype paths)
+- [ ] genotyping of paths using freebayes-like genotyping model
+- [ ] genotyping using dynamic programming genotyping model and compressed sequence results against graph
+- [ ] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
 
 ## License
 
