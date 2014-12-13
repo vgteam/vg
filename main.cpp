@@ -2,12 +2,13 @@
 #include <fstream>
 #include <getopt.h>
 #include "pb2json.h"
+#include "vg.h"
 #include "vg.pb.h"
+#include "index.h"
+#include "mapper.h"
+#include "leveldb/db.h"
 #include "Variant.h"
 #include "Fasta.h"
-#include "index.h"
-#include "vg.h"
-#include "leveldb/db.h"
 
 using namespace std;
 using namespace google::protobuf;
@@ -23,6 +24,7 @@ void vg_help(char** argv) {
          << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
          << "  -- paths         traverse paths in the graph" << endl
          << "  -- align         local alignment" << endl
+         << "  -- map           global alignment" << endl
          << "  -- stats         metrics describing graph properties" << endl
          << "  -- join          combine graphs" << endl;
 }
@@ -32,6 +34,13 @@ void help_align(char** argv) {
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
         //<< "    -p, --print-cigar     output graph cigar for alignments" << endl
+         << "    -j, --json            output alignments in JSON format (default)" << endl;
+}
+
+void help_map(char** argv) {
+    cerr << "usage: " << argv[0] << " map [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -j, --json            output alignments in JSON format (default)" << endl;
 }
 
@@ -705,6 +714,92 @@ int main_align(int argc, char** argv) {
 
 }
 
+int main_map(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_map(argv);
+        return 1;
+    }
+
+    string seq;
+    int kmer_size = 0;
+
+    bool output_json = true;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                /* These options set a flag. */
+                //{"verbose", no_argument,       &verbose_flag, 1},
+                {"sequence", required_argument, 0, 's'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "s:jhk:",
+                         long_options, &option_index);
+        
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+        case 's':
+            seq = optarg;
+            break;
+
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
+
+        case 'j':
+            output_json = true;
+            break;
+ 
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_map(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    if (kmer_size == 0) {
+        cerr << "error:[vg map] a nonzero kmer size is required when mapping" << endl;
+        return 1;
+    }
+
+    if (seq.empty()) {
+        cerr << "error:[vg map] a sequence is required when mapping" << endl;
+        return 1;
+    }
+
+    string file_name = argv[optind];
+    // should be configurable
+    string db_name = file_name + ".index";
+
+    Index index(db_name);
+    Mapper mapper(&index);
+
+    Alignment alignment = mapper.align(seq, kmer_size);
+
+    if (output_json) {
+        char *json2 = pb2json(alignment);
+        cout<<json2<<endl;
+        free(json2);
+    }
+
+    return 0;
+
+}
+
 int main_view(int argc, char** argv) {
 
     if (argc == 2) {
@@ -901,6 +996,8 @@ int main(int argc, char *argv[])
         return main_view(argc, argv);
     } else if (command == "align") {
         return main_align(argc, argv);
+    } else if (command == "map") {
+        return main_map(argc, argv);
     } else if (command == "index") {
         return main_index(argc, argv);
     } else if (command == "find") {

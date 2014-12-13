@@ -2,6 +2,7 @@
 #define MAPPER_H
 
 #include <iostream>
+#include <map>
 #include "vg.h"
 #include "index.h"
 #include "pb2json.h"
@@ -24,7 +25,8 @@ public:
     ~Mapper(void);
     Index* index;
 
-    Alignment& map(Alignment& read);
+    Alignment align(string& seq, int kmer_size);
+    Alignment& align(Alignment& read, int kmer_size);
 
 };
 

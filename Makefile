@@ -11,7 +11,7 @@ LIBSNAPPY=snappy/libsnappy.a
 LIBLEVELDB=leveldb/libleveldb.a
 INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Ileveldb/include
 LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lleveldb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lleveldb -lsnappy -lz
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o
 
 all: vg libvg.a
 
@@ -62,6 +62,9 @@ vg.o: vg.cpp vg.h cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIB
 
 gssw_aligner.o: gssw_aligner.cpp gssw_aligner.h cpp/vg.pb.h $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(INCLUDES)
+
+mapper.o: mapper.cpp mapper.h cpp/vg.pb.h
+	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
 
 main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
