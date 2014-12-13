@@ -14,6 +14,8 @@ You'll need the protobuf and jansson development libraries installed on your ser
 
     sudo apt-get install protobuf-compiler libprotoc-dev libjansson-dev
 
+Other libraries may be required, but I have not detected this as they come pre-installed on travis-ci. Please report any build difficulties.
+
 Now, obtain the repo and its submodules:
 
     git clone --recursive https://github.com/ekg/vg.git
@@ -24,23 +26,50 @@ Then build with `make`, and run with `./vg`.
 
 Try building a graph and aligning to it:
 
-    vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-    vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG x.vg
+```sh
+vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG x.vg
+```
 
 Note that you don't have to store the graph on disk at all, you can simply pipe it into the local aligner:
 
-    vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -
+```sh
+vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -
+```
+
+You can also index and then map reads against the index of the graph:
+
+```sh
+# construct the graph
+vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+
+# store the graph in the index, and also index the kmers in the graph of size 11
+vg index -s -k 11 x.vg
+
+# align a read to the indexed version of the graph
+# note that the graph file is not opened, but x.vg.index is assumed
+vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -k 11 x.vg >alignment.json
+```
 
 A variety of commands are available:
 
 - *construct*: graph construction
-- *view*: conversion (protobuf/json/GFA)
+- *view*: conversion (dot/protobuf/json/GFA)
 - *index*: index features of the graph in a disk-backed key/value store
 - *find*: use an index to find nodes, edges, kmers, or positions
 - *paths*: traverse paths in the graph
 - *align*: local alignment
+- *map*: global alignment (kmer-driven)
 - *stats*: metrics describing graph properties
 - *join*: combine graphs
+
+## Implementation notes
+
+vg is based around a graph object (vg::VG) which has a native serialized representation that is almost identical on disk and in-memory, with the exception of adjacency indexes that are built when the object is parsed from a stream or file. These graph objects are the results of queries of larger indexes, or manipulation (for example joins or concatenations) of other graphs. I've designed it for interactive, stream-oriented use. You can, for instance, construct a graph, merge it with another one, and pipe the result into a local alignment process. The graph object can be stored in an index (vg::Index), aligned against directly (vg::GSSWAligner), or "mapped" against in a global sense (vg::Mapper), using an index of kmers.
+
+The current interfaces are rather rough around the edges, and are mostly built to enable interactive debugging and testing. Only relatively small graphs with dense variation have been tested. The construction of larger graphs should follow from a series of straightforward optimizations.
+
+Once constructed, a variant graph (.vg is the suggested file extension) is typically around the same size as the reference (FASTA) and uncompressed variant set (VCF) which were used to build it. The index, however, may be much larger, perhaps more than an order of magnitude. This is less of a concern as it is not loaded into memory, but could be a pain point as vg is scaled up to whole-genome mapping.
 
 ## Development
 
@@ -57,15 +86,20 @@ A variety of commands are available:
 - [x] k-path enumeration
 - [x] graph joining: combine subgraphs represented in a single or different .vg files
 - [x] GFA output
-- [x] global mapping against large graphs (depends on indexing of graph and kmers, which are done)
-- [ ] efficient construction for large DAGs (e.g. 1000G phase3): current approach is very slow for long reference sequences due to string copying
+- [x] global mapping against large graphs
+- [ ] efficient construction for large DAGs
+- [ ] improve memory performance of kmer indexing for large graphs by storing incremental results
+- [ ] global alignment: retain and expand only the most-likely subgraphs
+- [ ] verify that snappy compression is enabled for index, and measure size for large graphs
 - [ ] alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
 - [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps)
 - [ ] index metadata (to quickly check if we have kmer index of size >=N)
-- [ ] positional indexing (can be done on graph constructed from VCF+fasta reference)
+- [ ] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's leveldb backend)
+- [ ] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
 - [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - [ ] per-node, per-sample quality and count information on graph
-- [ ] compress a sample's sequencing results into a single graph
+- [ ] express a sample's sequencing results as a labeled graph
+- [ ] multiple samples in one graph (colors)
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
 - [ ] genotype likelihood generation (given a source and sink, genotype paths)
 - [ ] genotyping of paths using freebayes-like genotyping model
