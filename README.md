@@ -88,7 +88,7 @@ Once constructed, a variant graph (.vg is the suggested file extension) is typic
 - [x] GFA output
 - [x] global mapping against large graphs
 - [ ] efficient construction for large DAGs
-- [ ] improve memory performance of kmer indexing for large graphs by storing incremental results
+- [ ] improve memory performance of kmer indexing for large graphs by storing incremental results of k-path generation
 - [ ] global alignment: retain and expand only the most-likely subgraphs
 - [ ] verify that snappy compression is enabled for index, and measure size for large graphs
 - [ ] alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
