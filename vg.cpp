@@ -164,6 +164,21 @@ void VG::clear_indexes(void) {
     edge_to_from.clear();
 }
 
+void VG::rebuild_indexes(void) {
+    clear_indexes();
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        node_index[n] = i;
+        node_by_id[n->id()] = n;
+    }
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        edge_index[e] = i;
+        edge_from_to[e->from()][e->to()] = e;
+        edge_to_from[e->to()][e->from()] = e;
+    }
+}
+
 bool VG::has_node(Node* node) {
     return node && has_node(node->id());
 }
@@ -228,18 +243,7 @@ void VG::merge(VG& g) {
 void VG::merge(Graph& g) {
     graph.mutable_node()->MergeFrom(g.node());
     graph.mutable_edge()->MergeFrom(g.edge());
-    clear_indexes();
-    for (int64_t i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        node_index[n] = i;
-        node_by_id[n->id()] = n;
-    }
-    for (int64_t i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
-        edge_index[e] = i;
-        edge_from_to[e->from()][e->to()] = e;
-        edge_to_from[e->to()][e->from()] = e;
-    }
+    rebuild_indexes();
 }
 
 // iterates over nodes and edges, adding them in when they don't already exist
@@ -259,6 +263,88 @@ void VG::extend(VG& g) {
 }
 
 
+/*
+  // state to update
+
+  // nodes by id
+  map<int64_t, Node*> node_by_id;
+
+  // nodes by position in nodes repeated field
+  // this is critical to allow fast deletion of nodes
+  map<Node*, int> node_index;
+
+  // edges indexed by nodes they connect
+  map<int64_t, map<int64_t, Edge*> > edge_from_to;
+  map<int64_t, map<int64_t, Edge*> > edge_to_from;
+*/
+
+void VG::compress_ids(void) {
+    // TODO should check if this would overflow (seems unlikely)
+    int64_t step = graph.node_size()*2;
+    increment_node_ids(step);
+    int64_t id = 1; // start at 1
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        swap_node_id(n, id++);
+    }
+}
+
+void VG::increment_node_ids(int64_t increment) {
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        n->set_id(n->id()+increment);
+    }
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        e->set_from(e->from()+increment);
+        e->set_to(e->to()+increment);
+    }
+    rebuild_indexes();
+}
+
+void VG::decrement_node_ids(int64_t decrement) {
+    increment_node_ids(-decrement);
+}
+
+void VG::swap_node_id(int64_t node_id, int64_t new_id) {
+    swap_node_id(node_by_id[node_id], new_id);
+}
+
+void VG::swap_node_id(Node* node, int64_t new_id) {
+
+    int64_t old_id = node->id();
+    node->set_id(new_id);
+    node_by_id.erase(old_id);
+
+    // we check if the old node exists, and bail out if we're not doing what we expect
+    assert(node_by_id.find(new_id) == node_by_id.end());
+
+    // otherwise move to a new id
+    node_by_id[new_id] = node;
+
+    map<int64_t, Edge*>& from = edge_to_from[old_id];
+    for (map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
+        create_edge(e->first, new_id);
+        destroy_edge(e->second);
+    }
+
+    map<int64_t, Edge*>& to = edge_from_to[old_id];
+    for (map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
+        create_edge(new_id, e->first);
+        destroy_edge(e->second);
+    }
+
+    // we should have a valid graph
+    if (!is_valid()) {
+        cerr << "graph is invalid after swapping node #" << node->id()
+             << " to " << new_id << endl;
+        exit(1);
+    }
+
+}
+
+
+
 // construct from VCF records
 // --------------------------
 // algorithm
@@ -273,10 +359,24 @@ void VG::extend(VG& g) {
 // add new node for alt alleles, connect to start and end node in reference path
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
+VG::VG(vector<vcf::Variant>& records, string& sequence, string& chrom, string& offset) {
+
+}
+
+
+
 VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
     init();
     for (vector<string>::iterator r = reference.index->sequenceNames.begin();
          r != reference.index->sequenceNames.end(); ++r) {
+
+
+
+
+        // to scale up, we have to avoid big string memcpys
+        // so do this for regions of size N, where N is a lot bigger than the largest deletions we expect to find (>100kb) but still small enough for fast construction performanceOB
+
+        // for region of size N ...
 
         string& seqName = *r;
         map<long, Node*> reference_path;
@@ -293,6 +393,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
         vcf::Variant var(variantCallFile);
 
         while (variantCallFile.getNextVariant(var)) {
+            //cerr << var << endl;
 
             int current_pos = (long int) var.position - 1;
             // decompose the alt
@@ -407,7 +508,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
         }
     }
 
-    topologically_sort_graph();
+    //topologically_sort_graph();
 
 }
 

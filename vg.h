@@ -46,6 +46,7 @@ public:
     VG(set<Node*>& nodes, set<Edge*>& edges);
     // construct from VCF records
     VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
+    VG(vector<vcf::Variant>& records, string& sequence, string& chrom, string& offset);
     ~VG(void);
     VG& operator=(const VG& other) {
         if (this != &other) {
@@ -61,6 +62,7 @@ public:
 
     void build_indexes(void);
     void clear_indexes(void);
+    void rebuild_indexes(void);
 
     // literally merge protobufs
     void merge(Graph& g);
@@ -70,6 +72,15 @@ public:
     void merge(VG& g);
     // helper to merge
     void remove_duplicated_in(VG& g);
+
+    // can we handle this with merge?
+    //void concatenate(VG& g);
+
+    void compress_ids(void);
+    void increment_node_ids(int64_t increment);
+    void decrement_node_ids(int64_t decrement);
+    void swap_node_id(int64_t node_id, int64_t new_id);
+    void swap_node_id(Node* node, int64_t new_id);
 
     // iteratively add when nodes and edges are novel
     // good when there are very many overlaps
