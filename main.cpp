@@ -26,11 +26,12 @@ void vg_help(char** argv) {
          << "  -- align         local alignment" << endl
          << "  -- map           global alignment" << endl
          << "  -- stats         metrics describing graph properties" << endl
-         << "  -- join          combine graphs" << endl;
+         << "  -- join          combine graphs" << endl
+         << "  -- ids           manipulate node ids" << endl;
 }
 
 void help_align(char** argv) {
-    cerr << "usage: " << argv[0] << " align [options] <graph.vg>" << endl
+    cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.vga" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
         //<< "    -p, --print-cigar     output graph cigar for alignments" << endl
@@ -38,7 +39,7 @@ void help_align(char** argv) {
 }
 
 void help_map(char** argv) {
-    cerr << "usage: " << argv[0] << " map [options] <graph.vg>" << endl
+    cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -j, --json            output alignments in JSON format (default)" << endl;
@@ -53,7 +54,7 @@ void help_view(char** argv) {
 }
 
 void help_construct(char** argv) {
-    cerr << "usage: " << argv[0] << " construct [options]" << endl
+    cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
          << "options:" << endl
          << "    -v, --vcf FILE        input VCF" << endl
          << "    -r, --reference FILE  input FASTA reference" << endl
@@ -73,7 +74,7 @@ void help_index(char** argv) {
 }
 
 void help_find(char** argv) {
-    cerr << "usage: " << argv[0] << " find [options] <graph.vg>" << endl
+    cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
          << "options:" << endl
          << "    -n, --node ID         find node, return 1-hop context as graph" << endl
          << "    -f, --edges-from ID   return edges from node with ID" << endl
@@ -103,12 +104,106 @@ void help_stats(char** argv) {
 }
 
 void help_join(char** argv) {
-    cerr << "usage: " << argv[0] << " join [options] <graph1.vg> [graph2.vg ...]" << endl
+    cerr << "usage: " << argv[0] << " join [options] <graph1.vg> [graph2.vg ...] >joined.vg" << endl
          << "joins graphs and sub-graphs into a single variant graph" << endl
          << "a single root node with sequence 'N' is added" << endl
          << "assumes a single id namespace for all graphs to join" << endl;
 }
 
+void help_ids(char** argv) {
+    cerr << "usage: " << argv[0] << " ids [options] <graph.vg> >new.vg" << endl
+         << "options:" << endl
+         << "    -c, --compress       minimize the space of integers used by the ids" << endl
+         << "    -i, --increment N    increase ids by N" << endl
+         << "    -d, --decrement N    decrease ids by N" << endl;
+}
+
+
+int main_ids(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_ids(argv);
+        return 1;
+    }
+
+    bool compress = false;
+    int64_t increment = 0;
+    int64_t decrement = 0;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"compress", no_argument, 0, 'c'},
+                {"increment", required_argument, 0, 'i'},
+                {"decrement", required_argument, 0, 'd'},
+                {"help", no_argument, 0, 'h'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hci:d:",
+                         long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'c':
+            compress = true;
+            break;
+
+        case 'i':
+            increment = atoi(optarg);
+            break;
+
+        case 'd':
+            decrement = atoi(optarg);
+            break;
+
+        case 'h':
+        case '?':
+            help_ids(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    VG* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(file_name.c_str());
+        graph = new VG(in);
+    }
+
+    if (compress) {
+        graph->compress_ids();
+    }
+
+    if (increment != 0) {
+        graph->increment_node_ids(increment);
+    }
+
+    if (decrement != 0) {
+        graph->decrement_node_ids(decrement);
+    }
+
+    graph->graph.SerializeToOstream(&std::cout);
+
+    delete graph;
+
+    return 0;
+
+}
 
 int main_join(int argc, char** argv) {
 
@@ -1008,6 +1103,8 @@ int main(int argc, char *argv[])
         return main_stats(argc, argv);
     } else if (command == "join") {
         return main_join(argc, argv);
+    } else if (command == "ids") {
+        return main_ids(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
