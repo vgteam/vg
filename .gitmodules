@@ -19,3 +19,6 @@
 [submodule "bash-tap"]
 	path = bash-tap
 	url = https://github.com/illusori/bash-tap.git
+[submodule "rocksdb"]
+	path = rocksdb
+	url = https://github.com/facebook/rocksdb.git
