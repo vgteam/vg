@@ -278,9 +278,19 @@ void VG::extend(VG& g) {
   map<int64_t, map<int64_t, Edge*> > edge_to_from;
 */
 
+int64_t VG::max_node_id(void) {
+    int64_t max_id = 0;
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        if (n->id() > max_id) {
+            max_id = n->id();
+        }
+    }
+    return max_id;
+}
+
 void VG::compress_ids(void) {
-    // TODO should check if this would overflow (seems unlikely)
-    int64_t step = graph.node_size()*2;
+    int64_t step = max_node_id() + 1;
     increment_node_ids(step);
     int64_t id = 1; // start at 1
     for (int i = 0; i < graph.node_size(); ++i) {
@@ -335,11 +345,13 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
     }
 
     // we should have a valid graph
+    /*
     if (!is_valid()) {
         cerr << "graph is invalid after swapping node #" << node->id()
              << " to " << new_id << endl;
         exit(1);
     }
+    */
 
 }
 

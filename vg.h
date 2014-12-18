@@ -78,6 +78,7 @@ public:
     // can we handle this with merge?
     //void concatenate(VG& g);
 
+    int64_t max_node_id(void);
     void compress_ids(void);
     void increment_node_ids(int64_t increment);
     void decrement_node_ids(int64_t decrement);
