@@ -9,7 +9,7 @@ vg=../vg
 all: test clean
 
 test: make_graph $(vg)
-	prove t
+	prove -v t
 
 $(vg):
 	cd .. && make vg
