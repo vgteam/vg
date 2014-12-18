@@ -508,7 +508,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
         }
     }
 
-    //topologically_sort_graph();
+    topologically_sort_graph();
 
 }
 
@@ -1157,31 +1157,24 @@ void VG::topological_sort(list<Node*>& sorted_nodes) {
         unmarked_nodes.insert(graph.mutable_node(i));
     }
     while (!unmarked_nodes.empty()) {
-        Node* node = *(unmarked_nodes.begin());
-        visit_node(node,
-                   sorted_nodes,
-                   unmarked_nodes,
-                   temporary_marks);
-    }
-}
-
-void VG::visit_node(Node* node,
-                              list<Node*>& sorted_nodes,
-                              set<Node*>& unmarked_nodes,
-                              set<Node*>& temporary_marks) {
-    if (unmarked_nodes.find(node) != unmarked_nodes.end()) {
-        temporary_marks.insert(node);
-        map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
-        if (e != edge_from_to.end()) {
-            for (map<int64_t, Edge*>::iterator f = e->second.begin(); f != e->second.end(); ++f) {
-                Node* to = node_by_id[f->second->to()];
-                visit_node(to,
-                           sorted_nodes,
-                           unmarked_nodes,
-                           temporary_marks);
+        deque<Node*> visit;
+        visit.push_front(*(unmarked_nodes.begin()));
+        while (!visit.empty()) {
+            Node* node = visit.front();
+            visit.pop_front();
+            if (unmarked_nodes.find(node) != unmarked_nodes.end()) {
+                temporary_marks.insert(node);
+                map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
+                if (e != edge_from_to.end()) {
+                    for (map<int64_t, Edge*>::iterator f = e->second.begin();
+                         f != e->second.end(); ++f) {
+                        Node* to = node_by_id[f->second->to()];
+                        visit.push_front(to);
+                    }
+                }
+                unmarked_nodes.erase(node);
+                sorted_nodes.push_front(node);
             }
         }
-        unmarked_nodes.erase(node);
-        sorted_nodes.push_front(node);
     }
 }

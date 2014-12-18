@@ -4,6 +4,8 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <deque>
+#include <list>
 #include "gssw.h"
 #include "gssw_aligner.h"
 #include "vg.pb.h"
@@ -135,10 +137,6 @@ public:
 
     void topologically_sort_graph(void);
     void topological_sort(list<Node*>& sorted_nodes);
-    void visit_node(Node* node,
-                    list<Node*>& sorted_nodes,
-                    set<Node*>& unmarked_nodes,
-                    set<Node*>& temporary_marks);
     void swap_nodes(Node* a, Node* b);
 
     Alignment& align(Alignment& alignment);
