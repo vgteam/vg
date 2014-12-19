@@ -25,8 +25,9 @@ void vg_help(char** argv) {
          << "  -- align         local alignment" << endl
          << "  -- map           global alignment" << endl
          << "  -- stats         metrics describing graph properties" << endl
-         << "  -- join          combine graphs" << endl
-         << "  -- ids           manipulate node ids" << endl;
+         << "  -- join          combine graphs via a new head" << endl
+         << "  -- ids           manipulate node ids" << endl
+         << "  -- concat        concatenate graphs tail-to-head" << endl;
 }
 
 void help_align(char** argv) {
@@ -104,9 +105,9 @@ void help_stats(char** argv) {
 
 void help_join(char** argv) {
     cerr << "usage: " << argv[0] << " join [options] <graph1.vg> [graph2.vg ...] >joined.vg" << endl
-         << "joins graphs and sub-graphs into a single variant graph" << endl
-         << "a single root node with sequence 'N' is added" << endl
-         << "assumes a single id namespace for all graphs to join" << endl;
+         << "Joins graphs and sub-graphs into a single variant graph by connecting their" << endl
+         << "heads to a single root node with sequence 'N'." << endl
+         << "Assumes a single id namespace for all graphs to join." << endl;
 }
 
 void help_ids(char** argv) {
@@ -117,6 +118,75 @@ void help_ids(char** argv) {
          << "    -d, --decrement N    decrease ids by N" << endl;
 }
 
+void help_concat(char** argv) {
+    cerr << "usage: " << argv[0] << " concat [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
+         << "Concatenates graphs in order by adding edges from the tail nodes of the" << endl
+         << "predecessor to the head nodes of the following graph. Node IDs are" << endl
+         << "compacted, so care should be taken if consistent IDs are required." << endl;
+}
+
+int main_concat(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_concat(argv);
+        return 1;
+    }
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"help", no_argument, 0, 'h'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "h",
+                         long_options, &option_index);
+        
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+        case 'h':
+        case '?':
+            help_join(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    list<VG*> graphs;
+
+    while (optind < argc) {
+        VG* graph;
+        string file_name = argv[optind++];
+        if (file_name == "-") {
+            graph = new VG(std::cin);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            graph = new VG(in);
+        }
+        graphs.push_back(graph);
+    }
+
+    VG merged;
+    for (list<VG*>::iterator g = graphs.begin(); g != graphs.end(); ++g) {
+        merged.append(**g);
+    }
+
+    // output
+    merged.graph.SerializeToOstream(&std::cout);
+
+    return 0;
+}
 
 int main_ids(int argc, char** argv) {
 
@@ -1104,6 +1174,8 @@ int main(int argc, char *argv[])
         return main_join(argc, argv);
     } else if (command == "ids") {
         return main_ids(argc, argv);
+    } else if (command == "concat") {
+        return main_concat(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
