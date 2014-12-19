@@ -6,7 +6,6 @@
 #include "vg.pb.h"
 #include "index.h"
 #include "mapper.h"
-#include "leveldb/db.h"
 #include "Variant.h"
 #include "Fasta.h"
 
@@ -70,7 +69,7 @@ void help_index(char** argv) {
          << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
          << "    -p, --positions       index nodes and edges by position" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
-         << "    -d, --db-name DIR     create leveldb in DIR (defaults to <graph>.index/)" << endl;
+         << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl;
 }
 
 void help_find(char** argv) {

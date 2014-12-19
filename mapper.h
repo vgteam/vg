@@ -6,7 +6,6 @@
 #include "vg.h"
 #include "index.h"
 #include "pb2json.h"
-#include "leveldb/db.h"
 
 namespace vg {
 
