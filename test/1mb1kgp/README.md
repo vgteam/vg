@@ -1,0 +1,1 @@
+This is test data from the 1000 Genomes Project, phase 3 release. It's over chr20:1000000-2000000. The idea is to build a graph over something that's of reasonable size, in this case, 1 megabase. The reference coordinates and reference name have been changed, and the reference has been reduced in size to only the overlapping megabase.
