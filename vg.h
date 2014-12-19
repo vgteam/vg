@@ -89,6 +89,10 @@ public:
     // good when there are very many overlaps
     void extend(VG& g);
 
+    // modify ids of the second graph to ensure we don't have conflicts
+    // then attach tails of this graph to the heads of the other, and extend(g)
+    void append(VG& g);
+
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
     void add_edge(Edge& edge);

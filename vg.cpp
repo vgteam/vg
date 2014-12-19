@@ -262,9 +262,40 @@ void VG::extend(VG& g) {
     }
 }
 
+// extend this graph by g, connecting the tails of this graph to the heads of the other
+// the ids of the second graph are modified for compact representation
+void VG::append(VG& g) {
+
+    // compact and increment the ids of g out of range of this graph
+    g.compact_ids();
+    g.increment_node_ids(max_node_id());
+
+    vector<Node*> heads;
+    g.head_nodes(heads);
+    // collect ids as node*'s may change
+    vector<int64_t> heads_ids;
+    for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
+        heads_ids.push_back((*n)->id());
+    }
+
+    vector<Node*> tails;
+    this->tail_nodes(tails);
+
+    this->extend(g);
+
+    // now join the tails to heads
+    for (vector<Node*>::iterator n = tails.begin(); n != tails.end(); ++n) {
+        Node* t = *n;
+        for (vector<int64_t>::iterator h = heads_ids.begin(); h != heads_ids.end(); ++h) {
+            create_edge(t->id(), *h);
+        }
+    }
+
+}
+
 
 /*
-  // state to update
+  // state to update in sync
 
   // nodes by id
   map<int64_t, Node*> node_by_id;
