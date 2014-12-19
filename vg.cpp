@@ -1178,18 +1178,19 @@ else
     */
 
 void VG::topological_sort(deque<Node*>& l) {
-    set<Node*> s;
+    // using a map instead of a set ensures a stable sort across different systems
+    map<int64_t, Node*> s;
     vector<Node*> heads;
     // copy our edges
     map<int64_t, map<int64_t, Edge*> > edgesf = edge_from_to;
     map<int64_t, map<int64_t, Edge*> > edgest = edge_to_from;
     head_nodes(heads);
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
-        s.insert(*n);
+        s[(*n)->id()] = *n;
     }
     while (!s.empty()) {
-        Node* n = *(s.begin());
-        s.erase(n);
+        Node* n = s.begin()->second;
+        s.erase(n->id());
         l.push_back(n);
         map<int64_t, Edge*>& edges_from = edgesf[n->id()];
         for (map<int64_t, Edge*>::iterator f = edges_from.begin(); f != edges_from.end(); ++f) {
@@ -1197,7 +1198,7 @@ void VG::topological_sort(deque<Node*>& l) {
             edgesf[n->id()].erase(m->id());
             edgest[m->id()].erase(n->id());
             if (edgest[m->id()].empty()) {
-                s.insert(m);
+                s[m->id()] = m;
             }
         }
     }

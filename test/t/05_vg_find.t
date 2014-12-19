@@ -16,12 +16,11 @@ is $? 0 "indexing nodes and edges of graph"
 vg index -k 11 x.vg
 is $? 0 "indexing 11mers"
 
-# we should hit nodes 1 3 8 9 13 14
-node_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^S" | cut -f 2 | grep '9$\|5$\|7$\|6$\|3$\|1$' | wc -l)
-is $node_matches 6 "correct number of nodes for kmer find"
+node_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^S" | cut -f 2 | grep '1$\|2$\|9$\|5$\|6$\|8$' | wc -l)
+is $node_matches 6 "all expected nodes found via kmer find"
 
-edge_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^L" | cut -f 2 | grep '7$\|5$\|3$\|6$\|1$' | wc -l)
-is $edge_matches 5 "correct number of edges for kmer find"
+edge_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^L" | cut -f 2 | grep '1$\|2$\|8$\|5$\|6$' | wc -l)
+is $edge_matches 5 "all expected edges found via kmer find"
 
 rm -rf x.vg.index
 rm -f x.vg
