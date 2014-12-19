@@ -1,6 +1,6 @@
 .PHONY: all clean test get-deps
 
-CXX=g++ -std=c++11
+CXX=g++ -std=c++0x
 CXXFLAGS=-O3
 pb2json=pb2json/libpb2json.a
 VCFLIB=vcflib
