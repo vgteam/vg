@@ -4,8 +4,8 @@
 #include <iostream>
 #include <exception>
 #include <sstream>
-#include "leveldb/db.h"
-#include "leveldb/write_batch.h"
+#include "rocksdb/db.h"
+#include "rocksdb/write_batch.h"
 #include "pb2json.h"
 #include "vg.h"
 
@@ -13,7 +13,7 @@ namespace vg {
 
 /*
 
-  Cache our variant graph in a database (leveldb-backed) which enables us to quickly:
+  Cache our variant graph in a database (rocksdb-backed) which enables us to quickly:
   1) obtain specific nodes and edges from a large graph
   2) search nodes and edges by kmers that they contain or overlap them
   3) use a positional index to quickly build a small portion of the overall
@@ -43,8 +43,8 @@ public:
     char start_sep;
     char end_sep;
 
-    leveldb::DB* db;
-    leveldb::Options options;
+    rocksdb::DB* db;
+    rocksdb::Options options;
 
     void load_graph(VG& graph);
     void dump(std::ostream& out);
@@ -52,10 +52,10 @@ public:
     void put_node(const Node& node);
     void put_edge(const Edge& edge);
     void put_kmer(const string& kmer, const Matches& matches);
-    void batch_kmer(const string& kmer, const Matches& matches, leveldb::WriteBatch& batch);
+    void batch_kmer(const string& kmer, const Matches& matches, rocksdb::WriteBatch& batch);
 
-    leveldb::Status get_node(int64_t id, Node& node);
-    leveldb::Status get_edge(int64_t from, int64_t to, Edge& edge);
+    rocksdb::Status get_node(int64_t id, Node& node);
+    rocksdb::Status get_edge(int64_t from, int64_t to, Edge& edge);
     
     const string key_for_node(int64_t id);
     const string key_for_edge_from_to(int64_t from, int64_t to);

@@ -9,7 +9,7 @@ Index::Index(string& name) {
     end_sep = '\xff';
     options.create_if_missing = true;
     //options.error_if_exists = true;
-    leveldb::Status status = leveldb::DB::Open(options, name, &db);
+    rocksdb::Status status = rocksdb::DB::Open(options, name, &db);
     if (!status.ok()) {
         throw indexOpenException();
     }
@@ -200,7 +200,7 @@ string Index::metadata_entry_to_string(const string& key, const string& value) {
 
 
 void Index::dump(ostream& out) {
-    leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
+    rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         out << entry_to_string(it->key().ToString(), it->value().ToString()) << endl;
     }
@@ -212,16 +212,16 @@ void Index::put_node(const Node& node) {
     string data;
     node.SerializeToString(&data);
     string key = key_for_node(node.id());
-    db->Put(leveldb::WriteOptions(), key, data);
+    db->Put(rocksdb::WriteOptions(), key, data);
 }
 
 void Index::put_edge(const Edge& edge) {
     string data;
     edge.SerializeToString(&data);
-    db->Put(leveldb::WriteOptions(), key_for_edge_from_to(edge.from(), edge.to()), data);
+    db->Put(rocksdb::WriteOptions(), key_for_edge_from_to(edge.from(), edge.to()), data);
     // only store in from_to key
     string null_data;
-    db->Put(leveldb::WriteOptions(), key_for_edge_to_from(edge.to(), edge.from()), null_data);
+    db->Put(rocksdb::WriteOptions(), key_for_edge_to_from(edge.to(), edge.from()), null_data);
 }
 
 void Index::load_graph(VG& graph) {
@@ -234,18 +234,18 @@ void Index::load_graph(VG& graph) {
     }
 }
 
-leveldb::Status Index::get_node(int64_t id, Node& node) {
+rocksdb::Status Index::get_node(int64_t id, Node& node) {
     string value;
-    leveldb::Status s = db->Get(leveldb::ReadOptions(), key_for_node(id), &value);
+    rocksdb::Status s = db->Get(rocksdb::ReadOptions(), key_for_node(id), &value);
     if (s.ok()) {
         node.ParseFromString(value);
     }
     return s;
 }
 
-leveldb::Status Index::get_edge(int64_t from, int64_t to, Edge& edge) {
+rocksdb::Status Index::get_edge(int64_t from, int64_t to, Edge& edge) {
     string value;
-    leveldb::Status s = db->Get(leveldb::ReadOptions(), key_for_edge_from_to(from, to), &value);
+    rocksdb::Status s = db->Get(rocksdb::ReadOptions(), key_for_edge_from_to(from, to), &value);
     if (s.ok()) {
         edge.ParseFromString(value);
     }
@@ -267,11 +267,11 @@ void Index::expand_context(VG& graph, int steps = 1) {
 }
 
 void Index::get_context(int64_t id, VG& graph) {
-    leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
+    rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
     string key_start = key_for_node(id).substr(0,3+sizeof(int64_t));
-    leveldb::Slice start = leveldb::Slice(key_start);
+    rocksdb::Slice start = rocksdb::Slice(key_start);
     string key_end = key_start+end_sep;
-    leveldb::Slice end = leveldb::Slice(key_end);
+    rocksdb::Slice end = rocksdb::Slice(key_end);
     for (it->Seek(start);
          it->Valid() && it->key().ToString() < key_end;
          it->Next()) {
@@ -317,7 +317,7 @@ void Index::get_context(int64_t id, VG& graph) {
 
 void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
     string value;
-    leveldb::Status s = db->Get(leveldb::ReadOptions(), key_for_kmer(kmer), &value);
+    rocksdb::Status s = db->Get(rocksdb::ReadOptions(), key_for_kmer(kmer), &value);
     //if (!s.ok()) cerr << "read of kmer " << kmer << " is not OK" << endl;
     // get the kmer matches and store the nodes in the graph
     Matches matches;
@@ -343,11 +343,11 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
 }
 
 void Index::get_edges_from(int64_t from, vector<Edge>& edges) {
-    leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
+    rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
     string key_start = key_prefix_for_edges_from_node(from);
-    leveldb::Slice start = leveldb::Slice(key_start);
+    rocksdb::Slice start = rocksdb::Slice(key_start);
     string key_end = key_start+end_sep;
-    leveldb::Slice end = leveldb::Slice(key_end);
+    rocksdb::Slice end = rocksdb::Slice(key_end);
     for (it->Seek(start);
          it->Valid() && it->key().ToString() < key_end;
          it->Next()) {
@@ -371,11 +371,11 @@ void Index::get_edges_from(int64_t from, vector<Edge>& edges) {
 }
 
 void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
-    leveldb::Iterator* it = db->NewIterator(leveldb::ReadOptions());
+    rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
     string key_start = key_prefix_for_edges_to_node(to);
-    leveldb::Slice start = leveldb::Slice(key_start);
+    rocksdb::Slice start = rocksdb::Slice(key_start);
     string key_end = key_start+end_sep;
-    leveldb::Slice end = leveldb::Slice(key_end);
+    rocksdb::Slice end = rocksdb::Slice(key_end);
     for (it->Seek(start);
          it->Valid() && it->key().ToString() < key_end;
          it->Next()) {
@@ -403,11 +403,11 @@ void Index::put_kmer(const string& kmer, const Matches& matches) {
     string data;
     matches.SerializeToString(&data);
     string key = key_for_kmer(kmer);
-    leveldb::Status s = db->Put(leveldb::WriteOptions(), key, data);
+    rocksdb::Status s = db->Put(rocksdb::WriteOptions(), key, data);
     if (!s.ok()) cerr << "put failed" << endl;
 }
 
-void Index::batch_kmer(const string& kmer, const Matches& matches, leveldb::WriteBatch& batch) {
+void Index::batch_kmer(const string& kmer, const Matches& matches, rocksdb::WriteBatch& batch) {
     string data;
     matches.SerializeToString(&data);
     string key = key_for_kmer(kmer);
@@ -425,7 +425,7 @@ void Index::populate_matches(Matches& matches, map<Node*, int>& kmer_node_pos) {
 }
 
 void Index::store_kmers(map<string, map<Node*, int> >& kmer_map) {
-    leveldb::WriteBatch batch;
+    rocksdb::WriteBatch batch;
     for (map<string, map<Node*, int> >::iterator k = kmer_map.begin(); k != kmer_map.end(); ++k) {
         const string& kmer = k->first;
         map<Node*, int>& kmer_node_pos = k->second;
@@ -433,7 +433,7 @@ void Index::store_kmers(map<string, map<Node*, int> >& kmer_map) {
         populate_matches(matches, kmer_node_pos);
         batch_kmer(kmer, matches, batch);
     }
-    leveldb::Status s = db->Write(leveldb::WriteOptions(), &batch);
+    rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
     if (!s.ok()) cerr << "an error occurred while inserting kmers" << endl;
 }
 

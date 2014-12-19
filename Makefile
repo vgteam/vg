@@ -1,16 +1,15 @@
 .PHONY: all clean test get-deps
 
-CXX=g++
+CXX=g++ -std=c++11
 CXXFLAGS=-O3
 pb2json=pb2json/libpb2json.a
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
 LIBSNAPPY=snappy/libsnappy.a
-#LIBHYPERLEVELDB=HyperLevelDB/libhyperleveldb.a
-LIBLEVELDB=leveldb/libleveldb.a
-INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Ileveldb/include
-LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lleveldb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lleveldb -lsnappy -lz
+LIBROCKSDB=rocksdb/librocksdb.a
+INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include
+LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lrocksdb -lsnappy -lz -lbz2
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o
 
 all: vg libvg.a
@@ -18,7 +17,7 @@ all: vg libvg.a
 get-deps:
 	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev
 
-test:
+test: vg libvg.a
 	cd test && $(MAKE)
 
 profiling:
@@ -28,14 +27,8 @@ $(LIBSNAPPY): snappy/*cc snappy/*h
 	cd snappy && mkdir -p build && ./autogen.sh && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
 	cp snappy/build/lib/libsnappy.a snappy/
 
-$(LIBLEVELDB): leveldb/include/leveldb/*.h leveldb/db/*.c leveldb/db/*.cc leveldb/db/*.h
-	cd leveldb && $(MAKE) libleveldb.a
-
-#$(LIBHYPERLEVELDB):
-#	cd HyperLevelDB && autoreconf -i && mkdir -p build && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
-
-#test: libsnappy.a libleveldb.a
-#        g++ -pthread -Ileveldb/include test.cpp -o test -L. -lleveldb -lsnappy
+$(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksdb/db/*.h
+	cd rocksdb && $(MAKE) static_lib
 
 $(pb2json):
 	cd pb2json && $(MAKE) libpb2json.a
@@ -72,7 +65,7 @@ main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
 index.o: index.cpp index.h
 	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBLEVELDB) $(LIBSNAPPY)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
@@ -86,4 +79,4 @@ clean:
 	cd vcflib && $(MAKE) clean
 	cd snappy && $(MAKE) clean
 	rm -f snappy/libsnappy.a
-	cd leveldb && $(MAKE) clean
+	cd rocksdb && $(MAKE) clean
