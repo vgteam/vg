@@ -2,20 +2,20 @@
 
 CXX=g++
 VCFLIB=vcflib
-INCLUDES=-I../ -I../pb2json -I../cpp -I../$(VCFLIB)/src -I../$(VCFLIB) -I../fastahack -I../gssw/src -I../leveldb/include
-LDFLAGS=-L../ -L../pb2json -L../vcflib -L../gssw/src -L../snappy -L../leveldb -lvg -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lleveldb -lsnappy -lz
+INCLUDES=-I../ -I../pb2json -I../cpp -I../$(VCFLIB)/src -I../$(VCFLIB) -I../fastahack -I../gssw/src -I../rocksdb/include
+LDFLAGS=-L../ -L../pb2json -L../vcflib -L../gssw/src -L../snappy -L../rocksdb -lvg -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lrocksdb -lsnappy -lz -lbz2
 vg=../vg
 
 all: test clean
 
-test: make_graph $(vg)
+test: build_graph $(vg)
 	prove -v t
 
 $(vg):
 	cd .. && make vg
 
-make_graph: make_graph.cpp
-	$(CXX) make_graph.cpp $(INCLUDES) $(LDFLAGS) -o make_graph
+build_graph: build_graph.cpp
+	$(CXX) build_graph.cpp $(INCLUDES) $(LDFLAGS) -o build_graph
 
 clean:
-	rm -f make_graph
+	rm -f build_graph

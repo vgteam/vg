@@ -7,4 +7,4 @@ PATH=..:$PATH # for vg
 
 plan tests 1
 
-is $(./make_graph | wc -l) 1 "graph building with the API"
+is $(./build_graph | wc -l) 1 "graph building with the API"
