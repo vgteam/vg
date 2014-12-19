@@ -137,7 +137,7 @@ public:
     bool is_valid(void);
 
     void topologically_sort_graph(void);
-    void topological_sort(list<Node*>& sorted_nodes);
+    void topological_sort(deque<Node*>& l);
     void swap_nodes(Node* a, Node* b);
 
     Alignment& align(Alignment& alignment);

@@ -344,14 +344,9 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
         destroy_edge(e->second);
     }
 
-    // we should have a valid graph
-    /*
-    if (!is_valid()) {
-        cerr << "graph is invalid after swapping node #" << node->id()
-             << " to " << new_id << endl;
-        exit(1);
-    }
-    */
+    // we maintain a valid graph
+    // this an expensive check but should work (for testing only)
+    // assert(is_valid());
 
 }
 
@@ -434,7 +429,6 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
                     Node* middle_ref_node = NULL;
                     Node* right_ref_node = NULL;
 
-                    // divide_path(map<long, Node*>& path, long pos, Node*& left, Node*& right) {
                     divide_path(reference_path,
                                 allele_start_pos,
                                 left_ref_node,
@@ -450,9 +444,10 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
                                     right_ref_node);
                     }
 
-                    Node* alt_node;
+                    Node* alt_node = NULL;
                     // create a new alt node and connect the pieces from before
                     if (!allele.alt.empty() && !allele.ref.empty()) {
+                        //cerr << "both alt and ref have sequence" << endl;
 
                         alt_node = create_node(allele.alt);
                         //ref_map.add_node(alt_node, allele_start_pos, );
@@ -469,6 +464,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
 
                     } else if (!allele.alt.empty()) { // insertion
 
+                        //cerr << "alt has sequence" << endl;
                         alt_node = create_node(allele.alt);
                         create_edge(left_ref_node, alt_node);
                         create_edge(alt_node, right_ref_node);
@@ -477,17 +473,30 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
 
                     } else {// otherwise, we have a deletion
 
+                        //cerr << "ref has sequence" << endl;
                         create_edge(left_ref_node, right_ref_node);
                         nodes_by_end_position[allele_end_pos].insert(left_ref_node);
 
                     }
 
+                    /*
+                    if (left_ref_node) cerr << "left_ref " << left_ref_node->id() << endl;
+                    if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id() << endl;
+                    if (right_ref_node) cerr << "right_ref " << right_ref_node->id() << endl;
+                    if (alt_node) cerr << "alt_node " << alt_node->id() << endl;
+                    */
+
+
                     if (allele_end_pos == seq.size()) {
                         // ensures that we can handle variation at first position (important when aligning)
                         Node* end = create_node("");
                         reference_path[allele_end_pos] = end;
-                        create_edge(alt_node, end);
-                        create_edge(middle_ref_node, end);
+                        if (alt_node) {
+                            create_edge(alt_node, end);
+                        }
+                        if (middle_ref_node) {
+                            create_edge(middle_ref_node, end);
+                        }
                     }
 
                     // if there are previous nodes, connect them
@@ -499,7 +508,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
                                 if (middle_ref_node) {
                                     create_edge(*n, middle_ref_node);
                                 }
-                                create_edge(*n, alt_node);
+                                if (alt_node) {
+                                    create_edge(*n, alt_node);
+                                }
                             }
                         }
                     }
@@ -525,9 +536,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
 }
 
 void VG::topologically_sort_graph(void) {
-    list<Node*> sorted_nodes;
+    deque<Node*> sorted_nodes;
     topological_sort(sorted_nodes);
-    list<Node*>::iterator n = sorted_nodes.begin();
+    deque<Node*>::iterator n = sorted_nodes.begin();
     int i = 0;
     for ( ; i < graph.node_size() && n != sorted_nodes.end();
          ++i, ++n) {
@@ -560,6 +571,7 @@ Edge* VG::create_edge(int64_t from, int64_t to) {
     edge_from_to[from][to] = edge;
     edge_to_from[to][from] = edge;
     edge_index[edge] = graph.edge_size()-1;
+    cerr << "created edge " << edge->from() << " -> " << edge->to() << endl;
     return edge;
 }
 
@@ -631,6 +643,7 @@ Node* VG::create_node(string seq) {
     // and drop into our id index
     node_by_id[node->id()] = node;
     node_index[node] = graph.node_size()-1;
+    cerr << "created node " << node->id() << endl;
     return node;
 }
 
@@ -1146,47 +1159,72 @@ void VG::head_nodes(vector<Node*>& nodes) {
 
 
     /*
-Tarjan's topological sort
+Kahn's topological sort (1962)
 
-L <- Empty list that will contain the sorted nodes
-while there are unmarked nodes do
-    select an unmarked node n
-    visit(n) 
-function visit(node n)
-    if n has a temporary mark then stop (not a DAG)
-    if n is not marked (i.e. has not been visited yet) then
-        mark n temporarily
-        for each node m with an edge from n to m do
-            visit(m)
-        mark n permanently
-        add n to head of L
+L ← Empty list that will contain the sorted elements
+S ← Set of all nodes with no incoming edges
+while S is non-empty do
+    remove a node n from S
+    add n to tail of L
+    for each node m with an edge e from n to m do
+        remove edge e from the graph
+        if m has no other incoming edges then
+            insert m into S
+if graph has edges then
+    return error (graph has at least one cycle)
+else 
+    return L (a topologically sorted order)
     */
 
-void VG::topological_sort(list<Node*>& sorted_nodes) {
-    set<Node*> unmarked_nodes;
-    set<Node*> temporary_marks;
-    for (int i = 0; i < graph.node_size(); ++i) {
-        unmarked_nodes.insert(graph.mutable_node(i));
+void VG::topological_sort(deque<Node*>& l) {
+    set<Node*> s;
+    vector<Node*> heads;
+    // copy our edges
+    map<int64_t, map<int64_t, Edge*> > edgesf = edge_from_to;
+    map<int64_t, map<int64_t, Edge*> > edgest = edge_to_from;
+    head_nodes(heads);
+    for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
+        s.insert(*n);
+        cerr << "head: " << (*n)->id() << endl;
     }
-    while (!unmarked_nodes.empty()) {
-        deque<Node*> visit;
-        visit.push_front(*(unmarked_nodes.begin()));
-        while (!visit.empty()) {
-            Node* node = visit.front();
-            visit.pop_front();
-            if (unmarked_nodes.find(node) != unmarked_nodes.end()) {
-                temporary_marks.insert(node);
-                map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
-                if (e != edge_from_to.end()) {
-                    for (map<int64_t, Edge*>::iterator f = e->second.begin();
-                         f != e->second.end(); ++f) {
-                        Node* to = node_by_id[f->second->to()];
-                        visit.push_front(to);
-                    }
+    while (!s.empty()) {
+        Node* n = *(s.begin());
+        cerr << "n:" << n->id() << endl;
+        s.erase(n);
+        l.push_back(n);
+        map<int64_t, Edge*>& edges_from = edgesf[n->id()];
+        for (map<int64_t, Edge*>::iterator f = edges_from.begin(); f != edges_from.end(); ++f) {
+            Node* m = node_by_id[f->first];
+            cerr << "m:" << m->id() << endl;
+            edgesf[n->id()].erase(m->id());
+            edgest[m->id()].erase(n->id());
+            if (edgest[m->id()].empty()) {
+                s.insert(m);
+            } else {
+                cerr << "edgest[" << m->id() << "]" << " ";
+                for (map<int64_t, Edge*>::iterator i = edgest[m->id()].begin();
+                     i != edgest[m->id()].end(); ++i) {
+                    cerr << i->second->from() << "->" << i->second->to() << " ";
                 }
-                unmarked_nodes.erase(node);
-                sorted_nodes.push_front(node);
+                cerr << endl;
             }
+        }
+    }
+    // if we have a cycle, signal an error, as we are not guaranteed an order
+    for (map<int64_t, map<int64_t, Edge*> >::iterator f = edgesf.begin();
+         f != edgesf.end(); ++f) {
+        if (!f->second.empty()) {
+            cerr << "error:[VG::topological_sort] graph has a cycle from " << f->first
+                 << " to " << f->second.begin()->first << endl;
+            exit(1);
+        }
+    }
+    for (map<int64_t, map<int64_t, Edge*> >::iterator t = edgest.begin();
+         t != edgest.end(); ++t) {
+        if (!t->second.empty()) {
+            cerr << "error:[VG::topological_sort] graph has a cycle to " << t->first
+                 << " to " << t->second.begin()->first << endl;
+            exit(1);
         }
     }
 }
