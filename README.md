@@ -14,6 +14,8 @@ You'll need the protobuf and jansson development libraries installed on your ser
 
     sudo apt-get install protobuf-compiler libprotoc-dev libjansson-dev
 
+You can also run `make get-deps`.
+
 Other libraries may be required, but I have not detected this as they come pre-installed on travis-ci. Please report any build difficulties.
 
 Now, obtain the repo and its submodules:
@@ -87,6 +89,8 @@ Once constructed, a variant graph (.vg is the suggested file extension) is typic
 - [x] graph joining: combine subgraphs represented in a single or different .vg files
 - [x] GFA output
 - [x] global mapping against large graphs
+- [x] non-recursive topological sort of graph
+- [x] stable ID compaction
 - [ ] efficient construction for large DAGs
 - [ ] improve memory performance of kmer indexing for large graphs by storing incremental results of k-path generation
 - [ ] global alignment: retain and expand only the most-likely subgraphs
