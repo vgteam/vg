@@ -1158,6 +1158,15 @@ void VG::head_nodes(vector<Node*>& nodes) {
     }
 }
 
+void VG::tail_nodes(vector<Node*>& nodes) {
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        if (edge_from_to.find(n->id()) == edge_from_to.end()) {
+            nodes.push_back(n);
+        }
+    }
+}
+
 
     /*
 Kahn's topological sort (1962)

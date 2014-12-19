@@ -181,6 +181,7 @@ public:
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);
     void head_nodes(vector<Node*>& nodes);
+    void tail_nodes(vector<Node*>& nodes);
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
     // join head nodes of graph to common null node
