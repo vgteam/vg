@@ -5,6 +5,8 @@ compiler: gcc
 before_install:
   - git submodule update --init --recursive
   - sudo apt-get update -qq
-  - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 90
+  - sudo apt-get install -qq gcc-4.7 g++-4.7
+  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.7
+  - gcc --version && g++ --version
 install: make get-deps
 script: make && make test
