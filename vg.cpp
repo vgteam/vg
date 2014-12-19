@@ -289,7 +289,7 @@ int64_t VG::max_node_id(void) {
     return max_id;
 }
 
-void VG::compress_ids(void) {
+void VG::compact_ids(void) {
     int64_t step = max_node_id() + 1;
     increment_node_ids(step);
     int64_t id = 1; // start at 1
@@ -532,6 +532,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
     }
 
     topologically_sort_graph();
+    compact_ids();
 
 }
 
@@ -571,7 +572,7 @@ Edge* VG::create_edge(int64_t from, int64_t to) {
     edge_from_to[from][to] = edge;
     edge_to_from[to][from] = edge;
     edge_index[edge] = graph.edge_size()-1;
-    cerr << "created edge " << edge->from() << " -> " << edge->to() << endl;
+    //cerr << "created edge " << edge->from() << " -> " << edge->to() << endl;
     return edge;
 }
 
@@ -643,7 +644,7 @@ Node* VG::create_node(string seq) {
     // and drop into our id index
     node_by_id[node->id()] = node;
     node_index[node] = graph.node_size()-1;
-    cerr << "created node " << node->id() << endl;
+    //cerr << "created node " << node->id() << endl;
     return node;
 }
 
@@ -1185,28 +1186,18 @@ void VG::topological_sort(deque<Node*>& l) {
     head_nodes(heads);
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
         s.insert(*n);
-        cerr << "head: " << (*n)->id() << endl;
     }
     while (!s.empty()) {
         Node* n = *(s.begin());
-        cerr << "n:" << n->id() << endl;
         s.erase(n);
         l.push_back(n);
         map<int64_t, Edge*>& edges_from = edgesf[n->id()];
         for (map<int64_t, Edge*>::iterator f = edges_from.begin(); f != edges_from.end(); ++f) {
             Node* m = node_by_id[f->first];
-            cerr << "m:" << m->id() << endl;
             edgesf[n->id()].erase(m->id());
             edgest[m->id()].erase(n->id());
             if (edgest[m->id()].empty()) {
                 s.insert(m);
-            } else {
-                cerr << "edgest[" << m->id() << "]" << " ";
-                for (map<int64_t, Edge*>::iterator i = edgest[m->id()].begin();
-                     i != edgest[m->id()].end(); ++i) {
-                    cerr << i->second->from() << "->" << i->second->to() << " ";
-                }
-                cerr << endl;
             }
         }
     }

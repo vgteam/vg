@@ -79,7 +79,7 @@ public:
     //void concatenate(VG& g);
 
     int64_t max_node_id(void);
-    void compress_ids(void);
+    void compact_ids(void);
     void increment_node_ids(int64_t increment);
     void decrement_node_ids(int64_t decrement);
     void swap_node_id(int64_t node_id, int64_t new_id);

@@ -113,7 +113,7 @@ void help_join(char** argv) {
 void help_ids(char** argv) {
     cerr << "usage: " << argv[0] << " ids [options] <graph.vg> >new.vg" << endl
          << "options:" << endl
-         << "    -c, --compress       minimize the space of integers used by the ids" << endl
+         << "    -c, --compact        minimize the space of integers used by the ids" << endl
          << "    -i, --increment N    increase ids by N" << endl
          << "    -d, --decrement N    decrease ids by N" << endl;
 }
@@ -126,7 +126,7 @@ int main_ids(int argc, char** argv) {
         return 1;
     }
 
-    bool compress = false;
+    bool compact = false;
     int64_t increment = 0;
     int64_t decrement = 0;
 
@@ -135,7 +135,7 @@ int main_ids(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"compress", no_argument, 0, 'c'},
+                {"compact", no_argument, 0, 'c'},
                 {"increment", required_argument, 0, 'i'},
                 {"decrement", required_argument, 0, 'd'},
                 {"help", no_argument, 0, 'h'},
@@ -153,7 +153,7 @@ int main_ids(int argc, char** argv) {
         switch (c)
         {
         case 'c':
-            compress = true;
+            compact = true;
             break;
 
         case 'i':
@@ -185,8 +185,8 @@ int main_ids(int argc, char** argv) {
         graph = new VG(in);
     }
 
-    if (compress) {
-        graph->compress_ids();
+    if (compact) {
+        graph->compact_ids();
     }
 
     if (increment != 0) {
