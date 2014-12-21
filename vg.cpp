@@ -609,12 +609,16 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
         }
     }
 
-
-        // to scale up, we have to avoid big string memcpys
-        // this could be accomplished by some deep surgery on the construction routines
-        // however, that could be a silly thing to do, because we want to break the works into chunks
-        // and our chunk size isn't going to reach into the range where we'll have issues (>several megs)
-        // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
+    // to scale up, we have to avoid big string memcpys
+    // this could be accomplished by some deep surgery on the construction routines
+    // however, that could be a silly thing to do,
+    // because why break something that's conceptually clear
+    // and anyway, we want to break the works into chunks
+    //
+    // there is a development that could be important
+    // our chunk size isn't going to reach into the range where we'll have issues (>several megs)
+    //
+    // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
 
     for (vector<string>::iterator t = targets.begin(); t != targets.end(); ++t) {
 
