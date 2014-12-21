@@ -58,6 +58,7 @@ void help_construct(char** argv) {
          << "options:" << endl
          << "    -v, --vcf FILE        input VCF" << endl
          << "    -r, --reference FILE  input FASTA reference" << endl
+         << "    -z, --region-size N   variants per region to parallelize" << endl
          << "    -p, --protobuf        output VG protobuf format (default)" << endl
          << "    -g, --gfa             output GFA format" << endl
          << "    -j, --json            output VG JSON format" << endl;
@@ -1054,6 +1055,7 @@ int main_construct(int argc, char** argv) {
 
     string fasta_file_name, vcf_file_name;
     string output_type = "VG";
+    int vars_per_region = 10000;
 
     int c;
     while (true) {
@@ -1066,11 +1068,12 @@ int main_construct(int argc, char** argv) {
                 {"protobuf",  no_argument, 0, 'p'},
                 {"gfa",  no_argument, 0, 'g'},
                 {"json",  no_argument, 0, 'j'},
+                {"region-size", required_argument, 0, 'z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:pgjh",
+        c = getopt_long (argc, argv, "v:r:pgjhz:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1097,6 +1100,10 @@ int main_construct(int argc, char** argv) {
  
         case 'j':
             output_type = "JSON";
+            break;
+
+        case 'z':
+            vars_per_region = atoi(optarg);
             break;
  
         case 'h':
@@ -1131,7 +1138,7 @@ int main_construct(int argc, char** argv) {
     }
     reference.open(fasta_file_name);
 
-    VG graph(variant_file, reference);
+    VG graph(variant_file, reference, vars_per_region);
 
     if (output_type == "VG") {
         //ofstream of("test.vg");

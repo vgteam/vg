@@ -270,6 +270,7 @@ void VG::append(VG& g) {
     g.compact_ids();
     g.increment_node_ids(max_node_id());
 
+    // get the heads of the other graph, now that we've compacted the ids
     vector<Node*> heads;
     g.head_nodes(heads);
     // collect ids as node*'s may change
@@ -278,10 +279,12 @@ void VG::append(VG& g) {
         heads_ids.push_back((*n)->id());
     }
 
+    // get the current tails of this graph
     vector<Node*> tails;
-    this->tail_nodes(tails);
+    tail_nodes(tails);
 
-    this->extend(g);
+    // add in the other graph
+    extend(g);
 
     // now join the tails to heads
     for (vector<Node*>::iterator n = tails.begin(); n != tails.end(); ++n) {
@@ -291,6 +294,14 @@ void VG::append(VG& g) {
         }
     }
 
+}
+
+void VG::combine(VG& g) {
+    // compact and increment the ids of g out of range of this graph
+    g.compact_ids();
+    g.increment_node_ids(max_node_id());
+    // now add it into the current graph
+    extend(g);
 }
 
 
@@ -397,173 +408,302 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
 // add new node for alt alleles, connect to start and end node in reference path
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
-VG::VG(vector<vcf::Variant>& records, string& sequence, string& chrom, string& offset) {
+VG::VG(vector<vcf::Variant>& records, string seq, string chrom, int offset) {
+    init();
+    from_vcf_records(records, seq, chrom, offset);
+}
+
+void VG::from_vcf_records(vector<vcf::Variant>& records, string seq, string chrom, int offset) {
+
+    map<long, Node*> reference_path;
+    // track the last nodes so that we can connect everything
+    // completely when variants occur in succession
+    map<long, set<Node*> > nodes_by_end_position;
+
+    Node* ref_node = create_node(seq);
+    reference_path[0] = ref_node;
+    //cerr << "from_vcf_records called with " << records.size() << " variant over " << seq.size() << "bp" << endl;
+
+    for (vector<vcf::Variant>::iterator v = records.begin(); v != records.end(); ++v) {
+
+        vcf::Variant& var = *v;
+
+        // adjust the variant position relative to the sequence
+        var.position -= offset; // but preserve 1-basing
+        //cerr << var << endl;
+
+        // decompose the alt
+        bool flat_input_vcf = false; // hack
+        map<string, vector<vcf::VariantAllele> > alternates
+            = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
+        for (map<string, vector<vcf::VariantAllele> >::iterator va = alternates.begin();
+             va !=alternates.end(); ++va) {
+            vector<vcf::VariantAllele>& alleles = va->second;
+
+            for (vector<vcf::VariantAllele>::iterator a = alleles.begin();
+                 a != alleles.end(); ++a) {
+                vcf::VariantAllele& allele = *a;
+
+                // reference alleles are provided naturally by the reference itself
+                if (allele.ref == allele.alt) {
+                    continue;
+                }
+
+                // 0/1 based conversion happens in offset
+                long allele_start_pos = allele.position;
+                long allele_end_pos = allele_start_pos + allele.ref.size();
+
+                if (allele_start_pos == 0) {
+                    // ensures that we can handle variation at first position
+                    // (important when aligning)
+                    Node* root = create_node("");
+                    reference_path[-1] = root;
+                }
+
+                Node* left_ref_node = NULL;
+                Node* middle_ref_node = NULL;
+                Node* right_ref_node = NULL;
+
+                divide_path(reference_path,
+                            allele_start_pos,
+                            left_ref_node,
+                            right_ref_node);
+
+                //cerr << "nodes: left: " << left_ref_node->id() << " right: " << right_ref_node->id() << endl;
+
+                // if the ref portion of the allele is not empty, then we need to make another cut
+                if (!allele.ref.empty()) {
+                    divide_path(reference_path,
+                                allele_end_pos,
+                                middle_ref_node,
+                                right_ref_node);
+                }
+
+                Node* alt_node = NULL;
+                // create a new alt node and connect the pieces from before
+                if (!allele.alt.empty() && !allele.ref.empty()) {
+                    //cerr << "both alt and ref have sequence" << endl;
+
+                    alt_node = create_node(allele.alt);
+                    //ref_map.add_node(alt_node, allele_start_pos, );
+                    create_edge(left_ref_node, alt_node);
+                    create_edge(alt_node, right_ref_node);
+
+                    // XXXXXXXX middle is borked
+                    // why do we have to force this edge back in?
+                    // ... because it's not in the ref map?? (??)
+                    create_edge(left_ref_node, middle_ref_node);
+
+                    nodes_by_end_position[allele_end_pos].insert(alt_node);
+                    nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
+
+                } else if (!allele.alt.empty()) { // insertion
+
+                    //cerr << "alt has sequence" << endl;
+                    alt_node = create_node(allele.alt);
+                    create_edge(left_ref_node, alt_node);
+                    create_edge(alt_node, right_ref_node);
+                    nodes_by_end_position[allele_end_pos].insert(alt_node);
+                    nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+
+                } else {// otherwise, we have a deletion
+
+                        //cerr << "ref has sequence" << endl;
+                    create_edge(left_ref_node, right_ref_node);
+                    nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+
+                }
+
+                /*
+                  if (left_ref_node) cerr << "left_ref " << left_ref_node->id() << endl;
+                  if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id() << endl;
+                  if (right_ref_node) cerr << "right_ref " << right_ref_node->id() << endl;
+                  if (alt_node) cerr << "alt_node " << alt_node->id() << endl;
+                */
+
+
+                if (allele_end_pos == seq.size()) {
+                    // ensures that we can handle variation at first position (important when aligning)
+                    Node* end = create_node("");
+                    reference_path[allele_end_pos] = end;
+                    if (alt_node) {
+                        create_edge(alt_node, end);
+                    }
+                    if (middle_ref_node) {
+                        create_edge(middle_ref_node, end);
+                    }
+                }
+
+                // if there are previous nodes, connect them
+                map<long, set<Node*> >::iterator ep
+                    = nodes_by_end_position.find(allele_start_pos);
+                if (ep != nodes_by_end_position.end()) {
+                    set<Node*>& previous_nodes = ep->second;
+                    for (set<Node*>::iterator n = previous_nodes.begin();
+                         n != previous_nodes.end(); ++n) {
+                        if (node_index.find(*n) != node_index.end()) {
+                            if (middle_ref_node) {
+                                create_edge(*n, middle_ref_node);
+                            }
+                            if (alt_node) {
+                                create_edge(*n, alt_node);
+                            }
+                        }
+                    }
+                }
+                // clean up previous
+                while (nodes_by_end_position.begin()->first < allele_start_pos) {
+                    nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
+                }
+
+                /*
+                  if (!is_valid()) {
+                  cerr << "graph is invalid after variant" << endl
+                  << var << endl;
+                  exit(1);
+                  }
+                */
+            }
+        }
+        //cerr << "done with var" << endl;
+    }
+
+    topologically_sort_graph();
+    compact_ids();
 
 }
 
 
 
-VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference) {
+VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int vars_per_region) {
     init();
+
+    map<string, vector<VG*> > graphs_by_refseq;
+
     for (vector<string>::iterator r = reference.index->sequenceNames.begin();
          r != reference.index->sequenceNames.end(); ++r) {
 
-
-
-
         // to scale up, we have to avoid big string memcpys
-        // so do this for regions of size N, where N is a lot bigger than the largest deletions we expect to find (>100kb) but still small enough for fast construction performanceOB
-
-        // for region of size N ...
+        // this could be accomplished by some deep surgery on the construction routines
+        // however, that could be a silly thing to do, because we want to break the works into chunks
+        // and our chunk size isn't going to reach into the range where we'll have issues (>several megs)
+        // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
 
         string& seqName = *r;
-        map<long, Node*> reference_path;
-        //map<long, set<Node*> > nodes; // for maintaining a reference-sorted graph
-        string seq = reference.getSequence(seqName);
-
-        Node* ref_node = create_node(seq);
-        reference_path[0] = ref_node;
-
-        // track the last nodes so that we can connect everything completely when variants occur in succession
-        map<long, set<Node*> > nodes_by_end_position;
 
         variantCallFile.setRegion(seqName);
         vcf::Variant var(variantCallFile);
 
-        while (variantCallFile.getNextVariant(var)) {
-            //cerr << var << endl;
+        vector<vector<vcf::Variant>* > regions;
+        map<vector<vcf::Variant>*, VG*> variants_to_graph;
 
-            int current_pos = (long int) var.position - 1;
-            // decompose the alt
-            bool flat_input_vcf = false; // hack
-            map<string, vector<vcf::VariantAllele> > alternates = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
-            for (map<string, vector<vcf::VariantAllele> >::iterator va = alternates.begin(); va !=alternates.end(); ++va) {
-                vector<vcf::VariantAllele>& alleles = va->second;
+        int64_t start = 0;
+        int64_t end = 0;
+        bool done_with_chrom = false;
+        // track if the variant we are looking at has the 3'-most reference extent of any variant in the bunch
+        bool var_is_at_end = false;
 
-                for (vector<vcf::VariantAllele>::iterator a = alleles.begin(); a != alleles.end(); ++a) {
-                    vcf::VariantAllele& allele = *a;
+        // omp pragma here to define parallel section
 
-                    // reference alleles are provided naturally by the reference itself
-                    if (allele.ref == allele.alt) {
-                        continue;
+        // this system is not entirely general
+        // there will be a problem when the regions of overlapping deletions become too large
+        // then the inter-dependence of each region will make parallel construction in this way difficult
+        // because the chunks will get too large
+
+#pragma omp parallel default(none) shared(variants_to_graphs, regions, variantCallFile, done_with_chrom, reference) private(var)
+        while (!done_with_chrom) {
+
+            VG* g = NULL;
+            string seq;
+            int64_t offset = 0;
+            int64_t end = 0;
+            vector<vcf::Variant>* vars = NULL;
+
+            // processing of VCF file should only be handled by one thread at a time
+#pragma omp critical
+            {
+
+                if (regions.empty()) {
+                    regions.push_back(new vector<vcf::Variant>);
+                }
+
+                done_with_chrom = !variantCallFile.getNextVariant(var);
+
+                if (!done_with_chrom) {
+                    // save the variant in a list of regions
+                    var.position -= 1; // convert to 0-based
+                    regions.back()->push_back(var);
+
+                    if (var.position + var.ref.size() > end) {
+                        end = var.position + var.ref.size();
+                        var_is_at_end = true;
+                    } else {
+                        var_is_at_end = false;
+                    }
+                }
+
+                if (regions.back()->size() >= vars_per_region
+                    && var_is_at_end
+                    || done_with_chrom) {
+                
+                    // find the end of the region
+                    if (done_with_chrom) {
+                        end = reference.sequenceLength(seqName);
                     }
 
-                    long allele_start_pos = allele.position - 1;  // 0/1 based conversion... thanks vcflib!
-                    long allele_end_pos = allele_start_pos + allele.ref.size();
+                    // the sequence for our region
+                    seq = reference.getSubSequence(seqName, start, end - start);
 
-                    if (allele_start_pos == 0) {
-                        Node* root = create_node(""); // ensures that we can handle variation at first position (important when aligning)
-                        reference_path[-1] = root;
+                    offset = start;
+                    // this start is the next end
+                    start = end;
+                    // reset var_is_at_end
+                    var_is_at_end = false;
+
+                    g = new VG;
+
+                    vars = regions.back();
+
+                    variants_to_graph[vars] = g;
+                    graphs_by_refseq[seqName].push_back(g);
+
+                    if (!done_with_chrom) {
+                        // push an empty list back to handle the next region
+                        regions.push_back(new vector<vcf::Variant>);
                     }
-
-                    Node* left_ref_node = NULL;
-                    Node* middle_ref_node = NULL;
-                    Node* right_ref_node = NULL;
-
-                    divide_path(reference_path,
-                                allele_start_pos,
-                                left_ref_node,
-                                right_ref_node);
-
-                    //cerr << "nodes: left: " << left_ref_node->id() << " right: " << right_ref_node->id() << endl;
-
-                    // if the ref portion of the allele is not empty, then we need to make another cut
-                    if (!allele.ref.empty()) {
-                        divide_path(reference_path,
-                                    allele_end_pos,
-                                    middle_ref_node,
-                                    right_ref_node);
-                    }
-
-                    Node* alt_node = NULL;
-                    // create a new alt node and connect the pieces from before
-                    if (!allele.alt.empty() && !allele.ref.empty()) {
-                        //cerr << "both alt and ref have sequence" << endl;
-
-                        alt_node = create_node(allele.alt);
-                        //ref_map.add_node(alt_node, allele_start_pos, );
-                        create_edge(left_ref_node, alt_node);
-                        create_edge(alt_node, right_ref_node);
-
-                        // XXXXXXXX middle is borked
-                        // why do we have to force this edge back in?
-                        // ... because it's not in the ref map?? (??)
-                        create_edge(left_ref_node, middle_ref_node);
-
-                        nodes_by_end_position[allele_end_pos].insert(alt_node);
-                        nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
-
-                    } else if (!allele.alt.empty()) { // insertion
-
-                        //cerr << "alt has sequence" << endl;
-                        alt_node = create_node(allele.alt);
-                        create_edge(left_ref_node, alt_node);
-                        create_edge(alt_node, right_ref_node);
-                        nodes_by_end_position[allele_end_pos].insert(alt_node);
-                        nodes_by_end_position[allele_end_pos].insert(left_ref_node);
-
-                    } else {// otherwise, we have a deletion
-
-                        //cerr << "ref has sequence" << endl;
-                        create_edge(left_ref_node, right_ref_node);
-                        nodes_by_end_position[allele_end_pos].insert(left_ref_node);
-
-                    }
-
-                    /*
-                    if (left_ref_node) cerr << "left_ref " << left_ref_node->id() << endl;
-                    if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id() << endl;
-                    if (right_ref_node) cerr << "right_ref " << right_ref_node->id() << endl;
-                    if (alt_node) cerr << "alt_node " << alt_node->id() << endl;
-                    */
-
-
-                    if (allele_end_pos == seq.size()) {
-                        // ensures that we can handle variation at first position (important when aligning)
-                        Node* end = create_node("");
-                        reference_path[allele_end_pos] = end;
-                        if (alt_node) {
-                            create_edge(alt_node, end);
-                        }
-                        if (middle_ref_node) {
-                            create_edge(middle_ref_node, end);
-                        }
-                    }
-
-                    // if there are previous nodes, connect them
-                    map<long, set<Node*> >::iterator ep = nodes_by_end_position.find(allele_start_pos);
-                    if (ep != nodes_by_end_position.end()) {
-                        set<Node*>& previous_nodes = ep->second;
-                        for (set<Node*>::iterator n = previous_nodes.begin(); n != previous_nodes.end(); ++n) {
-                            if (node_index.find(*n) != node_index.end()) {
-                                if (middle_ref_node) {
-                                    create_edge(*n, middle_ref_node);
-                                }
-                                if (alt_node) {
-                                    create_edge(*n, alt_node);
-                                }
-                            }
-                        }
-                    }
-                    // clean up previous
-                    while (nodes_by_end_position.begin()->first < allele_start_pos) {
-                        nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
-                    }
-
-                    /*
-                    if (!is_valid()) {
-                        cerr << "graph is invalid after variant" << endl
-                             << var << endl;
-                        exit(1);
-                    }
-                    */
                 }
             }
+
+            // execute this as a parallel block
+            // it can be done in an entirely separate thread
+            if (g != NULL) {
+                g->from_vcf_records(*vars, seq, seqName, offset);
+                cerr << "made graph " << g << " from " << vars->size() << endl;
+            }
+
         }
     }
+    // we'll wait here for threads to complete
 
-    topologically_sort_graph();
-    compact_ids();
+    // then run one join for each chromosome in parallel
+#pragma omp for default(none) shared(graphs_by_refseq) private(i)
+    for (map<string, vector<VG*> >::iterator i = graphs_by_refseq.begin(); i != graphs_by_refseq.end(); ++i) {
+        // merge the variants into one graph
+        VG g;
+        vector<VG*>& s = i->second;
+        for (vector<VG*>::iterator v = s.begin(); v != s.end(); ++v) {
+            VG& o = **v;
+            //o.remove_null_nodes();
+            g.append(o);
+            assert(g.is_valid());
+        }
+        g.remove_null_nodes_forwarding_edges();
+        assert(g.is_valid());
+        g.compact_ids();
+        // combine it with this graph
+#pragma omp critical
+        combine(g);
+    }
 
 }
 
@@ -615,6 +755,22 @@ Edge* VG::get_edge(int64_t from, int64_t to) {
         // or error?
         return NULL;
     }
+}
+
+map<int64_t, Edge*>& VG::edges_from(int64_t id) {
+    return edge_from_to[id];
+}
+
+map<int64_t, Edge*>& VG::edges_from(Node* node) {
+    return edge_from_to[node->id()];
+}
+
+map<int64_t, Edge*>& VG::edges_to(int64_t id) {
+    return edge_to_from[id];
+}
+
+map<int64_t, Edge*>& VG::edges_to(Node* node) {
+    return edge_to_from[node->id()];
 }
 
 void VG::destroy_edge(int64_t from, int64_t to) {
@@ -725,6 +881,45 @@ void VG::destroy_node(Node* node) {
     node_index.erase(node);
     graph.mutable_node()->RemoveLast();
     //if (!is_valid()) cerr << "graph is invalid after destroy_node" << endl;
+}
+
+void VG::remove_null_nodes(void) {
+    vector<Node*> to_remove;
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* node = graph.mutable_node(i);
+        if (node->sequence().size() == 0) {
+            to_remove.push_back(node);
+        }
+    }
+    for (vector<Node*>::iterator n = to_remove.begin(); n != to_remove.end(); ++n) {
+        destroy_node(*n);
+    }
+}
+
+void VG::remove_null_nodes_forwarding_edges(void) {
+    vector<Node*> to_remove;
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* node = graph.mutable_node(i);
+        if (node->sequence().size() == 0) {
+            to_remove.push_back(node);
+        }
+    }
+    for (vector<Node*>::iterator n = to_remove.begin(); n != to_remove.end(); ++n) {
+        remove_node_forwarding_edges(*n);
+    }
+}
+
+void VG::remove_node_forwarding_edges(Node* node) {
+    map<int64_t, Edge*>& to = edges_to(node);
+    map<int64_t, Edge*>& from = edges_from(node);
+    // for edge to
+    for (map<int64_t, Edge*>::iterator t = to.begin(); t != to.end(); ++t) {
+        for (map<int64_t, Edge*>::iterator f = from.begin(); f != from.end(); ++f) {
+            // connect
+            create_edge(t->first, f->first);
+        }
+    }
+    destroy_node(node);
 }
 
 // utilities

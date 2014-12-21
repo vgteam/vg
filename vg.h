@@ -35,6 +35,12 @@ public:
     map<int64_t, map<int64_t, Edge*> > edge_from_to;
     map<int64_t, map<int64_t, Edge*> > edge_to_from;
 
+    // convenience accessors
+    map<int64_t, Edge*>& edges_from(Node* node);
+    map<int64_t, Edge*>& edges_from(int64_t id);
+    map<int64_t, Edge*>& edges_to(Node* node);
+    map<int64_t, Edge*>& edges_to(int64_t id);
+
     // edges by position in edges repeated field
     // same as for nodes, this allows fast deletion
     map<Edge*, int> edge_index;
@@ -46,9 +52,12 @@ public:
     VG(Graph& graph);
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
+
     // construct from VCF records
-    VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference);
-    VG(vector<vcf::Variant>& records, string& sequence, string& chrom, string& offset);
+    VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int vars_per_region);
+    VG(vector<vcf::Variant>& records, string seq, string chrom, int offset);
+    void from_vcf_records(vector<vcf::Variant>& records, string seq, string chrom, int offset);
+
     ~VG(void);
     VG& operator=(const VG& other) {
         if (this != &other) {
@@ -93,6 +102,10 @@ public:
     // then attach tails of this graph to the heads of the other, and extend(g)
     void append(VG& g);
 
+    // don't append or join the nodes in the graphs
+    // just ensure that ids are unique, then apply extend
+    void combine(VG& g);
+
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
     void add_edge(Edge& edge);
@@ -116,6 +129,14 @@ public:
     bool has_node(int64_t id);
     bool has_node(Node* node);
     bool has_node(Node& node);
+
+    // remove nodes with no sequence
+    // these are created in some cases during the process of graph construction
+    void remove_null_nodes(void);
+    // remove a node but connect all of its predecessor and successor nodes with new edges 
+    void remove_node_forwarding_edges(Node* node);
+    // remove null nodes but connect predecessors and successors, preserving structure
+    void remove_null_nodes_forwarding_edges(void);
 
     // edges
     Edge* create_edge(Node* from, Node* to);
