@@ -11,10 +11,12 @@
 
 #include "gssw.h"
 #include "gssw_aligner.h"
+#include "region.h"
+
 #include "vg.pb.h"
+
 #include "Variant.h"
 #include "Fasta.h"
-#include "utility.h"
 
 
 namespace vg {

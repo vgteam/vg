@@ -10,7 +10,7 @@ LIBSNAPPY=snappy/libsnappy.a
 LIBROCKSDB=rocksdb/librocksdb.a
 INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include
 LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lrocksdb -lsnappy -lz -lbz2
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o
 
 all: vg libvg.a
 
@@ -62,6 +62,9 @@ mapper.o: mapper.cpp mapper.h cpp/vg.pb.h
 main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
 
+region.o: region.cpp region.h
+	$(CXX) $(CXXFLAGS) -c -o region.o region.cpp $(INCLUDES)
+
 index.o: index.cpp index.h
 	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
@@ -69,7 +72,7 @@ vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
-	ar rs libvg.a gssw_aligner.o index.o vg.o cpp/vg.pb.o
+	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o
 
 clean:
 	rm -f cpp/*
