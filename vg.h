@@ -14,6 +14,7 @@
 #include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"
+#include "utility.h"
 
 
 namespace vg {
@@ -57,7 +58,7 @@ public:
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
     // construct from VCF records
-    VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int vars_per_region);
+    VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string& target, int vars_per_region);
     VG(vector<vcf::Variant>& records, string seq, string chrom, int offset);
     void from_vcf_records(vector<vcf::Variant>* records, string seq, string chrom, int offset);
 

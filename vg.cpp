@@ -594,13 +594,21 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
 
 
 
-VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int vars_per_region) {
+VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string& target, int vars_per_region) {
     init();
 
     map<string, vector<VG*> > graphs_by_refseq;
 
-    for (vector<string>::iterator r = reference.index->sequenceNames.begin();
-         r != reference.index->sequenceNames.end(); ++r) {
+    vector<string> targets;
+    if (!target.empty()) {
+        targets.push_back(target);
+    } else {
+        for (vector<string>::iterator r = reference.index->sequenceNames.begin();
+             r != reference.index->sequenceNames.end(); ++r) {
+            targets.push_back(*r);
+        }
+    }
+
 
         // to scale up, we have to avoid big string memcpys
         // this could be accomplished by some deep surgery on the construction routines
@@ -608,9 +616,21 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
         // and our chunk size isn't going to reach into the range where we'll have issues (>several megs)
         // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
 
-        string& seq_name = *r;
+    for (vector<string>::iterator t = targets.begin(); t != targets.end(); ++t) {
 
-        variantCallFile.setRegion(seq_name);
+        //string& seq_name = *t;
+        string seq_name;
+        int start_pos, stop_pos;
+        // nasty hack for handling single regions
+        parseRegion(*t,
+                    seq_name,
+                    start_pos,
+                    stop_pos);
+        if (stop_pos != -1) {
+            variantCallFile.setRegion(seq_name, start_pos, stop_pos);
+        } else {
+            variantCallFile.setRegion(seq_name);
+        }
         vcf::Variant var(variantCallFile);
 
         vector<vcf::Variant>* region = NULL;
@@ -637,7 +657,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
         // because the chunks will get too large
 
 #pragma omp parallel default(none)                                      \
-    shared(vars_per_region, region,                                     \
+    shared(vars_per_region, region, target, stop_pos,                   \
            variantCallFile, done_with_chrom, reference,                 \
            seq_name, start, var_is_at_end,                              \
            graphs_by_refseq, end, var, cerr, construction)
@@ -711,7 +731,11 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
                 
                     // find the end of the region
                     if (done_with_chrom) {
-                        end = reference.sequenceLength(seq_name);
+                        if (target.empty()) {
+                            end = reference.sequenceLength(seq_name);
+                        } else {
+                            end = stop_pos;
+                        }
                     }
 
 
@@ -760,8 +784,10 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
                 }
                 
                 if (plan) {
-//#pragma omp critical
-//                    cerr << tid << ": " << "constructing graph " << plan->graph << endl;
+#pragma omp critical
+                    cerr << tid << ": " << "constructing graph " << plan->graph << " over "
+                         << plan->vars->size() << " variants in "
+                         << plan->name << ":" << plan->offset << "-" << plan->seq.size() << endl;
                     plan->graph->from_vcf_records(plan->vars,
                                                   plan->seq,
                                                   plan->name,
@@ -787,6 +813,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
 
 #pragma omp parallel for default(none) shared(graphs_by_refseq, refseq_names, cerr)
     for (int i = 0; i < refseq_names.size(); ++i) {
+#pragma omp critical
+        cerr << "merging graphs in refseq " << refseq_names.at(i) << endl;
         // merge the variants into one graph
         VG g;
         vector<VG*>& s = graphs_by_refseq[refseq_names.at(i)];
