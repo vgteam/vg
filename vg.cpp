@@ -622,10 +622,10 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
         string seq_name;
         int start_pos, stop_pos;
         // nasty hack for handling single regions
-        parseRegion(*t,
-                    seq_name,
-                    start_pos,
-                    stop_pos);
+        parse_region(*t,
+                     seq_name,
+                     start_pos,
+                     stop_pos);
         if (stop_pos != -1) {
             variantCallFile.setRegion(seq_name, start_pos, stop_pos);
         } else {

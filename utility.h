@@ -3,7 +3,7 @@
 
 namespace vg {
 
-void parseRegion(
+void parse_region(
     string& region,
     string& startSeq,
     int& startPos,
