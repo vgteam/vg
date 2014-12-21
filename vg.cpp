@@ -417,10 +417,19 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
 //
 VG::VG(vector<vcf::Variant>& records, string seq, string chrom, int offset) {
     init();
-    from_vcf_records(records, seq, chrom, offset);
+    from_vcf_records(&records, seq, chrom, offset);
 }
 
-void VG::from_vcf_records(vector<vcf::Variant>& records, string seq, string chrom, int offset) {
+void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int offset) {
+
+    init();
+    vector<vcf::Variant>& records = *r;
+    int tid = omp_get_thread_num();
+#pragma omp critical
+    {
+        cerr << tid << ": in from_vcf_records" << endl;
+        cerr << tid << ": with " << records.size() << " vars" << endl;
+    }
 
     map<long, Node*> reference_path;
     // track the last nodes so that we can connect everything
@@ -429,7 +438,8 @@ void VG::from_vcf_records(vector<vcf::Variant>& records, string seq, string chro
 
     Node* ref_node = create_node(seq);
     reference_path[0] = ref_node;
-    //cerr << "from_vcf_records called with " << records.size() << " variant over " << seq.size() << "bp" << endl;
+#pragma omp critical
+    cerr << tid << ": from_vcf_records called with " << records.size() << " variant over " << seq.size() << "bp" << endl;
 
     for (vector<vcf::Variant>::iterator v = records.begin(); v != records.end(); ++v) {
 
@@ -437,7 +447,8 @@ void VG::from_vcf_records(vector<vcf::Variant>& records, string seq, string chro
 
         // adjust the variant position relative to the sequence
         var.position -= offset; // but preserve 1-basing
-        //cerr << var << endl;
+#pragma omp critical
+        cerr << tid << ": " << var << endl;
 
         // decompose the alt
         bool flat_input_vcf = false; // hack
@@ -563,19 +574,27 @@ void VG::from_vcf_records(vector<vcf::Variant>& records, string seq, string chro
                     nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
                 }
 
-                /*
-                  if (!is_valid()) {
-                  cerr << "graph is invalid after variant" << endl
-                  << var << endl;
-                  exit(1);
-                  }
-                */
+                if (!is_valid()) {
+                    cerr << "graph is invalid after variant" << endl
+                         << var << endl;
+                    exit(1);
+                }
             }
         }
         //cerr << "done with var" << endl;
+#pragma omp critical
+        cerr << tid << ": done with " << var << endl;
     }
 
+#pragma omp critical
+    cerr << tid << ": topological sort" << endl;
+
+    //assert(is_valid());
     topologically_sort_graph();
+
+#pragma omp critical
+    cerr << tid << ": id compaction" << endl;
+
     compact_ids();
 
 }
@@ -596,19 +615,27 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
         // and our chunk size isn't going to reach into the range where we'll have issues (>several megs)
         // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
 
-        string& seqName = *r;
+        string& seq_name = *r;
 
-        variantCallFile.setRegion(seqName);
+        variantCallFile.setRegion(seq_name);
         vcf::Variant var(variantCallFile);
 
-        vector<vector<vcf::Variant>* > regions;
-        map<vector<vcf::Variant>*, VG*> variants_to_graph;
+        vector<vcf::Variant>* region = NULL;
 
         int64_t start = 0;
         int64_t end = 0;
         bool done_with_chrom = false;
         // track if the variant we are looking at has the 3'-most reference extent of any variant in the bunch
         bool var_is_at_end = false;
+        struct Plan {
+            VG* graph;
+            vector<vcf::Variant>* vars;
+            string seq;
+            string name;
+            int offset;
+        };
+        deque<Plan*> construction;
+        
 
         // omp pragma here to define parallel section
 
@@ -617,29 +644,48 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
         // then the inter-dependence of each region will make parallel construction in this way difficult
         // because the chunks will get too large
 
-#pragma omp parallel default(none) shared(variants_to_graphs, regions, variantCallFile, done_with_chrom, reference) private(var)
-        while (!done_with_chrom) {
+#pragma omp parallel default(none)                                      \
+    shared(vars_per_region, region,                                     \
+           variantCallFile, done_with_chrom, reference,                 \
+           seq_name, start, var_is_at_end,                               \
+           graphs_by_refseq, var, cerr, construction)
 
-            VG* g = NULL;
+        while (!done_with_chrom || !construction.empty()) {
+
             string seq;
             int64_t offset = 0;
             int64_t end = 0;
-            vector<vcf::Variant>* vars = NULL;
+            int tid = omp_get_thread_num();
+
+#pragma omp critical
+            cerr << tid << ": top of loop with " << graphs_by_refseq[seq_name].size() << " graphs" << endl;
+
+            //usleep(1); //microseconds
 
             // processing of VCF file should only be handled by one thread at a time
 #pragma omp critical
             {
-
-                if (regions.empty()) {
-                    regions.push_back(new vector<vcf::Variant>);
-                }
-
+//#pragma omp critical
+                cerr << tid << ": getting vcf record" << endl;
+//#pragma omp critical
                 done_with_chrom = !variantCallFile.getNextVariant(var);
 
                 if (!done_with_chrom) {
+
+                    if (!region) {
+//#pragma omp critical
+                        cerr << tid << ": regions empty" << endl;
+                        region = new vector<vcf::Variant>;
+                    }
+//#pragma omp critical
+                    cerr << tid << ": not done with chrom" << endl;
+//#pragma omp critical
+                    cerr << tid << ": got var " << var << endl;
                     // save the variant in a list of regions
                     var.position -= 1; // convert to 0-based
-                    regions.back()->push_back(var);
+                    region->push_back(var);
+//#pragma omp critical
+                    cerr << tid << ": have " << region->size() << " vars in region" << endl;
 
                     if (var.position + var.ref.size() > end) {
                         end = var.position + var.ref.size();
@@ -647,19 +693,30 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
                     } else {
                         var_is_at_end = false;
                     }
+                } else {
+//#pragma omp critical
+                    cerr << tid << ": done with chrom!" << endl;
                 }
 
-                if (regions.back()->size() >= vars_per_region
-                    && var_is_at_end
-                    || done_with_chrom) {
+                if (region
+                    && (region->size() >= vars_per_region
+                        && var_is_at_end
+                        || done_with_chrom)) {
+
+                    vector<vcf::Variant>* vars = region;
+                    region = NULL;
+//#pragma omp critical
+                    cerr << tid << ": pointer to vars " << vars << endl;
                 
                     // find the end of the region
                     if (done_with_chrom) {
-                        end = reference.sequenceLength(seqName);
+                        end = reference.sequenceLength(seq_name);
                     }
 
+//#pragma omp critical
+                    cerr << tid << ": getting subsequence" << endl;
                     // the sequence for our region
-                    seq = reference.getSubSequence(seqName, start, end - start);
+                    seq = reference.getSubSequence(seq_name, start, end - start);
 
                     offset = start;
                     // this start is the next end
@@ -667,49 +724,113 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int var
                     // reset var_is_at_end
                     var_is_at_end = false;
 
-                    g = new VG;
-
-                    vars = regions.back();
-
-                    variants_to_graph[vars] = g;
-                    graphs_by_refseq[seqName].push_back(g);
-
                     if (!done_with_chrom) {
                         // push an empty list back to handle the next region
-                        regions.push_back(new vector<vcf::Variant>);
+                        region = new vector<vcf::Variant>;
                     }
+
+//#pragma omp critical
+                    cerr << tid << ": planning graph"
+                         << " with offset " << offset
+                         << " over sequence " << seq.size() << endl;
+
+                    Plan* plan = new Plan;
+                    plan->graph = new VG;
+
+//#pragma omp critical
+                    cerr << tid << ": created new VG " << plan->graph << endl;
+                    graphs_by_refseq[seq_name].push_back(plan->graph);
+//#pragma omp critical
+                    cerr << tid << ": " << graphs_by_refseq[seq_name].size() << " graphs on " << seq_name << endl;
+
+
+                    plan->vars = vars;
+                    plan->seq = seq;
+                    plan->name = seq_name;
+                    plan->offset = offset;
+//#pragma omp critical
+                    construction.push_front(plan);
+//#pragma omp critical
+                    cerr << tid << ": " << plan << " is the plan" << endl;
+
                 }
             }
 
+#pragma omp critical
+            cerr << tid << ": with " << construction.size() << " graphs to construct" << endl;
+
             // execute this as a parallel block
             // it can be done in an entirely separate thread
-            if (g != NULL) {
-                g->from_vcf_records(*vars, seq, seqName, offset);
-                cerr << "made graph " << g << " from " << vars->size() << endl;
+            if (!construction.empty()) {
+                Plan* plan = NULL;
+#pragma omp critical
+                {
+                    if (!construction.empty()) {
+                        cerr << tid << ": getting last plan of " << construction.size() << endl;
+                        plan = construction.back();
+                        cerr << tid << ": plan " << plan << endl;
+                        construction.pop_back();
+                    }
+                }
+                
+                if (plan) {
+#pragma omp critical
+                    cerr << tid << ": making graph " << plan->graph << " from " << plan->vars->size() << endl;
+                    plan->graph->from_vcf_records(plan->vars,
+                                                  plan->seq,
+                                                  plan->name,
+                                                  plan->offset);
+#pragma omp critical
+                    cerr << tid << ": made graph " << plan->graph << " from " << plan->vars->size() << endl;
+                    delete plan->vars;
+                    delete plan;
+                }
             }
+#pragma omp critical
+        cerr << tid << ": construction size " << construction.size() << endl;
 
         }
     }
+
+#pragma omp critical
+    cerr << omp_get_thread_num() << ": before barrier" << endl;
+
     // we'll wait here for threads to complete
+#pragma omp barrier
+
+#pragma omp critical
+    cerr << omp_get_thread_num() << ": past barrier" << endl;
 
     // then run one join for each chromosome in parallel
-#pragma omp for default(none) shared(graphs_by_refseq) private(i)
-    for (map<string, vector<VG*> >::iterator i = graphs_by_refseq.begin(); i != graphs_by_refseq.end(); ++i) {
+    vector<string> refseq_names;
+    for (map<string, vector<VG*> >::iterator m = graphs_by_refseq.begin();
+         m != graphs_by_refseq.end(); ++m) {
+        refseq_names.push_back(m->first);
+    }
+
+#pragma omp parallel for default(none) shared(graphs_by_refseq, refseq_names, cerr)
+    for (int i = 0; i < refseq_names.size(); ++i) {
+#pragma omp critical
+        cerr << omp_get_thread_num() << ": in for" << endl;
         // merge the variants into one graph
         VG g;
-        vector<VG*>& s = i->second;
+        vector<VG*>& s = graphs_by_refseq[refseq_names.at(i)];
         for (vector<VG*>::iterator v = s.begin(); v != s.end(); ++v) {
+#pragma omp critical
+            cerr << omp_get_thread_num() << ": appending " << *v << endl;
             VG& o = **v;
-            //o.remove_null_nodes();
+            o.to_dot(cerr);
             g.append(o);
-            assert(g.is_valid());
+            delete *v;
         }
         g.remove_null_nodes_forwarding_edges();
-        assert(g.is_valid());
         g.compact_ids();
-        // combine it with this graph
+        // now combine it with this graph
 #pragma omp critical
-        combine(g);
+        {
+            cerr << omp_get_thread_num() << ": combining" << endl;
+            combine(g);
+        }
     }
 
 }
@@ -720,7 +841,7 @@ void VG::topologically_sort_graph(void) {
     deque<Node*>::iterator n = sorted_nodes.begin();
     int i = 0;
     for ( ; i < graph.node_size() && n != sorted_nodes.end();
-         ++i, ++n) {
+          ++i, ++n) {
         swap_nodes(graph.mutable_node(i), *n);
     }
 }
@@ -931,8 +1052,6 @@ void VG::remove_node_forwarding_edges(Node* node) {
 
 // utilities
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
-
-    //cerr << "divide node " << node->id() << " @" << pos << endl;
 
     map<int64_t, map<int64_t, Edge*> >::iterator e;
 
@@ -1172,13 +1291,25 @@ string VG::path_sequence(Path& path) {
 }
 
 bool VG::is_valid(void) {
+
+    if (node_by_id.size() != graph.node_size()) {
+        cerr << "graph invalid: node count is not equal to that found in node by-id index" << endl;
+        return false;
+    }
+
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
+        if (node_by_id.find(n->id()) == node_by_id.end()) {
+            cerr << "graph invalid: node " << n->id() << " missing from by-id index" << endl;
+            return false;
+        }
     }
+
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         int64_t f = e->from();
         int64_t t = e->to();
+
         if (node_by_id.find(f) == node_by_id.end()) {
             cerr << "graph invalid: edge index=" << i << " cannot find node (from) " << f << endl;
             return false;
@@ -1187,14 +1318,19 @@ bool VG::is_valid(void) {
             cerr << "graph invalid: edge index=" << i << " cannot find node (to) " << t << endl;
             return false;
         }
-        if (edge_from_to.find(f) == edge_from_to.end()) {
+
+        if (edge_from_to.find(f) == edge_from_to.end()
+            || edge_from_to[f].find(t) == edge_from_to[f].end()) {
             cerr << "graph invalid: edge index=" << i << " could not find entry in edges_from_to for node " << f << endl;
             return false;
         }
-        if (edge_to_from.find(t) == edge_to_from.end()) {
+
+        if (edge_to_from.find(t) == edge_to_from.end()
+            || edge_to_from[t].find(f) == edge_to_from[t].end()) {
             cerr << "graph invalid: edge index=" << i << " could not find entry in edges_to_from for node " << t << endl;
             return false;
         }
+
     }
     return true;
 }
@@ -1420,28 +1556,45 @@ else
     */
 
 void VG::topological_sort(deque<Node*>& l) {
+    assert(is_valid());
     // using a map instead of a set ensures a stable sort across different systems
     map<int64_t, Node*> s;
     vector<Node*> heads;
     // copy our edges
     map<int64_t, map<int64_t, Edge*> > edgesf = edge_from_to;
+#pragma omp critical
+    cerr << omp_get_thread_num() << ": edgesf = " << edgesf.size() << endl;
     map<int64_t, map<int64_t, Edge*> > edgest = edge_to_from;
+#pragma omp critical
+    cerr << omp_get_thread_num() << ": edgest = " << edgest.size() << endl;
     head_nodes(heads);
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
         s[(*n)->id()] = *n;
     }
+#pragma omp critical
+    cerr << omp_get_thread_num() << ": graph = " << this << endl;
+
     while (!s.empty()) {
         Node* n = s.begin()->second;
+#pragma omp critical
+        cerr << omp_get_thread_num() << ": n = " << n << endl;
         s.erase(n->id());
         l.push_back(n);
         map<int64_t, Edge*>& edges_from = edgesf[n->id()];
+        vector<int64_t> to_erase;
         for (map<int64_t, Edge*>::iterator f = edges_from.begin(); f != edges_from.end(); ++f) {
             Node* m = node_by_id[f->first];
-            edgesf[n->id()].erase(m->id());
+#pragma omp critical
+            cerr << omp_get_thread_num() << ": " << n->id() << "->" << f->first << " m = " << m << endl;
+            //edgesf[n->id()].erase(m->id());
+            to_erase.push_back(m->id());
             edgest[m->id()].erase(n->id());
             if (edgest[m->id()].empty()) {
                 s[m->id()] = m;
             }
+        }
+        for (vector<int64_t>::iterator t = to_erase.begin(); t != to_erase.end(); ++t) {
+            edgesf[n->id()].erase(*t);
         }
     }
     // if we have a cycle, signal an error, as we are not guaranteed an order

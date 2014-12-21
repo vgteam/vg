@@ -13,6 +13,7 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
+
 void vg_help(char** argv) {
     cerr << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
@@ -61,7 +62,8 @@ void help_construct(char** argv) {
          << "    -z, --region-size N   variants per region to parallelize" << endl
          << "    -p, --protobuf        output VG protobuf format (default)" << endl
          << "    -g, --gfa             output GFA format" << endl
-         << "    -j, --json            output VG JSON format" << endl;
+         << "    -j, --json            output VG JSON format" << endl
+         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl;
 }
 
 void help_index(char** argv) {
@@ -1069,11 +1071,12 @@ int main_construct(int argc, char** argv) {
                 {"gfa",  no_argument, 0, 'g'},
                 {"json",  no_argument, 0, 'j'},
                 {"region-size", required_argument, 0, 'z'},
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:pgjhz:",
+        c = getopt_long (argc, argv, "v:r:pgjhz:t:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1104,6 +1107,10 @@ int main_construct(int argc, char** argv) {
 
         case 'z':
             vars_per_region = atoi(optarg);
+            break;
+
+        case 't':
+            omp_set_num_threads(atoi(optarg));
             break;
  
         case 'h':

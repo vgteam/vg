@@ -6,6 +6,9 @@
 #include <string>
 #include <deque>
 #include <list>
+#include <omp.h>
+#include <unistd.h>
+
 #include "gssw.h"
 #include "gssw_aligner.h"
 #include "vg.pb.h"
@@ -56,7 +59,7 @@ public:
     // construct from VCF records
     VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, int vars_per_region);
     VG(vector<vcf::Variant>& records, string seq, string chrom, int offset);
-    void from_vcf_records(vector<vcf::Variant>& records, string seq, string chrom, int offset);
+    void from_vcf_records(vector<vcf::Variant>* records, string seq, string chrom, int offset);
 
     ~VG(void);
     VG& operator=(const VG& other) {

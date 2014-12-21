@@ -1,6 +1,7 @@
 .PHONY: all clean
 
-CXX=g++
+CXX=g++ -std=c++11 -fopenmp
+CXXFLAGS=-O3
 VCFLIB=vcflib
 INCLUDES=-I../ -I../pb2json -I../cpp -I../$(VCFLIB)/src -I../$(VCFLIB) -I../fastahack -I../gssw/src -I../rocksdb/include
 LDFLAGS=-L../ -L../pb2json -L../vcflib -L../gssw/src -L../snappy -L../rocksdb -lvg -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lrocksdb -lsnappy -lz -lbz2
