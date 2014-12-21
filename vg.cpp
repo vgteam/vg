@@ -424,8 +424,8 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
 
     //init();
     vector<vcf::Variant>& records = *r;
-    int tid = omp_get_thread_num();
 /*
+    int tid = omp_get_thread_num();
 #pragma omp critical
     {
         cerr << tid << ": in from_vcf_records" << endl;
