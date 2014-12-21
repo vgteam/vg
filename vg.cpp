@@ -374,16 +374,23 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
     // otherwise move to a new id
     node_by_id[new_id] = node;
 
-    map<int64_t, Edge*>& from = edge_to_from[old_id];
-    for (map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
+    vector<Edge*> edges_to_destroy;
+
+    map<int64_t, Edge*>& to = edges_to(old_id);
+    for (map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
         create_edge(e->first, new_id);
-        destroy_edge(e->second);
+        edges_to_destroy.push_back(e->second);
     }
 
-    map<int64_t, Edge*>& to = edge_from_to[old_id];
-    for (map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
+    map<int64_t, Edge*>& from = edges_from(old_id);
+    for (map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
         create_edge(new_id, e->first);
-        destroy_edge(e->second);
+        edges_to_destroy.push_back(e->second);
+    }
+
+    for (vector<Edge*>::iterator e = edges_to_destroy.begin();
+         e != edges_to_destroy.end(); ++e) {
+        destroy_edge(*e);
     }
 
     // we maintain a valid graph
