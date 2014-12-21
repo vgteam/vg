@@ -617,8 +617,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
     //
     // there is a development that could be important
     // our chunk size isn't going to reach into the range where we'll have issues (>several megs)
-    //
     // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
+    // 
+    // 
 
     for (vector<string>::iterator t = targets.begin(); t != targets.end(); ++t) {
 
@@ -630,10 +631,12 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
                      seq_name,
                      start_pos,
                      stop_pos);
-        if (stop_pos != -1) {
+        if (stop_pos > 0) {
             variantCallFile.setRegion(seq_name, start_pos, stop_pos);
         } else {
+            // to the end of the reference sequence
             variantCallFile.setRegion(seq_name);
+            stop_pos = reference.sequenceLength(seq_name);
         }
         vcf::Variant var(variantCallFile);
 
@@ -735,11 +738,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
                 
                     // find the end of the region
                     if (done_with_chrom) {
-                        if (target.empty()) {
-                            end = reference.sequenceLength(seq_name);
-                        } else {
-                            end = stop_pos;
-                        }
+                        end = stop_pos;
                     }
 
 
