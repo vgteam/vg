@@ -1,10 +1,14 @@
 package vg;
 
 
+// graphs are collections of nodes and edges
+// they can represent subgraphs of larger graphs
+// or be wholly-self-sufficient
+// ... but remember protobuf memory limits of 67108864 bytes
 message Graph {
-    optional int64 current_id = 1;
-    repeated Node node = 2;
-    repeated Edge edge = 3;
+    repeated Node node = 1;
+    repeated Edge edge = 2;
+    //repeated Alignment alignments = 3;
 }
 
 // Nodes store sequence data and also links to other nodes.

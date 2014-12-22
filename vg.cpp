@@ -1,9 +1,9 @@
 #include "vg.h"
 
-using namespace std;
-using namespace google::protobuf;
-using namespace vg;
+namespace vg {
 
+using namespace std;
+using namespace google;
 
 //VG::VG(void) { };
 // construct from protobufs
@@ -23,6 +23,7 @@ VG::VG(void) {
 
 void VG::init(void) {
     gssw_aligner = NULL;
+    current_id = 0;
 }
 
 VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
@@ -955,8 +956,7 @@ Node* VG::create_node(string seq) {
     // create the node
     Node* node = graph.add_node();
     node->set_sequence(seq);
-    node->set_id(graph.current_id());
-    graph.set_current_id(graph.current_id()+1);
+    node->set_id(current_id++);
     // copy it into the graph
     // and drop into our id index
     node_by_id[node->id()] = node;
@@ -1413,7 +1413,7 @@ Alignment& VG::align(Alignment& alignment) {
     Path* path = alignment.mutable_path();
     Node* first_node = node_by_id[path->mutable_mapping(0)->node_id()];
     if (first_node->has_trim()) {
-        int32 t = path->target_position();
+        int32_t t = path->target_position();
         path->set_target_position(t - first_node->trim());
     }
 
@@ -1618,3 +1618,5 @@ void VG::topological_sort(deque<Node*>& l) {
         }
     }
 }
+
+} // end namespace

@@ -74,9 +74,14 @@ vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB
 libvg.a: vg
 	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o
 
+clean-vg:
+	rm -f cpp/*
+	rm -f *.o
+
 clean:
 	rm -f cpp/*
 	rm -f vg
+	rm -f *.o
 	cd test && $(MAKE) clean
 	cd pb2json && $(MAKE) clean
 	cd vcflib && $(MAKE) clean

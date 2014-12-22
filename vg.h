@@ -14,6 +14,8 @@
 #include "region.h"
 
 #include "vg.pb.h"
+//#include <google/protobuf/io/zero_copy_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
 
 #include "Variant.h"
 #include "Fasta.h"
@@ -29,6 +31,9 @@ public:
     // protobuf-based representation
     // NB: we can't subclass this safely, so it's best as a member
     Graph graph;
+
+    // current id
+    int64_t current_id;
 
     // nodes by id
     map<int64_t, Node*> node_by_id;
@@ -52,10 +57,13 @@ public:
     map<Edge*, int> edge_index;
 
     // constructors
+
+    // default
     VG(void);
+
     // construct from protobufs
     VG(istream& in);
-    VG(Graph& graph);
+
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
