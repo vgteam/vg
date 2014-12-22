@@ -12,8 +12,8 @@ VG::VG(istream& in) {
     uint64_t count = 0;
     stream::load_messages<Graph, VG>(in, this, count);
 
-    topologically_sort_graph();
-    build_indexes();
+    //topologically_sort_graph();
+    //build_indexes();
 }
 
 void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
