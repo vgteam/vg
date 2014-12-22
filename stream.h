@@ -64,15 +64,15 @@ bool load_messages(istream& in, C* object, uint64_t& count) {
     ::google::protobuf::io::CodedInputStream *coded_in =
           new ::google::protobuf::io::CodedInputStream(raw_in);
 
-    uint64_t n;
     coded_in->ReadVarint64(&count);
+    coded_in->SetTotalBytesLimit(1000000000, -1);
 
     std::string s;
 
     for (uint64_t i = 0; i < count; ++i) {
 
-        uint64_t msgSize;
-        coded_in->ReadVarint64(&msgSize);
+        uint32_t msgSize = 0;
+        coded_in->ReadVarint32(&msgSize);
 
         if ((msgSize > 0) &&
             (coded_in->ReadString(&s, msgSize))) {
