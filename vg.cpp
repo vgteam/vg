@@ -3,14 +3,34 @@
 namespace vg {
 
 using namespace std;
-using namespace google;
 
 //VG::VG(void) { };
 // construct from protobufs
 VG::VG(istream& in) {
     init();
-    graph.ParseFromIstream(&in);
-    build_indexes();
+
+    uint64_t count = 0;
+    stream::load_messages<Graph, VG>(in, this, count);
+
+    //topologically_sort_graph();
+    //build_indexes();
+}
+
+void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
+    // for chunks of something
+    int64_t count = graph.node_size() / chunk_size + 1;
+    list<Graph> queue;
+    for (int64_t n = 0; n < count; ++n) {
+        VG g;
+        for (int64_t j = n * chunk_size;
+             j < (n+1)*chunk_size && j < graph.node_size();
+             ++j) {
+            Node* node = graph.mutable_node(j);
+            node_context(node, g);
+        }
+        queue.push_back(g.graph);
+    }
+    stream::save_messages(out, queue, queue.size());
 }
 
 VG::~VG(void) {
@@ -257,6 +277,21 @@ void VG::extend(VG& g) {
     }
     for (int64_t i = 0; i < g.graph.edge_size(); ++i) {
         Edge* e = g.graph.mutable_edge(i);
+        if (!has_edge(e)) {
+            add_edge(*e);
+        }
+    }
+}
+
+void VG::extend(Graph& graph) {
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        if (!has_node(n)) {
+            add_node(*n);
+        }
+    }
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
         if (!has_edge(e)) {
             add_edge(*e);
         }
@@ -963,6 +998,21 @@ Node* VG::create_node(string seq) {
     node_index[node] = graph.node_size()-1;
     //cerr << "created node " << node->id() << endl;
     return node;
+}
+
+// a graph composed of this node and its edges
+void VG::node_context(Node* node, VG& g) {
+    // add the node
+    g.add_node(*node);
+    // and its edges
+    map<int64_t, Edge*>& to = edges_to(node->id());
+    for (map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
+        g.add_edge(*e->second);
+    }
+    map<int64_t, Edge*>& from = edges_from(node->id());
+    for (map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
+        g.add_edge(*e->second);
+    }
 }
 
 void VG::destroy_node(int64_t id) {

@@ -187,7 +187,7 @@ int main_concat(int argc, char** argv) {
     }
 
     // output
-    merged.graph.SerializeToOstream(&std::cout);
+    merged.serialize_to_ostream(std::cout);
 
     return 0;
 }
@@ -270,7 +270,7 @@ int main_ids(int argc, char** argv) {
         graph->decrement_node_ids(decrement);
     }
 
-    graph->graph.SerializeToOstream(&std::cout);
+    graph->serialize_to_ostream(std::cout);
 
     delete graph;
 
@@ -339,7 +339,7 @@ int main_join(int argc, char** argv) {
     joined.join_heads();
 
     // output
-    joined.graph.SerializeToOstream(&std::cout);
+    joined.serialize_to_ostream(std::cout);
 
     return 0;
 }
@@ -650,7 +650,7 @@ int main_find(int argc, char** argv) {
             index.expand_context(result_graph, context_size);
         }
         // return it
-        result_graph.graph.SerializeToOstream(&cout);
+        result_graph.serialize_to_ostream(cout);
     } else if (from_id != 0) {
         vector<Edge> edges;
         index.get_edges_from(from_id, edges);
@@ -685,7 +685,7 @@ int main_find(int argc, char** argv) {
             }
             result_graph.extend(g);
         }
-        result_graph.graph.SerializeToOstream(&cout);
+        result_graph.serialize_to_ostream(cout);
     }
     
     delete graph;
@@ -1155,8 +1155,7 @@ int main_construct(int argc, char** argv) {
     VG graph(variant_file, reference, region, vars_per_region);
 
     if (output_type == "VG") {
-        //ofstream of("test.vg");
-        graph.graph.SerializeToOstream(&std::cout);
+        graph.serialize_to_ostream(std::cout);
     } else if (output_type == "JSON") {
         char *json2 = pb2json(graph.graph);
         cout<<json2<<endl;

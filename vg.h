@@ -14,8 +14,7 @@
 #include "region.h"
 
 #include "vg.pb.h"
-//#include <google/protobuf/io/zero_copy_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include "stream.h"
 
 #include "Variant.h"
 #include "Fasta.h"
@@ -98,6 +97,9 @@ public:
     // helper to merge
     void remove_duplicated_in(VG& g);
 
+    // write to a stream in chunked graphs
+    void serialize_to_ostream(ostream& out, int64_t chunk_size = 1000);
+
     // can we handle this with merge?
     //void concatenate(VG& g);
 
@@ -111,6 +113,7 @@ public:
     // iteratively add when nodes and edges are novel
     // good when there are very many overlaps
     void extend(VG& g);
+    void extend(Graph& graph);
 
     // modify ids of the second graph to ensure we don't have conflicts
     // then attach tails of this graph to the heads of the other, and extend(g)
@@ -138,6 +141,7 @@ public:
     // use the VG class to generate ids
     Node* create_node(string seq);
     Node* get_node(int64_t id);
+    void node_context(Node* node, VG& g);
     void destroy_node(Node* node);
     void destroy_node(int64_t id);
     bool has_node(int64_t id);
