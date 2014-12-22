@@ -825,8 +825,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
                 if (plan) {
 #pragma omp critical
                     cerr << tid << ": " << "constructing graph " << plan->graph << " over "
-                         << plan->vars->size() << " variants in "
-                         << plan->name << ":" << plan->offset << "-" << plan->seq.size() << endl;
+                         << plan->vars->size() << " variants in " <<plan->seq.size() << "bp "
+                         << plan->name << ":" << plan->offset
+                         << "-" << plan->offset + plan->seq.size() << endl;
                     plan->graph->from_vcf_records(plan->vars,
                                                   plan->seq,
                                                   plan->name,
