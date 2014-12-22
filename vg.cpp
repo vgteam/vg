@@ -17,9 +17,19 @@ VG::VG(istream& in) {
 }
 
 void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
+
     // for chunks of something
+    ::google::protobuf::io::ZeroCopyOutputStream *raw_out =
+          new ::google::protobuf::io::OstreamOutputStream(&out);
+    ::google::protobuf::io::CodedOutputStream *coded_out =
+          new ::google::protobuf::io::CodedOutputStream(raw_out);
+
+    // save the number of the messages to be serialized into the output file
     int64_t count = graph.node_size() / chunk_size + 1;
-    list<Graph> queue;
+    coded_out->WriteVarint64(count);
+
+    std::string s;
+    uint64_t written = 0;
     for (int64_t n = 0; n < count; ++n) {
         VG g;
         for (int64_t j = n * chunk_size;
@@ -28,9 +38,15 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
             Node* node = graph.mutable_node(j);
             node_context(node, g);
         }
-        queue.push_back(g.graph);
+        g.graph.SerializeToString(&s);
+        coded_out->WriteVarint32(s.size());
+        coded_out->WriteRaw(s.data(), s.size()); // ->WriteString(s)
+        ++written;
     }
-    stream::save_messages(out, queue, queue.size());
+
+    delete coded_out;
+    delete raw_out;
+
 }
 
 VG::~VG(void) {
@@ -868,7 +884,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
         // now combine it with this graph
 #pragma omp critical
         {
+            cerr << "combining graphs" << endl;
             combine(g);
+            cerr << "done" << endl;
         }
     }
 
