@@ -44,6 +44,10 @@ public:
     // this is critical to allow fast deletion of nodes
     map<Node*, int> node_index;
 
+    // edges by position in edges repeated field
+    // same as for nodes, this allows fast deletion
+    map<Edge*, int> edge_index;
+
     // edges indexed by nodes they connect
     map<int64_t, map<int64_t, Edge*> > edge_from_to;
     map<int64_t, map<int64_t, Edge*> > edge_to_from;
@@ -53,10 +57,6 @@ public:
     map<int64_t, Edge*>& edges_from(int64_t id);
     map<int64_t, Edge*>& edges_to(Node* node);
     map<int64_t, Edge*>& edges_to(int64_t id);
-
-    // edges by position in edges repeated field
-    // same as for nodes, this allows fast deletion
-    map<Edge*, int> edge_index;
 
     // constructors
 
