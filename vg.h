@@ -16,6 +16,8 @@
 #include "vg.pb.h"
 #include "stream.h"
 
+#include <sparsehash/sparse_hash_map>
+
 extern "C" {
 #include "progressbar.h"
 }
@@ -25,6 +27,8 @@ extern "C" {
 
 
 namespace vg {
+
+using google::sparse_hash_map;
 
 class VG {
 

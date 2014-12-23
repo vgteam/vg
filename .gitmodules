@@ -22,3 +22,6 @@
 [submodule "progressbar"]
 	path = progressbar
 	url = https://github.com/ekg/progressbar
+[submodule "sparsehash"]
+	path = sparsehash
+	url = https://github.com/ekg/sparsehash.git

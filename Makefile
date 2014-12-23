@@ -9,7 +9,8 @@ LIBGSSW=gssw/src/libgssw.a
 LIBSNAPPY=snappy/libsnappy.a
 LIBROCKSDB=rocksdb/librocksdb.a
 LIBPROGRESSBAR=progressbar/libprogressbar.a
-INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogressbar/include
+SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
+INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogressbar/include -Isparsehash/build/include
 LDFLAGS=-L./ -Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -Lprogressbar -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lprogressbar -lncurses -lrocksdb -lsnappy -lz -lbz2
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o
 
@@ -51,13 +52,16 @@ $(LIBVCFLIB): vcflib/src/Variant.h vcflib/src/Variant.cpp
 $(LIBGSSW): gssw/src/gssw.c gssw/src/gssw.h
 	cd gssw/src && $(MAKE) libgssw.a
 
+$(SPARSEHASH):
+	cd sparsehash && mkdir -p build && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
+
 fastahack/Fasta.o: fastahack/Fasta.h fastahack/Fasta.cpp
 	cd fastahack && $(MAKE)
 
 cpp/vg.pb.o: cpp/vg.pb.h cpp/vg.pb.cc
 	$(CXX) $(CXXFLAGS) -c -o cpp/vg.pb.o cpp/vg.pb.cc $(INCLUDES)
 
-vg.o: vg.cpp vg.h cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
+vg.o: vg.cpp vg.h cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(INCLUDES)
 
 gssw_aligner.o: gssw_aligner.cpp gssw_aligner.h cpp/vg.pb.h $(LIBGSSW)
