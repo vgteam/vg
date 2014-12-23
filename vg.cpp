@@ -19,6 +19,12 @@ VG::VG(istream& in) {
     coded_in->ReadVarint64(&count);
     delete coded_in;
 
+    progressbar *progress = NULL;
+    if (show_progress) {
+        string message = "loading graph";
+        progress = progressbar_new((char*)message.c_str(),count);
+    }
+
     std::string s;
 
     for (uint64_t i = 0; i < count; ++i) {
@@ -26,10 +32,10 @@ VG::VG(istream& in) {
         ::google::protobuf::io::CodedInputStream *coded_in =
           new ::google::protobuf::io::CodedInputStream(raw_in);
 
+        if (progress) progressbar_inc(progress);
+
         uint32_t msgSize = 0;
         coded_in->ReadVarint32(&msgSize);
-
-        //cerr << "read " << i << " next size is " << msgSize << endl;
 
         if ((msgSize > 0) &&
             (coded_in->ReadString(&s, msgSize))) {
@@ -42,6 +48,8 @@ VG::VG(istream& in) {
     }
 
     delete raw_in;
+
+    if (progress) progressbar_finish(progress);
 
     //topologically_sort_graph();
     //build_indexes();

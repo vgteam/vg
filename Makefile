@@ -8,8 +8,9 @@ LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
 LIBSNAPPY=snappy/libsnappy.a
 LIBROCKSDB=rocksdb/librocksdb.a
-INCLUDES=-Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include
-LDFLAGS=-Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lrocksdb -lsnappy -lz -lbz2
+LIBPROGRESSBAR=progressbar/libprogressbar.a
+INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogressbar/include
+LDFLAGS=-L./ -Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -Lprogressbar -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lprogressbar -lncurses -lrocksdb -lsnappy -lz -lbz2
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o
 
 all: vg libvg.a
@@ -17,8 +18,11 @@ all: vg libvg.a
 get-deps:
 	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev
 
-test: vg libvg.a
+test: vg libvg.a test/build_graph
 	cd test && $(MAKE)
+
+test/build_graph: test/build_graph.cpp
+	$(CXX) test/build_graph.cpp $(INCLUDES) -lvg $(LDFLAGS) -o test/build_graph
 
 profiling:
 	$(MAKE) CXXFLAGS="$(CXXFLAGS) -g" all
@@ -29,6 +33,9 @@ $(LIBSNAPPY): snappy/*cc snappy/*h
 
 $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksdb/db/*.h
 	cd rocksdb && $(MAKE) static_lib
+
+$(LIBPROGRESSBAR): progressbar/include/*.h progressbar/lib/*.c
+	cd progressbar && $(MAKE) libprogressbar.a
 
 $(pb2json):
 	cd pb2json && $(MAKE) libpb2json.a
@@ -68,7 +75,7 @@ region.o: region.cpp region.h
 index.o: index.cpp index.h
 	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBPROGRESSBAR)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg

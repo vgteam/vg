@@ -16,12 +16,17 @@
 #include "vg.pb.h"
 #include "stream.h"
 
+extern "C" {
+#include "progressbar.h"
+}
+
 #include "Variant.h"
 #include "Fasta.h"
 
 
 namespace vg {
 
+bool show_progress = false;
 
 class VG {
 

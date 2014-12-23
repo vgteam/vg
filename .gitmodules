@@ -19,3 +19,6 @@
 [submodule "rocksdb"]
 	path = rocksdb
 	url = https://github.com/facebook/rocksdb.git
+[submodule "progressbar"]
+	path = progressbar
+	url = https://github.com/ekg/progressbar
