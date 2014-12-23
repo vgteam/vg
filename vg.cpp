@@ -10,7 +10,38 @@ VG::VG(istream& in) {
     init();
 
     uint64_t count = 0;
-    stream::load_messages<Graph, VG>(in, this, count);
+
+    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
+          new ::google::protobuf::io::IstreamInputStream(&in);
+    ::google::protobuf::io::CodedInputStream *coded_in =
+          new ::google::protobuf::io::CodedInputStream(raw_in);
+
+    coded_in->ReadVarint64(&count);
+    delete coded_in;
+
+    std::string s;
+
+    for (uint64_t i = 0; i < count; ++i) {
+
+        ::google::protobuf::io::CodedInputStream *coded_in =
+          new ::google::protobuf::io::CodedInputStream(raw_in);
+
+        uint32_t msgSize = 0;
+        coded_in->ReadVarint32(&msgSize);
+
+        //cerr << "read " << i << " next size is " << msgSize << endl;
+
+        if ((msgSize > 0) &&
+            (coded_in->ReadString(&s, msgSize))) {
+            Graph o;
+            o.ParseFromString(s);
+            extend(o);
+        }
+
+        delete coded_in;
+    }
+
+    delete raw_in;
 
     //topologically_sort_graph();
     //build_indexes();
