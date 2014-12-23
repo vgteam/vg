@@ -99,6 +99,7 @@ VG::VG(void) {
 void VG::init(void) {
     gssw_aligner = NULL;
     current_id = 0;
+    show_progress = false;
 }
 
 VG::VG(set<Node*>& nodes, set<Edge*>& edges) {

@@ -26,8 +26,6 @@ extern "C" {
 
 namespace vg {
 
-bool show_progress = false;
-
 class VG {
 
 public:
@@ -234,6 +232,8 @@ public:
 
     // join head nodes of graph to common null node
     Node* join_heads(void);
+
+    bool show_progress;
 
 private:
 
