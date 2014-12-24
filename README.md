@@ -97,6 +97,7 @@ Once constructed, a variant graph (.vg is the suggested file extension) is typic
 - [x] verify that snappy compression is enabled for index, and measure size for large graphs
 - [x] move to rocksdb
 - [x] object streams (enable graphs > 60mb) and alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
+- [ ] use sparse_hash for improved memory efficiency with large graphs (or dense_hash--- but it's easy to switch)
 - [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps)
 - [ ] index metadata (to quickly check if we have kmer index of size >=N)
 - [ ] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
