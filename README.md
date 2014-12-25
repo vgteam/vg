@@ -97,10 +97,10 @@ The current interfaces provided in the command line utility `vg` are rather roug
 - [ ] improve memory performance of kmer indexing for large graphs by storing incremental results of k-path generation
 - [ ] global alignment: retain and expand only the most-likely subgraphs
 - [x] verify that snappy compression is enabled for index, and measure size for large graphs
-- [x] move to rocksdb
+- [x] move to rocksdb for better indexing performance on modern hardware (multiple cores, SSDs)
 - [x] object streams (enable graphs > 60mb) and alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
 - [ ] use sparse_hash for improved memory efficiency with large graphs (or dense_hash--- but it's easy to switch)
-- [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps)
+- [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps), and probably default GFA output from vg view
 - [ ] index metadata (to quickly check if we have kmer index of size >=N)
 - [ ] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
 - [ ] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
@@ -113,6 +113,7 @@ The current interfaces provided in the command line utility `vg` are rather roug
 - [ ] genotyping of paths using freebayes-like genotyping model
 - [ ] genotyping using dynamic programming genotyping model and compressed sequence results against graph
 - [ ] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
+- [ ] [perceptual DNA hashing](http://arxiv-web3.library.cornell.edu/abs/1412.5517) to reduce index memory usage
 
 ## License
 
