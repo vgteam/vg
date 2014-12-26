@@ -63,7 +63,9 @@ A variety of commands are available:
 - *align*: local alignment
 - *map*: global alignment (kmer-driven)
 - *stats*: metrics describing graph properties
-- *join*: combine graphs
+- *join*: combine graphs (parallel)
+- *concat*: combine graphs (serial)
+- *ids*: id manipulation
 
 ## Implementation notes
 
