@@ -354,10 +354,9 @@ void VG::extend(Graph& graph) {
 // the ids of the second graph are modified for compact representation
 void VG::append(VG& g) {
 
-    //g.wrap_with_null_nodes(); // ensures we don't end up with dangling middle nodes
-
     // compact and increment the ids of g out of range of this graph
     //g.compact_ids();
+    // assume we've already compacted the other, or that id compaction doesn't matter
     g.increment_node_ids(max_node_id());
 
     // get the heads of the other graph, now that we've compacted the ids
@@ -954,8 +953,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
             delete *v;
         }
         g.remove_null_nodes_forwarding_edges();
-        g.topologically_sort_graph();
-        if (!g.is_valid()) { cerr << "g is not valid" << endl; exit(1); }
+        //g.topologically_sort_graph();
+        //if (!g.is_valid()) { cerr << "g is not valid" << endl; exit(1); }
         //g.compact_ids();
         // now combine it with this graph
 #pragma omp critical
@@ -963,7 +962,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
             //cerr << "combining graphs" << endl;
             combine(g);
             //cerr << "done" << endl;
-            if (!is_valid()) { cerr << "graph is not valid" << endl; exit(1); }
+            //if (!is_valid()) { cerr << "graph is not valid" << endl; exit(1); }
         }
     }
 
