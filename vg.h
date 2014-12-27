@@ -18,6 +18,7 @@
 #include "stream.h"
 
 #include <sparsehash/sparse_hash_map>
+#include <sparsehash/dense_hash_map>
 
 extern "C" {
 #include "progressbar.h"
@@ -30,12 +31,40 @@ extern "C" {
 namespace vg {
 
 using google::sparse_hash_map;
+using google::dense_hash_map;
+
+template<typename K, typename V>
+class hash_map : public dense_hash_map<K,V> {
+public:
+    hash_map() {
+        this->set_empty_key(-1);
+        this->set_deleted_key(-2);
+    }
+};
+
+template<typename K, typename V>
+class string_hash_map : public dense_hash_map<K,V> {
+public:
+    string_hash_map() {
+        this->set_empty_key(" ");
+        this->set_deleted_key("");
+    }
+};
+
+template<typename K, typename V>
+class hash_map<K*,V> : public dense_hash_map<K*,V> {
+public:
+    hash_map() {
+        this->set_empty_key((K*)(~0));
+        this->set_deleted_key((K*)(0));
+    }
+};
 
 class VG {
 
 public:
 
-//    sparse_hash_map<int, int> sparse_hash_map;
+//    hash_map<int, int> hash_map;
 
     // protobuf-based representation
     // NB: we can't subclass this safely, so it's best as a member
@@ -45,29 +74,29 @@ public:
     int64_t current_id;
 
     // nodes by id
-    sparse_hash_map<int64_t, Node*> node_by_id;
+    hash_map<int64_t, Node*> node_by_id;
 
     // nodes by position in nodes repeated field
     // this is critical to allow fast deletion of nodes
-    sparse_hash_map<Node*, int> node_index;
+    hash_map<Node*, int> node_index;
 
     // edges by position in edges repeated field
     // same as for nodes, this allows fast deletion
-    sparse_hash_map<Edge*, int> edge_index;
+    hash_map<Edge*, int> edge_index;
 
     // edges indexed by nodes they connect
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> > edge_from_to;
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> > edge_to_from;
+    hash_map<int64_t, hash_map<int64_t, Edge*> > edge_from_to;
+    hash_map<int64_t, hash_map<int64_t, Edge*> > edge_to_from;
 
     // set the edge indexes through this function
     void set_edge(int64_t from, int64_t to, Edge*);
     void print_edges(void);
 
     // convenience accessors
-    sparse_hash_map<int64_t, Edge*>& edges_from(Node* node);
-    sparse_hash_map<int64_t, Edge*>& edges_from(int64_t id);
-    sparse_hash_map<int64_t, Edge*>& edges_to(Node* node);
-    sparse_hash_map<int64_t, Edge*>& edges_to(int64_t id);
+    hash_map<int64_t, Edge*>& edges_from(Node* node);
+    hash_map<int64_t, Edge*>& edges_from(int64_t id);
+    hash_map<int64_t, Edge*>& edges_to(Node* node);
+    hash_map<int64_t, Edge*>& edges_to(int64_t id);
 
     // constructors
 
@@ -233,7 +262,7 @@ public:
                              map<Node*, int>& node_start);
 
     // kmers
-    void kmers_of(sparse_hash_map<string, sparse_hash_map<Node*, int> >& kmer_map, int kmer_size);
+    void kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map, int kmer_size);
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);

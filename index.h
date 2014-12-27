@@ -82,12 +82,12 @@ public:
     string position_entry_to_string(const string& key, const string& value);
     string metadata_entry_to_string(const string& key, const string& value);
 
-    void store_kmers(sparse_hash_map<string, sparse_hash_map<Node*, int> >& kmer_map);
+    void store_kmers(string_hash_map<string, hash_map<Node*, int> >& kmer_map);
     //void store_positions(VG& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
 
     // once we have indexed the kmers, we can get the nodes and edges matching
     void kmer_matches(std::string& kmer, std::set<int64_t>& node_ids, std::set<int64_t>& edge_ids);
-    void populate_matches(Matches& matches, sparse_hash_map<Node*, int>& kmer_node_pos);
+    void populate_matches(Matches& matches, hash_map<Node*, int>& kmer_node_pos);
 
     char graph_key_type(string& key);
 

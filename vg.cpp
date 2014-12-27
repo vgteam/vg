@@ -99,14 +99,6 @@ void VG::init(void) {
     gssw_aligner = NULL;
     current_id = 1;
     show_progress = false;
-    // set "deleted keys" of sparse_hash_maps
-    // so we can erase elements from them, as explained:
-    // https://google-sparsehash.googlecode.com/svn/trunk/doc/sparse_hash_map.html#6
-    node_index.set_deleted_key(0);
-    edge_index.set_deleted_key(0);
-    node_by_id.set_deleted_key(LONG_MIN);
-    edge_from_to.set_deleted_key(LONG_MIN);
-    edge_to_from.set_deleted_key(LONG_MIN);
 }
 
 VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
@@ -172,7 +164,7 @@ int64_t VG::edge_count(void) {
 }
 
 int VG::in_degree(Node* node) {
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
     if (in == edge_to_from.end()) {
         return 0;
     } else {
@@ -181,7 +173,7 @@ int VG::in_degree(Node* node) {
 }
 
 int VG::out_degree(Node* node) {
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
     if (out == edge_from_to.end()) {
         return 0;
     } else {
@@ -190,16 +182,16 @@ int VG::out_degree(Node* node) {
 }
 
 void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
     if (in != edge_to_from.end()) {
-        sparse_hash_map<int64_t, Edge*>::iterator e = in->second.begin();
+        hash_map<int64_t, Edge*>::iterator e = in->second.begin();
         for (; e != in->second.end(); ++e) {
             edges.push_back(e->second);
         }
     }
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
     if (out != edge_from_to.end()) {
-        sparse_hash_map<int64_t, Edge*>::iterator e = out->second.begin();
+        hash_map<int64_t, Edge*>::iterator e = out->second.begin();
         for (; e != out->second.end(); ++e) {
             edges.push_back(e->second);
         }
@@ -281,7 +273,7 @@ bool VG::has_edge(Edge& edge) {
 }
 
 bool VG::has_edge(int64_t from, int64_t to) {
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
     return e != edge_from_to.end() && e->second.find(to) != e->second.end();
 }
 
@@ -401,22 +393,6 @@ void VG::combine(VG& g) {
     extend(g);
 }
 
-
-/*
-  // state to update in sync
-
-  // nodes by id
-  map<int64_t, Node*> node_by_id;
-
-  // nodes by position in nodes repeated field
-  // this is critical to allow fast deletion of nodes
-  map<Node*, int> node_index;
-
-  // edges indexed by nodes they connect
-  map<int64_t, map<int64_t, Edge*> > edge_from_to;
-  map<int64_t, map<int64_t, Edge*> > edge_to_from;
-*/
-
 int64_t VG::max_node_id(void) {
     int64_t max_id = 0;
     for (int i = 0; i < graph.node_size(); ++i) {
@@ -476,16 +452,16 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
     set<pair<int64_t, int64_t> > edges_to_destroy;
     set<pair<int64_t, int64_t> > edges_to_create;
 
-    sparse_hash_map<int64_t, Edge*>& to = edges_to(old_id);
-    for (sparse_hash_map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
+    hash_map<int64_t, Edge*>& to = edges_to(old_id);
+    for (hash_map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
         //assert(has_node(e->first));
         //assert(has_node(new_id));
         edges_to_create.insert(make_pair(e->first, new_id));
         edges_to_destroy.insert(make_pair(e->second->from(), e->second->to()));
     }
 
-    sparse_hash_map<int64_t, Edge*>& from = edges_from(old_id);
-    for (sparse_hash_map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
+    hash_map<int64_t, Edge*>& from = edges_from(old_id);
+    for (hash_map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
         //assert(has_node(e->first));
         //assert(has_node(new_id));
         edges_to_create.insert(make_pair(new_id, e->first));
@@ -1034,7 +1010,7 @@ Edge* VG::create_edge(int64_t from, int64_t to) {
 }
 
 Edge* VG::get_edge(int64_t from, int64_t to) {
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
     if (e != edge_from_to.end() && e->second.find(to) != e->second.end()) {
         return e->second[to];
     } else {
@@ -1044,29 +1020,27 @@ Edge* VG::get_edge(int64_t from, int64_t to) {
 }
 
 void VG::set_edge(int64_t from, int64_t to, Edge* edge) {
-    sparse_hash_map<int64_t, Edge*>& from_node = edges_from(from);
-    sparse_hash_map<int64_t, Edge*>& to_node = edges_to(to);
+    hash_map<int64_t, Edge*>& from_node = edges_from(from);
+    hash_map<int64_t, Edge*>& to_node = edges_to(to);
     from_node[to] = edge;
     to_node[from] = edge;
 }
 
-sparse_hash_map<int64_t, Edge*>& VG::edges_from(int64_t id) {
-    sparse_hash_map<int64_t, Edge*>& from = edge_from_to[id];
-    if (from.empty()) from.set_deleted_key(LONG_MIN);
+hash_map<int64_t, Edge*>& VG::edges_from(int64_t id) {
+    hash_map<int64_t, Edge*>& from = edge_from_to[id];
     return from;
 }
 
-sparse_hash_map<int64_t, Edge*>& VG::edges_to(int64_t id) {
-    sparse_hash_map<int64_t, Edge*>& to = edge_to_from[id];
-    if (to.empty()) to.set_deleted_key(LONG_MIN);
+hash_map<int64_t, Edge*>& VG::edges_to(int64_t id) {
+    hash_map<int64_t, Edge*>& to = edge_to_from[id];
     return to;
 }
 
-sparse_hash_map<int64_t, Edge*>& VG::edges_from(Node* node) {
+hash_map<int64_t, Edge*>& VG::edges_from(Node* node) {
     return edges_from(node->id());
 }
 
-sparse_hash_map<int64_t, Edge*>& VG::edges_to(Node* node) {
+hash_map<int64_t, Edge*>& VG::edges_to(Node* node) {
     return edges_to(node->id());
 }
 
@@ -1107,7 +1081,7 @@ void VG::destroy_edge(Edge* edge) {
     // Why do we check that lei != tei?
     //
     // It seems, after an inordinate amount of testing and probing,
-    // that if we call erase twice on the same entry, we'll end up corrupting the sparse_hash_map
+    // that if we call erase twice on the same entry, we'll end up corrupting the hash_map
     //
     // So, if the element is already at the end of the table,
     // take a little break and just remove the last edge in graph
@@ -1143,7 +1117,7 @@ void VG::destroy_edge(Edge* edge) {
 }
 
 Node* VG::get_node(int64_t id) {
-    sparse_hash_map<int64_t, Node*>::iterator n = node_by_id.find(id);
+    hash_map<int64_t, Node*>::iterator n = node_by_id.find(id);
     if (n != node_by_id.end()) {
         return n->second;
     } else {
@@ -1172,12 +1146,12 @@ void VG::node_context(Node* node, VG& g) {
     // add the node
     g.add_node(*node);
     // and its edges
-    sparse_hash_map<int64_t, Edge*>& to = edges_to(node->id());
-    for (sparse_hash_map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
+    hash_map<int64_t, Edge*>& to = edges_to(node->id());
+    for (hash_map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
         g.add_edge(*e->second);
     }
-    sparse_hash_map<int64_t, Edge*>& from = edges_from(node->id());
-    for (sparse_hash_map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
+    hash_map<int64_t, Edge*>& from = edges_from(node->id());
+    for (hash_map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
         g.add_edge(*e->second);
     }
 }
@@ -1193,16 +1167,16 @@ void VG::destroy_node(Node* node) {
     if (!has_node(node)) { return; }
     // remove edges associated with node
     set<pair<int64_t, int64_t> > edges_to_destroy;
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
     if (e != edge_from_to.end()) {
-        for (sparse_hash_map<int64_t, Edge*>::iterator f = e->second.begin();
+        for (hash_map<int64_t, Edge*>::iterator f = e->second.begin();
              f != e->second.end(); ++f) {
             edges_to_destroy.insert(make_pair(f->second->from(), f->second->to()));
         }
     }
     e = edge_to_from.find(node->id());
     if (e != edge_to_from.end()) {
-        for (sparse_hash_map<int64_t, Edge*>::iterator f = e->second.begin();
+        for (hash_map<int64_t, Edge*>::iterator f = e->second.begin();
              f != e->second.end(); ++f) {
             edges_to_destroy.insert(make_pair(f->second->from(), f->second->to()));
         }
@@ -1266,12 +1240,12 @@ void VG::remove_null_nodes_forwarding_edges(void) {
 }
 
 void VG::remove_node_forwarding_edges(Node* node) {
-    sparse_hash_map<int64_t, Edge*>& to = edges_to(node);
-    sparse_hash_map<int64_t, Edge*>& from = edges_from(node);
+    hash_map<int64_t, Edge*>& to = edges_to(node);
+    hash_map<int64_t, Edge*>& from = edges_from(node);
     // for edge to
     set<pair<int64_t, int64_t> > edges_to_create;
-    for (sparse_hash_map<int64_t, Edge*>::iterator t = to.begin(); t != to.end(); ++t) {
-        for (sparse_hash_map<int64_t, Edge*>::iterator f = from.begin(); f != from.end(); ++f) {
+    for (hash_map<int64_t, Edge*>::iterator t = to.begin(); t != to.end(); ++t) {
+        for (hash_map<int64_t, Edge*>::iterator f = from.begin(); f != from.end(); ++f) {
             // connect
             edges_to_create.insert(make_pair(t->first, f->first));
         }
@@ -1303,13 +1277,13 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     // make our left node
     left = create_node(node->sequence().substr(0,pos));
 
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::const_iterator e;
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::const_iterator e;
     map<int64_t, int64_t> edges_to_create;
 
     // replace node connections to prev (left)
     e = edge_to_from.find(node->id());
     if (e != edge_to_from.end()) {
-        for (sparse_hash_map<int64_t, Edge*>::const_iterator p = e->second.begin();
+        for (hash_map<int64_t, Edge*>::const_iterator p = e->second.begin();
              p != e->second.end(); ++p) {
             edges_to_create[p->first] = left->id();
         }
@@ -1321,7 +1295,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     // replace node connections to next (right)
     e = edge_from_to.find(node->id());
     if (e != edge_from_to.end()) {
-        for (sparse_hash_map<int64_t, Edge*>::const_iterator n = e->second.begin();
+        for (hash_map<int64_t, Edge*>::const_iterator n = e->second.begin();
              n != e->second.end(); ++n) {
             edges_to_create[right->id()] = n->first;
         }
@@ -1371,18 +1345,18 @@ void VG::divide_path(map<long, Node*>& path, long pos, Node*& left, Node*& right
 }
 
 void VG::nodes_prev(Node* node, vector<Node*>& nodes) {
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_to_from.find(node->id());
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator e = edge_to_from.find(node->id());
     if (e != edge_to_from.end()) {
-        for (sparse_hash_map<int64_t, Edge*>::iterator f = e->second.begin(); f != e->second.end(); ++f) {
+        for (hash_map<int64_t, Edge*>::iterator f = e->second.begin(); f != e->second.end(); ++f) {
             nodes.push_back(node_by_id[f->first]);
         }
     }
 }
 
 void VG::nodes_next(Node* node, vector<Node*>& nodes) {
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
+    hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
     if (e != edge_from_to.end()) {
-        for (sparse_hash_map<int64_t, Edge*>::iterator t = e->second.begin(); t != e->second.end(); ++t) {
+        for (hash_map<int64_t, Edge*>::iterator t = e->second.begin(); t != e->second.end(); ++t) {
             nodes.push_back(node_by_id[t->first]);
         }
     }
@@ -1528,7 +1502,7 @@ void VG::node_starts_in_path(const list<Node*>& path,
 }
 
 void VG::bounded_paths(int64_t node_id, vector<Path>& paths, int length) {
-    sparse_hash_map<int64_t, Node*>::iterator n = node_by_id.find(node_id);
+    hash_map<int64_t, Node*>::iterator n = node_by_id.find(node_id);
     if (n != node_by_id.end()) {
         Node* node = n->second;
         bounded_paths(node, paths, length);
@@ -1590,10 +1564,10 @@ bool VG::is_valid(void) {
 
     //cerr << "there are " << edge_from_to.size() << " items in the edge_from_to index" << endl;
 
-    for (sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator f = edge_from_to.begin();
+    for (hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator f = edge_from_to.begin();
          f != edge_from_to.end(); ++f) {
-        sparse_hash_map<int64_t, Edge*>& to = f->second;
-        for (sparse_hash_map<int64_t, Edge*>::iterator t = to.begin(); t != to.end(); ++t) {
+        hash_map<int64_t, Edge*>& to = f->second;
+        for (hash_map<int64_t, Edge*>::iterator t = to.begin(); t != to.end(); ++t) {
             Edge* e = t->second;
             //cerr << "edge_from_to " << e << " " << e->from() << "->" << e->to() << endl;
             if (!e) {
@@ -1618,10 +1592,10 @@ bool VG::is_valid(void) {
 
     //cerr << "there are " << edge_to_from.size() << " items in the edge_to_from index" << endl;
 
-    for (sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator t = edge_to_from.begin();
+    for (hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator t = edge_to_from.begin();
          t != edge_to_from.end(); ++t) {
-        sparse_hash_map<int64_t, Edge*>& from = t->second;
-        for (sparse_hash_map<int64_t, Edge*>::iterator f = from.begin(); f != from.end(); ++f) {
+        hash_map<int64_t, Edge*>& from = t->second;
+        for (hash_map<int64_t, Edge*>::iterator f = from.begin(); f != from.end(); ++f) {
             Edge* e = f->second;
             //cerr << "edge_to_from " << e << " " << e->from() << "->" << e->to() << endl;
             if (!e) {
@@ -1730,7 +1704,7 @@ Alignment VG::align(string& sequence) {
 }
 
 
-void VG::kmers_of(sparse_hash_map<string, sparse_hash_map<Node*, int> >& kmer_map, int kmer_size) {
+void VG::kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map, int kmer_size) {
 
     // get the bounded paths of the graph
     // these are paths of up to length kmer_size from a root node to neighbors
@@ -1765,7 +1739,7 @@ void VG::kmers_of(sparse_hash_map<string, sparse_hash_map<Node*, int> >& kmer_ma
             string kmer = seq.substr(i, kmer_size);
 
             // create our kmer node match set if it doesn't exist
-            sparse_hash_map<Node*, int>& nodes = kmer_map[kmer];
+            hash_map<Node*, int>& nodes = kmer_map[kmer];
 
             // drop the node overlaps of this kmer into our index
             int j = 0;
@@ -1891,8 +1865,8 @@ void VG::topological_sort(deque<Node*>& l) {
     map<int64_t, Node*> s;
     vector<Node*> heads;
     // copy our edges
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >& edgesf = edge_from_to;
-    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >& edgest = edge_to_from;
+    hash_map<int64_t, hash_map<int64_t, Edge*> >& edgesf = edge_from_to;
+    hash_map<int64_t, hash_map<int64_t, Edge*> >& edgest = edge_to_from;
     head_nodes(heads);
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
         s[(*n)->id()] = *n;
@@ -1902,9 +1876,9 @@ void VG::topological_sort(deque<Node*>& l) {
         Node* n = s.begin()->second;
         s.erase(n->id());
         l.push_back(n);
-        sparse_hash_map<int64_t, Edge*>& edges_from = edgesf[n->id()];
+        hash_map<int64_t, Edge*>& edges_from = edgesf[n->id()];
         vector<int64_t> to_erase;
-        for (sparse_hash_map<int64_t, Edge*>::iterator f = edges_from.begin(); f != edges_from.end(); ++f) {
+        for (hash_map<int64_t, Edge*>::iterator f = edges_from.begin(); f != edges_from.end(); ++f) {
             Node* m = node_by_id[f->first];
             to_erase.push_back(m->id());
             edgest[m->id()].erase(n->id());
@@ -1917,7 +1891,7 @@ void VG::topological_sort(deque<Node*>& l) {
         }
     }
     // if we have a cycle, signal an error, as we are not guaranteed an order
-    for (sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator f = edgesf.begin();
+    for (hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator f = edgesf.begin();
          f != edgesf.end(); ++f) {
         if (!f->second.empty()) {
             cerr << "error:[VG::topological_sort] graph has a cycle from " << f->first
@@ -1928,7 +1902,7 @@ void VG::topological_sort(deque<Node*>& l) {
             exit(1);
         }
     }
-    for (sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator t = edgest.begin();
+    for (hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator t = edgest.begin();
          t != edgest.end(); ++t) {
         if (!t->second.empty()) {
             cerr << "error:[VG::topological_sort] graph has a cycle to " << t->first

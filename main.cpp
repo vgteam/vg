@@ -819,7 +819,7 @@ int main_index(int argc, char** argv) {
     }
 
     if (kmer_size != 0) {
-        sparse_hash_map<string, sparse_hash_map<Node*, int> > kmer_map;
+        string_hash_map<string, hash_map<Node*, int> > kmer_map;
         graph->kmers_of(kmer_map, kmer_size);
         index.store_kmers(kmer_map);
     }

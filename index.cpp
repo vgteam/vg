@@ -414,8 +414,8 @@ void Index::batch_kmer(const string& kmer, const Matches& matches, rocksdb::Writ
     batch.Put(key, data);
 }
 
-void Index::populate_matches(Matches& matches, sparse_hash_map<Node*, int>& kmer_node_pos) {
-    for (sparse_hash_map<Node*, int>::iterator m = kmer_node_pos.begin(); m != kmer_node_pos.end(); ++m) {
+void Index::populate_matches(Matches& matches, hash_map<Node*, int>& kmer_node_pos) {
+    for (hash_map<Node*, int>::iterator m = kmer_node_pos.begin(); m != kmer_node_pos.end(); ++m) {
         Node* n = m->first;
         int pos = m->second;
         Match* match = matches.add_match();
@@ -424,12 +424,12 @@ void Index::populate_matches(Matches& matches, sparse_hash_map<Node*, int>& kmer
     }
 }
 
-void Index::store_kmers(sparse_hash_map<string, sparse_hash_map<Node*, int> >& kmer_map) {
+void Index::store_kmers(string_hash_map<string, hash_map<Node*, int> >& kmer_map) {
     rocksdb::WriteBatch batch;
-    for (sparse_hash_map<string, sparse_hash_map<Node*, int> >::iterator k = kmer_map.begin();
+    for (string_hash_map<string, hash_map<Node*, int> >::iterator k = kmer_map.begin();
          k != kmer_map.end(); ++k) {
         const string& kmer = k->first;
-        sparse_hash_map<Node*, int>& kmer_node_pos = k->second;
+        hash_map<Node*, int>& kmer_node_pos = k->second;
         Matches matches;
         populate_matches(matches, kmer_node_pos);
         batch_kmer(kmer, matches, batch);
