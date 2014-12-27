@@ -13,7 +13,6 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
-
 void vg_help(char** argv) {
     cerr << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
@@ -104,7 +103,9 @@ void help_stats(char** argv) {
          << "options:" << endl
          << "    -z, --size            size of graph" << endl
          << "    -l, --length          length of sequences in graph" << endl
-         << "    -s, --subgraphs       describe subgraphs of graph" << endl;
+         << "    -s, --subgraphs       describe subgraphs of graph" << endl
+         << "    -H, --heads           list the head nodes of the graph" << endl
+         << "    -T, --tails           list the tail nodes of the graph" << endl;
 }
 
 void help_join(char** argv) {
@@ -354,6 +355,8 @@ int main_stats(int argc, char** argv) {
     bool stats_size = false;
     bool stats_length = false;
     bool stats_subgraphs = false;
+    bool stats_heads = false;
+    bool stats_tails = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -363,12 +366,14 @@ int main_stats(int argc, char** argv) {
                 {"size", no_argument, 0, 'z'},
                 {"length", no_argument, 0, 'l'},
                 {"subgraphs", no_argument, 0, 's'},
+                {"heads", no_argument, 0, 'H'},
+                {"tails", no_argument, 0, 'T'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzls",
+        c = getopt_long (argc, argv, "hzlsHT",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -387,6 +392,14 @@ int main_stats(int argc, char** argv) {
 
         case 's':
             stats_subgraphs = true;
+            break;
+
+        case 'H':
+            stats_heads = true;
+            break;
+
+        case 'T':
+            stats_tails = true;
             break;
 
         case 'h':
@@ -417,6 +430,26 @@ int main_stats(int argc, char** argv) {
 
     if (stats_length) {
         cout << "length" << "\t" << graph->total_length_of_nodes() << endl;
+    }
+
+    if (stats_heads) {
+        vector<Node*> heads;
+        graph->head_nodes(heads);
+        cout << "heads" << "\t";
+        for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
+            cout << (*h)->id() << " ";
+        }
+        cout << endl;
+    }
+
+    if (stats_tails) {
+        vector<Node*> tails;
+        graph->tail_nodes(tails);
+        cout << "tails" << "\t";
+        for (vector<Node*>::iterator t = tails.begin(); t != tails.end(); ++t) {
+            cout << (*t)->id() << " ";
+        }
+        cout << endl;
     }
 
     if (stats_subgraphs) {
@@ -786,7 +819,7 @@ int main_index(int argc, char** argv) {
     }
 
     if (kmer_size != 0) {
-        map<string, map<Node*, int> > kmer_map;
+        sparse_hash_map<string, sparse_hash_map<Node*, int> > kmer_map;
         graph->kmers_of(kmer_map, kmer_size);
         index.store_kmers(kmer_map);
     }

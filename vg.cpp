@@ -4,8 +4,7 @@ namespace vg {
 
 using namespace std;
 
-//VG::VG(void) { };
-// construct from protobufs
+// construct from a stream of protobufs
 VG::VG(istream& in) {
     init();
 
@@ -98,8 +97,16 @@ VG::VG(void) {
 
 void VG::init(void) {
     gssw_aligner = NULL;
-    current_id = 0;
+    current_id = 1;
     show_progress = false;
+    // set "deleted keys" of sparse_hash_maps
+    // so we can erase elements from them, as explained:
+    // https://google-sparsehash.googlecode.com/svn/trunk/doc/sparse_hash_map.html#6
+    node_index.set_deleted_key(0);
+    edge_index.set_deleted_key(0);
+    node_by_id.set_deleted_key(LONG_MIN);
+    edge_from_to.set_deleted_key(LONG_MIN);
+    edge_to_from.set_deleted_key(LONG_MIN);
 }
 
 VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
@@ -151,8 +158,7 @@ void VG::add_edge(Edge& edge) {
         Edge* new_edge = graph.add_edge(); // add it to the graph
         new_edge->set_from(edge.from());
         new_edge->set_to(edge.to());
-        edge_from_to[edge.from()][edge.to()] = new_edge;
-        edge_to_from[edge.to()][edge.from()] = new_edge;
+        set_edge(edge.from(), edge.to(), new_edge);
         edge_index[new_edge] = graph.edge_size()-1;
     }
 }
@@ -166,7 +172,7 @@ int64_t VG::edge_count(void) {
 }
 
 int VG::in_degree(Node* node) {
-    map<int64_t, map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
     if (in == edge_to_from.end()) {
         return 0;
     } else {
@@ -175,7 +181,7 @@ int VG::in_degree(Node* node) {
 }
 
 int VG::out_degree(Node* node) {
-    map<int64_t, map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
     if (out == edge_from_to.end()) {
         return 0;
     } else {
@@ -184,16 +190,16 @@ int VG::out_degree(Node* node) {
 }
 
 void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
-    map<int64_t, map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator in = edge_to_from.find(node->id());
     if (in != edge_to_from.end()) {
-        map<int64_t, Edge*>::iterator e = in->second.begin();
+        sparse_hash_map<int64_t, Edge*>::iterator e = in->second.begin();
         for (; e != in->second.end(); ++e) {
             edges.push_back(e->second);
         }
     }
-    map<int64_t, map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator out = edge_from_to.find(node->id());
     if (out != edge_from_to.end()) {
-        map<int64_t, Edge*>::iterator e = out->second.begin();
+        sparse_hash_map<int64_t, Edge*>::iterator e = out->second.begin();
         for (; e != out->second.end(); ++e) {
             edges.push_back(e->second);
         }
@@ -228,8 +234,7 @@ void VG::build_indexes(void) {
     for (int64_t i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
-        edge_from_to[e->from()][e->to()] = e;
-        edge_to_from[e->to()][e->from()] = e;
+        set_edge(e->from(), e->to(), e);
     }
 }
 
@@ -251,8 +256,7 @@ void VG::rebuild_indexes(void) {
     for (int64_t i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
-        edge_from_to[e->from()][e->to()] = e;
-        edge_to_from[e->to()][e->from()] = e;
+        set_edge(e->from(), e->to(), e);
     }
 }
 
@@ -277,7 +281,7 @@ bool VG::has_edge(Edge& edge) {
 }
 
 bool VG::has_edge(int64_t from, int64_t to) {
-    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
     return e != edge_from_to.end() && e->second.find(to) != e->second.end();
 }
 
@@ -358,8 +362,10 @@ void VG::extend(Graph& graph) {
 // the ids of the second graph are modified for compact representation
 void VG::append(VG& g) {
 
+    //g.wrap_with_null_nodes(); // ensures we don't end up with dangling middle nodes
+
     // compact and increment the ids of g out of range of this graph
-    g.compact_ids();
+    //g.compact_ids();
     g.increment_node_ids(max_node_id());
 
     // get the heads of the other graph, now that we've compacted the ids
@@ -385,14 +391,13 @@ void VG::append(VG& g) {
             create_edge(t->id(), *h);
         }
     }
-
 }
 
 void VG::combine(VG& g) {
     // compact and increment the ids of g out of range of this graph
-    g.compact_ids();
+    //g.compact_ids();
     g.increment_node_ids(max_node_id());
-    // now add it into the current graph
+    // now add it into the current graph, without connecting any nodes
     extend(g);
 }
 
@@ -456,6 +461,8 @@ void VG::swap_node_id(int64_t node_id, int64_t new_id) {
 
 void VG::swap_node_id(Node* node, int64_t new_id) {
 
+    //cerr << "swapping " << node->id() << " for new id " << new_id << endl;
+    int edge_n = edge_count();
     int64_t old_id = node->id();
     node->set_id(new_id);
     node_by_id.erase(old_id);
@@ -466,28 +473,42 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
     // otherwise move to a new id
     node_by_id[new_id] = node;
 
-    vector<Edge*> edges_to_destroy;
+    set<pair<int64_t, int64_t> > edges_to_destroy;
+    set<pair<int64_t, int64_t> > edges_to_create;
 
-    map<int64_t, Edge*>& to = edges_to(old_id);
-    for (map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
-        create_edge(e->first, new_id);
-        edges_to_destroy.push_back(e->second);
+    sparse_hash_map<int64_t, Edge*>& to = edges_to(old_id);
+    for (sparse_hash_map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
+        //assert(has_node(e->first));
+        //assert(has_node(new_id));
+        edges_to_create.insert(make_pair(e->first, new_id));
+        edges_to_destroy.insert(make_pair(e->second->from(), e->second->to()));
     }
 
-    map<int64_t, Edge*>& from = edges_from(old_id);
-    for (map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
-        create_edge(new_id, e->first);
-        edges_to_destroy.push_back(e->second);
+    sparse_hash_map<int64_t, Edge*>& from = edges_from(old_id);
+    for (sparse_hash_map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
+        //assert(has_node(e->first));
+        //assert(has_node(new_id));
+        edges_to_create.insert(make_pair(new_id, e->first));
+        edges_to_destroy.insert(make_pair(e->second->from(), e->second->to()));
     }
 
-    for (vector<Edge*>::iterator e = edges_to_destroy.begin();
+    assert(edges_to_destroy.size() == edges_to_create.size());
+
+    for (set<pair<int64_t, int64_t> >::iterator e = edges_to_destroy.begin();
          e != edges_to_destroy.end(); ++e) {
-        destroy_edge(*e);
+        destroy_edge(e->first, e->second);
     }
+
+    for (set<pair<int64_t, int64_t> >::iterator e = edges_to_create.begin();
+         e != edges_to_create.end(); ++e) {
+        create_edge(e->first, e->second);
+    }
+
+    assert(edge_n == edge_count());
 
     // we maintain a valid graph
     // this an expensive check but should work (for testing only)
-    // assert(is_valid());
+    //assert(is_valid());
 
 }
 
@@ -516,6 +537,7 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
 
     //init();
     vector<vcf::Variant>& records = *r;
+
 /*
     int tid = omp_get_thread_num();
 #pragma omp critical
@@ -525,6 +547,7 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
         cerr << tid << ": and " << seq.size() << "bp" << endl;
     }
 */
+
 
     map<long, Node*> reference_path;
     // track the last nodes so that we can connect everything
@@ -580,7 +603,10 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                             left_ref_node,
                             right_ref_node);
 
-                //cerr << "nodes: left: " << left_ref_node->id() << " right: " << right_ref_node->id() << endl;
+                /*
+                cerr << "nodes: left: " << left_ref_node->id() << ":" << left_ref_node->sequence()
+                     << " right: " << right_ref_node->id() << ":" << right_ref_node->sequence() << endl;
+                */
 
                 // if the ref portion of the allele is not empty, then we need to make another cut
                 if (!allele.ref.empty()) {
@@ -596,14 +622,13 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                     //cerr << "both alt and ref have sequence" << endl;
 
                     alt_node = create_node(allele.alt);
-                    //ref_map.add_node(alt_node, allele_start_pos, );
                     create_edge(left_ref_node, alt_node);
                     create_edge(alt_node, right_ref_node);
 
                     // XXXXXXXX middle is borked
                     // why do we have to force this edge back in?
                     // ... because it's not in the ref map?? (??)
-                    create_edge(left_ref_node, middle_ref_node);
+                    //create_edge(left_ref_node, middle_ref_node);
 
                     nodes_by_end_position[allele_end_pos].insert(alt_node);
                     nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
@@ -626,10 +651,10 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                 }
 
                 /*
-                  if (left_ref_node) cerr << "left_ref " << left_ref_node->id() << endl;
-                  if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id() << endl;
-                  if (right_ref_node) cerr << "right_ref " << right_ref_node->id() << endl;
-                  if (alt_node) cerr << "alt_node " << alt_node->id() << endl;
+                if (left_ref_node) cerr << "left_ref " << left_ref_node->id() << endl;
+                if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id() << endl;
+                if (right_ref_node) cerr << "right_ref " << right_ref_node->id() << endl;
+                if (alt_node) cerr << "alt_node " << alt_node->id() << endl;
                 */
 
 
@@ -667,6 +692,8 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                     nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
                 }
 
+                //print_edges();
+
                 /*
                 if (!is_valid()) {
                     cerr << "graph is invalid after variant" << endl
@@ -684,7 +711,25 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
 
 }
 
+void VG::print_edges(void) {
+    for (int i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        int64_t f = e->from();
+        int64_t t = e->to();
+        cerr << f << "->" << t << " ";
+    }
+    cerr << endl;
+}
 
+bool allATGC(string& s) {
+    for (string::iterator c = s.begin(); c != s.end(); ++c) {
+        char b = *c;
+        if (b != 'A' && b != 'T' && b != 'G' && b != 'C') {
+            return false;
+        }
+    }
+    return true;
+}
 
 VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string& target, int vars_per_region) {
     init();
@@ -772,10 +817,17 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
             {
 
                 done_with_chrom = !variantCallFile.getNextVariant(var);
+
+                // skip non-DNA sequences, such as SVs
+                bool isDNA = allATGC(var.ref);
+                for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+                    if (!allATGC(*a)) isDNA = false;
+                }
+
                 //cerr << tid << ": got variant = " << var << endl;
                 var.position -= 1; // convert to 0-based
 
-                if (!done_with_chrom) {
+                if (!done_with_chrom && isDNA) {
 
                     if (!region) {
                         region = new vector<vcf::Variant>;
@@ -879,11 +931,15 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
                 }
                 
                 if (plan) {
+
+/*
 #pragma omp critical
                     cerr << tid << ": " << "constructing graph " << plan->graph << " over "
                          << plan->vars->size() << " variants in " <<plan->seq.size() << "bp "
                          << plan->name << ":" << plan->offset
                          << "-" << plan->offset + plan->seq.size() << endl;
+*/
+
                     plan->graph->from_vcf_records(plan->vars,
                                                   plan->seq,
                                                   plan->name,
@@ -909,8 +965,10 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
 
 #pragma omp parallel for default(none) shared(graphs_by_refseq, refseq_names, cerr)
     for (int i = 0; i < refseq_names.size(); ++i) {
-#pragma omp critical
-        cerr << "merging graphs in refseq " << refseq_names.at(i) << endl;
+
+//#pragma omp critical
+//        cerr << "merging graphs in refseq " << refseq_names.at(i) << endl;
+
         // merge the variants into one graph
         VG g;
         vector<VG*>& s = graphs_by_refseq[refseq_names.at(i)];
@@ -920,13 +978,16 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
             delete *v;
         }
         g.remove_null_nodes_forwarding_edges();
-        g.compact_ids();
+        g.topologically_sort_graph();
+        if (!g.is_valid()) { cerr << "g is not valid" << endl; exit(1); }
+        //g.compact_ids();
         // now combine it with this graph
 #pragma omp critical
         {
-            cerr << "combining graphs" << endl;
+            //cerr << "combining graphs" << endl;
             combine(g);
-            cerr << "done" << endl;
+            //cerr << "done" << endl;
+            if (!is_valid()) { cerr << "graph is not valid" << endl; exit(1); }
         }
     }
 
@@ -956,24 +1017,24 @@ Edge* VG::create_edge(Node* from, Node* to) {
 }
 
 Edge* VG::create_edge(int64_t from, int64_t to) {
+    //cerr << "creating edge " << from << "->" << to << endl;
     // prevent self-linking (violates DAG/partial ordering property)
     if (to == from) return NULL;
     // ensure the edge does not already exist
-    Edge* edge = edge_from_to[from][to];
+    Edge* edge = get_edge(from, to);
     if (edge) return edge;
     // if not, create it
     edge = graph.add_edge();
     edge->set_from(from);
     edge->set_to(to);
-    edge_from_to[from][to] = edge;
-    edge_to_from[to][from] = edge;
+    set_edge(from, to, edge);
     edge_index[edge] = graph.edge_size()-1;
-    //cerr << "created edge " << edge->from() << " -> " << edge->to() << endl;
+    //cerr << "created edge " << edge->from() << "->" << edge->to() << endl;
     return edge;
 }
 
 Edge* VG::get_edge(int64_t from, int64_t to) {
-    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(from);
     if (e != edge_from_to.end() && e->second.find(to) != e->second.end()) {
         return e->second[to];
     } else {
@@ -982,20 +1043,31 @@ Edge* VG::get_edge(int64_t from, int64_t to) {
     }
 }
 
-map<int64_t, Edge*>& VG::edges_from(int64_t id) {
-    return edge_from_to[id];
+void VG::set_edge(int64_t from, int64_t to, Edge* edge) {
+    sparse_hash_map<int64_t, Edge*>& from_node = edges_from(from);
+    sparse_hash_map<int64_t, Edge*>& to_node = edges_to(to);
+    from_node[to] = edge;
+    to_node[from] = edge;
 }
 
-map<int64_t, Edge*>& VG::edges_from(Node* node) {
-    return edge_from_to[node->id()];
+sparse_hash_map<int64_t, Edge*>& VG::edges_from(int64_t id) {
+    sparse_hash_map<int64_t, Edge*>& from = edge_from_to[id];
+    if (from.empty()) from.set_deleted_key(LONG_MIN);
+    return from;
 }
 
-map<int64_t, Edge*>& VG::edges_to(int64_t id) {
-    return edge_to_from[id];
+sparse_hash_map<int64_t, Edge*>& VG::edges_to(int64_t id) {
+    sparse_hash_map<int64_t, Edge*>& to = edge_to_from[id];
+    if (to.empty()) to.set_deleted_key(LONG_MIN);
+    return to;
 }
 
-map<int64_t, Edge*>& VG::edges_to(Node* node) {
-    return edge_to_from[node->id()];
+sparse_hash_map<int64_t, Edge*>& VG::edges_from(Node* node) {
+    return edges_from(node->id());
+}
+
+sparse_hash_map<int64_t, Edge*>& VG::edges_to(Node* node) {
+    return edges_to(node->id());
 }
 
 void VG::destroy_edge(int64_t from, int64_t to) {
@@ -1003,40 +1075,75 @@ void VG::destroy_edge(int64_t from, int64_t to) {
 }
 
 void VG::destroy_edge(Edge* edge) {
+    //cerr << "destroying edge " << edge->from() << "->" << edge->to() << endl;
+
     // noop on NULL pointer or non-existent edge
     if (!has_edge(edge)) { return; }
-    //if (!is_valid()) cerr << "graph ain't valid" << endl;
+    //if (!is_valid()) { cerr << "graph ain't valid" << endl; }
     // erase from indexes
+
+    //cerr << "erasing from indexes" << endl;
+
     edge_from_to[edge->from()].erase(edge->to());
     edge_to_from[edge->to()].erase(edge->from());
+    //assert(edge_from_to[edge->from()].find(edge->to()) == edge_from_to[edge->from()].end());
+    //assert(edge_to_from[edge->to()].find(edge->from()) == edge_to_from[edge->to()].end());
+
+    // removing the sub-indexes if they are now empty
+    // does not seem necessary...
+    //if (edge_from_to[edge->from()].empty()) edge_from_to.erase(edge->from());
+    //if (edge_to_from[edge->to()].empty()) edge_to_from.erase(edge->to());
 
     // erase from edges by moving to end and dropping
+
+    // get the last edge index (lei) and this edge index (tei)
     int lei = graph.edge_size()-1;
     int tei = edge_index[edge];
-    Edge* last = graph.mutable_edge(lei);
-    edge_index.erase(last);
+
+    // erase this edge from the index
+    // we'll fix up below
     edge_index.erase(edge);
 
-    // swap
-    graph.mutable_edge()->SwapElements(tei, lei);
+    // Why do we check that lei != tei?
+    //
+    // It seems, after an inordinate amount of testing and probing,
+    // that if we call erase twice on the same entry, we'll end up corrupting the sparse_hash_map
+    //
+    // So, if the element is already at the end of the table,
+    // take a little break and just remove the last edge in graph
 
-    // point to new position
-    Edge* nlast = graph.mutable_edge(tei);
+    // if we need to move the element to the last position in the array...
+    if (lei != tei) {
 
-    // insert the new edge index position
-    edge_index[nlast] = tei;
+        // get a pointer to the last element
+        Edge* last = graph.mutable_edge(lei);
 
-    // and fix edge indexes for moved edge object
-    edge_from_to[nlast->from()][nlast->to()] = nlast;
-    edge_to_from[nlast->to()][nlast->from()] = nlast;
+        // erase from our index
+        edge_index.erase(last);
+
+        // swap
+        graph.mutable_edge()->SwapElements(tei, lei);
+
+        // point to new position
+        Edge* nlast = graph.mutable_edge(tei);
+
+        // insert the new edge index position
+        edge_index[nlast] = tei;
+
+        // and fix edge indexes for moved edge object
+        set_edge(nlast->from(), nlast->to(), nlast);
+
+    }
 
     // drop the last position, erasing the node
     graph.mutable_edge()->RemoveLast();
 
+    //if (!is_valid()) { cerr << "graph ain't valid" << endl; }
+
 }
 
 Node* VG::get_node(int64_t id) {
-    map<int64_t, Node*>::iterator n = node_by_id.find(id);
+    sparse_hash_map<int64_t, Node*>::iterator n = node_by_id.find(id);
     if (n != node_by_id.end()) {
         return n->second;
     } else {
@@ -1051,11 +1158,12 @@ Node* VG::create_node(string seq) {
     Node* node = graph.add_node();
     node->set_sequence(seq);
     node->set_id(current_id++);
+    //cerr << "creating node " << node->id() << endl;
     // copy it into the graph
     // and drop into our id index
     node_by_id[node->id()] = node;
     node_index[node] = graph.node_size()-1;
-    //cerr << "created node " << node->id() << endl;
+    //if (!is_valid()) cerr << "graph invalid" << endl;
     return node;
 }
 
@@ -1064,12 +1172,12 @@ void VG::node_context(Node* node, VG& g) {
     // add the node
     g.add_node(*node);
     // and its edges
-    map<int64_t, Edge*>& to = edges_to(node->id());
-    for (map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
+    sparse_hash_map<int64_t, Edge*>& to = edges_to(node->id());
+    for (sparse_hash_map<int64_t, Edge*>::iterator e = to.begin(); e != to.end(); ++e) {
         g.add_edge(*e->second);
     }
-    map<int64_t, Edge*>& from = edges_from(node->id());
-    for (map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
+    sparse_hash_map<int64_t, Edge*>& from = edges_from(node->id());
+    for (sparse_hash_map<int64_t, Edge*>::iterator e = from.begin(); e != from.end(); ++e) {
         g.add_edge(*e->second);
     }
 }
@@ -1080,27 +1188,28 @@ void VG::destroy_node(int64_t id) {
 
 void VG::destroy_node(Node* node) {
     //if (!is_valid()) cerr << "graph is invalid before destroy_node" << endl;
+    //cerr << "destroying node " << node->id() << endl;
     // noop on NULL/nonexistent node
     if (!has_node(node)) { return; }
     // remove edges associated with node
-    set<Edge*> edges_to_destroy;
-    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
+    set<pair<int64_t, int64_t> > edges_to_destroy;
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
     if (e != edge_from_to.end()) {
-        for (map<int64_t, Edge*>::iterator f = e->second.begin();
+        for (sparse_hash_map<int64_t, Edge*>::iterator f = e->second.begin();
              f != e->second.end(); ++f) {
-            edges_to_destroy.insert(f->second);
+            edges_to_destroy.insert(make_pair(f->second->from(), f->second->to()));
         }
     }
     e = edge_to_from.find(node->id());
     if (e != edge_to_from.end()) {
-        for (map<int64_t, Edge*>::iterator f = e->second.begin();
+        for (sparse_hash_map<int64_t, Edge*>::iterator f = e->second.begin();
              f != e->second.end(); ++f) {
-            edges_to_destroy.insert(f->second);
+            edges_to_destroy.insert(make_pair(f->second->from(), f->second->to()));
         }
     }
-    for (set<Edge*>::iterator e = edges_to_destroy.begin();
+    for (set<pair<int64_t, int64_t> >::iterator e = edges_to_destroy.begin();
          e != edges_to_destroy.end(); ++e) {
-        destroy_edge(*e);
+        destroy_edge(e->first, e->second);
     }
     // assert cleanup
     edge_to_from.erase(node->id());
@@ -1110,27 +1219,35 @@ void VG::destroy_node(Node* node) {
     // call RemoveLast() to drop the node
     int lni = graph.node_size()-1;
     int tni = node_index[node];
-    Node* last = graph.mutable_node(lni);
-    graph.mutable_node()->SwapElements(tni, lni);
-    Node* nlast = graph.mutable_node(tni);
-    node_by_id[last->id()] = nlast;
-    node_index.erase(last);
-    node_index[nlast] = tni;
+
+    if (lni != tni) {
+        // swap this node with the last one
+        Node* last = graph.mutable_node(lni);
+        graph.mutable_node()->SwapElements(tni, lni);
+        Node* nlast = graph.mutable_node(tni);
+
+        // and fix up the indexes
+        node_by_id[last->id()] = nlast;
+        node_index.erase(last);
+        node_index[nlast] = tni;
+    }
+
+    // remove this node (which is now the last one) and remove references from the indexes
     node_by_id.erase(node->id());
     node_index.erase(node);
     graph.mutable_node()->RemoveLast();
-    //if (!is_valid()) cerr << "graph is invalid after destroy_node" << endl;
+    //if (!is_valid()) { cerr << "graph is invalid after destroy_node" << endl; exit(1); }
 }
 
 void VG::remove_null_nodes(void) {
-    vector<Node*> to_remove;
+    vector<int64_t> to_remove;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
         if (node->sequence().size() == 0) {
-            to_remove.push_back(node);
+            to_remove.push_back(node->id());
         }
     }
-    for (vector<Node*>::iterator n = to_remove.begin(); n != to_remove.end(); ++n) {
+    for (vector<int64_t>::iterator n = to_remove.begin(); n != to_remove.end(); ++n) {
         destroy_node(*n);
     }
 }
@@ -1149,20 +1266,27 @@ void VG::remove_null_nodes_forwarding_edges(void) {
 }
 
 void VG::remove_node_forwarding_edges(Node* node) {
-    map<int64_t, Edge*>& to = edges_to(node);
-    map<int64_t, Edge*>& from = edges_from(node);
+    sparse_hash_map<int64_t, Edge*>& to = edges_to(node);
+    sparse_hash_map<int64_t, Edge*>& from = edges_from(node);
     // for edge to
-    for (map<int64_t, Edge*>::iterator t = to.begin(); t != to.end(); ++t) {
-        for (map<int64_t, Edge*>::iterator f = from.begin(); f != from.end(); ++f) {
+    set<pair<int64_t, int64_t> > edges_to_create;
+    for (sparse_hash_map<int64_t, Edge*>::iterator t = to.begin(); t != to.end(); ++t) {
+        for (sparse_hash_map<int64_t, Edge*>::iterator f = from.begin(); f != from.end(); ++f) {
             // connect
-            create_edge(t->first, f->first);
+            edges_to_create.insert(make_pair(t->first, f->first));
         }
+    }
+    for (set<pair<int64_t, int64_t> >::iterator e = edges_to_create.begin();
+         e != edges_to_create.end(); ++e) {
+        create_edge(e->first, e->second);
     }
     destroy_node(node);
 }
 
 // utilities
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
+
+    //cerr << "dividing node " << node->id() << endl;
 
 //#pragma omp critical
     if (pos < 0) {
@@ -1176,17 +1300,18 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     cerr << omp_get_thread_num() << ": in divide_node " << pos << " of " << node->sequence().size() << endl;
 */
 
-    map<int64_t, map<int64_t, Edge*> >::iterator e;
-
     // make our left node
     left = create_node(node->sequence().substr(0,pos));
+
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::const_iterator e;
+    map<int64_t, int64_t> edges_to_create;
 
     // replace node connections to prev (left)
     e = edge_to_from.find(node->id());
     if (e != edge_to_from.end()) {
-        for (map<int64_t, Edge*>::iterator p = e->second.begin();
+        for (sparse_hash_map<int64_t, Edge*>::const_iterator p = e->second.begin();
              p != e->second.end(); ++p) {
-            create_edge(p->first, left->id());
+            edges_to_create[p->first] = left->id();
         }
     }
 
@@ -1196,10 +1321,15 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     // replace node connections to next (right)
     e = edge_from_to.find(node->id());
     if (e != edge_from_to.end()) {
-        for (map<int64_t, Edge*>::iterator n = e->second.begin();
+        for (sparse_hash_map<int64_t, Edge*>::const_iterator n = e->second.begin();
              n != e->second.end(); ++n) {
-            create_edge(right->id(), n->first);
+            edges_to_create[right->id()] = n->first;
         }
+    }
+
+    // create the edges here as otherwise we will invalidate the iterators
+    for (map<int64_t, int64_t>::iterator c = edges_to_create.begin(); c != edges_to_create.end(); ++c) {
+        create_edge(c->first, c->second);
     }
 
     // connect left to right
@@ -1241,18 +1371,18 @@ void VG::divide_path(map<long, Node*>& path, long pos, Node*& left, Node*& right
 }
 
 void VG::nodes_prev(Node* node, vector<Node*>& nodes) {
-    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_to_from.find(node->id());
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_to_from.find(node->id());
     if (e != edge_to_from.end()) {
-        for (map<int64_t, Edge*>::iterator f = e->second.begin(); f != e->second.end(); ++f) {
+        for (sparse_hash_map<int64_t, Edge*>::iterator f = e->second.begin(); f != e->second.end(); ++f) {
             nodes.push_back(node_by_id[f->first]);
         }
     }
 }
 
 void VG::nodes_next(Node* node, vector<Node*>& nodes) {
-    map<int64_t, map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator e = edge_from_to.find(node->id());
     if (e != edge_from_to.end()) {
-        for (map<int64_t, Edge*>::iterator t = e->second.begin(); t != e->second.end(); ++t) {
+        for (sparse_hash_map<int64_t, Edge*>::iterator t = e->second.begin(); t != e->second.end(); ++t) {
             nodes.push_back(node_by_id[t->first]);
         }
     }
@@ -1398,7 +1528,7 @@ void VG::node_starts_in_path(const list<Node*>& path,
 }
 
 void VG::bounded_paths(int64_t node_id, vector<Path>& paths, int length) {
-    map<int64_t, Node*>::iterator n = node_by_id.find(node_id);
+    sparse_hash_map<int64_t, Node*>::iterator n = node_by_id.find(node_id);
     if (n != node_by_id.end()) {
         Node* node = n->second;
         bounded_paths(node, paths, length);
@@ -1433,12 +1563,14 @@ bool VG::is_valid(void) {
         int64_t f = e->from();
         int64_t t = e->to();
 
+        //cerr << "edge " << e << " " << e->from() << "->" << e->to() << endl;
+
         if (node_by_id.find(f) == node_by_id.end()) {
-            cerr << "graph invalid: edge index=" << i << " cannot find node (from) " << f << endl;
+            cerr << "graph invalid: edge index=" << i << " (" << f << "->" << t << ") cannot find node (from) " << f << endl;
             return false;
         }
         if (node_by_id.find(t) == node_by_id.end()) {
-            cerr << "graph invalid: edge index=" << i << " cannot find node (to) " << t << endl;
+            cerr << "graph invalid: edge index=" << i << " (" << f << "->" << t << ") cannot find node (to) " << t << endl;
             return false;
         }
 
@@ -1455,6 +1587,65 @@ bool VG::is_valid(void) {
         }
 
     }
+
+    //cerr << "there are " << edge_from_to.size() << " items in the edge_from_to index" << endl;
+
+    for (sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator f = edge_from_to.begin();
+         f != edge_from_to.end(); ++f) {
+        sparse_hash_map<int64_t, Edge*>& to = f->second;
+        for (sparse_hash_map<int64_t, Edge*>::iterator t = to.begin(); t != to.end(); ++t) {
+            Edge* e = t->second;
+            //cerr << "edge_from_to " << e << " " << e->from() << "->" << e->to() << endl;
+            if (!e) {
+                cerr << "graph invalid, edge is null" << endl;
+                return false;
+            }
+            if (t->first != e->to() || f->first != e->from()) {
+                cerr << "graph invalid: edge " << e->from() << "->" << e->to()
+                     << " stored in to_from index under " << f->first << "->" << t->first << endl;
+                return false;
+            }
+            if (!has_node(e->from())) {
+                cerr << "graph invalid: edge from a non-existent node " << e->from() << "->" << e->to() << endl;
+                return false;
+            }
+            if (!has_node(e->to())) {
+                cerr << "graph invalid: edge to a non-existent node " << e->from() << "->" << e->to() << endl;
+                return false;
+            }
+        }
+    }
+
+    //cerr << "there are " << edge_to_from.size() << " items in the edge_to_from index" << endl;
+
+    for (sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator t = edge_to_from.begin();
+         t != edge_to_from.end(); ++t) {
+        sparse_hash_map<int64_t, Edge*>& from = t->second;
+        for (sparse_hash_map<int64_t, Edge*>::iterator f = from.begin(); f != from.end(); ++f) {
+            Edge* e = f->second;
+            //cerr << "edge_to_from " << e << " " << e->from() << "->" << e->to() << endl;
+            if (!e) {
+                cerr << "graph invalid, edge is null" << endl;
+                return false;
+            }
+            if (t->first != e->to() || f->first != e->from()) {
+                cerr << "graph invalid: edge " << e->from() << "->" << e->to()
+                     << " stored in to_from index under " << f->first << "->" << t->first << endl;
+                return false;
+            }
+            if (!has_node(e->from())) {
+                cerr << "graph invalid: edge from a non-existent node " << e->from() << "->" << e->to() << endl;
+                return false;
+            }
+            if (!has_node(e->to())) {
+                cerr << "graph invalid: edge to a non-existent node " << e->from() << "->" << e->to() << endl;
+                return false;
+            }
+        }
+    }
+
+    //cerr << "all is well" << endl;
+
     return true;
 }
 
@@ -1539,7 +1730,7 @@ Alignment VG::align(string& sequence) {
 }
 
 
-void VG::kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_size) {
+void VG::kmers_of(sparse_hash_map<string, sparse_hash_map<Node*, int> >& kmer_map, int kmer_size) {
 
     // get the bounded paths of the graph
     // these are paths of up to length kmer_size from a root node to neighbors
@@ -1574,7 +1765,7 @@ void VG::kmers_of(map<string, map<Node*, int> >& kmer_map, int kmer_size) {
             string kmer = seq.substr(i, kmer_size);
 
             // create our kmer node match set if it doesn't exist
-            map<Node*, int>& nodes = kmer_map[kmer];
+            sparse_hash_map<Node*, int>& nodes = kmer_map[kmer];
 
             // drop the node overlaps of this kmer into our index
             int j = 0;
@@ -1659,6 +1850,22 @@ void VG::tail_nodes(vector<Node*>& nodes) {
     }
 }
 
+void VG::wrap_with_null_nodes(void) {
+    vector<Node*> heads;
+    head_nodes(heads);
+    Node* head = create_node("");
+    for (vector<Node*>::iterator h = heads.begin(); h != heads.end(); ++h) {
+        create_edge(head, *h);
+    }
+
+    vector<Node*> tails;
+    tail_nodes(tails);
+    Node* tail = create_node("");
+    for (vector<Node*>::iterator t = tails.begin(); t != tails.end(); ++t) {
+        create_edge(*t, tail);
+    }
+}
+
 
     /*
 Kahn's topological sort (1962)
@@ -1684,8 +1891,8 @@ void VG::topological_sort(deque<Node*>& l) {
     map<int64_t, Node*> s;
     vector<Node*> heads;
     // copy our edges
-    map<int64_t, map<int64_t, Edge*> > edgesf = edge_from_to;
-    map<int64_t, map<int64_t, Edge*> > edgest = edge_to_from;
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >& edgesf = edge_from_to;
+    sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >& edgest = edge_to_from;
     head_nodes(heads);
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
         s[(*n)->id()] = *n;
@@ -1695,9 +1902,9 @@ void VG::topological_sort(deque<Node*>& l) {
         Node* n = s.begin()->second;
         s.erase(n->id());
         l.push_back(n);
-        map<int64_t, Edge*>& edges_from = edgesf[n->id()];
+        sparse_hash_map<int64_t, Edge*>& edges_from = edgesf[n->id()];
         vector<int64_t> to_erase;
-        for (map<int64_t, Edge*>::iterator f = edges_from.begin(); f != edges_from.end(); ++f) {
+        for (sparse_hash_map<int64_t, Edge*>::iterator f = edges_from.begin(); f != edges_from.end(); ++f) {
             Node* m = node_by_id[f->first];
             to_erase.push_back(m->id());
             edgest[m->id()].erase(n->id());
@@ -1710,22 +1917,29 @@ void VG::topological_sort(deque<Node*>& l) {
         }
     }
     // if we have a cycle, signal an error, as we are not guaranteed an order
-    for (map<int64_t, map<int64_t, Edge*> >::iterator f = edgesf.begin();
+    for (sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator f = edgesf.begin();
          f != edgesf.end(); ++f) {
         if (!f->second.empty()) {
             cerr << "error:[VG::topological_sort] graph has a cycle from " << f->first
-                 << " to " << f->second.begin()->first << endl;
+                 << " to " << f->second.begin()->first << endl
+                 << "thread " << omp_get_thread_num() << endl;
+//#pragma omp critical
+//            to_dot(cerr);
             exit(1);
         }
     }
-    for (map<int64_t, map<int64_t, Edge*> >::iterator t = edgest.begin();
+    for (sparse_hash_map<int64_t, sparse_hash_map<int64_t, Edge*> >::iterator t = edgest.begin();
          t != edgest.end(); ++t) {
         if (!t->second.empty()) {
             cerr << "error:[VG::topological_sort] graph has a cycle to " << t->first
-                 << " to " << t->second.begin()->first << endl;
+                 << " to " << t->second.begin()->first << endl
+                 << "thread " << omp_get_thread_num() << endl;
+//#pragma omp critical
+//            to_dot(cerr);
             exit(1);
         }
     }
+    rebuild_indexes();
 }
 
 } // end namespace
