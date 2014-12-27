@@ -101,7 +101,7 @@ The current interfaces provided in the command line utility `vg` are rather roug
 - [x] verify that snappy compression is enabled for index, and measure size for large graphs
 - [x] move to rocksdb for better indexing performance on modern hardware (multiple cores, SSDs)
 - [x] object streams (enable graphs > 60mb) and alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
-- [ ] use sparse_hash for improved memory efficiency with large graphs (or dense_hash--- but it's easy to switch)
+- [x] use dense_hash for improved memory and runtime efficiency with large graphs (or sparse_hash, if memory is at a premium--- but it's easy to switch and ideally we can design large-scale construction without loading entire whole-genome graphs into memory)
 - [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps), and probably default GFA output from vg view
 - [ ] index metadata (to quickly check if we have kmer index of size >=N)
 - [ ] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
