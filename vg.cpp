@@ -404,13 +404,22 @@ int64_t VG::max_node_id(void) {
 }
 
 void VG::compact_ids(void) {
-    int64_t step = max_node_id() + 1;
-    increment_node_ids(step);
+    hash_map<int64_t, int64_t> new_id;
     int64_t id = 1; // start at 1
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        swap_node_id(n, id++);
+        new_id[n->id()] = id++;
     }
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        n->set_id(new_id[n->id()]);
+    }
+    for (int i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        e->set_from(new_id[e->from()]);
+        e->set_to(new_id[e->to()]);
+    }
+    rebuild_indexes();
 }
 
 void VG::increment_node_ids(int64_t increment) {
