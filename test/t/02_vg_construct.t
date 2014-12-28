@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 5
+plan tests 8
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -18,6 +18,17 @@ nodes=$(vg stats -z z.vg | head -1 | cut -f 2)
 is $nodes 84553 "the 1mb graph has the expected number of nodes"
 
 edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
-is $edges 115331 "the 1mb graph has the expected number of edges"
+is $edges 115350 "the 1mb graph has the expected number of edges"
 
 rm -f z.vg
+
+vg construct -r complex/c.fa -v complex/c.vcf.gz >c.vg
+is $? 0 "construction of a very complex region succeeds"
+
+nodes=$(vg stats -z c.vg | head -1 | cut -f 2)
+is $nodes 71 "the complex graph has the expected number of nodes"
+
+edges=$(vg stats -z c.vg | tail -1 | cut -f 2)
+is $edges 116 "the complex graph has the expected number of edges"
+
+rm -f c.vg

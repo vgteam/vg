@@ -537,6 +537,7 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
     // track the last nodes so that we can connect everything
     // completely when variants occur in succession
     map<long, set<Node*> > nodes_by_end_position;
+    map<long, set<Node*> > nodes_by_start_position;
 
     Node* ref_node = create_node(seq);
     reference_path[0] = ref_node;
@@ -547,15 +548,27 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
 
         // adjust the variant position relative to the sequence
         var.position -= offset; // but preserve 1-basing
+
 //#pragma omp critical
-//        cerr << tid << ": " << var << endl;
+//        cerr << omp_get_thread_num() << ": " << var << endl;
 
         // decompose the alt
         bool flat_input_vcf = false; // hack
         map<string, vector<vcf::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
+
+        map<long, vector<vcf::VariantAllele> > altp;
         for (map<string, vector<vcf::VariantAllele> >::iterator va = alternates.begin();
              va !=alternates.end(); ++va) {
+            vector<vcf::VariantAllele>& alleles = va->second;
+            for (vector<vcf::VariantAllele>::iterator a = alleles.begin();
+                 a != alleles.end(); ++a) {
+                vcf::VariantAllele& allele = *a;
+                altp[allele.position].push_back(allele);
+            }
+        }
+
+        for (map<long, vector<vcf::VariantAllele> >::iterator va = altp.begin(); va != altp.end(); ++va) {
             vector<vcf::VariantAllele>& alleles = va->second;
 
             for (vector<vcf::VariantAllele>::iterator a = alleles.begin();
@@ -570,6 +583,9 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                 // 0/1 based conversion happens in offset
                 long allele_start_pos = allele.position;
                 long allele_end_pos = allele_start_pos + allele.ref.size();
+                // for ordering, set insertion start position at +1
+                // otherwise insertions at the same position will loop infinitely
+                //if (allele_start_pos == allele_end_pos) allele_end_pos++;
 
                 if (allele_start_pos == 0) {
                     // ensures that we can handle variation at first position
@@ -609,13 +625,11 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                     create_edge(left_ref_node, alt_node);
                     create_edge(alt_node, right_ref_node);
 
-                    // XXXXXXXX middle is borked
-                    // why do we have to force this edge back in?
-                    // ... because it's not in the ref map?? (??)
-                    //create_edge(left_ref_node, middle_ref_node);
-
                     nodes_by_end_position[allele_end_pos].insert(alt_node);
                     nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
+                    //nodes_by_end_position[allele_start_pos].insert(left_ref_node);
+                    nodes_by_start_position[allele_start_pos].insert(alt_node);
+                    nodes_by_start_position[allele_start_pos].insert(middle_ref_node);
 
                 } else if (!allele.alt.empty()) { // insertion
 
@@ -625,25 +639,32 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                     create_edge(alt_node, right_ref_node);
                     nodes_by_end_position[allele_end_pos].insert(alt_node);
                     nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+                    nodes_by_start_position[allele_start_pos].insert(alt_node);
 
                 } else {// otherwise, we have a deletion
 
-                        //cerr << "ref has sequence" << endl;
+                    //cerr << "ref has sequence" << endl;
                     create_edge(left_ref_node, right_ref_node);
                     nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+                    nodes_by_start_position[allele_start_pos].insert(left_ref_node);
 
                 }
 
                 /*
-                if (left_ref_node) cerr << "left_ref " << left_ref_node->id() << endl;
-                if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id() << endl;
-                if (right_ref_node) cerr << "right_ref " << right_ref_node->id() << endl;
-                if (alt_node) cerr << "alt_node " << alt_node->id() << endl;
+                cerr << allele << endl;
+                if (left_ref_node) cerr << "left_ref " << left_ref_node->id()
+                                        << " " << left_ref_node->sequence() << endl;
+                if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id()
+                                          << " " << middle_ref_node->sequence() << endl;
+                if (alt_node) cerr << "alt_node " << alt_node->id()
+                                   << " " << alt_node->sequence() << endl;
+                if (right_ref_node) cerr << "right_ref " << right_ref_node->id()
+                                         << " " << right_ref_node->sequence() << endl;
                 */
 
 
                 if (allele_end_pos == seq.size()) {
-                    // ensures that we can handle variation at first position (important when aligning)
+                    // ensures that we can handle variation at last position (important when aligning)
                     Node* end = create_node("");
                     reference_path[allele_end_pos] = end;
                     if (alt_node) {
@@ -652,28 +673,6 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                     if (middle_ref_node) {
                         create_edge(middle_ref_node, end);
                     }
-                }
-
-                // if there are previous nodes, connect them
-                map<long, set<Node*> >::iterator ep
-                    = nodes_by_end_position.find(allele_start_pos);
-                if (ep != nodes_by_end_position.end()) {
-                    set<Node*>& previous_nodes = ep->second;
-                    for (set<Node*>::iterator n = previous_nodes.begin();
-                         n != previous_nodes.end(); ++n) {
-                        if (node_index.find(*n) != node_index.end()) {
-                            if (middle_ref_node) {
-                                create_edge(*n, middle_ref_node);
-                            }
-                            if (alt_node) {
-                                create_edge(*n, alt_node);
-                            }
-                        }
-                    }
-                }
-                // clean up previous
-                while (nodes_by_end_position.begin()->first < allele_start_pos) {
-                    nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
                 }
 
                 //print_edges();
@@ -686,6 +685,44 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                 }
                 */
             }
+
+            map<long, set<Node*> >::iterator ep
+                = nodes_by_end_position.find(va->first);
+            map<long, set<Node*> >::iterator sp
+                = nodes_by_start_position.find(va->first);
+            if (ep != nodes_by_end_position.end()
+                && sp != nodes_by_start_position.end()) {
+                set<Node*>& previous_nodes = ep->second;
+                set<Node*>& current_nodes = sp->second;
+                for (set<Node*>::iterator n = previous_nodes.begin();
+                     n != previous_nodes.end(); ++n) {
+                    for (set<Node*>::iterator m = current_nodes.begin();
+                         m != current_nodes.end(); ++m) {
+                        if (node_index.find(*n) != node_index.end()
+                            && node_index.find(*m) != node_index.end()
+                            && !(previous_nodes.count(*n) && current_nodes.count(*n)
+                                 && previous_nodes.count(*m) && current_nodes.count(*m))
+                            ) {
+                            /*
+                            cerr << "connecting previous "
+                                 << (*n)->id() << " @end=" << ep->first << " to current "
+                                 << (*m)->id() << " @start=" << sp->first << endl;
+                            */
+                            create_edge(*n, *m);
+                        }
+                    }
+                }
+            }
+
+            // clean up previous
+            while (!nodes_by_end_position.empty() && nodes_by_end_position.begin()->first < va->first) {
+                nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
+            }
+
+            while (!nodes_by_start_position.empty() && nodes_by_start_position.begin()->first < va->first) {
+                nodes_by_start_position.erase(nodes_by_start_position.begin()->first);
+            }
+
         }
         //cerr << "done with var" << endl;
     }
@@ -746,7 +783,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
 
         //string& seq_name = *t;
         string seq_name;
-        int start_pos, stop_pos;
+        int start_pos = 0, stop_pos = 0;
         // nasty hack for handling single regions
         parse_region(*t,
                      seq_name,
@@ -755,7 +792,6 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
         if (stop_pos > 0) {
             variantCallFile.setRegion(seq_name, start_pos, stop_pos);
         } else {
-            // to the end of the reference sequence
             variantCallFile.setRegion(seq_name);
             stop_pos = reference.sequenceLength(seq_name);
         }
@@ -763,8 +799,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
 
         vector<vcf::Variant>* region = NULL;
 
-        int64_t start = 0;
-        int64_t end = 0;
+        int64_t start = start_pos;
+        int64_t end = start;
         bool done_with_chrom = false;
         // track if the variant we are looking at has the 3'-most reference extent of any variant in the bunch
         bool var_is_at_end = false;
@@ -1270,7 +1306,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
     //cerr << "dividing node " << node->id() << endl;
 
-//#pragma omp critical
+#pragma omp critical
     if (pos < 0) {
         cerr << omp_get_thread_num() << ": in divide_node"
              << "position (" << pos << ") is less than 0!" << endl
@@ -1873,8 +1909,8 @@ void VG::topological_sort(deque<Node*>& l) {
     map<int64_t, Node*> s;
     vector<Node*> heads;
     // copy our edges
-    hash_map<int64_t, hash_map<int64_t, Edge*> >& edgesf = edge_from_to;
-    hash_map<int64_t, hash_map<int64_t, Edge*> >& edgest = edge_to_from;
+    hash_map<int64_t, hash_map<int64_t, Edge*> > edgesf = edge_from_to;
+    hash_map<int64_t, hash_map<int64_t, Edge*> > edgest = edge_to_from;
     head_nodes(heads);
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
         s[(*n)->id()] = *n;
@@ -1905,9 +1941,12 @@ void VG::topological_sort(deque<Node*>& l) {
             cerr << "error:[VG::topological_sort] graph has a cycle from " << f->first
                  << " to " << f->second.begin()->first << endl
                  << "thread " << omp_get_thread_num() << endl;
-//#pragma omp critical
-//            to_dot(cerr);
-            exit(1);
+#pragma omp critical
+            {
+                std::ofstream out("fail.vg");
+                serialize_to_ostream(out);
+                exit(1);
+            }
         }
     }
     for (hash_map<int64_t, hash_map<int64_t, Edge*> >::iterator t = edgest.begin();
@@ -1916,9 +1955,12 @@ void VG::topological_sort(deque<Node*>& l) {
             cerr << "error:[VG::topological_sort] graph has a cycle to " << t->first
                  << " to " << t->second.begin()->first << endl
                  << "thread " << omp_get_thread_num() << endl;
-//#pragma omp critical
-//            to_dot(cerr);
-            exit(1);
+#pragma omp critical
+            {
+                std::ofstream out("fail.vg");
+                serialize_to_ostream(out);
+                exit(1);
+            }
         }
     }
     rebuild_indexes();
