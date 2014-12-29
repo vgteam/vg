@@ -539,6 +539,9 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
     map<long, set<Node*> > nodes_by_end_position;
     map<long, set<Node*> > nodes_by_start_position;
 
+    // parsed alternates
+    map<long, vector<vcf::VariantAllele> > altp;
+
     Node* ref_node = create_node(seq);
     reference_path[0] = ref_node;
 
@@ -557,7 +560,6 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
         map<string, vector<vcf::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
 
-        map<long, vector<vcf::VariantAllele> > altp;
         for (map<string, vector<vcf::VariantAllele> >::iterator va = alternates.begin();
              va !=alternates.end(); ++va) {
             vector<vcf::VariantAllele>& alleles = va->second;
@@ -567,164 +569,165 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                 altp[allele.position].push_back(allele);
             }
         }
+    }
+    // clean up records
+    records.clear();
 
-        for (map<long, vector<vcf::VariantAllele> >::iterator va = altp.begin(); va != altp.end(); ++va) {
-            vector<vcf::VariantAllele>& alleles = va->second;
+    for (map<long, vector<vcf::VariantAllele> >::iterator va = altp.begin(); va != altp.end(); ++va) {
+        vector<vcf::VariantAllele>& alleles = va->second;
 
-            for (vector<vcf::VariantAllele>::iterator a = alleles.begin();
-                 a != alleles.end(); ++a) {
-                vcf::VariantAllele& allele = *a;
+        for (vector<vcf::VariantAllele>::iterator a = alleles.begin();
+             a != alleles.end(); ++a) {
+            vcf::VariantAllele& allele = *a;
 
-                // reference alleles are provided naturally by the reference itself
-                if (allele.ref == allele.alt) {
-                    continue;
-                }
+            // reference alleles are provided naturally by the reference itself
+            if (allele.ref == allele.alt) {
+                continue;
+            }
 
-                // 0/1 based conversion happens in offset
-                long allele_start_pos = allele.position;
-                long allele_end_pos = allele_start_pos + allele.ref.size();
-                // for ordering, set insertion start position at +1
-                // otherwise insertions at the same position will loop infinitely
-                //if (allele_start_pos == allele_end_pos) allele_end_pos++;
+            // 0/1 based conversion happens in offset
+            long allele_start_pos = allele.position;
+            long allele_end_pos = allele_start_pos + allele.ref.size();
+            // for ordering, set insertion start position at +1
+            // otherwise insertions at the same position will loop infinitely
+            //if (allele_start_pos == allele_end_pos) allele_end_pos++;
 
-                if (allele_start_pos == 0) {
-                    // ensures that we can handle variation at first position
-                    // (important when aligning)
-                    Node* root = create_node("");
-                    reference_path[-1] = root;
-                }
+            if (allele_start_pos == 0) {
+                // ensures that we can handle variation at first position
+                // (important when aligning)
+                Node* root = create_node("");
+                reference_path[-1] = root;
+            }
 
-                Node* left_ref_node = NULL;
-                Node* middle_ref_node = NULL;
-                Node* right_ref_node = NULL;
+            Node* left_ref_node = NULL;
+            Node* middle_ref_node = NULL;
+            Node* right_ref_node = NULL;
 
+            divide_path(reference_path,
+                        allele_start_pos,
+                        left_ref_node,
+                        right_ref_node);
+
+            /*
+              cerr << "nodes: left: " << left_ref_node->id() << ":" << left_ref_node->sequence()
+              << " right: " << right_ref_node->id() << ":" << right_ref_node->sequence() << endl;
+            */
+
+            // if the ref portion of the allele is not empty, then we need to make another cut
+            if (!allele.ref.empty()) {
                 divide_path(reference_path,
-                            allele_start_pos,
-                            left_ref_node,
+                            allele_end_pos,
+                            middle_ref_node,
                             right_ref_node);
+            }
 
-                /*
-                cerr << "nodes: left: " << left_ref_node->id() << ":" << left_ref_node->sequence()
-                     << " right: " << right_ref_node->id() << ":" << right_ref_node->sequence() << endl;
-                */
+            Node* alt_node = NULL;
+            // create a new alt node and connect the pieces from before
+            if (!allele.alt.empty() && !allele.ref.empty()) {
+                //cerr << "both alt and ref have sequence" << endl;
 
-                // if the ref portion of the allele is not empty, then we need to make another cut
-                if (!allele.ref.empty()) {
-                    divide_path(reference_path,
-                                allele_end_pos,
-                                middle_ref_node,
-                                right_ref_node);
-                }
+                alt_node = create_node(allele.alt);
+                create_edge(left_ref_node, alt_node);
+                create_edge(alt_node, right_ref_node);
 
-                Node* alt_node = NULL;
-                // create a new alt node and connect the pieces from before
-                if (!allele.alt.empty() && !allele.ref.empty()) {
-                    //cerr << "both alt and ref have sequence" << endl;
+                nodes_by_end_position[allele_end_pos].insert(alt_node);
+                nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
+                //nodes_by_end_position[allele_start_pos].insert(left_ref_node);
+                nodes_by_start_position[allele_start_pos].insert(alt_node);
+                nodes_by_start_position[allele_start_pos].insert(middle_ref_node);
 
-                    alt_node = create_node(allele.alt);
-                    create_edge(left_ref_node, alt_node);
-                    create_edge(alt_node, right_ref_node);
+            } else if (!allele.alt.empty()) { // insertion
 
-                    nodes_by_end_position[allele_end_pos].insert(alt_node);
-                    nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
-                    //nodes_by_end_position[allele_start_pos].insert(left_ref_node);
-                    nodes_by_start_position[allele_start_pos].insert(alt_node);
-                    nodes_by_start_position[allele_start_pos].insert(middle_ref_node);
+                //cerr << "alt has sequence" << endl;
+                alt_node = create_node(allele.alt);
+                create_edge(left_ref_node, alt_node);
+                create_edge(alt_node, right_ref_node);
+                nodes_by_end_position[allele_end_pos].insert(alt_node);
+                nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+                nodes_by_start_position[allele_start_pos].insert(alt_node);
 
-                } else if (!allele.alt.empty()) { // insertion
-
-                    //cerr << "alt has sequence" << endl;
-                    alt_node = create_node(allele.alt);
-                    create_edge(left_ref_node, alt_node);
-                    create_edge(alt_node, right_ref_node);
-                    nodes_by_end_position[allele_end_pos].insert(alt_node);
-                    nodes_by_end_position[allele_end_pos].insert(left_ref_node);
-                    nodes_by_start_position[allele_start_pos].insert(alt_node);
-
-                } else {// otherwise, we have a deletion
+            } else {// otherwise, we have a deletion
 
                     //cerr << "ref has sequence" << endl;
-                    create_edge(left_ref_node, right_ref_node);
-                    nodes_by_end_position[allele_end_pos].insert(left_ref_node);
-                    nodes_by_start_position[allele_start_pos].insert(left_ref_node);
+                create_edge(left_ref_node, right_ref_node);
+                nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+                nodes_by_start_position[allele_start_pos].insert(left_ref_node);
 
-                }
-
-                /*
-                cerr << allele << endl;
-                if (left_ref_node) cerr << "left_ref " << left_ref_node->id()
-                                        << " " << left_ref_node->sequence() << endl;
-                if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id()
-                                          << " " << middle_ref_node->sequence() << endl;
-                if (alt_node) cerr << "alt_node " << alt_node->id()
-                                   << " " << alt_node->sequence() << endl;
-                if (right_ref_node) cerr << "right_ref " << right_ref_node->id()
-                                         << " " << right_ref_node->sequence() << endl;
-                */
-
-
-                if (allele_end_pos == seq.size()) {
-                    // ensures that we can handle variation at last position (important when aligning)
-                    Node* end = create_node("");
-                    reference_path[allele_end_pos] = end;
-                    if (alt_node) {
-                        create_edge(alt_node, end);
-                    }
-                    if (middle_ref_node) {
-                        create_edge(middle_ref_node, end);
-                    }
-                }
-
-                //print_edges();
-
-                /*
-                if (!is_valid()) {
-                    cerr << "graph is invalid after variant" << endl
-                         << var << endl;
-                    exit(1);
-                }
-                */
             }
 
-            map<long, set<Node*> >::iterator ep
-                = nodes_by_end_position.find(va->first);
-            map<long, set<Node*> >::iterator sp
-                = nodes_by_start_position.find(va->first);
-            if (ep != nodes_by_end_position.end()
-                && sp != nodes_by_start_position.end()) {
-                set<Node*>& previous_nodes = ep->second;
-                set<Node*>& current_nodes = sp->second;
-                for (set<Node*>::iterator n = previous_nodes.begin();
-                     n != previous_nodes.end(); ++n) {
-                    for (set<Node*>::iterator m = current_nodes.begin();
-                         m != current_nodes.end(); ++m) {
-                        if (node_index.find(*n) != node_index.end()
-                            && node_index.find(*m) != node_index.end()
-                            && !(previous_nodes.count(*n) && current_nodes.count(*n)
-                                 && previous_nodes.count(*m) && current_nodes.count(*m))
-                            ) {
-                            /*
-                            cerr << "connecting previous "
-                                 << (*n)->id() << " @end=" << ep->first << " to current "
-                                 << (*m)->id() << " @start=" << sp->first << endl;
-                            */
-                            create_edge(*n, *m);
-                        }
-                    }
+            /*
+            cerr << allele << endl;
+            if (left_ref_node) cerr << "left_ref " << left_ref_node->id()
+                                    << " " << left_ref_node->sequence() << endl;
+            if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id()
+                                      << " " << middle_ref_node->sequence() << endl;
+            if (alt_node) cerr << "alt_node " << alt_node->id()
+                               << " " << alt_node->sequence() << endl;
+            if (right_ref_node) cerr << "right_ref " << right_ref_node->id()
+                                     << " " << right_ref_node->sequence() << endl;
+            */
+
+
+            if (allele_end_pos == seq.size()) {
+                // ensures that we can handle variation at last position (important when aligning)
+                Node* end = create_node("");
+                reference_path[allele_end_pos] = end;
+                if (alt_node) {
+                    create_edge(alt_node, end);
+                }
+                if (middle_ref_node) {
+                    create_edge(middle_ref_node, end);
                 }
             }
 
-            // clean up previous
-            while (!nodes_by_end_position.empty() && nodes_by_end_position.begin()->first < va->first) {
-                nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
-            }
+            //print_edges();
 
-            while (!nodes_by_start_position.empty() && nodes_by_start_position.begin()->first < va->first) {
-                nodes_by_start_position.erase(nodes_by_start_position.begin()->first);
-            }
-
+            /*
+              if (!is_valid()) {
+              cerr << "graph is invalid after variant" << endl
+              << var << endl;
+              exit(1);
+              }
+            */
         }
-        //cerr << "done with var" << endl;
+
+        map<long, set<Node*> >::iterator ep
+            = nodes_by_end_position.find(va->first);
+        map<long, set<Node*> >::iterator sp
+            = nodes_by_start_position.find(va->first);
+        if (ep != nodes_by_end_position.end()
+            && sp != nodes_by_start_position.end()) {
+            set<Node*>& previous_nodes = ep->second;
+            set<Node*>& current_nodes = sp->second;
+            for (set<Node*>::iterator n = previous_nodes.begin();
+                 n != previous_nodes.end(); ++n) {
+                for (set<Node*>::iterator m = current_nodes.begin();
+                     m != current_nodes.end(); ++m) {
+                    if (node_index.find(*n) != node_index.end()
+                        && node_index.find(*m) != node_index.end()
+                        && !(previous_nodes.count(*n) && current_nodes.count(*n)
+                             && previous_nodes.count(*m) && current_nodes.count(*m))
+                        ) {
+                        /*
+                        cerr << "connecting previous "
+                             << (*n)->id() << " @end=" << ep->first << " to current "
+                             << (*m)->id() << " @start=" << sp->first << endl;
+                        */
+                        create_edge(*n, *m);
+                    }
+                }
+            }
+        }
+
+        // clean up previous
+        while (!nodes_by_end_position.empty() && nodes_by_end_position.begin()->first < va->first) {
+            nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
+        }
+
+        while (!nodes_by_start_position.empty() && nodes_by_start_position.begin()->first < va->first) {
+            nodes_by_start_position.erase(nodes_by_start_position.begin()->first);
+        }
+
     }
 
     topologically_sort_graph();

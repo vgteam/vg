@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 8
+plan tests 9
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -18,7 +18,7 @@ nodes=$(vg stats -z z.vg | head -1 | cut -f 2)
 is $nodes 84553 "the 1mb graph has the expected number of nodes"
 
 edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
-is $edges 115350 "the 1mb graph has the expected number of edges"
+is $edges 115357 "the 1mb graph has the expected number of edges"
 
 rm -f z.vg
 
@@ -32,3 +32,8 @@ edges=$(vg stats -z c.vg | tail -1 | cut -f 2)
 is $edges 116 "the complex graph has the expected number of edges"
 
 rm -f c.vg
+
+order_a=$(vg construct -r order/n.fa -v order/x.vcf.gz | md5sum | cut -f 1 -d\ )
+order_b=$(vg construct -r order/n.fa -v order/y.vcf.gz | md5sum | cut -f 1 -d\ )
+
+is $order_a $order_b "the ordering of variants at the same position has no effect on the resulting graph"
