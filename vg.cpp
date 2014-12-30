@@ -18,10 +18,10 @@ VG::VG(istream& in) {
     coded_in->ReadVarint64(&count);
     delete coded_in;
 
-    progressbar *progress = NULL;
+	ProgressBar *progress = NULL;
+    string message = "loading graph";
     if (show_progress) {
-        string message = "loading graph";
-        progress = progressbar_new((char*)message.c_str(),count);
+        progress = new ProgressBar(count, message.c_str());
     }
 
     std::string s;
@@ -31,7 +31,7 @@ VG::VG(istream& in) {
         ::google::protobuf::io::CodedInputStream *coded_in =
           new ::google::protobuf::io::CodedInputStream(raw_in);
 
-        if (progress) progressbar_inc(progress);
+        if (progress) progress->Progressed(i);
 
         uint32_t msgSize = 0;
         coded_in->ReadVarint32(&msgSize);
@@ -48,7 +48,7 @@ VG::VG(istream& in) {
 
     delete raw_in;
 
-    if (progress) progressbar_finish(progress);
+    if (progress) delete progress;
 
     //topologically_sort_graph();
     //build_indexes();
@@ -755,8 +755,15 @@ bool allATGC(string& s) {
     return true;
 }
 
-VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string& target, int vars_per_region) {
+VG::VG(vcf::VariantCallFile& variantCallFile,
+       FastaReference& reference,
+       string& target,
+       int vars_per_region,
+       bool showprog) {
+
     init();
+
+    show_progress = showprog;
 
     map<string, vector<VG*> > graphs_by_refseq;
 
@@ -816,6 +823,12 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
         };
         deque<Plan*> construction;
 
+        string message = "constructing graph for " + seq_name;
+        ProgressBar* progress = NULL;
+        if (show_progress) {
+            progress = new ProgressBar(stop_pos-start_pos, message.c_str());
+        }
+
         // omp pragma here to define parallel section
 
         // this system is not entirely general
@@ -826,14 +839,14 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
 #pragma omp parallel default(none)                                      \
     shared(vars_per_region, region, target, stop_pos,                   \
            variantCallFile, done_with_chrom, reference,                 \
-           seq_name, start, var_is_at_end,                              \
+           seq_name, start, var_is_at_end, progress,                    \
            graphs_by_refseq, end, var, cerr, construction)
 
         while (!done_with_chrom || !construction.empty()) {
 
             int tid = omp_get_thread_num();
 
-            usleep(1); //microseconds, so as to not overwhelm things
+            usleep(10); //microseconds, so as to not overwhelm things
 
             // processing of VCF file should only be handled by one thread at a time
 #pragma omp critical
@@ -950,6 +963,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
                     if (!construction.empty()) {
                         plan = construction.back();
                         construction.pop_back();
+                        if (progress) progress->Progressed(plan->offset + plan->seq.size());
                     }
                 }
                 
@@ -974,6 +988,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string&
                 }
             }
         }
+        if (progress) delete progress;
     }
 
     // we'll wait here for threads to complete

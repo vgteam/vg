@@ -20,9 +20,7 @@
 #include <sparsehash/sparse_hash_map>
 #include <sparsehash/dense_hash_map>
 
-extern "C" {
-#include "progressbar.h"
-}
+#include "progress_bar.hpp"
 
 #include "Variant.h"
 #include "Fasta.h"
@@ -34,28 +32,28 @@ using google::sparse_hash_map;
 using google::dense_hash_map;
 
 template<typename K, typename V>
-class hash_map : public dense_hash_map<K,V> {
+class hash_map : public sparse_hash_map<K,V> {
 public:
     hash_map() {
-        this->set_empty_key(-1);
+        //this->set_empty_key(-1);
         this->set_deleted_key(-2);
     }
 };
 
 template<typename K, typename V>
-class string_hash_map : public dense_hash_map<K,V> {
+class string_hash_map : public sparse_hash_map<K,V> {
 public:
     string_hash_map() {
-        this->set_empty_key(" ");
+        //this->set_empty_key(" ");
         this->set_deleted_key("");
     }
 };
 
 template<typename K, typename V>
-class hash_map<K*,V> : public dense_hash_map<K*,V> {
+class hash_map<K*,V> : public sparse_hash_map<K*,V> {
 public:
     hash_map() {
-        this->set_empty_key((K*)(~0));
+        //this->set_empty_key((K*)(~0));
         this->set_deleted_key((K*)(0));
     }
 };
@@ -110,7 +108,11 @@ public:
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
     // construct from VCF records
-    VG(vcf::VariantCallFile& variantCallFile, FastaReference& reference, string& target, int vars_per_region);
+    VG(vcf::VariantCallFile& variantCallFile,
+       FastaReference& reference,
+       string& target,
+       int vars_per_region,
+       bool showprog = false);
     VG(vector<vcf::Variant>& records, string seq, string chrom, int offset);
     void from_vcf_records(vector<vcf::Variant>* records, string seq, string chrom, int offset);
 

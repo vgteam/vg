@@ -60,9 +60,7 @@ void help_construct(char** argv) {
          << "    -r, --reference FILE  input FASTA reference" << endl
          << "    -R, --region REGION   specify a particular chromosome" << endl
          << "    -z, --region-size N   variants per region to parallelize" << endl
-         << "    -p, --protobuf        output VG protobuf format (default)" << endl
-         << "    -g, --gfa             output GFA format" << endl
-         << "    -j, --json            output VG JSON format" << endl
+         << "    -p, --progress        show progress" << endl
          << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl;
 }
 
@@ -1092,6 +1090,7 @@ int main_construct(int argc, char** argv) {
     string fasta_file_name, vcf_file_name;
     string region;
     string output_type = "VG";
+    bool progress = false;
     int vars_per_region = 10000;
 
     int c;
@@ -1102,9 +1101,7 @@ int main_construct(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"vcf", required_argument, 0, 'v'},
                 {"reference", required_argument, 0, 'r'},
-                {"protobuf",  no_argument, 0, 'p'},
-                {"gfa",  no_argument, 0, 'g'},
-                {"json",  no_argument, 0, 'j'},
+                {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
                 {"threads", required_argument, 0, 't'},
                 {"region", required_argument, 0, 'R'},
@@ -1112,7 +1109,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:pgjhz:t:R:",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1130,17 +1127,9 @@ int main_construct(int argc, char** argv) {
             break;
 
         case 'p':
-            output_type = "VG";
+            progress = true;
             break;
  
-        case 'g':
-            output_type = "GFA";
-            break;
- 
-        case 'j':
-            output_type = "JSON";
-            break;
-
         case 'z':
             vars_per_region = atoi(optarg);
             break;
@@ -1185,15 +1174,9 @@ int main_construct(int argc, char** argv) {
     }
     reference.open(fasta_file_name);
 
-    VG graph(variant_file, reference, region, vars_per_region);
+    VG graph(variant_file, reference, region, vars_per_region, progress);
 
-    if (output_type == "VG") {
-        graph.serialize_to_ostream(std::cout);
-    } else if (output_type == "JSON") {
-        char *json2 = pb2json(graph.graph);
-        cout<<json2<<endl;
-        free(json2);
-    }
+    graph.serialize_to_ostream(std::cout);
 
     return 0;
 }

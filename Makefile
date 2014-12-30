@@ -1,6 +1,6 @@
 .PHONY: all clean test get-deps
 
-CXX=g++ -std=c++11 -fopenmp
+CXX=g++ -std=c++11 -fopenmp -g
 CXXFLAGS=-O3
 pb2json=pb2json/libpb2json.a
 VCFLIB=vcflib
@@ -8,11 +8,10 @@ LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
 LIBSNAPPY=snappy/libsnappy.a
 LIBROCKSDB=rocksdb/librocksdb.a
-LIBPROGRESSBAR=progressbar/libprogressbar.a
 SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
-INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogressbar/include -Isparsehash/build/include
-LDFLAGS=-L./ -Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -Lprogressbar -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lprogressbar -lncurses -lrocksdb -lsnappy -lz -lbz2
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o
+INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogress_bar/ -Isparsehash/build/include
+LDFLAGS=-L./ -Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -Lprogressbar -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o
 
 all: vg libvg.a
 
@@ -35,8 +34,8 @@ $(LIBSNAPPY): snappy/*cc snappy/*h
 $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksdb/db/*.h
 	cd rocksdb && $(MAKE) static_lib
 
-$(LIBPROGRESSBAR): progressbar/include/*.h progressbar/lib/*.c
-	cd progressbar && $(MAKE) libprogressbar.a
+progress_bar/progress_bar.o: progress_bar/progress_bar.cpp progress_bar/progress_bar.hpp
+	cd progress_bar && make
 
 $(pb2json):
 	cd pb2json && $(MAKE) libpb2json.a
@@ -86,13 +85,12 @@ libvg.a: vg
 	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o
 
 clean-vg:
-	rm -f cpp/*
-	rm -f *.o
-
-clean:
-	rm -f cpp/*
 	rm -f vg
+	rm -f cpp/*
 	rm -f *.o
+	cd progress_bar && make clean
+
+clean: clean-vg
 	cd test && $(MAKE) clean
 	cd pb2json && $(MAKE) clean
 	cd vcflib && $(MAKE) clean
