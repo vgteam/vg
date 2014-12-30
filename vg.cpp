@@ -879,7 +879,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
            refseq_graph, graphq, end, var, cerr,                        \
            construction, graph_completed, graph_end)
 
-        while (!done_with_chrom || !construction.empty()) {
+        while (!done_with_chrom || !construction.empty() || !graphq.empty()) {
 
             int tid = omp_get_thread_num();
 
@@ -1032,7 +1032,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                 }
             }
 
-#pragma omp critical (append)
+#pragma omp master
             {
                 VG* g = refseq_graph[seq_name];
                 list<VG*>::iterator o = graphq.begin();
@@ -1040,6 +1040,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     //cerr << tid << ": appending " << *o << endl;
                     g->append(**o);
 
+#pragma omp critical (progress)
                     if (progress) progress->Progressed(graph_end[*o]);
                     // ensures we don't have problems if we use the same pointer again
                     graph_completed.erase(*o);
