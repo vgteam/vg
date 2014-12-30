@@ -31,29 +31,53 @@ namespace vg {
 using google::sparse_hash_map;
 using google::dense_hash_map;
 
+//#define USE_SPARSE_HASH
+#define USE_DENSE_HASH
+
 template<typename K, typename V>
-class hash_map : public sparse_hash_map<K,V> {
+#ifdef USE_DENSE_HASH
+    class hash_map : public dense_hash_map<K,V>
+#else
+    class hash_map : public sparse_hash_map<K,V>
+#endif
+    {
 public:
     hash_map() {
-        //this->set_empty_key(-1);
+#ifdef USE_DENSE_HASH
+        this->set_empty_key(-1);
+#endif
         this->set_deleted_key(-2);
     }
 };
 
 template<typename K, typename V>
-class string_hash_map : public sparse_hash_map<K,V> {
+#ifdef USE_DENSE_HASH
+    class string_hash_map : public dense_hash_map<K,V>
+#else
+    class string_hash_map : public sparse_hash_map<K,V>
+#endif
+{
 public:
     string_hash_map() {
-        //this->set_empty_key(" ");
+#ifdef USE_DENSE_HASH
+        this->set_empty_key(" ");
+#endif
         this->set_deleted_key("");
     }
 };
 
 template<typename K, typename V>
-class hash_map<K*,V> : public sparse_hash_map<K*,V> {
+#ifdef USE_DENSE_HASH
+class hash_map<K*,V> : public dense_hash_map<K*,V>
+#else
+class hash_map<K*,V> : public sparse_hash_map<K*,V>
+#endif
+{
 public:
     hash_map() {
-        //this->set_empty_key((K*)(~0));
+#ifdef USE_DENSE_HASH
+        this->set_empty_key((K*)(~0));
+#endif
         this->set_deleted_key((K*)(0));
     }
 };
@@ -61,8 +85,6 @@ public:
 class VG {
 
 public:
-
-//    hash_map<int, int> hash_map;
 
     // protobuf-based representation
     // NB: we can't subclass this safely, so it's best as a member
@@ -135,11 +157,12 @@ public:
 
     // literally merge protobufs
     void merge(Graph& g);
+    void merge(VG& g);
 
     // merge protobufs after removing overlaps
     // good when there aren't many overlaps
-    void merge(VG& g);
-    // helper to merge
+    void merge_union(VG& g);
+    // helper to merge_union
     void remove_duplicated_in(VG& g);
 
     // write to a stream in chunked graphs
@@ -192,6 +215,9 @@ public:
     bool has_node(int64_t id);
     bool has_node(Node* node);
     bool has_node(Node& node);
+
+    // is the graph empty?
+    bool empty(void);
 
     // remove nodes with no sequence
     // these are created in some cases during the process of graph construction
@@ -269,7 +295,9 @@ public:
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);
     void head_nodes(vector<Node*>& nodes);
+    vector<Node*> head_nodes(void);
     void tail_nodes(vector<Node*>& nodes);
+    vector<Node*> tail_nodes(void);
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
     // join head nodes of graph to common null node

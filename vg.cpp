@@ -252,6 +252,10 @@ void VG::rebuild_indexes(void) {
     }
 }
 
+bool VG::empty(void) {
+    return graph.node_size() == graph.edge_size() == 0;
+}
+
 bool VG::has_node(Node* node) {
     return node && has_node(node->id());
 }
@@ -303,12 +307,16 @@ void VG::remove_duplicated_in(VG& g) {
     }
 }
 
-void VG::merge(VG& g) {
+void VG::merge_union(VG& g) {
     // remove duplicates, then merge
     remove_duplicated_in(g);
     if (g.graph.node_size() > 0) {
         merge(g.graph);
     }
+}
+
+void VG::merge(VG& g) {
+    merge(g.graph);
 }
 
 // this merges without any validity checks
@@ -360,8 +368,7 @@ void VG::append(VG& g) {
     g.increment_node_ids(max_node_id());
 
     // get the heads of the other graph, now that we've compacted the ids
-    vector<Node*> heads;
-    g.head_nodes(heads);
+    vector<Node*> heads = g.head_nodes();
     // collect ids as node*'s may change
     vector<int64_t> heads_ids;
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
@@ -369,17 +376,25 @@ void VG::append(VG& g) {
     }
 
     // get the current tails of this graph
-    vector<Node*> tails;
-    tail_nodes(tails);
+    vector<Node*> tails = tail_nodes();
+    vector<int64_t> tails_ids;
+    for (vector<Node*>::iterator n = tails.begin(); n != tails.end(); ++n) {
+        tails_ids.push_back((*n)->id());
+    }
 
     // add in the other graph
-    extend(g);
+    // we don't use merge_union because we are ensured non-overlapping ids
+    merge(g);
+
+    /*
+    cerr << "this graph size " << node_count() << " nodes " << edge_count() << " edges" << endl;
+    cerr << "in append with " << heads.size() << " heads and " << tails.size() << " tails" << endl;
+    */
 
     // now join the tails to heads
-    for (vector<Node*>::iterator n = tails.begin(); n != tails.end(); ++n) {
-        Node* t = *n;
+    for (vector<int64_t>::iterator t = tails_ids.begin(); t != tails_ids.end(); ++t) {
         for (vector<int64_t>::iterator h = heads_ids.begin(); h != heads_ids.end(); ++h) {
-            create_edge(t->id(), *h);
+            create_edge(*t, *h);
         }
     }
 }
@@ -570,8 +585,6 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
             }
         }
     }
-    // clean up records
-    records.clear();
 
     for (map<long, vector<vcf::VariantAllele> >::iterator va = altp.begin(); va != altp.end(); ++va) {
         vector<vcf::VariantAllele>& alleles = va->second;
@@ -765,7 +778,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
     show_progress = showprog;
 
-    map<string, vector<VG*> > graphs_by_refseq;
+    map<string, VG*> refseq_graph;
 
     vector<string> targets;
     if (!target.empty()) {
@@ -823,11 +836,20 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         };
         deque<Plan*> construction;
 
+        // our graph for this refseq
+        refseq_graph[seq_name] = new VG;
+        // and the construction queue
+        list<VG*> graphq;
+
+        // for tracking progress through the chromosome
+        map<VG*, unsigned long> graph_end;
         string message = "constructing graph for " + seq_name;
         ProgressBar* progress = NULL;
         if (show_progress) {
             progress = new ProgressBar(stop_pos-start_pos, message.c_str());
         }
+
+        set<VG*> graph_completed;
 
         // omp pragma here to define parallel section
 
@@ -840,7 +862,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
     shared(vars_per_region, region, target, stop_pos,                   \
            variantCallFile, done_with_chrom, reference,                 \
            seq_name, start, var_is_at_end, progress,                    \
-           graphs_by_refseq, end, var, cerr, construction)
+           refseq_graph, graphq, end, var, cerr,                        \
+           construction, graph_completed, graph_end)
 
         while (!done_with_chrom || !construction.empty()) {
 
@@ -932,7 +955,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     plan->graph = new VG;
 
                     // retain reference to graph
-                    graphs_by_refseq[seq_name].push_back(plan->graph);
+                    graphq.push_back(plan->graph);
                     // variants
                     plan->vars = vars;
                     // reference sequence
@@ -943,6 +966,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     plan->offset = start;
                     // store the plan in our construction queue
                     construction.push_front(plan);
+                    // record our end position (for progress logging only)
+                    if (progress) graph_end[plan->graph] = end;
 
                     // this start is the next end
                     start = end;
@@ -963,11 +988,11 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     if (!construction.empty()) {
                         plan = construction.back();
                         construction.pop_back();
-                        if (progress) progress->Progressed(plan->offset + plan->seq.size());
                     }
                 }
                 
                 if (plan) {
+
 
 /*
 #pragma omp critical
@@ -977,56 +1002,55 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                          << "-" << plan->offset + plan->seq.size() << endl;
 */
 
+
                     plan->graph->from_vcf_records(plan->vars,
                                                   plan->seq,
                                                   plan->name,
                                                   plan->offset);
 
-//#pragma omp critical
-//                    cerr << tid << ": " << "completed graph " << plan->graph << endl;
+#pragma omp critical
+                    {
+                        graph_completed.insert(plan->graph);
+                        //cerr << tid << ": " << "completed graph " << plan->graph << endl;
+                    }
                     delete plan->vars;
                     delete plan;
                 }
             }
+
+#pragma omp critical
+            {
+                VG* g = refseq_graph[seq_name];
+                list<VG*>::iterator o = graphq.begin();
+                while (o != graphq.end() && graph_completed.count(*o)) {
+                    //cerr << tid << ": appending " << *o << endl;
+                    g->append(**o);
+                    if (progress) progress->Progressed(graph_end[*o]);
+                    // ensures we don't have problems if we use the same pointer again
+                    graph_completed.erase(*o);
+                    delete *o;
+                    ++o;
+                    graphq.pop_front();
+                }
+            }
+
         }
+
+        // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
+        refseq_graph[seq_name]->remove_null_nodes_forwarding_edges();
+
         if (progress) delete progress;
     }
 
-    // we'll wait here for threads to complete
-#pragma omp barrier
-
-    // then run one join for each chromosome in parallel
-    vector<string> refseq_names;
-    for (map<string, vector<VG*> >::iterator m = graphs_by_refseq.begin();
-         m != graphs_by_refseq.end(); ++m) {
-        refseq_names.push_back(m->first);
-    }
-
-#pragma omp parallel for default(none) shared(graphs_by_refseq, refseq_names, cerr)
-    for (int i = 0; i < refseq_names.size(); ++i) {
-
-//#pragma omp critical
-//        cerr << "merging graphs in refseq " << refseq_names.at(i) << endl;
-
-        // merge the variants into one graph
-        VG g;
-        vector<VG*>& s = graphs_by_refseq[refseq_names.at(i)];
-        for (vector<VG*>::iterator v = s.begin(); v != s.end(); ++v) {
-            VG& o = **v;
-            g.append(o);
-            delete *v;
-        }
-        g.remove_null_nodes_forwarding_edges();
-        //g.topologically_sort_graph();
-        //if (!g.is_valid()) { cerr << "g is not valid" << endl; exit(1); }
-        //g.compact_ids();
-        // now combine it with this graph
-#pragma omp critical
-        {
-            //cerr << "combining graphs" << endl;
+    // small hack for efficiency when constructing over a single chromosome
+    if (refseq_graph.size() == 1) {
+        *this = *refseq_graph[targets.front()];
+    } else {
+        // where we have multiple targets
+        for (vector<string>::iterator t = targets.begin(); t != targets.end(); ++t) {
+            // merge the variants into one graph
+            VG& g = *refseq_graph[*t];
             combine(g);
-            //cerr << "done" << endl;
-            //if (!is_valid()) { cerr << "graph is not valid" << endl; exit(1); }
         }
     }
 
@@ -1083,10 +1107,8 @@ Edge* VG::get_edge(int64_t from, int64_t to) {
 }
 
 void VG::set_edge(int64_t from, int64_t to, Edge* edge) {
-    hash_map<int64_t, Edge*>& from_node = edges_from(from);
-    hash_map<int64_t, Edge*>& to_node = edges_to(to);
-    from_node[to] = edge;
-    to_node[from] = edge;
+    edge_from_to[from][to] = edge;
+    edge_to_from[to][from] = edge;
 }
 
 hash_map<int64_t, Edge*>& VG::edges_from(int64_t id) {
@@ -1681,6 +1703,16 @@ bool VG::is_valid(void) {
         }
     }
 
+    if (head_nodes().empty()) {
+        cerr << "graph invalid: no head nodes" << endl;
+        return false;
+    }
+
+    if (tail_nodes().empty()) {
+        cerr << "graph invalid: no tail nodes" << endl;
+        return false;
+    }
+
     //cerr << "all is well" << endl;
 
     return true;
@@ -1878,6 +1910,12 @@ void VG::head_nodes(vector<Node*>& nodes) {
     }
 }
 
+vector<Node*> VG::head_nodes(void) {
+    vector<Node*> heads;
+    head_nodes(heads);
+    return heads;
+}
+
 void VG::tail_nodes(vector<Node*>& nodes) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
@@ -1885,6 +1923,12 @@ void VG::tail_nodes(vector<Node*>& nodes) {
             nodes.push_back(n);
         }
     }
+}
+
+vector<Node*> VG::tail_nodes(void) {
+    vector<Node*> tails;
+    tail_nodes(tails);
+    return tails;
 }
 
 void VG::wrap_with_null_nodes(void) {
