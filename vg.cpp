@@ -981,6 +981,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                                                   plan->seq,
                                                   plan->name,
                                                   plan->offset);
+
 //#pragma omp critical
 //                    cerr << tid << ": " << "completed graph " << plan->graph << endl;
                     delete plan->vars;

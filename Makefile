@@ -78,11 +78,11 @@ region.o: region.cpp region.h
 index.o: index.cpp index.h
 	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBPROGRESSBAR)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
-	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o
+	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o
 
 clean-vg:
 	rm -f vg
