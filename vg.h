@@ -31,7 +31,7 @@ namespace vg {
 using google::sparse_hash_map;
 using google::dense_hash_map;
 
-//#define USE_SPARSE_HASH
+// comment out to use sparse_hash_map instead
 #define USE_DENSE_HASH
 
 template<typename K, typename V>

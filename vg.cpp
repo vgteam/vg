@@ -239,11 +239,15 @@ void VG::clear_indexes(void) {
 }
 
 void VG::clear_indexes_no_resize(void) {
+#ifdef USE_DENSE_HASH
     node_index.clear_no_resize();
     node_by_id.clear_no_resize();
     edge_index.clear_no_resize();
     edge_from_to.clear_no_resize();
     edge_to_from.clear_no_resize();
+#else
+    clear_indexes();
+#endif
 }
 
 void VG::resize_indexes(void) {
