@@ -238,18 +238,27 @@ void VG::clear_indexes(void) {
     edge_to_from.clear();
 }
 
+void VG::clear_indexes_no_resize(void) {
+    node_index.clear_no_resize();
+    node_by_id.clear_no_resize();
+    edge_index.clear_no_resize();
+    edge_from_to.clear_no_resize();
+    edge_to_from.clear_no_resize();
+}
+
+void VG::resize_indexes(void) {
+    node_index.resize(graph.node_size());
+    node_by_id.resize(graph.node_size());
+    edge_index.resize(graph.edge_size());
+    edge_from_to.resize(graph.edge_size());
+    edge_to_from.resize(graph.edge_size());
+}
+
 void VG::rebuild_indexes(void) {
-    clear_indexes();
-    for (int64_t i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        node_index[n] = i;
-        node_by_id[n->id()] = n;
-    }
-    for (int64_t i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
-        edge_index[e] = i;
-        set_edge(e->from(), e->to(), e);
-    }
+    //clear_indexes();
+    //resize_indexes();
+    clear_indexes_no_resize();
+    build_indexes();
 }
 
 bool VG::empty(void) {
@@ -848,6 +857,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         if (show_progress) {
             progress = new ProgressBar(stop_pos-start_pos, message.c_str());
         }
+        if (progress) progress->Progressed(0);
 
         set<VG*> graph_completed;
 
@@ -1974,8 +1984,8 @@ void VG::topological_sort(deque<Node*>& l) {
     map<int64_t, Node*> s;
     vector<Node*> heads;
     // copy our edges
-    hash_map<int64_t, hash_map<int64_t, Edge*> > edgesf = edge_from_to;
-    hash_map<int64_t, hash_map<int64_t, Edge*> > edgest = edge_to_from;
+    hash_map<int64_t, hash_map<int64_t, Edge*> >& edgesf = edge_from_to;
+    hash_map<int64_t, hash_map<int64_t, Edge*> >& edgest = edge_to_from;
     head_nodes(heads);
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
         s[(*n)->id()] = *n;
@@ -2028,6 +2038,7 @@ void VG::topological_sort(deque<Node*>& l) {
             }
         }
     }
+    // only necessary if we destroy the graph to ensure its order
     rebuild_indexes();
 }
 

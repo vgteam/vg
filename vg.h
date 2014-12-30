@@ -68,9 +68,9 @@ public:
 
 template<typename K, typename V>
 #ifdef USE_DENSE_HASH
-class hash_map<K*,V> : public dense_hash_map<K*,V>
+    class hash_map<K*,V> : public dense_hash_map<K*,V>
 #else
-class hash_map<K*,V> : public sparse_hash_map<K*,V>
+    class hash_map<K*,V> : public sparse_hash_map<K*,V>
 #endif
 {
 public:
@@ -153,6 +153,8 @@ public:
 
     void build_indexes(void);
     void clear_indexes(void);
+    void clear_indexes_no_resize(void);
+    void resize_indexes(void);
     void rebuild_indexes(void);
 
     // literally merge protobufs
