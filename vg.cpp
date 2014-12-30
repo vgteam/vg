@@ -872,7 +872,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             usleep(10); //microseconds, so as to not overwhelm things
 
             // processing of VCF file should only be handled by one thread at a time
-#pragma omp critical
+#pragma omp critical (vcf_input)
             {
 
                 done_with_chrom = !variantCallFile.getNextVariant(var);
@@ -983,7 +983,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             // it can be done in an entirely separate thread
             if (!construction.empty()) {
                 Plan* plan = NULL;
-#pragma omp critical
+#pragma omp critical (construction)
                 {
                     if (!construction.empty()) {
                         plan = construction.back();
@@ -1008,7 +1008,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                                                   plan->name,
                                                   plan->offset);
 
-#pragma omp critical
+#pragma omp critical (graph_completed)
                     {
                         graph_completed.insert(plan->graph);
                         //cerr << tid << ": " << "completed graph " << plan->graph << endl;
@@ -1018,13 +1018,14 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                 }
             }
 
-#pragma omp critical
+#pragma omp critical (append)
             {
                 VG* g = refseq_graph[seq_name];
                 list<VG*>::iterator o = graphq.begin();
                 while (o != graphq.end() && graph_completed.count(*o)) {
                     //cerr << tid << ": appending " << *o << endl;
                     g->append(**o);
+
                     if (progress) progress->Progressed(graph_end[*o]);
                     // ensures we don't have problems if we use the same pointer again
                     graph_completed.erase(*o);
@@ -1035,6 +1036,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             }
 
         }
+        // parallel end
 
         // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
         refseq_graph[seq_name]->remove_null_nodes_forwarding_edges();
