@@ -7,7 +7,7 @@
 #include "rocksdb/db.h"
 #include "rocksdb/write_batch.h"
 #include "pb2json.h"
-#include "vg.h"
+#include "vg.hpp"
 
 namespace vg {
 

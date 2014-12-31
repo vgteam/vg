@@ -60,22 +60,22 @@ fastahack/Fasta.o: fastahack/Fasta.h fastahack/Fasta.cpp
 cpp/vg.pb.o: cpp/vg.pb.h cpp/vg.pb.cc
 	$(CXX) $(CXXFLAGS) -c -o cpp/vg.pb.o cpp/vg.pb.cc $(INCLUDES)
 
-vg.o: vg.cpp vg.h cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(SPARSEHASH)
+vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(INCLUDES)
 
-gssw_aligner.o: gssw_aligner.cpp gssw_aligner.h cpp/vg.pb.h $(LIBGSSW)
+gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(INCLUDES)
 
-mapper.o: mapper.cpp mapper.h cpp/vg.pb.h
+mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h
 	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
 
 main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
 
-region.o: region.cpp region.h
+region.o: region.cpp region.hpp
 	$(CXX) $(CXXFLAGS) -c -o region.o region.cpp $(INCLUDES)
 
-index.o: index.cpp index.h
+index.o: index.cpp index.hpp
 	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
 vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY)

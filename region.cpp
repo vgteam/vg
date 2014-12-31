@@ -1,4 +1,4 @@
-#include "region.h"
+#include "region.hpp"
 
 namespace vg {
 

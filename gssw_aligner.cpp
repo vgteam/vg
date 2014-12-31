@@ -1,4 +1,4 @@
-#include "gssw_aligner.h"
+#include "gssw_aligner.hpp"
 
 using namespace vg;
 

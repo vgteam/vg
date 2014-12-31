@@ -2,10 +2,10 @@
 #include <fstream>
 #include <getopt.h>
 #include "pb2json.h"
-#include "vg.h"
+#include "vg.hpp"
 #include "vg.pb.h"
-#include "index.h"
-#include "mapper.h"
+#include "index.hpp"
+#include "mapper.hpp"
 #include "Variant.h"
 #include "Fasta.h"
 

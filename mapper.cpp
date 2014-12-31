@@ -1,4 +1,4 @@
-#include "mapper.h"
+#include "mapper.hpp"
 
 namespace vg {
 

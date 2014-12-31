@@ -12,11 +12,11 @@
 #include <algorithm>
 
 #include "gssw.h"
-#include "gssw_aligner.h"
-#include "region.h"
+#include "gssw_aligner.hpp"
+#include "region.hpp"
 
 #include "vg.pb.h"
-#include "stream.h"
+#include "stream.hpp"
 
 #include <sparsehash/sparse_hash_map>
 #include <sparsehash/dense_hash_map>
@@ -27,24 +27,6 @@
 #include "Fasta.h"
 
 #include "swap_remove.hpp"
-
-/*
-// http://stackoverflow.com/questions/738054/hash-function-for-a-pair-of-long-long
-namespace std {
-namespace tr1 {
-    template<typename a, typename b>
-        struct hash< std::pair<a, b> > {
-    private:
-        const hash<a> ah;
-        const hash<b> bh;
-    public:
-    hash() : ah(), bh() {}
-        size_t operator()(const std::pair<a, b> &p) const {
-            return ah(p.first) ^ bh(p.second);
-        }
-    };
-}} // namespaces
-*/
 
 
 // http://stackoverflow.com/questions/4870437/pairint-int-pair-as-key-of-unordered-map-issue#comment5439557_4870467

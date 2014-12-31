@@ -1,4 +1,4 @@
-#include "index.h"
+#include "index.hpp"
 
 namespace vg {
 

@@ -5,7 +5,6 @@
 #include <set>
 #include <string>
 #include "gssw.h"
-#include "gssw_aligner.h"
 #include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"

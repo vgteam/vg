@@ -3,8 +3,8 @@
 
 #include <iostream>
 #include <map>
-#include "vg.h"
-#include "index.h"
+#include "vg.hpp"
+#include "index.hpp"
 #include "pb2json.h"
 
 namespace vg {
