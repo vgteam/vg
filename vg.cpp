@@ -1007,15 +1007,13 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                 
                 if (plan) {
 
-
 /*
-#pragma omp critical
+#pragma omp critical (debug)
                     cerr << tid << ": " << "constructing graph " << plan->graph << " over "
                          << plan->vars->size() << " variants in " <<plan->seq.size() << "bp "
                          << plan->name << ":" << plan->offset
                          << "-" << plan->offset + plan->seq.size() << endl;
 */
-
 
                     plan->graph->from_vcf_records(plan->vars,
                                                   plan->seq,
@@ -1025,14 +1023,15 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 #pragma omp critical (graph_completed)
                     {
                         graph_completed.insert(plan->graph);
-                        //cerr << tid << ": " << "completed graph " << plan->graph << endl;
+//#pragma omp critical (debug)
+//                        cerr << tid << ": " << "completed graph " << plan->graph << endl;
                     }
                     delete plan->vars;
                     delete plan;
                 }
             }
 
-#pragma omp master
+#pragma omp critical (append)
             {
                 VG* g = refseq_graph[seq_name];
                 list<VG*>::iterator o = graphq.begin();
