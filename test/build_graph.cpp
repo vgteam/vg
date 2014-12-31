@@ -2,7 +2,7 @@
 #include <fstream>
 #include "pb2json.h"
 #include "vg.pb.h"
-#include "vg.h"
+#include "vg.hpp"
 
 using namespace std;
 using namespace google::protobuf;
