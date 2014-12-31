@@ -9,6 +9,7 @@
 #include <omp.h>
 #include <unistd.h>
 #include <limits.h>
+#include <algorithm>
 
 #include "gssw.h"
 #include "gssw_aligner.h"
@@ -25,6 +26,40 @@
 #include "Variant.h"
 #include "Fasta.h"
 
+#include "swap_remove.hpp"
+
+/*
+// http://stackoverflow.com/questions/738054/hash-function-for-a-pair-of-long-long
+namespace std {
+namespace tr1 {
+    template<typename a, typename b>
+        struct hash< std::pair<a, b> > {
+    private:
+        const hash<a> ah;
+        const hash<b> bh;
+    public:
+    hash() : ah(), bh() {}
+        size_t operator()(const std::pair<a, b> &p) const {
+            return ah(p.first) ^ bh(p.second);
+        }
+    };
+}} // namespaces
+*/
+
+
+// http://stackoverflow.com/questions/4870437/pairint-int-pair-as-key-of-unordered-map-issue#comment5439557_4870467
+// https://github.com/Revolutionary-Games/Thrive/blob/fd8ab943dd4ced59a8e7d1e4a7b725468b7c2557/src/util/pair_hash.h
+// taken from boost
+namespace std {
+template <typename A, typename B>
+struct hash<pair<A,B> > {
+    size_t operator()(const pair<A,B>& x) const {
+        std::size_t hashA = std::hash<A>()(x.first);
+        std::size_t hashB = std::hash<B>()(x.second);
+        return hashA ^ (hashB + 0x9e3779b9 + (hashA << 6) + (hashA >> 2));
+    }
+};
+}
 
 namespace vg {
 
@@ -68,6 +103,22 @@ public:
 
 template<typename K, typename V>
 #ifdef USE_DENSE_HASH
+    class pair_hash_map : public dense_hash_map<K,V,std::hash<K> >
+#else
+    class pair_hash_map : public sparse_hash_map<K,V,std::hash<K> >
+#endif
+{
+public:
+    pair_hash_map() {
+#ifdef USE_DENSE_HASH
+        this->set_empty_key(make_pair(-1, -1));
+#endif
+        this->set_deleted_key(make_pair(-2, -2));
+    }
+};
+
+template<typename K, typename V>
+#ifdef USE_DENSE_HASH
     class hash_map<K*,V> : public dense_hash_map<K*,V>
 #else
     class hash_map<K*,V> : public sparse_hash_map<K*,V>
@@ -81,6 +132,7 @@ public:
         this->set_deleted_key((K*)(0));
     }
 };
+
 
 class VG {
 
@@ -96,6 +148,9 @@ public:
     // nodes by id
     hash_map<int64_t, Node*> node_by_id;
 
+    // edges by nodes they connect
+    pair_hash_map<pair<int64_t, int64_t>, Edge*> edge_by_id;
+
     // nodes by position in nodes repeated field
     // this is critical to allow fast deletion of nodes
     hash_map<Node*, int> node_index;
@@ -105,18 +160,20 @@ public:
     hash_map<Edge*, int> edge_index;
 
     // edges indexed by nodes they connect
-    hash_map<int64_t, hash_map<int64_t, Edge*> > edge_from_to;
-    hash_map<int64_t, hash_map<int64_t, Edge*> > edge_to_from;
+    hash_map<int64_t, vector<int64_t> > edges_from_to;
+    hash_map<int64_t, vector<int64_t> > edges_to_from;
 
     // set the edge indexes through this function
     void set_edge(int64_t from, int64_t to, Edge*);
     void print_edges(void);
 
     // convenience accessors
-    hash_map<int64_t, Edge*>& edges_from(Node* node);
-    hash_map<int64_t, Edge*>& edges_from(int64_t id);
-    hash_map<int64_t, Edge*>& edges_to(Node* node);
-    hash_map<int64_t, Edge*>& edges_to(int64_t id);
+    vector<int64_t>& edges_from(Node* node);
+    vector<int64_t>& edges_from(int64_t id);
+    vector<int64_t>& edges_to(Node* node);
+    vector<int64_t>& edges_to(int64_t id);
+    void remove_edge_fti(int64_t from, int64_t to);
+    void remove_edge_tfi(int64_t from, int64_t to);
 
     // constructors
 
@@ -313,6 +370,8 @@ public:
 private:
 
     void init(void); // setup, ensures that gssw == NULL on startup
+    // placeholder for empty
+    vector<int64_t> empty_ids;
 
 };
 
