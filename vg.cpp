@@ -389,7 +389,9 @@ void VG::append(VG& g) {
 
     // compact and increment the ids of g out of range of this graph
     //g.compact_ids();
+
     // assume we've already compacted the other, or that id compaction doesn't matter
+    // just get out of the way
     g.increment_node_ids(max_node_id());
 
     // get the heads of the other graph, now that we've compacted the ids
@@ -862,6 +864,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         refseq_graph[seq_name] = new VG;
         // and the construction queue
         list<VG*> graphq;
+        int graphq_next = 0;
+        int graphq_last = 0;
 
         // for tracking progress through the chromosome
         map<VG*, unsigned long> graph_end;
@@ -885,8 +889,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
     shared(vars_per_region, region, target, stop_pos,                   \
            variantCallFile, done_with_chrom, reference,                 \
            seq_name, start, start_pos, var_is_at_end, progress,         \
-           refseq_graph, graphq, end, var, cerr,                        \
-           construction, graph_completed, graph_end)
+           refseq_graph, graphq, graphq_next, graphq_last,              \
+           end, var, cerr, construction, graph_completed, graph_end)
 
         while (!done_with_chrom || !construction.empty() || !graphq.empty()) {
 
@@ -896,20 +900,26 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 // and append
 
             VG* g = refseq_graph[seq_name];
-            list<VG*>::iterator o = graphq.begin();
             if (!graphq.empty()) {
                 VG* o = NULL;
+                int t_num = 0;
 #pragma omp critical (graphq)
                 if (graph_completed.count(graphq.front())) {
                     o = graphq.front();
                     graphq.pop_front();
+                    t_num = ++graphq_next;
                 }
                 if (o) {
+// mad problem: we are not guaranteed a particular ordering of these additions
+                    while (t_num != graphq_last + 1) {
+                        usleep(100);
+                    }
 #pragma omp critical (append_graph)
                     {
                         g->append(*o);
                         graph_completed.erase(o);
                         delete o;
+                        graphq_last = t_num;
                     }
 #pragma omp critical (progress)
                     if (progress) progress->Progressed(graph_end[o]-start_pos);
@@ -1002,6 +1012,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     plan->graph = new VG;
 
                     // retain reference to graph
+#pragma omp critical (graphq)
                     graphq.push_back(plan->graph);
                     // variants
                     plan->vars = vars;
@@ -1068,6 +1079,10 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
         refseq_graph[seq_name]->remove_null_nodes_forwarding_edges();
+        // then use topological sorting and re-compression of the id space to make sure that
+        // we get identical graphs no matter what the region size is
+        refseq_graph[seq_name]->topologically_sort_graph();
+        refseq_graph[seq_name]->compact_ids();
 
         if (progress) delete progress;
     }

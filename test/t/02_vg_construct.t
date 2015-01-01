@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 9
+plan tests 16
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -38,3 +38,25 @@ order_a=$(vg construct -r order/n.fa -v order/x.vcf.gz | md5sum | cut -f 1 -d\ )
 order_b=$(vg construct -r order/n.fa -v order/y.vcf.gz | md5sum | cut -f 1 -d\ )
 
 is $order_a $order_b "the ordering of variants at the same position has no effect on the resulting graph"
+
+
+x0=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 1000 -t 1 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
+x1=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 1 -t 1 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
+x2=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 2 -t 1 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
+x3=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 10 -t 1 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
+
+is $x1 $x0 "the size of the regions used in construction has no effect on the graph"
+is $x2 $x0 "the size of the regions used in construction has no effect on the graph"
+is $x3 $x0 "the size of the regions used in construction has no effect on the graph"
+
+x4=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 1 -t 1 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
+x5=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 1 -t 10 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
+
+is $x4 $x0 "the number of threads used in construction has no effect on the graph"
+is $x5 $x0 "the number of threads used in construction has no effect on the graph"
+
+x6=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 1 -t 1 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
+x7=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 100 -t 10 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
+
+is $x6 $x0 "the number of threads used in construction has no effect on the graph"
+is $x7 $x0 "the number of threads used in construction has no effect on the graph"
