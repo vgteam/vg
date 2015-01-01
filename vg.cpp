@@ -908,9 +908,13 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             }
             if (thread_appending) {
                 while (!graphq.empty() && graph_completed.count(graphq.front())) {
-                    VG* o = graphq.front();
-                    graph_completed.erase(o);
-                    graphq.pop_front();
+                    VG* o = NULL;
+#pragma omp critical (graphq)
+                    {
+                        o = graphq.front();
+                        graphq.pop_front();
+                        graph_completed.erase(o);
+                    }
                     g->append(*o);
                     delete o;
 #pragma omp critical (progress)
