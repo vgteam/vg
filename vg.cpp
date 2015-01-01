@@ -864,8 +864,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         refseq_graph[seq_name] = new VG;
         // and the construction queue
         list<VG*> graphq;
-        int graphq_next = 0;
-        int graphq_last = 0;
+        bool appending_graphs = false;
 
         // for tracking progress through the chromosome
         map<VG*, unsigned long> graph_end;
@@ -889,7 +888,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
     shared(vars_per_region, region, target, stop_pos,                   \
            variantCallFile, done_with_chrom, reference,                 \
            seq_name, start, start_pos, var_is_at_end, progress,         \
-           refseq_graph, graphq, graphq_next, graphq_last,              \
+           refseq_graph, graphq, appending_graphs,                      \
            end, var, cerr, construction, graph_completed, graph_end)
 
         while (!done_with_chrom || !construction.empty() || !graphq.empty()) {
@@ -900,30 +899,25 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 // and append
 
             VG* g = refseq_graph[seq_name];
-            if (!graphq.empty()) {
-                VG* o = NULL;
-                int t_num = 0;
-#pragma omp critical (graphq)
-                if (graph_completed.count(graphq.front())) {
-                    o = graphq.front();
+            bool thread_appending = false;
+#pragma omp critical (prep_append)
+            if (!graphq.empty() && !appending_graphs) {
+                // set lock
+                appending_graphs = true;
+                thread_appending = true;
+            }
+            if (thread_appending) {
+                while (!graphq.empty() && graph_completed.count(graphq.front())) {
+                    VG* o = graphq.front();
+                    graph_completed.erase(o);
                     graphq.pop_front();
-                    t_num = ++graphq_next;
-                }
-                if (o) {
-// mad problem: we are not guaranteed a particular ordering of these additions
-                    while (t_num != graphq_last + 1) {
-                        usleep(100);
-                    }
-#pragma omp critical (append_graph)
-                    {
-                        g->append(*o);
-                        graph_completed.erase(o);
-                        delete o;
-                        graphq_last = t_num;
-                    }
+                    g->append(*o);
+                    delete o;
 #pragma omp critical (progress)
                     if (progress) progress->Progressed(graph_end[o]-start_pos);
                 }
+                // reset lock
+                appending_graphs = false;
             }
 
             usleep(10); //microseconds, so as to not overwhelm things
@@ -1070,6 +1064,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 //#pragma omp critical (debug)
 //                        cerr << tid << ": " << "completed graph " << plan->graph << endl;
                     }
+                    // TODO plan should probably be a class, so that this can be managed
                     delete plan->vars;
                     delete plan;
                 }
