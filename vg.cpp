@@ -1040,24 +1040,30 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                 }
             }
 
-#pragma omp critical (append)
-            {
-                VG* g = refseq_graph[seq_name];
-                list<VG*>::iterator o = graphq.begin();
-                while (o != graphq.end() && graph_completed.count(*o)) {
-                    //cerr << tid << ": appending " << *o << endl;
-                    g->append(**o);
+// each thread should check if there is a new item in the queue to remove
+// and append
+// if there is, they should append, but taking care
 
-#pragma omp critical (progress)
-                    if (progress) progress->Progressed(graph_end[*o]-start_pos);
-                    // ensures we don't have problems if we use the same pointer again
-                    graph_completed.erase(*o);
-                    delete *o;
-                    ++o;
+            VG* g = refseq_graph[seq_name];
+            list<VG*>::iterator o = graphq.begin();
+            if (!graphq.empty()) {
+                VG* o = NULL;
+#pragma omp critical (graphq)
+                if (graph_completed.count(graphq.front())) {
+                    o = graphq.front();
                     graphq.pop_front();
                 }
+                if (o) {
+#pragma omp critical (append_graph)
+                    {
+                        g->append(*o);
+                        graph_completed.erase(o);
+                        delete o;
+                    }
+#pragma omp critical (progress)
+                    if (progress) progress->Progressed(graph_end[o]-start_pos);
+                }
             }
-
         }
         // parallel end
 
