@@ -877,6 +877,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         set<VG*> graph_completed;
 
+        omp_set_dynamic(1); // use dynamic scheduling
+
         // omp pragma here to define parallel section
 
         // this system is not entirely general
