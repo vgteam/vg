@@ -1091,7 +1091,7 @@ int main_construct(int argc, char** argv) {
     string region;
     string output_type = "VG";
     bool progress = false;
-    int vars_per_region = 10000;
+    int vars_per_region = 25000;
 
     int c;
     while (true) {
