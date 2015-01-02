@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 16
+plan tests 17
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -60,3 +60,9 @@ x7=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 100 -t 10 | vg view -g - | 
 
 is $x6 $x0 "the number of threads used in construction has no effect on the graph"
 is $x7 $x0 "the number of threads used in construction has no effect on the graph"
+
+vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz -R z:9-20 >/dev/null
+is $? 0 "construction of a graph with two head nodes succeeds"
+
+# in case there were failures in topological sort
+rm -f fail.vg

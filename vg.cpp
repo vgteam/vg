@@ -410,7 +410,7 @@ void VG::append(VG& g) {
     }
 
     // add in the other graph
-    // we don't use merge_union because we are ensured non-overlapping ids
+    // note that we don't use merge_union because we are ensured non-overlapping ids
     merge(g);
 
     /*
@@ -633,6 +633,8 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                 // (important when aligning)
                 Node* root = create_node("");
                 reference_path[-1] = root;
+                nodes_by_start_position[-1].insert(root);
+                nodes_by_end_position[0].insert(root);
             }
 
             Node* left_ref_node = NULL;
@@ -708,6 +710,7 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
                 // ensures that we can handle variation at last position (important when aligning)
                 Node* end = create_node("");
                 reference_path[allele_end_pos] = end;
+                // for consistency, this should be handled below in the start/end connections
                 if (alt_node) {
                     create_edge(alt_node, end);
                 }
@@ -717,11 +720,12 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
             }
 
             //print_edges();
-            /*n
+            /*
             if (!is_valid()) {
                 cerr << "graph is invalid after variant " << *a << endl;
                 std::ofstream out("fail.vg");
                 serialize_to_ostream(out);
+                out.close();
                 exit(1);
             }
             */
@@ -794,19 +798,21 @@ bool allATGC(string& s) {
 
 VG::VG(vcf::VariantCallFile& variantCallFile,
        FastaReference& reference,
-       string& target,
+       string& target_region,
        int vars_per_region,
        bool showprog) {
 
     init();
+
+    omp_set_dynamic(1); // use dynamic scheduling
 
     show_progress = showprog;
 
     map<string, VG*> refseq_graph;
 
     vector<string> targets;
-    if (!target.empty()) {
-        targets.push_back(target);
+    if (!target_region.empty()) {
+        targets.push_back(target_region);
     } else {
         for (vector<string>::iterator r = reference.index->sequenceNames.begin();
              r != reference.index->sequenceNames.end(); ++r) {
@@ -830,9 +836,10 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         //string& seq_name = *t;
         string seq_name;
+        string target = *t;
         int start_pos = 0, stop_pos = 0;
         // nasty hack for handling single regions
-        parse_region(*t,
+        parse_region(target,
                      seq_name,
                      start_pos,
                      stop_pos);
@@ -861,7 +868,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         deque<Plan*> construction;
 
         // our graph for this refseq
-        refseq_graph[seq_name] = new VG;
+        refseq_graph[target] = new VG;
         // and the construction queue
         list<VG*> graphq;
         bool appending_graphs = false;
@@ -876,8 +883,6 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         if (progress) progress->Progressed(0);
 
         set<VG*> graph_completed;
-
-        omp_set_dynamic(1); // use dynamic scheduling
 
         // omp pragma here to define parallel section
 
@@ -900,7 +905,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 // each thread should check if there is a new item in the queue to remove
 // and append
 
-            VG* g = refseq_graph[seq_name];
+            VG* g = refseq_graph[target];
             bool thread_appending = false;
 #pragma omp critical (prep_append)
             if (!graphq.empty() && !appending_graphs) {
@@ -1079,11 +1084,11 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // parallel end
 
         // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
-        refseq_graph[seq_name]->remove_null_nodes_forwarding_edges();
+        refseq_graph[target]->remove_null_nodes_forwarding_edges();
         // then use topological sorting and re-compression of the id space to make sure that
+        refseq_graph[target]->topologically_sort_graph();
         // we get identical graphs no matter what the region size is
-        refseq_graph[seq_name]->topologically_sort_graph();
-        refseq_graph[seq_name]->compact_ids();
+        refseq_graph[target]->compact_ids();
 
         if (progress) delete progress;
     }
@@ -1216,9 +1221,9 @@ void VG::destroy_edge(Edge* edge) {
     //assert(edges_to_from[edge->to()].find(edge->from()) == edges_to_from[edge->to()].end());
 
     // removing the sub-indexes if they are now empty
-    // does not seem necessary...
-    //if (edges_from_to[edge->from()].empty()) edges_from_to.erase(edge->from());
-    //if (edges_to_from[edge->to()].empty()) edges_to_from.erase(edge->to());
+    // we must do this to maintain a valid structure
+    if (edges_from_to[edge->from()].empty()) edges_from_to.erase(edge->from());
+    if (edges_to_from[edge->to()].empty()) edges_to_from.erase(edge->to());
 
     // erase from edges by moving to end and dropping
 
@@ -2030,12 +2035,20 @@ else
 
 void VG::topological_sort(deque<Node*>& l) {
     //assert(is_valid());
+
     // using a map instead of a set ensures a stable sort across different systems
     map<int64_t, Node*> s;
     vector<Node*> heads;
     head_nodes(heads);
     for (vector<Node*>::iterator n = heads.begin(); n != heads.end(); ++n) {
         s[(*n)->id()] = *n;
+    }
+
+    // check that we have heads of the graph
+    if (heads.empty() && graph.node_size() > 0) {
+        cerr << "error:[VG::topological_sort] No heads of graph given, but graph not empty. "
+             << "In-memory indexes of nodes and edges may be out of sync." << endl;
+        exit(1);
     }
 
     while (!s.empty()) {
@@ -2067,6 +2080,7 @@ void VG::topological_sort(deque<Node*>& l) {
             {
                 std::ofstream out("fail.vg");
                 serialize_to_ostream(out);
+                out.close();
                 exit(1);
             }
         }
@@ -2081,11 +2095,13 @@ void VG::topological_sort(deque<Node*>& l) {
             {
                 std::ofstream out("fail.vg");
                 serialize_to_ostream(out);
+                out.close();
                 exit(1);
             }
         }
     }
-    // only necessary if we destroy the graph to ensure its order
+    // we have destroyed the graph's index to ensure its order
+    // rebuild the indexes
     rebuild_indexes();
 }
 
