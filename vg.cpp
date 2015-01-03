@@ -578,17 +578,15 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
     map<long, set<Node*> > nodes_by_start_position;
 
     // parsed alternates
-    map<long, vector<vcf::VariantAllele> > altp;
+    map<long, set<vcf::VariantAllele> > altp;
 
     Node* ref_node = create_node(seq);
     reference_path[0] = ref_node;
 
-    for (vector<vcf::Variant>::iterator v = records.begin(); v != records.end(); ++v) {
-
-        vcf::Variant& var = *v;
+    for (auto& var : records) {
 
         // adjust the variant position relative to the sequence
-        var.position -= offset; // but preserve 1-basing
+        var.position -= offset;
 
 //#pragma omp critical
 //        cerr << omp_get_thread_num() << ": " << var << endl;
@@ -598,23 +596,18 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
         map<string, vector<vcf::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
 
-        for (map<string, vector<vcf::VariantAllele> >::iterator va = alternates.begin();
-             va !=alternates.end(); ++va) {
-            vector<vcf::VariantAllele>& alleles = va->second;
-            for (vector<vcf::VariantAllele>::iterator a = alleles.begin();
-                 a != alleles.end(); ++a) {
-                vcf::VariantAllele& allele = *a;
-                altp[allele.position].push_back(allele);
+        for (auto& alleles : alternates) {
+            for (auto& allele : alleles.second) {
+                altp[allele.position].insert(allele);
             }
         }
     }
 
-    for (map<long, vector<vcf::VariantAllele> >::iterator va = altp.begin(); va != altp.end(); ++va) {
-        vector<vcf::VariantAllele>& alleles = va->second;
+    for (auto& va : altp) {
 
-        for (vector<vcf::VariantAllele>::iterator a = alleles.begin();
-             a != alleles.end(); ++a) {
-            vcf::VariantAllele& allele = *a;
+        set<vcf::VariantAllele>& alleles = va.second;
+
+        for (auto allele : alleles) {
 
             // reference alleles are provided naturally by the reference itself
             if (allele.ref == allele.alt) {
@@ -733,9 +726,9 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
         }
 
         map<long, set<Node*> >::iterator ep
-            = nodes_by_end_position.find(va->first);
+            = nodes_by_end_position.find(va.first);
         map<long, set<Node*> >::iterator sp
-            = nodes_by_start_position.find(va->first);
+            = nodes_by_start_position.find(va.first);
         if (ep != nodes_by_end_position.end()
             && sp != nodes_by_start_position.end()) {
             set<Node*>& previous_nodes = ep->second;
@@ -761,11 +754,11 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
         }
 
         // clean up previous
-        while (!nodes_by_end_position.empty() && nodes_by_end_position.begin()->first < va->first) {
+        while (!nodes_by_end_position.empty() && nodes_by_end_position.begin()->first < va.first) {
             nodes_by_end_position.erase(nodes_by_end_position.begin()->first);
         }
 
-        while (!nodes_by_start_position.empty() && nodes_by_start_position.begin()->first < va->first) {
+        while (!nodes_by_start_position.empty() && nodes_by_start_position.begin()->first < va.first) {
             nodes_by_start_position.erase(nodes_by_start_position.begin()->first);
         }
 
@@ -853,7 +846,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         vector<vcf::Variant>* region = NULL;
 
-        int64_t start = start_pos;
+        // convert from 1-based input to 0-based internal format
+        // and handle the case where we are already doing the whole chromosome
+        int64_t start = start_pos ? start_pos - 1 : 0;
         int64_t end = start;
         bool done_with_chrom = false;
         // track if the variant we are looking at has the 3'-most reference extent of any variant in the bunch
@@ -1421,7 +1416,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
 #pragma omp critical
     if (pos < 0) {
-        cerr << omp_get_thread_num() << ": in divide_node"
+        cerr << omp_get_thread_num() << ": in divide_node "
              << "position (" << pos << ") is less than 0!" << endl
              << "cannot divide node " << node->id() << ":" << node->sequence() << endl;
         exit(1);

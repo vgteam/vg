@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 17
+plan tests 18
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -39,6 +39,8 @@ order_b=$(vg construct -r order/n.fa -v order/y.vcf.gz | md5sum | cut -f 1 -d\ )
 
 is $order_a $order_b "the ordering of variants at the same position has no effect on the resulting graph"
 
+vg construct -r order/n.fa -v order/z.vcf.gz -R n:47-73 >/dev/null
+is $? 0 "construction does not fail when the first position in the VCF is repeated and has an indel"
 
 x0=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 1000 -t 1 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
 x1=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 1 -t 1 | vg view -g - | sort -n -k 2 | md5sum | cut -f 1 -d\ )
@@ -61,7 +63,7 @@ x7=$(vg construct -r small/x.fa -v small/x.vcf.gz -z 100 -t 10 | vg view -g - | 
 is $x6 $x0 "the number of threads used in construction has no effect on the graph"
 is $x7 $x0 "the number of threads used in construction has no effect on the graph"
 
-vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz -R z:9-20 >/dev/null
+vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz -R z:10-20 >/dev/null
 is $? 0 "construction of a graph with two head nodes succeeds"
 
 # in case there were failures in topological sort
