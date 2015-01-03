@@ -111,26 +111,26 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
 // check for conflict (duplicate nodes and edges) occurs within add_* functions
 
 void VG::add_nodes(set<Node*>& nodes) {
-    for (set<Node*>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
-        add_node(**n);
+    for (auto node : nodes) {
+        add_node(*node);
     }
 }
 
 void VG::add_edges(set<Edge*>& edges) {
-    for (set<Edge*>::iterator e = edges.begin(); e != edges.end(); ++e) {
-        add_edge(**e);
+    for (auto edge : edges) {
+        add_edge(*edge);
     }
 }
 
 void VG::add_nodes(vector<Node>& nodes) {
-    for (vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
-        add_node(*n);
+    for (auto& node : nodes) {
+        add_node(node);
     }
 }
 
 void VG::add_edges(vector<Edge>& edges) {
-    for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
-        add_edge(*e);
+    for (auto& edge : edges) {
+        add_edge(edge);
     }
 }
 
@@ -164,7 +164,7 @@ int64_t VG::edge_count(void) {
 }
 
 int VG::in_degree(Node* node) {
-    hash_map<int64_t, vector<int64_t> >::iterator in = edges_to_from.find(node->id());
+    auto in = edges_to_from.find(node->id());
     if (in == edges_to_from.end()) {
         return 0;
     } else {
@@ -173,7 +173,7 @@ int VG::in_degree(Node* node) {
 }
 
 int VG::out_degree(Node* node) {
-    hash_map<int64_t, vector<int64_t> >::iterator out = edges_from_to.find(node->id());
+    auto out = edges_from_to.find(node->id());
     if (out == edges_from_to.end()) {
         return 0;
     } else {
