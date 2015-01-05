@@ -866,7 +866,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         refseq_graph[target] = new VG;
         // and the construction queue
         list<VG*> graphq;
-        bool appending_graphs = false;
+        omp_lock_t appending_graphs;
+        omp_init_lock(&appending_graphs);
 
         // for tracking progress through the chromosome
         map<VG*, unsigned long> graph_end;
@@ -897,18 +898,22 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
             int tid = omp_get_thread_num();
 
+/*
+#pragma omp critical (debug)
+            cerr << tid << ": " << "at top of loop "
+                 << (done_with_chrom ? "done" : "more") << " "
+                 << construction.size() << " " << graphq.size() << endl;
+*/
+
 // each thread should check if there is a new item in the queue to remove
 // and append
 
             VG* g = refseq_graph[target];
-            bool thread_appending = false;
-#pragma omp critical (prep_append)
-            if (!graphq.empty() && !appending_graphs) {
-                // set lock
-                appending_graphs = true;
-                thread_appending = true;
-            }
-            if (thread_appending) {
+
+            if (!graphq.empty()
+                && graph_completed.count(graphq.front())
+                && omp_test_lock(&appending_graphs)) {
+                // this thread has the lock
                 while (!graphq.empty() && graph_completed.count(graphq.front())) {
                     VG* o = NULL;
 #pragma omp critical (graphq)
@@ -923,7 +928,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     if (progress) progress->Progressed(graph_end[o]-start_pos);
                 }
                 // reset lock
-                appending_graphs = false;
+                omp_unset_lock(&appending_graphs);
             }
 
             // processing of VCF file should only be handled by one thread at a time
@@ -1041,7 +1046,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                                                   plan->name,
                                                   plan->offset);
 
-#pragma omp critical (graph_completed)
+#pragma omp critical (graphq)
                     {
                         graph_completed.insert(plan->graph);
 //#pragma omp critical (debug)
@@ -1055,9 +1060,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
             // if we are waiting on the completion of graph appending or construction, slow down
             if (done_with_chrom && (!construction.empty() || !graphq.empty())) {
-                usleep(1000); // 1ms
+                usleep(10000); // 10ms
             }
-
         }
         // parallel end
 
@@ -1069,6 +1073,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         refseq_graph[target]->compact_ids();
 
         if (progress) delete progress;
+
+        omp_destroy_lock(&appending_graphs);
+
     }
 
     // small hack for efficiency when constructing over a single chromosome
@@ -1082,7 +1089,6 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             combine(g);
         }
     }
-
 }
 
 void VG::topologically_sort_graph(void) {
