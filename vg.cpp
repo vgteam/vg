@@ -926,13 +926,20 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                 appending_graphs = false;
             }
 
-            usleep(10); //microseconds, so as to not overwhelm things
-
             // processing of VCF file should only be handled by one thread at a time
 #pragma omp critical (vcf_input)
-            {
+            if (!done_with_chrom) {
+
+                if (!region) {
+                    region = new vector<vcf::Variant>;
+                }
 
                 done_with_chrom = !variantCallFile.getNextVariant(var);
+                var.position -= 1; // convert to 0-based
+
+                vcf::Variant* lvar = (region->empty() ? NULL : &region->back());
+//#pragma omp critical (debug)
+//                cerr << tid << ": got variant = " << var << endl;
 
                 // skip non-DNA sequences, such as SVs
                 bool isDNA = allATGC(var.ref);
@@ -940,56 +947,24 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     if (!allATGC(*a)) isDNA = false;
                 }
 
-                //cerr << tid << ": got variant = " << var << endl;
-                var.position -= 1; // convert to 0-based
-
                 if (!done_with_chrom && isDNA) {
-
-                    if (!region) {
-                        region = new vector<vcf::Variant>;
-                    }
-
-                    // save the variant in a list of regions
-                    region->push_back(var);
-
-                    // what can happen?
-                    // 1) we have a deletion (this can't end, but set the end)
-                    // 2) we have a SNP--- assume non-deletions are represented at the same position
-
-                    if (var.position + var.ref.size() > end) {
-                        /*
-                        cerr << tid << ": var is at end? " << var << endl
-                             << tid << ": has " << var.position << " + "
-                             << var.ref.size() << " > " << end << endl;
-                        */
-                        if (var.ref.size() == 1) {
-                            if (var.position + var.ref.size() == end) {
-                                // we need to catch any other variants at this position
-                                var_is_at_end = false;
-                            } else {
-                                // we have seen 2 SNPs at the end
-                                var_is_at_end = true;
-                                end = var.position + var.ref.size();
-                            }
-                        } else {
-                            // we can't end on variants that are >1bp against the ref until we see the next
+                    if (lvar) {
+                        end = max(end, (int64_t) (lvar->position + lvar->ref.size()));
+                        if (var.position <= end) {
                             var_is_at_end = false;
-                            end = var.position + var.ref.size();
+                        } else {
+                            var_is_at_end = true;
                         }
-                    } else {
-                        var_is_at_end = false;
                     }
-                    /*
-                    if (var_is_at_end) {
-                        cerr << tid << ": var is at end " << var << endl;
-                    } else {
-                        cerr << tid << ": var is not at end " << var << endl;
-                    }
-                    */
+                    region->push_back(var);
+                }
+
+                if (done_with_chrom) {
+                    var_is_at_end = true;
                 }
 
                 if (region
-                    && (region->size() >= vars_per_region
+                    && (region->size() - 1 >= vars_per_region
                         && var_is_at_end
                         || done_with_chrom)) {
 
@@ -1005,6 +980,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     if (!done_with_chrom) {
                         // push an empty list back to handle the next region
                         region = new vector<vcf::Variant>;
+                        region->push_back(vars->back());
+                        vars->pop_back();
                     }
 
                     // makes a new construction plan
@@ -1075,6 +1052,12 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     delete plan;
                 }
             }
+
+            // if we are waiting on the completion of graph appending or construction, slow down
+            if (done_with_chrom && (!construction.empty() || !graphq.empty())) {
+                usleep(1000); // 1ms
+            }
+
         }
         // parallel end
 
