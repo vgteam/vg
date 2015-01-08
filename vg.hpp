@@ -170,6 +170,7 @@ public:
     bool has_node(int64_t id);
     bool has_node(Node* node);
     bool has_node(Node& node);
+    void for_each_node(std::function<void(Node*)> lambda);
 
     // is the graph empty?
     bool empty(void);
@@ -191,6 +192,7 @@ public:
     bool has_edge(int64_t from, int64_t to);
     bool has_edge(Edge* edge);
     bool has_edge(Edge& edge);
+    void for_each_edge(std::function<void(Edge*)> lambda);
 
     // connect node -> nodes
     void connect_node_to_nodes(Node* node, vector<Node*>& nodes);
@@ -222,6 +224,7 @@ public:
     void bounded_paths(Node* node, set<list<Node*> >& paths, int length);
     void bounded_paths(Node* node, vector<Path>& paths, int length);
     void bounded_paths(int64_t node_id, vector<Path>& paths, int length);
+    void bounded_paths(Node* node, int length, std::function<void(Path&)> lambda);
     void bounded_prev_paths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths);
     void bounded_next_paths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths);
 

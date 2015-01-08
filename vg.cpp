@@ -1148,6 +1148,12 @@ void VG::set_edge(int64_t from, int64_t to, Edge* edge) {
     }
 }
 
+void VG::for_each_edge(std::function<void(Edge*)> lambda) {
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        lambda(graph.mutable_edge(i));
+    }
+}
+
 vector<int64_t>& VG::edges_from(int64_t id) {
     hash_map<int64_t, vector<int64_t> >::iterator e = edges_from_to.find(id);
     if (e == edges_from_to.end()) {
@@ -1280,6 +1286,12 @@ Node* VG::create_node(string seq) {
     node_index[node] = graph.node_size()-1;
     //if (!is_valid()) cerr << "graph invalid" << endl;
     return node;
+}
+
+void VG::for_each_node(std::function<void(Node*)> lambda) {
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        lambda(graph.mutable_node(i));
+    }
 }
 
 // a graph composed of this node and its edges
@@ -1573,6 +1585,15 @@ void VG::bounded_paths(Node* node, vector<Path>& paths, int length) {
     for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
         Path path = create_path(*p);
         paths.push_back(path);
+    }
+}
+
+void VG::bounded_paths(Node* node, int length, std::function<void(Path&)> lambda) {
+    set<list<Node*> > unique_paths;
+    bounded_paths(node, unique_paths, length);
+    for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
+        Path path = create_path(*p);
+        lambda(path);
     }
 }
 
