@@ -66,13 +66,14 @@ void help_construct(char** argv) {
 }
 
 void help_index(char** argv) {
-    cerr << "usage: " << argv[0] << " index [options] <graph.vg>" << endl
+    cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
          << "options:" << endl
          << "    -s, --store           store graph (do this first to build db!)" << endl
          << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
          << "    -p, --positions       index nodes and edges by position" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
-         << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl;
+         << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
+         << "                          (this is required if you are using multiple graphs files" << endl;
 }
 
 void help_find(char** argv) {
@@ -822,40 +823,39 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        if (db_name.empty()) {
-            cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
+    set<string> graph_file_names;
+    while (optind < argc) {
+        string file_name = argv[optind++];
+        graph_file_names.insert(file_name);
+    }
+
+    if (db_name.empty()) {
+        if (graph_file_names.size() > 1) {
+            cerr << "error:[vg index] working on multiple graphs and no db name (-d) given, exiting" << endl;
+            return 1;
+        } else if (graph_file_names.size() == 1) {
+            db_name = *graph_file_names.begin() + ".index";
+        } else {
+            cerr << "error:[vg index] no graph or db given, exiting" << endl;
             return 1;
         }
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        if (db_name.empty()) {
-            db_name = file_name + ".index";
-        }
-        in.open(file_name.c_str());
-        graph = new VG(in);
     }
 
     Index index(db_name);
 
-    if (store_graph) {
-        index.load_graph(*graph);
-    }
-
-    if (kmer_size != 0) {
-        string_hash_map<string, hash_map<Node*, int> > kmer_map;
-        graph->kmers_of(kmer_map, kmer_size, kmer_stride);
-        index.store_kmers(kmer_map);
+    if (graph_file_names.size() > 0) {
+        VGset graphs(graph_file_names);
+        if (store_graph) {
+            graphs.store_in_index(index);
+        }
+        if (kmer_size != 0) {
+            graphs.index_kmers(index, kmer_size, kmer_stride);
+        }
     }
 
     if (dump_index) {
         index.dump(cout);
     }
-
-    delete graph;
 
     return 0;
 
