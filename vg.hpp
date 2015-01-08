@@ -245,7 +245,8 @@ public:
                              map<Node*, int>& node_start);
 
     // kmers
-    void kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map, int kmer_size);
+    void kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map,
+                  int kmer_size, int stride = 1);
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);

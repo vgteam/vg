@@ -8,8 +8,7 @@ PATH=..:$PATH # for vg
 plan tests 2
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -s x.vg
-vg index -k 11 x.vg
+vg index -s -k 11 x.vg
 
 is $(vg map -k 11 -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG x.vg | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "global alignment traverses the correct path"
 

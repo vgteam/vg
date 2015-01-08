@@ -1850,7 +1850,8 @@ Alignment VG::align(string& sequence) {
 }
 
 
-void VG::kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map, int kmer_size) {
+void VG::kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map,
+                  int kmer_size, int stride) {
 
     // get the bounded paths of the graph
     // these are paths of up to length kmer_size from a root node to neighbors
@@ -1879,7 +1880,7 @@ void VG::kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map, int 
         string seq = path_string(path);
 
         // and then stepping across the path, finding the kmers, and then implied node overlaps
-        for (int i = 0; i < seq.size() - kmer_size; ++i) {
+        for (int i = 0; i < seq.size() - kmer_size; i+=stride) {
 
             // get the kmer
             string kmer = seq.substr(i, kmer_size);

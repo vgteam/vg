@@ -735,6 +735,7 @@ int main_index(int argc, char** argv) {
     string db_name;
     bool index_by_position = false;
     int kmer_size = 0;
+    int kmer_stride = 1;
     bool store_graph = false;
     bool dump_index = false;
 
@@ -746,6 +747,7 @@ int main_index(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"db-name", required_argument, 0, 'd'},
                 {"kmer-size", required_argument, 0, 'k'},
+                {"kmer-stride", required_argument, 0, 'j'},
                 {"positions", no_argument, 0, 'p'},
                 {"store", no_argument, 0, 's'},
                 {"dump", no_argument, 0, 'D'},
@@ -753,7 +755,7 @@ int main_index(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:pDsh",
+        c = getopt_long (argc, argv, "d:k:j:pDsh",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -768,6 +770,10 @@ int main_index(int argc, char** argv) {
 
         case 'k':
             kmer_size = atoi(optarg);
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
             break;
 
         case 'p':
@@ -818,7 +824,7 @@ int main_index(int argc, char** argv) {
 
     if (kmer_size != 0) {
         string_hash_map<string, hash_map<Node*, int> > kmer_map;
-        graph->kmers_of(kmer_map, kmer_size);
+        graph->kmers_of(kmer_map, kmer_size, kmer_stride);
         index.store_kmers(kmer_map);
     }
 
@@ -921,6 +927,7 @@ int main_map(int argc, char** argv) {
     }
 
     string seq;
+    string db_name;
     int kmer_size = 0;
 
     bool output_json = true;
@@ -954,6 +961,10 @@ int main_map(int argc, char** argv) {
             kmer_size = atoi(optarg);
             break;
 
+        case 'd':
+            db_name = optarg;
+            break;
+
         case 'j':
             output_json = true;
             break;
@@ -980,9 +991,22 @@ int main_map(int argc, char** argv) {
         return 1;
     }
 
+    VG* graph;
     string file_name = argv[optind];
-    // should be configurable
-    string db_name = file_name + ".index";
+    if (file_name == "-") {
+        if (db_name.empty()) {
+            cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
+            return 1;
+        }
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        if (db_name.empty()) {
+            db_name = file_name + ".index";
+        }
+        in.open(file_name.c_str());
+        graph = new VG(in);
+    }
 
     Index index(db_name);
     Mapper mapper(&index);
