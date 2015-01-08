@@ -64,7 +64,7 @@ rm -f fail.vg
 
 
 cd ../vcflib && make vcf2tsv && cd -
-refbp=$(fastahack -r x small/x.fa | tr '\n' ' ' | sed 's/ //' | wc -c)
+refbp=$(../fastahack/fastahack -r x small/x.fa | tr '\n' ' ' | sed 's/ //' | wc -c)
 variantbp=$(zcat small/x.vcf.gz | ../vcflib/bin/vcf2tsv \
     | cut -f 5,4 | tail -n+2 \
     | awk '{ x=length($2)-length($1); if (x > 0) { print x; } else if (x == 0) { print length($2); } }' \
