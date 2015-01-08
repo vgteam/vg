@@ -8,6 +8,7 @@
 #include "rocksdb/write_batch.h"
 #include "pb2json.h"
 #include "vg.hpp"
+#include "hash_map.hpp"
 
 namespace vg {
 

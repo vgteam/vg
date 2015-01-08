@@ -11,7 +11,7 @@ LIBROCKSDB=rocksdb/librocksdb.a
 SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
 INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogress_bar/ -Isparsehash/build/include
 LDFLAGS=-L./ -Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -Lprogressbar -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o
 
 all: vg libvg.a
 
@@ -65,6 +65,9 @@ vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(L
 
 gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW)
 	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(INCLUDES)
+
+vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW)
+	$(CXX) $(CXXFLAGS) -c -o vg_set.o vg_set.cpp $(INCLUDES)
 
 mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h
 	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
