@@ -4,6 +4,7 @@
 #include "pb2json.h"
 #include "vg.hpp"
 #include "vg.pb.h"
+#include "vg_set.hpp"
 #include "index.hpp"
 #include "mapper.hpp"
 #include "Variant.h"
@@ -114,11 +115,14 @@ void help_join(char** argv) {
 }
 
 void help_ids(char** argv) {
-    cerr << "usage: " << argv[0] << " ids [options] <graph.vg> >new.vg" << endl
+    cerr << "usage: " << argv[0] << " ids [options] <graph1.vg> [graph2.vg ...] >new.vg" << endl
          << "options:" << endl
          << "    -c, --compact        minimize the space of integers used by the ids" << endl
          << "    -i, --increment N    increase ids by N" << endl
-         << "    -d, --decrement N    decrease ids by N" << endl;
+         << "    -d, --decrement N    decrease ids by N" << endl
+         << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
+         << "                         by iterating through the supplied graphs and incrementing" << endl
+         << "                         their ids to be non-conflicting" << endl;
 }
 
 void help_concat(char** argv) {
@@ -198,6 +202,7 @@ int main_ids(int argc, char** argv) {
         return 1;
     }
 
+    bool join = false;
     bool compact = false;
     int64_t increment = 0;
     int64_t decrement = 0;
@@ -210,12 +215,13 @@ int main_ids(int argc, char** argv) {
                 {"compact", no_argument, 0, 'c'},
                 {"increment", required_argument, 0, 'i'},
                 {"decrement", required_argument, 0, 'd'},
+                {"join", no_argument, 0, 'j'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hci:d:",
+        c = getopt_long (argc, argv, "hci:d:j",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -236,6 +242,10 @@ int main_ids(int argc, char** argv) {
             decrement = atoi(optarg);
             break;
 
+        case 'j':
+            join = true;
+            break;
+
         case 'h':
         case '?':
             help_ids(argv);
@@ -247,31 +257,44 @@ int main_ids(int argc, char** argv) {
         }
     }
 
-    VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
+    if (!join) {
+        VG* graph;
+        string file_name = argv[optind];
+        if (file_name == "-") {
+            graph = new VG(std::cin);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            graph = new VG(in);
+        }
+
+        if (compact) {
+            graph->compact_ids();
+        }
+
+        if (increment != 0) {
+            graph->increment_node_ids(increment);
+        }
+
+        if (decrement != 0) {
+            graph->decrement_node_ids(decrement);
+        }
+
+        graph->serialize_to_ostream(std::cout);
+        delete graph;
     } else {
-        ifstream in;
-        in.open(file_name.c_str());
-        graph = new VG(in);
+
+        set<string> graph_file_names;
+        while (optind < argc) {
+            VG* graph;
+            string file_name = argv[optind++];
+            graph_file_names.insert(file_name);
+        }
+
+        VGset graphs(graph_file_names);
+        graphs.merge_id_space();
+
     }
-
-    if (compact) {
-        graph->compact_ids();
-    }
-
-    if (increment != 0) {
-        graph->increment_node_ids(increment);
-    }
-
-    if (decrement != 0) {
-        graph->decrement_node_ids(decrement);
-    }
-
-    graph->serialize_to_ostream(std::cout);
-
-    delete graph;
 
     return 0;
 

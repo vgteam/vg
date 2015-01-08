@@ -17,8 +17,8 @@ public:
     VGset() { };
     VGset(set<string>& files) : filenames(files) { }
 
-    void transform_graphs(std::function<void(VG*)> lambda);
-    void for_each_graph(std::function<void(VG*)> lambda);
+    void transform(std::function<void(VG*)> lambda);
+    void for_each(std::function<void(VG*)> lambda);
 
     // merges the id space of a set of graphs on-disk
     // necessary when storing many graphs in the same index
