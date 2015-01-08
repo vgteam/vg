@@ -47,9 +47,9 @@ void VGset::store_in_index(Index& index) {
 
 // stores kmers of size kmer_size with stride over paths in graphs in the index
 void VGset::index_kmers(Index& index, int kmer_size, int stride) {
-    auto lambda = [&index, kmer_size](VG* g) {
+    auto lambda = [&index, kmer_size, stride](VG* g) {
         string_hash_map<string, hash_map<Node*, int> > kmer_map;
-        g->kmers_of(kmer_map, kmer_size);
+        g->kmers_of(kmer_map, kmer_size, stride);
         index.store_kmers(kmer_map);
     };
     for_each(lambda);

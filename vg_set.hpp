@@ -28,7 +28,7 @@ public:
     void store_in_index(Index& index);
 
     // stores kmers of size kmer_size with stride over paths in graphs in the index
-    void index_kmers(Index& index, int kmer_size, int stride);
+    void index_kmers(Index& index, int kmer_size, int stride = 1);
     
 };
 
