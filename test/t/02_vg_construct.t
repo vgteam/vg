@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 14
+plan tests 15
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -60,3 +60,15 @@ is $? 0 "construction of a graph with two head nodes succeeds"
 # in case there were failures in topological sort
 rm -f fail.vg
 
+# check that we produce a full graph
+
+
+refbp=$(fastahack -r x small/x.fa | tr '\n' ' ' | sed 's/ //' | wc -c)
+variantbp=$(zcat small/x.vcf.gz | vcf2tsv \
+    | cut -f 5,4 | tail -n+2 \
+    | awk '{ x=length($2)-length($1); if (x > 0) { print x; } else if (x == 0) { print length($2); } }' \
+        | awk '{ sum += $1 } END { print sum }')
+
+graphbp=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -l - | cut -f 2)
+
+is $graphbp $(echo "$refbp + $variantbp" | bc) "the graph contains all the sequence in the reference and VCF"
