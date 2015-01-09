@@ -1148,6 +1148,13 @@ void VG::set_edge(int64_t from, int64_t to, Edge* edge) {
     }
 }
 
+void VG::for_each_edge_parallel(std::function<void(Edge*)> lambda) {
+#pragma omp parallel for
+    for (int64_t i = 0; i < graph.edge_size(); ++i) {
+        lambda(graph.mutable_edge(i));
+    }
+}
+
 void VG::for_each_edge(std::function<void(Edge*)> lambda) {
     for (int64_t i = 0; i < graph.edge_size(); ++i) {
         lambda(graph.mutable_edge(i));
@@ -1286,6 +1293,13 @@ Node* VG::create_node(string seq) {
     node_index[node] = graph.node_size()-1;
     //if (!is_valid()) cerr << "graph invalid" << endl;
     return node;
+}
+
+void VG::for_each_node_parallel(std::function<void(Node*)> lambda) {
+#pragma omp parallel for
+    for (int64_t i = 0; i < graph.node_size(); ++i) {
+        lambda(graph.mutable_node(i));
+    }
 }
 
 void VG::for_each_node(std::function<void(Node*)> lambda) {
@@ -1558,31 +1572,53 @@ void VG::next_kpaths_from_node(Node* node, int length, list<Node*> prefix, set<l
     }
 }
 
+// iterate over the kpaths in the graph, doing something
+
 void VG::for_each_kpath(int k, std::function<void(list<Node*>&)> lambda) {
     auto by_node = [k, &lambda, this](Node* node) {
-        for_each_kpath(node, k, lambda);
+        for_each_kpath_of_node(node, k, lambda);
     };
     for_each_node(by_node);
 }
 
 void VG::for_each_kpath(int k, std::function<void(Path&)> lambda) {
     auto by_node = [k, &lambda, this](Node* node) {
-        for_each_kpath(node, k, lambda);
+        for_each_kpath_of_node(node, k, lambda);
     };
     for_each_node(by_node);
 }
 
-void VG::for_each_kpath(Node* n, int k,
-                        std::function<void(Path&)> lambda) {
+// parallel versions of above
+// this isn't by default because the lambda may have side effects
+// that need to be guarded explicitly
+
+void VG::for_each_kpath_parallel(int k, std::function<void(list<Node*>&)> lambda) {
+    auto by_node = [k, &lambda, this](Node* node) {
+        for_each_kpath_of_node(node, k, lambda);
+    };
+    for_each_node_parallel(by_node);
+}
+
+void VG::for_each_kpath_parallel(int k, std::function<void(Path&)> lambda) {
+    auto by_node = [k, &lambda, this](Node* node) {
+        for_each_kpath_of_node(node, k, lambda);
+    };
+    for_each_node_parallel(by_node);
+}
+
+// per-node kpaths
+
+void VG::for_each_kpath_of_node(Node* n, int k,
+                                std::function<void(Path&)> lambda) {
     auto apply_to_path = [&lambda, this](list<Node*>& p) {
         Path path = create_path(p);
         lambda(path);
     };
-    for_each_kpath(n, k, apply_to_path);
+    for_each_kpath_of_node(n, k, apply_to_path);
 }
 
-void VG::for_each_kpath(Node* node, int k,
-                        std::function<void(list<Node*>&)> lambda) {
+void VG::for_each_kpath_of_node(Node* node, int k,
+                                std::function<void(list<Node*>&)> lambda) {
     // get left, then right
     set<list<Node*> > prev_paths;
     set<list<Node*> > next_paths;
@@ -1603,26 +1639,28 @@ void VG::for_each_kpath(Node* node, int k,
     }    
 }
 
-void VG::kpaths(Node* node, set<list<Node*> >& paths, int length) {
+void VG::kpaths_of_node(Node* node, set<list<Node*> >& paths, int length) {
     auto collect_path = [&paths](list<Node*>& path) {
         paths.insert(path);
     };
-    for_each_kpath(node, length, collect_path);
+    for_each_kpath_of_node(node, length, collect_path);
 }
 
-void VG::kpaths(Node* node, vector<Path>& paths, int length) {
+void VG::kpaths_of_node(Node* node, vector<Path>& paths, int length) {
     set<list<Node*> > unique_paths;
-    kpaths(node, unique_paths, length);
+    kpaths_of_node(node, unique_paths, length);
     for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
         Path path = create_path(*p);
         paths.push_back(path);
     }
 }
 
+// aggregators, when a callback won't work
+
 void VG::kpaths(set<list<Node*> >& paths, int length) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
-        kpaths(node, paths, length);
+        kpaths_of_node(node, paths, length);
     }
 }
 
@@ -1634,6 +1672,9 @@ void VG::kpaths(vector<Path>& paths, int length) {
         paths.push_back(path);
     }
 }
+
+// path utilities
+// these are in this class because attributes of the path (such as its sequence) are a property of the graph
 
 Path VG::create_path(const list<Node*>& nodes) {
     Path path;
@@ -1682,11 +1723,11 @@ void VG::node_starts_in_path(const list<Node*>& path,
     }
 }
 
-void VG::kpaths(int64_t node_id, vector<Path>& paths, int length) {
+void VG::kpaths_of_node(int64_t node_id, vector<Path>& paths, int length) {
     hash_map<int64_t, Node*>::iterator n = node_by_id.find(node_id);
     if (n != node_by_id.end()) {
         Node* node = n->second;
-        kpaths(node, paths, length);
+        kpaths_of_node(node, paths, length);
     }
 }
 

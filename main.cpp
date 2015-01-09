@@ -567,11 +567,14 @@ int main_paths(int argc, char** argv) {
     }
 
     function<void(Path&)> paths_to_seqs = [graph](Path& p) {
-        cout << graph->path_sequence(p) << endl;
+        string seq = graph->path_sequence(p);
+#pragma omp critical(cout)
+        cout << seq << endl;
     };
 
     function<void(Path&)> paths_to_json = [](Path& p) {
         char *json2 = pb2json(p);
+#pragma omp critical(cout)
         cout<<json2<<endl;
         free(json2);
     };
@@ -582,9 +585,9 @@ int main_paths(int argc, char** argv) {
     }
 
     if (node_id) {
-        graph->for_each_kpath(graph->get_node(node_id), max_length, *callback);
+        graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, *callback);
     } else {
-        graph->for_each_kpath(max_length, *callback);
+        graph->for_each_kpath_parallel(max_length, *callback);
     }
 
     delete graph;
@@ -1257,6 +1260,8 @@ int main(int argc, char *argv[])
         vg_help(argv);
         return 1;
     }
+
+    omp_set_dynamic(1); // use dynamic scheduling
 
     string command = argv[1];
     if (command == "construct") {

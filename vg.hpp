@@ -171,6 +171,7 @@ public:
     bool has_node(Node* node);
     bool has_node(Node& node);
     void for_each_node(std::function<void(Node*)> lambda);
+    void for_each_node_parallel(std::function<void(Node*)> lambda);
 
     // is the graph empty?
     bool empty(void);
@@ -193,6 +194,7 @@ public:
     bool has_edge(Edge* edge);
     bool has_edge(Edge& edge);
     void for_each_edge(std::function<void(Edge*)> lambda);
+    void for_each_edge_parallel(std::function<void(Edge*)> lambda);
 
     // connect node -> nodes
     void connect_node_to_nodes(Node* node, vector<Node*>& nodes);
@@ -220,14 +222,19 @@ public:
 
     // returns all node-crossing paths with up to length across node boundaries
     void for_each_kpath(int k, std::function<void(list<Node*>&)> lambda);
-    void for_each_kpath(Node* n, int k, std::function<void(list<Node*>&)> lambda);
+    void for_each_kpath_parallel(int k, std::function<void(list<Node*>&)> lambda);
     void for_each_kpath(int k, std::function<void(Path&)> lambda);
-    void for_each_kpath(Node* n, int k, std::function<void(Path&)> lambda);
+    void for_each_kpath_parallel(int k, std::function<void(Path&)> lambda);
+
+    void for_each_kpath_of_node(Node* n, int k, std::function<void(list<Node*>&)> lambda);
+    void for_each_kpath_of_node(Node* n, int k, std::function<void(Path&)> lambda);
+
     void kpaths(vector<Path>& paths, int length);
     void kpaths(set<list<Node*> >& paths, int length);
-    void kpaths(Node* node, set<list<Node*> >& paths, int length);
-    void kpaths(Node* node, vector<Path>& paths, int length);
-    void kpaths(int64_t node_id, vector<Path>& paths, int length);
+
+    void kpaths_of_node(Node* node, set<list<Node*> >& paths, int length);
+    void kpaths_of_node(Node* node, vector<Path>& paths, int length);
+    void kpaths_of_node(int64_t node_id, vector<Path>& paths, int length);
     void prev_kpaths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths);
     void next_kpaths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths);
 
