@@ -79,6 +79,17 @@ const string Index::key_for_kmer(const string& kmer) {
     return key;
 }
 
+const string Index::key_for_metadata(const string& tag) {
+    string key;
+    key.resize(3*sizeof(char) + tag.size());
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'm'; // metadata
+    k[2] = start_sep;
+    memcpy((char*)(k + sizeof(char)*3), (char*)tag.c_str(), tag.size());
+    return key;
+}
+
 const string Index::key_prefix_for_edges_from_node(int64_t from) {
     string key = key_for_node(from);
     key.resize(key.size() + 2);
@@ -196,6 +207,9 @@ string Index::position_entry_to_string(const string& key, const string& value) {
 }
 
 string Index::metadata_entry_to_string(const string& key, const string& value) {
+    stringstream s;
+    s << "{\"key\":\"" << "+" << key[1] << "+" << key.substr(2) << "\", \"value\":\""<< value << "\"}";
+    return s.str();
 }
 
 
@@ -222,6 +236,11 @@ void Index::put_edge(const Edge& edge) {
     // only store in from_to key
     string null_data;
     db->Put(rocksdb::WriteOptions(), key_for_edge_to_from(edge.to(), edge.from()), null_data);
+}
+
+void Index::put_metadata(const string& tag, const string& data) {
+    string key = key_for_metadata(tag);
+    db->Put(rocksdb::WriteOptions(), key, data);
 }
 
 void Index::load_graph(VG& graph) {
@@ -437,6 +456,39 @@ void Index::store_kmers(string_hash_map<string, hash_map<Node*, int> >& kmer_map
     rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
     if (!s.ok()) cerr << "an error occurred while inserting kmers" << endl;
 }
+
+void Index::for_range(string& key_start, string& key_end,
+                      std::function<void(string&, string&)> lambda) {
+    rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+    rocksdb::Slice start = rocksdb::Slice(key_start);
+    rocksdb::Slice end = rocksdb::Slice(key_end);
+    for (it->Seek(start);
+         it->Valid() && it->key().ToString() < key_end;
+         it->Next()) {
+        string key = it->key().ToString();
+        string value = it->value().ToString();
+        lambda(key, value);
+    }
+}
+
+void Index::remember_kmer_size(int size) {
+    stringstream s;
+    s << "k=" << size;
+    put_metadata(s.str(), "");
+}
+
+set<int> Index::stored_kmer_sizes(void) {
+    set<int> sizes;
+    auto lambda = [&sizes](string& key, string& value) {
+        sizes.insert(atoi(key.substr(5).c_str()));
+    };
+    string start = key_for_metadata("k=");
+    string end = start + end_sep;
+    start = start + start_sep;
+    for_range(start, end, lambda);
+    return sizes;
+}
+
 
 void index_positions(VG& graph, map<long, Node*>& node_path, map<long, Edge*>& edge_path) {
 

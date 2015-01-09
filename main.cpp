@@ -72,6 +72,7 @@ void help_index(char** argv) {
          << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
          << "    -p, --positions       index nodes and edges by position" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
+         << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
          << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
          << "                          (this is required if you are using multiple graphs files" << endl;
 }
@@ -762,6 +763,7 @@ int main_index(int argc, char** argv) {
     int kmer_stride = 1;
     bool store_graph = false;
     bool dump_index = false;
+    bool describe_index = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -775,11 +777,12 @@ int main_index(int argc, char** argv) {
                 {"positions", no_argument, 0, 'p'},
                 {"store", no_argument, 0, 's'},
                 {"dump", no_argument, 0, 'D'},
+                {"metadata", no_argument, 0, 'M'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDsh",
+        c = getopt_long (argc, argv, "d:k:j:pDshM",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -806,6 +809,10 @@ int main_index(int argc, char** argv) {
 
         case 'D':
             dump_index = true;
+            break;
+
+        case 'M':
+            describe_index = true;
             break;
 
         case 's':
@@ -855,6 +862,15 @@ int main_index(int argc, char** argv) {
 
     if (dump_index) {
         index.dump(cout);
+    }
+
+    if (describe_index) {
+        set<int> kmer_sizes = index.stored_kmer_sizes();
+        cout << "kmer sizes: ";
+        for (auto kmer_size : kmer_sizes) {
+            cout << kmer_size << " ";
+        }
+        cout << endl;
     }
 
     return 0;

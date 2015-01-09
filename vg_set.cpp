@@ -50,6 +50,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
     auto lambda = [&index, kmer_size, stride](VG* g) {
         string_hash_map<string, hash_map<Node*, int> > kmer_map;
         g->kmers_of(kmer_map, kmer_size, stride);
+        index.remember_kmer_size(kmer_size);
         index.store_kmers(kmer_map);
     };
     for_each(lambda);

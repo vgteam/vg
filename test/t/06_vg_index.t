@@ -18,7 +18,7 @@ is $? 0 "indexing 11mers"
 
 num_records=$(vg index -D x.vg | wc -l)
 is $? 0 "dumping graph index"
-is $num_records 2915 "correct number of records in graph index"
+is $num_records 2916 "correct number of records in graph index"
 
 rm -rf x.vg.index
 rm -f x.vg

@@ -49,11 +49,14 @@ public:
 
     void load_graph(VG& graph);
     void dump(std::ostream& out);
+    void for_range(string& key_start, string& key_end,
+                   std::function<void(string&, string&)> lambda);
 
     void put_node(const Node& node);
     void put_edge(const Edge& edge);
     void put_kmer(const string& kmer, const Matches& matches);
     void batch_kmer(const string& kmer, const Matches& matches, rocksdb::WriteBatch& batch);
+    void put_metadata(const string& tag, const string& data);
 
     rocksdb::Status get_node(int64_t id, Node& node);
     rocksdb::Status get_edge(int64_t from, int64_t to, Edge& edge);
@@ -64,6 +67,7 @@ public:
     const string key_prefix_for_edges_from_node(int64_t from);
     const string key_prefix_for_edges_to_node(int64_t to);
     const string key_for_kmer(const string& kmer);
+    const string key_for_metadata(const string& tag);
 
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);
     void parse_edge(const string& key, const string& value, char& type, int64_t& id1, int64_t& id2, Edge& edge);
@@ -83,6 +87,8 @@ public:
     string position_entry_to_string(const string& key, const string& value);
     string metadata_entry_to_string(const string& key, const string& value);
 
+    void remember_kmer_size(int size);
+    set<int> stored_kmer_sizes(void);
     void store_kmers(string_hash_map<string, hash_map<Node*, int> >& kmer_map);
     //void store_positions(VG& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
 
