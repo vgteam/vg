@@ -14,8 +14,14 @@ public:
 
     set<string> filenames;
 
-    VGset() { };
-    VGset(set<string>& files) : filenames(files) { }
+    VGset()
+        : show_progress(false)
+        { };
+
+    VGset(set<string>& files)
+        : filenames(files)
+        , show_progress(false)
+        { };
 
     void transform(std::function<void(VG*)> lambda);
     void for_each(std::function<void(VG*)> lambda);
@@ -29,6 +35,8 @@ public:
 
     // stores kmers of size kmer_size with stride over paths in graphs in the index
     void index_kmers(Index& index, int kmer_size, int stride = 1);
+
+    bool show_progress;
     
 };
 

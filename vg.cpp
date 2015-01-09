@@ -1296,9 +1296,23 @@ Node* VG::create_node(string seq) {
 }
 
 void VG::for_each_node_parallel(function<void(Node*)> lambda) {
-#pragma omp parallel for
+    string message = "processing nodes";
+    ProgressBar* progress = NULL;
+    if (show_progress) {
+        progress = new ProgressBar(graph.node_size(), message.c_str());
+    }
+    int64_t completed = 0;
+#pragma omp parallel for shared(completed)
     for (int64_t i = 0; i < graph.node_size(); ++i) {
         lambda(graph.mutable_node(i));
+        if (progress && completed++ % 1000 == 0) {
+#pragma omp critical (progress_bar)
+            progress->Progressed(completed);
+        }
+    }
+    if (show_progress) {
+        progress->Progressed(completed);
+        delete progress;
     }
 }
 

@@ -70,11 +70,12 @@ void help_index(char** argv) {
          << "options:" << endl
          << "    -s, --store           store graph (do this first to build db!)" << endl
          << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
-         << "    -p, --positions       index nodes and edges by position" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
          << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
-         << "                          (this is required if you are using multiple graphs files" << endl;
+         << "                          (this is required if you are using multiple graphs files" << endl
+         << "    -t, --threads N       number of threads to use" << endl
+         << "    -p, --progress        show progress" << endl;
 }
 
 void help_find(char** argv) {
@@ -771,12 +772,12 @@ int main_index(int argc, char** argv) {
     }
 
     string db_name;
-    bool index_by_position = false;
     int kmer_size = 0;
     int kmer_stride = 1;
     bool store_graph = false;
     bool dump_index = false;
     bool describe_index = false;
+    bool show_progress = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -787,15 +788,16 @@ int main_index(int argc, char** argv) {
                 {"db-name", required_argument, 0, 'd'},
                 {"kmer-size", required_argument, 0, 'k'},
                 {"kmer-stride", required_argument, 0, 'j'},
-                {"positions", no_argument, 0, 'p'},
                 {"store", no_argument, 0, 's'},
                 {"dump", no_argument, 0, 'D'},
                 {"metadata", no_argument, 0, 'M'},
+                {"threads", required_argument, 0, 't'},
+                {"progress",  no_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshM",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -817,7 +819,7 @@ int main_index(int argc, char** argv) {
             break;
 
         case 'p':
-            index_by_position = true;
+            show_progress = true;
             break;
 
         case 'D':
@@ -830,6 +832,10 @@ int main_index(int argc, char** argv) {
 
         case 's':
             store_graph = true;
+            break;
+
+        case 't':
+            omp_set_num_threads(atoi(optarg));
             break;
  
         case 'h':
@@ -865,6 +871,7 @@ int main_index(int argc, char** argv) {
 
     if (graph_file_names.size() > 0) {
         VGset graphs(graph_file_names);
+        graphs.show_progress = show_progress;
         if (store_graph) {
             graphs.store_in_index(index);
         }
