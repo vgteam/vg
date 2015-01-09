@@ -452,10 +452,12 @@ void VG::compact_ids(void) {
         Node* n = graph.mutable_node(i);
         new_id[n->id()] = id++;
     }
+#pragma omp parallel for
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         n->set_id(new_id[n->id()]);
     }
+#pragma omp parallel for
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         e->set_from(new_id[e->from()]);
@@ -465,15 +467,13 @@ void VG::compact_ids(void) {
 }
 
 void VG::increment_node_ids(int64_t increment) {
-    for (int64_t i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        n->set_id(n->id()+increment);
-    }
-    for (int64_t i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
-        e->set_from(e->from()+increment);
-        e->set_to(e->to()+increment);
-    }
+    for_each_node_parallel([increment](Node* n) {
+            n->set_id(n->id()+increment);
+        });
+    for_each_edge_parallel([increment](Edge* e) {
+            e->set_from(e->from()+increment);
+            e->set_to(e->to()+increment);
+        });
     rebuild_indexes();
 }
 
