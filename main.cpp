@@ -731,11 +731,15 @@ int main_find(int argc, char** argv) {
     }
 
     if (!sequence.empty()) {
-        if (kmer_size == 0) {
-            cerr << "--kmer-size is required when supplying --sequence" << endl;
+        set<int> kmer_sizes = index.stored_kmer_sizes();
+        if (kmer_sizes.empty()) {
+            cerr << "error:[vg find] index does not include kmers, add with vg index -k" << endl;
             return 1;
         }
-        for (int i = 0; i < sequence.size()-kmer_size; ++i) {
+        if (kmer_size == 0) {
+            kmer_size = *kmer_sizes.begin();
+        }
+        for (int i = 0; i <= sequence.size()-kmer_size; ++i) {
             kmers.push_back(sequence.substr(i,kmer_size));
         }
     }
