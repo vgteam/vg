@@ -1512,7 +1512,7 @@ void VG::nodes_next(Node* node, vector<Node*>& nodes) {
     }
 }
 
-void VG::bounded_prev_paths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths) {
+void VG::prev_kpaths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths) {
     if (length == 0) { return; }
     // start at node
     // do a leftward DFS up to length limit to establish paths from the left of the node
@@ -1525,7 +1525,7 @@ void VG::bounded_prev_paths_from_node(Node* node, int length, list<Node*> postfi
     } // implicit else
     for (vector<Node*>::iterator p = prev_nodes.begin(); p != prev_nodes.end(); ++p) {
         if ((*p)->sequence().size() < length) {
-            bounded_prev_paths_from_node(*p, length - (*p)->sequence().size(), postfix, paths);
+            prev_kpaths_from_node(*p, length - (*p)->sequence().size(), postfix, paths);
         } else {
             // create a path for this node
             list<Node*> new_path = postfix;
@@ -1535,7 +1535,7 @@ void VG::bounded_prev_paths_from_node(Node* node, int length, list<Node*> postfi
     }
 }
 
-void VG::bounded_next_paths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths) {
+void VG::next_kpaths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths) {
     if (length == 0) { return; }
     // start at node
     // do a leftward DFS up to length limit to establish paths from the left of the node
@@ -1548,7 +1548,7 @@ void VG::bounded_next_paths_from_node(Node* node, int length, list<Node*> prefix
     } // implicit else
     for (vector<Node*>::iterator n = next_nodes.begin(); n != next_nodes.end(); ++n) {
         if ((*n)->sequence().size() < length) {
-            bounded_next_paths_from_node(*n, length - (*n)->sequence().size(), prefix, paths);
+            next_kpaths_from_node(*n, length - (*n)->sequence().size(), prefix, paths);
         } else {
             // create a path for this node
             list<Node*> new_path = prefix;
@@ -1558,13 +1558,37 @@ void VG::bounded_next_paths_from_node(Node* node, int length, list<Node*> prefix
     }
 }
 
-void VG::bounded_paths(Node* node, set<list<Node*> >& paths, int length) {
+void VG::for_each_kpath(int k, std::function<void(list<Node*>&)> lambda) {
+    auto by_node = [k, &lambda, this](Node* node) {
+        for_each_kpath(node, k, lambda);
+    };
+    for_each_node(by_node);
+}
+
+void VG::for_each_kpath(int k, std::function<void(Path&)> lambda) {
+    auto by_node = [k, &lambda, this](Node* node) {
+        for_each_kpath(node, k, lambda);
+    };
+    for_each_node(by_node);
+}
+
+void VG::for_each_kpath(Node* n, int k,
+                        std::function<void(Path&)> lambda) {
+    auto apply_to_path = [&lambda, this](list<Node*>& p) {
+        Path path = create_path(p);
+        lambda(path);
+    };
+    for_each_kpath(n, k, apply_to_path);
+}
+
+void VG::for_each_kpath(Node* node, int k,
+                        std::function<void(list<Node*>&)> lambda) {
     // get left, then right
     set<list<Node*> > prev_paths;
     set<list<Node*> > next_paths;
     list<Node*> empty_list;
-    bounded_prev_paths_from_node(node, length, empty_list, prev_paths);
-    bounded_next_paths_from_node(node, length, empty_list, next_paths);
+    prev_kpaths_from_node(node, k, empty_list, prev_paths);
+    next_kpaths_from_node(node, k, empty_list, next_paths);
     // now take the cross and put into paths
     for (set<list<Node*> >::iterator p = prev_paths.begin(); p != prev_paths.end(); ++p) {
         for (set<list<Node*> >::iterator n = next_paths.begin(); n != next_paths.end(); ++n) {
@@ -1574,39 +1598,37 @@ void VG::bounded_paths(Node* node, set<list<Node*> >& paths, int length) {
                 path.push_back(*m);
                 ++m;
             }
-            paths.insert(path);
+            lambda(path);
         }
-    }
+    }    
 }
 
-void VG::bounded_paths(Node* node, vector<Path>& paths, int length) {
+void VG::kpaths(Node* node, set<list<Node*> >& paths, int length) {
+    auto collect_path = [&paths](list<Node*>& path) {
+        paths.insert(path);
+    };
+    for_each_kpath(node, length, collect_path);
+}
+
+void VG::kpaths(Node* node, vector<Path>& paths, int length) {
     set<list<Node*> > unique_paths;
-    bounded_paths(node, unique_paths, length);
+    kpaths(node, unique_paths, length);
     for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
         Path path = create_path(*p);
         paths.push_back(path);
     }
 }
 
-void VG::bounded_paths(Node* node, int length, std::function<void(Path&)> lambda) {
-    set<list<Node*> > unique_paths;
-    bounded_paths(node, unique_paths, length);
-    for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
-        Path path = create_path(*p);
-        lambda(path);
-    }
-}
-
-void VG::bounded_paths(set<list<Node*> >& paths, int length) {
+void VG::kpaths(set<list<Node*> >& paths, int length) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
-        bounded_paths(node, paths, length);
+        kpaths(node, paths, length);
     }
 }
 
-void VG::bounded_paths(vector<Path>& paths, int length) {
+void VG::kpaths(vector<Path>& paths, int length) {
     set<list<Node*> > unique_paths;
-    bounded_paths(unique_paths, length);
+    kpaths(unique_paths, length);
     for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
         Path path = create_path(*p);
         paths.push_back(path);
@@ -1660,11 +1682,11 @@ void VG::node_starts_in_path(const list<Node*>& path,
     }
 }
 
-void VG::bounded_paths(int64_t node_id, vector<Path>& paths, int length) {
+void VG::kpaths(int64_t node_id, vector<Path>& paths, int length) {
     hash_map<int64_t, Node*>::iterator n = node_by_id.find(node_id);
     if (n != node_by_id.end()) {
         Node* node = n->second;
-        bounded_paths(node, paths, length);
+        kpaths(node, paths, length);
     }
 }
 
@@ -1879,7 +1901,7 @@ void VG::kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map,
     set<list<Node*> > paths;
 
     // we use half the kmer size + 1 here
-    bounded_paths(paths, kmer_size/2 + 1);
+    kpaths(paths, kmer_size/2 + 1);
 
     // the kmer_map is the map which we will use to temporarily store the mappings
     // this could be really big before serializing to disk

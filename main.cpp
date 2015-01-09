@@ -562,23 +562,29 @@ int main_paths(int argc, char** argv) {
         graph = new VG(in);
     }
 
-    vector<Path> paths;
-    if (node_id) {
-        graph->bounded_paths(node_id, paths, max_length);
-    } else {
-        graph->bounded_paths(paths, max_length);
+    if (max_length == 0) {
+        cerr << "error:[vg paths] a --max-length is required when generating paths" << endl;
     }
 
-    if (as_seqs) {
-        for (vector<Path>::iterator p = paths.begin(); p != paths.end(); ++p) {
-            cout << graph->path_sequence(*p) << endl;
-        }
+    function<void(Path&)> paths_to_seqs = [graph](Path& p) {
+        cout << graph->path_sequence(p) << endl;
+    };
+
+    function<void(Path&)> paths_to_json = [](Path& p) {
+        char *json2 = pb2json(p);
+        cout<<json2<<endl;
+        free(json2);
+    };
+
+    function<void(Path&)>* callback = &paths_to_seqs;
+    if (!as_seqs) {
+        callback = &paths_to_json;
+    }
+
+    if (node_id) {
+        graph->for_each_kpath(graph->get_node(node_id), max_length, *callback);
     } else {
-        for (vector<Path>::iterator p = paths.begin(); p != paths.end(); ++p) {
-            char *json2 = pb2json(*p);
-            cout<<json2<<endl;
-            free(json2);
-        }
+        graph->for_each_kpath(max_length, *callback);
     }
 
     delete graph;

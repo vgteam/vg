@@ -219,14 +219,17 @@ public:
     GSSWAligner* gssw_aligner;
 
     // returns all node-crossing paths with up to length across node boundaries
-    void bounded_paths(vector<Path>& paths, int length);
-    void bounded_paths(set<list<Node*> >& paths, int length);
-    void bounded_paths(Node* node, set<list<Node*> >& paths, int length);
-    void bounded_paths(Node* node, vector<Path>& paths, int length);
-    void bounded_paths(int64_t node_id, vector<Path>& paths, int length);
-    void bounded_paths(Node* node, int length, std::function<void(Path&)> lambda);
-    void bounded_prev_paths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths);
-    void bounded_next_paths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths);
+    void for_each_kpath(int k, std::function<void(list<Node*>&)> lambda);
+    void for_each_kpath(Node* n, int k, std::function<void(list<Node*>&)> lambda);
+    void for_each_kpath(int k, std::function<void(Path&)> lambda);
+    void for_each_kpath(Node* n, int k, std::function<void(Path&)> lambda);
+    void kpaths(vector<Path>& paths, int length);
+    void kpaths(set<list<Node*> >& paths, int length);
+    void kpaths(Node* node, set<list<Node*> >& paths, int length);
+    void kpaths(Node* node, vector<Path>& paths, int length);
+    void kpaths(int64_t node_id, vector<Path>& paths, int length);
+    void prev_kpaths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths);
+    void next_kpaths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths);
 
     void paths_between(Node* from, Node* to, vector<Path>& paths);
     void paths_between(int64_t from, int64_t to, vector<Path>& paths);
