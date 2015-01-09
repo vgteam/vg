@@ -21,15 +21,15 @@ namespace vg {
 
   Each of these functions uses a different subset of the namespace. Our key format is:
 
-  +=\xff is our default separtor
-  (-=\x00 also has use in some cases?)
+  +=\x00 is our 'start' separator
+  -=\xff is our 'end' separator --- this makes it easy to do range queries
   ids are stored as raw int64_t
 
   +m+metadata_key       value // various information about the table
   +g+node_id            node [vg::Node]
   +g+from_id+f+to_id    edge [vg::Edge]
   +g+to_id+t+from_id    null // already stored under from_id+to_id, but this provides reverse index
-  +k+kmer               kmer hits [vg::Match]
+  +k+kmer+id            position of kmer in node
   +p+position           position overlaps [protobuf]
 
  */
@@ -54,8 +54,13 @@ public:
 
     void put_node(const Node& node);
     void put_edge(const Edge& edge);
-    void put_kmer(const string& kmer, const Matches& matches);
-    void batch_kmer(const string& kmer, const Matches& matches, rocksdb::WriteBatch& batch);
+    void put_kmer(const string& kmer,
+                  const int64_t id,
+                  const int32_t pos);
+    void batch_kmer(const string& kmer,
+                    const int64_t id,
+                    const int32_t pos,
+                    rocksdb::WriteBatch& batch);
     void put_metadata(const string& tag, const string& data);
 
     rocksdb::Status get_node(int64_t id, Node& node);
@@ -66,12 +71,13 @@ public:
     const string key_for_edge_to_from(int64_t to, int64_t from);
     const string key_prefix_for_edges_from_node(int64_t from);
     const string key_prefix_for_edges_to_node(int64_t to);
-    const string key_for_kmer(const string& kmer);
+    const string key_for_kmer(const string& kmer, int64_t id);
+    const string key_prefix_for_kmer(const string& kmer);
     const string key_for_metadata(const string& tag);
 
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);
     void parse_edge(const string& key, const string& value, char& type, int64_t& id1, int64_t& id2, Edge& edge);
-    void parse_kmer(const string& key, const string& value, string& kmer, Matches& matches);
+    void parse_kmer(const string& key, const string& value, string& kmer, int64_t& id, int32_t& pos);
 
     void get_context(int64_t id, VG& graph);
     void expand_context(VG& graph, int steps);

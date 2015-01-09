@@ -28,7 +28,7 @@ const string Index::key_for_node(int64_t id) {
     k[0] = start_sep;
     k[1] = 'g'; // graph elements
     k[2] = start_sep;
-    memcpy((void*)(k + sizeof(char)*3), &id, sizeof(int64_t));
+    memcpy(k + sizeof(char)*3, &id, sizeof(int64_t));
     return key;
 }
 
@@ -42,11 +42,11 @@ const string Index::key_for_edge_from_to(int64_t from, int64_t to) {
     k[0] = start_sep;
     k[1] = 'g'; // graph elements
     k[2] = start_sep;
-    memcpy((void*)(k + sizeof(char)*3), &from, sizeof(int64_t));
+    memcpy(k + sizeof(char)*3, &from, sizeof(int64_t));
     k[3 + sizeof(int64_t)] = start_sep;
     k[3 + sizeof(int64_t) + 1] = 'f';
     k[3 + sizeof(int64_t) + 2] = start_sep;
-    memcpy((void*)(k + sizeof(char)*3 + sizeof(int64_t) + 3*sizeof(char)), &to, sizeof(int64_t));
+    memcpy(k + sizeof(char)*3 + sizeof(int64_t) + 3*sizeof(char), &to, sizeof(int64_t));
     return key;
 }
 
@@ -60,22 +60,36 @@ const string Index::key_for_edge_to_from(int64_t to, int64_t from) {
     k[0] = start_sep;
     k[1] = 'g'; // graph elements
     k[2] = start_sep;
-    memcpy((void*)(k + sizeof(char)*3), &to, sizeof(int64_t));
+    memcpy(k + sizeof(char)*3, &to, sizeof(int64_t));
     k[3 + sizeof(int64_t)] = start_sep;
     k[3 + sizeof(int64_t) + 1] = 't';
     k[3 + sizeof(int64_t) + 2] = start_sep;
-    memcpy((void*)(k + sizeof(char)*3 + sizeof(int64_t) + 3*sizeof(char)), &from, sizeof(int64_t));
+    memcpy(k + sizeof(char)*3 + sizeof(int64_t) + 3*sizeof(char), &from, sizeof(int64_t));
     return key;
 }
 
-const string Index::key_for_kmer(const string& kmer) {
+const string Index::key_for_kmer(const string& kmer, int64_t id) {
+    //id = htobe64(id);
+    string key;
+    key.resize(4*sizeof(char) + kmer.size() + sizeof(int64_t));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'k'; // kmers
+    k[2] = start_sep;
+    memcpy(k + sizeof(char)*3, kmer.c_str(), kmer.size());
+    k[sizeof(char)*3 + kmer.size()] = start_sep;
+    memcpy(k + sizeof(char)*4 + kmer.size(), &id, sizeof(int64_t));
+    return key;
+}
+
+const string Index::key_prefix_for_kmer(const string& kmer) {
     string key;
     key.resize(3*sizeof(char) + kmer.size());
     char* k = (char*) key.c_str();
     k[0] = start_sep;
     k[1] = 'k'; // kmers
     k[2] = start_sep;
-    memcpy((char*)(k + sizeof(char)*3), (char*)kmer.c_str(), kmer.size());
+    memcpy(k + sizeof(char)*3, kmer.c_str(), kmer.size());
     return key;
 }
 
@@ -86,7 +100,7 @@ const string Index::key_for_metadata(const string& tag) {
     k[0] = start_sep;
     k[1] = 'm'; // metadata
     k[2] = start_sep;
-    memcpy((char*)(k + sizeof(char)*3), (char*)tag.c_str(), tag.size());
+    memcpy(k + sizeof(char)*3, tag.c_str(), tag.size());
     return key;
 }
 
@@ -133,7 +147,7 @@ string Index::entry_to_string(const string& key, const string& value) {
 
 void Index::parse_node(const string& key, const string& value, int64_t& id, Node& node) {
     const char* k = key.c_str();
-    memcpy((void*) &id, (k + 3*sizeof(char)), sizeof(int64_t));
+    memcpy(&id, (k + 3*sizeof(char)), sizeof(int64_t));
     id = be64toh(id);
     node.ParseFromString(value);
 }
@@ -186,20 +200,20 @@ string Index::graph_entry_to_string(const string& key, const string& value) {
     return s.str();
 }
 
-void Index::parse_kmer(const string& key, const string& value, string& kmer, Matches& matches) {
+void Index::parse_kmer(const string& key, const string& value, string& kmer, int64_t& id, int32_t& pos) {
     const char* k = key.c_str();
     kmer = string(k+3*sizeof(char));
-    matches.ParseFromString(value);
+    memcpy(&id, k+4*sizeof(char)+kmer.size(), sizeof(int64_t));
+    memcpy(&pos, (char*)value.c_str(), sizeof(int32_t));
 }
 
 string Index::kmer_entry_to_string(const string& key, const string& value) {
     stringstream s;
-    Matches matches;
+    int64_t id;
+    int32_t pos;
     string kmer;
-    parse_kmer(key, value, kmer, matches);
-    char *json = pb2json(matches);
-    s << "{\"key\":\"+k+" << kmer << "\", \"value\":"<<json << "}";
-    free(json);
+    parse_kmer(key, value, kmer, id, pos);
+    s << "{\"key\":\"+k+" << kmer << "+" << id << "\", \"value\":"<< pos << "}";
     return s.str();
 }
 
@@ -335,21 +349,22 @@ void Index::get_context(int64_t id, VG& graph) {
 }
 
 void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
-    string value;
-    rocksdb::Status s = db->Get(rocksdb::ReadOptions(), key_for_kmer(kmer), &value);
-    //if (!s.ok()) cerr << "read of kmer " << kmer << " is not OK" << endl;
-    // get the kmer matches and store the nodes in the graph
-    Matches matches;
-    matches.ParseFromString(value);
-    for (int i = 0; i < matches.match_size(); ++i) {
-        Match* match = matches.mutable_match(i);
+    auto add_node_matching_kmer = [&graph, this](string& key, string& value) {
+        int64_t id;
+        string kmer;
+        int32_t pos;
+        parse_kmer(key, value, kmer, id, pos);
         Node node;
-        get_node(match->node_id(), node);
+        get_node(id, node);
         graph.add_node(node);
-    }
+    };
+    string start = key_prefix_for_kmer(kmer);
+    string end = start + end_sep;
+    start = start + start_sep;
+    for_range(start, end, add_node_matching_kmer);
+
     // get the edges between the nodes
-    for (int i = 0; i < graph.graph.node_size(); ++i) {
-        Node* n = graph.graph.mutable_node(i);
+    auto add_edges_from_index = [&graph, this](Node* n) {
         vector<Edge> edges;
         get_edges_from(n->id(), edges);
         get_edges_to(n->id(), edges);
@@ -358,7 +373,8 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
                 graph.add_edge(*e);
             }
         }
-    }
+    };
+    graph.for_each_node(add_edges_from_index);
 }
 
 void Index::get_edges_from(int64_t from, vector<Edge>& edges) {
@@ -418,18 +434,23 @@ void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
     }
 }
 
-void Index::put_kmer(const string& kmer, const Matches& matches) {
-    string data;
-    matches.SerializeToString(&data);
-    string key = key_for_kmer(kmer);
+void Index::put_kmer(const string& kmer,
+                     const int64_t id,
+                     const int32_t pos) {
+    string key = key_for_kmer(kmer, id);
+    string data(sizeof(int32_t), '\0');
+    memcpy(&data, &pos, sizeof(int32_t));
     rocksdb::Status s = db->Put(rocksdb::WriteOptions(), key, data);
     if (!s.ok()) cerr << "put failed" << endl;
 }
 
-void Index::batch_kmer(const string& kmer, const Matches& matches, rocksdb::WriteBatch& batch) {
-    string data;
-    matches.SerializeToString(&data);
-    string key = key_for_kmer(kmer);
+void Index::batch_kmer(const string& kmer,
+                       const int64_t id,
+                       const int32_t pos,
+                       rocksdb::WriteBatch& batch) {
+    string key = key_for_kmer(kmer, id);
+    string data(sizeof(int32_t), '\0');
+    memcpy((char*) data.c_str(), &pos, sizeof(int32_t));
     batch.Put(key, data);
 }
 
@@ -449,9 +470,9 @@ void Index::store_kmers(string_hash_map<string, hash_map<Node*, int> >& kmer_map
          k != kmer_map.end(); ++k) {
         const string& kmer = k->first;
         hash_map<Node*, int>& kmer_node_pos = k->second;
-        Matches matches;
-        populate_matches(matches, kmer_node_pos);
-        batch_kmer(kmer, matches, batch);
+        for (auto kv : kmer_node_pos) {
+            batch_kmer(kmer, kv.first->id(), kv.second, batch);
+        }
     }
     rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
     if (!s.ok()) cerr << "an error occurred while inserting kmers" << endl;
