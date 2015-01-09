@@ -31,103 +31,6 @@ void vg_help(char** argv) {
          << "  -- concat        concatenate graphs tail-to-head" << endl;
 }
 
-void help_align(char** argv) {
-    cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.vga" << endl
-         << "options:" << endl
-         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-        //<< "    -p, --print-cigar     output graph cigar for alignments" << endl
-         << "    -j, --json            output alignments in JSON format (default)" << endl;
-}
-
-void help_map(char** argv) {
-    cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
-         << "options:" << endl
-         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-         << "    -j, --json            output alignments in JSON format (default)" << endl;
-}
-
-void help_view(char** argv) {
-    cerr << "usage: " << argv[0] << " view [options] <graph.vg>" << endl
-         << "options:" << endl
-         << "    -d, --dot             output dot format (default)" << endl
-         << "    -g, --gfa             output GFA format" << endl
-         << "    -j, --json            output VG JSON format" << endl;
-}
-
-void help_construct(char** argv) {
-    cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
-         << "options:" << endl
-         << "    -v, --vcf FILE        input VCF" << endl
-         << "    -r, --reference FILE  input FASTA reference" << endl
-         << "    -R, --region REGION   specify a particular chromosome" << endl
-         << "    -z, --region-size N   variants per region to parallelize" << endl
-         << "    -p, --progress        show progress" << endl
-         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl;
-}
-
-void help_index(char** argv) {
-    cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
-         << "options:" << endl
-         << "    -s, --store           store graph (do this first to build db!)" << endl
-         << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
-         << "    -D, --dump            print the contents of the db to stdout" << endl
-         << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
-         << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
-         << "                          (this is required if you are using multiple graphs files" << endl
-         << "    -t, --threads N       number of threads to use" << endl
-         << "    -p, --progress        show progress" << endl;
-}
-
-void help_find(char** argv) {
-    cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
-         << "options:" << endl
-         << "    -n, --node ID         find node, return 1-hop context as graph" << endl
-         << "    -f, --edges-from ID   return edges from node with ID" << endl
-         << "    -t, --edges-to ID     return edges from node with ID" << endl
-         << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
-         << "    -c, --context STEPS   expand the context of the kmer hit subgraphs" << endl
-         << "    -s, --sequence STR    search for sequence STR using --kmer-size kmers" << endl
-         << "    -z, --kmer-size N     split up --sequence into kmers of size N" << endl
-        // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
-         << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
-}
-
-void help_paths(char** argv) {
-    cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
-         << "options:" << endl
-         << "    -n, --node ID         starting at node with ID" << endl
-         << "    -l, --max-length N    generate paths of at most length N" << endl
-         << "    -s, --as-seqs         write each path as a sequence" << endl;
-}
-
-void help_stats(char** argv) {
-    cerr << "usage: " << argv[0] << " stats [options] <graph.vg>" << endl
-         << "options:" << endl
-         << "    -z, --size            size of graph" << endl
-         << "    -l, --length          length of sequences in graph" << endl
-         << "    -s, --subgraphs       describe subgraphs of graph" << endl
-         << "    -H, --heads           list the head nodes of the graph" << endl
-         << "    -T, --tails           list the tail nodes of the graph" << endl;
-}
-
-void help_join(char** argv) {
-    cerr << "usage: " << argv[0] << " join [options] <graph1.vg> [graph2.vg ...] >joined.vg" << endl
-         << "Joins graphs and sub-graphs into a single variant graph by connecting their" << endl
-         << "heads to a single root node with sequence 'N'." << endl
-         << "Assumes a single id namespace for all graphs to join." << endl;
-}
-
-void help_ids(char** argv) {
-    cerr << "usage: " << argv[0] << " ids [options] <graph1.vg> [graph2.vg ...] >new.vg" << endl
-         << "options:" << endl
-         << "    -c, --compact        minimize the space of integers used by the ids" << endl
-         << "    -i, --increment N    increase ids by N" << endl
-         << "    -d, --decrement N    decrease ids by N" << endl
-         << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
-         << "                         by iterating through the supplied graphs and incrementing" << endl
-         << "                         their ids to be non-conflicting" << endl;
-}
-
 void help_concat(char** argv) {
     cerr << "usage: " << argv[0] << " concat [options] <graph1.vg> [graph2.vg ...] >merged.vg" << endl
          << "Concatenates graphs in order by adding edges from the tail nodes of the" << endl
@@ -163,7 +66,7 @@ int main_concat(int argc, char** argv) {
         {
         case 'h':
         case '?':
-            help_join(argv);
+            help_concat(argv);
             exit(1);
             break;
  
@@ -196,6 +99,17 @@ int main_concat(int argc, char** argv) {
     merged.serialize_to_ostream(std::cout);
 
     return 0;
+}
+
+void help_ids(char** argv) {
+    cerr << "usage: " << argv[0] << " ids [options] <graph1.vg> [graph2.vg ...] >new.vg" << endl
+         << "options:" << endl
+         << "    -c, --compact        minimize the space of integers used by the ids" << endl
+         << "    -i, --increment N    increase ids by N" << endl
+         << "    -d, --decrement N    decrease ids by N" << endl
+         << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
+         << "                         by iterating through the supplied graphs and incrementing" << endl
+         << "                         their ids to be non-conflicting" << endl;
 }
 
 int main_ids(int argc, char** argv) {
@@ -303,6 +217,13 @@ int main_ids(int argc, char** argv) {
 
 }
 
+void help_join(char** argv) {
+    cerr << "usage: " << argv[0] << " join [options] <graph1.vg> [graph2.vg ...] >joined.vg" << endl
+         << "Joins graphs and sub-graphs into a single variant graph by connecting their" << endl
+         << "heads to a single root node with sequence 'N'." << endl
+         << "Assumes a single id namespace for all graphs to join." << endl;
+}
+
 int main_join(int argc, char** argv) {
 
     if (argc == 2) {
@@ -367,6 +288,16 @@ int main_join(int argc, char** argv) {
     joined.serialize_to_ostream(std::cout);
 
     return 0;
+}
+
+void help_stats(char** argv) {
+    cerr << "usage: " << argv[0] << " stats [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -z, --size            size of graph" << endl
+         << "    -l, --length          length of sequences in graph" << endl
+         << "    -s, --subgraphs       describe subgraphs of graph" << endl
+         << "    -H, --heads           list the head nodes of the graph" << endl
+         << "    -T, --tails           list the tail nodes of the graph" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -498,6 +429,14 @@ int main_stats(int argc, char** argv) {
 
 }
 
+void help_paths(char** argv) {
+    cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -n, --node ID         starting at node with ID" << endl
+         << "    -l, --max-length N    generate paths of at most length N" << endl
+         << "    -s, --as-seqs         write each path as a sequence" << endl;
+}
+
 int main_paths(int argc, char** argv) {
 
     if (argc == 2) {
@@ -595,6 +534,20 @@ int main_paths(int argc, char** argv) {
 
     return 0;
 
+}
+
+void help_find(char** argv) {
+    cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
+         << "options:" << endl
+         << "    -n, --node ID         find node, return 1-hop context as graph" << endl
+         << "    -f, --edges-from ID   return edges from node with ID" << endl
+         << "    -t, --edges-to ID     return edges from node with ID" << endl
+         << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
+         << "    -c, --context STEPS   expand the context of the kmer hit subgraphs" << endl
+         << "    -s, --sequence STR    search for sequence STR using --kmer-size kmers" << endl
+         << "    -z, --kmer-size N     split up --sequence into kmers of size N" << endl
+        // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
+         << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
 }
 
 int main_find(int argc, char** argv) {
@@ -764,6 +717,19 @@ int main_find(int argc, char** argv) {
 
 }
 
+void help_index(char** argv) {
+    cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
+         << "options:" << endl
+         << "    -s, --store           store graph (do this first to build db!)" << endl
+         << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
+         << "    -D, --dump            print the contents of the db to stdout" << endl
+         << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
+         << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
+         << "                          (this is required if you are using multiple graphs files" << endl
+         << "    -t, --threads N       number of threads to use" << endl
+         << "    -p, --progress        show progress" << endl;
+}
+
 int main_index(int argc, char** argv) {
 
     if (argc == 2) {
@@ -897,6 +863,14 @@ int main_index(int argc, char** argv) {
 
 }
 
+void help_align(char** argv) {
+    cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.vga" << endl
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+        //<< "    -p, --print-cigar     output graph cigar for alignments" << endl
+         << "    -j, --json            output alignments in JSON format (default)" << endl;
+}
+
 int main_align(int argc, char** argv) {
 
     string seq;
@@ -976,6 +950,13 @@ int main_align(int argc, char** argv) {
 
     return 0;
 
+}
+
+void help_map(char** argv) {
+    cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -j, --json            output alignments in JSON format (default)" << endl;
 }
 
 int main_map(int argc, char** argv) {
@@ -1082,6 +1063,14 @@ int main_map(int argc, char** argv) {
 
 }
 
+void help_view(char** argv) {
+    cerr << "usage: " << argv[0] << " view [options] <graph.vg>" << endl
+         << "options:" << endl
+         << "    -d, --dot             output dot format (default)" << endl
+         << "    -g, --gfa             output GFA format" << endl
+         << "    -j, --json            output VG JSON format" << endl;
+}
+
 int main_view(int argc, char** argv) {
 
     if (argc == 2) {
@@ -1161,6 +1150,17 @@ int main_view(int argc, char** argv) {
     delete graph;
 
     return 0;
+}
+
+void help_construct(char** argv) {
+    cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
+         << "options:" << endl
+         << "    -v, --vcf FILE        input VCF" << endl
+         << "    -r, --reference FILE  input FASTA reference" << endl
+         << "    -R, --region REGION   specify a particular chromosome" << endl
+         << "    -z, --region-size N   variants per region to parallelize" << endl
+         << "    -p, --progress        show progress" << endl
+         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl;
 }
 
 int main_construct(int argc, char** argv) {
