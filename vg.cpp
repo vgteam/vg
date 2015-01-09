@@ -18,10 +18,9 @@ VG::VG(istream& in) {
     coded_in->ReadVarint64(&count);
     delete coded_in;
 
-	ProgressBar *progress = NULL;
-    string message = "loading graph";
     if (show_progress) {
-        progress = new ProgressBar(count, message.c_str());
+        progress_message = "loading graph";
+        progress = new ProgressBar(count, progress_message.c_str());
     }
 
     std::string s;
@@ -48,7 +47,11 @@ VG::VG(istream& in) {
 
     delete raw_in;
 
-    if (progress) delete progress;
+    if (progress) {
+        delete progress;
+        progress = NULL;
+        cerr << endl;
+    }
 
     //topologically_sort_graph();
     //build_indexes();
@@ -99,6 +102,8 @@ void VG::init(void) {
     gssw_aligner = NULL;
     current_id = 1;
     show_progress = false;
+    progress_message = "progress";
+    progress = NULL;
 }
 
 VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
@@ -1072,7 +1077,11 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // we get identical graphs no matter what the region size is
         refseq_graph[target]->compact_ids();
 
-        if (progress) delete progress;
+        if (progress) {
+            delete progress;
+            progress = NULL;
+            cerr << endl;
+        }
 
         omp_destroy_lock(&appending_graphs);
 
@@ -1296,10 +1305,8 @@ Node* VG::create_node(string seq) {
 }
 
 void VG::for_each_node_parallel(function<void(Node*)> lambda) {
-    string message = "processing nodes";
-    ProgressBar* progress = NULL;
     if (show_progress) {
-        progress = new ProgressBar(graph.node_size(), message.c_str());
+        progress = new ProgressBar(graph.node_size(), progress_message.c_str());
     }
     int64_t completed = 0;
 #pragma omp parallel for shared(completed)
@@ -1313,6 +1320,8 @@ void VG::for_each_node_parallel(function<void(Node*)> lambda) {
     if (show_progress) {
         progress->Progressed(completed);
         delete progress;
+        progress = NULL;
+        cerr << endl;
     }
 }
 

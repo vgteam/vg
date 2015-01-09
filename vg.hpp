@@ -38,6 +38,9 @@ public:
     // NB: we can't subclass this safely, so it's best as a member
     Graph graph;
 
+    // name
+    string name;
+
     // current id
     int64_t current_id;
 
@@ -288,6 +291,8 @@ public:
     void wrap_with_null_nodes(void);
 
     bool show_progress;
+    string progress_message;
+    ProgressBar* progress;
 
 private:
 

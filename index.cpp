@@ -9,7 +9,7 @@ Index::Index(string& name) {
     end_sep = '\xff';
     options.create_if_missing = true;
     options.env->SetBackgroundThreads(omp_get_num_procs());
-    options.compression = rocksdb::kBZip2Compression;
+    //options.compression = rocksdb::kBZip2Compression;
     //options.IncreaseParallelism(omp_get_num_procs());
     //options.error_if_exists = true;
     rocksdb::Status status = rocksdb::DB::Open(options, name, &db);
@@ -239,20 +239,20 @@ void Index::dump(ostream& out) {
     delete it;
 }
 
-void Index::put_node(const Node& node) {
+void Index::put_node(const Node* node) {
     string data;
-    node.SerializeToString(&data);
-    string key = key_for_node(node.id());
+    node->SerializeToString(&data);
+    string key = key_for_node(node->id());
     db->Put(rocksdb::WriteOptions(), key, data);
 }
 
-void Index::put_edge(const Edge& edge) {
+void Index::put_edge(const Edge* edge) {
     string data;
-    edge.SerializeToString(&data);
-    db->Put(rocksdb::WriteOptions(), key_for_edge_from_to(edge.from(), edge.to()), data);
+    edge->SerializeToString(&data);
+    db->Put(rocksdb::WriteOptions(), key_for_edge_from_to(edge->from(), edge->to()), data);
     // only store in from_to key
     string null_data;
-    db->Put(rocksdb::WriteOptions(), key_for_edge_to_from(edge.to(), edge.from()), null_data);
+    db->Put(rocksdb::WriteOptions(), key_for_edge_to_from(edge->to(), edge->from()), null_data);
 }
 
 void Index::put_metadata(const string& tag, const string& data) {
@@ -261,13 +261,8 @@ void Index::put_metadata(const string& tag, const string& data) {
 }
 
 void Index::load_graph(VG& graph) {
-    Graph& g = graph.graph;
-    for (int i = 0; i < g.node_size(); ++i) {
-        put_node(g.node(i));
-    }
-    for (int i = 0; i < g.edge_size(); ++i) {
-        put_edge(g.edge(i));
-    }
+    graph.for_each_node_parallel([this](Node* n) { put_node(n); });
+    graph.for_each_edge_parallel([this](Edge* e) { put_edge(e); });
 }
 
 rocksdb::Status Index::get_node(int64_t id, Node& node) {

@@ -54,8 +54,8 @@ public:
     void for_range(string& key_start, string& key_end,
                    std::function<void(string&, string&)> lambda);
 
-    void put_node(const Node& node);
-    void put_edge(const Edge& edge);
+    void put_node(const Node* node);
+    void put_edge(const Edge* edge);
     void put_kmer(const string& kmer,
                   const int64_t id,
                   const int32_t pos);

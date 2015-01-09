@@ -8,6 +8,7 @@ void VGset::transform(std::function<void(VG*)> lambda) {
         // load
         ifstream in(name.c_str());
         VG* g = new VG(in);
+        g->name = name;
         in.close();
         // apply
         lambda(g);
@@ -24,6 +25,7 @@ void VGset::for_each(std::function<void(VG*)> lambda) {
         // load
         ifstream in(name.c_str());
         VG* g = new VG(in);
+        g->name = name;
         in.close();
         // apply
         lambda(g);
@@ -42,7 +44,11 @@ int64_t VGset::merge_id_space(void) {
 }
 
 void VGset::store_in_index(Index& index) {
-    for_each([&index](VG* g) { index.load_graph(*g); });
+    for_each([&index, this](VG* g) {
+        g->show_progress = show_progress;
+        g->progress_message = "storing " + g->name + " in index";
+        index.load_graph(*g);
+    });
 }
 
 // stores kmers of size kmer_size with stride over paths in graphs in the index
@@ -53,6 +59,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         };
         index.remember_kmer_size(kmer_size);
         g->show_progress = show_progress;
+        g->progress_message = "indexing kmers of " + g->name;
         g->for_each_kmer_parallel(kmer_size, keep_kmer, stride);
     });
 }
