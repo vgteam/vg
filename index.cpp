@@ -439,9 +439,9 @@ void Index::put_kmer(const string& kmer,
                      const int32_t pos) {
     string key = key_for_kmer(kmer, id);
     string data(sizeof(int32_t), '\0');
-    memcpy(&data, &pos, sizeof(int32_t));
+    memcpy((char*)data.c_str(), &pos, sizeof(int32_t));
     rocksdb::Status s = db->Put(rocksdb::WriteOptions(), key, data);
-    if (!s.ok()) cerr << "put failed" << endl;
+    if (!s.ok()) { cerr << "put of " << kmer << " " << id << "@" << pos << " failed" << endl; exit(1); }
 }
 
 void Index::batch_kmer(const string& kmer,

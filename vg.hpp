@@ -170,8 +170,8 @@ public:
     bool has_node(int64_t id);
     bool has_node(Node* node);
     bool has_node(Node& node);
-    void for_each_node(std::function<void(Node*)> lambda);
-    void for_each_node_parallel(std::function<void(Node*)> lambda);
+    void for_each_node(function<void(Node*)> lambda);
+    void for_each_node_parallel(function<void(Node*)> lambda);
 
     // is the graph empty?
     bool empty(void);
@@ -193,8 +193,8 @@ public:
     bool has_edge(int64_t from, int64_t to);
     bool has_edge(Edge* edge);
     bool has_edge(Edge& edge);
-    void for_each_edge(std::function<void(Edge*)> lambda);
-    void for_each_edge_parallel(std::function<void(Edge*)> lambda);
+    void for_each_edge(function<void(Edge*)> lambda);
+    void for_each_edge_parallel(function<void(Edge*)> lambda);
 
     // connect node -> nodes
     void connect_node_to_nodes(Node* node, vector<Node*>& nodes);
@@ -221,13 +221,13 @@ public:
     GSSWAligner* gssw_aligner;
 
     // returns all node-crossing paths with up to length across node boundaries
-    void for_each_kpath(int k, std::function<void(list<Node*>&)> lambda);
-    void for_each_kpath_parallel(int k, std::function<void(list<Node*>&)> lambda);
-    void for_each_kpath(int k, std::function<void(Path&)> lambda);
-    void for_each_kpath_parallel(int k, std::function<void(Path&)> lambda);
+    void for_each_kpath(int k, function<void(list<Node*>&)> lambda);
+    void for_each_kpath_parallel(int k, function<void(list<Node*>&)> lambda);
+    void for_each_kpath(int k, function<void(Path&)> lambda);
+    void for_each_kpath_parallel(int k, function<void(Path&)> lambda);
 
-    void for_each_kpath_of_node(Node* n, int k, std::function<void(list<Node*>&)> lambda);
-    void for_each_kpath_of_node(Node* n, int k, std::function<void(Path&)> lambda);
+    void for_each_kpath_of_node(Node* n, int k, function<void(list<Node*>&)> lambda);
+    void for_each_kpath_of_node(Node* n, int k, function<void(Path&)> lambda);
 
     void kpaths(vector<Path>& paths, int length);
     void kpaths(set<list<Node*> >& paths, int length);
@@ -258,8 +258,20 @@ public:
                              map<Node*, int>& node_start);
 
     // kmers
-    void kmers_of(string_hash_map<string, hash_map<Node*, int> >& kmer_map,
-                  int kmer_size, int stride = 1);
+    void for_each_kmer_parallel(int kmer_size,
+                                function<void(string&, Node*, int)> lambda,
+                                int stride = 1);
+    void for_each_kmer(int kmer_size,
+                       function<void(string&, Node*, int)> lambda,
+                       int stride = 1);
+    
+private:
+    void _for_each_kmer(int kmer_size,
+                        function<void(string&, Node*, int)> lambda,
+                        bool parallel,
+                        int stride);
+
+public:
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);
