@@ -6,10 +6,15 @@ namespace vg {
 void VGset::transform(std::function<void(VG*)> lambda) {
     for (auto& name : filenames) {
         // load
-        ifstream in(name.c_str());
-        VG* g = new VG(in);
+        VG* g = NULL;
+        if (name == "-") {
+            g = new VG(std::cin);
+        } else {
+            ifstream in(name.c_str());
+            g = new VG(in);
+            in.close();
+        }
         g->name = name;
-        in.close();
         // apply
         lambda(g);
         // write to the same file
@@ -23,10 +28,15 @@ void VGset::transform(std::function<void(VG*)> lambda) {
 void VGset::for_each(std::function<void(VG*)> lambda) {
     for (auto& name : filenames) {
         // load
-        ifstream in(name.c_str());
-        VG* g = new VG(in);
+        VG* g = NULL;
+        if (name == "-") {
+            g = new VG(std::cin);
+        } else {
+            ifstream in(name.c_str());
+            g = new VG(in);
+            in.close();
+        }
         g->name = name;
-        in.close();
         // apply
         lambda(g);
         delete g;
@@ -61,6 +71,15 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         g->show_progress = show_progress;
         g->progress_message = "indexing kmers of " + g->name;
         g->for_each_kmer_parallel(kmer_size, keep_kmer, stride);
+    });
+}
+
+void VGset::for_each_kmer_parallel(function<void(string&, Node*, int)>& lambda,
+                                   int kmer_size, int stride) {
+    for_each([&lambda, kmer_size, stride, this](VG* g) {
+        g->show_progress = show_progress;
+        g->progress_message = "processing kmers of " + g->name;
+        g->for_each_kmer_parallel(kmer_size, lambda, stride);
     });
 }
 

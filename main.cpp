@@ -14,21 +14,81 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
-void vg_help(char** argv) {
-    cerr << "usage: " << argv[0] << " <command> [options]" << endl
+void help_kmers(char** argv) {
+    cerr << "usage: " << argv[0] << " kmers [options] <graph1.vg> [graph2.vg ...] >kmers.tsv" << endl
+         << "Generates kmers of the graph(s). Output is: kmer id pos" << endl
          << endl
-         << "commands:" << endl 
-         << "  -- construct     graph construction" << endl
-         << "  -- view          conversion (protobuf/json/GFA)" << endl
-         << "  -- index         index features of the graph in a disk-backed key/value store" << endl
-         << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
-         << "  -- paths         traverse paths in the graph" << endl
-         << "  -- align         local alignment" << endl
-         << "  -- map           global alignment" << endl
-         << "  -- stats         metrics describing graph properties" << endl
-         << "  -- join          combine graphs via a new head" << endl
-         << "  -- ids           manipulate node ids" << endl
-         << "  -- concat        concatenate graphs tail-to-head" << endl;
+         << "options:" << endl
+         << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
+         << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl;
+}
+
+int main_kmers(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_kmers(argv);
+        return 1;
+    }
+
+    int kmer_size = 0;
+    int kmer_stride = 1;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"help", no_argument, 0, 'h'},
+                {"kmer-size", required_argument, 0, 'k'},
+                {"kmer-stride", required_argument, 0, 'j'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hk:j:",
+                         long_options, &option_index);
+        
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+ 
+        switch (c)
+        {
+
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
+
+        case 'h':
+        case '?':
+            help_kmers(argv);
+            exit(1);
+            break;
+ 
+        default:
+            abort ();
+        }
+    }
+
+    set<string> graph_file_names;
+    while (optind < argc) {
+        string file_name = argv[optind++];
+        graph_file_names.insert(file_name);
+    }
+
+    VGset graphs(graph_file_names);
+    function<void(string&, Node*, int)>
+        lambda = [](string& kmer, Node* n, int p) {
+#pragma omp critical (cout)
+        cout << kmer << '\t' << n->id() << '\t' << p << endl;
+    };
+    graphs.for_each_kmer_parallel(lambda, kmer_size, kmer_stride);
+
+    return 0;
 }
 
 void help_concat(char** argv) {
@@ -722,6 +782,7 @@ void help_index(char** argv) {
          << "options:" << endl
          << "    -s, --store           store graph (do this first to build db!)" << endl
          << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
+         << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
          << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
@@ -1264,6 +1325,24 @@ int main_construct(int argc, char** argv) {
     return 0;
 }
 
+void vg_help(char** argv) {
+    cerr << "usage: " << argv[0] << " <command> [options]" << endl
+         << endl
+         << "commands:" << endl 
+         << "  -- construct     graph construction" << endl
+         << "  -- view          conversion (protobuf/json/GFA)" << endl
+         << "  -- index         index features of the graph in a disk-backed key/value store" << endl
+         << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
+         << "  -- paths         traverse paths in the graph" << endl
+         << "  -- align         local alignment" << endl
+         << "  -- map           global alignment" << endl
+         << "  -- stats         metrics describing graph properties" << endl
+         << "  -- join          combine graphs via a new head" << endl
+         << "  -- ids           manipulate node ids" << endl
+         << "  -- concat        concatenate graphs tail-to-head" << endl
+         << "  -- kmers         enumerate kmers of the graph" << endl;
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -1297,6 +1376,8 @@ int main(int argc, char *argv[])
         return main_ids(argc, argv);
     } else if (command == "concat") {
         return main_concat(argc, argv);
+    } else if (command == "kmers") {
+        return main_kmers(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
