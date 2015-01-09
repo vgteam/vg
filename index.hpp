@@ -5,6 +5,8 @@
 #include <exception>
 #include <sstream>
 #include "rocksdb/db.h"
+#include "rocksdb/env.h"
+#include "rocksdb/options.h"
 #include "rocksdb/write_batch.h"
 #include "pb2json.h"
 #include "vg.hpp"

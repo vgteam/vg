@@ -8,6 +8,9 @@ Index::Index(string& name) {
     start_sep = '\x00';
     end_sep = '\xff';
     options.create_if_missing = true;
+    options.env->SetBackgroundThreads(omp_get_num_procs());
+    options.compression = rocksdb::kBZip2Compression;
+    //options.IncreaseParallelism(omp_get_num_procs());
     //options.error_if_exists = true;
     rocksdb::Status status = rocksdb::DB::Open(options, name, &db);
     if (!status.ok()) {
