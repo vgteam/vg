@@ -84,9 +84,10 @@ int main_kmers(int argc, char** argv) {
     function<void(string&, Node*, int)>
         lambda = [](string& kmer, Node* n, int p) {
 #pragma omp critical (cout)
-        cout << kmer << '\t' << n->id() << '\t' << p << endl;
+        cout << kmer << '\t' << n->id() << '\t' << p << '\n';
     };
     graphs.for_each_kmer_parallel(lambda, kmer_size, kmer_stride);
+    cout.flush();
 
     return 0;
 }
