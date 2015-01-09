@@ -20,7 +20,8 @@ void help_kmers(char** argv) {
          << endl
          << "options:" << endl
          << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
-         << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl;
+         << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
+         << "    -p, --progress        show progress" << endl;
 }
 
 int main_kmers(int argc, char** argv) {
@@ -32,6 +33,7 @@ int main_kmers(int argc, char** argv) {
 
     int kmer_size = 0;
     int kmer_stride = 1;
+    bool show_progress = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -45,7 +47,7 @@ int main_kmers(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:",
+        c = getopt_long (argc, argv, "hk:j:p",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -61,6 +63,10 @@ int main_kmers(int argc, char** argv) {
 
         case 'j':
             kmer_stride = atoi(optarg);
+            break;
+
+        case 'p':
+            show_progress = true;
             break;
 
         case 'h':
@@ -86,6 +92,7 @@ int main_kmers(int argc, char** argv) {
 #pragma omp critical (cout)
         cout << kmer << '\t' << n->id() << '\t' << p << '\n';
     };
+    graphs.show_progress = show_progress;
     graphs.for_each_kmer_parallel(lambda, kmer_size, kmer_stride);
     cout.flush();
 
