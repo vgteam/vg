@@ -1648,7 +1648,7 @@ void VG::for_each_kpath_of_node(Node* node, int k,
     list<Node*> empty_list;
     prev_kpaths_from_node(node, k, empty_list, prev_paths);
     next_kpaths_from_node(node, k, empty_list, next_paths);
-    // now take the cross and put into paths
+    // now take the cross and give to the callback
     for (set<list<Node*> >::iterator p = prev_paths.begin(); p != prev_paths.end(); ++p) {
         for (set<list<Node*> >::iterator n = next_paths.begin(); n != next_paths.end(); ++n) {
             list<Node*> path = *p;
@@ -1659,7 +1659,7 @@ void VG::for_each_kpath_of_node(Node* node, int k,
             }
             lambda(path);
         }
-    }    
+    }
 }
 
 void VG::kpaths_of_node(Node* node, set<list<Node*> >& paths, int length) {
@@ -1973,7 +1973,22 @@ void VG::_for_each_kmer(int kmer_size,
                         bool parallel,
                         int stride) {
 
-    auto handle_path = [this, kmer_size, lambda, stride](list<Node*>& path) {
+    // use an LRU cache to clean up duplicates
+    LRUCache<string, bool> cache(1000000);
+    auto make_cache_key = [](string& kmer, Node* node, int start) -> string {
+        string cache_key = kmer;
+        cache_key.resize(kmer.size() + sizeof(Node*) + sizeof(int));
+        memcpy((char*)cache_key.c_str()+kmer.size(), &node, sizeof(Node*));
+        memcpy((char*)cache_key.c_str()+kmer.size()+sizeof(Node*), &start, sizeof(Node*));
+        return cache_key;
+    };
+
+    auto handle_path = [this,
+                        lambda,
+                        kmer_size,
+                        stride,
+                        &cache,
+                        &make_cache_key](list<Node*>& path) {
 
         // expand the path into a vector :: 1,1,1,2,2,2,2,3,3 ... etc.
         // this makes it much easier to quickly get all the node matches of each kmer
@@ -2003,7 +2018,12 @@ void VG::_for_each_kmer(int kmer_size,
                     nodes.insert(node);
                     int node_position = node_start[node];
                     int kmer_relative_start = i - node_position;
-                    lambda(kmer, node, kmer_relative_start);
+                    string cache_key = make_cache_key(kmer, node, kmer_relative_start);
+                    pair<bool, bool> c = cache.retrieve(cache_key);
+                    if (!c.second) {
+                        cache.put(cache_key, true);
+                        lambda(kmer, node, kmer_relative_start);
+                    }
                 }
                 ++j;
             }

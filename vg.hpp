@@ -20,6 +20,7 @@
 #include "hash_map.hpp"
 
 #include "progress_bar.hpp"
+#include "lru_cache.h"
 
 #include "Variant.h"
 #include "Fasta.h"
