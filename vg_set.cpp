@@ -65,7 +65,9 @@ void VGset::store_in_index(Index& index) {
 void VGset::index_kmers(Index& index, int kmer_size, int stride) {
     for_each([&index, kmer_size, stride, this](VG* g) {
         auto keep_kmer = [&index, this](string& kmer, Node* n, int p) {
-            index.put_kmer(kmer, n->id(), p);
+            if (allATGC(kmer)) {
+                index.put_kmer(kmer, n->id(), p);
+            }
         };
         index.remember_kmer_size(kmer_size);
         g->show_progress = show_progress;
