@@ -2021,9 +2021,16 @@ void VG::_for_each_kmer(int kmer_size,
                     int node_position = node_start[node];
                     int kmer_relative_start = i - node_position;
                     string cache_key = make_cache_key(kmer, node, kmer_relative_start);
-                    pair<bool, bool> c = cache.retrieve(cache_key);
-                    if (!c.second) {
-                        cache.put(cache_key, true);
+                    bool novel = false;
+#pragma omp critical (lru)
+                    {
+                        pair<bool, bool> c = cache.retrieve(cache_key);
+                        if (!c.second) {
+                            cache.put(cache_key, true);
+                            novel = true;
+                        }
+                    }
+                    if (novel) {
                         lambda(kmer, node, kmer_relative_start);
                     }
                 }
