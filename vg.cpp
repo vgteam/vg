@@ -1975,12 +1975,12 @@ void VG::_for_each_kmer(int kmer_size,
 
     // use an LRU cache to clean up duplicates over the last 1mb
     // use one per thread so as to avoid contention
-    map<int, LRUCache<string, bool>* > lru;
+    map<int, string_hash_map<string, bool> > lru;
 #pragma omp parallel
     {
 #pragma omp single
         for (int i = 0; i < (parallel ? omp_get_num_threads() : 1); ++i) {
-            lru[i] = new LRUCache<string, bool>(10000);
+            lru[i];// = new string_hash_map<string, bool>();
         }
     }
     // constructs the cache key
@@ -2005,7 +2005,7 @@ void VG::_for_each_kmer(int kmer_size,
         vector<Node*> node_by_path_position;
         expand_path(path, node_by_path_position);
 
-        auto cache = lru[omp_get_thread_num()];
+        auto& cache = lru[omp_get_thread_num()];
 
         map<Node*, int> node_start;
         node_starts_in_path(path, node_start);
@@ -2031,9 +2031,11 @@ void VG::_for_each_kmer(int kmer_size,
                     int node_position = node_start[node];
                     int kmer_relative_start = i - node_position;
                     string cache_key = make_cache_key(kmer, node, kmer_relative_start);
-                    pair<bool, bool> c = cache->retrieve(cache_key);
-                    if (!c.second) {
-                        cache->put(cache_key, true);
+                    if (cache.size() > 1000000) {
+                        cache.clear();
+                    }
+                    if (cache.find(cache_key) == cache.end()) {
+                        cache[cache_key] = true;
                         lambda(kmer, node, kmer_relative_start);
                     }
                 }
@@ -2046,10 +2048,6 @@ void VG::_for_each_kmer(int kmer_size,
         for_each_kpath_parallel(kmer_size, handle_path);
     } else {
         for_each_kpath(kmer_size, handle_path);
-    }
-
-    for (auto& cache : lru) {
-        delete cache.second;
     }
 
 }
