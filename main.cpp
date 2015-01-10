@@ -21,6 +21,7 @@ void help_kmers(char** argv) {
          << "options:" << endl
          << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
+         << "    -t, --threads N       number of threads to use" << endl
          << "    -p, --progress        show progress" << endl;
 }
 
@@ -43,11 +44,13 @@ int main_kmers(int argc, char** argv) {
                 {"help", no_argument, 0, 'h'},
                 {"kmer-size", required_argument, 0, 'k'},
                 {"kmer-stride", required_argument, 0, 'j'},
+                {"threads", required_argument, 0, 't'},
+                {"progress",  no_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:p",
+        c = getopt_long (argc, argv, "hk:j:pt:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -63,6 +66,10 @@ int main_kmers(int argc, char** argv) {
 
         case 'j':
             kmer_stride = atoi(optarg);
+            break;
+
+        case 't':
+            omp_set_num_threads(atoi(optarg));
             break;
 
         case 'p':
