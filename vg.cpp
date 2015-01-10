@@ -1973,8 +1973,10 @@ void VG::_for_each_kmer(int kmer_size,
                         bool parallel,
                         int stride) {
 
-    // use an LRU cache to clean up duplicates
+    // use an LRU cache to clean up duplicates over the last 1mb
     LRUCache<string, bool> cache(1000000);
+    // constructs the cache key
+    // experiment -- use a struct here
     auto make_cache_key = [](string& kmer, Node* node, int start) -> string {
         string cache_key = kmer;
         cache_key.resize(kmer.size() + sizeof(Node*) + sizeof(int));
