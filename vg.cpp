@@ -1975,11 +1975,11 @@ void VG::_for_each_kmer(int kmer_size,
 
     // use an LRU cache to clean up duplicates over the last 1mb
     // use one per thread so as to avoid contention
-    map<int, LRUCache<string, bool>* > lru; //(1000000);
+    map<int, LRUCache<string, bool>* > lru;
 #pragma omp parallel
     {
-        for (int i = 0; i < omp_get_num_threads(); ++i) {
-#pragma omp critical (lru_cache)
+#pragma omp single
+        for (int i = 0; i < (parallel ? omp_get_num_threads() : 1); ++i) {
             lru[i] = new LRUCache<string, bool>(10000);
         }
     }

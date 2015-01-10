@@ -8,9 +8,12 @@ Index::Index(string& name) {
     start_sep = '\x00';
     end_sep = '\xff';
     options.create_if_missing = true;
-    options.env->SetBackgroundThreads(omp_get_num_procs());
+    //options.env->SetBackgroundThreads(omp_get_num_procs());
     //options.compression = rocksdb::kBZip2Compression;
-    //options.IncreaseParallelism(omp_get_num_procs());
+    options.compression = rocksdb::kZlibCompression;
+    options.compaction_style = rocksdb::kCompactionStyleLevel;
+    options.IncreaseParallelism(omp_get_num_procs());
+    options.write_buffer_size = 1024*1024*16; // 16mb
     //options.error_if_exists = true;
     rocksdb::Status status = rocksdb::DB::Open(options, name, &db);
     if (!status.ok()) {
@@ -72,7 +75,7 @@ const string Index::key_for_edge_to_from(int64_t to, int64_t from) {
 }
 
 const string Index::key_for_kmer(const string& kmer, int64_t id) {
-    //id = htobe64(id);
+    id = htobe64(id);
     string key;
     key.resize(4*sizeof(char) + kmer.size() + sizeof(int64_t));
     char* k = (char*) key.c_str();
@@ -207,6 +210,7 @@ void Index::parse_kmer(const string& key, const string& value, string& kmer, int
     const char* k = key.c_str();
     kmer = string(k+3*sizeof(char));
     memcpy(&id, k+4*sizeof(char)+kmer.size(), sizeof(int64_t));
+    id = be64toh(id);
     memcpy(&pos, (char*)value.c_str(), sizeof(int32_t));
 }
 
