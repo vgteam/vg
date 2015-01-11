@@ -798,6 +798,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
        FastaReference& reference,
        string& target_region,
        int vars_per_region,
+       int max_node_size,
        bool showprog) {
 
     init();
