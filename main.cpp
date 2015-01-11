@@ -1226,6 +1226,8 @@ void help_construct(char** argv) {
          << "    -r, --reference FILE  input FASTA reference" << endl
          << "    -R, --region REGION   specify a particular chromosome" << endl
          << "    -z, --region-size N   variants per region to parallelize" << endl
+         << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
+         << "                          nodes greater than this threshold will be divided" << endl
          << "    -p, --progress        show progress" << endl
          << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl;
 }
@@ -1242,6 +1244,7 @@ int main_construct(int argc, char** argv) {
     string output_type = "VG";
     bool progress = false;
     int vars_per_region = 25000;
+    int max_node_size = 0;
 
     int c;
     while (true) {
@@ -1255,11 +1258,12 @@ int main_construct(int argc, char** argv) {
                 {"region-size", required_argument, 0, 'z'},
                 {"threads", required_argument, 0, 't'},
                 {"region", required_argument, 0, 'R'},
+                {"node-max", required_argument, 0, 'm'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1290,6 +1294,10 @@ int main_construct(int argc, char** argv) {
 
         case 't':
             omp_set_num_threads(atoi(optarg));
+            break;
+
+        case 'm':
+            max_node_size = atoi(optarg);
             break;
  
         case 'h':
@@ -1324,7 +1332,7 @@ int main_construct(int argc, char** argv) {
     }
     reference.open(fasta_file_name);
 
-    VG graph(variant_file, reference, region, vars_per_region, progress);
+    VG graph(variant_file, reference, region, vars_per_region, max_node_size, progress);
 
     graph.serialize_to_ostream(std::cout);
 

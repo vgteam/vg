@@ -598,10 +598,13 @@ void VG::from_vcf_records(vector<vcf::Variant>* r,
         int last_ref_size = curr_pos - last_pos;
         if (max_node_size && last_ref_size > max_node_size) {
             // function(l,m) ifelse(floor(l/m)>0, ceiling(l/floor(l/m)))
-            int segment_size = ceil(last_ref_size
-                                    / floor(last_ref_size / max_node_size));
-            int i = last_pos;
-            while (i < curr_pos) {
+            int div = 2;
+            while (last_ref_size/div > max_node_size) {
+                ++div;
+            }
+            int segment_size = last_ref_size/div;
+            int i = 0;
+            while (last_pos + i < curr_pos) {
                 altp[last_pos+i]; // empty
                 i += segment_size;
             }
@@ -630,8 +633,8 @@ void VG::from_vcf_records(vector<vcf::Variant>* r,
                 last_pos = allele.position;
             }
         }
-        enforce_node_size_limit(seq.size(), last_pos);
     }
+    enforce_node_size_limit(seq.size(), last_pos);
 
     for (auto& va : altp) {
 
