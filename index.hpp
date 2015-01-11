@@ -43,6 +43,8 @@ public:
     Index(string& name);
     ~Index(void);
 
+    string name;
+
     char start_sep;
     char end_sep;
 

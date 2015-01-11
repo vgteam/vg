@@ -1044,7 +1044,6 @@ int main_map(int argc, char** argv) {
 
     string seq;
     string db_name;
-    int kmer_size = 0;
 
     bool output_json = true;
 
@@ -1060,7 +1059,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhk:",
+        c = getopt_long (argc, argv, "s:jh",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1071,10 +1070,6 @@ int main_map(int argc, char** argv) {
         {
         case 's':
             seq = optarg;
-            break;
-
-        case 'k':
-            kmer_size = atoi(optarg);
             break;
 
         case 'd':
@@ -1095,11 +1090,6 @@ int main_map(int argc, char** argv) {
         default:
             abort ();
         }
-    }
-
-    if (kmer_size == 0) {
-        cerr << "error:[vg map] a nonzero kmer size is required when mapping" << endl;
-        return 1;
     }
 
     if (seq.empty()) {
@@ -1125,9 +1115,10 @@ int main_map(int argc, char** argv) {
     }
 
     Index index(db_name);
+
     Mapper mapper(&index);
 
-    Alignment alignment = mapper.align(seq, kmer_size);
+    Alignment alignment = mapper.align(seq);
 
     if (output_json) {
         char *json2 = pb2json(alignment);

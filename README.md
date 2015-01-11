@@ -96,19 +96,19 @@ The current interfaces provided in the command line utility `vg` are rather roug
 - [x] non-recursive topological sort of graph
 - [x] stable ID compaction
 - [x] efficient construction for large DAGs
-- [ ] improve memory performance of kmer indexing for large graphs by storing incremental results of k-path generation
+- [x] improve memory performance of kmer indexing for large graphs by storing incremental results of k-path generation
 - [ ] global alignment: retain and expand only the most-likely subgraphs
 - [x] verify that snappy compression is enabled for index, and measure size for large graphs
 - [x] move to rocksdb for better indexing performance on modern hardware (multiple cores, SSDs)
 - [x] object streams (enable graphs > 60mb) and alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
 - [x] use dense_hash for improved memory and runtime efficiency with large graphs (or sparse_hash, if memory is at a premium--- but it's easy to switch and ideally we can design large-scale construction without loading entire whole-genome graphs into memory)
 - [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps), and probably default GFA output from vg view
-- [ ] index metadata (to quickly check if we have kmer index of size >=N)
+- [x] index metadata (to quickly check if we have kmer index of size >=N)
 - [ ] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
 - [ ] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
 - [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - [ ] per-node, per-sample quality and count information on graph
-- [ ] express a sample's sequencing results as a labeled graph
+- [ ] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
 - [ ] multiple samples in one graph (colors)
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
 - [ ] genotype likelihood generation (given a source and sink, genotype paths)

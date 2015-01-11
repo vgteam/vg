@@ -4,7 +4,7 @@ namespace vg {
 
 using namespace std;
 
-Index::Index(string& name) {
+Index::Index(string& dir) : name(dir) {
     start_sep = '\x00';
     end_sep = '\xff';
     options.create_if_missing = true;
@@ -351,6 +351,7 @@ void Index::get_context(int64_t id, VG& graph) {
 }
 
 void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
+    // get the nodes in the kmer subgraph
     auto add_node_matching_kmer = [&graph, this](string& key, string& value) {
         int64_t id;
         string kmer;
@@ -363,9 +364,9 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
     string start = key_prefix_for_kmer(kmer);
     string end = start + end_sep;
     start = start + start_sep;
+    // apply to the range matching the kmer in the db
     for_range(start, end, add_node_matching_kmer);
 
-    // get the edges between the nodes
     auto add_edges_from_index = [&graph, this](Node* n) {
         vector<Edge> edges;
         get_edges_from(n->id(), edges);
@@ -376,6 +377,7 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
             }
         }
     };
+    // add the edges between the matching nodes from the index
     graph.for_each_node(add_edges_from_index);
 }
 

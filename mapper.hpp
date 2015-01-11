@@ -15,17 +15,18 @@ class Mapper {
 
 public:
 
-    Mapper(Index* idex) {
-        index = idex;
-    }
+    Mapper(Index* idex);
     Mapper(void) {
         index = NULL;
     }
     ~Mapper(void);
     Index* index;
 
-    Alignment align(string& seq, int kmer_size);
-    Alignment& align(Alignment& read, int kmer_size);
+    Alignment align(string& seq);
+    Alignment& align(Alignment& read);
+
+    set<int> kmer_sizes;
+    set<string> kmers_of(const string& seq);
 
 };
 

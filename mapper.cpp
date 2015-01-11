@@ -2,17 +2,27 @@
 
 namespace vg {
 
+Mapper::Mapper(Index* idex)
+    : index(idex) {
+    kmer_sizes = index->stored_kmer_sizes();
+    if (kmer_sizes.empty()) {
+        cerr << "error:[vg::Mapper] the index (" 
+             << index->name << ") does not include kmers" << endl;
+        exit(1);
+    }
+}
+
 Mapper::~Mapper(void) {
     // noop
 }
 
-Alignment Mapper::align(string& sequence, int kmer_size) {
+Alignment Mapper::align(string& sequence) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment, kmer_size);
+    return align(alignment);
 }
 
-Alignment& Mapper::align(Alignment& alignment, int kmer_size) {
+Alignment& Mapper::align(Alignment& alignment) {
 
     if (index == NULL) {
         cerr << "error:[vg::Mapper] no index loaded, cannot map alignment!" << endl;
@@ -22,18 +32,13 @@ Alignment& Mapper::align(Alignment& alignment, int kmer_size) {
     // establish kmers
 
     const string& sequence = alignment.sequence();
-    vector<string> kmers;
-    if (!sequence.empty()) {
-        for (int i = 0; i < sequence.size()-kmer_size; ++i) {
-            kmers.push_back(sequence.substr(i,kmer_size));
-        }
-    }
+    auto kmers = kmers_of(sequence);
 
     VG graph; // to return
 
-    for (vector<string>::iterator k = kmers.begin(); k != kmers.end(); ++k) {
+    for (auto& k : kmers) {
         VG g;
-        index->get_kmer_subgraph(*k, g);
+        index->get_kmer_subgraph(k, g);
         graph.extend(g);
     }
 
@@ -63,6 +68,18 @@ Alignment& Mapper::align(Alignment& alignment, int kmer_size) {
 
     return graph.align(alignment);
 
+}
+
+set<string> Mapper::kmers_of(const string& seq) {
+    set<string> kmers;
+    if (!seq.empty()) {
+        for (int kmer_size : kmer_sizes) {
+            for (int i = 0; i < seq.size()-kmer_size; ++i) {
+                kmers.insert(seq.substr(i,kmer_size));
+            }
+        }
+    }
+    return kmers;
 }
 
 }
