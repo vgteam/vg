@@ -93,9 +93,14 @@ public:
        int vars_per_region,
        int max_node_size = 0,
        bool showprog = false);
-    VG(vector<vcf::Variant>& records, string seq, string chrom, int offset);
-    void from_vcf_records(vector<vcf::Variant>* records, string seq, string chrom, int offset);
+    VG(vector<vcf::Variant>& records,
+       string seq, string chrom,
+       int offset, int max_node_size);
+    void from_vcf_records(vector<vcf::Variant>* r,
+                          string seq, string chrom,
+                          int offset,  int max_node_size);
 
+    // default constructor, destructor
     ~VG(void);
     VG& operator=(const VG& other) {
         if (this != &other) {

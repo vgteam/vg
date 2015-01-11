@@ -555,12 +555,16 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
 // add new node for alt alleles, connect to start and end node in reference path
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
-VG::VG(vector<vcf::Variant>& records, string seq, string chrom, int offset) {
+VG::VG(vector<vcf::Variant>& records, string seq, string chrom, int offset, int max_node_size) {
     init();
-    from_vcf_records(&records, seq, chrom, offset);
+    from_vcf_records(&records, seq, chrom, offset, max_node_size);
 }
 
-void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int offset) {
+void VG::from_vcf_records(vector<vcf::Variant>* r,
+                          string seq,
+                          string chrom,
+                          int offset,
+                          int max_node_size) {
 
     //init();
     vector<vcf::Variant>& records = *r;
@@ -587,6 +591,7 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
 
     Node* ref_node = create_node(seq);
     reference_path[0] = ref_node;
+    int current_pos = 0;
 
     for (auto& var : records) {
 
@@ -603,7 +608,20 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
 
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
+                // cut the last reference sequence into bite-sized pieces
+                int last_ref_size = allele.position - current_pos;
+                if (max_node_size && last_ref_size > max_node_size) {
+                    // function(l,m) ifelse(floor(l/m)>0, ceiling(l/floor(l/m)))
+                    int segment_size = ceil(last_ref_size
+                                            / floor(last_ref_size / max_node_size));
+                    int i = current_pos; 
+                    while (i < allele.position + current_pos) {
+                        altp[current_pos+i]; // empty
+                        i += segment_size;
+                    }
+                }
                 altp[allele.position].insert(allele);
+                current_pos = allele.position;
             }
         }
     }
@@ -612,6 +630,13 @@ void VG::from_vcf_records(vector<vcf::Variant>* r, string seq, string chrom, int
 
         set<vcf::VariantAllele>& alleles = va.second;
 
+        // if alleles are empty, we just cut at this point
+        if (alleles.empty()) {
+            Node* l = NULL; Node* r = NULL;
+            divide_path(reference_path, va.first, l, r);
+        }
+
+        // otherwise, we 
         for (auto allele : alleles) {
 
             // reference alleles are provided naturally by the reference itself
@@ -897,7 +922,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
     shared(vars_per_region, region, target, stop_pos,                   \
            variantCallFile, done_with_chrom, reference,                 \
            seq_name, start, start_pos, var_is_at_end, progress,         \
-           refseq_graph, graphq, appending_graphs,                      \
+           refseq_graph, graphq, appending_graphs, max_node_size,       \
            end, var, cerr, construction, graph_completed, graph_end)
 
         while (!done_with_chrom || !construction.empty() || !graphq.empty()) {
@@ -1050,7 +1075,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     plan->graph->from_vcf_records(plan->vars,
                                                   plan->seq,
                                                   plan->name,
-                                                  plan->offset);
+                                                  plan->offset,
+                                                  max_node_size);
 
 #pragma omp critical (graphq)
                     {
