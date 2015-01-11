@@ -591,8 +591,24 @@ void VG::from_vcf_records(vector<vcf::Variant>* r,
 
     Node* ref_node = create_node(seq);
     reference_path[0] = ref_node;
-    int current_pos = 0;
 
+    auto enforce_node_size_limit =
+        [max_node_size, &altp]
+        (int curr_pos, int& last_pos) {
+        int last_ref_size = curr_pos - last_pos;
+        if (max_node_size && last_ref_size > max_node_size) {
+            // function(l,m) ifelse(floor(l/m)>0, ceiling(l/floor(l/m)))
+            int segment_size = ceil(last_ref_size
+                                    / floor(last_ref_size / max_node_size));
+            int i = last_pos;
+            while (i < curr_pos) {
+                altp[last_pos+i]; // empty
+                i += segment_size;
+            }
+        }
+    };
+
+    int last_pos = 0;
     for (auto& var : records) {
 
         // adjust the variant position relative to the sequence
@@ -609,21 +625,12 @@ void VG::from_vcf_records(vector<vcf::Variant>* r,
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
                 // cut the last reference sequence into bite-sized pieces
-                int last_ref_size = allele.position - current_pos;
-                if (max_node_size && last_ref_size > max_node_size) {
-                    // function(l,m) ifelse(floor(l/m)>0, ceiling(l/floor(l/m)))
-                    int segment_size = ceil(last_ref_size
-                                            / floor(last_ref_size / max_node_size));
-                    int i = current_pos; 
-                    while (i < allele.position + current_pos) {
-                        altp[current_pos+i]; // empty
-                        i += segment_size;
-                    }
-                }
+                enforce_node_size_limit(allele.position, last_pos);
                 altp[allele.position].insert(allele);
-                current_pos = allele.position;
+                last_pos = allele.position;
             }
         }
+        enforce_node_size_limit(seq.size(), last_pos);
     }
 
     for (auto& va : altp) {
