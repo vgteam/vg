@@ -962,6 +962,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // decompose records int alleles with offsets against our target sequence
         map<long,set<vcf::VariantAllele> > alleles;
         vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size);
+        records.clear(); // clean up
 
         // for managing parallel construction
         struct Plan {
@@ -994,7 +995,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // our target graph
         refseq_graph[target] = new VG;
 
-        create_progress("decomposing variants", stop_pos-start_pos);
+        create_progress("planning construction", stop_pos-start_pos);
         // break into chunks
         int chunk_start = 0;
         while (!alleles.empty()) {
