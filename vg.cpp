@@ -18,10 +18,7 @@ VG::VG(istream& in) {
     coded_in->ReadVarint64(&count);
     delete coded_in;
 
-    if (show_progress) {
-        progress_message = "loading graph";
-        progress = new ProgressBar(count, progress_message.c_str());
-    }
+    create_progress("loading graph", count);
 
     std::string s;
 
@@ -30,7 +27,7 @@ VG::VG(istream& in) {
         ::google::protobuf::io::CodedInputStream *coded_in =
           new ::google::protobuf::io::CodedInputStream(raw_in);
 
-        if (progress) progress->Progressed(i);
+        update_progress(i);
 
         uint32_t msgSize = 0;
         coded_in->ReadVarint32(&msgSize);
@@ -47,11 +44,7 @@ VG::VG(istream& in) {
 
     delete raw_in;
 
-    if (progress) {
-        delete progress;
-        progress = NULL;
-        cerr << endl;
-    }
+    destroy_progress();
 
     //topologically_sort_graph();
     //build_indexes();
@@ -69,6 +62,8 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
     int64_t count = graph.node_size() / chunk_size + 1;
     coded_out->WriteVarint64(count);
 
+    create_progress("saving graph", count);
+
     std::string s;
     uint64_t written = 0;
     for (int64_t n = 0; n < count; ++n) {
@@ -83,7 +78,9 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
         coded_out->WriteVarint32(s.size());
         coded_out->WriteRaw(s.data(), s.size()); // ->WriteString(s)
         ++written;
+        update_progress(n);
     }
+    destroy_progress();
 
     delete coded_out;
     delete raw_out;
@@ -555,28 +552,34 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
 // add new node for alt alleles, connect to start and end node in reference path
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
-VG::VG(vector<vcf::Variant>& records, string seq, string chrom, int offset, int max_node_size) {
-    init();
-    from_vcf_records(records, seq, chrom, offset, max_node_size);
-}
 
-void VG::from_vcf_records(vector<vcf::Variant>& records,
-                      string seq,
-                      string chrom,
-                      int offset,
-                      int max_node_size) {
-    const map<long, set<vcf::VariantAllele> > altp
-        = vcf_records_to_alleles(records, seq, offset, max_node_size);
-    from_alleles(altp, seq, chrom);
-}
+void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
+                                map<long, set<vcf::VariantAllele> >& altp,
+                                int start_pos,
+                                int stop_pos,
+                                int max_node_size) {
 
-const map<long, set<vcf::VariantAllele> >
-VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
-                           string& seq,
-                           int offset,
-                           int max_node_size) {
 
-    map<long, set<vcf::VariantAllele> > altp;
+    create_progress("parsing variants", records.size());
+
+#pragma omp parallel for
+    for (int i = 0; i < records.size(); ++i) {
+        vcf::Variant& var = records.at(i);
+        // decompose to alts
+        bool flat_input_vcf = false; // hack
+        map<string, vector<vcf::VariantAllele> > alternates
+            = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
+        for (auto& alleles : alternates) {
+            for (auto& allele : alleles.second) {
+#pragma omp critical (altp)
+                altp[allele.position].insert(allele);
+                if (i % 1000 == 0) {
+                    update_progress(altp.size());
+                }
+            }
+        }
+    }
+    destroy_progress();
 
     auto enforce_node_size_limit =
         [max_node_size, &altp]
@@ -596,33 +599,19 @@ VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
         }
     };
 
-    int last_pos = 0;
-    for (auto& var : records) {
-
-        // adjust the variant position relative to the sequence
-        var.position -= offset;
-
-//#pragma omp critical
-//        cerr << omp_get_thread_num() << ": " << var << endl;
-
-        // decompose to alts
-        bool flat_input_vcf = false; // hack
-        map<string, vector<vcf::VariantAllele> > alternates
-            = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
-
-        for (auto& alleles : alternates) {
-            for (auto& allele : alleles.second) {
-                // cut the last reference sequence into bite-sized pieces
-                enforce_node_size_limit(allele.position, last_pos);
-                altp[allele.position].insert(allele);
-                last_pos = allele.position;
-            }
+    // break apart big nodes
+    int last_pos = start_pos;
+    for (auto& alternates : altp) {
+        auto& alleles = alternates.second;
+        for (auto& allele : alleles) {
+            // cut the last reference sequence into bite-sized pieces
+            enforce_node_size_limit(allele.position, last_pos);
+            altp[allele.position].insert(allele);
+            last_pos = allele.position;
         }
     }
+    enforce_node_size_limit(stop_pos, last_pos);
 
-    enforce_node_size_limit(seq.size(), last_pos);
-
-    return altp;
 }
 
 
@@ -632,15 +621,15 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
     //init();
 
-/*
     int tid = omp_get_thread_num();
-#pragma omp critical
+#ifdef debug
+#pragma omp critical (cerr)
     {
         cerr << tid << ": in from_vcf_records" << endl;
-        cerr << tid << ": with " << records.size() << " vars" << endl;
+        cerr << tid << ": with " << altp.size() << " vars" << endl;
         cerr << tid << ": and " << seq.size() << "bp" << endl;
     }
-*/
+#endif
 
 
     map<long, Node*> reference_path;
@@ -665,8 +654,10 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
             divide_path(reference_path, va.first, l, r);
         }
 
-        // otherwise, we 
         for (auto allele : alleles) {
+
+//#pragma omp critical (cerr)
+//            cerr << tid << ": " << allele << endl;
 
             // reference alleles are provided naturally by the reference itself
             if (allele.ref == allele.alt) {
@@ -698,10 +689,11 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                         left_ref_node,
                         right_ref_node);
 
-            /*
-              cerr << "nodes: left: " << left_ref_node->id() << ":" << left_ref_node->sequence()
-              << " right: " << right_ref_node->id() << ":" << right_ref_node->sequence() << endl;
-            */
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << tid << ": nodes: left: " << left_ref_node->id() << ":" << left_ref_node->sequence()
+                 << " right: " << right_ref_node->id() << ":" << right_ref_node->sequence() << endl;
+#endif
 
             // if the ref portion of the allele is not empty, then we need to make another cut
             if (!allele.ref.empty()) {
@@ -848,6 +840,35 @@ bool allATGC(string& s) {
     return true;
 }
 
+void VG::create_progress(const string& message, long count) {
+    if (show_progress) {
+        progress_message = message;
+        progress_message.resize(30, ' ');
+        progress_count = count;
+        progress = new ProgressBar(progress_count, progress_message.c_str());
+        progress->Progressed(0);
+    }
+}
+
+void VG::update_progress(long i) {
+    if (show_progress && progress) {
+        if (i <= progress_count) {
+#pragma omp critical (progress)
+            progress->Progressed(i);
+        }
+    }
+}
+
+void VG::destroy_progress(void) {
+    if (show_progress && progress) {
+        update_progress(progress_count);
+        cerr << endl;
+        progress_count = 0;
+        delete progress;
+        progress = NULL;
+    }
+}
+
 VG::VG(vcf::VariantCallFile& variantCallFile,
        FastaReference& reference,
        string& target_region,
@@ -910,70 +931,150 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // and handle the case where we are already doing the whole chromosome
         int64_t start = start_pos ? start_pos - 1 : 0;
         int64_t end = start;
-        bool done_with_chrom = false;
-        // track if the variant we are looking at has the 3'-most reference extent of any variant in the bunch
-        bool var_is_at_end = false;
+
+
+        create_progress("loading variants for " + target, stop_pos-start_pos);
+        // get records
+        vector<vcf::Variant> records;
+        int i = 0;
+        while (variantCallFile.getNextVariant(var)) {
+            bool isDNA = allATGC(var.ref);
+            for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+                if (!allATGC(*a)) isDNA = false;
+            }
+            // only work with DNA sequences
+            if (isDNA) {
+                var.position -= 1; // convert to 0-based
+                records.push_back(var);
+            }
+            if (++i % 1000 == 0) update_progress(var.position-start_pos);
+        }
+        destroy_progress();
+
+
+        // decompose records int alleles with offsets against our target sequence
+        map<long,set<vcf::VariantAllele> > alleles;
+        vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size);
+
+        // for managing parallel construction
         struct Plan {
             VG* graph;
-            vector<vcf::Variant>* vars;
+            map<long, set<vcf::VariantAllele> >* alleles;
             string seq;
             string name;
-            int offset;
+            Plan(VG* g,
+                 map<long, set<vcf::VariantAllele> >* a,
+                 string s,
+                 string n)
+                : graph(g)
+                , alleles(a)
+                , seq(s)
+                , name(n) { };
+            ~Plan(void) { delete alleles; }
         };
-        deque<Plan*> construction;
 
-        // our graph for this refseq
-        refseq_graph[target] = new VG;
-        // and the construction queue
-        list<VG*> graphq;
+        // store our construction plans
+        deque<Plan*> construction;
+        // so we can check which graphs we can safely append
+        set<VG*> graph_completed;
+        // the construction queue
+        deque<VG*> graphq;
         omp_lock_t appending_graphs;
         omp_init_lock(&appending_graphs);
-
         // for tracking progress through the chromosome
         map<VG*, unsigned long> graph_end;
-        string message = "constructing graph for " + seq_name;
-        ProgressBar* progress = NULL;
-        if (show_progress) {
-            progress = new ProgressBar(stop_pos-start_pos, message.c_str());
+
+        // our target graph
+        refseq_graph[target] = new VG;
+
+        create_progress("decomposing variants", stop_pos-start_pos);
+        // break into chunks
+        int chunk_start = 0;
+        while (!alleles.empty()) {
+            auto* new_alleles = new map<long, set<vcf::VariantAllele> >;
+            // our start position is the "offset" we should subtract from the alleles
+            // for correct construction
+            //chunk_start = (!chunk_start ? 0 : alleles.begin()->first);
+            int chunk_end = chunk_start;
+            bool clean_end = true;
+            for (int i = 0; (i < vars_per_region || !clean_end) && !alleles.empty(); ++i) {
+                auto pos = alleles.begin()->first - chunk_start;
+                chunk_end = alleles.begin()->first;
+                auto& pos_alleles = alleles.begin()->second;
+                // apply offset when adding to the new alleles
+                auto& curr_pos = (*new_alleles)[pos];
+                for (auto& allele : pos_alleles) {
+                    auto new_allele = allele;
+                    int ref_end = new_allele.ref.size() + new_allele.position;
+                    if (ref_end > chunk_end) {
+                        chunk_end = ref_end;
+                    }
+                    new_allele.position = pos;
+                    curr_pos.insert(new_allele);
+                }
+                alleles.erase(alleles.begin());
+                // TODO here we need to do the old check... to see if we are neighboring another variant
+                // and if we are, keep constructing
+                if (alleles.begin()->first <= chunk_end) {
+                    clean_end = false;
+                } else {
+                    clean_end = true;
+                }
+            }
+            // record end position, use target end in the case that we are at the end
+            if (alleles.empty()) chunk_end = stop_pos;
+
+            // make a construction plan
+            Plan* plan = new Plan(new VG,
+                                  new_alleles,
+                                  reference.getSubSequence(seq_name,
+                                                           chunk_start,
+                                                           chunk_end - chunk_start),
+                                  seq_name);
+            chunk_start = chunk_end;
+            graphq.push_back(plan->graph);
+            construction.push_front(plan);
+            if (show_progress) graph_end[plan->graph] = chunk_end;
+            update_progress(chunk_end);
         }
-        if (progress) progress->Progressed(0);
-
-        set<VG*> graph_completed;
-
-        // omp pragma here to define parallel section
+        destroy_progress();
 
         // this system is not entirely general
         // there will be a problem when the regions of overlapping deletions become too large
         // then the inter-dependence of each region will make parallel construction in this way difficult
         // because the chunks will get too large
 
-#pragma omp parallel default(none)                                      \
-    shared(vars_per_region, region, target, stop_pos,                   \
-           variantCallFile, done_with_chrom, reference,                 \
-           seq_name, start, start_pos, var_is_at_end, progress,         \
-           refseq_graph, graphq, appending_graphs, max_node_size,       \
-           end, var, cerr, construction, graph_completed, graph_end)
+        create_progress("constructing graph", stop_pos-start_pos);
 
-        while (!done_with_chrom || !construction.empty() || !graphq.empty()) {
-
+#pragma omp parallel for
+        for (int i = 0; i < construction.size(); ++i) {
             int tid = omp_get_thread_num();
+            Plan* plan = construction.at(i);
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << tid << ": " << "constructing graph " << plan->graph << " over "
+                 << plan->alleles->size() << " variants in " <<plan->seq.size() << "bp "
+                 << plan->name << endl;
+#endif
 
-/*
-#pragma omp critical (debug)
-            cerr << tid << ": " << "at top of loop "
-                 << (done_with_chrom ? "done" : "more") << " "
-                 << construction.size() << " " << graphq.size() << endl;
-*/
-
-// each thread should check if there is a new item in the queue to remove
-// and append
-
-            VG* g = refseq_graph[target];
+            plan->graph->from_alleles(*plan->alleles,
+                                      plan->seq,
+                                      plan->name);
+#pragma omp critical (graphq)
+            {
+                graph_completed.insert(plan->graph);
+#ifdef debug
+#pragma omp critical (cerr)
+                cerr << tid << ": " << "constructed graph " << plan->graph << endl;
+#endif
+            }
+            delete plan;
 
             if (!graphq.empty()
                 && graph_completed.count(graphq.front())
                 && omp_test_lock(&appending_graphs)) {
                 // this thread has the lock
+                VG* g = refseq_graph[target];
                 while (!graphq.empty() && graph_completed.count(graphq.front())) {
                     VG* o = NULL;
 #pragma omp critical (graphq)
@@ -984,145 +1085,15 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     }
                     g->append(*o);
                     delete o;
-#pragma omp critical (progress)
-                    if (progress) progress->Progressed(graph_end[o]-start_pos);
+                    update_progress(graph_end[o]-start_pos);
                 }
                 // reset lock
                 omp_unset_lock(&appending_graphs);
             }
 
-            // processing of VCF file should only be handled by one thread at a time
-#pragma omp critical (vcf_input)
-            if (!done_with_chrom) {
-
-                if (!region) {
-                    region = new vector<vcf::Variant>;
-                }
-
-                done_with_chrom = !variantCallFile.getNextVariant(var);
-                var.position -= 1; // convert to 0-based
-
-                vcf::Variant* lvar = (region->empty() ? NULL : &region->back());
-//#pragma omp critical (debug)
-//                cerr << tid << ": got variant = " << var << endl;
-
-                // skip non-DNA sequences, such as SVs
-                bool isDNA = allATGC(var.ref);
-                for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
-                    if (!allATGC(*a)) isDNA = false;
-                }
-
-                if (!done_with_chrom && isDNA) {
-                    if (lvar) {
-                        end = max(end, (int64_t) (lvar->position + lvar->ref.size()));
-                        if (var.position <= end) {
-                            var_is_at_end = false;
-                        } else {
-                            var_is_at_end = true;
-                        }
-                    }
-                    region->push_back(var);
-                }
-
-                if (done_with_chrom) {
-                    var_is_at_end = true;
-                }
-
-                if (region
-                    && (region->size() - 1 >= vars_per_region
-                        && var_is_at_end
-                        || done_with_chrom)) {
-
-                    vector<vcf::Variant>* vars = region;
-                    region = NULL;
-                
-                    // find the end of the region
-                    if (done_with_chrom) {
-                        end = stop_pos;
-                    }
-
-                    if (!done_with_chrom) {
-                        // push an empty list back to handle the next region
-                        region = new vector<vcf::Variant>;
-                        region->push_back(vars->back());
-                        vars->pop_back();
-                    }
-
-                    // makes a new construction plan
-                    Plan* plan = new Plan;
-                    plan->graph = new VG;
-
-                    // retain reference to graph
-#pragma omp critical (graphq)
-                    graphq.push_back(plan->graph);
-                    // variants
-                    plan->vars = vars;
-                    // reference sequence
-                    plan->seq = reference.getSubSequence(seq_name, start, end - start);
-                    // chromosome name
-                    plan->name = seq_name;
-                    // offset
-                    plan->offset = start;
-                    // store the plan in our construction queue
-                    construction.push_front(plan);
-                    // record our end position (for progress logging only)
-                    if (progress) graph_end[plan->graph] = end;
-
-                    // this start is the next end
-                    start = end;
-                    // and reset end
-                    end = 0;
-                    // reset var_is_at_end
-                    var_is_at_end = false;
-
-                }
-            }
-
-            // execute this as a parallel block
-            // it can be done in an entirely separate thread
-            if (!construction.empty()) {
-                Plan* plan = NULL;
-#pragma omp critical (construction)
-                {
-                    if (!construction.empty()) {
-                        plan = construction.back();
-                        construction.pop_back();
-                    }
-                }
-                
-                if (plan) {
-
-/*
-#pragma omp critical (debug)
-                    cerr << tid << ": " << "constructing graph " << plan->graph << " over "
-                         << plan->vars->size() << " variants in " <<plan->seq.size() << "bp "
-                         << plan->name << ":" << plan->offset
-                         << "-" << plan->offset + plan->seq.size() << endl;
-*/
-
-                    plan->graph->from_vcf_records(*plan->vars,
-                                                  plan->seq,
-                                                  plan->name,
-                                                  plan->offset,
-                                                  max_node_size);
-
-#pragma omp critical (graphq)
-                    {
-                        graph_completed.insert(plan->graph);
-//#pragma omp critical (debug)
-//                        cerr << tid << ": " << "completed graph " << plan->graph << endl;
-                    }
-                    // TODO plan should probably be a class, so that this can be managed
-                    delete plan->vars;
-                    delete plan;
-                }
-            }
-
-            // if we are waiting on the completion of graph appending or construction, slow down
-            if (done_with_chrom && (!construction.empty() || !graphq.empty())) {
-                usleep(10000); // 10ms
-            }
         }
+        destroy_progress();
+
         // parallel end
 
         // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
@@ -1131,12 +1102,6 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         refseq_graph[target]->topologically_sort_graph();
         // we get identical graphs no matter what the region size is
         refseq_graph[target]->compact_ids();
-
-        if (progress) {
-            delete progress;
-            progress = NULL;
-            cerr << endl;
-        }
 
         omp_destroy_lock(&appending_graphs);
 

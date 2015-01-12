@@ -86,32 +86,21 @@ public:
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
-    // construct from VCF records
+    // construct from VCF
     VG(vcf::VariantCallFile& variantCallFile,
        FastaReference& reference,
        string& target,
        int vars_per_region,
        int max_node_size = 0,
        bool showprog = false);
-    VG(vector<vcf::Variant>& records,
-       string seq,
-       string chrom,
-       int offset,
-       int max_node_size);
-    void from_vcf_records(vector<vcf::Variant>& records,
-                          string seq,
-                          string chrom,
-                          int offset,
-                          int max_node_size);
-    
     void from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                       string& seq,
                       string& chrom);
-    const map<long, set<vcf::VariantAllele> >
-    vcf_records_to_alleles(vector<vcf::Variant>& records,
-                           string& seq,
-                           int offset,
-                           int max_node_size);
+    void vcf_records_to_alleles(vector<vcf::Variant>& records,
+                                map<long, set<vcf::VariantAllele> >& altp,
+                                int start_pos,
+                                int stop_pos,
+                                int max_node_size);
 
 
     // default constructor, destructor
@@ -313,7 +302,11 @@ public:
 
     bool show_progress;
     string progress_message;
+    long progress_count;
     ProgressBar* progress;
+    void create_progress(const string& message, long count);
+    void update_progress(long i);
+    void destroy_progress(void);
 
 private:
 
