@@ -573,7 +573,7 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
             for (auto& allele : alleles.second) {
 #pragma omp critical (altp)
                 altp[allele.position].insert(allele);
-                if (i % 1000 == 0) {
+                if (i % 10000 == 0) {
                     update_progress(altp.size());
                 }
             }
@@ -843,6 +843,12 @@ bool allATGC(string& s) {
 void VG::create_progress(const string& message, long count) {
     if (show_progress) {
         progress_message = message;
+        create_progress(count);
+    }
+}
+
+void VG::create_progress(long count) {
+    if (show_progress) {
         progress_message.resize(30, ' ');
         progress_count = count;
         progress = new ProgressBar(progress_count, progress_message.c_str());
@@ -863,6 +869,7 @@ void VG::destroy_progress(void) {
     if (show_progress && progress) {
         update_progress(progress_count);
         cerr << endl;
+        progress_message = "";
         progress_count = 0;
         delete progress;
         progress = NULL;
@@ -1325,24 +1332,17 @@ Node* VG::create_node(string seq) {
 }
 
 void VG::for_each_node_parallel(function<void(Node*)> lambda) {
-    if (show_progress) {
-        progress = new ProgressBar(graph.node_size(), progress_message.c_str());
-    }
+    create_progress(graph.node_size());
     int64_t completed = 0;
 #pragma omp parallel for shared(completed)
     for (int64_t i = 0; i < graph.node_size(); ++i) {
         lambda(graph.mutable_node(i));
         if (progress && completed++ % 1000 == 0) {
 #pragma omp critical (progress_bar)
-            progress->Progressed(completed);
+            update_progress(completed);
         }
     }
-    if (show_progress) {
-        progress->Progressed(completed);
-        delete progress;
-        progress = NULL;
-        cerr << endl;
-    }
+    destroy_progress();
 }
 
 void VG::for_each_node(function<void(Node*)> lambda) {

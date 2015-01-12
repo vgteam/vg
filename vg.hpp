@@ -305,6 +305,7 @@ public:
     long progress_count;
     ProgressBar* progress;
     void create_progress(const string& message, long count);
+    void create_progress(long count);
     void update_progress(long i);
     void destroy_progress(void);
 
