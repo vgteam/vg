@@ -1921,16 +1921,26 @@ void VG::to_dot(ostream& out) {
 }
 
 void VG::to_gfa(ostream& out) {
+    map<int64_t, vector<string> > sorted_output;
     out << "H" << "\t" << "HVN:Z:1.0" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        out << "S" << "\t" << n->id() << "\t" << n->sequence() << endl;
+        stringstream s;
+        s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
+        sorted_output[n->id()].push_back(s.str());
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         Node* p = node_by_id[e->from()];
         Node* n = node_by_id[e->to()];
-        out << "L" << "\t" << p->id() << "\t" << "-" << "\t" << n->id() << "\t" << "+" << "\t" << "0M" << endl;
+        stringstream s;
+        s << "L" << "\t" << p->id() << "\t" << "-" << "\t" << n->id() << "\t" << "+" << "\t" << "0M" << endl;
+        sorted_output[p->id()].push_back(s.str());
+    }
+    for (auto& chunk : sorted_output) {
+        for (auto& line : chunk.second) {
+            out << line;
+        }
     }
 }
 
