@@ -5,7 +5,8 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 1
+plan tests 2
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view - | wc -l) 504 "view produces the expected number of lines of dot output"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 504 "view produces the expected number of lines of dot output"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 502 "view produces the expected number of lines of GFA output"
 

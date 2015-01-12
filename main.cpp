@@ -1133,8 +1133,8 @@ int main_map(int argc, char** argv) {
 void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] <graph.vg>" << endl
          << "options:" << endl
-         << "    -d, --dot             output dot format (default)" << endl
-         << "    -g, --gfa             output GFA format" << endl
+         << "    -g, --gfa             output GFA format (default)" << endl
+         << "    -d, --dot             output dot format" << endl
          << "    -j, --json            output VG JSON format" << endl;
 }
 
@@ -1145,7 +1145,7 @@ int main_view(int argc, char** argv) {
         return 1;
     }
 
-    string output_type = "dot";
+    string output_type = "gfa";
 
     int c;
     optind = 2; // force optind past "view" argument
