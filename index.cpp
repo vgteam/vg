@@ -265,7 +265,9 @@ void Index::put_metadata(const string& tag, const string& data) {
 }
 
 void Index::load_graph(VG& graph) {
+    if (graph.show_progress) { graph.progress_message = "indexing nodes of " + graph.name; }
     graph.for_each_node_parallel([this](Node* n) { put_node(n); });
+    if (graph.show_progress) { graph.progress_message = "indexing edges of " + graph.name; }
     graph.for_each_edge_parallel([this](Edge* e) { put_edge(e); });
 }
 

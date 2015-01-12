@@ -1186,10 +1186,17 @@ void VG::set_edge(int64_t from, int64_t to, Edge* edge) {
 }
 
 void VG::for_each_edge_parallel(function<void(Edge*)> lambda) {
-#pragma omp parallel for
+    create_progress(graph.edge_size());
+    int64_t completed = 0;
+#pragma omp parallel for shared(completed)
     for (int64_t i = 0; i < graph.edge_size(); ++i) {
         lambda(graph.mutable_edge(i));
+        if (progress && completed++ % 1000 == 0) {
+#pragma omp critical (progress_bar)
+            update_progress(completed);
+        }
     }
+    destroy_progress();
 }
 
 void VG::for_each_edge(function<void(Edge*)> lambda) {

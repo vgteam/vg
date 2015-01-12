@@ -56,7 +56,6 @@ int64_t VGset::merge_id_space(void) {
 void VGset::store_in_index(Index& index) {
     for_each([&index, this](VG* g) {
         g->show_progress = show_progress;
-        g->progress_message = "storing " + g->name + " in index";
         index.load_graph(*g);
     });
 }
