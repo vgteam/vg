@@ -557,47 +557,32 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
 //
 VG::VG(vector<vcf::Variant>& records, string seq, string chrom, int offset, int max_node_size) {
     init();
-    from_vcf_records(&records, seq, chrom, offset, max_node_size);
+    from_vcf_records(records, seq, chrom, offset, max_node_size);
 }
 
-void VG::from_vcf_records(vector<vcf::Variant>* r,
-                          string seq,
-                          string chrom,
-                          int offset,
-                          int max_node_size) {
+void VG::from_vcf_records(vector<vcf::Variant>& records,
+                      string seq,
+                      string chrom,
+                      int offset,
+                      int max_node_size) {
+    const map<long, set<vcf::VariantAllele> > altp
+        = vcf_records_to_alleles(records, seq, offset, max_node_size);
+    from_alleles(altp, seq, chrom);
+}
 
-    //init();
-    vector<vcf::Variant>& records = *r;
+const map<long, set<vcf::VariantAllele> >
+VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
+                           string& seq,
+                           int offset,
+                           int max_node_size) {
 
-/*
-    int tid = omp_get_thread_num();
-#pragma omp critical
-    {
-        cerr << tid << ": in from_vcf_records" << endl;
-        cerr << tid << ": with " << records.size() << " vars" << endl;
-        cerr << tid << ": and " << seq.size() << "bp" << endl;
-    }
-*/
-
-
-    map<long, Node*> reference_path;
-    // track the last nodes so that we can connect everything
-    // completely when variants occur in succession
-    map<long, set<Node*> > nodes_by_end_position;
-    map<long, set<Node*> > nodes_by_start_position;
-
-    // parsed alternates
     map<long, set<vcf::VariantAllele> > altp;
-
-    Node* ref_node = create_node(seq);
-    reference_path[0] = ref_node;
 
     auto enforce_node_size_limit =
         [max_node_size, &altp]
         (int curr_pos, int& last_pos) {
         int last_ref_size = curr_pos - last_pos;
         if (max_node_size && last_ref_size > max_node_size) {
-            // function(l,m) ifelse(floor(l/m)>0, ceiling(l/floor(l/m)))
             int div = 2;
             while (last_ref_size/div > max_node_size) {
                 ++div;
@@ -620,7 +605,7 @@ void VG::from_vcf_records(vector<vcf::Variant>* r,
 //#pragma omp critical
 //        cerr << omp_get_thread_num() << ": " << var << endl;
 
-        // decompose the alt
+        // decompose to alts
         bool flat_input_vcf = false; // hack
         map<string, vector<vcf::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
@@ -634,11 +619,45 @@ void VG::from_vcf_records(vector<vcf::Variant>* r,
             }
         }
     }
+
     enforce_node_size_limit(seq.size(), last_pos);
+
+    return altp;
+}
+
+
+void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
+                      string& seq,
+                      string& chrom) {
+
+    //init();
+
+/*
+    int tid = omp_get_thread_num();
+#pragma omp critical
+    {
+        cerr << tid << ": in from_vcf_records" << endl;
+        cerr << tid << ": with " << records.size() << " vars" << endl;
+        cerr << tid << ": and " << seq.size() << "bp" << endl;
+    }
+*/
+
+
+    map<long, Node*> reference_path;
+    // track the last nodes so that we can connect everything
+    // completely when variants occur in succession
+    map<long, set<Node*> > nodes_by_end_position;
+    map<long, set<Node*> > nodes_by_start_position;
+
+    // parsed alternates
+
+
+    Node* ref_node = create_node(seq);
+    reference_path[0] = ref_node;
 
     for (auto& va : altp) {
 
-        set<vcf::VariantAllele>& alleles = va.second;
+        const set<vcf::VariantAllele>& alleles = va.second;
 
         // if alleles are empty, we just cut at this point
         if (alleles.empty()) {
@@ -1022,7 +1041,6 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                         end = stop_pos;
                     }
 
-
                     if (!done_with_chrom) {
                         // push an empty list back to handle the next region
                         region = new vector<vcf::Variant>;
@@ -1082,7 +1100,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                          << "-" << plan->offset + plan->seq.size() << endl;
 */
 
-                    plan->graph->from_vcf_records(plan->vars,
+                    plan->graph->from_vcf_records(*plan->vars,
                                                   plan->seq,
                                                   plan->name,
                                                   plan->offset,

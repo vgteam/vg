@@ -94,11 +94,25 @@ public:
        int max_node_size = 0,
        bool showprog = false);
     VG(vector<vcf::Variant>& records,
-       string seq, string chrom,
-       int offset, int max_node_size);
-    void from_vcf_records(vector<vcf::Variant>* r,
-                          string seq, string chrom,
-                          int offset,  int max_node_size);
+       string seq,
+       string chrom,
+       int offset,
+       int max_node_size);
+    void from_vcf_records(vector<vcf::Variant>& records,
+                          string seq,
+                          string chrom,
+                          int offset,
+                          int max_node_size);
+    
+    void from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
+                      string& seq,
+                      string& chrom);
+    const map<long, set<vcf::VariantAllele> >
+    vcf_records_to_alleles(vector<vcf::Variant>& records,
+                           string& seq,
+                           int offset,
+                           int max_node_size);
+
 
     // default constructor, destructor
     ~VG(void);
