@@ -1044,8 +1044,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             // record end position, use target end in the case that we are at the end
             if (alleles.empty()) chunk_end = stop_pos;
 
+            // we set the head graph to be this one, so we aren't obligated to copy the result into this object
             // make a construction plan
-            Plan* plan = new Plan(new VG,
+            Plan* plan = new Plan(graphq.empty() && targets.size() == 1 ? this : new VG,
                                   new_alleles,
                                   reference.getSubSequence(seq_name,
                                                            chunk_start,
@@ -1168,20 +1169,27 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // store it in our results
         refseq_graph[target] = target_graph;
 
+        create_progress("joining graphs", 1);
         // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
         refseq_graph[target]->remove_null_nodes_forwarding_edges();
+        destroy_progress();
 
+        create_progress("topologically sorting", 1);
         // then use topological sorting and re-compression of the id space to make sure that
         refseq_graph[target]->topologically_sort_graph();
+        destroy_progress();
 
+        create_progress("compacting ids", 1);
         // we get identical graphs no matter what the region size is
         refseq_graph[target]->compact_ids();
+        destroy_progress();
 
     }
 
     // hack for efficiency when constructing over a single chromosome
     if (refseq_graph.size() == 1) {
-        *this = *refseq_graph[targets.front()];
+        // *this = *refseq_graph[targets.front()];
+        // we have already done this because the first graph in the queue is this
     } else {
         // where we have multiple targets
         for (vector<string>::iterator t = targets.begin(); t != targets.end(); ++t) {
