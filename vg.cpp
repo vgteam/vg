@@ -1000,6 +1000,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         int final_completed = -1; // hm
         // the construction queue
         list<VG*> graphq;
+        int graphq_size = 0; // for efficiency
+        // ^^^^ (we need to insert/remove things in the middle of the list,
+        // but we also need to be able to quickly determine its size)
         // for tracking progress through the chromosome
         map<VG*, unsigned long> graph_end;
 
@@ -1054,6 +1057,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             if (show_progress) graph_end[plan->graph] = chunk_end;
             update_progress(chunk_end);
         }
+        graphq_size = graphq.size();
         destroy_progress();
 
         // this system is not entirely general
@@ -1063,7 +1067,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         // use this function to merge graphs both during and after the construction iteration
         auto merge_first_two_completed_graphs =
-            [this, start_pos, &graph_completed, &graphq, &graph_end, &final_completed](void) {
+            [this, start_pos, &graph_completed, &graphq, &graphq_size, &graph_end, &final_completed](void) {
             // find the first two consecutive graphs which are completed
             VG* first = NULL;
             VG* second = NULL;
@@ -1087,6 +1091,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     graph_completed.erase(first);
                     graph_completed.erase(second);
                     graphq.erase(itn);
+                    --graphq_size;
                 }
             }
 
@@ -1148,7 +1153,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                 merge_first_two_completed_graphs();
                 usleep(10);
 #pragma omp critical (graphq)
-                more_to_merge = graphq.size() > 1;
+                more_to_merge = graphq_size > 1;
             }
         }
         destroy_progress();
