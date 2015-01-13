@@ -581,6 +581,8 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
     }
     destroy_progress();
 
+#pragma omp barrier
+
     auto enforce_node_size_limit =
         [max_node_size, &altp]
         (int curr_pos, int& last_pos) {
@@ -973,6 +975,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         map<long,set<vcf::VariantAllele> > alleles;
         vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size);
         records.clear(); // clean up
+
+#pragma omp barrier
 
         // for managing parallel construction
         struct Plan {
