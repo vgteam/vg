@@ -593,56 +593,64 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
             int segment_size = last_ref_size/div;
             int i = 0;
             while (last_pos + i < curr_pos) {
-                altp[last_pos+i]; // empty
+                altp[last_pos+i]; // empty cut
                 i += segment_size;
             }
         }
     };
 
-    // break apart big nodes
-    int last_pos = start_pos;
-    for (auto& alternates : altp) {
-        auto& alleles = alternates.second;
-        for (auto& allele : alleles) {
-            // cut the last reference sequence into bite-sized pieces
-            enforce_node_size_limit(allele.position, last_pos);
-            altp[allele.position].insert(allele);
-            last_pos = allele.position;
+    if (max_node_size > 0) {
+        create_progress("enforcing node size limit ", altp.size());
+        int i = 0;
+        // break apart big nodes
+        int last_pos = start_pos;
+        for (auto& position : altp) {
+            auto& alleles = position.second;
+            enforce_node_size_limit(position.first, last_pos);
+            for (auto& allele : alleles) {
+                // cut the last reference sequence into bite-sized pieces
+                last_pos = max(position.first + allele.ref.size(), (long unsigned int) last_pos);
+            }
+            if (i++ % 10000 == 0) {
+                update_progress(altp.size());
+            }
         }
+        enforce_node_size_limit(stop_pos, last_pos);
+        destroy_progress();
     }
-    enforce_node_size_limit(stop_pos, last_pos);
 
 }
 
 
 void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                       string& seq,
-                      string& chrom) {
+                      string& name) {
 
     //init();
+    this->name = name;
 
     int tid = omp_get_thread_num();
 #ifdef debug
 #pragma omp critical (cerr)
     {
-        cerr << tid << ": in from_vcf_records" << endl;
+        cerr << tid << ": in from_alleles" << endl;
         cerr << tid << ": with " << altp.size() << " vars" << endl;
         cerr << tid << ": and " << seq.size() << "bp" << endl;
+        cerr << seq << endl;
     }
 #endif
 
 
-    map<long, Node*> reference_path;
+    // maintains the path of the seq in the graph
+    map<long, Node*> seq_path;
     // track the last nodes so that we can connect everything
     // completely when variants occur in succession
     map<long, set<Node*> > nodes_by_end_position;
     map<long, set<Node*> > nodes_by_start_position;
 
-    // parsed alternates
 
-
-    Node* ref_node = create_node(seq);
-    reference_path[0] = ref_node;
+    Node* seq_node = create_node(seq);
+    seq_path[0] = seq_node;
 
     for (auto& va : altp) {
 
@@ -651,18 +659,20 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
         // if alleles are empty, we just cut at this point
         if (alleles.empty()) {
             Node* l = NULL; Node* r = NULL;
-            divide_path(reference_path, va.first, l, r);
+            divide_path(seq_path, va.first, l, r);
         }
 
         for (auto allele : alleles) {
 
-//#pragma omp critical (cerr)
-//            cerr << tid << ": " << allele << endl;
-
-            // reference alleles are provided naturally by the reference itself
+            // skip ref-matching alleles; these are not informative
             if (allele.ref == allele.alt) {
                 continue;
             }
+
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << tid << ": " << allele << endl;
+#endif
 
             // 0/1 based conversion happens in offset
             long allele_start_pos = allele.position;
@@ -675,32 +685,27 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                 // ensures that we can handle variation at first position
                 // (important when aligning)
                 Node* root = create_node("");
-                reference_path[-1] = root;
+                seq_path[-1] = root;
                 nodes_by_start_position[-1].insert(root);
                 nodes_by_end_position[0].insert(root);
             }
 
-            Node* left_ref_node = NULL;
-            Node* middle_ref_node = NULL;
-            Node* right_ref_node = NULL;
+            Node* left_seq_node = NULL;
+            Node* middle_seq_node = NULL;
+            Node* right_seq_node = NULL;
 
-            divide_path(reference_path,
+            // make one cut at the ref-path relative start of the allele
+            divide_path(seq_path,
                         allele_start_pos,
-                        left_ref_node,
-                        right_ref_node);
-
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << tid << ": nodes: left: " << left_ref_node->id() << ":" << left_ref_node->sequence()
-                 << " right: " << right_ref_node->id() << ":" << right_ref_node->sequence() << endl;
-#endif
+                        left_seq_node,
+                        right_seq_node);
 
             // if the ref portion of the allele is not empty, then we need to make another cut
             if (!allele.ref.empty()) {
-                divide_path(reference_path,
+                divide_path(seq_path,
                             allele_end_pos,
-                            middle_ref_node,
-                            right_ref_node);
+                            middle_seq_node,
+                            right_seq_node);
             }
 
             Node* alt_node = NULL;
@@ -709,57 +714,56 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                 //cerr << "both alt and ref have sequence" << endl;
 
                 alt_node = create_node(allele.alt);
-                create_edge(left_ref_node, alt_node);
-                create_edge(alt_node, right_ref_node);
+                create_edge(left_seq_node, alt_node);
+                create_edge(alt_node, right_seq_node);
 
                 nodes_by_end_position[allele_end_pos].insert(alt_node);
-                nodes_by_end_position[allele_end_pos].insert(middle_ref_node);
-                //nodes_by_end_position[allele_start_pos].insert(left_ref_node);
+                nodes_by_end_position[allele_end_pos].insert(middle_seq_node);
+                //nodes_by_end_position[allele_start_pos].insert(left_seq_node);
                 nodes_by_start_position[allele_start_pos].insert(alt_node);
-                nodes_by_start_position[allele_start_pos].insert(middle_ref_node);
+                nodes_by_start_position[allele_start_pos].insert(middle_seq_node);
 
             } else if (!allele.alt.empty()) { // insertion
 
-                //cerr << "alt has sequence" << endl;
                 alt_node = create_node(allele.alt);
-                create_edge(left_ref_node, alt_node);
-                create_edge(alt_node, right_ref_node);
+                create_edge(left_seq_node, alt_node);
+                create_edge(alt_node, right_seq_node);
                 nodes_by_end_position[allele_end_pos].insert(alt_node);
-                nodes_by_end_position[allele_end_pos].insert(left_ref_node);
+                nodes_by_end_position[allele_end_pos].insert(left_seq_node);
                 nodes_by_start_position[allele_start_pos].insert(alt_node);
 
             } else {// otherwise, we have a deletion
 
-                    //cerr << "ref has sequence" << endl;
-                create_edge(left_ref_node, right_ref_node);
-                nodes_by_end_position[allele_end_pos].insert(left_ref_node);
-                nodes_by_start_position[allele_start_pos].insert(left_ref_node);
+                create_edge(left_seq_node, right_seq_node);
+                nodes_by_end_position[allele_end_pos].insert(left_seq_node);
+                nodes_by_start_position[allele_start_pos].insert(left_seq_node);
 
             }
 
-            /*
-            cerr << allele << endl;
-            if (left_ref_node) cerr << "left_ref " << left_ref_node->id()
-                                    << " " << left_ref_node->sequence() << endl;
-            if (middle_ref_node) cerr << "middle_ref " << middle_ref_node->id()
-                                      << " " << middle_ref_node->sequence() << endl;
-            if (alt_node) cerr << "alt_node " << alt_node->id()
-                               << " " << alt_node->sequence() << endl;
-            if (right_ref_node) cerr << "right_ref " << right_ref_node->id()
-                                     << " " << right_ref_node->sequence() << endl;
-            */
-
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                if (left_seq_node) cerr << tid << ": left_ref " << left_seq_node->id()
+                                        << " " << left_seq_node->sequence() << endl;
+                if (middle_seq_node) cerr << tid << ": middle_ref " << middle_seq_node->id()
+                                          << " " << middle_seq_node->sequence() << endl;
+                if (alt_node) cerr << tid << ": alt_node " << alt_node->id()
+                                   << " " << alt_node->sequence() << endl;
+                if (right_seq_node) cerr << tid << ": right_ref " << right_seq_node->id()
+                                         << " " << right_seq_node->sequence() << endl;
+            }
+#endif
 
             if (allele_end_pos == seq.size()) {
                 // ensures that we can handle variation at last position (important when aligning)
                 Node* end = create_node("");
-                reference_path[allele_end_pos] = end;
+                seq_path[allele_end_pos] = end;
                 // for consistency, this should be handled below in the start/end connections
                 if (alt_node) {
                     create_edge(alt_node, end);
                 }
-                if (middle_ref_node) {
-                    create_edge(middle_ref_node, end);
+                if (middle_seq_node) {
+                    create_edge(middle_seq_node, end);
                 }
             }
 
@@ -851,6 +855,7 @@ void VG::create_progress(long count) {
     if (show_progress) {
         progress_message.resize(30, ' ');
         progress_count = count;
+        last_progress = 0;
         progress = new ProgressBar(progress_count, progress_message.c_str());
         progress->Progressed(0);
     }
@@ -858,9 +863,14 @@ void VG::create_progress(long count) {
 
 void VG::update_progress(long i) {
     if (show_progress && progress) {
-        if (i <= progress_count) {
+        if (i <= progress_count
+            && (long double) (i - last_progress) / (long double) progress_count >= 0.01
+            || i == progress_count) {
 #pragma omp critical (progress)
-            progress->Progressed(i);
+            {
+                progress->Progressed(i);
+                last_progress = i;
+            }
         }
     }
 }
@@ -985,15 +995,13 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         deque<Plan*> construction;
         // so we can check which graphs we can safely append
         set<VG*> graph_completed;
+        // we add and remove from graph_completed, so track count for logging
+        int graphs_completed = 0;
+        int final_completed = -1; // hm
         // the construction queue
-        deque<VG*> graphq;
-        omp_lock_t appending_graphs;
-        omp_init_lock(&appending_graphs);
+        list<VG*> graphq;
         // for tracking progress through the chromosome
         map<VG*, unsigned long> graph_end;
-
-        // our target graph
-        refseq_graph[target] = new VG;
 
         create_progress("planning construction", stop_pos-start_pos);
         // break into chunks
@@ -1007,13 +1015,14 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             bool clean_end = true;
             for (int i = 0; (i < vars_per_region || !clean_end) && !alleles.empty(); ++i) {
                 auto pos = alleles.begin()->first - chunk_start;
-                chunk_end = alleles.begin()->first;
+                chunk_end = max(chunk_end, (int)alleles.begin()->first);
                 auto& pos_alleles = alleles.begin()->second;
                 // apply offset when adding to the new alleles
                 auto& curr_pos = (*new_alleles)[pos];
                 for (auto& allele : pos_alleles) {
                     auto new_allele = allele;
                     int ref_end = new_allele.ref.size() + new_allele.position;
+                    // look through the alleles to see if there is a longer chunk
                     if (ref_end > chunk_end) {
                         chunk_end = ref_end;
                     }
@@ -1021,7 +1030,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                     curr_pos.insert(new_allele);
                 }
                 alleles.erase(alleles.begin());
-                // TODO here we need to do the old check... to see if we are neighboring another variant
+                // TODO here we need to see if we are neighboring another variant
                 // and if we are, keep constructing
                 if (alleles.begin()->first <= chunk_end) {
                     clean_end = false;
@@ -1041,7 +1050,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                                   seq_name);
             chunk_start = chunk_end;
             graphq.push_back(plan->graph);
-            construction.push_front(plan);
+            construction.push_back(plan);
             if (show_progress) graph_end[plan->graph] = chunk_end;
             update_progress(chunk_end);
         }
@@ -1052,10 +1061,53 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // then the inter-dependence of each region will make parallel construction in this way difficult
         // because the chunks will get too large
 
-        create_progress("constructing graph", stop_pos-start_pos);
+        // use this function to merge graphs both during and after the construction iteration
+        auto merge_first_two_completed_graphs =
+            [this, start_pos, &graph_completed, &graphq, &graph_end, &final_completed](void) {
+            // find the first two consecutive graphs which are completed
+            VG* first = NULL;
+            VG* second = NULL;
+#pragma omp critical (graphq)
+            {
+                auto itp = graphq.begin(); // previous
+                auto itn = itp; if (itp != graphq.end()) ++itn; // next
+                // scan the graphq to find consecutive entries that are both completed
+                while (itp != itn // there is > 1 entry
+                       && itn != graphq.end() // we aren't yet at the end
+                       && !(graph_completed.count(*itp) // the two we're looking at aren't completed
+                            && graph_completed.count(*itn))) {
+                    ++itp; ++itn;
+                }
 
+                if (itn != graphq.end()) {
+                    // we have two consecutive graphs to merge!
+                    first = *itp;
+                    second = *itn;
+                    // unset graph completed for both
+                    graph_completed.erase(first);
+                    graph_completed.erase(second);
+                    graphq.erase(itn);
+                }
+            }
+
+            if (first && second) {
+                first->append(*second);
+#pragma omp critical (graphq)
+                {
+                    if (final_completed != -1) update_progress(final_completed++);
+                    graph_completed.insert(first);
+                    graph_end.erase(second);
+                }
+                delete second;
+            }
+        };
+
+        create_progress("constructing graph", construction.size());
+
+        // (in parallel) construct each component of the graph
 #pragma omp parallel for
         for (int i = 0; i < construction.size(); ++i) {
+
             int tid = omp_get_thread_num();
             Plan* plan = construction.at(i);
 #ifdef debug
@@ -1070,52 +1122,59 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                                       plan->name);
 #pragma omp critical (graphq)
             {
+                update_progress(++graphs_completed);
                 graph_completed.insert(plan->graph);
 #ifdef debug
 #pragma omp critical (cerr)
                 cerr << tid << ": " << "constructed graph " << plan->graph << endl;
 #endif
             }
+            // clean up
             delete plan;
 
-            if (!graphq.empty()
-                && graph_completed.count(graphq.front())
-                && omp_test_lock(&appending_graphs)) {
-                // this thread has the lock
-                VG* g = refseq_graph[target];
-                while (!graphq.empty() && graph_completed.count(graphq.front())) {
-                    VG* o = NULL;
-#pragma omp critical (graphq)
-                    {
-                        o = graphq.front();
-                        graphq.pop_front();
-                        graph_completed.erase(o);
-                    }
-                    g->append(*o);
-                    delete o;
-                    update_progress(graph_end[o]-start_pos);
-                }
-                // reset lock
-                omp_unset_lock(&appending_graphs);
-            }
+            // concatenate chunks of the result graph together
+            merge_first_two_completed_graphs();
 
         }
         destroy_progress();
 
+        // merge remaining graphs
+        final_completed = 0;
+        create_progress("merging remaining graphs", graphq.size());
+#pragma omp parallel
+        {
+            bool more_to_merge = true;
+            while (more_to_merge) {
+                merge_first_two_completed_graphs();
+                usleep(10);
+#pragma omp critical (graphq)
+                more_to_merge = graphq.size() > 1;
+            }
+        }
+        destroy_progress();
+
         // parallel end
+        // finalize target
+
+        // our target graph should be the only entry in the graphq
+        assert(graphq.size() == 1);
+        VG* target_graph = graphq.front();
+
+        // store it in our results
+        refseq_graph[target] = target_graph;
 
         // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
         refseq_graph[target]->remove_null_nodes_forwarding_edges();
+
         // then use topological sorting and re-compression of the id space to make sure that
         refseq_graph[target]->topologically_sort_graph();
+
         // we get identical graphs no matter what the region size is
         refseq_graph[target]->compact_ids();
 
-        omp_destroy_lock(&appending_graphs);
-
     }
 
-    // small hack for efficiency when constructing over a single chromosome
+    // hack for efficiency when constructing over a single chromosome
     if (refseq_graph.size() == 1) {
         *this = *refseq_graph[targets.front()];
     } else {
@@ -1480,17 +1539,21 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
     //cerr << "dividing node " << node->id() << endl;
 
-#pragma omp critical
-    if (pos < 0) {
-        cerr << omp_get_thread_num() << ": in divide_node "
-             << "position (" << pos << ") is less than 0!" << endl
-             << "cannot divide node " << node->id() << ":" << node->sequence() << endl;
-        exit(1);
+    if (pos < 0 || pos > node->sequence().size()) {
+#pragma omp critical (cerr)
+        {
+            cerr << omp_get_thread_num() << ": cannot divide node " << node->id() << ":" << node->sequence()
+                 << " -- position (" << pos << ") is less than 0 or greater than sequence length ("
+                 << node->sequence().size() << ")" << endl;
+            exit(1);
+        }
     }
-/*
-#pragma omp critical
+
+#ifdef debug
+#pragma omp critical (cerr)
     cerr << omp_get_thread_num() << ": in divide_node " << pos << " of " << node->sequence().size() << endl;
-*/
+#endif
+
 
     // make our left node
     left = create_node(node->sequence().substr(0,pos));
@@ -1543,21 +1606,15 @@ void VG::divide_path(map<long, Node*>& path, long pos, Node*& left, Node*& right
     
     // nothing to do
     if (node_pos == pos) {
-
         map<long, Node*>::iterator n = target; --n;
         left = n->second;
         right = target->second;
-
     } else {
-
         // divide the target node at our pos
         int diff = pos - node_pos;
-
         divide_node(old, diff, left, right);
-
         // left
         path[node_pos] = left;
-
         // right
         path[pos] = right;
     }

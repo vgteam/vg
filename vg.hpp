@@ -27,6 +27,8 @@
 
 #include "swap_remove.hpp"
 
+// uncomment to enable verbose debugging to stderr
+//#define debug
 
 namespace vg {
 
@@ -100,7 +102,7 @@ public:
                                 map<long, set<vcf::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
-                                int max_node_size);
+                                int max_node_size = 0);
 
 
     // default constructor, destructor
@@ -303,6 +305,7 @@ public:
     bool show_progress;
     string progress_message;
     long progress_count;
+    long last_progress;
     ProgressBar* progress;
     void create_progress(const string& message, long count);
     void create_progress(long count);
