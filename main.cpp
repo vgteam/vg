@@ -1175,11 +1175,11 @@ int main_view(int argc, char** argv) {
             break;
  
         case 'g':
-            output_type = "GFA";
+            output_type = "gfa";
             break;
  
         case 'j':
-            output_type = "JSON";
+            output_type = "json";
             break;
 
         case 'h':
@@ -1206,11 +1206,11 @@ int main_view(int argc, char** argv) {
 
     if (output_type == "dot") {
         graph->to_dot(std::cout);
-    } else if (output_type == "JSON") {
+    } else if (output_type == "json") {
         char *json2 = pb2json(graph->graph);
         cout<<json2<<endl;
         free(json2);
-    } else if (output_type == "GFA") {
+    } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
     }
 
