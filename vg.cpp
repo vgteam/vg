@@ -450,21 +450,15 @@ int64_t VG::max_node_id(void) {
 void VG::compact_ids(void) {
     hash_map<int64_t, int64_t> new_id;
     int64_t id = 1; // start at 1
-    for (int i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        new_id[n->id()] = id++;
-    }
+    for_each_node([&id, &new_id](Node* n) {
+            new_id[n->id()] = id++; });
 //#pragma omp parallel for
-    for (int i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        n->set_id(new_id[n->id()]);
-    }
+    for_each_node([&new_id](Node* n) {
+            n->set_id(new_id[n->id()]); });
 //#pragma omp parallel for
-    for (int i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
-        e->set_from(new_id[e->from()]);
-        e->set_to(new_id[e->to()]);
-    }
+    for_each_edge([&new_id](Edge* e) {
+            e->set_from(new_id[e->from()]);
+            e->set_to(new_id[e->to()]); });
     rebuild_indexes();
 }
 
@@ -1070,6 +1064,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             if (show_progress) graph_end[plan->graph] = chunk_end;
             update_progress(chunk_end);
         }
+#ifdef debug
+        cerr << omp_get_thread_num() << ": graphq size " << graphq.size() << endl;
+#endif
         graphq_size = graphq.size();
         destroy_progress();
 
@@ -1183,17 +1180,17 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         create_progress("joining graphs", 1);
         // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
-        refseq_graph[target]->remove_null_nodes_forwarding_edges();
+        target_graph->remove_null_nodes_forwarding_edges();
         destroy_progress();
 
-        create_progress("topologically sorting", 1);
         // then use topological sorting and re-compression of the id space to make sure that
-        refseq_graph[target]->topologically_sort_graph();
+        create_progress("topologically sorting", target_graph->size());
+        target_graph->topologically_sort_graph();
         destroy_progress();
 
         create_progress("compacting ids", 1);
         // we get identical graphs no matter what the region size is
-        refseq_graph[target]->compact_ids();
+        target_graph->compact_ids();
         destroy_progress();
 
     }
@@ -1221,6 +1218,16 @@ void VG::topologically_sort_graph(void) {
           ++i, ++n) {
         swap_nodes(graph.mutable_node(i), *n);
     }
+}
+
+size_t VG::size(void) {
+    return graph.node_size();
+}
+
+size_t VG::length(void) {
+    size_t l;
+    for_each_node([&l](Node* n) { l+=n->sequence().size(); });
+    return l;
 }
 
 void VG::swap_nodes(Node* a, Node* b) {
@@ -2302,6 +2309,7 @@ void VG::topological_sort(deque<Node*>& l) {
              << "In-memory indexes of nodes and edges may be out of sync." << endl;
         exit(1);
     }
+    int64_t seen = heads.size();
 
     while (!s.empty()) {
         Node* n = s.begin()->second;
@@ -2311,12 +2319,14 @@ void VG::topological_sort(deque<Node*>& l) {
         vector<int64_t> to_erase;
         for (vector<int64_t>::iterator f = from.begin(); f != from.end(); ++f) {
             Node* m = node_by_id[*f];
+            ++seen;
             to_erase.push_back(m->id());
             remove_edge_tfi(n->id(), m->id());
             if (edges_to(m->id()).empty()) {
                 s[m->id()] = m;
             }
         }
+        update_progress(seen);
         for (vector<int64_t>::iterator t = to_erase.begin(); t != to_erase.end(); ++t) {
             remove_edge_fti(n->id(), *t);
         }
