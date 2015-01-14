@@ -581,9 +581,10 @@ void VG::slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
                        int max_node_size) {
 
     auto enforce_node_size_limit =
-        [max_node_size, &altp]
+        [this, max_node_size, &altp]
         (int curr_pos, int& last_pos) {
         int last_ref_size = curr_pos - last_pos;
+        update_progress(last_pos);
         if (max_node_size && last_ref_size > max_node_size) {
             int div = 2;
             while (last_ref_size/div > max_node_size) {
@@ -594,13 +595,13 @@ void VG::slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
             while (last_pos + i < curr_pos) {
                 altp[last_pos+i]; // empty cut
                 i += segment_size;
+                update_progress(last_pos + i);
             }
         }
     };
 
     if (max_node_size > 0) {
-        create_progress("enforcing node size limit ", altp.size());
-        int i = 0;
+        create_progress("enforcing node size limit ", altp.rbegin()->first);
         // break apart big nodes
         int last_pos = start_pos;
         for (auto& position : altp) {
@@ -609,9 +610,6 @@ void VG::slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
             for (auto& allele : alleles) {
                 // cut the last reference sequence into bite-sized pieces
                 last_pos = max(position.first + allele.ref.size(), (long unsigned int) last_pos);
-            }
-            if (i++ % 10000 == 0) {
-                update_progress(altp.size());
             }
         }
         enforce_node_size_limit(stop_pos, last_pos);
@@ -1188,7 +1186,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         target_graph->topologically_sort_graph();
         destroy_progress();
 
-        create_progress("compacting ids", 1);
+        create_progress("compacting ids", target_graph->size());
         // we get identical graphs no matter what the region size is
         target_graph->compact_ids();
         destroy_progress();
