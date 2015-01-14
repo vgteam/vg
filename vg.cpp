@@ -12,8 +12,10 @@ VG::VG(istream& in) {
 
     ::google::protobuf::io::ZeroCopyInputStream *raw_in =
           new ::google::protobuf::io::IstreamInputStream(&in);
+    ::google::protobuf::io::GzipInputStream *gzip_in =
+          new ::google::protobuf::io::GzipInputStream(raw_in);
     ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(raw_in);
+          new ::google::protobuf::io::CodedInputStream(gzip_in);
 
     coded_in->ReadVarint64(&count);
     delete coded_in;
@@ -25,7 +27,7 @@ VG::VG(istream& in) {
     for (uint64_t i = 0; i < count; ++i) {
 
         ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(raw_in);
+          new ::google::protobuf::io::CodedInputStream(gzip_in);
 
         update_progress(i);
 
@@ -42,6 +44,7 @@ VG::VG(istream& in) {
         delete coded_in;
     }
 
+    delete gzip_in;
     delete raw_in;
 
     destroy_progress();
@@ -55,8 +58,10 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
     // for chunks of something
     ::google::protobuf::io::ZeroCopyOutputStream *raw_out =
           new ::google::protobuf::io::OstreamOutputStream(&out);
+    ::google::protobuf::io::GzipOutputStream *gzip_out =
+          new ::google::protobuf::io::GzipOutputStream(raw_out);
     ::google::protobuf::io::CodedOutputStream *coded_out =
-          new ::google::protobuf::io::CodedOutputStream(raw_out);
+          new ::google::protobuf::io::CodedOutputStream(gzip_out);
 
     // save the number of the messages to be serialized into the output file
     int64_t count = graph.node_size() / chunk_size + 1;
@@ -83,6 +88,7 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
     destroy_progress();
 
     delete coded_out;
+    delete gzip_out;
     delete raw_out;
 
 }

@@ -108,6 +108,7 @@ The current interfaces provided in the command line utility `vg` are rather roug
 - [ ] simplify mapping by setting a maximum node size in construction
 - [ ] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
 - [ ] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
+- [x] compression of serialization format
 - [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - [ ] per-node, per-sample quality and count information on graph
 - [ ] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
