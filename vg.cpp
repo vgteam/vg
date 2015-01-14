@@ -559,7 +559,6 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
                                 int stop_pos,
                                 int max_node_size) {
 
-
     create_progress("parsing variants", records.size());
 
 #pragma omp parallel for
@@ -580,8 +579,12 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
         }
     }
     destroy_progress();
+}
 
-#pragma omp barrier
+void VG::slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
+                       int start_pos,
+                       int stop_pos,
+                       int max_node_size) {
 
     auto enforce_node_size_limit =
         [max_node_size, &altp]
@@ -975,6 +978,11 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         map<long,set<vcf::VariantAllele> > alleles;
         vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size);
         records.clear(); // clean up
+
+        // enforce a maximum node size
+        // by dividing nodes that are > than the max into the smallest number of
+        // even pieces that would be smaller than the max
+        slice_alleles(alleles, start_pos, stop_pos, max_node_size);
 
 #pragma omp barrier
 

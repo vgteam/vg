@@ -103,6 +103,11 @@ public:
                                 int start_pos,
                                 int stop_pos,
                                 int max_node_size = 0);
+    void slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
+                       int start_pos,
+                       int stop_pos,
+                       int max_node_size);
+
 
 
     // default constructor, destructor

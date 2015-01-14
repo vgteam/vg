@@ -25,7 +25,7 @@ using google::sparse_hash_map;
 using google::dense_hash_map;
 
 // comment out to use sparse_hash_map instead
-#define USE_DENSE_HASH
+//#define USE_DENSE_HASH
 
 template<typename K, typename V>
 #ifdef USE_DENSE_HASH
