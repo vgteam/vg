@@ -11,7 +11,7 @@ Index::Index(string& dir) : name(dir) {
     //options.env->SetBackgroundThreads(omp_get_num_procs());
     //options.compression = rocksdb::kBZip2Compression;
     options.compression = rocksdb::kZlibCompression;
-    options.compaction_style = rocksdb::kCompactionStyleLevel;
+    //options.compaction_style = rocksdb::kCompactionStyleLevel;
     options.IncreaseParallelism(omp_get_num_procs());
     options.write_buffer_size = 1024*1024*16; // 16mb
     //options.error_if_exists = true;
