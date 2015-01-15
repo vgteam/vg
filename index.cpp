@@ -470,18 +470,15 @@ void Index::populate_matches(Matches& matches, hash_map<Node*, int>& kmer_node_p
     }
 }
 
-void Index::store_kmers(string_hash_map<string, hash_map<Node*, int> >& kmer_map) {
+void Index::store_batch(map<string, string>& items) {
     rocksdb::WriteBatch batch;
-    for (string_hash_map<string, hash_map<Node*, int> >::iterator k = kmer_map.begin();
-         k != kmer_map.end(); ++k) {
-        const string& kmer = k->first;
-        hash_map<Node*, int>& kmer_node_pos = k->second;
-        for (auto kv : kmer_node_pos) {
-            batch_kmer(kmer, kv.first->id(), kv.second, batch);
-        }
+    for (auto& i : items) {
+        const string& k = i.first;
+        const string& v = i.second;
+        batch.Put(k, v);
     }
     rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
-    if (!s.ok()) cerr << "an error occurred while inserting kmers" << endl;
+    if (!s.ok()) cerr << "an error occurred while inserting items" << endl;
 }
 
 void Index::for_range(string& key_start, string& key_end,
@@ -497,6 +494,8 @@ void Index::for_range(string& key_start, string& key_end,
         lambda(key, value);
     }
 }
+
+// todo, get range estimated size
 
 void Index::remember_kmer_size(int size) {
     stringstream s;
