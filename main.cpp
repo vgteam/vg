@@ -1365,7 +1365,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    omp_set_dynamic(1); // use dynamic scheduling
+    //omp_set_dynamic(1); // use dynamic scheduling
 
     string command = argv[1];
     if (command == "construct") {

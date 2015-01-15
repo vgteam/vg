@@ -561,7 +561,6 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
 
     create_progress("parsing variants", records.size());
 
-#pragma omp parallel for
     for (int i = 0; i < records.size(); ++i) {
         vcf::Variant& var = records.at(i);
         // decompose to alts
@@ -570,58 +569,89 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
-#pragma omp critical (altp)
-                altp[allele.position].insert(allele);
-                if (i % 10000 == 0) {
-                    update_progress(altp.size());
-                }
-            }
-        }
-    }
-    destroy_progress();
-}
+                 altp[allele.position].insert(allele);
+                 if (i % 10000 == 0) {
+                     update_progress(altp.size());
+                 }
+             }
+         }
+     }
+     destroy_progress();
+ }
 
-void VG::slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
-                       int start_pos,
-                       int stop_pos,
-                       int max_node_size) {
+ void VG::slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
+                        int start_pos,
+                        int stop_pos,
+                        int max_node_size) {
 
-    auto enforce_node_size_limit =
-        [this, max_node_size, &altp]
-        (int curr_pos, int& last_pos) {
-        int last_ref_size = curr_pos - last_pos;
-        update_progress(last_pos);
-        if (max_node_size && last_ref_size > max_node_size) {
-            int div = 2;
-            while (last_ref_size/div > max_node_size) {
-                ++div;
-            }
-            int segment_size = last_ref_size/div;
-            int i = 0;
-            while (last_pos + i < curr_pos) {
-                altp[last_pos+i]; // empty cut
-                i += segment_size;
-                update_progress(last_pos + i);
-            }
-        }
-    };
+     auto enforce_node_size_limit =
+         [this, max_node_size, &altp]
+         (int curr_pos, int& last_pos) {
+         int last_ref_size = curr_pos - last_pos;
+         update_progress(last_pos);
+         if (max_node_size && last_ref_size > max_node_size) {
+             int div = 2;
+             while (last_ref_size/div > max_node_size) {
+                 ++div;
+             }
+             int segment_size = last_ref_size/div;
+             int i = 0;
+             while (last_pos + i < curr_pos) {
+                 altp[last_pos+i];  // empty cut
+                 i += segment_size;
+                 update_progress(last_pos + i);
+             }
+         }
+     };
 
-    if (max_node_size > 0) {
-        create_progress("enforcing node size limit ", altp.rbegin()->first);
-        // break apart big nodes
-        int last_pos = start_pos;
-        for (auto& position : altp) {
-            auto& alleles = position.second;
-            enforce_node_size_limit(position.first, last_pos);
-            for (auto& allele : alleles) {
-                // cut the last reference sequence into bite-sized pieces
-                last_pos = max(position.first + allele.ref.size(), (long unsigned int) last_pos);
+     if (max_node_size > 0) {
+         create_progress("enforcing node size limit ", altp.rbegin()->first);
+         // break apart big nodes
+         int last_pos = start_pos;
+         for (auto& position : altp) {
+             auto& alleles = position.second;
+             enforce_node_size_limit(position.first, last_pos);
+             for (auto& allele : alleles) {
+                 // cut the last reference sequence into bite-sized pieces
+                 last_pos = max(position.first + allele.ref.size(), (long unsigned int) last_pos);
             }
         }
         enforce_node_size_limit(stop_pos, last_pos);
         destroy_progress();
     }
 
+}
+
+void VG::dice_nodes(int max_node_size) {
+    if (max_node_size) {
+        vector<Node*> nodes; nodes.reserve(size());
+        for_each_node(
+            [this, &nodes](Node* n) {
+                nodes.push_back(n);
+            });
+        auto lambda =
+            [this, max_node_size](Node* n) {
+            int node_size = n->sequence().size();
+            if (node_size > max_node_size) {
+                Node* l = NULL;
+                Node* r = NULL;
+                int div = 2;
+                while (node_size/div > max_node_size) {
+                    ++div;
+                }
+                int segment_size = node_size/div;
+                int i = 0;
+                while (i < node_size) {
+                    divide_node(n, i, l, r);
+                    n = r;
+                    i += segment_size;
+                }
+            }
+        };
+        for (int i = 0; i < nodes.size(); ++i) {
+            lambda(nodes[i]);
+        }
+    }
 }
 
 
@@ -952,7 +982,6 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         int64_t start = start_pos ? start_pos - 1 : 0;
         int64_t end = start;
 
-
         create_progress("loading variants for " + target, stop_pos-start_pos);
         // get records
         vector<vcf::Variant> records;
@@ -971,9 +1000,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         }
         destroy_progress();
 
-
-        // decompose records int alleles with offsets against our target sequence
         map<long,set<vcf::VariantAllele> > alleles;
+        // decompose records int alleles with offsets against our target sequence
         vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size);
         records.clear(); // clean up
 
@@ -981,25 +1009,6 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // by dividing nodes that are > than the max into the smallest number of
         // even pieces that would be smaller than the max
         slice_alleles(alleles, start_pos, stop_pos, max_node_size);
-
-#pragma omp barrier
-
-        // for managing parallel construction
-        struct Plan {
-            VG* graph;
-            map<long, set<vcf::VariantAllele> >* alleles;
-            string seq;
-            string name;
-            Plan(VG* g,
-                 map<long, set<vcf::VariantAllele> >* a,
-                 string s,
-                 string n)
-                : graph(g)
-                , alleles(a)
-                , seq(s)
-                , name(n) { };
-            ~Plan(void) { delete alleles; }
-        };
 
         // store our construction plans
         deque<Plan*> construction;
@@ -1063,10 +1072,13 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
                                                            chunk_end - chunk_start),
                                   seq_name);
             chunk_start = chunk_end;
-            graphq.push_back(plan->graph);
-            construction.push_back(plan);
-            if (show_progress) graph_end[plan->graph] = chunk_end;
-            update_progress(chunk_end);
+#pragma omp critical (graphq)
+            {
+                graphq.push_back(plan->graph);
+                construction.push_back(plan);
+                if (show_progress) graph_end[plan->graph] = chunk_end;
+                update_progress(chunk_end);
+            }
         }
 #ifdef debug
         cerr << omp_get_thread_num() << ": graphq size " << graphq.size() << endl;
@@ -1085,6 +1097,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             // find the first two consecutive graphs which are completed
             VG* first = NULL;
             VG* second = NULL;
+//#pragma omp critical (cerr)
+//            cerr << omp_get_thread_num() << ": merging" << endl;
 #pragma omp critical (graphq)
             {
                 auto itp = graphq.begin(); // previous
@@ -1419,7 +1433,6 @@ Node* VG::get_node(int64_t id) {
     }
 }
 
-// use the VG class to generate ids
 Node* VG::create_node(string seq) {
     // create the node
     Node* node = graph.add_node();
@@ -1541,14 +1554,18 @@ void VG::remove_null_nodes(void) {
 
 void VG::remove_null_nodes_forwarding_edges(void) {
     vector<Node*> to_remove;
-    for (int i = 0; i < graph.node_size(); ++i) {
+    int i = 0;
+    for (i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
         if (node->sequence().size() == 0) {
             to_remove.push_back(node);
         }
+        update_progress(i);
     }
-    for (vector<Node*>::iterator n = to_remove.begin(); n != to_remove.end(); ++n) {
+    create_progress(to_remove.size()); i = 0;
+    for (vector<Node*>::iterator n = to_remove.begin(); n != to_remove.end(); ++n, ++i) {
         remove_node_forwarding_edges(*n);
+        update_progress(i);
     }
 }
 
@@ -2066,14 +2083,6 @@ Alignment& VG::align(Alignment& alignment) {
     gssw_aligner->align(alignment);
     delete gssw_aligner;
     gssw_aligner = NULL;
-
-    // adjust the alignment position to respect the trim of the first node
-    Path* path = alignment.mutable_path();
-    Node* first_node = node_by_id[path->mutable_mapping(0)->node_id()];
-    if (first_node->has_trim()) {
-        int32_t t = path->target_position();
-        path->set_target_position(t - first_node->trim());
-    }
 
     // remove root
     destroy_node(root);
