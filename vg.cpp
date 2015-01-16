@@ -1450,7 +1450,7 @@ Node* VG::create_node(string seq) {
 void VG::for_each_node_parallel(function<void(Node*)> lambda) {
     create_progress(graph.node_size());
     int64_t completed = 0;
-#pragma omp parallel for schedule(guided) shared(completed)
+#pragma omp parallel for schedule(dynamic) shared(completed)
     for (int64_t i = 0; i < graph.node_size(); ++i) {
         lambda(graph.mutable_node(i));
         if (progress && completed++ % 1000 == 0) {
