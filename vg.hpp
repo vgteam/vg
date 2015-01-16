@@ -87,7 +87,7 @@ public:
     VG(void);
 
     // construct from protobufs
-    VG(istream& in);
+    VG(istream& in, bool showp = false);
 
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
@@ -111,6 +111,7 @@ public:
                        int start_pos,
                        int stop_pos,
                        int max_node_size);
+    void dice_nodes(int max_node_size);
 
 
 
@@ -320,6 +321,24 @@ public:
     void create_progress(long count);
     void update_progress(long i);
     void destroy_progress(void);
+
+    // for managing parallel construction
+    struct Plan {
+        VG* graph;
+        map<long, set<vcf::VariantAllele> >* alleles;
+        string seq;
+        string name;
+        Plan(VG* g,
+             map<long, set<vcf::VariantAllele> >* a,
+             string s,
+             string n)
+            : graph(g)
+            , alleles(a)
+            , seq(s)
+            , name(n) { };
+        ~Plan(void) { delete alleles; }
+    };
+
 
 private:
 

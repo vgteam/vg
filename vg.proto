@@ -23,10 +23,8 @@ message Node {
     // annotations
     optional double quality = 4;
     optional int32 coverage = 5;
-    // amount of sequence trimmed from the 5' end vs. the reference node this was generated from
-    optional int32 trim = 6;
     // user-defined annotations, possibly a string, possibly more binary data
-    optional bytes data = 7;
+    optional bytes data = 6;
 }
 
 // Edges describe linkages between nodes. They are directed: from=prev, to=next.

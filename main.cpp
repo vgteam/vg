@@ -87,10 +87,10 @@ int main_kmers(int argc, char** argv) {
         }
     }
 
-    set<string> graph_file_names;
+    vector<string> graph_file_names;
     while (optind < argc) {
         string file_name = argv[optind++];
-        graph_file_names.insert(file_name);
+        graph_file_names.push_back(file_name);
     }
 
     VGset graphs(graph_file_names);
@@ -276,11 +276,11 @@ int main_ids(int argc, char** argv) {
         delete graph;
     } else {
 
-        set<string> graph_file_names;
+        vector<string> graph_file_names;
         while (optind < argc) {
             VG* graph;
             string file_name = argv[optind++];
-            graph_file_names.insert(file_name);
+            graph_file_names.push_back(file_name);
         }
 
         VGset graphs(graph_file_names);
@@ -893,10 +893,10 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    set<string> graph_file_names;
+    vector<string> graph_file_names;
     while (optind < argc) {
         string file_name = argv[optind++];
-        graph_file_names.insert(file_name);
+        graph_file_names.push_back(file_name);
     }
 
     if (db_name.empty()) {
@@ -1371,7 +1371,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    omp_set_dynamic(1); // use dynamic scheduling
+    //omp_set_dynamic(1); // use dynamic scheduling
 
     string command = argv[1];
     if (command == "construct") {

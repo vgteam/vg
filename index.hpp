@@ -104,7 +104,7 @@ public:
 
     void remember_kmer_size(int size);
     set<int> stored_kmer_sizes(void);
-    void store_kmers(string_hash_map<string, hash_map<Node*, int> >& kmer_map);
+    void store_batch(map<string, string>& items);
     //void store_positions(VG& graph, std::map<long, Node*>& node_path, std::map<long, Edge*>& edge_path);
 
     // once we have indexed the kmers, we can get the nodes and edges matching

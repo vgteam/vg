@@ -12,13 +12,13 @@ namespace vg {
 class VGset {
 public:
 
-    set<string> filenames;
+    vector<string> filenames;
 
     VGset()
         : show_progress(false)
         { };
 
-    VGset(set<string>& files)
+    VGset(vector<string>& files)
         : filenames(files)
         , show_progress(false)
         { };
