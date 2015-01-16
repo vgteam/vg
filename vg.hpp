@@ -87,7 +87,7 @@ public:
     VG(void);
 
     // construct from protobufs
-    VG(istream& in);
+    VG(istream& in, bool showp = false);
 
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);

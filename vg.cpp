@@ -5,8 +5,9 @@ namespace vg {
 using namespace std;
 
 // construct from a stream of protobufs
-VG::VG(istream& in) {
+VG::VG(istream& in, bool showp) {
     init();
+    show_progress = showp;
 
     uint64_t count = 0;
 
@@ -1196,7 +1197,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // store it in our results
         refseq_graph[target] = target_graph;
 
-        create_progress("joining graphs", 1);
+        create_progress("joining graphs", target_graph->size());
         // clean up "null" nodes that are used for maintaining structure between temporary subgraphs
         target_graph->remove_null_nodes_forwarding_edges();
         destroy_progress();
@@ -1555,6 +1556,7 @@ void VG::remove_null_nodes(void) {
 void VG::remove_null_nodes_forwarding_edges(void) {
     vector<Node*> to_remove;
     int i = 0;
+    create_progress(graph.node_size()*2);
     for (i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
         if (node->sequence().size() == 0) {
@@ -1562,7 +1564,6 @@ void VG::remove_null_nodes_forwarding_edges(void) {
         }
         update_progress(i);
     }
-    create_progress(to_remove.size()); i = 0;
     for (vector<Node*>::iterator n = to_remove.begin(); n != to_remove.end(); ++n, ++i) {
         remove_node_forwarding_edges(*n);
         update_progress(i);

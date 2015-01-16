@@ -11,9 +11,9 @@ Index::Index(string& dir) : name(dir) {
     //options.env->SetBackgroundThreads(omp_get_num_procs());
     //options.compression = rocksdb::kBZip2Compression;
     options.compression = rocksdb::kZlibCompression;
-    //options.compaction_style = rocksdb::kCompactionStyleLevel;
+    options.compaction_style = rocksdb::kCompactionStyleLevel;
     options.IncreaseParallelism(omp_get_num_procs());
-    options.write_buffer_size = 1024*1024*16; // 16mb
+    options.write_buffer_size = 1024*1024*1024; // 1gb
     //options.error_if_exists = true;
     rocksdb::Status status = rocksdb::DB::Open(options, name, &db);
     if (!status.ok()) {
@@ -266,9 +266,9 @@ void Index::put_metadata(const string& tag, const string& data) {
 
 void Index::load_graph(VG& graph) {
     if (graph.show_progress) { graph.progress_message = "indexing nodes of " + graph.name; }
-    graph.for_each_node_parallel([this](Node* n) { put_node(n); });
+    graph.for_each_node([this](Node* n) { put_node(n); });
     if (graph.show_progress) { graph.progress_message = "indexing edges of " + graph.name; }
-    graph.for_each_edge_parallel([this](Edge* e) { put_edge(e); });
+    graph.for_each_edge([this](Edge* e) { put_edge(e); });
 }
 
 rocksdb::Status Index::get_node(int64_t id, Node& node) {
