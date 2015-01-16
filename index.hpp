@@ -43,6 +43,11 @@ public:
     Index(string& name);
     ~Index(void);
 
+    void prepare_for_bulk_load(void);
+    void open(void);
+    void flush(void);
+    void compact(void);
+
     string name;
 
     char start_sep;

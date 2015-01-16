@@ -733,6 +733,8 @@ int main_find(int argc, char** argv) {
     }
 
     Index index(db_name);
+    index.open();
+    index.prepare_for_bulk_load();
 
     if (node_id != 0) {
         // open index
@@ -910,6 +912,8 @@ int main_index(int argc, char** argv) {
     }
 
     Index index(db_name);
+    index.open();
+    index.prepare_for_bulk_load();
 
     if (graph_file_names.size() > 0) {
         VGset graphs(graph_file_names);
@@ -1115,6 +1119,8 @@ int main_map(int argc, char** argv) {
     }
 
     Index index(db_name);
+    index.open();
+    index.prepare_for_bulk_load();
 
     Mapper mapper(&index);
 

@@ -14,6 +14,13 @@ Index::Index(string& dir) : name(dir) {
     options.compaction_style = rocksdb::kCompactionStyleLevel;
     options.IncreaseParallelism(omp_get_num_procs());
     options.write_buffer_size = 1024*1024*16; // 16mb
+}
+
+void Index::prepare_for_bulk_load(void) {
+    options.PrepareForBulkLoad();
+}
+
+void Index::open(void) {
     //options.error_if_exists = true;
     rocksdb::Status status = rocksdb::DB::Open(options, name, &db);
     if (!status.ok()) {
@@ -22,7 +29,17 @@ Index::Index(string& dir) : name(dir) {
 }
 
 Index::~Index(void) {
+    flush();
+    compact();
     delete db;
+}
+
+void Index::flush(void) {
+    db->Flush(rocksdb::FlushOptions()); 
+}
+
+void Index::compact(void) {
+    db->CompactRange(NULL, NULL);
 }
 
 // todo: replace with union / struct
