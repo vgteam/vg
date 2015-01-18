@@ -63,15 +63,47 @@ void VGset::store_in_index(Index& index) {
 // stores kmers of size kmer_size with stride over paths in graphs in the index
 void VGset::index_kmers(Index& index, int kmer_size, int stride) {
     for_each([&index, kmer_size, stride, this](VG* g) {
-        auto keep_kmer = [&index, this](string& kmer, Node* n, int p) {
+        map<int, map<string, int32_t> > kmers;
+#pragma omp parallel
+        {
+            for (int i = 0; i < omp_get_num_threads(); ++i) {
+                kmers[i];
+            }
+        }
+        auto keep_kmer = [&index, &kmers, this](string& kmer, Node* n, int p) {
             if (allATGC(kmer)) {
-                index.put_kmer(kmer, n->id(), p);
+                //index.put_kmer(kmer, n->id(), p);
+                kmers[omp_get_thread_num()][index.key_for_kmer(kmer, n->id())] = p;
             }
         };
         g->create_progress("indexing kmers of " + g->name, g->size());
         g->for_each_kmer_parallel(kmer_size, keep_kmer, stride);
         g->destroy_progress();
         index.remember_kmer_size(kmer_size);
+        int64_t kmer_count = 0;
+        for (auto& d : kmers) {
+            kmer_count += d.second.size();
+        }
+        map<string, int32_t> merged_kmers;
+        g->create_progress("merging kmers of " + g->name, kmer_count);
+        kmer_count = 0;
+        for (auto& d : kmers) {
+            for (auto& k : d.second) {
+                merged_kmers[k.first] = k.second;
+                g->update_progress(kmer_count++);
+            }
+        }
+        g->destroy_progress();
+        g->create_progress("writing kmers of " + g->name, merged_kmers.size());
+        kmer_count = 0;
+        for (auto& k : merged_kmers) {
+            const string& key = k.first;
+            string value; value.reserve(sizeof(int32_t));
+            memcpy((char*)value.c_str(), &k.second, sizeof(int32_t));
+            index.db->Put(rocksdb::WriteOptions(), key, value);
+            g->update_progress(kmer_count++);
+        }
+        g->destroy_progress();
     });
 }
 
