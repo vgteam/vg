@@ -12,12 +12,13 @@ Index::Index(string& dir) : name(dir) {
     //options.compression = rocksdb::kBZip2Compression;
     options.compression = rocksdb::kZlibCompression;
     options.compaction_style = rocksdb::kCompactionStyleLevel;
-    options.IncreaseParallelism(omp_get_num_procs());
+    options.IncreaseParallelism(min(omp_get_num_procs(), 16));
     options.write_buffer_size = 1024*1024*256; // 256mb
 }
 
 void Index::prepare_for_bulk_load(void) {
     options.PrepareForBulkLoad();
+    options.memtable_factory.reset(new rocksdb::VectorRepFactory(10000));
 }
 
 void Index::open(void) {
