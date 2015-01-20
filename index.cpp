@@ -5,20 +5,26 @@ namespace vg {
 using namespace std;
 
 Index::Index(string& dir) : name(dir) {
+    reset_options();
+}
+
+void Index::reset_options(void) {
     start_sep = '\x00';
     end_sep = '\xff';
     options.create_if_missing = true;
     //options.env->SetBackgroundThreads(omp_get_num_procs());
     //options.compression = rocksdb::kBZip2Compression;
     options.compression = rocksdb::kZlibCompression;
-    options.compaction_style = rocksdb::kCompactionStyleLevel;
+    options.compaction_style = rocksdb::kCompactionStyleUniversal;
     options.IncreaseParallelism(min(omp_get_num_procs(), 16));
     options.write_buffer_size = 1024*1024*256; // 256mb
+    options.memtable_factory.reset(new rocksdb::SkipListFactory());
 }
 
 void Index::prepare_for_bulk_load(void) {
     options.PrepareForBulkLoad();
-    options.memtable_factory.reset(new rocksdb::VectorRepFactory(10000));
+    options.compaction_style = rocksdb::kCompactionStyleNone;
+    options.memtable_factory.reset(new rocksdb::VectorRepFactory());
 }
 
 void Index::open(void) {
@@ -29,9 +35,12 @@ void Index::open(void) {
     }
 }
 
+void Index::close(void) {
+    delete db;
+}
+
 Index::~Index(void) {
     flush();
-    compact();
     delete db;
 }
 

@@ -46,6 +46,8 @@ public:
 
     void prepare_for_bulk_load(void);
     void open(void);
+    void close(void);
+    void reset_options(void);
     void flush(void);
     void compact(void);
 
