@@ -14,17 +14,33 @@ void Index::reset_options(void) {
     options.create_if_missing = true;
     //options.env->SetBackgroundThreads(omp_get_num_procs());
     //options.compression = rocksdb::kBZip2Compression;
+    //options.compression = rocksdb::kSnappyCompression;
     options.compression = rocksdb::kZlibCompression;
     options.compaction_style = rocksdb::kCompactionStyleUniversal;
-    options.IncreaseParallelism(min(omp_get_num_procs(), 16));
-    options.write_buffer_size = 1024*1024*256; // 256mb
+    int threads = min(omp_get_num_procs(), 16);
+    options.allow_os_buffer = true;
+    /*
+    options.max_background_compactions = threads;
+    options.max_background_flushes = threads;
+    options.max_write_buffer_number = threads;
+    options.min_write_buffer_number_to_merge = 10;
+    */
+    options.IncreaseParallelism();
+    options.write_buffer_size = 1024*1024*512; // 512mb
+    options.num_levels = 7;
     options.memtable_factory.reset(new rocksdb::SkipListFactory());
+    //options.stats_dump_period_sec = 1;
 }
 
 void Index::prepare_for_bulk_load(void) {
     options.PrepareForBulkLoad();
     options.compaction_style = rocksdb::kCompactionStyleNone;
-    options.memtable_factory.reset(new rocksdb::VectorRepFactory());
+    options.memtable_factory.reset(new rocksdb::VectorRepFactory(100));
+    //options.statistics = rocksdb::CreateDBStatistics();
+    //options.num_levels = 2;
+    //options.max_write_buffer_number = 5;
+    //options.min_write_buffer_number_to_merge = 2;
+
 }
 
 void Index::open(void) {
@@ -36,6 +52,7 @@ void Index::open(void) {
 }
 
 void Index::close(void) {
+    //cerr << options.statistics->ToString() << endl;
     delete db;
 }
 
@@ -45,7 +62,7 @@ Index::~Index(void) {
 }
 
 void Index::flush(void) {
-    db->Flush(rocksdb::FlushOptions()); 
+    db->Flush(rocksdb::FlushOptions());
 }
 
 void Index::compact(void) {

@@ -9,6 +9,7 @@
 #include "rocksdb/options.h"
 #include "rocksdb/write_batch.h"
 #include "rocksdb/memtablerep.h"
+#include "rocksdb/statistics.h"
 #include "pb2json.h"
 #include "vg.hpp"
 #include "hash_map.hpp"
