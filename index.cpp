@@ -63,7 +63,7 @@ void Index::close(void) {
 }
 
 Index::~Index(void) {
-    flush();
+    //flush();
     delete db;
 }
 

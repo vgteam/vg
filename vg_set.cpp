@@ -54,14 +54,28 @@ int64_t VGset::merge_id_space(void) {
 }
 
 void VGset::store_in_index(Index& index) {
+    index.close();
+    index.prepare_for_bulk_load();
+    index.open();
+
     for_each([&index, this](VG* g) {
         g->show_progress = show_progress;
         index.load_graph(*g);
     });
+    // clean up after bulk load
+    index.flush();
+    index.close();
+    index.reset_options();
+    index.open();
+    index.compact();
 }
 
 // stores kmers of size kmer_size with stride over paths in graphs in the index
 void VGset::index_kmers(Index& index, int kmer_size, int stride) {
+
+    index.close();
+    index.prepare_for_bulk_load();
+    index.open();
 
     for_each([&index, kmer_size, stride, this](VG* g) {
 
@@ -111,7 +125,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         for (int i = 0; i < thread_count; ++i) {
             //for (auto* idx : indexes) {
             auto* idx = indexes[i];
-            idx->flush();
+            //idx->flush();
             idx->for_all([g, &index, &count](string& k, string& v) {
 #pragma omp atomic
                 ++count;
@@ -125,6 +139,13 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         }
         g->destroy_progress();
     });
+
+    // clean up after bulk load
+    index.flush();
+    index.close();
+    index.reset_options();
+    index.open();
+    index.compact();
 }
 
 void VGset::for_each_kmer_parallel(function<void(string&, Node*, int)>& lambda,

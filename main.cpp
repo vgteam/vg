@@ -912,9 +912,6 @@ int main_index(int argc, char** argv) {
     }
 
     Index index(db_name);
-    if (store_graph || kmer_size != 0) {
-        index.prepare_for_bulk_load();
-    }
     index.open();
 
     if (graph_file_names.size() > 0) {
@@ -926,11 +923,6 @@ int main_index(int argc, char** argv) {
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, kmer_stride);
         }
-        // clean up after bulk load
-        index.close();
-        index.reset_options();
-        index.open();
-        index.compact();
     }
 
     if (dump_index) {
