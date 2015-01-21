@@ -107,7 +107,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         index.remember_kmer_size(kmer_size);
         g->create_progress("merging kmers of " + g->name, total_kmers);
 
-#pragma omp parallel for schedule(static, 1)
+//#pragma omp parallel for schedule(static, 1)
         for (int i = 0; i < thread_count; ++i) {
             //for (auto* idx : indexes) {
             auto* idx = indexes[i];
