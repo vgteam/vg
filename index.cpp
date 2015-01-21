@@ -31,7 +31,7 @@ void Index::reset_options(void) {
     options.min_write_buffer_number_to_merge = 10;
     */
     options.IncreaseParallelism(threads);
-    options.write_buffer_size = 1024*1024*512; // 512mb
+    options.write_buffer_size = 1024*1024*256; // 256mb
     options.num_levels = 7;
     options.memtable_factory.reset(new rocksdb::SkipListFactory());
     //options.stats_dump_period_sec = 1;
