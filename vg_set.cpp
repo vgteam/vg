@@ -95,7 +95,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
                     string n = s.str();
                     Index* idx = new Index;
                     idx->open(n);
-                    //idx->prepare_for_bulk_load();
+                    idx->prepare_for_bulk_load();
                     indexes.push_back(idx);
                     counts.push_back(0);
                 }
