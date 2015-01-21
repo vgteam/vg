@@ -4,6 +4,10 @@ namespace vg {
 
 using namespace std;
 
+Index::Index(void) {
+    reset_options();
+}
+
 Index::Index(string& dir) : name(dir) {
     reset_options();
 }
@@ -11,6 +15,7 @@ Index::Index(string& dir) : name(dir) {
 void Index::reset_options(void) {
     start_sep = '\x00';
     end_sep = '\xff';
+    write_options = rocksdb::WriteOptions();
     options.create_if_missing = true;
     //options.env->SetBackgroundThreads(omp_get_num_procs());
     //options.compression = rocksdb::kBZip2Compression;
@@ -25,22 +30,23 @@ void Index::reset_options(void) {
     options.max_write_buffer_number = threads;
     options.min_write_buffer_number_to_merge = 10;
     */
-    options.IncreaseParallelism();
+    options.IncreaseParallelism(threads);
     options.write_buffer_size = 1024*1024*512; // 512mb
     options.num_levels = 7;
     options.memtable_factory.reset(new rocksdb::SkipListFactory());
     //options.stats_dump_period_sec = 1;
+    options.table_cache_numshardbits = 4;
 }
 
 void Index::prepare_for_bulk_load(void) {
     options.PrepareForBulkLoad();
     options.compaction_style = rocksdb::kCompactionStyleNone;
     options.memtable_factory.reset(new rocksdb::VectorRepFactory(100));
-    //options.statistics = rocksdb::CreateDBStatistics();
-    //options.num_levels = 2;
-    //options.max_write_buffer_number = 5;
-    //options.min_write_buffer_number_to_merge = 2;
+}
 
+void Index::open(string& dir) {
+    name = dir;
+    open();
 }
 
 void Index::open(void) {
@@ -291,21 +297,21 @@ void Index::put_node(const Node* node) {
     string data;
     node->SerializeToString(&data);
     string key = key_for_node(node->id());
-    db->Put(rocksdb::WriteOptions(), key, data);
+    db->Put(write_options, key, data);
 }
 
 void Index::put_edge(const Edge* edge) {
     string data;
     edge->SerializeToString(&data);
-    db->Put(rocksdb::WriteOptions(), key_for_edge_from_to(edge->from(), edge->to()), data);
+    db->Put(write_options, key_for_edge_from_to(edge->from(), edge->to()), data);
     // only store in from_to key
     string null_data;
-    db->Put(rocksdb::WriteOptions(), key_for_edge_to_from(edge->to(), edge->from()), null_data);
+    db->Put(write_options, key_for_edge_to_from(edge->to(), edge->from()), null_data);
 }
 
 void Index::put_metadata(const string& tag, const string& data) {
     string key = key_for_metadata(tag);
-    db->Put(rocksdb::WriteOptions(), key, data);
+    db->Put(write_options, key, data);
 }
 
 void Index::load_graph(VG& graph) {
@@ -490,7 +496,7 @@ void Index::put_kmer(const string& kmer,
     string key = key_for_kmer(kmer, id);
     string data(sizeof(int32_t), '\0');
     memcpy((char*)data.c_str(), &pos, sizeof(int32_t));
-    rocksdb::Status s = db->Put(rocksdb::WriteOptions(), key, data);
+    rocksdb::Status s = db->Put(write_options, key, data);
     if (!s.ok()) { cerr << "put of " << kmer << " " << id << "@" << pos << " failed" << endl; exit(1); }
 }
 
@@ -521,8 +527,14 @@ void Index::store_batch(map<string, string>& items) {
         const string& v = i.second;
         batch.Put(k, v);
     }
-    rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
+    rocksdb::Status s = db->Write(write_options, &batch);
     if (!s.ok()) cerr << "an error occurred while inserting items" << endl;
+}
+
+void Index::for_all(std::function<void(string&, string&)> lambda) {
+    string start(1, start_sep);
+    string end(1, end_sep);
+    for_range(start, end, lambda);
 }
 
 void Index::for_range(string& key_start, string& key_end,

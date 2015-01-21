@@ -42,11 +42,13 @@ class Index {
 
 public:
 
+    Index(void);
     Index(string& name);
     ~Index(void);
 
     void prepare_for_bulk_load(void);
     void open(void);
+    void open(string& dir);
     void close(void);
     void reset_options(void);
     void flush(void);
@@ -59,9 +61,11 @@ public:
 
     rocksdb::DB* db;
     rocksdb::Options options;
+    rocksdb::WriteOptions write_options;
 
     void load_graph(VG& graph);
     void dump(std::ostream& out);
+    void for_all(std::function<void(string&, string&)> lambda);
     void for_range(string& key_start, string& key_end,
                    std::function<void(string&, string&)> lambda);
 

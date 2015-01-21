@@ -2,6 +2,7 @@
 #define VG_SET_H
 
 #include <set>
+#include <stdlib.h>
 #include "vg.hpp"
 #include "index.hpp"
 #include "hash_map.hpp"
