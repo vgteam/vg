@@ -637,7 +637,8 @@ int main_find(int argc, char** argv) {
     int kmer_size=0;
     vector<string> kmers;
     string output_format;
-    int64_t node_id=0, from_id=0, to_id=0;
+    int64_t from_id=0, to_id=0;
+    vector<int64_t> node_ids;
     int context_size=0;
 
     int c;
@@ -689,7 +690,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'n':
-            node_id = atoi(optarg);
+            node_ids.push_back(atoi(optarg));
             break;
 
         case 'f':
@@ -736,14 +737,16 @@ int main_find(int argc, char** argv) {
     index.open();
 //    index.prepare_for_bulk_load();
 
-    if (node_id != 0) {
+    if (!node_ids.empty()) {
         // open index
         // our result
         VG result_graph;
         // get the context of the node
-        index.get_context(node_id, result_graph);
-        if (context_size > 0) {
-            index.expand_context(result_graph, context_size);
+        for (auto node_id : node_ids) {
+            index.get_context(node_id, result_graph);
+            if (context_size > 0) {
+                index.expand_context(result_graph, context_size);
+            }
         }
         // return it
         result_graph.serialize_to_ostream(cout);
