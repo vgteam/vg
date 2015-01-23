@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 17
+plan tests 18
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -81,3 +81,5 @@ is $(for i in $(seq 100); do vg construct -r small/x.fa -v small/x.vcf.gz -m $i 
 
 max_node_size=$(vg construct -r small/x.fa -v small/x.vcf.gz -m 12 | vg view -g - | grep ^S | cut -f 3 | awk '{ print length($1) }' | sort -n | tail -1)
 is $max_node_size 12 "nodes are correctly capped in size"
+
+is $(vg construct -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz | vg view - | awk '{ print length($3); }' | sort -n | tail -1) 241 "-R --region flag is respected" 

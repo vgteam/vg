@@ -40,6 +40,8 @@ void Index::reset_options(void) {
 
 void Index::prepare_for_bulk_load(void) {
     options.PrepareForBulkLoad();
+    //int threads = min(omp_get_num_procs(), 16);
+    //options.IncreaseParallelism(threads);
     options.compaction_style = rocksdb::kCompactionStyleNone;
     options.memtable_factory.reset(new rocksdb::VectorRepFactory(100));
 }
