@@ -246,13 +246,13 @@ public:
     GSSWAligner* gssw_aligner;
 
     // returns all node-crossing paths with up to length across node boundaries
-    void for_each_kpath(int k, function<void(list<Node*>&)> lambda);
-    void for_each_kpath_parallel(int k, function<void(list<Node*>&)> lambda);
-    void for_each_kpath(int k, function<void(Path&)> lambda);
-    void for_each_kpath_parallel(int k, function<void(Path&)> lambda);
+    void for_each_kpath(int k, function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath_parallel(int k, function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath(int k, function<void(Node*,Path&)> lambda);
+    void for_each_kpath_parallel(int k, function<void(Node*,Path&)> lambda);
 
-    void for_each_kpath_of_node(Node* n, int k, function<void(list<Node*>&)> lambda);
-    void for_each_kpath_of_node(Node* n, int k, function<void(Path&)> lambda);
+    void for_each_kpath_of_node(Node* n, int k, function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath_of_node(Node* n, int k, function<void(Node*,Path&)> lambda);
 
     void kpaths(vector<Path>& paths, int length);
     void kpaths(set<list<Node*> >& paths, int length);

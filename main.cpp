@@ -581,20 +581,20 @@ int main_paths(int argc, char** argv) {
         cerr << "error:[vg paths] a --max-length is required when generating paths" << endl;
     }
 
-    function<void(Path&)> paths_to_seqs = [graph](Path& p) {
+    function<void(Node*,Path&)> paths_to_seqs = [graph](Node* n, Path& p) {
         string seq = graph->path_sequence(p);
 #pragma omp critical(cout)
         cout << seq << endl;
     };
 
-    function<void(Path&)> paths_to_json = [](Path& p) {
+    function<void(Node*,Path&)> paths_to_json = [](Node* n, Path& p) {
         char *json2 = pb2json(p);
 #pragma omp critical(cout)
         cout<<json2<<endl;
         free(json2);
     };
 
-    function<void(Path&)>* callback = &paths_to_seqs;
+    function<void(Node*, Path&)>* callback = &paths_to_seqs;
     if (!as_seqs) {
         callback = &paths_to_json;
     }

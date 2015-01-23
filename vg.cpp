@@ -1736,14 +1736,14 @@ void VG::next_kpaths_from_node(Node* node, int length, list<Node*> prefix, set<l
 
 // iterate over the kpaths in the graph, doing something
 
-void VG::for_each_kpath(int k, function<void(list<Node*>&)> lambda) {
+void VG::for_each_kpath(int k, function<void(Node*,list<Node*>&)> lambda) {
     auto by_node = [k, &lambda, this](Node* node) {
         for_each_kpath_of_node(node, k, lambda);
     };
     for_each_node(by_node);
 }
 
-void VG::for_each_kpath(int k, function<void(Path&)> lambda) {
+void VG::for_each_kpath(int k, function<void(Node*,Path&)> lambda) {
     auto by_node = [k, &lambda, this](Node* node) {
         for_each_kpath_of_node(node, k, lambda);
     };
@@ -1754,14 +1754,14 @@ void VG::for_each_kpath(int k, function<void(Path&)> lambda) {
 // this isn't by default because the lambda may have side effects
 // that need to be guarded explicitly
 
-void VG::for_each_kpath_parallel(int k, function<void(list<Node*>&)> lambda) {
+void VG::for_each_kpath_parallel(int k, function<void(Node*,list<Node*>&)> lambda) {
     auto by_node = [k, &lambda, this](Node* node) {
         for_each_kpath_of_node(node, k, lambda);
     };
     for_each_node_parallel(by_node);
 }
 
-void VG::for_each_kpath_parallel(int k, function<void(Path&)> lambda) {
+void VG::for_each_kpath_parallel(int k, function<void(Node*,Path&)> lambda) {
     auto by_node = [k, &lambda, this](Node* node) {
         for_each_kpath_of_node(node, k, lambda);
     };
@@ -1771,16 +1771,16 @@ void VG::for_each_kpath_parallel(int k, function<void(Path&)> lambda) {
 // per-node kpaths
 
 void VG::for_each_kpath_of_node(Node* n, int k,
-                                function<void(Path&)> lambda) {
-    auto apply_to_path = [&lambda, this](list<Node*>& p) {
+                                function<void(Node*,Path&)> lambda) {
+    auto apply_to_path = [&lambda, this](Node* n, list<Node*>& p) {
         Path path = create_path(p);
-        lambda(path);
+        lambda(n, path);
     };
     for_each_kpath_of_node(n, k, apply_to_path);
 }
 
 void VG::for_each_kpath_of_node(Node* node, int k,
-                                function<void(list<Node*>&)> lambda) {
+                                function<void(Node*,list<Node*>&)> lambda) {
     // get left, then right
     set<list<Node*> > prev_paths;
     set<list<Node*> > next_paths;
@@ -1796,13 +1796,13 @@ void VG::for_each_kpath_of_node(Node* node, int k,
                 path.push_back(*m);
                 ++m;
             }
-            lambda(path);
+            lambda(node, path);
         }
     }
 }
 
 void VG::kpaths_of_node(Node* node, set<list<Node*> >& paths, int length) {
-    auto collect_path = [&paths](list<Node*>& path) {
+    auto collect_path = [&paths](Node* n, list<Node*>& path) {
         paths.insert(path);
     };
     for_each_kpath_of_node(node, length, collect_path);
@@ -2139,7 +2139,7 @@ void VG::_for_each_kmer(int kmer_size,
                         kmer_size,
                         stride,
                         &lru,
-                        &make_cache_key](list<Node*>& path) {
+                        &make_cache_key](Node* node, list<Node*>& path) {
 
         // expand the path into a vector :: 1,1,1,2,2,2,2,3,3 ... etc.
         // this makes it much easier to quickly get all the node matches of each kmer
@@ -2156,19 +2156,17 @@ void VG::_for_each_kmer(int kmer_size,
         string seq = path_string(path);
 
         // and then stepping across the path, finding the kmers, and then implied node overlaps
-        for (int i = 0; i < seq.size() - kmer_size; i+=stride) {
+        for (int i = 0; i <= seq.size() - kmer_size; i+=stride) {
 
             // get the kmer
             string kmer = seq.substr(i, kmer_size);
             // record when we get a kmer match
-            set<Node*> nodes;
 
             // execute our callback on each kmer/node/position
+            // where node == node
             int j = 0;
             while (j < kmer_size) {
-                Node* node = node_by_path_position[i+j];
-                if (nodes.find(node) == nodes.end()) {
-                    nodes.insert(node);
+                if (node == node_by_path_position[i+j]) {
                     int node_position = node_start[node];
                     int kmer_relative_start = i - node_position;
                     string cache_key = make_cache_key(kmer, node, kmer_relative_start);
