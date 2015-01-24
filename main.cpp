@@ -807,6 +807,7 @@ void help_index(char** argv) {
          << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
          << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
          << "                          (this is required if you are using multiple graphs files" << endl
+         << "    -b, --tmp-db-base S   use this base name for temporary indexes" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -p, --progress        show progress" << endl;
 }
@@ -819,6 +820,7 @@ int main_index(int argc, char** argv) {
     }
 
     string db_name;
+    string tmp_db_base;
     int kmer_size = 0;
     int kmer_stride = 1;
     bool store_graph = false;
@@ -833,6 +835,7 @@ int main_index(int argc, char** argv) {
             {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"db-name", required_argument, 0, 'd'},
+                {"tmp-db-base", required_argument, 0, 'b'},
                 {"kmer-size", required_argument, 0, 'k'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"store", no_argument, 0, 's'},
@@ -844,7 +847,7 @@ int main_index(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -855,6 +858,10 @@ int main_index(int argc, char** argv) {
         {
         case 'd':
             db_name = optarg;
+            break;
+
+        case 'b':
+            tmp_db_base = optarg;
             break;
 
         case 'k':
@@ -924,7 +931,7 @@ int main_index(int argc, char** argv) {
             graphs.store_in_index(index);
         }
         if (kmer_size != 0) {
-            graphs.index_kmers(index, kmer_size, kmer_stride);
+            graphs.index_kmers(index, kmer_size, kmer_stride, tmp_db_base);
         }
     }
 

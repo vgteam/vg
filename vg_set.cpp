@@ -71,13 +71,15 @@ void VGset::store_in_index(Index& index) {
 }
 
 // stores kmers of size kmer_size with stride over paths in graphs in the index
-void VGset::index_kmers(Index& index, int kmer_size, int stride) {
+void VGset::index_kmers(Index& index, int kmer_size, int stride, string tmp_db_base) {
 
     index.close();
     index.prepare_for_bulk_load();
     index.open();
 
-    for_each([&index, kmer_size, stride, this](VG* g) {
+    if (tmp_db_base.empty()) tmp_db_base = index.name;
+
+    for_each([&index, &tmp_db_base, kmer_size, stride, this](VG* g) {
 
         // set up an index per process
         // we merge them at the end of this graph
@@ -91,7 +93,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
                 thread_count = omp_get_num_threads();
                 for (int i = 0; i < thread_count; ++i) {
                     stringstream s;
-                    s << index.name << "." << i;
+                    s << tmp_db_base << "." << i;
                     string n = s.str();
                     Index* idx = new Index;
                     idx->prepare_for_bulk_load();
