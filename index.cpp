@@ -21,7 +21,8 @@ void Index::reset_options(void) {
     //options.compression = rocksdb::kBZip2Compression;
     //options.compression = rocksdb::kSnappyCompression;
     options.compression = rocksdb::kZlibCompression;
-    options.compaction_style = rocksdb::kCompactionStyleUniversal;
+    //options.compaction_style = rocksdb::kCompactionStyleUniversal;
+    options.compaction_style = rocksdb::kCompactionStyleLevel;
     int threads = min(omp_get_num_procs(), 16);
     options.allow_os_buffer = true;
     /*

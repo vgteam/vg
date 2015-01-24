@@ -102,10 +102,11 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
             }
         }
 
-        auto keep_kmer = [&index, &counts, this](string& kmer, Node* n, int p) {
+        auto keep_kmer = [&indexes, &counts, this](string& kmer, Node* n, int p) {
             if (allATGC(kmer)) {
                 counts[omp_get_thread_num()]++;
-                index.put_kmer(kmer, n->id(), p);
+                indexes[omp_get_thread_num()]->put_kmer(kmer, n->id(), p);
+                //index->put_kmer(kmer, n->id(), p);
             }
         };
 
@@ -113,7 +114,41 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         g->for_each_kmer_parallel(kmer_size, keep_kmer, stride);
         g->destroy_progress();
 
+        int64_t total_kmers = 0;
+        for (auto i : counts) total_kmers += i;
+        int64_t count = 0;
+
+        // merge results
         index.remember_kmer_size(kmer_size);
+        g->create_progress("merging kmers of " + g->name, total_kmers);
+
+        map<string, pair<string, rocksdb::Iterator*> > vals;
+        for (auto* idx : indexes) {
+            rocksdb::Iterator* it = idx->db->NewIterator(rocksdb::ReadOptions());
+            it->SeekToFirst();
+            vals[it->key().ToString()] = make_pair(it->value().ToString(), it);
+        }
+//#pragma omp parallel for schedule(static, 1)
+        while (!vals.empty()) {
+            auto d = vals.begin();
+            index.db->Put(index.write_options, d->first, d->second.first);
+            auto* it = d->second.second;
+            vals.erase(d->first);
+            it->Next();
+            if (it->Valid()) {
+                ++count;
+                g->update_progress(count);
+                vals[it->key().ToString()] = make_pair(it->value().ToString(), it);
+            }
+        }
+
+        for (int i = 0; i < thread_count; ++i) {
+            auto* idx = indexes[i];
+            string dbname = idx->name;
+            delete idx;
+            int r = system((string("rm -r ") + dbname).c_str());
+        }
+        g->destroy_progress();
     });
 
     // clean up after bulk load
