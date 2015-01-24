@@ -898,7 +898,7 @@ void VG::create_progress(long count) {
 void VG::update_progress(long i) {
     if (show_progress && progress) {
         if (i <= progress_count
-            && (long double) (i - last_progress) / (long double) progress_count >= 0.01
+            && (long double) (i - last_progress) / (long double) progress_count >= 0.001
             || i == progress_count) {
 #pragma omp critical (progress)
             {
