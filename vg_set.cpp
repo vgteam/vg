@@ -122,28 +122,15 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         index.remember_kmer_size(kmer_size);
         g->create_progress("merging kmers of " + g->name, total_kmers);
 
-        map<string, pair<string, rocksdb::Iterator*> > vals;
-        for (auto* idx : indexes) {
-            rocksdb::Iterator* it = idx->db->NewIterator(rocksdb::ReadOptions());
-            it->SeekToFirst();
-            vals[it->key().ToString()] = make_pair(it->value().ToString(), it);
-        }
 //#pragma omp parallel for schedule(static, 1)
-        while (!vals.empty()) {
-            auto d = vals.begin();
-            index.db->Put(index.write_options, d->first, d->second.first);
-            auto* it = d->second.second;
-            vals.erase(d->first);
-            it->Next();
-            if (it->Valid()) {
-                ++count;
-                g->update_progress(count);
-                vals[it->key().ToString()] = make_pair(it->value().ToString(), it);
-            }
-        }
-
         for (int i = 0; i < thread_count; ++i) {
             auto* idx = indexes[i];
+            idx->for_all([g, &index, &count](string& k, string& v) {
+#pragma omp atomic
+                ++count;
+                if (count % 10000) g->update_progress(count);
+                index.db->Put(index.write_options, k, v);
+            });
             string dbname = idx->name;
             delete idx;
             int r = system((string("rm -r ") + dbname).c_str());
