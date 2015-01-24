@@ -23,7 +23,6 @@ void Index::reset_options(void) {
     options.compression = rocksdb::kZlibCompression;
     //options.compaction_style = rocksdb::kCompactionStyleUniversal;
     options.compaction_style = rocksdb::kCompactionStyleLevel;
-    int threads = min(omp_get_num_procs(), 16);
     options.allow_os_buffer = true;
     /*
     options.max_background_compactions = threads;
@@ -31,8 +30,10 @@ void Index::reset_options(void) {
     options.max_write_buffer_number = threads;
     options.min_write_buffer_number_to_merge = 10;
     */
-    options.IncreaseParallelism(threads);
+    int threads = min(omp_get_num_procs(), 16);
+    options.IncreaseParallelism(threads); // this should do the above, no?
     options.write_buffer_size = 1024*1024*256; // 256mb
+    options.bytes_per_sync = 1024*1024*16; // 16mb
     options.num_levels = 7;
     options.memtable_factory.reset(new rocksdb::SkipListFactory());
     //options.stats_dump_period_sec = 1;
