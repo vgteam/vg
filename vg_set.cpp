@@ -102,10 +102,10 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
             }
         }
 
-        auto keep_kmer = [&indexes, &counts, this](string& kmer, Node* n, int p) {
+        auto keep_kmer = [&index, &counts, this](string& kmer, Node* n, int p) {
             if (allATGC(kmer)) {
                 counts[omp_get_thread_num()]++;
-                indexes[omp_get_thread_num()]->put_kmer(kmer, n->id(), p);
+                index.put_kmer(kmer, n->id(), p);
             }
         };
 
@@ -113,31 +113,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         g->for_each_kmer_parallel(kmer_size, keep_kmer, stride);
         g->destroy_progress();
 
-        int64_t total_kmers = 0;
-        for (auto i : counts) total_kmers += i;
-        int64_t count = 0;
-
-        // merge results
         index.remember_kmer_size(kmer_size);
-        g->create_progress("merging kmers of " + g->name, total_kmers);
-
-//#pragma omp parallel for schedule(static, 1)
-        for (int i = 0; i < thread_count; ++i) {
-            //for (auto* idx : indexes) {
-            auto* idx = indexes[i];
-            //idx->flush();
-            idx->for_all([g, &index, &count](string& k, string& v) {
-#pragma omp atomic
-                ++count;
-                if (count % 10000) g->update_progress(count);
-                index.db->Put(index.write_options, k, v);
-            });
-            string dbname = idx->name;
-            //cerr << dbname << endl;
-            delete idx;
-            int r = system((string("rm -r ") + dbname).c_str());
-        }
-        g->destroy_progress();
     });
 
     // clean up after bulk load
