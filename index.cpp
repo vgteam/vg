@@ -22,7 +22,12 @@ void Index::reset_options(void) {
     options.compression = rocksdb::kZlibCompression;
     options.compaction_style = rocksdb::kCompactionStyleUniversal;
     //options.compaction_style = rocksdb::kCompactionStyleLevel;
-    int threads = omp_get_num_procs();
+    int threads = 1;
+#pragma omp parallel
+    {
+#pragma omp master
+        threads = omp_get_num_threads();
+    }
     options.IncreaseParallelism(threads);
 }
 
