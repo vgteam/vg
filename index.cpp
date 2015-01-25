@@ -21,8 +21,8 @@ void Index::reset_options(void) {
     //options.compression = rocksdb::kBZip2Compression;
     //options.compression = rocksdb::kSnappyCompression;
     options.compression = rocksdb::kZlibCompression;
-    options.compaction_style = rocksdb::kCompactionStyleUniversal;
-    //options.compaction_style = rocksdb::kCompactionStyleLevel;
+    //options.compaction_style = rocksdb::kCompactionStyleUniversal;
+    options.compaction_style = rocksdb::kCompactionStyleLevel;
     //options.allow_os_buffer = true;
     /*
     options.max_background_compactions = threads;
@@ -321,18 +321,17 @@ void Index::put_metadata(const string& tag, const string& data) {
 }
 
 void Index::load_graph(VG& graph) {
+    // a bit of a hack--- the logging only works with for_each_*parallel
+    // also the high parallelism may be causing issues
+    int thread_count = omp_get_num_threads();
+    omp_set_num_threads(1);
     graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
     graph.for_each_node_parallel([this](Node* n) { put_node(n); });
     graph.destroy_progress();
-    // force flush and compaction
-    flush();
-    compact();
     graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
     graph.for_each_edge_parallel([this](Edge* e) { put_edge(e); });
     graph.destroy_progress();
-    // force flush and compaction
-    flush();
-    compact();
+    omp_set_num_threads(thread_count);
 }
 
 rocksdb::Status Index::get_node(int64_t id, Node& node) {
