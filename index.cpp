@@ -324,9 +324,15 @@ void Index::load_graph(VG& graph) {
     graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
     graph.for_each_node_parallel([this](Node* n) { put_node(n); });
     graph.destroy_progress();
+    // force flush and compaction
+    flush();
+    compact();
     graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
     graph.for_each_edge_parallel([this](Edge* e) { put_edge(e); });
     graph.destroy_progress();
+    // force flush and compaction
+    flush();
+    compact();
 }
 
 rocksdb::Status Index::get_node(int64_t id, Node& node) {
