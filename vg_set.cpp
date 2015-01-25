@@ -61,11 +61,9 @@ void VGset::store_in_index(Index& index) {
 }
 
 // stores kmers of size kmer_size with stride over paths in graphs in the index
-void VGset::index_kmers(Index& index, int kmer_size, int stride, string tmp_db_base) {
+void VGset::index_kmers(Index& index, int kmer_size, int stride) {
 
-    if (tmp_db_base.empty()) tmp_db_base = index.name;
-
-    for_each([&index, &tmp_db_base, kmer_size, stride, this](VG* g) {
+    for_each([&index, kmer_size, stride, this](VG* g) {
 
         auto keep_kmer = [&index, this](string& kmer, Node* n, int p) {
             if (allATGC(kmer)) {
