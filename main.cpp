@@ -735,7 +735,6 @@ int main_find(int argc, char** argv) {
 
     Index index(db_name);
     index.open();
-//    index.prepare_for_bulk_load();
 
     if (!node_ids.empty()) {
         // open index

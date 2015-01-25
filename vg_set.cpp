@@ -54,28 +54,14 @@ int64_t VGset::merge_id_space(void) {
 }
 
 void VGset::store_in_index(Index& index) {
-    index.close();
-    index.prepare_for_bulk_load();
-    index.open();
-
     for_each([&index, this](VG* g) {
         g->show_progress = show_progress;
         index.load_graph(*g);
     });
-    // clean up after bulk load
-    index.flush();
-    index.close();
-    index.reset_options();
-    index.open();
-    index.compact();
 }
 
 // stores kmers of size kmer_size with stride over paths in graphs in the index
 void VGset::index_kmers(Index& index, int kmer_size, int stride, string tmp_db_base) {
-
-    index.close();
-    index.prepare_for_bulk_load();
-    index.open();
 
     if (tmp_db_base.empty()) tmp_db_base = index.name;
 
@@ -96,7 +82,6 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride, string tmp_db_b
                     s << tmp_db_base << "." << i;
                     string n = s.str();
                     Index* idx = new Index;
-                    idx->prepare_for_bulk_load();
                     idx->open(n);
                     indexes.push_back(idx);
                     counts.push_back(0);
@@ -108,7 +93,6 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride, string tmp_db_b
             if (allATGC(kmer)) {
                 counts[omp_get_thread_num()]++;
                 indexes[omp_get_thread_num()]->put_kmer(kmer, n->id(), p);
-                //index->put_kmer(kmer, n->id(), p);
             }
         };
 
@@ -140,12 +124,6 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride, string tmp_db_b
         g->destroy_progress();
     });
 
-    // clean up after bulk load
-    index.flush();
-    index.close();
-    index.reset_options();
-    index.open();
-    index.compact();
 }
 
 void VGset::for_each_kmer_parallel(function<void(string&, Node*, int)>& lambda,
