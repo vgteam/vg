@@ -76,6 +76,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride, string tmp_db_b
         g->create_progress("indexing kmers of " + g->name, g->size());
         g->for_each_kmer_parallel(kmer_size, keep_kmer, stride);
         g->destroy_progress();
+        index.remember_kmer_size(kmer_size);
 
     });
 
