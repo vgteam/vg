@@ -64,12 +64,10 @@ void Index::open(void) {
 }
 
 void Index::close(void) {
-    //cerr << options.statistics->ToString() << endl;
     delete db;
 }
 
 Index::~Index(void) {
-    //flush();
     delete db;
 }
 
