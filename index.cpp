@@ -322,10 +322,10 @@ void Index::put_metadata(const string& tag, const string& data) {
 
 void Index::load_graph(VG& graph) {
     graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
-    graph.for_each_node([this](Node* n) { put_node(n); });
+    graph.for_each_node_parallel([this](Node* n) { put_node(n); });
     graph.destroy_progress();
     graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
-    graph.for_each_edge([this](Edge* e) { put_edge(e); });
+    graph.for_each_edge_parallel([this](Edge* e) { put_edge(e); });
     graph.destroy_progress();
 }
 
