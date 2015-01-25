@@ -17,35 +17,17 @@ void Index::reset_options(void) {
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
     options.create_if_missing = true;
-    //options.env->SetBackgroundThreads(omp_get_num_procs());
     //options.compression = rocksdb::kBZip2Compression;
     //options.compression = rocksdb::kSnappyCompression;
     options.compression = rocksdb::kZlibCompression;
     options.compaction_style = rocksdb::kCompactionStyleUniversal;
     //options.compaction_style = rocksdb::kCompactionStyleLevel;
-    //options.allow_os_buffer = true;
-    /*
-    options.max_background_compactions = threads;
-    options.max_background_flushes = threads;
-    options.max_write_buffer_number = threads;
-    options.min_write_buffer_number_to_merge = 10;
-    */
-    int threads = min(omp_get_num_procs(), 16);
-    options.IncreaseParallelism(threads); // this should do the above, no?
-    //options.write_buffer_size = 1024*1024*256; // 256mb
-    //options.write_buffer_size = 1024*1024*32; // 32mb
-    //options.bytes_per_sync = 1024*1024*16; // 16mb
-    /*
-    options.num_levels = 7;
-    options.memtable_factory.reset(new rocksdb::SkipListFactory());
-    options.table_cache_numshardbits = 4;
-    */
+    int threads = omp_get_num_procs();
+    options.IncreaseParallelism(threads);
 }
 
 void Index::prepare_for_bulk_load(void) {
     options.PrepareForBulkLoad();
-    //int threads = min(omp_get_num_procs(), 16);
-    //options.IncreaseParallelism(threads);
     options.compaction_style = rocksdb::kCompactionStyleNone;
     options.memtable_factory.reset(new rocksdb::VectorRepFactory(100));
 }
