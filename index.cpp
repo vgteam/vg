@@ -323,7 +323,12 @@ void Index::put_metadata(const string& tag, const string& data) {
 void Index::load_graph(VG& graph) {
     // a bit of a hack--- the logging only works with for_each_*parallel
     // also the high parallelism may be causing issues
-    int thread_count = omp_get_num_threads();
+    int thread_count = 1;
+#pragma omp parallel
+    {
+#pragma omp master
+        thread_count = omp_get_num_threads();
+    }
     omp_set_num_threads(1);
     graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
     graph.for_each_node_parallel([this](Node* n) { put_node(n); });
