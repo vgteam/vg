@@ -926,11 +926,6 @@ int main_index(int argc, char** argv) {
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, kmer_stride);
         }
-        // make sure compactions correctly occur after load
-        // or we get broken compactions :(
-        // documentation suggests this should be done automatically... why isn't it?
-        index.flush();
-        index.compact();
     }
 
     if (dump_index) {

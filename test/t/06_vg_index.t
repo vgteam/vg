@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 9
+plan tests 6
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -16,13 +16,13 @@ is $? 0 "indexing nodes and edges of graph"
 vg index -k 11 x.vg
 is $? 0 "indexing 11mers"
 
-vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
-is $? 0 "construction of 1mb graph succeeds"
+#vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
+#is $? 0 "construction of 1mb graph succeeds"
 
-vg index -s z.vg
-is $? 0 "indexing nodes, and edges of 1mb graph"
+#vg index -s z.vg
+#is $? 0 "indexing nodes, and edges of 1mb graph"
 
-is $(tail -1 z.vg.index/LOG | grep ERROR | wc -l) 0 "indexing does not close on error"
+#is $(tail -1 z.vg.index/LOG | grep ERROR | wc -l) 0 "indexing does not close on error"
 
 # clean up
 rm -rf z.vg.index z.vg
