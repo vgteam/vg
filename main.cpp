@@ -20,6 +20,7 @@ void help_kmers(char** argv) {
          << endl
          << "options:" << endl
          << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
+         << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -p, --progress        show progress" << endl;
@@ -33,6 +34,7 @@ int main_kmers(int argc, char** argv) {
     }
 
     int kmer_size = 0;
+    int edge_max = 0;
     int kmer_stride = 1;
     bool show_progress = false;
 
@@ -44,13 +46,14 @@ int main_kmers(int argc, char** argv) {
                 {"help", no_argument, 0, 'h'},
                 {"kmer-size", required_argument, 0, 'k'},
                 {"kmer-stride", required_argument, 0, 'j'},
+                {"edge-max", required_argument, 0, 'e'},
                 {"threads", required_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:",
+        c = getopt_long (argc, argv, "hk:j:pt:e:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -66,6 +69,10 @@ int main_kmers(int argc, char** argv) {
 
         case 'j':
             kmer_stride = atoi(optarg);
+            break;
+
+        case 'e':
+            edge_max = atoi(optarg);
             break;
 
         case 't':
@@ -87,6 +94,8 @@ int main_kmers(int argc, char** argv) {
         }
     }
 
+    if (edge_max == 0) edge_max = kmer_size + 1;
+
     vector<string> graph_file_names;
     while (optind < argc) {
         string file_name = argv[optind++];
@@ -100,7 +109,7 @@ int main_kmers(int argc, char** argv) {
         cout << kmer << '\t' << n->id() << '\t' << p << '\n';
     };
     graphs.show_progress = show_progress;
-    graphs.for_each_kmer_parallel(lambda, kmer_size, kmer_stride);
+    graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride);
     cout.flush();
 
     return 0;
@@ -509,6 +518,7 @@ void help_paths(char** argv) {
          << "options:" << endl
          << "    -n, --node ID         starting at node with ID" << endl
          << "    -l, --max-length N    generate paths of at most length N" << endl
+         << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
          << "    -s, --as-seqs         write each path as a sequence" << endl;
 }
 
@@ -520,6 +530,7 @@ int main_paths(int argc, char** argv) {
     }
 
     int max_length = 0;
+    int edge_max = 0;
     int64_t node_id = 0;
     bool as_seqs = false;
 
@@ -530,12 +541,13 @@ int main_paths(int argc, char** argv) {
             {
                 {"node", required_argument, 0, 'n'},
                 {"max-length", required_argument, 0, 'l'},
+                {"edge-max", required_argument, 0, 'e'},
                 {"as-seqs", no_argument, 0, 's'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hs",
+        c = getopt_long (argc, argv, "n:l:hse:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -552,6 +564,10 @@ int main_paths(int argc, char** argv) {
             max_length = atoi(optarg);
             break;
 
+        case 'e':
+            edge_max = atoi(optarg);
+            break;
+
         case 's':
             as_seqs = true;
             break;
@@ -566,6 +582,8 @@ int main_paths(int argc, char** argv) {
             abort ();
         }
     }
+
+    if (edge_max == 0) edge_max = max_length + 1;
 
     VG* graph;
     string file_name = argv[optind];
@@ -600,9 +618,9 @@ int main_paths(int argc, char** argv) {
     }
 
     if (node_id) {
-        graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, *callback);
+        graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, edge_max, *callback);
     } else {
-        graph->for_each_kpath_parallel(max_length, *callback);
+        graph->for_each_kpath_parallel(max_length, edge_max, *callback);
     }
 
     delete graph;
@@ -801,6 +819,7 @@ void help_index(char** argv) {
          << "options:" << endl
          << "    -s, --store           store graph (do this first to build db!)" << endl
          << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
+         << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
@@ -820,6 +839,7 @@ int main_index(int argc, char** argv) {
 
     string db_name;
     int kmer_size = 0;
+    int edge_max = 0;
     int kmer_stride = 1;
     bool store_graph = false;
     bool dump_index = false;
@@ -834,6 +854,7 @@ int main_index(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"db-name", required_argument, 0, 'd'},
                 {"kmer-size", required_argument, 0, 'k'},
+                {"edge-max", required_argument, 0, 'e'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"store", no_argument, 0, 's'},
                 {"dump", no_argument, 0, 'D'},
@@ -844,7 +865,7 @@ int main_index(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -859,6 +880,10 @@ int main_index(int argc, char** argv) {
 
         case 'k':
             kmer_size = atoi(optarg);
+            break;
+
+        case 'e':
+            edge_max = atoi(optarg);
             break;
 
         case 'j':
@@ -896,6 +921,8 @@ int main_index(int argc, char** argv) {
         }
     }
 
+    if (edge_max == 0) edge_max = kmer_size + 1;
+
     vector<string> graph_file_names;
     while (optind < argc) {
         string file_name = argv[optind++];
@@ -924,7 +951,7 @@ int main_index(int argc, char** argv) {
             graphs.store_in_index(index);
         }
         if (kmer_size != 0) {
-            graphs.index_kmers(index, kmer_size, kmer_stride);
+            graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         }
     }
 

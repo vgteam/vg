@@ -61,9 +61,9 @@ void VGset::store_in_index(Index& index) {
 }
 
 // stores kmers of size kmer_size with stride over paths in graphs in the index
-void VGset::index_kmers(Index& index, int kmer_size, int stride) {
+void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
 
-    for_each([&index, kmer_size, stride, this](VG* g) {
+    for_each([&index, kmer_size, edge_max, stride, this](VG* g) {
 
         auto keep_kmer = [&index, this](string& kmer, Node* n, int p) {
             if (allATGC(kmer)) {
@@ -72,7 +72,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
         };
 
         g->create_progress("indexing kmers of " + g->name, g->size());
-        g->for_each_kmer_parallel(kmer_size, keep_kmer, stride);
+        g->for_each_kmer_parallel(kmer_size, edge_max, keep_kmer, stride);
         g->destroy_progress();
         index.remember_kmer_size(kmer_size);
 
@@ -81,11 +81,11 @@ void VGset::index_kmers(Index& index, int kmer_size, int stride) {
 }
 
 void VGset::for_each_kmer_parallel(function<void(string&, Node*, int)>& lambda,
-                                   int kmer_size, int stride) {
-    for_each([&lambda, kmer_size, stride, this](VG* g) {
+                                   int kmer_size, int edge_max, int stride) {
+    for_each([&lambda, kmer_size, edge_max, stride, this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
-        g->for_each_kmer_parallel(kmer_size, lambda, stride);
+        g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride);
     });
 }
 

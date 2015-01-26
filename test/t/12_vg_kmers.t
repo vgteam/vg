@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 3
+plan tests 4
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     7141 \
@@ -23,3 +23,7 @@ is $(vg find -n 10 -c 1 x.vg | vg kmers -k 11 - | sort -n -k 2 -k 3 | tail -1 | 
     "kmers correctly generated from all nodes"
 rm x.vg
 rm -rf x.vg.index
+
+is $(vg kmers -k 11 -e 7 jumble/j.vg | wc -l) \
+    9300 \
+    "edge-max correctly bounds the number of kmers in a complex graph"

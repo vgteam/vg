@@ -246,22 +246,22 @@ public:
     GSSWAligner* gssw_aligner;
 
     // returns all node-crossing paths with up to length across node boundaries
-    void for_each_kpath(int k, function<void(Node*,list<Node*>&)> lambda);
-    void for_each_kpath_parallel(int k, function<void(Node*,list<Node*>&)> lambda);
-    void for_each_kpath(int k, function<void(Node*,Path&)> lambda);
-    void for_each_kpath_parallel(int k, function<void(Node*,Path&)> lambda);
+    void for_each_kpath(int k, int edge_max, function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath_parallel(int k, int edge_max, function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath(int k, int edge_max, function<void(Node*,Path&)> lambda);
+    void for_each_kpath_parallel(int k, int edge_max, function<void(Node*,Path&)> lambda);
 
-    void for_each_kpath_of_node(Node* n, int k, function<void(Node*,list<Node*>&)> lambda);
-    void for_each_kpath_of_node(Node* n, int k, function<void(Node*,Path&)> lambda);
+    void for_each_kpath_of_node(Node* n, int k, int edge_max, function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath_of_node(Node* n, int k, int edge_max, function<void(Node*,Path&)> lambda);
 
-    void kpaths(vector<Path>& paths, int length);
-    void kpaths(set<list<Node*> >& paths, int length);
+    void kpaths(vector<Path>& paths, int length, int edge_max);
+    void kpaths(set<list<Node*> >& paths, int length, int edge_max);
 
-    void kpaths_of_node(Node* node, set<list<Node*> >& paths, int length);
-    void kpaths_of_node(Node* node, vector<Path>& paths, int length);
-    void kpaths_of_node(int64_t node_id, vector<Path>& paths, int length);
-    void prev_kpaths_from_node(Node* node, int length, list<Node*> postfix, set<list<Node*> >& paths);
-    void next_kpaths_from_node(Node* node, int length, list<Node*> prefix, set<list<Node*> >& paths);
+    void kpaths_of_node(Node* node, set<list<Node*> >& paths, int length, int edge_max);
+    void kpaths_of_node(Node* node, vector<Path>& paths, int length, int edge_max);
+    void kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int edge_max);
+    void prev_kpaths_from_node(Node* node, int length, int edge_max, list<Node*> postfix, set<list<Node*> >& paths);
+    void next_kpaths_from_node(Node* node, int length, int edge_max, list<Node*> prefix, set<list<Node*> >& paths);
 
     void paths_between(Node* from, Node* to, vector<Path>& paths);
     void paths_between(int64_t from, int64_t to, vector<Path>& paths);
@@ -284,14 +284,17 @@ public:
 
     // kmers
     void for_each_kmer_parallel(int kmer_size,
+                                int edge_max,
                                 function<void(string&, Node*, int)> lambda,
                                 int stride = 1);
     void for_each_kmer(int kmer_size,
+                       int edge_max,
                        function<void(string&, Node*, int)> lambda,
                        int stride = 1);
     
 private:
     void _for_each_kmer(int kmer_size,
+                        int edge_max,
                         function<void(string&, Node*, int)> lambda,
                         bool parallel,
                         int stride);
