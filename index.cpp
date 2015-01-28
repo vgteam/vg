@@ -50,6 +50,18 @@ void Index::open(void) {
     }
 }
 
+void Index::open_read_only(string& dir) {
+    name = dir;
+    open_read_only();
+}
+
+void Index::open_read_only(void) {
+    rocksdb::Status status = rocksdb::DB::OpenForReadOnly(options, name, &db);
+    if (!status.ok()) {
+        throw indexOpenException();
+    }
+}
+
 void Index::close(void) {
     delete db;
 }

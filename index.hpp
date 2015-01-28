@@ -48,7 +48,9 @@ public:
 
     void prepare_for_bulk_load(void);
     void open(void);
+    void open_read_only(void);
     void open(string& dir);
+    void open_read_only(string& dir);
     void close(void);
     void reset_options(void);
     void flush(void);
