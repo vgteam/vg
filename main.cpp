@@ -753,7 +753,7 @@ int main_find(int argc, char** argv) {
     }
 
     Index index(db_name);
-    index.open();
+    index.open_read_only();
 
     if (!node_ids.empty()) {
         // open index
@@ -1149,7 +1149,7 @@ int main_map(int argc, char** argv) {
     }
 
     Index index(db_name);
-    index.open();
+    index.open_read_only();
 
     Mapper mapper(&index);
 
