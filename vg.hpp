@@ -81,6 +81,9 @@ public:
     size_t size(void); // number of nodes
     size_t length(void);
 
+    // clear everything
+    //void clear(void);
+
     // constructors
 
     // default

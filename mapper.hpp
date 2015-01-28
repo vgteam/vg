@@ -17,6 +17,7 @@ public:
 
     Mapper(Index* idex);
     Mapper(void) {
+        best_n_graphs = 3;
         index = NULL;
     }
     ~Mapper(void);
@@ -27,6 +28,8 @@ public:
 
     set<int> kmer_sizes;
     set<string> kmers_of(const string& seq);
+
+    int best_n_graphs;
 
 };
 

@@ -34,12 +34,12 @@ Alignment& Mapper::align(Alignment& alignment) {
     const string& sequence = alignment.sequence();
     auto kmers = kmers_of(sequence);
 
-    VG graph; // to return
+    VG* graph = new VG;
 
     for (auto& k : kmers) {
         VG g;
         index->get_kmer_subgraph(k, g);
-        graph.extend(g);
+        graph->extend(g);
     }
 
     int max_iter = 10;
@@ -47,12 +47,13 @@ Alignment& Mapper::align(Alignment& alignment) {
     int context_step = 1;
     int max_subgraph_size = 0;
 
-    while (max_subgraph_size < sequence.size() && iter < max_iter) {
+    do {
+        //cerr << max_subgraph_size << endl;
 
-        index->expand_context(graph, context_step);
         list<VG> subgraphs;
-        graph.disjoint_subgraphs(subgraphs);
+        graph->disjoint_subgraphs(subgraphs);
 
+        // turn me into a lambda
         map<int, vector<VG*> > subgraphs_by_size;
         // these are topologically-sorted
         for (list<VG>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
@@ -61,12 +62,24 @@ Alignment& Mapper::align(Alignment& alignment) {
             subgraphs_by_size[length].push_back(&*s);
         }
         max_subgraph_size = subgraphs_by_size.begin()->first;
+
+        // pick only the best to work with
+        delete graph; graph = new VG;
+        auto it = subgraphs_by_size.begin();
+        for (int i = 0; i < best_n_graphs && it != subgraphs_by_size.end(); ++i, ++it) {
+            for (auto g : it->second) {
+                graph->extend(*g);
+            }
+        }
+
+        index->expand_context(*graph, context_step);
+
         ++iter;
-    }
+    } while (max_subgraph_size < sequence.size() && iter < max_iter);
 
-    graph.join_heads();
+    graph->join_heads();
 
-    return graph.align(alignment);
+    return graph->align(alignment);
 
 }
 
