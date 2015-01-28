@@ -16,7 +16,7 @@ You'll need the protobuf and jansson development libraries installed on your ser
 
 You can also run `make get-deps`.
 
-Other libraries may be required, but I have not detected this as they come pre-installed on travis-ci. Please report any build difficulties.
+Other libraries may be required. Please report any build difficulties.
 
 Now, obtain the repo and its submodules:
 
@@ -69,13 +69,11 @@ A variety of commands are available:
 
 ## Implementation notes
 
-`vg` is based around a graph object (vg::VG) which has a native serialized representation that is almost identical on disk and in-memory, with the exception of adjacency indexes that are built when the object is parsed from a stream or file. These graph objects are the results of queries of larger indexes, or manipulation (for example joins or concatenations) of other graphs. I've designed it for interactive, stream-oriented use. You can, for instance, construct a graph, merge it with another one, and pipe the result into a local alignment process. The graph object can be stored in an index (vg::Index), aligned against directly (vg::GSSWAligner), or "mapped" against in a global sense (vg::Mapper), using an index of kmers.
+`vg` is based around a graph object (vg::VG) which has a native serialized representation that is almost identical on disk and in-memory, with the exception of adjacency indexes that are built when the object is parsed from a stream or file. These graph objects are the results of queries of larger indexes, or manipulation (for example joins or concatenations) of other graphs. vg is designed for interactive, stream-oriented use. You can, for instance, construct a graph, merge it with another one, and pipe the result into a local alignment process. The graph object can be stored in an index (vg::Index), aligned against directly (vg::GSSWAligner), or "mapped" against in a global sense (vg::Mapper), using an index of kmers.
 
 Once constructed, a variant graph (.vg is the suggested file extension) is typically around the same size as the reference (FASTA) and uncompressed variant set (VCF) which were used to build it. The index, however, may be much larger, perhaps more than an order of magnitude. This is less of a concern as it is not loaded into memory, but could be a pain point as vg is scaled up to whole-genome mapping.
 
 The serialization of very large graphs (>62MB) is enabled by the use of protocol buffer ZeroCopyStreams. Graphs are decomposed into sets of N (presently 10k) nodes, and these are written, with their edges, into graph objects that can be streamed into and out of vg. Graphs of unbounded size are possible using this approach.
-
-The current interfaces provided in the command line utility `vg` are rather rough around the edges, and are mostly built to enable interactive debugging and testing. The construction of whole-genome graphs is within reach, but limited by the memory requirements of the indexes that are built in memory at runtime when graphs are loaded. Rather than load an entire graph in memory at one step, it may be desirable to map functions and transformations across the chunks of a serialized graph. On the other hand, I am exploring the use of the [sparsehash](https://code.google.com/p/sparsehash) library as a way to reduce the runtime memory requirements of these indexes. This may prove futile for large graphs, in which case the internal workings of the method need to be restructured around operation across graphs of relatively small size.
 
 ## Development
 
@@ -90,6 +88,7 @@ The current interfaces provided in the command line utility `vg` are rather roug
 - [x] graph statistics
 - [x] subgraph decomposition
 - [x] k-path enumeration
+- [x] limiting k-paths to only those crossing a certain number of nodes (this prevents kpath blowup in densely varying regions of the graph)
 - [x] graph joining: combine subgraphs represented in a single or different .vg files
 - [x] GFA output
 - [x] global mapping against large graphs
@@ -105,9 +104,10 @@ The current interfaces provided in the command line utility `vg` are rather roug
 - [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps), and probably default GFA output from vg view
 - [x] index metadata (to quickly check if we have kmer index of size >=N)
 - [ ] use divide-and-conquer for graph fragment concatenation during construction
-- [ ] simplify mapping by setting a maximum node size in construction
+- [x] simplify mapping by setting a maximum node size in construction
 - [ ] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
 - [ ] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
+- [x] index the kmers of large graphs in reasonable time (48 hours, 32 threads, 2500 samples in 1000 genomes phase 3)
 - [x] compression of serialization format
 - [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - [ ] per-node, per-sample quality and count information on graph
