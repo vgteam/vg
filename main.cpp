@@ -735,6 +735,7 @@ int main_find(int argc, char** argv) {
     }
 
     VG* graph;
+    // TODO
     string file_name = argv[optind];
     if (file_name == "-") {
         if (db_name.empty()) {
@@ -1004,7 +1005,7 @@ int main_align(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jh",
+        c = getopt_long (argc, argv, "s:jhd:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1064,6 +1065,8 @@ int main_align(int argc, char** argv) {
 void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
          << "options:" << endl
+         << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl
+         << "                          a graph is not required" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -j, --json            output alignments in JSON format (default)" << endl;
 }
@@ -1088,11 +1091,12 @@ int main_map(int argc, char** argv) {
                 /* These options set a flag. */
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"sequence", required_argument, 0, 's'},
+                {"db-name", required_argument, 0, 'd'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jh",
+        c = getopt_long (argc, argv, "s:jhd:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1130,21 +1134,18 @@ int main_map(int argc, char** argv) {
         return 1;
     }
 
-    VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        if (db_name.empty()) {
-            cerr << "error:[vg index] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
+    string file_name;
+    if (optind < argc) {
+        file_name = argv[optind];
+    }
+
+    if (db_name.empty()) {
+        if (file_name.empty()) {
+            cerr << "error:[vg map] no graph or db given, exiting" << endl;
             return 1;
-        }
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        if (db_name.empty()) {
+        } else {
             db_name = file_name + ".index";
         }
-        in.open(file_name.c_str());
-        graph = new VG(in);
     }
 
     Index index(db_name);
