@@ -17,11 +17,8 @@ void Index::reset_options(void) {
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
     options.create_if_missing = true;
-    //options.compression = rocksdb::kBZip2Compression;
-    //options.compression = rocksdb::kSnappyCompression;
     options.compression = rocksdb::kZlibCompression;
     options.compaction_style = rocksdb::kCompactionStyleUniversal;
-    //options.compaction_style = rocksdb::kCompactionStyleLevel;
     int threads = 1;
 #pragma omp parallel
     {
