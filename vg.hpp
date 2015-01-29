@@ -212,6 +212,9 @@ public:
     // remove null nodes but connect predecessors and successors, preserving structure
     void remove_null_nodes_forwarding_edges(void);
 
+    // remove edges for which one of the nodes is not present
+    void remove_orphan_edges(void);
+
     // edges
     Edge* create_edge(Node* from, Node* to);
     Edge* create_edge(int64_t from, int64_t to);

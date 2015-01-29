@@ -350,17 +350,35 @@ rocksdb::Status Index::get_edge(int64_t from, int64_t to, Edge& edge) {
 }
 
 void Index::expand_context(VG& graph, int steps = 1) {
-    Graph& g = graph.graph; // ugly
     for (int step = 0; step < steps; ++step) {
-        vector<int64_t> ids;
-        for (int i = 0; i < g.node_size(); ++i) {
-            Node* node = g.mutable_node(i);
-            ids.push_back(node->id());
-        }
-        for (vector<int64_t>::iterator id = ids.begin(); id != ids.end(); ++id) {
-            get_context(*id, graph);
+        set<int64_t> ids;
+        graph.for_each_edge([this, &graph, &ids](Edge* edge) {
+                if (!graph.has_node(edge->from())) {
+                    ids.insert(edge->from());
+                }
+                if (!graph.has_node(edge->to())) {
+                    ids.insert(edge->to());
+                }
+            });
+        for (auto id : ids) {
+            get_context(id, graph);
         }
     }
+}
+
+void Index::get_connected_nodes(VG& graph) {
+    graph.for_each_edge([this, &graph](Edge* edge) {
+            if (!graph.has_node(edge->from())) {
+                Node node;
+                get_node(edge->from(), node);
+                graph.add_node(node);
+            }
+            if (!graph.has_node(edge->to())) {
+                Node node;
+                get_node(edge->to(), node);
+                graph.add_node(node);
+            }
+        });
 }
 
 void Index::get_context(int64_t id, VG& graph) {
@@ -386,10 +404,6 @@ void Index::get_context(int64_t id, VG& graph) {
             char type;
             parse_edge(it->key().ToString(), it->value().ToString(), type, id1, id2, edge);
             graph.add_edge(edge);
-            // get to node
-            Node node;
-            get_node(id2, node);
-            graph.add_node(node);
         } break;
         case 't': {
             Edge edge;
@@ -398,10 +412,7 @@ void Index::get_context(int64_t id, VG& graph) {
             parse_edge(it->key().ToString(), it->value().ToString(), type, id1, id2, edge);
             get_edge(id2, id1, edge);
             graph.add_edge(edge);
-            // get from node
-            Node node;
-            get_node(id2, node);
-            graph.add_node(node);
+
         } break;
         default:
             cerr << "vg::Index unrecognized key type " << keyt << endl;
@@ -419,28 +430,13 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
         string kmer;
         int32_t pos;
         parse_kmer(key, value, kmer, id, pos);
-        Node node;
-        get_node(id, node);
-        graph.add_node(node);
+        get_context(id, graph);
     };
     string start = key_prefix_for_kmer(kmer);
     string end = start + end_sep;
     start = start + start_sep;
     // apply to the range matching the kmer in the db
     for_range(start, end, add_node_matching_kmer);
-
-    auto add_edges_from_index = [&graph, this](Node* n) {
-        vector<Edge> edges;
-        get_edges_from(n->id(), edges);
-        get_edges_to(n->id(), edges);
-        for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
-            if (graph.has_node(e->to()) && graph.has_node(e->from())) {
-                graph.add_edge(*e);
-            }
-        }
-    };
-    // add the edges between the matching nodes from the index
-    graph.for_each_node(add_edges_from_index);
 }
 
 void Index::get_edges_from(int64_t from, vector<Edge>& edges) {

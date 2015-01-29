@@ -44,8 +44,15 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         g.for_each_node([&kmer_count](Node* node) {
                 kmer_count[node->id()]++;
             });
+        index->get_connected_nodes(g);
         graph->extend(g);
     }
+
+    /*
+    ofstream f("vg_align.vg");
+    graph->serialize_to_ostream(f);
+    f.close();
+    */
 
     int max_iter = 10;
     int iter = 0;

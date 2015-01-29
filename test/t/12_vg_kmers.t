@@ -19,7 +19,7 @@ is  $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | u
 vg construct -v small/x.vcf.gz -r small/x.fa >x.vg
 vg index -s x.vg
 is $(vg find -n 10 -c 1 x.vg | vg kmers -k 11 - | sort -n -k 2 -k 3 | tail -1 | cut -f 2) \
-    14 \
+    12 \
     "kmers correctly generated from all nodes"
 rm x.vg
 rm -rf x.vg.index

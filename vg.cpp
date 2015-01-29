@@ -1588,6 +1588,19 @@ void VG::remove_node_forwarding_edges(Node* node) {
     destroy_node(node);
 }
 
+void VG::remove_orphan_edges(void) {
+    set<pair<int64_t, int64_t> > edges;
+    for_each_edge([this,&edges](Edge* edge) {
+            if (!has_node(edge->from())
+                || !has_node(edge->to())) {
+                edges.insert(make_pair(edge->from(), edge->to()));
+            }
+        });
+    for (auto edge : edges) {
+        destroy_edge(edge.first, edge.second);
+    }
+}
+
 // utilities
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
@@ -2032,9 +2045,7 @@ void VG::to_dot(ostream& out) {
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        Node* p = node_by_id[e->from()];
-        Node* n = node_by_id[e->to()];
-        out << "    " << p->id() << " -> " << n->id() << ";" << endl;
+        out << "    " << e->from() << " -> " << e->to() << ";" << endl;
     }
     out << "}" << endl;
 }
@@ -2050,11 +2061,9 @@ void VG::to_gfa(ostream& out) {
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        Node* p = node_by_id[e->from()];
-        Node* n = node_by_id[e->to()];
         stringstream s;
-        s << "L" << "\t" << p->id() << "\t" << "-" << "\t" << n->id() << "\t" << "+" << "\t" << "0M" << endl;
-        sorted_output[p->id()].push_back(s.str());
+        s << "L" << "\t" << e->from() << "\t" << "-" << "\t" << e->to() << "\t" << "+" << "\t" << "0M" << endl;
+        sorted_output[e->from()].push_back(s.str());
     }
     for (auto& chunk : sorted_output) {
         for (auto& line : chunk.second) {

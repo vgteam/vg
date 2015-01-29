@@ -762,14 +762,21 @@ int main_find(int argc, char** argv) {
     if (!node_ids.empty()) {
         // open index
         // our result
-        VG result_graph;
         // get the context of the node
+        vector<VG> graphs;
         for (auto node_id : node_ids) {
-            index.get_context(node_id, result_graph);
+            VG g;
+            index.get_context(node_id, g);
             if (context_size > 0) {
-                index.expand_context(result_graph, context_size);
+                index.expand_context(g, context_size);
             }
+            graphs.push_back(g);
         }
+        VG result_graph;
+        for (auto& graph : graphs) {
+            result_graph.extend(graph);
+        }
+        result_graph.remove_orphan_edges();
         // return it
         result_graph.serialize_to_ostream(cout);
     } else if (from_id != 0) {
@@ -801,15 +808,21 @@ int main_find(int argc, char** argv) {
     }
 
     if (!kmers.empty()) {
-        VG result_graph;
-        for (vector<string>::iterator k = kmers.begin(); k != kmers.end(); ++k) {
+        vector<VG> graphs;
+        for (auto& kmer : kmers) {
             VG g;
-            index.get_kmer_subgraph(*k, g);
+            index.get_kmer_subgraph(kmer, g);
             if (context_size > 0) {
                 index.expand_context(g, context_size);
             }
-            result_graph.extend(g);
+            graphs.push_back(g);
         }
+
+        VG result_graph;
+        for (auto& graph : graphs) {
+            result_graph.extend(graph);
+        }
+        result_graph.remove_orphan_edges();
         result_graph.serialize_to_ostream(cout);
     }
     
