@@ -83,9 +83,7 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
 
         // pick only the best to work with
 
-        set<VG*> passing_length;
         set<VG*> passing_density;
-
         auto it = subgraphs_by_kmer_density.begin();
         for (int i = 0; (best_n_graphs == 0 || i < best_n_graphs)
                  && it != subgraphs_by_kmer_density.end(); ++i, ++it) {
@@ -93,20 +91,9 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
                 passing_density.insert(g);
             }
         }
-
-        auto jt = subgraphs_by_size.begin();
-        for (int i = 0; (best_n_graphs == 0 || i < best_n_graphs)
-                 && jt != subgraphs_by_size.end(); ++i, ++jt) {
-            for (auto g : jt->second) {
-                passing_length.insert(g);
-            }
-        }
-
         delete graph; graph = new VG;
         for (auto g : passing_density) {
-            if (passing_length.count(g)) {
-                graph->extend(*g);
-            }
+            graph->extend(*g);
         }
 
     };
