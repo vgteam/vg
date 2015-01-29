@@ -50,7 +50,7 @@ VG::VG(istream& in, bool showp) {
 
     destroy_progress();
 
-    //topologically_sort_graph();
+    //sort();
     //build_indexes();
 }
 
@@ -114,7 +114,7 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     init();
     add_nodes(nodes);
     add_edges(edges);
-    topologically_sort_graph();
+    sort();
 }
 
 // check for conflict (duplicate nodes and edges) occurs within add_* functions
@@ -853,7 +853,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
     }
 
-    topologically_sort_graph();
+    sort();
     compact_ids();
 
 }
@@ -1204,7 +1204,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         // then use topological sorting and re-compression of the id space to make sure that
         create_progress("topologically sorting", target_graph->size());
-        target_graph->topologically_sort_graph();
+        target_graph->sort();
         destroy_progress();
 
         create_progress("compacting ids", target_graph->size());
@@ -1228,7 +1228,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
     }
 }
 
-void VG::topologically_sort_graph(void) {
+void VG::sort(void) {
     deque<Node*> sorted_nodes;
     topological_sort(sorted_nodes);
     deque<Node*>::iterator n = sorted_nodes.begin();
@@ -2075,7 +2075,9 @@ void VG::connect_node_to_nodes(Node* node, vector<Node*>& nodes) {
     }
 }
 
+// join all subgraphs together to a "null" head node
 Node* VG::join_heads(void) {
+    current_id = max_node_id()+1;
     Node* root = create_node("N");
     vector<Node*> heads;
     head_nodes(heads);
@@ -2085,17 +2087,13 @@ Node* VG::join_heads(void) {
 
 Alignment& VG::align(Alignment& alignment) {
 
-    // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
-    Node* root = join_heads();
+    // warning: to be completely aligned, the graph's head nodes need to be fully-connected to a common root
 
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(alignment);
     delete gssw_aligner;
     gssw_aligner = NULL;
 
-    // remove root
-    destroy_node(root);
-    
     return alignment;
 }
 

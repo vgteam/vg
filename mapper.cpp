@@ -3,7 +3,8 @@
 namespace vg {
 
 Mapper::Mapper(Index* idex)
-    : index(idex) {
+    : index(idex)
+    , best_n_graphs(0) {
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty()) {
         cerr << "error:[vg::Mapper] the index (" 
@@ -16,13 +17,13 @@ Mapper::~Mapper(void) {
     // noop
 }
 
-Alignment Mapper::align(string& sequence) {
+Alignment Mapper::align(string& sequence, int stride) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment);
+    return align(alignment, stride);
 }
 
-Alignment& Mapper::align(Alignment& alignment) {
+Alignment& Mapper::align(Alignment& alignment, int stride) {
 
     if (index == NULL) {
         cerr << "error:[vg::Mapper] no index loaded, cannot map alignment!" << endl;
@@ -32,7 +33,7 @@ Alignment& Mapper::align(Alignment& alignment) {
     // establish kmers
 
     const string& sequence = alignment.sequence();
-    auto kmers = kmers_of(sequence);
+    auto kmers = kmers_of(sequence, stride);
 
     VG* graph = new VG;
 
@@ -48,7 +49,6 @@ Alignment& Mapper::align(Alignment& alignment) {
     int max_subgraph_size = 0;
 
     do {
-        //cerr << max_subgraph_size << endl;
 
         list<VG> subgraphs;
         graph->disjoint_subgraphs(subgraphs);
@@ -66,7 +66,7 @@ Alignment& Mapper::align(Alignment& alignment) {
         // pick only the best to work with
         delete graph; graph = new VG;
         auto it = subgraphs_by_size.begin();
-        for (int i = 0; i < best_n_graphs && it != subgraphs_by_size.end(); ++i, ++it) {
+        for (int i = 0; (best_n_graphs == 0 || i < best_n_graphs) && it != subgraphs_by_size.end(); ++i, ++it) {
             for (auto g : it->second) {
                 graph->extend(*g);
             }
@@ -78,16 +78,21 @@ Alignment& Mapper::align(Alignment& alignment) {
     } while (max_subgraph_size < sequence.size() && iter < max_iter);
 
     graph->join_heads();
+    graph->sort();
+
+    ofstream f("vg_align.vg");
+    graph->serialize_to_ostream(f);
+    f.close();
 
     return graph->align(alignment);
 
 }
 
-set<string> Mapper::kmers_of(const string& seq) {
+set<string> Mapper::kmers_of(const string& seq, const int stride) {
     set<string> kmers;
     if (!seq.empty()) {
         for (int kmer_size : kmer_sizes) {
-            for (int i = 0; i < seq.size()-kmer_size; ++i) {
+            for (int i = 0; i < seq.size()-kmer_size; i+=stride) {
                 kmers.insert(seq.substr(i,kmer_size));
             }
         }

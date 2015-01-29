@@ -237,7 +237,9 @@ public:
     void to_gfa(ostream& out);
     bool is_valid(void);
 
-    void topologically_sort_graph(void);
+    // topologically orders nodes
+    void sort(void);
+    // helper function, not really meant for external use
     void topological_sort(deque<Node*>& l);
     void swap_nodes(Node* a, Node* b);
 

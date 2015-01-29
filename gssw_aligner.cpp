@@ -30,23 +30,17 @@ GSSWAligner::GSSWAligner(
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
-        nodes[n->id()] = (gssw_node*)gssw_node_create(NULL, n->id(),
-                                                      n->sequence().c_str(),
-                                                      nt_table,
-                                                      score_matrix);
+        gssw_node* node = (gssw_node*)gssw_node_create(NULL, n->id(),
+                                                       n->sequence().c_str(),
+                                                       nt_table,
+                                                       score_matrix);
+        nodes[n->id()] = node;
+        gssw_graph_add_node(graph, node);
     }
 
     for (int i = 0; i < g.edge_size(); ++i) {
         Edge* e = g.mutable_edge(i);
         gssw_nodes_add_edge(nodes[e->from()], nodes[e->to()]);
-    }
-
-    // this could be considered unnecessary as we now sort the graph in construction
-    list<gssw_node*> sorted_nodes;
-    topological_sort(sorted_nodes);
-
-    for (list<gssw_node*>::iterator n = sorted_nodes.begin(); n != sorted_nodes.end(); ++n) {
-        gssw_graph_add_node(graph, *n);
     }
 
 }
@@ -120,61 +114,5 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& a
 
             }
         }
-    }
-}
-
-    /*
-Tarjan's topological sort
-
-L <- Empty list that will contain the sorted nodes
-while there are unmarked nodes do
-    select an unmarked node n
-    visit(n) 
-function visit(node n)
-    if n has a temporary mark then stop (not a DAG)
-    if n is not marked (i.e. has not been visited yet) then
-        mark n temporarily
-        for each node m with an edge from n to m do
-            visit(m)
-        mark n permanently
-        add n to head of L
-    */
-
-void GSSWAligner::topological_sort(list<gssw_node*>& sorted_nodes) {
-    set<gssw_node*> unmarked_nodes;
-    set<gssw_node*> temporary_marks;
-    for (map<int64_t, gssw_node*>::iterator n = nodes.begin();
-         n != nodes.end(); ++n) {
-        unmarked_nodes.insert(n->second);
-    }
-    while (!unmarked_nodes.empty()) {
-        gssw_node* node = *(unmarked_nodes.begin());
-        visit_node(node,
-                   sorted_nodes,
-                   unmarked_nodes,
-                   temporary_marks);
-    }
-}
-
-void GSSWAligner::visit_node(gssw_node* node,
-                             list<gssw_node*>& sorted_nodes,
-                             set<gssw_node*>& unmarked_nodes,
-                             set<gssw_node*>& temporary_marks) {
-    /*
-    if (temporary_marks.find(node) != temporary_marks.end()) {
-        cerr << "cannot sort graph because it is not a DAG!" << endl;
-        exit(1);
-    }
-    */
-    if (unmarked_nodes.find(node) != unmarked_nodes.end()) {
-        temporary_marks.insert(node);
-        for (int i = 0; i < node->count_next; ++i) {
-            visit_node(node->next[i],
-                       sorted_nodes,
-                       unmarked_nodes,
-                       temporary_marks);
-        }
-        unmarked_nodes.erase(node);
-        sorted_nodes.push_front(node);
     }
 }
