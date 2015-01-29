@@ -2087,12 +2087,16 @@ Node* VG::join_heads(void) {
 
 Alignment& VG::align(Alignment& alignment) {
 
-    // warning: to be completely aligned, the graph's head nodes need to be fully-connected to a common root
+    // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
+    Node* root = join_heads();
+    sort();
 
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(alignment);
     delete gssw_aligner;
     gssw_aligner = NULL;
+
+    destroy_node(root);
 
     return alignment;
 }

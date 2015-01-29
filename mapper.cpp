@@ -77,15 +77,6 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         ++iter;
     } while (max_subgraph_size < sequence.size() && iter < max_iter);
 
-    graph->join_heads();
-    graph->sort();
-
-    /*
-    ofstream f("vg_align.vg");
-    graph->serialize_to_ostream(f);
-    f.close();
-    */
-
     return graph->align(alignment);
 
 }
