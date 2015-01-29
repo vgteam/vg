@@ -51,7 +51,6 @@ public:
     void open_read_only(void);
     void open(string& dir);
     void open_read_only(string& dir);
-    void close(void);
     void reset_options(void);
     void flush(void);
     void compact(void);

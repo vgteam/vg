@@ -62,11 +62,9 @@ void Index::open_read_only(void) {
     }
 }
 
-void Index::close(void) {
-    delete db;
-}
-
 Index::~Index(void) {
+    flush();
+    compact();
     delete db;
 }
 
