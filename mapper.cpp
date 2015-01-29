@@ -58,7 +58,7 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         graph->disjoint_subgraphs(subgraphs);
 
         // turn me into a lambda
-        map<int, vector<VG*> > subgraphs_by_size;
+        map<int, set<VG*> > subgraphs_by_size;
         map<VG*, int> subgraph_kmer_count;
         // TODO
         map<double, set<VG*> > subgraphs_by_kmer_density;
@@ -69,20 +69,39 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
             subgraph.for_each_node([&s, &subgraph_kmer_count, &kmer_count](Node* node) {
                 subgraph_kmer_count[&*s] += kmer_count[node->id()];
             });
-            subgraphs_by_size[length].push_back(&*s);
+            subgraphs_by_size[length].insert(&*s);
             subgraphs_by_kmer_density[(double)length/(double)subgraph_kmer_count[&*s]].insert(&*s);
         }
         max_subgraph_size = subgraphs_by_size.begin()->first;
 
         // pick only the best to work with
-        delete graph; graph = new VG;
+
+        set<VG*> passing_length;
+        set<VG*> passing_density;
+
         auto it = subgraphs_by_kmer_density.begin();
         for (int i = 0; (best_n_graphs == 0 || i < best_n_graphs)
                  && it != subgraphs_by_kmer_density.end(); ++i, ++it) {
             for (auto g : it->second) {
+                passing_density.insert(g);
+            }
+        }
+
+        auto jt = subgraphs_by_size.begin();
+        for (int i = 0; (best_n_graphs == 0 || i < best_n_graphs)
+                 && jt != subgraphs_by_size.end(); ++i, ++jt) {
+            for (auto g : jt->second) {
+                passing_length.insert(g);
+            }
+        }
+
+        delete graph; graph = new VG;
+        for (auto g : passing_density) {
+            if (passing_length.count(g)) {
                 graph->extend(*g);
             }
         }
+
     };
 
     update_graph();
