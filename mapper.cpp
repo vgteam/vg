@@ -80,9 +80,11 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     graph->join_heads();
     graph->sort();
 
+    /*
     ofstream f("vg_align.vg");
     graph->serialize_to_ostream(f);
     f.close();
+    */
 
     return graph->align(alignment);
 
