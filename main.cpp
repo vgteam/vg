@@ -1070,7 +1070,8 @@ void help_map(char** argv) {
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl
          << "                          a graph is not required" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-         << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl;
+         << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
+         << "    -b, --best-graphs N   use the longest N subgraphs of the kmer graph when aligning" << endl;
 }
 
 int main_map(int argc, char** argv) {
@@ -1083,6 +1084,7 @@ int main_map(int argc, char** argv) {
     string seq;
     string db_name;
     int kmer_stride = 1;
+    int best_n_graphs = 0;
 
     bool output_json = true;
 
@@ -1096,11 +1098,12 @@ int main_map(int argc, char** argv) {
                 {"sequence", required_argument, 0, 's'},
                 {"db-name", required_argument, 0, 'd'},
                 {"kmer-stride", required_argument, 0, 'j'},
+                {"best-graphs", required_argument, 0, 'b'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:",
+        c = getopt_long (argc, argv, "s:j:hd:b:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1119,6 +1122,10 @@ int main_map(int argc, char** argv) {
 
         case 'j':
             kmer_stride = atoi(optarg);
+            break;
+
+        case 'b':
+            best_n_graphs = atoi(optarg);
             break;
  
         case 'h':
@@ -1156,6 +1163,7 @@ int main_map(int argc, char** argv) {
     index.open_read_only();
 
     Mapper mapper(&index);
+    mapper.best_n_graphs = best_n_graphs;
 
     Alignment alignment = mapper.align(seq, kmer_stride);
 

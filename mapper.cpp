@@ -48,7 +48,7 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     int context_step = 1;
     int max_subgraph_size = 0;
 
-    do {
+    auto update_graph = [this, &max_subgraph_size, &graph]() {
 
         list<VG> subgraphs;
         graph->disjoint_subgraphs(subgraphs);
@@ -71,11 +71,15 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
                 graph->extend(*g);
             }
         }
+    };
 
+    update_graph();
+
+    while (max_subgraph_size < sequence.size() && iter < max_iter) {
         index->expand_context(*graph, context_step);
-
+        update_graph();
         ++iter;
-    } while (max_subgraph_size < sequence.size() && iter < max_iter);
+    }
 
     return graph->align(alignment);
 
