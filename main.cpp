@@ -638,6 +638,7 @@ void help_find(char** argv) {
          << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
          << "    -c, --context STEPS   expand the context of the kmer hit subgraphs" << endl
          << "    -s, --sequence STR    search for sequence STR using --kmer-size kmers" << endl
+         << "    -j, --kmer-stride N   step distance between succesive kmers in sequence (default 1)" << endl
          << "    -z, --kmer-size N     split up --sequence into kmers of size N" << endl
         // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
@@ -653,6 +654,7 @@ int main_find(int argc, char** argv) {
     string db_name;
     string sequence;
     int kmer_size=0;
+    int kmer_stride = 1;
     vector<string> kmers;
     string output_format;
     int64_t from_id=0, to_id=0;
@@ -671,6 +673,7 @@ int main_find(int argc, char** argv) {
                 {"edges-to", required_argument, 0, 't'},
                 {"kmer", required_argument, 0, 'k'},
                 {"sequence", required_argument, 0, 's'},
+                {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
                 {"context", required_argument, 0, 'c'},
@@ -678,7 +681,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -697,6 +700,10 @@ int main_find(int argc, char** argv) {
 
         case 's':
             sequence = optarg;
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
             break;
 
         case 'z':
@@ -734,22 +741,19 @@ int main_find(int argc, char** argv) {
         }
     }
 
-    VG* graph;
-    // TODO
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        if (db_name.empty()) {
-            cerr << "error:[vg find] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
-            return 1;
+    if (optind < argc) {
+        string file_name = argv[optind];
+        if (file_name == "-") {
+            if (db_name.empty()) {
+                cerr << "error:[vg find] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
+                return 1;
+            }
         }
-        graph = new VG(std::cin);
-    } else {
         ifstream in;
         if (db_name.empty()) {
             db_name = file_name + ".index";
         }
         in.open(file_name.c_str());
-        graph = new VG(in);
     }
 
     Index index(db_name);
@@ -791,7 +795,7 @@ int main_find(int argc, char** argv) {
         if (kmer_size == 0) {
             kmer_size = *kmer_sizes.begin();
         }
-        for (int i = 0; i <= sequence.size()-kmer_size; ++i) {
+        for (int i = 0; i <= sequence.size()-kmer_size; i+=kmer_stride) {
             kmers.push_back(sequence.substr(i,kmer_size));
         }
     }
@@ -809,8 +813,6 @@ int main_find(int argc, char** argv) {
         result_graph.serialize_to_ostream(cout);
     }
     
-    delete graph;
-
     return 0;
 
 }
