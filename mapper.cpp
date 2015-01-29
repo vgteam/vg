@@ -36,10 +36,14 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     auto kmers = kmers_of(sequence, stride);
 
     VG* graph = new VG;
+    map<int64_t, int> kmer_count;
 
     for (auto& k : kmers) {
         VG g;
         index->get_kmer_subgraph(k, g);
+        g.for_each_node([&kmer_count](Node* node) {
+                kmer_count[node->id()]++;
+            });
         graph->extend(g);
     }
 
@@ -48,25 +52,33 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     int context_step = 1;
     int max_subgraph_size = 0;
 
-    auto update_graph = [this, &max_subgraph_size, &graph]() {
+    auto update_graph = [this, &max_subgraph_size, &graph, &kmer_count]() {
 
         list<VG> subgraphs;
         graph->disjoint_subgraphs(subgraphs);
 
         // turn me into a lambda
         map<int, vector<VG*> > subgraphs_by_size;
+        map<VG*, int> subgraph_kmer_count;
+        // TODO
+        map<double, set<VG*> > subgraphs_by_kmer_density;
         // these are topologically-sorted
         for (list<VG>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
             VG& subgraph = *s;
             int64_t length = subgraph.total_length_of_nodes();
+            subgraph.for_each_node([&s, &subgraph_kmer_count, &kmer_count](Node* node) {
+                subgraph_kmer_count[&*s] += kmer_count[node->id()];
+            });
             subgraphs_by_size[length].push_back(&*s);
+            subgraphs_by_kmer_density[(double)length/(double)subgraph_kmer_count[&*s]].insert(&*s);
         }
         max_subgraph_size = subgraphs_by_size.begin()->first;
 
         // pick only the best to work with
         delete graph; graph = new VG;
-        auto it = subgraphs_by_size.begin();
-        for (int i = 0; (best_n_graphs == 0 || i < best_n_graphs) && it != subgraphs_by_size.end(); ++i, ++it) {
+        auto it = subgraphs_by_kmer_density.begin();
+        for (int i = 0; (best_n_graphs == 0 || i < best_n_graphs)
+                 && it != subgraphs_by_kmer_density.end(); ++i, ++it) {
             for (auto g : it->second) {
                 graph->extend(*g);
             }
