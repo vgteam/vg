@@ -48,7 +48,7 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     map<pair<int64_t, int32_t>, vector<int64_t> > position_threads;
     map<int64_t, vector<int64_t> > node_threads;
     int node_wobble = 2;
-    int position_wobble = 1;
+    int position_wobble = 2;
     int kmer_size = *kmer_sizes.begin(); // just use the first for now
 
     i = 0;
