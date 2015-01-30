@@ -425,18 +425,31 @@ void Index::get_context(int64_t id, VG& graph) {
 
 void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
     // get the nodes in the kmer subgraph
-    auto add_node_matching_kmer = [&graph, this](string& key, string& value) {
-        int64_t id;
-        string kmer;
-        int32_t pos;
-        parse_kmer(key, value, kmer, id, pos);
-        get_context(id, graph);
-    };
+    for_kmer_range(kmer, [&graph, this](string& key, string& value) {
+            int64_t id;
+            string kmer;
+            int32_t pos;
+            parse_kmer(key, value, kmer, id, pos);
+            get_context(id, graph);
+        });
+}
+
+void Index::get_kmer_positions(const string& kmer, map<int64_t, set<int32_t> >& positions) {
+    for_kmer_range(kmer, [&positions, this](string& key, string& value) {
+            int64_t id;
+            string kmer;
+            int32_t pos;
+            parse_kmer(key, value, kmer, id, pos);
+            positions[id].insert(pos);
+        });
+}
+
+void Index::for_kmer_range(const string& kmer, function<void(string&, string&)> lambda) {
     string start = key_prefix_for_kmer(kmer);
     string end = start + end_sep;
     start = start + start_sep;
     // apply to the range matching the kmer in the db
-    for_range(start, end, add_node_matching_kmer);
+    for_range(start, end, lambda);
 }
 
 void Index::get_edges_from(int64_t from, vector<Edge>& edges) {

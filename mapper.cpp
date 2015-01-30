@@ -4,7 +4,7 @@ namespace vg {
 
 Mapper::Mapper(Index* idex)
     : index(idex)
-    , best_n_graphs(0) {
+    , best_clusters(0) {
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty()) {
         cerr << "error:[vg::Mapper] the index (" 
@@ -35,17 +35,108 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     const string& sequence = alignment.sequence();
     auto kmers = kmers_of(sequence, stride);
 
-    VG* graph = new VG;
-    map<int64_t, int> kmer_count;
-
+    vector<map<int64_t, set<int32_t> > > positions(kmers.size());
+    int i = 0;
     for (auto& k : kmers) {
+        index->get_kmer_positions(k, positions.at(i++));
+    }
+
+    // make threads
+    // these start whenever we have a kmer match which is outside of
+    // one of the last positions (for the previous kmer) + the kmer stride % wobble (hmm)
+
+    map<pair<int64_t, int32_t>, vector<int64_t> > position_threads;
+    map<int64_t, vector<int64_t> > node_threads;
+    int node_wobble = 2;
+    int position_wobble = 2;
+    int kmer_size = *kmer_sizes.begin(); // just use the first for now
+
+    i = 0;
+    for (auto& p : positions) {
+        auto& kmer = kmers.at(i++);
+        for (auto& x : p) {
+            int64_t id = x.first;
+            set<int32_t>& pos = x.second;
+            for (auto& y : pos) {
+                //cout << kmer << "\t" << i << "\t" << id << "\t" << y << endl;
+                // thread rules
+                // if we find the previous position
+                int m = 0;
+                vector<int64_t> thread;
+                for (int j = 0; j < 2*position_wobble + 1; ++j) {
+                    if (j == 0) { // on point
+                    } else if (j % 2 == 0) { // subtract
+                        m *= -1;
+                    } else { // add
+                        m *= -1; ++m;
+                    }
+                    //cout << "checking " << id << " " << y << " - " << kmer_size << " + " << m << endl;
+                    if (position_threads.find(make_pair(id, y - stride + m)) != position_threads.end()) {
+                        //length = position_threads[make_pair(id, y - stride + m)] + 1;
+                        thread = position_threads[make_pair(id, y - stride + m)];
+                        //cout << "thread is " << thread.size() << " long" << endl;
+                        break;
+                    }
+                }
+                // if length == 1, maybe we should look at a neighboring (previous) node
+                // so we wobble around looking for one
+                for (int j = 1; thread.empty() && j < node_wobble; ++j) {
+                    //cout << "checking " << id << " " << y << " - " << kmer_size << " + " << m << endl;
+                    if (node_threads.find(id - j) != node_threads.end()) {
+                        thread = node_threads[id - j];
+                        // isn't this guaranteed?
+                        //cout << "thread is " << thread.size() << " long" << endl;
+                        break;
+                    }
+                }
+
+                thread.push_back(id);
+                position_threads[make_pair(id, y)] = thread;
+                node_threads[id] = thread;
+
+            }
+        }
+    }
+
+    map<int, vector<vector<int64_t> > > threads_by_length;
+    for (auto& t : node_threads) {
+        auto& thread = t.second;
+        auto& threads = threads_by_length[thread.size()];
+        threads.push_back(thread);
+    }
+
+    for (auto& t : threads_by_length) {
+        auto& length = t.first;
+        auto& threads = t.second;
+        cerr << length << ":" << endl;
+        for (auto& thread : threads) {
+            cerr << "\t";
+            for (auto& id : thread) {
+                cerr << id << " ";
+            }
+            cerr << endl;
+        }
+        cerr << endl;
+    }
+
+    // collect the nodes from the best N threads by length
+    // and expand subgraphs as before
+    set<int64_t> nodes;
+    VG* graph = new VG;
+    map<int, vector<vector<int64_t> > >::reverse_iterator tl = threads_by_length.rbegin();
+    for (int i = 0; tl != threads_by_length.rend() && (best_clusters == 0 || i < best_clusters); ++i, ++tl) {
         VG g;
-        index->get_kmer_subgraph(k, g);
-        g.for_each_node([&kmer_count](Node* node) {
-                kmer_count[node->id()]++;
-            });
-        index->get_connected_nodes(g);
-        graph->extend(g);
+        auto& threads = tl->second;
+        for (auto& thread : threads) {
+            for (auto& id : thread) {
+                if (!nodes.count(id)) {
+                    nodes.insert(id);
+                    index->get_context(id, g);
+                    index->get_connected_nodes(g);
+                    graph->extend(g);
+                }
+            }
+        }
     }
 
     /*
@@ -57,52 +148,21 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     int max_iter = 10;
     int iter = 0;
     int context_step = 1;
-    int max_subgraph_size = 0;
+    int64_t max_subgraph_size = 0;
 
-    auto update_graph = [this, &max_subgraph_size, &graph, &kmer_count]() {
-
+    auto get_max_subgraph_size = [this, &max_subgraph_size, &graph]() {
         list<VG> subgraphs;
         graph->disjoint_subgraphs(subgraphs);
-
-        // turn me into a lambda
-        map<int, set<VG*> > subgraphs_by_size;
-        map<VG*, int> subgraph_kmer_count;
-        // TODO
-        map<double, set<VG*> > subgraphs_by_kmer_density;
-        // these are topologically-sorted
-        for (list<VG>::iterator s = subgraphs.begin(); s != subgraphs.end(); ++s) {
-            VG& subgraph = *s;
-            int64_t length = subgraph.total_length_of_nodes();
-            subgraph.for_each_node([&s, &subgraph_kmer_count, &kmer_count](Node* node) {
-                subgraph_kmer_count[&*s] += kmer_count[node->id()];
-            });
-            subgraphs_by_size[length].insert(&*s);
-            subgraphs_by_kmer_density[(double)length/(double)subgraph_kmer_count[&*s]].insert(&*s);
+        for (auto& subgraph : subgraphs) {
+            max_subgraph_size = max(subgraph.total_length_of_nodes(), max_subgraph_size);
         }
-        max_subgraph_size = subgraphs_by_size.begin()->first;
-
-        // pick only the best to work with
-
-        set<VG*> passing_density;
-        auto it = subgraphs_by_kmer_density.begin();
-        for (int i = 0; (best_n_graphs == 0 || i < best_n_graphs)
-                 && it != subgraphs_by_kmer_density.end(); ++i, ++it) {
-            for (auto g : it->second) {
-                passing_density.insert(g);
-            }
-        }
-        delete graph; graph = new VG;
-        for (auto g : passing_density) {
-            graph->extend(*g);
-        }
-
     };
 
-    update_graph();
+    get_max_subgraph_size();
 
     while (max_subgraph_size < sequence.size() && iter < max_iter) {
         index->expand_context(*graph, context_step);
-        update_graph();
+        get_max_subgraph_size();
         ++iter;
     }
 
@@ -110,12 +170,12 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
 
 }
 
-set<string> Mapper::kmers_of(const string& seq, const int stride) {
-    set<string> kmers;
+vector<string> Mapper::kmers_of(const string& seq, const int stride) {
+    vector<string> kmers;
     if (!seq.empty()) {
         for (int kmer_size : kmer_sizes) {
             for (int i = 0; i < seq.size()-kmer_size; i+=stride) {
-                kmers.insert(seq.substr(i,kmer_size));
+                kmers.push_back(seq.substr(i,kmer_size));
             }
         }
     }

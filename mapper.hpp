@@ -16,7 +16,7 @@ class Mapper {
 public:
 
     Mapper(Index* idex);
-    Mapper(void) : index(NULL), best_n_graphs(0) { }
+    Mapper(void) : index(NULL), best_clusters(0) { }
     ~Mapper(void);
     Index* index;
 
@@ -24,9 +24,9 @@ public:
     Alignment& align(Alignment& read, int stride);
 
     set<int> kmer_sizes;
-    set<string> kmers_of(const string& seq, int stride = 1);
+    vector<string> kmers_of(const string& seq, int stride = 1);
 
-    int best_n_graphs;
+    int best_clusters;
 
 };
 
