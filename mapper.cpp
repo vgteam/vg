@@ -25,6 +25,9 @@ Alignment Mapper::align(string& sequence, int stride) {
 
 Alignment& Mapper::align(Alignment& alignment, int stride) {
 
+    // parameters, some of which should probably be modifiable
+    // TODO -- move to Mapper object
+
     if (index == NULL) {
         cerr << "error:[vg::Mapper] no index loaded, cannot map alignment!" << endl;
         exit(1);
@@ -45,11 +48,18 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     // these start whenever we have a kmer match which is outside of
     // one of the last positions (for the previous kmer) + the kmer stride % wobble (hmm)
 
+    map<int64_t, vector<int> > node_kmer_order;
     map<pair<int64_t, int32_t>, vector<int64_t> > position_threads;
     map<int64_t, vector<int64_t> > node_threads;
-    int node_wobble = 2;
+    //int node_wobble = 0; // turned off...
     int position_wobble = 2;
-    int kmer_size = *kmer_sizes.begin(); // just use the first for now
+    int kmer_size = *kmer_sizes.begin(); // for simplicity, use the first available kmer size
+
+    int max_iter = sequence.size();
+    int iter = 0;
+    int context_step = 1;
+    int64_t max_subgraph_size = 0;
+    int max_thread_gap = 30; // counted in nodes
 
     i = 0;
     for (auto& p : positions) {
@@ -57,8 +67,9 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         for (auto& x : p) {
             int64_t id = x.first;
             set<int32_t>& pos = x.second;
+            node_kmer_order[id].push_back(i-1);
             for (auto& y : pos) {
-                //cout << kmer << "\t" << i << "\t" << id << "\t" << y << endl;
+                //cerr << kmer << "\t" << i << "\t" << id << "\t" << y << endl;
                 // thread rules
                 // if we find the previous position
                 int m = 0;
@@ -70,22 +81,13 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
                     } else { // add
                         m *= -1; ++m;
                     }
-                    //cout << "checking " << id << " " << y << " - " << kmer_size << " + " << m << endl;
-                    if (position_threads.find(make_pair(id, y - stride + m)) != position_threads.end()) {
+                    //cerr << "checking " << id << " " << y << " - " << kmer_size << " + " << m << endl;
+                    auto previous = position_threads.find(make_pair(id, y - stride + m));
+                    if (previous != position_threads.end()) {
                         //length = position_threads[make_pair(id, y - stride + m)] + 1;
-                        thread = position_threads[make_pair(id, y - stride + m)];
-                        //cout << "thread is " << thread.size() << " long" << endl;
-                        break;
-                    }
-                }
-                // if length == 1, maybe we should look at a neighboring (previous) node
-                // so we wobble around looking for one
-                for (int j = 1; thread.empty() && j < node_wobble; ++j) {
-                    //cout << "checking " << id << " " << y << " - " << kmer_size << " + " << m << endl;
-                    if (node_threads.find(id - j) != node_threads.end()) {
-                        thread = node_threads[id - j];
-                        // isn't this guaranteed?
-                        //cout << "thread is " << thread.size() << " long" << endl;
+                        thread = previous->second;
+                        position_threads.erase(previous);
+                        //cerr << "thread is " << thread.size() << " long" << endl;
                         break;
                     }
                 }
@@ -93,7 +95,6 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
                 thread.push_back(id);
                 position_threads[make_pair(id, y)] = thread;
                 node_threads[id] = thread;
-
             }
         }
     }
@@ -104,6 +105,8 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         auto& threads = threads_by_length[thread.size()];
         threads.push_back(thread);
     }
+
+    // now sort the threads and re-cluster them
 
     // for debugging
     /*
@@ -122,36 +125,98 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     }
     */
 
+    // sort threads by ids
+    // if they are at least 2 hits long
+    set<vector<int64_t> > sorted_threads;
+    auto tl = threads_by_length.rbegin();
+    for (auto& t : node_threads) {
+        auto& thread = t.second;
+        if (thread.size() > 1) {
+            sorted_threads.insert(thread);
+        }
+    }
+    // clean up
+    threads_by_length.clear();
+
+    // go back through and combine closely-linked threads
+    // ... but only if their kmer order is proper
+    map<int64_t, vector<int64_t> > threads_by_last;
+    for (auto& thread : sorted_threads) {
+        //cerr << thread.front() << "-" << thread.back() << endl;
+        auto prev = threads_by_last.upper_bound(thread.front()-max_thread_gap);
+        //if (prev != threads_by_last.begin()) --prev;
+        // now we should be at the highest thread within the bounds
+        //cerr << prev->first << " " << thread.front() << endl;
+        // todo: it may also make sense to check that the kmer order makes sense
+        // what does this mean? it means that the previous 
+        if (prev->first > thread.front() - max_thread_gap) {
+            vector<int64_t> new_thread;
+            auto& prev_thread = prev->second;
+            new_thread.reserve(prev_thread.size() + thread.size());
+            new_thread.insert(new_thread.end(), prev_thread.begin(), prev_thread.end());
+            new_thread.insert(new_thread.end(), thread.begin(), thread.end());
+            threads_by_last.erase(prev);
+            // this will clobber... not good
+            // maybe overwrite only if longer?
+            threads_by_last[new_thread.back()] = new_thread;
+        } else {
+            threads_by_last[thread.back()] = thread;
+        }
+    }
+
+    // debugging
+    /*
+    for (auto& t : threads_by_last) {
+        auto& thread = t.second;
+        cerr << t.first << "\t";
+        for (auto& id : thread) {
+            cerr << id << " ";
+        }
+        cerr << endl;
+    }
+    */
+
+    // rebuild our threads_by_length set
+    for (auto& t : threads_by_last) {
+        auto& thread = t.second;
+        auto& threads = threads_by_length[thread.size()];
+        threads.push_back(thread);
+    }
+
     // collect the nodes from the best N threads by length
     // and expand subgraphs as before
-    set<int64_t> nodes;
     VG* graph = new VG;
-    map<int, vector<vector<int64_t> > >::reverse_iterator tl = threads_by_length.rbegin();
+    tl = threads_by_length.rbegin();
     for (int i = 0; tl != threads_by_length.rend() && (best_clusters == 0 || i < best_clusters); ++i, ++tl) {
-        VG g;
         auto& threads = tl->second;
         for (auto& thread : threads) {
+            VG g;
+            set<int64_t> nodes;
             for (auto& id : thread) {
                 if (!nodes.count(id)) {
                     nodes.insert(id);
                     index->get_context(id, g);
-                    index->get_connected_nodes(g);
-                    graph->extend(g);
                 }
             }
+            // by definition, our thread should construct a contiguous graph
+            // however, it might not due to complexities of thread determination
+            // so, enforce this here
+            list<VG> subgraphs;
+            int c = 0;
+            do {
+                subgraphs.clear();
+                index->expand_context(g, 1);
+                // to find the disjoint subgraphs we need a complete graph (no orphan edges)
+                // so we make a temporary copy of the graph
+                VG gprime = g;
+                index->get_connected_nodes(gprime);
+                gprime.disjoint_subgraphs(subgraphs);
+            } while(subgraphs.size() > 1 && c++ < max_thread_gap);
+            // now that we have a completed graph for our thread, save it
+            graph->extend(g);
         }
+
     }
-
-    /*
-    ofstream f("vg_align.vg");
-    graph->serialize_to_ostream(f);
-    f.close();
-    */
-
-    int max_iter = 10;
-    int iter = 0;
-    int context_step = 1;
-    int64_t max_subgraph_size = 0;
 
     auto get_max_subgraph_size = [this, &max_subgraph_size, &graph]() {
         list<VG> subgraphs;
@@ -165,9 +230,16 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
 
     while (max_subgraph_size < sequence.size()*2 && iter < max_iter) {
         index->expand_context(*graph, context_step);
+        index->get_connected_nodes(*graph);
         get_max_subgraph_size();
         ++iter;
     }
+    // ensure we have a complete graph prior to alignment
+    index->get_connected_nodes(*graph);
+
+    ofstream f("vg_align.vg");
+    graph->serialize_to_ostream(f);
+    f.close();
 
     return graph->align(alignment);
 
