@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <algorithm>
+#include <random>
 
 #include "gssw.h"
 #include "gssw_aligner.hpp"
@@ -308,6 +309,9 @@ private:
                         int stride);
 
 public:
+
+    // reads
+    string random_read(int length, mt19937& rng);
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);

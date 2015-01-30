@@ -1922,6 +1922,24 @@ string VG::path_sequence(Path& path) {
     return sequence;
 }
 
+string VG::random_read(int length, mt19937& rng) {
+    uniform_int_distribution<int64_t> int64_dist(0,size()-1);
+    Node* node = get_node(int64_dist(rng));
+    uniform_int_distribution<uint32_t> uint32_dist(0,node->sequence().size()-1);
+    int32_t start_pos = uint32_dist(rng);
+    string read = node->sequence().substr(start_pos);
+    while (read.size() < length) {
+        // pick a random downstream node
+        vector<Node*> next_nodes;
+        nodes_next(node, next_nodes);
+        if (next_nodes.empty()) break;
+        uniform_int_distribution<int> next_dist(0, next_nodes.size()-1);
+        node = next_nodes.at(next_dist(rng));
+        read.append(node->sequence());
+    }
+    return read.substr(0, length);
+}
+
 bool VG::is_valid(void) {
 
     if (node_by_id.size() != graph.node_size()) {
