@@ -149,7 +149,8 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         //cerr << prev->first << " " << thread.front() << endl;
         // todo: it may also make sense to check that the kmer order makes sense
         // what does this mean? it means that the previous 
-        if (prev->first > thread.front() - max_thread_gap) {
+        if (prev != threads_by_last.end()
+            && prev->first > thread.front() - max_thread_gap) {
             vector<int64_t> new_thread;
             auto& prev_thread = prev->second;
             new_thread.reserve(prev_thread.size() + thread.size());
