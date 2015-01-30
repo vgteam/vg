@@ -48,7 +48,7 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     map<pair<int64_t, int32_t>, vector<int64_t> > position_threads;
     map<int64_t, vector<int64_t> > node_threads;
     int node_wobble = 2;
-    int position_wobble = 2;
+    int position_wobble = 1;
     int kmer_size = *kmer_sizes.begin(); // just use the first for now
 
     i = 0;
@@ -105,6 +105,8 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         threads.push_back(thread);
     }
 
+    // for debugging
+    /*
     for (auto& t : threads_by_length) {
         auto& length = t.first;
         auto& threads = t.second;
@@ -118,6 +120,7 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         }
         cerr << endl;
     }
+    */
 
     // collect the nodes from the best N threads by length
     // and expand subgraphs as before
@@ -160,7 +163,7 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
 
     get_max_subgraph_size();
 
-    while (max_subgraph_size < sequence.size() && iter < max_iter) {
+    while (max_subgraph_size < sequence.size()*2 && iter < max_iter) {
         index->expand_context(*graph, context_step);
         get_max_subgraph_size();
         ++iter;
