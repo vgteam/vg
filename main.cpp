@@ -103,6 +103,7 @@ int main_sim(int argc, char** argv) {
         }
         cout << readseq << endl;
     }
+    delete graph;
 
     return 0;
 }
@@ -1176,6 +1177,7 @@ void help_map(char** argv) {
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl
          << "                          a graph is not required" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -r, --reads FILE      take reads from FILE, printing alignments to stdout" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl;
 }
@@ -1191,6 +1193,7 @@ int main_map(int argc, char** argv) {
     string db_name;
     int kmer_stride = 1;
     int best_clusters = 0;
+    string read_file;
 
     bool output_json = true;
 
@@ -1205,11 +1208,12 @@ int main_map(int argc, char** argv) {
                 {"db-name", required_argument, 0, 'd'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"clusters", required_argument, 0, 'c'},
+                {"reads", required_argument, 0, 'r'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1233,6 +1237,10 @@ int main_map(int argc, char** argv) {
         case 'c':
             best_clusters = atoi(optarg);
             break;
+
+        case 'r':
+            read_file = optarg;
+            break;
  
         case 'h':
         case '?':
@@ -1246,8 +1254,8 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    if (seq.empty()) {
-        cerr << "error:[vg map] a sequence is required when mapping" << endl;
+    if (seq.empty() && read_file.empty()) {
+        cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
         return 1;
     }
 
@@ -1271,12 +1279,26 @@ int main_map(int argc, char** argv) {
     Mapper mapper(&index);
     mapper.best_clusters = best_clusters;
 
-    Alignment alignment = mapper.align(seq, kmer_stride);
+    if (!seq.empty()) {
+        Alignment alignment = mapper.align(seq, kmer_stride);
+        if (output_json) {
+            char *json2 = pb2json(alignment);
+            cout<<json2<<endl;
+            free(json2);
+        }
+    }
 
-    if (output_json) {
-        char *json2 = pb2json(alignment);
-        cout<<json2<<endl;
-        free(json2);
+    if (!read_file.empty()) {
+        string line;
+        ifstream in(read_file);
+        while(std::getline(in,line)){
+            Alignment alignment = mapper.align(line, kmer_stride);
+            if (output_json) {
+                char *json2 = pb2json(alignment);
+                cout<<json2<<endl;
+                free(json2);
+            }
+        }
     }
 
     return 0;
