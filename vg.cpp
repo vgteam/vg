@@ -454,6 +454,17 @@ int64_t VG::max_node_id(void) {
     return max_id;
 }
 
+int64_t VG::min_node_id(void) {
+    int64_t min_id = max_node_id();
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        if (n->id() < min_id) {
+            min_id = n->id();
+        }
+    }
+    return min_id;
+}
+
 void VG::compact_ids(void) {
     hash_map<int64_t, int64_t> new_id;
     int64_t id = 1; // start at 1
@@ -1922,8 +1933,8 @@ string VG::path_sequence(Path& path) {
     return sequence;
 }
 
-string VG::random_read(int length, mt19937& rng) {
-    uniform_int_distribution<int64_t> int64_dist(1,size());
+string VG::random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id) {
+    uniform_int_distribution<int64_t> int64_dist(min_id, max_id);
     int64_t id = int64_dist(rng);
     Node* node = get_node(id);
     int32_t start_pos = 0;

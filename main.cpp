@@ -92,14 +92,17 @@ int main_sim(int argc, char** argv) {
         graph = new VG(in);
     }
 
+    int64_t max_id = graph->max_node_id();
+    int64_t min_id = graph->min_node_id();
+
     mt19937 rng;
     rng.seed(seed_val);
 
     for (int i = 0; i < num_reads; ++i) {
-        string readseq = graph->random_read(read_length, rng);
+        string readseq = graph->random_read(read_length, rng, min_id, max_id);
         // avoid short reads at the end of the graph by retrying
         while (readseq.size() < read_length) {
-            readseq = graph->random_read(read_length, rng);
+            readseq = graph->random_read(read_length, rng, min_id, max_id);
         }
         cout << readseq << endl;
     }

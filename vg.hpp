@@ -47,6 +47,9 @@ public:
 
     // current id
     int64_t current_id;
+    // todo
+    //int64_t min_id;
+    //int64_t max_id;
 
     // nodes by id
     hash_map<int64_t, Node*> node_by_id;
@@ -156,6 +159,7 @@ public:
     //void concatenate(VG& g);
 
     int64_t max_node_id(void);
+    int64_t min_node_id(void);
     void compact_ids(void);
     void increment_node_ids(int64_t increment);
     void decrement_node_ids(int64_t decrement);
@@ -311,7 +315,7 @@ private:
 public:
 
     // reads
-    string random_read(int length, mt19937& rng);
+    string random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id);
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);
