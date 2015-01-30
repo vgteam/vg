@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <ctime>
 #include <getopt.h>
 #include "pb2json.h"
 #include "vg.hpp"
@@ -13,6 +14,98 @@
 using namespace std;
 using namespace google::protobuf;
 using namespace vg;
+
+void help_sim(char** argv) {
+    cerr << "usage: " << argv[0] << " sim [options] <graph.vg>" << endl
+         << "Simulates reads from the graph(s). Output is a list of reads." << endl
+         << endl
+         << "options:" << endl
+         << "    -l, --read-length N   write reads of length N" << endl
+         << "    -n, --num-reads N     simulate N reads" << endl
+         << "    -s, --random-seed N   use this specific seed for the PRNG" << endl;
+}
+
+int main_sim(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_sim(argv);
+        return 1;
+    }
+
+    int read_length = 100;
+    int num_reads = 1;
+    int seed_val = time(NULL);
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"help", no_argument, 0, 'h'},
+                {"read-length", required_argument, 0, 'l'},
+                {"num-reads", required_argument, 0, 'n'},
+                {"random-seed", required_argument, 0, 's'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hl:n:s:",
+                         long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+
+        case 'l':
+            read_length = atoi(optarg);
+            break;
+
+        case 'n':
+            num_reads = atoi(optarg);
+            break;
+
+        case 's':
+            seed_val = atoi(optarg);
+            break;
+
+        case 'h':
+        case '?':
+            help_sim(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    VG* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(file_name.c_str());
+        graph = new VG(in);
+    }
+
+    mt19937 rng;
+    rng.seed(seed_val);
+
+    for (int i = 0; i < num_reads; ++i) {
+        string readseq = graph->random_read(read_length, rng);
+        // avoid short reads at the end of the graph by retrying
+        while (readseq.size() < read_length) {
+            readseq = graph->random_read(read_length, rng);
+        }
+        cout << readseq << endl;
+    }
+
+    return 0;
+}
 
 void help_kmers(char** argv) {
     cerr << "usage: " << argv[0] << " kmers [options] <graph1.vg> [graph2.vg ...] >kmers.tsv" << endl
@@ -1414,7 +1507,8 @@ void vg_help(char** argv) {
          << "  -- join          combine graphs via a new head" << endl
          << "  -- ids           manipulate node ids" << endl
          << "  -- concat        concatenate graphs tail-to-head" << endl
-         << "  -- kmers         enumerate kmers of the graph" << endl;
+         << "  -- kmers         enumerate kmers of the graph" << endl
+         << "  -- sim           simulate reads from the graph" << endl;
 }
 
 int main(int argc, char *argv[])
@@ -1452,6 +1546,8 @@ int main(int argc, char *argv[])
         return main_concat(argc, argv);
     } else if (command == "kmers") {
         return main_kmers(argc, argv);
+    } else if (command == "sim") {
+        return main_sim(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

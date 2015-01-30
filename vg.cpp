@@ -1923,10 +1923,14 @@ string VG::path_sequence(Path& path) {
 }
 
 string VG::random_read(int length, mt19937& rng) {
-    uniform_int_distribution<int64_t> int64_dist(0,size()-1);
-    Node* node = get_node(int64_dist(rng));
-    uniform_int_distribution<uint32_t> uint32_dist(0,node->sequence().size()-1);
-    int32_t start_pos = uint32_dist(rng);
+    uniform_int_distribution<int64_t> int64_dist(1,size());
+    int64_t id = int64_dist(rng);
+    Node* node = get_node(id);
+    int32_t start_pos = 0;
+    if (node->sequence().size() > 1) {
+        uniform_int_distribution<uint32_t> uint32_dist(0,node->sequence().size()-1);
+        start_pos = uint32_dist(rng);
+    }
     string read = node->sequence().substr(start_pos);
     while (read.size() < length) {
         // pick a random downstream node
