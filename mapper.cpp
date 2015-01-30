@@ -237,9 +237,11 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
     // ensure we have a complete graph prior to alignment
     index->get_connected_nodes(*graph);
 
+    /*
     ofstream f("vg_align.vg");
     graph->serialize_to_ostream(f);
     f.close();
+    */
 
     return graph->align(alignment);
 
