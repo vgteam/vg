@@ -54,6 +54,7 @@ public:
     void reset_options(void);
     void flush(void);
     void compact(void);
+    void close(void);
 
     string name;
 

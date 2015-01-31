@@ -30,6 +30,13 @@ void Index::reset_options(void) {
 
 void Index::prepare_for_bulk_load(void) {
     options.PrepareForBulkLoad();
+    int threads = 1;
+#pragma omp parallel
+    {
+#pragma omp master
+        threads = omp_get_num_threads();
+    }
+    options.IncreaseParallelism(threads);
     options.compaction_style = rocksdb::kCompactionStyleNone;
     options.memtable_factory.reset(new rocksdb::VectorRepFactory(100));
 }
@@ -60,6 +67,10 @@ void Index::open_read_only(void) {
 }
 
 Index::~Index(void) {
+    close();
+}
+
+void Index::close(void) {
     flush();
     compact();
     delete db;

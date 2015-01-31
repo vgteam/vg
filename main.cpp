@@ -1058,6 +1058,9 @@ int main_index(int argc, char** argv) {
     index.open();
 
     if (graph_file_names.size() > 0) {
+        index.close();
+        index.prepare_for_bulk_load();
+        index.open();
         VGset graphs(graph_file_names);
         graphs.show_progress = show_progress;
         if (store_graph) {
@@ -1066,6 +1069,10 @@ int main_index(int argc, char** argv) {
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         }
+        index.close();
+        // should force compaction
+        index.reset_options();
+        index.open();
     }
 
     if (dump_index) {
