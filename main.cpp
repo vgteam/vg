@@ -1071,6 +1071,8 @@ int main_index(int argc, char** argv) {
         // should force compaction
         index.reset_options();
         index.open();
+        index.flush();
+        index.compact();
     }
 
     if (dump_index) {
