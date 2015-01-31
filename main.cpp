@@ -1055,10 +1055,8 @@ int main_index(int argc, char** argv) {
     }
 
     Index index(db_name);
-    index.open();
 
     if (graph_file_names.size() > 0) {
-        index.close();
         index.prepare_for_bulk_load();
         index.open();
         VGset graphs(graph_file_names);
@@ -1076,10 +1074,12 @@ int main_index(int argc, char** argv) {
     }
 
     if (dump_index) {
+        index.open_read_only();
         index.dump(cout);
     }
 
     if (describe_index) {
+        index.open_read_only();
         set<int> kmer_sizes = index.stored_kmer_sizes();
         cout << "kmer sizes: ";
         for (auto kmer_size : kmer_sizes) {
