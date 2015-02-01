@@ -82,7 +82,8 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
             buffer.emplace_back();
             written_buffer_count.push_back(0);
         }
-        uint64_t buffer_max_size = 1024 * 1024 * 128;
+        // how many kmer entries to hold onto
+        uint64_t buffer_max_size = 1000000;
 
         auto write_buffer = [&written_buffer_count](int tid, vector<KmerMatch>& buf) {
             stringstream file_name;
