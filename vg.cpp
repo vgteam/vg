@@ -23,7 +23,7 @@ VG::VG(istream& in, bool showp) {
         extend(g);
     };
 
-    stream::for_each(in, handle_count, lambda);
+    stream::for_each(in, lambda, handle_count);
 
     destroy_progress();
 

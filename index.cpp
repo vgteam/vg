@@ -547,16 +547,6 @@ void Index::batch_kmer(const string& kmer,
     batch.Put(key, data);
 }
 
-void Index::populate_matches(Matches& matches, hash_map<Node*, int>& kmer_node_pos) {
-    for (hash_map<Node*, int>::iterator m = kmer_node_pos.begin(); m != kmer_node_pos.end(); ++m) {
-        Node* n = m->first;
-        int pos = m->second;
-        Match* match = matches.add_match();
-        match->set_node_id(n->id());
-        match->set_position(pos);
-    }
-}
-
 void Index::store_batch(map<string, string>& items) {
     rocksdb::WriteBatch batch;
     for (auto& i : items) {

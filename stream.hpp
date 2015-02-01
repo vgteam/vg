@@ -52,8 +52,8 @@ bool write(ostream& out, uint64_t count, function<T(uint64_t)>& lambda) {
 
 template <typename T>
 bool for_each(istream& in,
-              function<void(uint64_t)>& handle_count,
-              function<void(T&)>& lambda) {
+              function<void(T&)>& lambda,
+              function<void(uint64_t)>& handle_count) {
 
     ::google::protobuf::io::ZeroCopyInputStream *raw_in =
           new ::google::protobuf::io::IstreamInputStream(&in);
@@ -91,6 +91,13 @@ bool for_each(istream& in,
     delete raw_in;
 
     return !count;
+}
+
+template <typename T>
+bool for_each(istream& in,
+              function<void(T&)>& lambda) {
+    function<void(uint64_t)> noop = [](uint64_t) { };
+    for_each(in, lambda, noop);
 }
 
 }

@@ -303,7 +303,7 @@ public:
                        int edge_max,
                        function<void(string&, Node*, int)> lambda,
                        int stride = 1);
-    
+
 private:
     void _for_each_kmer(int kmer_size,
                         int edge_max,

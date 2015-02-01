@@ -86,14 +86,10 @@ message Alignment {
     optional bytes data = 8;
 }
 
-// used to specify a match starting a specified position
+// used to specify kmer matches against a given node
 // the context of this is dependent on implementation, use in db, etc.
-
-message Match {
-    optional int64 node_id = 1;
-    optional sint32 position = 2;
-}
-
-message Matches {
-    repeated Match match = 1;
+message KmerMatch {
+    optional string sequence = 1;
+    optional int64 node_id = 2;
+    optional sint32 position = 3;
 }

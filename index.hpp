@@ -122,7 +122,6 @@ public:
 
     // once we have indexed the kmers, we can get the nodes and edges matching
     void kmer_matches(std::string& kmer, std::set<int64_t>& node_ids, std::set<int64_t>& edge_ids);
-    void populate_matches(Matches& matches, hash_map<Node*, int>& kmer_node_pos);
 
     char graph_key_type(string& key);
 
