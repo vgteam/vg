@@ -29,7 +29,6 @@ void Index::reset_options(void) {
     options.IncreaseParallelism(threads);
     //options.env->SetBackgroundThreads(threads);
     //options.max_background_flushes = threads;
-    options.write_buffer_size = 1024 * 1024 * 128;
     //options.max_bytes_for_level_base = 1024 * 1024 * 1024;
     //options.db_write_buffer_size = 1024 * 1024 * 128;
     //options.bytes_per_sync = 1024 * 1024 * 128;
@@ -43,11 +42,12 @@ void Index::prepare_for_bulk_load(void) {
 #pragma omp master
         threads = omp_get_num_threads();
     }
-    options.target_file_size_base = 1024 * 1024 * 256;
+    options.write_buffer_size = 1024 * 1024 * 256;
+    options.target_file_size_base = 1024 * 1024 * 512;
     options.IncreaseParallelism(threads);
     //options.env->SetBackgroundThreads(threads);
     //options.allow_mmap_writes = true;
-    //options.max_write_buffer_number = 4;
+    options.max_write_buffer_number = 4;
     //options.allow_os_buffer = false;
     //options.min_write_buffer_number_to_merge = 16;
     options.compaction_style = rocksdb::kCompactionStyleNone;
