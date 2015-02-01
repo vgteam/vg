@@ -17,7 +17,6 @@
 #include "region.hpp"
 
 #include "vg.pb.h"
-#include "stream.hpp"
 #include "hash_map.hpp"
 
 #include "progress_bar.hpp"

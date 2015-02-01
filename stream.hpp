@@ -14,85 +14,83 @@
 
 namespace stream {
 
-// serialize a container into the output stream
+// write objects
 // count should be equal to the number of objects to write
 // but if it is 0, it is not written
 // if not all objects are written, return false, otherwise true
-template <typename C>
-bool save_messages(ostream& out, C& objects, uint64_t count) {
+template <typename T>
+bool write(ostream& out, uint64_t count, function<T(uint64_t)>& lambda) {
 
     ::google::protobuf::io::ZeroCopyOutputStream *raw_out =
           new ::google::protobuf::io::OstreamOutputStream(&out);
+    ::google::protobuf::io::GzipOutputStream *gzip_out =
+          new ::google::protobuf::io::GzipOutputStream(raw_out);
     ::google::protobuf::io::CodedOutputStream *coded_out =
-          new ::google::protobuf::io::CodedOutputStream(raw_out);
+          new ::google::protobuf::io::CodedOutputStream(gzip_out);
 
-    // save the number of the messages to be serialized into the output file
-    if (count) {
-        coded_out->WriteVarint64(count);
-    }
+    coded_out->WriteVarint64(count);
 
     std::string s;
-
     uint64_t written = 0;
-    for (typename C::iterator o = objects.begin(); o != objects.end(); ++o) {
-        o->SerializeToString(&s);
+    for (int64_t n = 0; n < count; ++n, ++written) {
+        lambda(n).SerializeToString(&s);
         coded_out->WriteVarint32(s.size());
-        coded_out->WriteRaw(s.data(), s.size()); // ->WriteString(s)
-        ++written;
+        coded_out->WriteRaw(s.data(), s.size());
     }
 
     delete coded_out;
+    delete gzip_out;
     delete raw_out;
 
     return !count || written == count;
 }
 
+
 // deserialize the input stream into the objects
 // count containts the count read
 // takes a callback function to be called on the objects
-/*
-template <typename T>
-struct Callback {
-    void operator()(T t) { return; }
-};
-*/
 
-template <typename T, typename C>
-bool load_messages(istream& in, C* object, uint64_t& count) {
+template <typename T>
+bool for_each(istream& in,
+              function<void(uint64_t)>& handle_count,
+              function<void(T&)>& lambda) {
 
     ::google::protobuf::io::ZeroCopyInputStream *raw_in =
           new ::google::protobuf::io::IstreamInputStream(&in);
+    ::google::protobuf::io::GzipInputStream *gzip_in =
+          new ::google::protobuf::io::GzipInputStream(raw_in);
     ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(raw_in);
+          new ::google::protobuf::io::CodedInputStream(gzip_in);
 
+    uint64_t count;
     coded_in->ReadVarint64(&count);
-    coded_in->SetTotalBytesLimit(1000000000, -1);
+    handle_count(count);
+    delete coded_in;
 
     std::string s;
 
     for (uint64_t i = 0; i < count; ++i) {
+
+        ::google::protobuf::io::CodedInputStream *coded_in =
+          new ::google::protobuf::io::CodedInputStream(gzip_in);
 
         uint32_t msgSize = 0;
         coded_in->ReadVarint32(&msgSize);
 
         if ((msgSize > 0) &&
             (coded_in->ReadString(&s, msgSize))) {
-
-            T o;
-            o.ParseFromString(s);
-            // TODO
-            // it would be so nice to have a callback here
-            // how can this happen?
-            //callback(o);
-            object->extend(o);
-
+            T object;
+            object.ParseFromString(s);
+            lambda(object);
         }
+
+        delete coded_in;
     }
 
-    delete coded_in;
+    delete gzip_in;
     delete raw_in;
 
-    return true;
+    return !count;
 }
 
 }

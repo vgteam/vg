@@ -1,4 +1,5 @@
 #include "vg.hpp"
+#include "stream.hpp"
 
 namespace vg {
 
@@ -6,92 +7,51 @@ using namespace std;
 
 // construct from a stream of protobufs
 VG::VG(istream& in, bool showp) {
+
+    // set up uninitialized values
     init();
     show_progress = showp;
+    // and if we should show progress
+    function<void(uint64_t)> handle_count = [this](uint64_t count) {
+        create_progress("loading graph", count);
+    };
 
-    uint64_t count = 0;
+    // the graph is read in chunks, which are attached to this graph
+    uint64_t i = 0;
+    function<void(Graph&)> lambda = [this, &i](Graph& g) {
+        update_progress(++i);
+        extend(g);
+    };
 
-    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
-          new ::google::protobuf::io::IstreamInputStream(&in);
-    ::google::protobuf::io::GzipInputStream *gzip_in =
-          new ::google::protobuf::io::GzipInputStream(raw_in);
-    ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
-
-    coded_in->ReadVarint64(&count);
-    delete coded_in;
-
-    create_progress("loading graph", count);
-
-    std::string s;
-
-    for (uint64_t i = 0; i < count; ++i) {
-
-        ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
-
-        update_progress(i);
-
-        uint32_t msgSize = 0;
-        coded_in->ReadVarint32(&msgSize);
-
-        if ((msgSize > 0) &&
-            (coded_in->ReadString(&s, msgSize))) {
-            Graph o;
-            o.ParseFromString(s);
-            extend(o);
-        }
-
-        delete coded_in;
-    }
-
-    delete gzip_in;
-    delete raw_in;
+    stream::for_each(in, handle_count, lambda);
 
     destroy_progress();
 
-    //sort();
-    //build_indexes();
 }
 
 void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
 
-    // for chunks of something
-    ::google::protobuf::io::ZeroCopyOutputStream *raw_out =
-          new ::google::protobuf::io::OstreamOutputStream(&out);
-    ::google::protobuf::io::GzipOutputStream *gzip_out =
-          new ::google::protobuf::io::GzipOutputStream(raw_out);
-    ::google::protobuf::io::CodedOutputStream *coded_out =
-          new ::google::protobuf::io::CodedOutputStream(gzip_out);
-
     // save the number of the messages to be serialized into the output file
     int64_t count = graph.node_size() / chunk_size + 1;
-    coded_out->WriteVarint64(count);
-
     create_progress("saving graph", count);
-
-    std::string s;
-    uint64_t written = 0;
-    for (int64_t n = 0; n < count; ++n) {
+    // partition the graph into a number of chunks (required by format)
+    // constructing subgraphs and writing them to the stream
+    function<Graph(uint64_t)> lambda =
+        [this, chunk_size](uint64_t i) -> Graph {
         VG g;
-        for (int64_t j = n * chunk_size;
-             j < (n+1)*chunk_size && j < graph.node_size();
+        for (int64_t j = i * chunk_size;
+             j < (i+1)*chunk_size && j < graph.node_size();
              ++j) {
             Node* node = graph.mutable_node(j);
             node_context(node, g);
         }
-        g.graph.SerializeToString(&s);
-        coded_out->WriteVarint32(s.size());
-        coded_out->WriteRaw(s.data(), s.size()); // ->WriteString(s)
-        ++written;
-        update_progress(n);
-    }
+        update_progress(i);
+        return g.graph;
+    };
+
+    stream::write(out, count, lambda);
+
     destroy_progress();
-
-    delete coded_out;
-    delete gzip_out;
-    delete raw_out;
-
 }
 
 VG::~VG(void) {
