@@ -25,3 +25,6 @@
 [submodule "lru_cache"]
 	path = lru_cache
 	url = https://github.com/ekg/lru_cache.git
+[submodule "rocksdb"]
+	path = rocksdb
+	url = https://github.com/ekg/rocksdb.git
