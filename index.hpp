@@ -73,6 +73,8 @@ public:
 
     void put_node(const Node* node);
     void put_edge(const Edge* edge);
+    void batch_node(const Node* node, rocksdb::WriteBatch& batch);
+    void batch_edge(const Edge* edge, rocksdb::WriteBatch& batch);
     void put_kmer(const string& kmer,
                   const int64_t id,
                   const int32_t pos);

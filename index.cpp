@@ -322,6 +322,13 @@ void Index::put_node(const Node* node) {
     db->Put(write_options, key, data);
 }
 
+void Index::batch_node(const Node* node, rocksdb::WriteBatch& batch) {
+    string data;
+    node->SerializeToString(&data);
+    string key = key_for_node(node->id());
+    batch.Put(key, data);
+}
+
 void Index::put_edge(const Edge* edge) {
     string data;
     edge->SerializeToString(&data);
@@ -329,6 +336,15 @@ void Index::put_edge(const Edge* edge) {
     // only store in from_to key
     string null_data;
     db->Put(write_options, key_for_edge_to_from(edge->to(), edge->from()), null_data);
+}
+
+void Index::batch_edge(const Edge* edge, rocksdb::WriteBatch& batch) {
+    string data;
+    edge->SerializeToString(&data);
+    db->Put(write_options, key_for_edge_from_to(edge->from(), edge->to()), data);
+    // only store in from_to key
+    string null_data;
+    batch.Put(key_for_edge_to_from(edge->to(), edge->from()), null_data);
 }
 
 void Index::put_metadata(const string& tag, const string& data) {
@@ -347,10 +363,12 @@ void Index::load_graph(VG& graph) {
     }
     omp_set_num_threads(1);
     graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
-    graph.for_each_node_parallel([this](Node* n) { put_node(n); });
+    rocksdb::WriteBatch batch;
+    graph.for_each_node_parallel([this, &batch](Node* n) { batch_node(n, batch); });
     graph.destroy_progress();
     graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
-    graph.for_each_edge_parallel([this](Edge* e) { put_edge(e); });
+    graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch); });
+    rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
     graph.destroy_progress();
     omp_set_num_threads(thread_count);
 }
