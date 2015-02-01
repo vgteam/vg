@@ -113,15 +113,20 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
             }
         };
 
-        g->create_progress("caching kmers of " + g->name, g->size());
+        g->create_progress("caching kmers of " + g->name, buffer.size());
         g->for_each_kmer_parallel(kmer_size, edge_max, cache_kmer, stride);
         g->destroy_progress();
 
+        g->create_progress("flushing kmer buffers " + g->name, g->size());
         int tid = 0;
-        for (auto& buf : buffer) {
-            write_buffer(tid++, buf);
+#pragma omp parallel for schedule(dynamic)
+        for (int i = 0; i < buffer.size(); ++i) {
+            auto& buf = buffer[i];
+            write_buffer(i, buf);
+            g->update_progress(tid);
         }
         buffer.clear();
+        g->destroy_progress();
 
         int total_buffers = 0;
         for (int count : written_buffer_count) {
@@ -129,12 +134,13 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
         }
 
         g->create_progress("indexing kmers " + g->name, total_buffers);
-        int t = 0;
         int written_buffers = 0;
-        for (int count : written_buffer_count) {
+#pragma omp parallel for schedule(dynamic)
+        for (int tid = 0; tid < written_buffer_count.size(); ++tid) {
+            int count = written_buffer_count[tid];
             for (int i = 0; i < count; ++ i) {
                 stringstream file_name;
-                file_name << t++ << "." << i;
+                file_name << tid << "." << i;
                 ifstream in(file_name.str());
                 function<void(KmerMatch&)> keep_kmer = [&index, this](KmerMatch& k) {
                     index.put_kmer(k.sequence(), k.node_id(), k.position());
