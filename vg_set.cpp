@@ -135,7 +135,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
 
         g->create_progress("indexing kmers " + g->name, total_buffers);
         int written_buffers = 0;
-#pragma omp parallel for schedule(dynamic)
+//#pragma omp parallel for schedule(dynamic)
         for (int tid = 0; tid < written_buffer_count.size(); ++tid) {
             int count = written_buffer_count[tid];
             for (int i = 0; i < count; ++ i) {
