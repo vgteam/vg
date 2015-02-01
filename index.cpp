@@ -47,7 +47,7 @@ void Index::prepare_for_bulk_load(void) {
     options.IncreaseParallelism(threads);
     //options.env->SetBackgroundThreads(threads);
     //options.allow_mmap_writes = true;
-    options.max_write_buffer_number = 4;
+    //options.max_write_buffer_number = 4;
     //options.allow_os_buffer = false;
     //options.min_write_buffer_number_to_merge = 16;
     options.compaction_style = rocksdb::kCompactionStyleNone;
