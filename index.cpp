@@ -45,7 +45,8 @@ void Index::prepare_for_bulk_load(void) {
     options.write_buffer_size = 1024 * 1024 * 256;
     options.target_file_size_base = 1024 * 1024 * 512;
     options.IncreaseParallelism(threads);
-    //options.env->SetBackgroundThreads(threads);
+    options.env->SetBackgroundThreads(threads);
+    options.max_background_compactions = threads;
     //options.allow_mmap_writes = true;
     options.max_write_buffer_number = threads;
     //options.allow_os_buffer = false;
