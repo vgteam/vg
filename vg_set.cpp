@@ -135,17 +135,19 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
 
         g->create_progress("indexing kmers " + g->name, total_buffers);
         int written_buffers = 0;
-//#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic)
         for (int tid = 0; tid < written_buffer_count.size(); ++tid) {
             int count = written_buffer_count[tid];
             for (int i = 0; i < count; ++ i) {
                 stringstream file_name;
                 file_name << index.name << "/" << tid << "." << i;
                 ifstream in(file_name.str());
-                function<void(KmerMatch&)> keep_kmer = [&index, this](KmerMatch& k) {
-                    index.put_kmer(k.sequence(), k.node_id(), k.position());
+                rocksdb::WriteBatch batch;
+                function<void(KmerMatch&)> keep_kmer = [&index, &batch, this](KmerMatch& k) {
+                    index.batch_kmer(k.sequence(), k.node_id(), k.position(), batch);
                 };
                 stream::for_each(in, keep_kmer);
+                rocksdb::Status s = index.db->Write(rocksdb::WriteOptions(), &batch);
                 int r = system((string("rm ") + file_name.str()).c_str());
                 g->update_progress(++written_buffers);
             }
