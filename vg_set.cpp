@@ -85,9 +85,9 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
         // how many kmer entries to hold onto
         uint64_t buffer_max_size = 1000000;
 
-        auto write_buffer = [&written_buffer_count](int tid, vector<KmerMatch>& buf) {
+        auto write_buffer = [&written_buffer_count, &index](int tid, vector<KmerMatch>& buf) {
             stringstream file_name;
-            file_name << tid << "." << written_buffer_count[tid]++;
+            file_name << index.name << "/" << tid << "." << written_buffer_count[tid]++;
             ofstream out(file_name.str());
             function<KmerMatch(uint64_t)> write_kmer =
                 [&buf](uint64_t i) {
@@ -140,7 +140,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
             int count = written_buffer_count[tid];
             for (int i = 0; i < count; ++ i) {
                 stringstream file_name;
-                file_name << tid << "." << i;
+                file_name << index.name << "/" << tid << "." << i;
                 ifstream in(file_name.str());
                 function<void(KmerMatch&)> keep_kmer = [&index, this](KmerMatch& k) {
                     index.put_kmer(k.sequence(), k.node_id(), k.position());
