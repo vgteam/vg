@@ -47,13 +47,9 @@ void Index::prepare_for_bulk_load(void) {
     options.write_buffer_size = 1024 * 1024 * 256;
     options.target_file_size_base = 1024 * 1024 * 512;
     options.IncreaseParallelism(threads);
-    //options.env->SetBackgroundThreads(threads);
     options.max_background_compactions = threads;
     options.max_background_flushes = threads;
-    //options.allow_mmap_writes = true;
     options.max_write_buffer_number = threads;
-    //options.allow_os_buffer = false;
-    //options.min_write_buffer_number_to_merge = 16;
     options.compaction_style = rocksdb::kCompactionStyleNone;
     options.memtable_factory.reset(new rocksdb::VectorRepFactory(100));
 }
