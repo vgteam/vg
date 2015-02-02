@@ -96,7 +96,7 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] stable ID compaction
 - [x] efficient construction for large DAGs
 - [x] improve memory performance of kmer indexing for large graphs by storing incremental results of k-path generation
-- [ ] global alignment: retain and expand only the most-likely subgraphs
+- [x] global alignment: retain and expand only the most-likely subgraphs
 - [x] verify that snappy compression is enabled for index, and measure size for large graphs
 - [x] move to rocksdb for better indexing performance on modern hardware (multiple cores, SSDs)
 - [x] object streams (enable graphs > 60mb) and alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
