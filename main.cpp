@@ -1068,11 +1068,9 @@ int main_index(int argc, char** argv) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         }
         index.close();
-        // should force compaction
+        // should force compaction on re-close, at end of main
         index.reset_options();
         index.open();
-        index.flush();
-        index.compact();
     }
 
     if (dump_index) {
