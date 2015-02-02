@@ -27,6 +27,8 @@ void Index::reset_options(void) {
         threads = omp_get_num_threads();
     }
     options.IncreaseParallelism(threads);
+    options.max_background_compactions = threads;
+    options.max_background_flushes = threads;
     //options.env->SetBackgroundThreads(threads);
     //options.max_background_flushes = threads;
     //options.max_bytes_for_level_base = 1024 * 1024 * 1024;
