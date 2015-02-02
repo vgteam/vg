@@ -29,11 +29,6 @@ void Index::reset_options(void) {
     options.IncreaseParallelism(threads);
     options.max_background_compactions = threads;
     options.max_background_flushes = threads;
-    //options.env->SetBackgroundThreads(threads);
-    //options.max_background_flushes = threads;
-    //options.max_bytes_for_level_base = 1024 * 1024 * 1024;
-    //options.db_write_buffer_size = 1024 * 1024 * 128;
-    //options.bytes_per_sync = 1024 * 1024 * 128;
 }
 
 void Index::prepare_for_bulk_load(void) {
