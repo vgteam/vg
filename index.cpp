@@ -356,14 +356,16 @@ void Index::load_graph(VG& graph) {
 #pragma omp master
         thread_count = omp_get_num_threads();
     }
-    omp_set_num_threads(1);
+    //omp_set_num_threads(1);
     graph.create_progress("indexing nodes of " + graph.name, graph.graph.node_size());
-    rocksdb::WriteBatch batch;
-    graph.for_each_node_parallel([this, &batch](Node* n) { batch_node(n, batch); });
+    vector<rocksdb::WriteBatch> batch(thread_count);
+    graph.for_each_node_parallel([this, &batch](Node* n) { batch_node(n, batch[omp_get_thread_num()]); });
     graph.destroy_progress();
     graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
-    graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch); });
-    rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
+    graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch[omp_get_thread_num()]); });
+    for (auto& b : batch) {
+        rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &b);
+    }
     graph.destroy_progress();
     omp_set_num_threads(thread_count);
 }
