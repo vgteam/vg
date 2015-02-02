@@ -27,6 +27,7 @@ void Index::reset_options(void) {
         threads = omp_get_num_threads();
     }
     options.IncreaseParallelism(threads);
+    options.OptimizeUniversalStyleCompaction();
     options.max_background_compactions = threads;
     options.max_background_flushes = threads;
 }
