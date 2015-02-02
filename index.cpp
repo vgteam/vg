@@ -45,7 +45,7 @@ void Index::prepare_for_bulk_load(void) {
     options.max_background_compactions = threads;
     options.max_background_flushes = threads;
     options.max_write_buffer_number = threads;
-    options.min_write_buffer_number_to_merge = threads;
+    //options.min_write_buffer_number_to_merge = max(threads/2, 1);
     options.compaction_style = rocksdb::kCompactionStyleNone;
     options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
 }
