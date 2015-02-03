@@ -936,6 +936,7 @@ void help_index(char** argv) {
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
+         << "    -S, --set-kmer        assert that the kmer size (-k) is in the db" << endl
          << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
          << "                          (this is required if you are using multiple graphs files" << endl
         //<< "    -b, --tmp-db-base S   use this base name for temporary indexes" << endl
@@ -958,6 +959,7 @@ int main_index(int argc, char** argv) {
     bool dump_index = false;
     bool describe_index = false;
     bool show_progress = false;
+    bool set_kmer_size = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -972,13 +974,14 @@ int main_index(int argc, char** argv) {
                 {"store", no_argument, 0, 's'},
                 {"dump", no_argument, 0, 'D'},
                 {"metadata", no_argument, 0, 'M'},
+                {"set-kmer", no_argument, 0, 'S'},
                 {"threads", required_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:S",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1013,6 +1016,10 @@ int main_index(int argc, char** argv) {
 
         case 'M':
             describe_index = true;
+            break;
+
+        case 'S':
+            set_kmer_size = true;
             break;
 
         case 's':
@@ -1068,9 +1075,15 @@ int main_index(int argc, char** argv) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         }
         index.close();
-        // should force compaction on re-close, at end of main
+        // will force compaction on re-close, at end of main
         index.reset_options();
         index.open();
+    }
+
+    if (set_kmer_size) {
+        assert(kmer_size != 0);
+        index.open();
+        index.remember_kmer_size(kmer_size);
     }
 
     if (dump_index) {

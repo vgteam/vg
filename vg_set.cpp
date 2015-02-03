@@ -121,9 +121,9 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
         }
         buffer.clear();
         g->destroy_progress();
-        index.remember_kmer_size(kmer_size);
-
     });
+
+    index.remember_kmer_size(kmer_size);
 
 }
 
