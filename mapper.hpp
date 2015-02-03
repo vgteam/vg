@@ -21,7 +21,8 @@ public:
     Index* index;
 
     Alignment align(string& seq, int stride);
-    Alignment& align(Alignment& read, int stride);
+    Alignment& align_threaded(Alignment& read, int stride);
+    Alignment& align_simple(Alignment& alignment, int stride);
 
     set<int> kmer_sizes;
     vector<string> kmers_of(const string& seq, int stride = 1);

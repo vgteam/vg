@@ -20,10 +20,10 @@ Mapper::~Mapper(void) {
 Alignment Mapper::align(string& sequence, int stride) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment, stride);
+    return align_threaded(alignment, stride);
 }
 
-Alignment& Mapper::align(Alignment& alignment, int stride) {
+Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
 
     // parameters, some of which should probably be modifiable
     // TODO -- move to Mapper object
@@ -40,8 +40,11 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
 
     vector<map<int64_t, set<int32_t> > > positions(kmers.size());
     int i = 0;
+    int hit_max = 100;
     for (auto& k : kmers) {
-        index->get_kmer_positions(k, positions.at(i++));
+        index->get_kmer_positions(k, positions.at(i));
+        if (positions.at(i).size() > hit_max) positions.at(i).clear();
+        ++i;
     }
 
     // make threads
@@ -218,6 +221,73 @@ Alignment& Mapper::align(Alignment& alignment, int stride) {
         }
 
     }
+
+    auto get_max_subgraph_size = [this, &max_subgraph_size, &graph]() {
+        list<VG> subgraphs;
+        graph->disjoint_subgraphs(subgraphs);
+        for (auto& subgraph : subgraphs) {
+            max_subgraph_size = max(subgraph.total_length_of_nodes(), max_subgraph_size);
+        }
+    };
+
+    get_max_subgraph_size();
+
+    while (max_subgraph_size < sequence.size()*2 && iter < max_iter) {
+        index->expand_context(*graph, context_step);
+        index->get_connected_nodes(*graph);
+        get_max_subgraph_size();
+        ++iter;
+    }
+    // ensure we have a complete graph prior to alignment
+    index->get_connected_nodes(*graph);
+
+    // TODO, try to align, check for soft clipping, and expand context against the target
+
+    /*
+    ofstream f("vg_align.vg");
+    graph->serialize_to_ostream(f);
+    f.close();
+    */
+
+    return graph->align(alignment);
+
+}
+
+Alignment& Mapper::align_simple(Alignment& alignment, int stride) {
+
+    if (index == NULL) {
+        cerr << "error:[vg::Mapper] no index loaded, cannot map alignment!" << endl;
+        exit(1);
+    }
+
+    // establish kmers
+
+    const string& sequence = alignment.sequence();
+    auto kmers = kmers_of(sequence, stride);
+
+    map<string, int32_t> kmer_counts;
+    vector<map<int64_t, set<int32_t> > > positions(kmers.size());
+    int i = 0;
+    for (auto& k : kmers) {
+        index->get_kmer_positions(k, positions.at(i++));
+        kmer_counts[k] = positions.at(i-1).size();
+    }
+    positions.clear();
+    VG* graph = new VG;
+    int hit_max = 100;
+    for (auto& c : kmer_counts) {
+        if (c.second < hit_max) {
+            index->get_kmer_subgraph(c.first, *graph);
+        }
+    }
+
+    int max_iter = sequence.size();
+    int iter = 0;
+    int context_step = 1;
+    int64_t max_subgraph_size = 0;
+
+    // use kmers which are informative
+    // and build up the graph
 
     auto get_max_subgraph_size = [this, &max_subgraph_size, &graph]() {
         list<VG> subgraphs;
