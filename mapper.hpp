@@ -29,6 +29,11 @@ public:
 
     int best_clusters;
     int hit_max;
+    int context_step;
+
+// utility
+    int softclip_start(Alignment& alignment);
+    int softclip_end(Alignment& alignment);
 
 };
 

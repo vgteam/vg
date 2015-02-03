@@ -134,9 +134,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
     auto tl = threads_by_length.rbegin();
     for (auto& t : node_threads) {
         auto& thread = t.second;
-        if (thread.size() > 1) {
-            sorted_threads.insert(thread);
-        }
+        // if you use very short kmers, this may become necessary
+        //if (thread.size() > 1) {
+        sorted_threads.insert(thread);
+        //}
     }
     // clean up
     threads_by_length.clear();
@@ -219,7 +220,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
             // now that we have a completed graph for our thread, save it
             graph->extend(g);
         }
-
     }
 
     auto get_max_subgraph_size = [this, &max_subgraph_size, &graph]() {
@@ -231,7 +231,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
     };
 
     get_max_subgraph_size();
-
     while (max_subgraph_size < sequence.size()*2 && iter < max_iter) {
         index->expand_context(*graph, context_step);
         index->get_connected_nodes(*graph);
@@ -241,16 +240,72 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
     // ensure we have a complete graph prior to alignment
     index->get_connected_nodes(*graph);
 
-    // TODO, try to align, check for soft clipping, and expand context against the target
+    // align, check for soft clipping, and expand context against the target if needed
 
-    /*
-    ofstream f("vg_align.vg");
-    graph->serialize_to_ostream(f);
-    f.close();
-    */
+    graph->align(alignment);
 
-    return graph->align(alignment);
+    // check if we start or end with soft clips
+    // if so, try to expand the graph until we don't have any more (or we hit a threshold)
 
+    int sc_start = softclip_start(alignment);
+    int sc_end = softclip_end(alignment);
+    //cerr << alignment.score() << " " << sc_start << " " << sc_end << endl;
+
+    // NB it will probably be faster here to not query the DB again,
+    // but instead to grow the matching graph in the right direction
+    if (sc_start > 0 || sc_end > 0) {
+        // get the target graph
+        delete graph;
+        graph = new VG;
+        // nodes
+        Path* path = alignment.mutable_path();
+        for (int i = 0; i < path->mapping_size(); ++i) {
+            index->get_context(path->mutable_mapping(i)->node_id(), *graph);
+        }
+        while (graph->total_length_of_nodes() < sequence.size() * 2) {
+            index->expand_context(*graph, context_step); // expand faster here
+        }
+        index->get_connected_nodes(*graph);
+
+        /*
+        cerr << "graph " << graph->size() << endl;
+        ofstream f("vg_align.vg");
+        graph->serialize_to_ostream(f);
+        f.close();
+        */
+
+        alignment.clear_path();
+        graph->align(alignment);
+
+    }
+
+
+    return alignment;
+
+}
+
+int Mapper::softclip_start(Alignment& alignment) {
+    if (alignment.mutable_path()->mapping_size() > 0) {
+        Path* path = alignment.mutable_path();
+        Mapping* first_mapping = path->mutable_mapping(0);
+        Edit* first_edit = first_mapping->mutable_edit(0);
+        if (first_edit->type() == Edit_Type_SOFTCLIP) {
+            return first_edit->length();
+        }
+    }
+    return 0;
+}
+
+int Mapper::softclip_end(Alignment& alignment) {
+    if (alignment.mutable_path()->mapping_size() > 0) {
+        Path* path = alignment.mutable_path();
+        Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
+        Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size()-1);
+        if (last_edit->type() == Edit_Type_SOFTCLIP) {
+            return last_edit->length();
+        }
+    }
+    return 0;
 }
 
 Alignment& Mapper::align_simple(Alignment& alignment, int stride) {
@@ -313,7 +368,9 @@ Alignment& Mapper::align_simple(Alignment& alignment, int stride) {
     f.close();
     */
 
-    return graph->align(alignment);
+    graph->align(alignment);
+
+    return alignment;
 
 }
 
