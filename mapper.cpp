@@ -4,7 +4,8 @@ namespace vg {
 
 Mapper::Mapper(Index* idex)
     : index(idex)
-    , best_clusters(0) {
+    , best_clusters(0)
+    , hit_max(100) {
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty()) {
         cerr << "error:[vg::Mapper] the index (" 
@@ -40,7 +41,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
 
     vector<map<int64_t, set<int32_t> > > positions(kmers.size());
     int i = 0;
-    int hit_max = 100;
     for (auto& k : kmers) {
         index->get_kmer_positions(k, positions.at(i));
         if (positions.at(i).size() > hit_max) positions.at(i).clear();
@@ -274,7 +274,6 @@ Alignment& Mapper::align_simple(Alignment& alignment, int stride) {
     }
     positions.clear();
     VG* graph = new VG;
-    int hit_max = 100;
     for (auto& c : kmer_counts) {
         if (c.second < hit_max) {
             index->get_kmer_subgraph(c.first, *graph);

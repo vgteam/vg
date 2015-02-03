@@ -28,6 +28,7 @@ public:
     vector<string> kmers_of(const string& seq, int stride = 1);
 
     int best_clusters;
+    int hit_max;
 
 };
 

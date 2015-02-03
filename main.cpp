@@ -1215,7 +1215,8 @@ void help_map(char** argv) {
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -r, --reads FILE      take reads from FILE, printing alignments to stdout" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
-         << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl;
+         << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl
+         << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl;
 }
 
 int main_map(int argc, char** argv) {
@@ -1230,6 +1231,7 @@ int main_map(int argc, char** argv) {
     int kmer_stride = 1;
     int best_clusters = 0;
     string read_file;
+    int hit_max = 100;
 
     bool output_json = true;
 
@@ -1245,11 +1247,12 @@ int main_map(int argc, char** argv) {
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"clusters", required_argument, 0, 'c'},
                 {"reads", required_argument, 0, 'r'},
+                {"hit-max", required_argument, 0, 'm'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1272,6 +1275,10 @@ int main_map(int argc, char** argv) {
 
         case 'c':
             best_clusters = atoi(optarg);
+            break;
+
+        case 'm':
+            hit_max = atoi(optarg);
             break;
 
         case 'r':
@@ -1314,6 +1321,7 @@ int main_map(int argc, char** argv) {
 
     Mapper mapper(&index);
     mapper.best_clusters = best_clusters;
+    mapper.hit_max = hit_max;
 
     if (!seq.empty()) {
         Alignment alignment = mapper.align(seq, kmer_stride);
