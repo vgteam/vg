@@ -488,6 +488,15 @@ void Index::for_kmer_range(const string& kmer, function<void(string&, string&)> 
     for_range(start, end, lambda);
 }
 
+uint64_t Index::approx_size_of_kmer_matches(const string& kmer) {
+    uint64_t size;
+    string start = key_prefix_for_kmer(kmer);
+    string end = start + end_sep;
+    rocksdb::Range range = rocksdb::Range(start, end);
+    db->GetApproximateSizes(&range, 1, &size);
+    return size;
+}
+
 void Index::get_edges_from(int64_t from, vector<Edge>& edges) {
     rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
     string key_start = key_prefix_for_edges_from_node(from);

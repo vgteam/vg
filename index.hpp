@@ -107,6 +107,7 @@ public:
     void get_edges_from(int64_t from, vector<Edge>& edges);
     void get_edges_to(int64_t to, vector<Edge>& edges);
     void get_kmer_subgraph(const string& kmer, VG& graph);
+    uint64_t approx_size_of_kmer_matches(const string& kmer);
     void for_kmer_range(const string& kmer, function<void(string&, string&)> lambda);
     void get_kmer_positions(const string& kmer, map<int64_t, set<int32_t> >& positions);
 
