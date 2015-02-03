@@ -18,8 +18,7 @@ void Index::reset_options(void) {
     write_options = rocksdb::WriteOptions();
     options.create_if_missing = true;
     options.compression = rocksdb::kSnappyCompression;
-    options.compaction_style = rocksdb::kCompactionStyleLevel;
-    options.num_levels = 2;
+    options.compaction_style = rocksdb::kCompactionStyleUniversal;
     int threads = 1;
 #pragma omp parallel
     {
