@@ -737,6 +737,7 @@ void help_find(char** argv) {
          << "    -s, --sequence STR    search for sequence STR using --kmer-size kmers" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in sequence (default 1)" << endl
          << "    -z, --kmer-size N     split up --sequence into kmers of size N" << endl
+         << "    -C, --kmer-count      report approximate count of kmer (-k) in db" << endl
         // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
 }
@@ -757,6 +758,7 @@ int main_find(int argc, char** argv) {
     int64_t from_id=0, to_id=0;
     vector<int64_t> node_ids;
     int context_size=0;
+    bool count_kmers = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -774,11 +776,12 @@ int main_find(int argc, char** argv) {
                 {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
                 {"context", required_argument, 0, 'c'},
+                {"kmer-count", no_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:C",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -805,6 +808,10 @@ int main_find(int argc, char** argv) {
 
         case 'z':
             kmer_size = atoi(optarg);
+            break;
+
+        case 'C':
+            count_kmers = true;
             break;
 
         case 'c':
@@ -905,22 +912,28 @@ int main_find(int argc, char** argv) {
     }
 
     if (!kmers.empty()) {
-        vector<VG> graphs;
-        for (auto& kmer : kmers) {
-            VG g;
-            index.get_kmer_subgraph(kmer, g);
-            if (context_size > 0) {
-                index.expand_context(g, context_size);
+        if (count_kmers) {
+            for (auto& kmer : kmers) {
+                cout << kmer << "\t" << index.approx_size_of_kmer_matches(kmer) << endl;
             }
-            graphs.push_back(g);
-        }
+        } else {
+            vector<VG> graphs;
+            for (auto& kmer : kmers) {
+                VG g;
+                index.get_kmer_subgraph(kmer, g);
+                if (context_size > 0) {
+                    index.expand_context(g, context_size);
+                }
+                graphs.push_back(g);
+            }
 
-        VG result_graph;
-        for (auto& graph : graphs) {
-            result_graph.extend(graph);
+            VG result_graph;
+            for (auto& graph : graphs) {
+                result_graph.extend(graph);
+            }
+            result_graph.remove_orphan_edges();
+            result_graph.serialize_to_ostream(cout);
         }
-        result_graph.remove_orphan_edges();
-        result_graph.serialize_to_ostream(cout);
     }
     
     return 0;
