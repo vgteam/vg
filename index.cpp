@@ -46,8 +46,6 @@ void Index::prepare_for_bulk_load(void) {
     options.max_write_buffer_number = threads;
     options.compaction_style = rocksdb::kCompactionStyleNone;
     options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
-    options.compression_per_level.resize(options.num_levels);
-    options.compression_per_level[0] = rocksdb::kNoCompression;
 }
 
 void Index::open(string& dir) {
