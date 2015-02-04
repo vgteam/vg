@@ -110,7 +110,7 @@ public:
     uint64_t approx_size_of_kmer_matches(const string& kmer);
     void for_kmer_range(const string& kmer, function<void(string&, string&)> lambda);
     void get_kmer_positions(const string& kmer, map<int64_t, vector<int32_t> >& positions);
-    void get_kmer_positions(const string& kmer, map<int64_t, vector<pair<string, int32_t> > >& positions);
+    void get_kmer_positions(const string& kmer, map<string, vector<pair<int64_t, int32_t> > >& positions);
 
     // for dumping graph state/ inspection
     string entry_to_string(const string& key, const string& value);
