@@ -18,7 +18,8 @@ void Index::reset_options(void) {
     write_options = rocksdb::WriteOptions();
     options.create_if_missing = true;
     options.compression = rocksdb::kZlibCompression;
-    options.compaction_style = rocksdb::kCompactionStyleUniversal;
+    //options.compaction_style = rocksdb::kCompactionStyleUniversal;
+    options.compaction_style = rocksdb::kCompactionStyleLevel;
     int threads = 1;
 #pragma omp parallel
     {
@@ -63,6 +64,7 @@ void Index::open(void) {
 
 void Index::open_read_only(string& dir) {
     name = dir;
+    options.info_log_level = rocksdb::InfoLogLevel::ERROR_LEVEL;
     open_read_only();
 }
 
@@ -232,7 +234,16 @@ void Index::parse_edge(const string& key, const string& value, char& type, int64
     id2 = be64toh(id2);
     type = k[3*sizeof(char)+sizeof(int64_t)+1*sizeof(char)];
     if (type == 'f') {
-        edge.ParseFromString(value);
+        //edge.ParseFromString(value);
+        edge.set_from(id1);
+        edge.set_to(id2);
+    } else {
+        // XXX big hack
+        // we don't need to properly parse the edge until we stash data there
+        // if we do stash data there, it's probably best to avoid the second lookup and duplicate the edge
+        // or normalize things and store the edges in their own subset of the index
+        edge.set_from(id2);
+        edge.set_to(id1);
     }
 }
 
@@ -263,7 +274,7 @@ string Index::graph_entry_to_string(const string& key, const string& value) {
         int64_t id1, id2;
         char type;
         parse_edge(key, value, type, id1, id2, edge);
-        get_edge(id2, id1, edge);
+        //get_edge(id2, id1, edge);
         char *json = pb2json(edge);
         s << "{\"key\":\"+g+" << id1 << "+t+" << id2 << "\", \"value\":"<<json << "}";
         free(json);
@@ -446,7 +457,9 @@ void Index::get_context(int64_t id, VG& graph) {
             int64_t id1, id2;
             char type;
             parse_edge(it->key().ToString(), it->value().ToString(), type, id1, id2, edge);
-            get_edge(id2, id1, edge);
+            // avoid a second lookup
+            // probably we should index these twice and pay the penalty on *write* rather than read
+            //get_edge(id2, id1, edge);
             graph.add_edge(edge);
 
         } break;
