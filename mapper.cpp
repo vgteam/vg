@@ -226,7 +226,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
         }
     }
 
-    index->expand_context(*graph, 1);
+    index->expand_context(*graph, 5);
     index->get_connected_nodes(*graph);
 
     // this is probably not necessary-- at least it should be checked another way
