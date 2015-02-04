@@ -17,7 +17,7 @@ void Index::reset_options(void) {
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
     options.create_if_missing = true;
-    options.compression = rocksdb::kZlibCompression;
+    //options.compression = rocksdb::kZlibCompression;
     //options.compaction_style = rocksdb::kCompactionStyleUniversal;
     options.compaction_style = rocksdb::kCompactionStyleLevel;
     int threads = 1;
@@ -32,20 +32,19 @@ void Index::reset_options(void) {
 }
 
 void Index::prepare_for_bulk_load(void) {
-    options.PrepareForBulkLoad();
+    //options.PrepareForBulkLoad();
     int threads = 1;
 #pragma omp parallel
     {
 #pragma omp master
         threads = omp_get_num_threads();
     }
-    options.write_buffer_size = 1024 * 1024 * 256;
-    options.target_file_size_base = 1024 * 1024 * 512;
+    options.write_buffer_size = 1024 * 1024 * 256; // 256M
     options.IncreaseParallelism(threads);
     options.max_background_compactions = threads;
     options.max_background_flushes = threads;
     options.max_write_buffer_number = threads;
-    options.compaction_style = rocksdb::kCompactionStyleNone;
+    //options.compaction_style = rocksdb::kCompactionStyleNone;
     options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
 }
 
