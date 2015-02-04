@@ -483,13 +483,13 @@ void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
         });
 }
 
-void Index::get_kmer_positions(const string& kmer, map<int64_t, set<int32_t> >& positions) {
+void Index::get_kmer_positions(const string& kmer, map<int64_t, vector<int32_t> >& positions) {
     for_kmer_range(kmer, [&positions, this](string& key, string& value) {
             int64_t id;
             string kmer;
             int32_t pos;
             parse_kmer(key, value, kmer, id, pos);
-            positions[id].insert(pos);
+            positions[id].push_back(pos);
         });
 }
 

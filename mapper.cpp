@@ -39,7 +39,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
     const string& sequence = alignment.sequence();
     auto kmers = kmers_of(sequence, stride);
 
-    vector<map<int64_t, set<int32_t> > > positions(kmers.size());
+    vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
     for (auto& k : kmers) {
         index->get_kmer_positions(k, positions.at(i));
@@ -70,7 +70,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
         auto& kmer = kmers.at(i++);
         for (auto& x : p) {
             int64_t id = x.first;
-            set<int32_t>& pos = x.second;
+            vector<int32_t>& pos = x.second;
             node_kmer_order[id].push_back(i-1);
             for (auto& y : pos) {
                 //cerr << kmer << "\t" << i << "\t" << id << "\t" << y << endl;
@@ -252,7 +252,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
     int sc_end = softclip_end(alignment);
     //cerr << alignment.score() << " " << sc_start << " " << sc_end << endl;
 
-    // NB it will probably be faster here to not query the DB again,
+    // NB it will probably be faster here to not fully query the DB again,
     // but instead to grow the matching graph in the right direction
     if (sc_start > 0 || sc_end > 0) {
         // get the target graph
@@ -279,7 +279,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
         graph->align(alignment);
 
     }
-
 
     return alignment;
 
@@ -322,7 +321,7 @@ Alignment& Mapper::align_simple(Alignment& alignment, int stride) {
     auto kmers = kmers_of(sequence, stride);
 
     map<string, int32_t> kmer_counts;
-    vector<map<int64_t, set<int32_t> > > positions(kmers.size());
+    vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
     for (auto& k : kmers) {
         index->get_kmer_positions(k, positions.at(i++));
