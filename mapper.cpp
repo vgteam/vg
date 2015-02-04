@@ -5,7 +5,8 @@ namespace vg {
 Mapper::Mapper(Index* idex)
     : index(idex)
     , best_clusters(0)
-    , hit_max(100) {
+    , hit_max(100)
+    , kmer_min(12) {
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty()) {
         cerr << "error:[vg::Mapper] the index (" 
@@ -18,13 +19,13 @@ Mapper::~Mapper(void) {
     // noop
 }
 
-Alignment Mapper::align(string& sequence, int stride) {
+Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align_threaded(alignment, stride);
+    return align_threaded(alignment, kmer_size, stride);
 }
 
-Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
+Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int stride) {
 
     // parameters, some of which should probably be modifiable
     // TODO -- move to Mapper object
@@ -36,8 +37,12 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
 
     // establish kmers
 
+    // if kmer size is not specified, pick it up from the index
+    if (kmer_size == 0) kmer_size = *kmer_sizes.begin(); // for simplicity, use the first available kmer size
+    if (stride == 0) stride = kmer_size; // and start with stride== kmer size
+
     const string& sequence = alignment.sequence();
-    auto kmers = kmers_of(sequence, stride);
+    auto kmers = kmers_of(sequence, kmer_size, stride);
 
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
@@ -56,8 +61,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
     map<int64_t, vector<int64_t> > node_threads;
     //int node_wobble = 0; // turned off...
     int position_wobble = 2;
-    // if kmer size is not specified, pick it up from the index
-    int kmer_size = *kmer_sizes.begin(); // for simplicity, use the first available kmer size
 
     int max_iter = sequence.size();
     int iter = 0;
@@ -245,6 +248,22 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
 
     graph->align(alignment);
 
+    // did we fail to align?
+    // if so, decrease the stride
+    // if we are already at stride <= 1/2 kmer_size, decrease the kmer_size by 2 and set stride=1/2 kmer_size
+    if (alignment.score() == 0 && kmer_size >= kmer_min) {
+        //cerr << "failed to align" << endl;
+        if ((double)stride/(double)kmer_size < 0.5) {
+            kmer_size -= 2;
+            stride = kmer_size / 2;
+        } else {
+            stride = max(1, stride/2);
+        }
+        //cerr << "realigning with " << kmer_size << " " << stride << endl;
+        alignment.clear_path();
+        align_threaded(alignment, kmer_size, stride);
+    }
+
     // check if we start or end with soft clips
     // if so, try to expand the graph until we don't have any more (or we hit a threshold)
 
@@ -308,7 +327,7 @@ int Mapper::softclip_end(Alignment& alignment) {
     return 0;
 }
 
-Alignment& Mapper::align_simple(Alignment& alignment, int stride) {
+Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride) {
 
     if (index == NULL) {
         cerr << "error:[vg::Mapper] no index loaded, cannot map alignment!" << endl;
@@ -318,7 +337,7 @@ Alignment& Mapper::align_simple(Alignment& alignment, int stride) {
     // establish kmers
 
     const string& sequence = alignment.sequence();
-    auto kmers = kmers_of(sequence, stride);
+    auto kmers = kmers_of(sequence, kmer_size, stride);
 
     map<string, int32_t> kmer_counts;
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
@@ -374,13 +393,11 @@ Alignment& Mapper::align_simple(Alignment& alignment, int stride) {
 
 }
 
-vector<string> Mapper::kmers_of(const string& seq, const int stride) {
+const vector<string> Mapper::kmers_of(const string& seq, const int kmer_size, const int stride) {
     vector<string> kmers;
     if (!seq.empty()) {
-        for (int kmer_size : kmer_sizes) {
-            for (int i = 0; i < seq.size()-kmer_size; i+=stride) {
-                kmers.push_back(seq.substr(i,kmer_size));
-            }
+        for (int i = 0; i < seq.size()-kmer_size; i+=stride) {
+            kmers.push_back(seq.substr(i,kmer_size));
         }
     }
     return kmers;

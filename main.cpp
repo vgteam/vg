@@ -1231,6 +1231,7 @@ void help_map(char** argv) {
          << "                          a graph is not required" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -r, --reads FILE      take reads from FILE, printing alignments to stdout" << endl
+         << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl
          << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl;
@@ -1245,7 +1246,8 @@ int main_map(int argc, char** argv) {
 
     string seq;
     string db_name;
-    int kmer_stride = 1;
+    int kmer_size = 0;
+    int kmer_stride = 0;
     int best_clusters = 0;
     string read_file;
     int hit_max = 100;
@@ -1262,6 +1264,7 @@ int main_map(int argc, char** argv) {
                 {"sequence", required_argument, 0, 's'},
                 {"db-name", required_argument, 0, 'd'},
                 {"kmer-stride", required_argument, 0, 'j'},
+                {"kmer-size", required_argument, 0, 'k'},
                 {"clusters", required_argument, 0, 'c'},
                 {"reads", required_argument, 0, 'r'},
                 {"hit-max", required_argument, 0, 'm'},
@@ -1269,7 +1272,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1288,6 +1291,10 @@ int main_map(int argc, char** argv) {
 
         case 'j':
             kmer_stride = atoi(optarg);
+            break;
+
+        case 'k':
+            kmer_size = atoi(optarg);
             break;
 
         case 'c':
@@ -1341,7 +1348,7 @@ int main_map(int argc, char** argv) {
     mapper.hit_max = hit_max;
 
     if (!seq.empty()) {
-        Alignment alignment = mapper.align(seq, kmer_stride);
+        Alignment alignment = mapper.align(seq, kmer_size, kmer_stride);
         if (output_json) {
             char *json2 = pb2json(alignment);
             cout<<json2<<endl;
@@ -1352,8 +1359,8 @@ int main_map(int argc, char** argv) {
     if (!read_file.empty()) {
         string line;
         ifstream in(read_file);
-        while(std::getline(in,line)){
-            Alignment alignment = mapper.align(line, kmer_stride);
+        while(std::getline(in,line)) {
+            Alignment alignment = mapper.align(line, kmer_size, kmer_stride);
             if (output_json) {
                 char *json2 = pb2json(alignment);
                 cout<<json2<<endl;

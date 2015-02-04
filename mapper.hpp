@@ -20,16 +20,17 @@ public:
     ~Mapper(void);
     Index* index;
 
-    Alignment align(string& seq, int stride);
-    Alignment& align_threaded(Alignment& read, int stride);
-    Alignment& align_simple(Alignment& alignment, int stride);
+    Alignment align(string& seq, int kmer_size = 0, int stride = 0);
+    Alignment& align_threaded(Alignment& read, int kmer_size = 0, int stride = 0);
+    Alignment& align_simple(Alignment& alignment, int kmer_size = 0, int stride = 0);
 
     set<int> kmer_sizes;
-    vector<string> kmers_of(const string& seq, int stride = 1);
+    const vector<string> kmers_of(const string& seq, int kmer_size, int stride);
 
     int best_clusters;
     int hit_max;
     int context_step;
+    int kmer_min;
 
 // utility
     int softclip_start(Alignment& alignment);
