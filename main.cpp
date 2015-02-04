@@ -925,11 +925,11 @@ int main_find(int argc, char** argv) {
             }
         } else if (kmer_table) {
             for (auto& kmer : kmers) {
-                map<int64_t, vector<int32_t> > positions;
+                map<int64_t, vector<pair<string, int32_t> > > positions;
                 index.get_kmer_positions(kmer, positions);
                 for (auto& p : positions) {
-                    for (auto& i : p.second) {
-                        cout << kmer << "\t" << p.first << "\t" << i << endl;
+                    for (auto& k : p.second) {
+                        cout << k.first << "\t" << p.first << "\t" << k.second << endl;
                     }
                 }
             }

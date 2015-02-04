@@ -493,6 +493,16 @@ void Index::get_kmer_positions(const string& kmer, map<int64_t, vector<int32_t> 
         });
 }
 
+void Index::get_kmer_positions(const string& kmer, map<int64_t, vector<pair<string, int32_t> > >& positions) {
+    for_kmer_range(kmer, [&positions, this](string& key, string& value) {
+            int64_t id;
+            string kmer;
+            int32_t pos;
+            parse_kmer(key, value, kmer, id, pos);
+            positions[id].push_back(make_pair(kmer, pos));
+        });
+}
+
 void Index::for_kmer_range(const string& kmer, function<void(string&, string&)> lambda) {
     string start = key_prefix_for_kmer(kmer);
     string end = start + end_sep;
