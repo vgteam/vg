@@ -732,7 +732,8 @@ void help_find(char** argv) {
          << "    -n, --node ID         find node, return 1-hop context as graph" << endl
          << "    -f, --edges-from ID   return edges from node with ID" << endl
          << "    -t, --edges-to ID     return edges from node with ID" << endl
-         << "    -k, --kmer STR        return a list of edges and nodes matching this kmer" << endl
+         << "    -k, --kmer STR        return a graph of edges and nodes matching this kmer" << endl
+         << "    -T, --table           instead of a graph, return a table of kmers" << endl
          << "    -c, --context STEPS   expand the context of the kmer hit subgraphs" << endl
          << "    -s, --sequence STR    search for sequence STR using --kmer-size kmers" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in sequence (default 1)" << endl
@@ -759,6 +760,7 @@ int main_find(int argc, char** argv) {
     vector<int64_t> node_ids;
     int context_size=0;
     bool count_kmers = false;
+    bool kmer_table = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -771,6 +773,7 @@ int main_find(int argc, char** argv) {
                 {"edges-from", required_argument, 0, 'f'},
                 {"edges-to", required_argument, 0, 't'},
                 {"kmer", required_argument, 0, 'k'},
+                {"table", no_argument, 0, 'T'},
                 {"sequence", required_argument, 0, 's'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
@@ -781,7 +784,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:C",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CT",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -828,6 +831,10 @@ int main_find(int argc, char** argv) {
 
         case 't':
             to_id = atoi(optarg);
+            break;
+
+        case 'T':
+            kmer_table = true;
             break;
 
         case 'o':
@@ -915,6 +922,16 @@ int main_find(int argc, char** argv) {
         if (count_kmers) {
             for (auto& kmer : kmers) {
                 cout << kmer << "\t" << index.approx_size_of_kmer_matches(kmer) << endl;
+            }
+        } else if (kmer_table) {
+            for (auto& kmer : kmers) {
+                map<int64_t, vector<int32_t> > positions;
+                index.get_kmer_positions(kmer, positions);
+                for (auto& p : positions) {
+                    for (auto& i : p.second) {
+                        cout << kmer << "\t" << p.first << "\t" << i << endl;
+                    }
+                }
             }
         } else {
             vector<VG> graphs;
