@@ -226,26 +226,21 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
         }
     }
 
-    auto get_max_subgraph_size = [this, &max_subgraph_size, &graph]() {
-        list<VG> subgraphs;
-        graph->disjoint_subgraphs(subgraphs);
-        for (auto& subgraph : subgraphs) {
-            max_subgraph_size = max(subgraph.total_length_of_nodes(), max_subgraph_size);
-        }
-    };
-
-    get_max_subgraph_size();
-    while (max_subgraph_size < sequence.size()*2 && iter < max_iter) {
-        index->expand_context(*graph, context_step);
-        index->get_connected_nodes(*graph);
-        get_max_subgraph_size();
-        ++iter;
-    }
-    // ensure we have a complete graph prior to alignment
+    index->expand_context(*graph, 1);
     index->get_connected_nodes(*graph);
 
-    // align, check for soft clipping, and expand context against the target if needed
+    // this is probably not necessary-- at least it should be checked another way
+    // that we have picked up "enough" sequence from the graph to align against
+    /*
+    while (graph->total_length_of_nodes() < sequence.size()*3 && iter < max_iter) {
+        index->expand_context(*graph, context_step);
+        index->get_connected_nodes(*graph);
+        ++iter;
+    }
+    cerr << "took " << iter << " steps" << endl;
+    */
 
+    // align
     graph->align(alignment);
 
     // did we fail to align?
