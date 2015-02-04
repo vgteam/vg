@@ -56,6 +56,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
     map<int64_t, vector<int64_t> > node_threads;
     //int node_wobble = 0; // turned off...
     int position_wobble = 2;
+    // if kmer size is not specified, pick it up from the index
     int kmer_size = *kmer_sizes.begin(); // for simplicity, use the first available kmer size
 
     int max_iter = sequence.size();
@@ -135,9 +136,9 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
     for (auto& t : node_threads) {
         auto& thread = t.second;
         // if you use very short kmers, this may become necessary
-        //if (thread.size() > 1) {
-        sorted_threads.insert(thread);
-        //}
+        if (thread.size() > 1) {
+            sorted_threads.insert(thread);
+        }
     }
     // clean up
     threads_by_length.clear();
@@ -262,7 +263,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int stride) {
         for (int i = 0; i < path->mapping_size(); ++i) {
             index->get_context(path->mutable_mapping(i)->node_id(), *graph);
         }
-        while (graph->total_length_of_nodes() < sequence.size() * 2) {
+        while (graph->total_length_of_nodes() < sequence.size() * 3) {
             index->expand_context(*graph, context_step); // expand faster here
         }
         index->get_connected_nodes(*graph);
