@@ -6,7 +6,9 @@ Mapper::Mapper(Index* idex)
     : index(idex)
     , best_clusters(0)
     , hit_max(100)
-    , kmer_min(12) {
+    , kmer_min(12)
+    , thread_extension(10)
+{
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty()) {
         cerr << "error:[vg::Mapper] the index (" 
@@ -198,47 +200,18 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
     tl = threads_by_length.rbegin();
     for (int i = 0; tl != threads_by_length.rend() && (best_clusters == 0 || i < best_clusters); ++i, ++tl) {
         auto& threads = tl->second;
+        // by definition, our thread should construct a contiguous graph
         for (auto& thread : threads) {
-            VG g;
-            set<int64_t> nodes;
-            for (auto& id : thread) {
-                if (!nodes.count(id)) {
-                    nodes.insert(id);
-                    index->get_context(id, g);
-                }
-            }
-            // by definition, our thread should construct a contiguous graph
-            // however, it might not due to complexities of thread determination
-            // so, enforce this here
-            list<VG> subgraphs;
-            int c = 0;
-            do {
-                subgraphs.clear();
-                index->expand_context(g, 1);
-                // to find the disjoint subgraphs we need a complete graph (no orphan edges)
-                // so we make a temporary copy of the graph
-                VG gprime = g;
-                index->get_connected_nodes(gprime);
-                gprime.disjoint_subgraphs(subgraphs);
-            } while(subgraphs.size() > 1 && c++ < max_thread_gap);
-            // now that we have a completed graph for our thread, save it
-            graph->extend(g);
+            int64_t first = *thread.begin() - thread_extension;
+            int64_t last = *thread.rbegin() + thread_extension;
+            // so we can pick it up efficiently from the index by pulling the range from first to last
+            index->get_range(first, last, *graph);
         }
     }
 
-    index->expand_context(*graph, 5);
+    // by default, expand the graph a bit so we are likely to map
+    index->expand_context(*graph, 1);
     index->get_connected_nodes(*graph);
-
-    // this is probably not necessary-- at least it should be checked another way
-    // that we have picked up "enough" sequence from the graph to align against
-    /*
-    while (graph->total_length_of_nodes() < sequence.size()*3 && iter < max_iter) {
-        index->expand_context(*graph, context_step);
-        index->get_connected_nodes(*graph);
-        ++iter;
-    }
-    cerr << "took " << iter << " steps" << endl;
-    */
 
     // align
     graph->align(alignment);

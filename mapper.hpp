@@ -31,6 +31,7 @@ public:
     int hit_max;
     int context_step;
     int kmer_min;
+    int thread_extension;
 
 // utility
     int softclip_start(Alignment& alignment);
