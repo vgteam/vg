@@ -119,6 +119,7 @@ public:
                        int max_node_size);
     void dice_nodes(int max_node_size);
 
+    void from_gfa(istream& in, bool showp = false);
 
 
     // default constructor, destructor

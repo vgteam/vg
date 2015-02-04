@@ -472,6 +472,39 @@ void Index::get_context(int64_t id, VG& graph) {
     delete it;
 }
 
+void Index::get_range(int64_t from_id, int64_t to_id, VG& graph) {
+    auto handle_entry = [this, &graph](string& key, string& value) {
+        char keyt = graph_key_type(key);
+        switch (keyt) {
+        case 'n': {
+            Node node;
+            node.ParseFromString(value);
+            graph.add_node(node);
+        } break;
+        case 'f': {
+            Edge edge;
+            int64_t id1, id2;
+            char type;
+            parse_edge(key, value, type, id1, id2, edge);
+            graph.add_edge(edge);
+        } break;
+        case 't': {
+            Edge edge;
+            int64_t id1, id2;
+            char type;
+            parse_edge(key, value, type, id1, id2, edge);
+            graph.add_edge(edge);
+
+        } break;
+        default:
+            cerr << "vg::Index unrecognized key type " << keyt << endl;
+            exit(1);
+            break;
+        }
+    };
+    for_graph_range(from_id, to_id, handle_entry);
+}
+
 void Index::get_kmer_subgraph(const string& kmer, VG& graph) {
     // get the nodes in the kmer subgraph
     for_kmer_range(kmer, [&graph, this](string& key, string& value) {
@@ -507,6 +540,13 @@ void Index::for_kmer_range(const string& kmer, function<void(string&, string&)> 
     string start = key_prefix_for_kmer(kmer);
     string end = start + end_sep;
     start = start + start_sep;
+    // apply to the range matching the kmer in the db
+    for_range(start, end, lambda);
+}
+
+void Index::for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda) {
+    string start = key_for_node(from_id);
+    string end = key_for_node(to_id+1);
     // apply to the range matching the kmer in the db
     for_range(start, end, lambda);
 }

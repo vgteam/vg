@@ -102,6 +102,8 @@ public:
 
     void get_context(int64_t id, VG& graph);
     void expand_context(VG& graph, int steps);
+    void get_range(int64_t from_id, int64_t to_id, VG& graph);
+    void for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda);
     void get_connected_nodes(VG& graph);
     void get_edges_of(int64_t id, vector<Edge>& edges);
     void get_edges_from(int64_t from, vector<Edge>& edges);

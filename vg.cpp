@@ -829,6 +829,10 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
 }
 
+void VG::from_gfa(istream& in, bool showp) {
+    // c++... split...
+}
+
 void VG::print_edges(void) {
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
