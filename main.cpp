@@ -1378,7 +1378,8 @@ void help_view(char** argv) {
          << "options:" << endl
          << "    -g, --gfa             output GFA format (default)" << endl
          << "    -d, --dot             output dot format" << endl
-         << "    -j, --json            output VG JSON format" << endl;
+         << "    -j, --json            output VG JSON format" << endl
+         << "    -v, --vg              write VG format (input is GFA)" << endl;
 }
 
 int main_view(int argc, char** argv) {
@@ -1389,6 +1390,7 @@ int main_view(int argc, char** argv) {
     }
 
     string output_type = "gfa";
+    string input_type = "vg";
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -1400,11 +1402,12 @@ int main_view(int argc, char** argv) {
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
                 {"json",  no_argument, 0, 'j'},
+                {"vg", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgjh",
+        c = getopt_long (argc, argv, "dgjhv",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1425,6 +1428,11 @@ int main_view(int argc, char** argv) {
             output_type = "json";
             break;
 
+        case 'v':
+            input_type = "gfa";
+            output_type = "vg";
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -1439,12 +1447,24 @@ int main_view(int argc, char** argv) {
 
     VG* graph;
     string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
-        graph = new VG(in);
+    if (input_type == "vg") {
+        if (file_name == "-") {
+            graph = new VG(std::cin);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            graph = new VG(in);
+        }
+    } else if (input_type == "gfa") {
+        if (file_name == "-") {
+            graph = new VG;
+            graph->from_gfa(std::cin);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            graph = new VG;
+            graph->from_gfa(in);
+        }
     }
 
     if (output_type == "dot") {
@@ -1455,6 +1475,8 @@ int main_view(int argc, char** argv) {
         free(json2);
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
+    } else if (output_type == "vg") {
+        graph->serialize_to_ostream(cout);
     }
 
     delete graph;
