@@ -5,74 +5,119 @@ namespace vg {
 using namespace std;
 
 Index::Index(void) {
-    reset_options();
-}
 
-Index::Index(string& dir) : name(dir) {
-    reset_options();
-}
-
-void Index::reset_options(void) {
     start_sep = '\x00';
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
-    options.create_if_missing = true;
-    //options.compression = rocksdb::kZlibCompression;
-    //options.compaction_style = rocksdb::kCompactionStyleUniversal;
-    options.compaction_style = rocksdb::kCompactionStyleLevel;
-    int threads = 1;
+
+    threads = 1;
 #pragma omp parallel
     {
 #pragma omp master
         threads = omp_get_num_threads();
     }
-    options.IncreaseParallelism(threads);
-    options.max_background_compactions = threads;
-    options.max_background_flushes = threads;
+
 }
 
-void Index::prepare_for_bulk_load(void) {
-    //options.PrepareForBulkLoad();
-    int threads = 1;
-#pragma omp parallel
-    {
-#pragma omp master
-        threads = omp_get_num_threads();
+// from https://github.com/facebook/rocksdb/blob/master/utilities/spatialdb/spatial_db.cc#L660-L716
+
+rocksdb::DBOptions Index::GetDBOptions(void) {
+    rocksdb::DBOptions db_options;
+    db_options.create_if_missing = true;
+    db_options.max_open_files = 50000;
+    db_options.max_background_compactions = 3 * threads / 4;
+    db_options.max_background_flushes = threads - db_options.max_background_compactions;
+    db_options.env->SetBackgroundThreads(db_options.max_background_compactions,
+                                         rocksdb::Env::LOW);
+    db_options.env->SetBackgroundThreads(db_options.max_background_flushes,
+                                         rocksdb::Env::HIGH);
+    db_options.statistics = rocksdb::CreateDBStatistics();
+    if (bulk_load) {
+        db_options.stats_dump_period_sec = 600;
+        db_options.disableDataSync = true;
+    } else {
+        db_options.stats_dump_period_sec = 1800;  // 30min
     }
-    options.write_buffer_size = 1024 * 1024 * 256; // 256M
-    options.target_file_size_base = (int64_t)1024 * 1024 * 1024 * 128; // 128G
-    options.IncreaseParallelism(threads);
-    options.max_background_compactions = threads;
-    options.max_background_flushes = threads;
-    options.max_write_buffer_number = threads;
-    //options.compaction_style = rocksdb::kCompactionStyleNone;
-    options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
+    return db_options;
 }
 
-void Index::open(string& dir) {
+rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocksdb::Cache> block_cache) {
+    rocksdb::ColumnFamilyOptions column_family_options;
+    column_family_options.write_buffer_size = 256 * 1024 * 1024;  // 256MB
+    column_family_options.max_write_buffer_number = 4;
+    column_family_options.max_bytes_for_level_base = 512 * 1024 * 1024;  // 512MB
+    column_family_options.target_file_size_base = (int64_t) 1024 * 1024 * 1024;      // 1G
+    column_family_options.level0_file_num_compaction_trigger = 2;
+    column_family_options.level0_slowdown_writes_trigger = 16;
+    column_family_options.level0_slowdown_writes_trigger = 32;
+    // only compress levels >= 2
+    /*
+    column_family_options.compression_per_level.resize(
+        column_family_options.num_levels);
+    for (int i = 0; i < column_family_options.num_levels; ++i) {
+        if (i < 2) {
+            column_family_options.compression_per_level[i] = rocksdb::kNoCompression;
+        } else {
+            column_family_options.compression_per_level[i] = rocksdb::kLZ4Compression;
+        }
+    }
+    */
+    /*
+    rocksdb::BlockBasedTableOptions table_options;
+    table_options.block_cache = block_cache;
+    column_family_options.table_factory.reset(
+        NewBlockBasedTableFactory(table_options));
+    */
+    return column_family_options;
+}
+
+rocksdb::ColumnFamilyOptions Index::OptimizeOptionsForDataColumnFamily(
+    rocksdb::ColumnFamilyOptions options, std::shared_ptr<rocksdb::Cache> block_cache) {
+
+    options.prefix_extractor.reset(rocksdb::NewNoopTransform());
+    rocksdb::BlockBasedTableOptions block_based_options;
+    block_based_options.index_type = rocksdb::BlockBasedTableOptions::kHashSearch;
+    block_based_options.block_cache = block_cache;
+    options.table_factory.reset(NewBlockBasedTableFactory(block_based_options));
+    return options;
+}
+
+void Index::open(const std::string& dir, bool read_only) {
+
     name = dir;
-    open();
-}
+    db_options = GetDBOptions();
+    auto block_cache = rocksdb::NewLRUCache(100000);
+    column_family_options = GetColumnFamilyOptions(block_cache);
 
-void Index::open(void) {
-    //options.error_if_exists = true;
-    rocksdb::Status status = rocksdb::DB::Open(options, name, &db);
-    if (!status.ok()) {
+    std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
+    column_families.push_back(rocksdb::ColumnFamilyDescriptor(
+                                  rocksdb::kDefaultColumnFamilyName, column_family_options));
+    //OptimizeOptionsForDataColumnFamily(column_family_options,
+    //block_cache)));
+    // we probably should use a metadata column family, but this can wait for the db configuration to settle
+    //column_families.push_back(
+    //    ColumnFamilyDescriptor(kMetadataColumnFamilyName, column_family_options));
+
+    rocksdb::Status s;
+    std::vector<rocksdb::ColumnFamilyHandle*> handles;
+    if (read_only) {
+        s = rocksdb::DB::OpenForReadOnly(db_options, name, column_families, &handles, &db);
+    } else {
+        s = rocksdb::DB::Open(db_options, name, column_families, &handles, &db);
+    }
+    if (!s.ok()) {
         throw indexOpenException();
     }
+
 }
 
 void Index::open_read_only(string& dir) {
-    name = dir;
-    options.info_log_level = rocksdb::InfoLogLevel::ERROR_LEVEL;
-    open_read_only();
+    open(dir, true);
 }
 
-void Index::open_read_only(void) {
-    rocksdb::Status status = rocksdb::DB::OpenForReadOnly(options, name, &db);
-    if (!status.ok()) {
-        throw indexOpenException();
-    }
+void Index::open_for_write(string& dir) {
+    bulk_load = true;
+    open(dir, false);
 }
 
 Index::~Index(void) {
@@ -81,7 +126,6 @@ Index::~Index(void) {
 
 void Index::close(void) {
     flush();
-    compact();
     delete db;
 }
 

@@ -4,12 +4,17 @@
 #include <iostream>
 #include <exception>
 #include <sstream>
+
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
 #include "rocksdb/options.h"
 #include "rocksdb/write_batch.h"
 #include "rocksdb/memtablerep.h"
 #include "rocksdb/statistics.h"
+#include "rocksdb/cache.h"
+#include "rocksdb/slice_transform.h"
+#include "rocksdb/table.h"
+
 #include "pb2json.h"
 #include "vg.hpp"
 #include "hash_map.hpp"
@@ -46,11 +51,14 @@ public:
     Index(string& name);
     ~Index(void);
 
-    void prepare_for_bulk_load(void);
-    void open(void);
-    void open_read_only(void);
-    void open(string& dir);
+    rocksdb::DBOptions GetDBOptions(void);
+    rocksdb::ColumnFamilyOptions GetColumnFamilyOptions(std::shared_ptr<rocksdb::Cache> block_cache);
+    rocksdb::ColumnFamilyOptions OptimizeOptionsForDataColumnFamily(
+        rocksdb::ColumnFamilyOptions options, std::shared_ptr<rocksdb::Cache> block_cache);
+    void open(const std::string& dir, bool read_only);
     void open_read_only(string& dir);
+    void open_for_write(string& dir);
+
     void reset_options(void);
     void flush(void);
     void compact(void);
@@ -60,10 +68,13 @@ public:
 
     char start_sep;
     char end_sep;
+    int threads;
 
     rocksdb::DB* db;
-    rocksdb::Options options;
+    rocksdb::DBOptions db_options;
     rocksdb::WriteOptions write_options;
+    rocksdb::ColumnFamilyOptions column_family_options;
+    bool bulk_load;
 
     void load_graph(VG& graph);
     void dump(std::ostream& out);

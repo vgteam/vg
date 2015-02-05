@@ -867,8 +867,8 @@ int main_find(int argc, char** argv) {
         in.open(file_name.c_str());
     }
 
-    Index index(db_name);
-    index.open_read_only();
+    Index index;
+    index.open_read_only(db_name);
 
     if (!node_ids.empty()) {
         // open index
@@ -1091,11 +1091,10 @@ int main_index(int argc, char** argv) {
         }
     }
 
-    Index index(db_name);
+    Index index;
 
     if (graph_file_names.size() > 0) {
-        index.prepare_for_bulk_load();
-        index.open();
+        index.open_for_write(db_name);
         VGset graphs(graph_file_names);
         graphs.show_progress = show_progress;
         if (store_graph) {
@@ -1104,25 +1103,23 @@ int main_index(int argc, char** argv) {
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         }
-        index.close();
-        // will force compaction on re-close, at end of main
-        index.reset_options();
-        index.open();
+        index.flush();
+        index.compact();
     }
 
     if (set_kmer_size) {
         assert(kmer_size != 0);
-        index.open();
+        index.open_for_write(db_name);
         index.remember_kmer_size(kmer_size);
     }
 
     if (dump_index) {
-        index.open_read_only();
+        index.open_read_only(db_name);
         index.dump(cout);
     }
 
     if (describe_index) {
-        index.open_read_only();
+        index.open_read_only(db_name);
         set<int> kmer_sizes = index.stored_kmer_sizes();
         cout << "kmer sizes: ";
         for (auto kmer_size : kmer_sizes) {
@@ -1340,8 +1337,8 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    Index index(db_name);
-    index.open_read_only();
+    Index index;
+    index.open_read_only(db_name);
 
     Mapper mapper(&index);
     mapper.best_clusters = best_clusters;
