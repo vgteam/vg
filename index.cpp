@@ -54,7 +54,8 @@ rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocks
     column_family_options.num_levels = 4;
     column_family_options.level0_file_num_compaction_trigger = 2;
     column_family_options.level0_slowdown_writes_trigger = 32;
-    column_family_options.compression = rocksdb::kLZ4Compression;
+    column_family_options.compression = rocksdb::kZlibCompression;
+    //column_family_options.compression = rocksdb::kLZ4Compression;
     // only compress levels >= 2
     /*
     column_family_options.compression_per_level.resize(
@@ -133,7 +134,7 @@ void Index::flush(void) {
 }
 
 void Index::compact(void) {
-    db->CompactRange(NULL, NULL);
+    db->CompactRange(NULL, NULL, true);
 }
 
 // todo: replace with union / struct

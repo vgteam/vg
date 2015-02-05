@@ -1103,6 +1103,7 @@ int main_index(int argc, char** argv) {
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         }
+        index.compact();
     }
 
     if (set_kmer_size) {
