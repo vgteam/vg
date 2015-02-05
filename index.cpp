@@ -43,6 +43,7 @@ rocksdb::DBOptions Index::GetDBOptions(void) {
 
 rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocksdb::Cache> block_cache) {
     rocksdb::ColumnFamilyOptions column_family_options;
+    column_family_options.compaction_style = rocksdb::kCompactionStyleLevel;
     column_family_options.write_buffer_size = 256 * 1024 * 1024;  // 256MB
     column_family_options.max_write_buffer_number = 4;
     column_family_options.max_bytes_for_level_base = 512 * 1024 * 1024;  // 512MB
