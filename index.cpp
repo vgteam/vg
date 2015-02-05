@@ -44,18 +44,17 @@ rocksdb::DBOptions Index::GetDBOptions(void) {
 rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocksdb::Cache> block_cache) {
     rocksdb::ColumnFamilyOptions column_family_options;
     column_family_options.compaction_style = rocksdb::kCompactionStyleLevel;
-    column_family_options.compression = rocksdb::kLZ4Compression;
     column_family_options.write_buffer_size = 128 * 1024 * 1024;  // 128MB
     column_family_options.max_write_buffer_number = 4;
     column_family_options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
     // should yield L1 @ 64M, L2 @ 640M, L3 @ 6.4G, L4 @ 64G
     column_family_options.target_file_size_base = 64 * 1024 * 1024; // 64M
-    // it seems these are required in order to trigger compaction from L1->L2->..
+    // it seems these are required in order to trigger compaction from L1->L2->..;
     column_family_options.target_file_size_multiplier = 10;
     column_family_options.num_levels = 4;
     column_family_options.level0_file_num_compaction_trigger = 2;
-    column_family_options.level0_slowdown_writes_trigger = 16;
     column_family_options.level0_slowdown_writes_trigger = 32;
+    column_family_options.compression = rocksdb::kLZ4Compression;
     // only compress levels >= 2
     /*
     column_family_options.compression_per_level.resize(
@@ -67,12 +66,6 @@ rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocks
             column_family_options.compression_per_level[i] = rocksdb::kLZ4Compression;
         }
     }
-    */
-    /*
-    rocksdb::BlockBasedTableOptions table_options;
-    table_options.block_cache = block_cache;
-    column_family_options.table_factory.reset(
-        NewBlockBasedTableFactory(table_options));
     */
     return column_family_options;
 }
