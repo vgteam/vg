@@ -81,7 +81,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
             buffer.emplace_back();
         }
         // how many kmer entries to hold onto
-        uint64_t buffer_max_size = 1000000; // 1M
+        uint64_t buffer_max_size = 100000; // 100k
 
         auto write_buffer = [&index](int tid, vector<KmerMatch>& buf) {
             rocksdb::WriteBatch batch;
