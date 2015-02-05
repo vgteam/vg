@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <map>
+#include <chrono>
+#include <ctime>
 #include "vg.hpp"
 #include "index.hpp"
 #include "pb2json.h"
@@ -32,6 +34,7 @@ public:
     int context_step;
     int kmer_min;
     int thread_extension;
+    int thread_extension_max;
 
 // utility
     int softclip_start(Alignment& alignment);

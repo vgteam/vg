@@ -8,6 +8,7 @@ Mapper::Mapper(Index* idex)
     , hit_max(100)
     , kmer_min(12)
     , thread_extension(10)
+    , thread_extension_max(80)
 {
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty()) {
@@ -28,6 +29,9 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
 }
 
 Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int stride) {
+
+    std::chrono::time_point<std::chrono::system_clock> start, end;
+    start = std::chrono::system_clock::now();
 
     // parameters, some of which should probably be modifiable
     // TODO -- move to Mapper object
@@ -194,33 +198,40 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
         threads.push_back(thread);
     }
 
-    // collect the nodes from the best N threads by length
-    // and expand subgraphs as before
-    VG* graph = new VG;
-    tl = threads_by_length.rbegin();
-    for (int i = 0; tl != threads_by_length.rend() && (best_clusters == 0 || i < best_clusters); ++i, ++tl) {
-        auto& threads = tl->second;
-        // by definition, our thread should construct a contiguous graph
-        for (auto& thread : threads) {
-            int64_t first = *thread.begin() - thread_extension;
-            int64_t last = *thread.rbegin() + thread_extension;
-            // so we can pick it up efficiently from the index by pulling the range from first to last
-            index->get_range(first, last, *graph);
+    int thread_ex = thread_extension;
+    while (alignment.score() == 0 && thread_ex <= thread_extension_max) {
+        // collect the nodes from the best N threads by length
+        // and expand subgraphs as before
+        VG* graph = new VG;
+        tl = threads_by_length.rbegin();
+        for (int i = 0; tl != threads_by_length.rend() && (best_clusters == 0 || i < best_clusters); ++i, ++tl) {
+            auto& threads = tl->second;
+            // by definition, our thread should construct a contiguous graph
+            for (auto& thread : threads) {
+                int64_t first = *thread.begin() - thread_ex;
+                int64_t last = *thread.rbegin() + thread_ex;
+                // so we can pick it up efficiently from the index by pulling the range from first to last
+                index->get_range(first, last, *graph);
+            }
+        }
+
+        // by default, expand the graph a bit so we are likely to map
+        index->expand_context(*graph, 1);
+        index->get_connected_nodes(*graph);
+
+        // align
+        graph->align(alignment);
+        delete graph;
+        if (alignment.score() == 0) {
+            thread_ex *= 2;
         }
     }
 
-    // by default, expand the graph a bit so we are likely to map
-    index->expand_context(*graph, 1);
-    index->get_connected_nodes(*graph);
 
-    // align
-    graph->align(alignment);
-
-    // did we fail to align?
+    // did we still fail to align?
     // if so, decrease the stride
     // if we are already at stride <= 1/2 kmer_size, decrease the kmer_size by 2 and set stride=1/2 kmer_size
     if (alignment.score() == 0 && kmer_size >= kmer_min) {
-        //cerr << "failed to align" << endl;
         if ((double)stride/(double)kmer_size < 0.5) {
             kmer_size -= 2;
             stride = kmer_size / 2;
@@ -243,8 +254,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
     // but instead to grow the matching graph in the right direction
     if (sc_start > 0 || sc_end > 0) {
         // get the target graph
-        delete graph;
-        graph = new VG;
+        VG* graph = new VG;
         // nodes
         Path* path = alignment.mutable_path();
         for (int i = 0; i < path->mapping_size(); ++i) {
@@ -264,8 +274,14 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
         alignment.clear_path();
         graph->align(alignment);
+        delete graph;
 
     }
+
+    end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end-start;
+
+    cerr << elapsed_seconds.count() << "\t" << alignment.sequence() << endl;
 
     return alignment;
 
