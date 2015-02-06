@@ -116,7 +116,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
         }
     };
 
-    auto kmers = kmers_of(sequence, kmer_size, stride);
+    auto kmers = balanced_kmers(sequence, kmer_size, stride);
 
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
@@ -136,9 +136,9 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
     cerr << "kmer hits " << kmer_hit_count << endl;
     cerr << "kept kmer hits " << kept_kmer_count << endl;
 
-    if (kept_kmer_count == 0 && attempt == 0) {
-        return align_with_increased_sensitivity();
-    }
+    //if (kept_kmer_count == 0 && attempt == 0) {
+    //return align_with_increased_sensitivity();
+//}
 /*
     if (kmer_hit_count > 0 && kept_kmer_count == 0) { // || kept_kmer_count > 5* alignment.sequence().size()) {
         cerr << "bailout" << endl;
@@ -319,7 +319,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
     // did we still fail to align?
     // if so, decrease the stride; if we are already at decreased stride, decrease the kmer size
-    if (alignment.score() == 0 && (attempt == 0 || (kmer_hit_count > 0 || hit_count > 0))) {
+    if (alignment.score() == 0 && (kmer_hit_count > 0 || hit_count > 0)) {
         return align_with_increased_sensitivity();
     }
 
@@ -412,9 +412,9 @@ Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride)
     }
 
     // establish kmers
-
     const string& sequence = alignment.sequence();
-    auto kmers = kmers_of(sequence, kmer_size, stride);
+    //  
+    auto kmers = balanced_kmers(sequence, kmer_size, stride);
 
     map<string, int32_t> kmer_counts;
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
@@ -470,10 +470,19 @@ Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride)
 
 }
 
-const vector<string> Mapper::kmers_of(const string& seq, const int kmer_size, const int stride) {
+const int balanced_stride(int read_length, int kmer_size, int stride) {
+    double r = read_length;
+    double k = kmer_size;
+    double j = stride;
+    return round((r-k)/round((r-k)/j));
+}
+
+const vector<string> balanced_kmers(const string& seq, const int kmer_size, const int stride) {
+    // choose the closest stride that will generate balanced kmers
     vector<string> kmers;
+    int b = balanced_stride(seq.size(), kmer_size, stride);
     if (!seq.empty()) {
-        for (int i = 0; i < seq.size()-kmer_size; i+=stride) {
+        for (int i = 0; i < seq.size()-kmer_size; i+=b) {
             kmers.push_back(seq.substr(i,kmer_size));
         }
     }
