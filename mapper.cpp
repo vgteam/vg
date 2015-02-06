@@ -84,7 +84,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
     // establish kmers
 
-
     const string& sequence = alignment.sequence();
 
     // if kmer size is not specified, pick it up from the index
@@ -93,12 +92,34 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
     // and start with stride such that we barely cover the read with kmers
     if (stride == 0) stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
 
+    int kmer_hit_count = 0;
+    int kept_kmer_count = 0;
+
+    auto align_with_increased_sensitivity = [this,
+                                             &kmer_size,
+                                             &stride,
+                                             &sequence,
+                                             &alignment,
+                                             &attempt,
+                                             &kmer_hit_count]() -> Alignment& {
+        if ((double)stride/kmer_size < 0.3 && kmer_size -2 >= kmer_min) {
+            kmer_size -= 2;
+            stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
+            cerr << "realigning with " << kmer_size << " " << stride << endl;
+            alignment.clear_path();
+            return align_threaded(alignment, kmer_size, stride, ++attempt, kmer_hit_count);
+        } else if ((double)stride/kmer_size >= 0.3 && kmer_size >= kmer_min) {
+            stride = max(1, stride/2);
+            cerr << "realigning with " << kmer_size << " " << stride << endl;
+            alignment.clear_path();
+            return align_threaded(alignment, kmer_size, stride, ++attempt, kmer_hit_count);
+        }
+    };
+
     auto kmers = kmers_of(sequence, kmer_size, stride);
 
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
-    int kmer_hit_count = 0;
-    int kept_kmer_count = 0;
     for (auto& k : kmers) {
         cerr << k << "\t" << index->approx_size_of_kmer_matches(k) << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
@@ -114,6 +135,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
     cerr << "kmer hits " << kmer_hit_count << endl;
     cerr << "kept kmer hits " << kept_kmer_count << endl;
+
+    if (kept_kmer_count == 0 && attempt == 0) {
+        return align_with_increased_sensitivity();
+    }
 /*
     if (kmer_hit_count > 0 && kept_kmer_count == 0) { // || kept_kmer_count > 5* alignment.sequence().size()) {
         cerr << "bailout" << endl;
@@ -292,25 +317,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
         }
     }
 
-
     // did we still fail to align?
-    // if so, decrease the stride
-    // if we are already at decreased stride, decrease the kmer size
-    if (alignment.score() == 0 && (attempt == 0 || hit_count > 0)) {
-        if ((double)stride/kmer_size < 0.3 && kmer_size -2 >= kmer_min) {
-            kmer_size -= 2;
-            //stride = kmer_size / 2;
-            stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
-            cerr << "realigning with " << kmer_size << " " << stride << endl;
-            alignment.clear_path();
-            return align_threaded(alignment, kmer_size, stride, ++attempt, kmer_hit_count);
-        } else if ((double)stride/kmer_size >= 0.3 && kmer_size >= kmer_min) {
-            stride = max(1, stride/2);
-            cerr << "realigning with " << kmer_size << " " << stride << endl;
-            alignment.clear_path();
-            return align_threaded(alignment, kmer_size, stride, ++attempt, kmer_hit_count);
-        }
-
+    // if so, decrease the stride; if we are already at decreased stride, decrease the kmer size
+    if (alignment.score() == 0 && (attempt == 0 || (kmer_hit_count > 0 || hit_count > 0))) {
+        return align_with_increased_sensitivity();
     }
 
     // check if we start or end with soft clips
