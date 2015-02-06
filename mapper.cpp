@@ -24,23 +24,55 @@ Mapper::~Mapper(void) {
 }
 
 Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
-    Alignment alignment;
-    alignment.set_sequence(sequence);
 
-    std::chrono::time_point<std::chrono::system_clock> start, end;
-    start = std::chrono::system_clock::now();
+    std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
+    start_both = std::chrono::system_clock::now();
 
-    align_threaded(alignment, kmer_size, stride);
+    // forward
+    Alignment alignment_f;
+    alignment_f.set_sequence(sequence);
 
-    end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
+    {
+        std::chrono::time_point<std::chrono::system_clock> start, end;
+        start = std::chrono::system_clock::now();
 
-    cerr << elapsed_seconds.count() << "\t" << alignment.sequence() << endl;
+        align_threaded(alignment_f, kmer_size, stride);
 
-    return alignment;
+        end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+
+        cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
+    }
+
+    // reverse
+    Alignment alignment_r;
+    alignment_r.set_sequence(reverse_complement(sequence));
+
+    {
+        std::chrono::time_point<std::chrono::system_clock> start, end;
+        start = std::chrono::system_clock::now();
+
+        align_threaded(alignment_r, kmer_size, stride);
+
+        end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+
+        cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
+    }
+
+    end_both = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds_both = end_both-start_both;
+
+    cerr << elapsed_seconds_both.count() << "\t" << "b" << "\t" << sequence << endl;
+
+    if (alignment_r.score() > alignment_f.score()) {
+        return alignment_r;
+    } else {
+        return alignment_f;
+    }
 }
 
-Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int stride) {
+Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int stride, int attempt, int hit_count) {
 
     // parameters, some of which should probably be modifiable
     // TODO -- move to Mapper object
@@ -264,19 +296,19 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
     // did we still fail to align?
     // if so, decrease the stride
     // if we are already at decreased stride, decrease the kmer size
-    if (alignment.score() == 0) {
+    if (alignment.score() == 0 && (attempt == 0 || hit_count > 0)) {
         if ((double)stride/kmer_size < 0.3 && kmer_size -2 >= kmer_min) {
             kmer_size -= 2;
             //stride = kmer_size / 2;
             stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
             cerr << "realigning with " << kmer_size << " " << stride << endl;
             alignment.clear_path();
-            align_threaded(alignment, kmer_size, stride);
+            return align_threaded(alignment, kmer_size, stride, ++attempt, kmer_hit_count);
         } else if ((double)stride/kmer_size >= 0.3 && kmer_size >= kmer_min) {
             stride = max(1, stride/2);
             cerr << "realigning with " << kmer_size << " " << stride << endl;
             alignment.clear_path();
-            align_threaded(alignment, kmer_size, stride);
+            return align_threaded(alignment, kmer_size, stride, ++attempt, kmer_hit_count);
         }
 
     }
@@ -322,7 +354,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
 }
 
-int Mapper::softclip_start(Alignment& alignment) {
+int softclip_start(Alignment& alignment) {
     if (alignment.mutable_path()->mapping_size() > 0) {
         Path* path = alignment.mutable_path();
         Mapping* first_mapping = path->mutable_mapping(0);
@@ -334,7 +366,7 @@ int Mapper::softclip_start(Alignment& alignment) {
     return 0;
 }
 
-int Mapper::softclip_end(Alignment& alignment) {
+int softclip_end(Alignment& alignment) {
     if (alignment.mutable_path()->mapping_size() > 0) {
         Path* path = alignment.mutable_path();
         Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
@@ -344,6 +376,22 @@ int Mapper::softclip_end(Alignment& alignment) {
         }
     }
     return 0;
+}
+
+string reverse_complement(const string& seq) {
+    string rc;
+    rc.assign(seq.rbegin(), seq.rend());
+    for (auto& c : rc) {
+        switch (c) {
+        case 'A': c = 'T'; break;
+        case 'T': c = 'A'; break;
+        case 'G': c = 'C'; break;
+        case 'C': c = 'G'; break;
+        case 'N': c = 'N'; break;
+        default: break;
+        }
+    }
+    return rc;
 }
 
 Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride) {
