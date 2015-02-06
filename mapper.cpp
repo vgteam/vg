@@ -6,7 +6,8 @@ Mapper::Mapper(Index* idex)
     : index(idex)
     , best_clusters(0)
     , hit_max(100)
-    , kmer_min(12)
+    , hit_size_threshold(0)
+    , kmer_min(21)
     , thread_extension(10)
     , thread_extension_max(80)
 {
@@ -25,13 +26,21 @@ Mapper::~Mapper(void) {
 Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align_threaded(alignment, kmer_size, stride);
-}
-
-Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int stride) {
 
     std::chrono::time_point<std::chrono::system_clock> start, end;
     start = std::chrono::system_clock::now();
+
+    align_threaded(alignment, kmer_size, stride);
+
+    end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end-start;
+
+    cerr << elapsed_seconds.count() << "\t" << alignment.sequence() << endl;
+
+    return alignment;
+}
+
+Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int stride) {
 
     // parameters, some of which should probably be modifiable
     // TODO -- move to Mapper object
@@ -43,20 +52,43 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
     // establish kmers
 
-    // if kmer size is not specified, pick it up from the index
-    if (kmer_size == 0) kmer_size = *kmer_sizes.begin(); // for simplicity, use the first available kmer size
-    if (stride == 0) stride = kmer_size; // and start with stride== kmer size
 
     const string& sequence = alignment.sequence();
+
+    // if kmer size is not specified, pick it up from the index
+    // for simplicity, use the first available kmer size; this could change
+    if (kmer_size == 0) kmer_size = *kmer_sizes.begin();
+    // and start with stride such that we barely cover the read with kmers
+    if (stride == 0) stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
+
     auto kmers = kmers_of(sequence, kmer_size, stride);
 
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
+    int kmer_hit_count = 0;
+    int kept_kmer_count = 0;
     for (auto& k : kmers) {
+        cerr << k << "\t" << index->approx_size_of_kmer_matches(k) << endl;
+        // if we have more than one block worth of kmers on disk, consider this kmer non-informative
+        if (index->approx_size_of_kmer_matches(k) > hit_size_threshold) {
+            continue;
+        }
         index->get_kmer_positions(k, positions.at(i));
+        kmer_hit_count += positions.at(i).size();
         if (positions.at(i).size() > hit_max) positions.at(i).clear();
+        kept_kmer_count += positions.at(i).size();
         ++i;
     }
+
+    cerr << "kmer hits " << kmer_hit_count << endl;
+    cerr << "kept kmer hits " << kept_kmer_count << endl;
+/*
+    if (kmer_hit_count > 0 && kept_kmer_count == 0) { // || kept_kmer_count > 5* alignment.sequence().size()) {
+        cerr << "bailout" << endl;
+        //return alignment;
+    }
+*/
+
 
     // make threads
     // these start whenever we have a kmer match which is outside of
@@ -220,6 +252,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
         index->get_connected_nodes(*graph);
 
         // align
+        alignment.clear_path();
         graph->align(alignment);
         delete graph;
         if (alignment.score() == 0) {
@@ -230,17 +263,22 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
     // did we still fail to align?
     // if so, decrease the stride
-    // if we are already at stride <= 1/2 kmer_size, decrease the kmer_size by 2 and set stride=1/2 kmer_size
-    if (alignment.score() == 0 && kmer_size >= kmer_min) {
-        if ((double)stride/(double)kmer_size < 0.5) {
+    // if we are already at decreased stride, decrease the kmer size
+    if (alignment.score() == 0) {
+        if ((double)stride/kmer_size < 0.3 && kmer_size -2 >= kmer_min) {
             kmer_size -= 2;
-            stride = kmer_size / 2;
-        } else {
+            //stride = kmer_size / 2;
+            stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
+            cerr << "realigning with " << kmer_size << " " << stride << endl;
+            alignment.clear_path();
+            align_threaded(alignment, kmer_size, stride);
+        } else if ((double)stride/kmer_size >= 0.3 && kmer_size >= kmer_min) {
             stride = max(1, stride/2);
+            cerr << "realigning with " << kmer_size << " " << stride << endl;
+            alignment.clear_path();
+            align_threaded(alignment, kmer_size, stride);
         }
-        //cerr << "realigning with " << kmer_size << " " << stride << endl;
-        alignment.clear_path();
-        align_threaded(alignment, kmer_size, stride);
+
     }
 
     // check if we start or end with soft clips
@@ -278,10 +316,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
     }
 
-    end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-
-    cerr << elapsed_seconds.count() << "\t" << alignment.sequence() << endl;
+    if (alignment.score() == 0) cerr << "failed alignment" << endl;
 
     return alignment;
 

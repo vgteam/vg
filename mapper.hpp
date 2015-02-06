@@ -31,7 +31,7 @@ public:
 
     int best_clusters;
     int hit_max;
-    int context_step;
+    int hit_size_threshold;
     int kmer_min;
     int thread_extension;
     int thread_extension_max;
