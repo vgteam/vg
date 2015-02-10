@@ -24,7 +24,7 @@ Index::Index(void) {
 rocksdb::DBOptions Index::GetDBOptions(void) {
     rocksdb::DBOptions db_options;
     db_options.create_if_missing = true;
-    db_options.max_open_files = 50000;
+    db_options.max_open_files = 100000;
     db_options.max_background_compactions = 3 * threads / 4;
     db_options.max_background_flushes = threads - db_options.max_background_compactions;
     db_options.env->SetBackgroundThreads(db_options.max_background_compactions,
@@ -43,31 +43,33 @@ rocksdb::DBOptions Index::GetDBOptions(void) {
 
 rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocksdb::Cache> block_cache) {
     rocksdb::ColumnFamilyOptions column_family_options;
-    column_family_options.compaction_style = rocksdb::kCompactionStyleLevel;
+    if (bulk_load) {
+        column_family_options.compaction_style = rocksdb::kCompactionStyleNone;
+        column_family_options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
+    } else {
+        column_family_options.compaction_style = rocksdb::kCompactionStyleLevel;
+    }
     column_family_options.write_buffer_size = 128 * 1024 * 1024;  // 128MB
     column_family_options.max_write_buffer_number = 4;
-    column_family_options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
-    // should yield L1 @ 64M, L2 @ 640M, L3 @ 6.4G, L4 @ 64G
-    column_family_options.target_file_size_base = 64 * 1024 * 1024; // 64M
+    //column_family_options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
+    // should yield L0 @ ?, L1 @ 64M, L2 @ 64G
+    column_family_options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
     // it seems these are required in order to trigger compaction from L1->L2->..;
-    column_family_options.target_file_size_multiplier = 10;
-    column_family_options.num_levels = 4;
+    //column_family_options.target_file_size_multiplier = 1024;
+    column_family_options.num_levels = 2;
     column_family_options.level0_file_num_compaction_trigger = 2;
     column_family_options.level0_slowdown_writes_trigger = 32;
     //column_family_options.compression = rocksdb::kZlibCompression;
-    column_family_options.compression = rocksdb::kLZ4Compression;
-    // only compress levels >= 2
-    /*
+    // zlib compress levels >= 2
     column_family_options.compression_per_level.resize(
         column_family_options.num_levels);
     for (int i = 0; i < column_family_options.num_levels; ++i) {
-        if (i < 2) {
-            column_family_options.compression_per_level[i] = rocksdb::kNoCompression;
-        } else {
+        if (i == 0) {
             column_family_options.compression_per_level[i] = rocksdb::kLZ4Compression;
+        } else {
+            column_family_options.compression_per_level[i] = rocksdb::kZlibCompression;
         }
     }
-    */
     return column_family_options;
 }
 
@@ -112,10 +114,16 @@ void Index::open(const std::string& dir, bool read_only) {
 }
 
 void Index::open_read_only(string& dir) {
+    bulk_load = false;
     open(dir, true);
 }
 
 void Index::open_for_write(string& dir) {
+    bulk_load = false;
+    open(dir, false);
+}
+
+void Index::open_for_bulk_load(string& dir) {
     bulk_load = true;
     open(dir, false);
 }
@@ -134,7 +142,7 @@ void Index::flush(void) {
 }
 
 void Index::compact(void) {
-    db->CompactRange(NULL, NULL, true);
+    db->CompactRange(NULL, NULL);
 }
 
 // todo: replace with union / struct

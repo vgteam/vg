@@ -58,6 +58,7 @@ public:
     void open(const std::string& dir, bool read_only);
     void open_read_only(string& dir);
     void open_for_write(string& dir);
+    void open_for_bulk_load(string& dir);
 
     void reset_options(void);
     void flush(void);
