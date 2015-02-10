@@ -1975,7 +1975,7 @@ string VG::path_sequence(Path& path) {
     return sequence;
 }
 
-string VG::random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id) {
+string VG::random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id, bool either_strand) {
     uniform_int_distribution<int64_t> int64_dist(min_id, max_id);
     int64_t id = int64_dist(rng);
     Node* node = get_node(id);
@@ -1994,7 +1994,13 @@ string VG::random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id)
         node = next_nodes.at(next_dist(rng));
         read.append(node->sequence());
     }
-    return read.substr(0, length);
+    read = read.substr(0, length);
+    uniform_int_distribution<int> binary_dist(0, 1);
+    if (either_strand && binary_dist(rng) == 1) {
+        return reverse_complement(read);
+    } else {
+        return read;
+    }
 }
 
 bool VG::is_valid(void) {

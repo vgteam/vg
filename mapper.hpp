@@ -41,7 +41,6 @@ public:
 // utility
 int softclip_start(Alignment& alignment);
 int softclip_end(Alignment& alignment);
-string reverse_complement(const string& seq);
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
 
 

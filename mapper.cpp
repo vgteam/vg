@@ -94,6 +94,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
 
     int kmer_hit_count = 0;
     int kept_kmer_count = 0;
+    cerr << "aligning attempt " << attempt << endl;
 
     auto align_with_increased_sensitivity = [this,
                                              &kmer_size,
@@ -121,9 +122,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int kmer_size, int strid
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
     for (auto& k : kmers) {
-        cerr << k << "\t" << index->approx_size_of_kmer_matches(k) << endl;
+        int approx_matches = index->approx_size_of_kmer_matches(k);
+        cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
-        if (index->approx_size_of_kmer_matches(k) > hit_size_threshold) {
+        if (approx_matches > hit_size_threshold) {
             continue;
         }
         index->get_kmer_positions(k, positions.at(i));
@@ -386,22 +388,6 @@ int softclip_end(Alignment& alignment) {
         }
     }
     return 0;
-}
-
-string reverse_complement(const string& seq) {
-    string rc;
-    rc.assign(seq.rbegin(), seq.rend());
-    for (auto& c : rc) {
-        switch (c) {
-        case 'A': c = 'T'; break;
-        case 'T': c = 'A'; break;
-        case 'G': c = 'C'; break;
-        case 'C': c = 'G'; break;
-        case 'N': c = 'N'; break;
-        default: break;
-        }
-    }
-    return rc;
 }
 
 Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride) {

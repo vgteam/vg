@@ -15,6 +15,7 @@
 #include "gssw.h"
 #include "gssw_aligner.hpp"
 #include "region.hpp"
+#include "utility.hpp"
 
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -315,7 +316,7 @@ private:
 public:
 
     // reads
-    string random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id);
+    string random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id, bool either_strand);
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);
