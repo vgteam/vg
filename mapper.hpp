@@ -23,8 +23,11 @@ public:
     Index* index;
 
     Alignment align(string& seq, int kmer_size = 0, int stride = 0);
-    Alignment& align_threaded(Alignment& read, int kmer_size = 0, int stride = 0,
-                              int attempt = 0, int hit_count = 0);
+    Alignment& align_threaded(Alignment& read,
+                              int& hit_count,
+                              int kmer_size = 0,
+                              int stride = 0,
+                              int attempt = 0);
     Alignment& align_simple(Alignment& alignment, int kmer_size = 0, int stride = 0);
 
     set<int> kmer_sizes;
