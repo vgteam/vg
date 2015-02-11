@@ -21,59 +21,51 @@ Index::Index(void) {
 
 // from https://github.com/facebook/rocksdb/blob/master/utilities/spatialdb/spatial_db.cc#L660-L716
 
-rocksdb::Options Index::GetDBOptions(void) {
-    rocksdb::Options db_options;
-    db_options.IncreaseParallelism(threads);
-    db_options.max_background_compactions = threads; //3 * threads / 4;
-    db_options.max_background_flushes = threads; // - db_options.max_background_compactions;
-    db_options.create_if_missing = true;
-    db_options.max_open_files = 100000;
+rocksdb::Options Index::GetOptions(void) {
 
-    db_options.write_buffer_size = 256 * 1024 * 1024; // 256M
-    db_options.max_write_buffer_number = 16;
-    //db_options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
-    // should yield L0 @ ?, L1 @ 64M, L2 @ 64G
-    db_options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
-    // it seems these are required in order to trigger compaction from L1->L2->..;
-    //db_options.target_file_size_multiplier = 1024;
-    db_options.num_levels = 2;
+    rocksdb::Options options;
+
+    options.create_if_missing = true;
+    options.max_open_files = 100000;
+    options.compression = rocksdb::kSnappyCompression;
+    options.compaction_style = rocksdb::kCompactionStyleLevel;
+    options.IncreaseParallelism(threads);
+    options.max_background_compactions = threads;
+    options.max_background_flushes = threads;
+
+    options.num_levels = 2;
+    options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
 
     if (bulk_load) {
-        // never slowdown ingest.
-        db_options.level0_file_num_compaction_trigger = (1<<30);
-        db_options.level0_slowdown_writes_trigger = (1<<30);
-        db_options.level0_stop_writes_trigger = (1<<30);
-        // no auto compactions please. The application should issue a
-        // manual compaction after all data is loaded into L0.
-        db_options.disable_auto_compactions = true;
-        // A manual compaction run should pick all files in L0 in
-        // a single compaction run.
-        db_options.source_compaction_factor = (1<<30);
-        db_options.compaction_style = rocksdb::kCompactionStyleNone;
-        db_options.memtable_factory.reset(new rocksdb::VectorRepFactory(10000));
-    } else {
-        db_options.compaction_style = rocksdb::kCompactionStyleLevel;
+        options.PrepareForBulkLoad();
+        options.write_buffer_size = 1024 * 1024 * 256;
+        //options.target_file_size_base = 1024 * 1024 * 512;
+        //options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
+        options.IncreaseParallelism(threads);
+        options.max_background_compactions = threads;
+        options.max_background_flushes = threads;
+        options.max_write_buffer_number = threads;
+        options.compaction_style = rocksdb::kCompactionStyleNone;
+        options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
     }
 
-    //db_options.compression = rocksdb::kZlibCompression;
-    // zlib compress levels >= 2
-    db_options.compression_per_level.resize(
-        db_options.num_levels);
-    for (int i = 0; i < db_options.num_levels; ++i) {
+    options.compression_per_level.resize(
+        options.num_levels);
+    for (int i = 0; i < options.num_levels; ++i) {
         if (i == 0) {
-            db_options.compression_per_level[i] = rocksdb::kLZ4Compression;
+            options.compression_per_level[i] = rocksdb::kSnappyCompression;
         } else {
-            db_options.compression_per_level[i] = rocksdb::kZlibCompression;
+            options.compression_per_level[i] = rocksdb::kZlibCompression;
         }
     }
 
-    return db_options;
+    return options;
 }
 
 void Index::open(const std::string& dir, bool read_only) {
 
     name = dir;
-    db_options = GetDBOptions();
+    db_options = GetOptions();
 
     rocksdb::Status s;
     if (read_only) {

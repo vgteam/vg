@@ -51,7 +51,7 @@ public:
     Index(string& name);
     ~Index(void);
 
-    rocksdb::Options GetDBOptions(void);
+    rocksdb::Options GetOptions(void);
     void open(const std::string& dir, bool read_only);
     void open_read_only(string& dir);
     void open_for_write(string& dir);

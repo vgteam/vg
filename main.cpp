@@ -1094,7 +1094,7 @@ int main_index(int argc, char** argv) {
     Index index;
 
     if (graph_file_names.size() > 0) {
-        index.open_for_write(db_name);
+        index.open_for_bulk_load(db_name);
         VGset graphs(graph_file_names);
         graphs.show_progress = show_progress;
         if (store_graph) {
@@ -1103,6 +1103,8 @@ int main_index(int argc, char** argv) {
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         }
+        index.close();
+        index.open_for_write(db_name);
         index.compact();
     }
 
