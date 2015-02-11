@@ -21,8 +21,9 @@ Index::Index(void) {
 
 // from https://github.com/facebook/rocksdb/blob/master/utilities/spatialdb/spatial_db.cc#L660-L716
 
-rocksdb::DBOptions Index::GetDBOptions(void) {
-    rocksdb::DBOptions db_options;
+rocksdb::Options Index::GetDBOptions(void) {
+    rocksdb::Options db_options;
+    db_options.IncreaseParallelism(threads);
     db_options.create_if_missing = true;
     db_options.max_open_files = 100000;
     db_options.max_background_compactions = threads; //3 * threads / 4;
@@ -35,87 +36,62 @@ rocksdb::DBOptions Index::GetDBOptions(void) {
     if (bulk_load) {
         db_options.stats_dump_period_sec = 600;
         db_options.disableDataSync = true;
+        db_options.PrepareForBulkLoad();
     } else {
         db_options.stats_dump_period_sec = 1800;  // 30min
     }
-    return db_options;
-}
 
-rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocksdb::Cache> block_cache) {
-    rocksdb::ColumnFamilyOptions column_family_options;
-    column_family_options.write_buffer_size = 256 * 1024 * 1024; // 256M
-    column_family_options.max_write_buffer_number = 32;
-    //column_family_options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
+    db_options.write_buffer_size = 256 * 1024 * 1024; // 256M
+    db_options.max_write_buffer_number = threads;
+    //db_options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
     // should yield L0 @ ?, L1 @ 64M, L2 @ 64G
-    column_family_options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
+    db_options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
     // it seems these are required in order to trigger compaction from L1->L2->..;
-    //column_family_options.target_file_size_multiplier = 1024;
-    column_family_options.num_levels = 2;
+    //db_options.target_file_size_multiplier = 1024;
+    db_options.num_levels = 2;
 
     if (bulk_load) {
-        column_family_options.compaction_style = rocksdb::kCompactionStyleNone;
-        column_family_options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
         // never slowdown ingest.
-        column_family_options.level0_file_num_compaction_trigger = (1<<30);
-        column_family_options.level0_slowdown_writes_trigger = (1<<30);
-        column_family_options.level0_stop_writes_trigger = (1<<30);
+        db_options.level0_file_num_compaction_trigger = (1<<30);
+        db_options.level0_slowdown_writes_trigger = (1<<30);
+        db_options.level0_stop_writes_trigger = (1<<30);
         // no auto compactions please. The application should issue a
         // manual compaction after all data is loaded into L0.
-        column_family_options.disable_auto_compactions = true;
+        db_options.disable_auto_compactions = true;
         // A manual compaction run should pick all files in L0 in
         // a single compaction run.
-        column_family_options.source_compaction_factor = (1<<30);
+        db_options.source_compaction_factor = (1<<30);
+        db_options.compaction_style = rocksdb::kCompactionStyleNone;
+        db_options.memtable_factory.reset(new rocksdb::VectorRepFactory(10000));
     } else {
-        column_family_options.compaction_style = rocksdb::kCompactionStyleLevel;
+        db_options.compaction_style = rocksdb::kCompactionStyleLevel;
     }
 
-    //column_family_options.compression = rocksdb::kZlibCompression;
+    //db_options.compression = rocksdb::kZlibCompression;
     // zlib compress levels >= 2
-    column_family_options.compression_per_level.resize(
-        column_family_options.num_levels);
-    for (int i = 0; i < column_family_options.num_levels; ++i) {
+    db_options.compression_per_level.resize(
+        db_options.num_levels);
+    for (int i = 0; i < db_options.num_levels; ++i) {
         if (i == 0) {
-            column_family_options.compression_per_level[i] = rocksdb::kLZ4Compression;
+            db_options.compression_per_level[i] = rocksdb::kLZ4Compression;
         } else {
-            column_family_options.compression_per_level[i] = rocksdb::kZlibCompression;
+            db_options.compression_per_level[i] = rocksdb::kZlibCompression;
         }
     }
-    return column_family_options;
-}
 
-rocksdb::ColumnFamilyOptions Index::OptimizeOptionsForDataColumnFamily(
-    rocksdb::ColumnFamilyOptions options, std::shared_ptr<rocksdb::Cache> block_cache) {
-
-    options.prefix_extractor.reset(rocksdb::NewNoopTransform());
-    rocksdb::BlockBasedTableOptions block_based_options;
-    block_based_options.index_type = rocksdb::BlockBasedTableOptions::kHashSearch;
-    block_based_options.block_cache = block_cache;
-    options.table_factory.reset(NewBlockBasedTableFactory(block_based_options));
-    return options;
+    return db_options;
 }
 
 void Index::open(const std::string& dir, bool read_only) {
 
     name = dir;
     db_options = GetDBOptions();
-    auto block_cache = rocksdb::NewLRUCache(100000);
-    column_family_options = GetColumnFamilyOptions(block_cache);
-
-    std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
-    column_families.push_back(rocksdb::ColumnFamilyDescriptor(
-                                  rocksdb::kDefaultColumnFamilyName, column_family_options));
-    //OptimizeOptionsForDataColumnFamily(column_family_options,
-    //block_cache)));
-    // we probably should use a metadata column family, but this can wait for the db configuration to settle
-    //column_families.push_back(
-    //    ColumnFamilyDescriptor(kMetadataColumnFamilyName, column_family_options));
 
     rocksdb::Status s;
-    std::vector<rocksdb::ColumnFamilyHandle*> handles;
     if (read_only) {
-        s = rocksdb::DB::OpenForReadOnly(db_options, name, column_families, &handles, &db);
+        s = rocksdb::DB::OpenForReadOnly(db_options, name, &db);
     } else {
-        s = rocksdb::DB::Open(db_options, name, column_families, &handles, &db);
+        s = rocksdb::DB::Open(db_options, name, &db);
     }
     if (!s.ok()) {
         throw indexOpenException();

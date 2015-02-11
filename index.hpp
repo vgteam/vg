@@ -51,10 +51,7 @@ public:
     Index(string& name);
     ~Index(void);
 
-    rocksdb::DBOptions GetDBOptions(void);
-    rocksdb::ColumnFamilyOptions GetColumnFamilyOptions(std::shared_ptr<rocksdb::Cache> block_cache);
-    rocksdb::ColumnFamilyOptions OptimizeOptionsForDataColumnFamily(
-        rocksdb::ColumnFamilyOptions options, std::shared_ptr<rocksdb::Cache> block_cache);
+    rocksdb::Options GetDBOptions(void);
     void open(const std::string& dir, bool read_only);
     void open_read_only(string& dir);
     void open_for_write(string& dir);
@@ -72,7 +69,7 @@ public:
     int threads;
 
     rocksdb::DB* db;
-    rocksdb::DBOptions db_options;
+    rocksdb::Options db_options;
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;
     bool bulk_load;

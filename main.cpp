@@ -1103,8 +1103,6 @@ int main_index(int argc, char** argv) {
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         }
-        index.close();
-        index.open_for_write(db_name);
         index.compact();
     }
 
