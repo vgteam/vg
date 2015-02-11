@@ -28,10 +28,12 @@ rocksdb::Options Index::GetDBOptions(void) {
     db_options.max_open_files = 100000;
     db_options.max_background_compactions = threads; //3 * threads / 4;
     db_options.max_background_flushes = threads; // - db_options.max_background_compactions;
+    /*
     db_options.env->SetBackgroundThreads(db_options.max_background_compactions,
                                          rocksdb::Env::LOW);
     db_options.env->SetBackgroundThreads(db_options.max_background_flushes,
                                          rocksdb::Env::HIGH);
+    */
     db_options.statistics = rocksdb::CreateDBStatistics();
     if (bulk_load) {
         db_options.stats_dump_period_sec = 600;
