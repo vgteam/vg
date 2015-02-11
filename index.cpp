@@ -26,25 +26,25 @@ rocksdb::Options Index::GetDBOptions(void) {
     db_options.IncreaseParallelism(threads);
     db_options.create_if_missing = true;
     db_options.max_open_files = 100000;
-    db_options.max_background_compactions = threads; //3 * threads / 4;
-    db_options.max_background_flushes = threads; // - db_options.max_background_compactions;
     /*
     db_options.env->SetBackgroundThreads(db_options.max_background_compactions,
                                          rocksdb::Env::LOW);
     db_options.env->SetBackgroundThreads(db_options.max_background_flushes,
                                          rocksdb::Env::HIGH);
     */
-    db_options.statistics = rocksdb::CreateDBStatistics();
+    //db_options.statistics = rocksdb::CreateDBStatistics();
     if (bulk_load) {
-        db_options.stats_dump_period_sec = 600;
-        db_options.disableDataSync = true;
+        //db_options.stats_dump_period_sec = 600;
+        //db_options.disableDataSync = true;
         db_options.PrepareForBulkLoad();
+        db_options.max_background_compactions = threads; //3 * threads / 4;
+        db_options.max_background_flushes = threads; // - db_options.max_background_compactions;
     } else {
-        db_options.stats_dump_period_sec = 1800;  // 30min
+        //db_options.stats_dump_period_sec = 1800;  // 30min
     }
 
     db_options.write_buffer_size = 256 * 1024 * 1024; // 256M
-    db_options.max_write_buffer_number = threads;
+    db_options.max_write_buffer_number = 16;
     //db_options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
     // should yield L0 @ ?, L1 @ 64M, L2 @ 64G
     db_options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
