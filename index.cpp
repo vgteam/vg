@@ -43,12 +43,6 @@ rocksdb::DBOptions Index::GetDBOptions(void) {
 
 rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocksdb::Cache> block_cache) {
     rocksdb::ColumnFamilyOptions column_family_options;
-    if (bulk_load) {
-        column_family_options.compaction_style = rocksdb::kCompactionStyleNone;
-        column_family_options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
-    } else {
-        column_family_options.compaction_style = rocksdb::kCompactionStyleLevel;
-    }
     column_family_options.write_buffer_size = 128 * 1024 * 1024;  // 128MB
     column_family_options.max_write_buffer_number = 4;
     //column_family_options.max_bytes_for_level_base = 256 * 1024 * 1024;  // 256MB
@@ -57,8 +51,24 @@ rocksdb::ColumnFamilyOptions Index::GetColumnFamilyOptions(std::shared_ptr<rocks
     // it seems these are required in order to trigger compaction from L1->L2->..;
     //column_family_options.target_file_size_multiplier = 1024;
     column_family_options.num_levels = 2;
-    column_family_options.level0_file_num_compaction_trigger = 2;
-    column_family_options.level0_slowdown_writes_trigger = 32;
+
+    if (bulk_load) {
+        column_family_options.compaction_style = rocksdb::kCompactionStyleNone;
+        column_family_options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
+        // never slowdown ingest.
+        column_family_options.level0_file_num_compaction_trigger = (1<<30);
+        column_family_options.level0_slowdown_writes_trigger = (1<<30);
+        column_family_options.level0_stop_writes_trigger = (1<<30);
+        // no auto compactions please. The application should issue a
+        // manual compaction after all data is loaded into L0.
+        column_family_options.disable_auto_compactions = true;
+        // A manual compaction run should pick all files in L0 in
+        // a single compaction run.
+        column_family_options.source_compaction_factor = (1<<30);
+    } else {
+        column_family_options.compaction_style = rocksdb::kCompactionStyleLevel;
+    }
+
     //column_family_options.compression = rocksdb::kZlibCompression;
     // zlib compress levels >= 2
     column_family_options.compression_per_level.resize(
