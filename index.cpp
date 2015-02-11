@@ -19,8 +19,6 @@ Index::Index(void) {
 
 }
 
-// from https://github.com/facebook/rocksdb/blob/master/utilities/spatialdb/spatial_db.cc#L660-L716
-
 rocksdb::Options Index::GetOptions(void) {
 
     rocksdb::Options options;
