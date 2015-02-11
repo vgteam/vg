@@ -629,7 +629,8 @@ void VG::dice_nodes(int max_node_size) {
 
 void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                       string& seq,
-                      string& name) {
+                      string& name,
+                      Path& seq_path) {
 
     //init();
     this->name = name;
@@ -647,7 +648,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
 
     // maintains the path of the seq in the graph
-    map<long, Node*> seq_path;
+    map<long, Node*> seq_nodes;
     // track the last nodes so that we can connect everything
     // completely when variants occur in succession
     map<long, set<Node*> > nodes_by_end_position;
@@ -655,7 +656,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
 
     Node* seq_node = create_node(seq);
-    seq_path[0] = seq_node;
+    seq_nodes[0] = seq_node;
 
     for (auto& va : altp) {
 
@@ -664,7 +665,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
         // if alleles are empty, we just cut at this point
         if (alleles.empty()) {
             Node* l = NULL; Node* r = NULL;
-            divide_path(seq_path, va.first, l, r);
+            divide_path(seq_nodes, va.first, l, r);
         }
 
         for (auto allele : alleles) {
@@ -690,7 +691,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                 // ensures that we can handle variation at first position
                 // (important when aligning)
                 Node* root = create_node("");
-                seq_path[-1] = root;
+                seq_nodes[-1] = root;
                 nodes_by_start_position[-1].insert(root);
                 nodes_by_end_position[0].insert(root);
             }
@@ -700,14 +701,14 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
             Node* right_seq_node = NULL;
 
             // make one cut at the ref-path relative start of the allele
-            divide_path(seq_path,
+            divide_path(seq_nodes,
                         allele_start_pos,
                         left_seq_node,
                         right_seq_node);
 
             // if the ref portion of the allele is not empty, then we need to make another cut
             if (!allele.ref.empty()) {
-                divide_path(seq_path,
+                divide_path(seq_nodes,
                             allele_end_pos,
                             middle_seq_node,
                             right_seq_node);
@@ -762,7 +763,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
             if (allele_end_pos == seq.size()) {
                 // ensures that we can handle variation at last position (important when aligning)
                 Node* end = create_node("");
-                seq_path[allele_end_pos] = end;
+                seq_nodes[allele_end_pos] = end;
                 // for consistency, this should be handled below in the start/end connections
                 if (alt_node) {
                     create_edge(alt_node, end);
@@ -826,6 +827,13 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
     sort();
     compact_ids();
+
+    for (auto& p : seq_nodes) {
+        Node* node = p.second;
+        node->id();
+        Mapping* m = seq_path.add_mapping();
+        m->set_node_id(node->id());
+    }
 
 }
 
@@ -977,6 +985,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
        FastaReference& reference,
        string& target_region,
        int vars_per_region,
+       Paths& reference_paths,
        int max_node_size,
        bool showprog) {
 
@@ -1073,6 +1082,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         int final_completed = -1; // hm
         // the construction queue
         list<VG*> graphq;
+        map<VG*, Path> pathq;
+        Path path;
         int graphq_size = 0; // for efficiency
         // ^^^^ (we need to insert/remove things in the middle of the list,
         // but we also need to be able to quickly determine its size)
@@ -1147,7 +1158,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         // use this function to merge graphs both during and after the construction iteration
         auto merge_first_two_completed_graphs =
-            [this, start_pos, &graph_completed, &graphq, &graphq_size, &graph_end, &final_completed](void) {
+            [this, start_pos, &graph_completed, &graphq, &pathq, &graphq_size, &graph_end, &final_completed](void) {
             // find the first two consecutive graphs which are completed
             VG* first = NULL;
             VG* second = NULL;
@@ -1178,12 +1189,17 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             }
 
             if (first && second) {
+                // combine paths of the original reference
+                increment_node_mapping_ids(pathq[second], first->max_node_id());
+                extend_path(pathq[first], pathq[second]);
+                // combine graphs
                 first->append(*second);
 #pragma omp critical (graphq)
                 {
                     if (final_completed != -1) update_progress(final_completed++);
                     graph_completed.insert(first);
                     graph_end.erase(second);
+                    pathq.erase(second);
                 }
                 delete second;
             }
@@ -1206,7 +1222,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
             plan->graph->from_alleles(*plan->alleles,
                                       plan->seq,
-                                      plan->name);
+                                      plan->name,
+                                      pathq[plan->graph]);
 #pragma omp critical (graphq)
             {
                 update_progress(++graphs_completed);
@@ -1246,6 +1263,8 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         // our target graph should be the only entry in the graphq
         assert(graphq.size() == 1);
         VG* target_graph = graphq.front();
+        Path& seq_path = pathq[target_graph];
+        reference_paths.push_back(seq_path);
 
         // store it in our results
         refseq_graph[target] = target_graph;

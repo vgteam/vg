@@ -1487,6 +1487,7 @@ void help_construct(char** argv) {
          << "options:" << endl
          << "    -v, --vcf FILE        input VCF" << endl
          << "    -r, --reference FILE  input FASTA reference" << endl
+         << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
          << "    -R, --region REGION   specify a particular chromosome" << endl
          << "    -z, --region-size N   variants per region to parallelize" << endl
          << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
@@ -1508,6 +1509,7 @@ int main_construct(int argc, char** argv) {
     bool progress = false;
     int vars_per_region = 25000;
     int max_node_size = 0;
+    string ref_paths_file;
 
     int c;
     while (true) {
@@ -1517,6 +1519,7 @@ int main_construct(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"vcf", required_argument, 0, 'v'},
                 {"reference", required_argument, 0, 'r'},
+                {"ref-paths", required_argument, 0, 'P'},
                 {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
                 {"threads", required_argument, 0, 't'},
@@ -1526,7 +1529,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1541,6 +1544,10 @@ int main_construct(int argc, char** argv) {
 
         case 'r':
             fasta_file_name = optarg;
+            break;
+
+        case 'P':
+            ref_paths_file = optarg;
             break;
 
         case 'p':
@@ -1595,7 +1602,15 @@ int main_construct(int argc, char** argv) {
     }
     reference.open(fasta_file_name);
 
-    VG graph(variant_file, reference, region, vars_per_region, max_node_size, progress);
+    // store our reference sequence paths
+    Paths ref_paths;
+
+    VG graph(variant_file, reference, region, vars_per_region, ref_paths, max_node_size, progress);
+
+    if (!ref_paths_file.empty()) {
+        ofstream paths_out(ref_paths_file);
+        ref_paths.write(paths_out);
+    }
 
     graph.serialize_to_ostream(std::cout);
 

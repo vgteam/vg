@@ -6,6 +6,7 @@
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <functional>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -19,7 +20,7 @@ namespace stream {
 // but if it is 0, it is not written
 // if not all objects are written, return false, otherwise true
 template <typename T>
-bool write(ostream& out, uint64_t count, function<T(uint64_t)>& lambda) {
+bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda) {
 
     ::google::protobuf::io::ZeroCopyOutputStream *raw_out =
           new ::google::protobuf::io::OstreamOutputStream(&out);
@@ -51,9 +52,9 @@ bool write(ostream& out, uint64_t count, function<T(uint64_t)>& lambda) {
 // takes a callback function to be called on the objects
 
 template <typename T>
-bool for_each(istream& in,
-              function<void(T&)>& lambda,
-              function<void(uint64_t)>& handle_count) {
+bool for_each(std::istream& in,
+              std::function<void(T&)>& lambda,
+              std::function<void(uint64_t)>& handle_count) {
 
     ::google::protobuf::io::ZeroCopyInputStream *raw_in =
           new ::google::protobuf::io::IstreamInputStream(&in);
@@ -94,9 +95,9 @@ bool for_each(istream& in,
 }
 
 template <typename T>
-bool for_each(istream& in,
-              function<void(T&)>& lambda) {
-    function<void(uint64_t)> noop = [](uint64_t) { };
+bool for_each(std::istream& in,
+              std::function<void(T&)>& lambda) {
+    std::function<void(uint64_t)> noop = [](uint64_t) { };
     for_each(in, lambda, noop);
 }
 

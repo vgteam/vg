@@ -15,7 +15,9 @@
 #include "gssw.h"
 #include "gssw_aligner.hpp"
 #include "region.hpp"
+#include "path.hpp"
 #include "utility.hpp"
+#include "json.hpp"
 
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -104,11 +106,13 @@ public:
        FastaReference& reference,
        string& target,
        int vars_per_region,
+       Paths& reference_paths,
        int max_node_size = 0,
        bool showprog = false);
     void from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                       string& seq,
-                      string& chrom);
+                      string& chrom,
+                      Path& seq_path);
     void vcf_records_to_alleles(vector<vcf::Variant>& records,
                                 map<long, set<vcf::VariantAllele> >& altp,
                                 int start_pos,

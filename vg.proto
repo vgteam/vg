@@ -70,7 +70,8 @@ message Mapping {
 
 message Path {
     optional int32 target_position = 1;
-    repeated Mapping mapping = 2;
+    optional string name = 2;
+    repeated Mapping mapping = 3;
 }
 
 // Alignments link query strings or reads to paths.
