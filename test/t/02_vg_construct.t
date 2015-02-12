@@ -46,11 +46,19 @@ x1=$(for i in $(seq 100); do size=$(shuf -i 1-100 -n 1); threads=1; vg construct
 
 is $x1 1 "the size of the regions used in construction has no effect on the graph"
 
-x2=$(for i in $(seq 100); do size=10; threads=$(shuf -i 1-100 -n 1); vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum; done | sort | uniq | wc -l)
+x2=$(for i in $(seq 100); do
+    size=10;
+    threads=$(shuf -i 1-100 -n 1);
+    vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum;
+    done | sort | uniq | wc -l)
 
 is $x2 1 "the number of threads used in construction has no effect on the graph"
 
-x3=$(for i in $(seq 100); do size=$(shuf -i 1-100 -n 1); threads=$(shuf -i 1-100 -n 1); vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum; done | sort | uniq | wc -l)
+x3=$(for i in $(seq 100); do
+    size=$(shuf -i 1-100 -n 1);
+    threads=$(shuf -i 1-100 -n 1);
+    vg construct -r small/x.fa -v small/x.vcf.gz -z $size -t $threads | vg view -g - | sort -n -k 2 | md5sum;
+    done | sort | uniq | wc -l)
 
 is $x3 1 "the number of threads and regions used in construction has no effect on the graph"
 
@@ -80,6 +88,7 @@ is $graphbp $(echo "$refbp + $variantbp" | bc) "the graph contains all the seque
 is $(for i in $(seq 100); do vg construct -r small/x.fa -v small/x.vcf.gz -m $i | vg stats -l - | cut -f 2; done | sort | uniq | wc -l) 1 "varying the max node size does not affect graph length"
 
 max_node_size=$(vg construct -r small/x.fa -v small/x.vcf.gz -m 12 | vg view -g - | grep ^S | cut -f 3 | awk '{ print length($1) }' | sort -n | tail -1)
+
 is $max_node_size 12 "nodes are correctly capped in size"
 
 is $(vg construct -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz | vg view - | awk '{ print length($3); }' | sort -n | tail -1) 241 "-R --region flag is respected" 

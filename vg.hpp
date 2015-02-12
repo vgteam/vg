@@ -87,6 +87,9 @@ public:
     size_t size(void); // number of nodes
     size_t length(void);
 
+    // embedded paths, for example reference sequences
+    Paths paths;
+
     // clear everything
     //void clear(void);
 
@@ -106,13 +109,11 @@ public:
        FastaReference& reference,
        string& target,
        int vars_per_region,
-       Paths& reference_paths,
        int max_node_size = 0,
        bool showprog = false);
     void from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                       string& seq,
-                      string& chrom,
-                      Path& seq_path);
+                      string& chrom);
     void vcf_records_to_alleles(vector<vcf::Variant>& records,
                                 map<long, set<vcf::VariantAllele> >& altp,
                                 int start_pos,

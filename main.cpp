@@ -615,7 +615,7 @@ void help_paths(char** argv) {
          << "options:" << endl
          << "    -n, --node ID         starting at node with ID" << endl
          << "    -l, --max-length N    generate paths of at most length N" << endl
-         << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
+         << "    -e, --edge-max N      cross no more than N edges when determining k-paths" << endl
          << "    -s, --as-seqs         write each path as a sequence" << endl;
 }
 
@@ -1372,12 +1372,13 @@ int main_map(int argc, char** argv) {
 }
 
 void help_view(char** argv) {
-    cerr << "usage: " << argv[0] << " view [options] <graph.vg>" << endl
+    cerr << "usage: " << argv[0] << " view [options] [<graph.vg>|<paths.vgp>]" << endl
          << "options:" << endl
          << "    -g, --gfa             output GFA format (default)" << endl
          << "    -d, --dot             output dot format" << endl
          << "    -j, --json            output VG JSON format" << endl
-         << "    -v, --vg              write VG format (input is GFA)" << endl;
+         << "    -v, --vg              write VG format (input is GFA)" << endl
+         << "    -p, --paths           given file is a paths file, not a graph" << endl;
 }
 
 int main_view(int argc, char** argv) {
@@ -1401,11 +1402,12 @@ int main_view(int argc, char** argv) {
                 {"gfa", no_argument, 0, 'g'},
                 {"json",  no_argument, 0, 'j'},
                 {"vg", no_argument, 0, 'v'},
+                {"paths", no_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgjhv",
+        c = getopt_long (argc, argv, "dgjhvp",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1429,6 +1431,11 @@ int main_view(int argc, char** argv) {
         case 'v':
             input_type = "gfa";
             output_type = "vg";
+            break;
+
+        case 'p':
+            input_type = "paths";
+            output_type = "paths";
             break;
 
         case 'h':
@@ -1463,6 +1470,11 @@ int main_view(int argc, char** argv) {
             graph = new VG;
             graph->from_gfa(in);
         }
+    } else if (input_type == "paths") {
+        ifstream in;
+        in.open(file_name.c_str());
+        graph = new VG;
+        graph->paths.load(in);
     }
 
     if (output_type == "dot") {
@@ -1475,6 +1487,13 @@ int main_view(int argc, char** argv) {
         graph->to_gfa(std::cout);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
+    } else if (output_type == "paths") {
+        function<void(Path&)> dump_path = [](Path& p) {
+            for (int i = 0; i < p.mapping_size(); ++i) {
+                cout << p.name() << "\t" << p.mapping(i).node_id() << endl;
+            }
+        };
+        graph->paths.for_each(dump_path);
     }
 
     delete graph;
@@ -1605,11 +1624,11 @@ int main_construct(int argc, char** argv) {
     // store our reference sequence paths
     Paths ref_paths;
 
-    VG graph(variant_file, reference, region, vars_per_region, ref_paths, max_node_size, progress);
+    VG graph(variant_file, reference, region, vars_per_region, max_node_size, progress);
 
     if (!ref_paths_file.empty()) {
         ofstream paths_out(ref_paths_file);
-        ref_paths.write(paths_out);
+        graph.paths.write(paths_out);
     }
 
     graph.serialize_to_ostream(std::cout);
