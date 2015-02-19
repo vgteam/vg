@@ -48,8 +48,14 @@ void Paths::append(Paths& paths) {
     for (auto& path : paths) {
         auto n = path_name.find(path.name());
         if (n != path_name.end()) {
-            extend_path(*n->second, path);
+            append_path(*n->second, path);
         }
+    }
+}
+
+void Paths::from_graph(Graph& g) {
+    for (int i = 0; i < g.path_size(); ++i) {
+        push_back(g.path(i));
     }
 }
 
@@ -65,9 +71,21 @@ void Paths::increment_ids(int64_t inc) {
         });
 }
 
-void Paths::extend(Paths& p) {
+void Paths::extend(const Paths& p) {
     reserve(size() + p.size());
     insert(end(), p.begin(), p.end());
+}
+
+void Paths::extend(const Path& p) {
+    push_back(p);
+}
+
+void Paths::append(Graph& g) {
+    Paths paths;
+    for (int i = 0; i < g.path_size(); ++i) {
+        paths.push_back(g.path(i));
+    }
+    append(paths);
 }
 
 Path& increment_node_mapping_ids(Path& p, int64_t inc) {
@@ -78,11 +96,9 @@ Path& increment_node_mapping_ids(Path& p, int64_t inc) {
     return p;
 }
 
-Path& extend_path(Path& a, Path& b) {
+Path& append_path(Path& a, Path& b) {
     a.mutable_mapping()->MergeFrom(b.mapping());
     return a;
 }
-
-
 
 }

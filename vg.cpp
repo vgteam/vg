@@ -337,7 +337,7 @@ void VG::extend(VG& g) {
             add_edge(*e);
         }
     }
-    paths.extend(g.paths);
+    paths.append(g.paths);
 }
 
 void VG::extend(Graph& graph) {
@@ -353,6 +353,7 @@ void VG::extend(Graph& graph) {
             add_edge(*e);
         }
     }
+    paths.append(graph);
 }
 
 // extend this graph by g, connecting the tails of this graph to the heads of the other
@@ -1555,6 +1556,32 @@ void VG::node_context(Node* node, VG& g) {
     for (vector<int64_t>::iterator e = from.begin(); e != from.end(); ++e) {
         g.add_edge(*get_edge(node->id(), *e));
     }
+    g.paths.extend(paths_of(node->id()));
+}
+
+const Paths VG::paths_of(int64_t id) {
+    const vector<pair<Path*, Mapping*> >& mappings = mappings_of(id);
+    map<string, Path> subpaths;
+    for (auto& m : mappings) {
+        Path* path = m.first;
+        auto p = subpaths.find(path->name());
+        if (p == subpaths.end()) {
+            subpaths[path->name()]; // emplace-construct
+        }
+        Path& new_path = p->second;
+        if (!new_path.has_name()) new_path.set_name(path->name());
+        Mapping* mapping = new_path.add_mapping();
+        *mapping = *m.second;
+    }
+    Paths paths;
+    for (auto& p : subpaths) {
+        paths.extend(p.second);
+    }
+    return paths;
+}
+
+const vector<pair<Path*, Mapping*> > VG::mappings_of(int64_t id) {
+    return node_mapping[id];
 }
 
 void VG::destroy_node(int64_t id) {

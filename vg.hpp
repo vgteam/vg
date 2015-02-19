@@ -44,6 +44,9 @@ public:
     // NB: we can't subclass this safely, so it's best as a member
     Graph graph;
 
+    // paths of the graph
+    Paths paths;
+
     // name
     string name;
 
@@ -71,6 +74,8 @@ public:
     hash_map<int64_t, vector<int64_t> > edges_from_to;
     hash_map<int64_t, vector<int64_t> > edges_to_from;
 
+    hash_map<int64_t, vector<pair<Path*, Mapping*> > > node_mapping;
+
     // set the edge indexes through this function
     void set_edge(int64_t from, int64_t to, Edge*);
     void print_edges(void);
@@ -83,12 +88,12 @@ public:
     void remove_edge_fti(int64_t from, int64_t to);
     void remove_edge_tfi(int64_t from, int64_t to);
 
+    const vector<pair<Path*, Mapping*> > mappings_of(int64_t id);
+    const Paths paths_of(int64_t id);
+
     // properties of the graph
     size_t size(void); // number of nodes
     size_t length(void);
-
-    // embedded paths, for example reference sequences
-    Paths paths;
 
     // clear everything
     //void clear(void);

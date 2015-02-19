@@ -8,6 +8,7 @@ package vg;
 message Graph {
     repeated Node node = 1;
     repeated Edge edge = 2;
+    repeated Path path = 3;
     //repeated Alignment alignments = 3;
 }
 
