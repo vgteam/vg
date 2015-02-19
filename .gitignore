@@ -3,6 +3,5 @@ vg
 *.a
 *~
 *.dot
-*.png
 test/make_graph
 trash
