@@ -103,12 +103,12 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] move to rocksdb for better indexing performance on modern hardware (multiple cores, SSDs)
 - [x] object streams (enable graphs > 60mb) and alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
 - [x] use dense_hash for improved memory and runtime efficiency with large graphs (or sparse_hash, if memory is at a premium--- but it's easy to switch and ideally we can design large-scale construction without loading entire whole-genome graphs into memory)
-- [ ] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps), and probably default GFA output from vg view
+- [x] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps), and probably default GFA output from vg view
 - [x] index metadata (to quickly check if we have kmer index of size >=N)
-- [ ] use divide-and-conquer for graph fragment concatenation during construction
+- [x] use divide-and-conquer for graph fragment concatenation during construction
 - [x] simplify mapping by setting a maximum node size in construction
-- [ ] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
-- [ ] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
+- [x] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
+- [x] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
 - [x] index the kmers of large graphs in reasonable time (48 hours, 32 threads, 2500 samples in 1000 genomes phase 3)
 - [x] compression of serialization format
 - [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
