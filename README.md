@@ -4,7 +4,9 @@
 
 ## variant graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
-If we know about variation in a given population, we should include that knowledge in our primary sequence analyses, or risk bias against things we've seen before. Reference bias is real. We can work around it by formulating our reference system as a graph: either an assembly, or a directed acyclic one similar to how we represent a multiple sequence alignment. <img style="float: right" alt="a variation graph" src="https://raw.githubusercontent.com/ekg/vg/master/figures/example.png">
+If we know about variation in a given population, we should include that knowledge in our primary sequence analyses, or risk bias against things we've seen before. Reference bias is real. We can work around it by formulating our reference system as a graph: either an assembly, or a directed acyclic one similar to how we represent a multiple sequence alignment.
+
+![Variation graph](https://raw.githubusercontent.com/ekg/vg/master/figures/example.png)
 
 ## Usage
 
