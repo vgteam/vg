@@ -21,6 +21,7 @@ public:
     void for_each(function<void(Path&)>& lambda);
     void for_each_stream(istream& in, function<void(Path&)>& lambda);
     void increment_ids(int64_t inc);
+    void for_each_mapping(const function<void(Mapping*)>& lambda);
 };
 
 Path& increment_node_mapping_ids(Path& p, int64_t inc);

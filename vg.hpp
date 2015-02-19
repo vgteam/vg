@@ -243,7 +243,7 @@ public:
 
     // utilities
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
-    void divide_path(map<long, Node*>& path, long pos, Node*& left, Node*& right);
+    void divide_path(map<long, int64_t>& path, long pos, Node*& left, Node*& right);
     //void node_replace_prev(Node* node, Node* before, Node* after);
     //void node_replace_next(Node* node, Node* before, Node* after);
 

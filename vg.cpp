@@ -441,6 +441,9 @@ void VG::compact_ids(void) {
     for_each_edge([&new_id](Edge* e) {
             e->set_from(new_id[e->from()]);
             e->set_to(new_id[e->to()]); });
+    paths.for_each_mapping([&new_id](Mapping* m) {
+            m->set_node_id(new_id[m->node_id()]);
+        });
     rebuild_indexes();
 }
 
@@ -652,7 +655,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
 
     // maintains the path of the seq in the graph
-    map<long, Node*> seq_nodes;
+    map<long, int64_t> seq_node_ids;
     // track the last nodes so that we can connect everything
     // completely when variants occur in succession
     map<long, set<Node*> > nodes_by_end_position;
@@ -660,7 +663,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
 
     Node* seq_node = create_node(seq);
-    seq_nodes[0] = seq_node;
+    seq_node_ids[0] = seq_node->id();
 
     for (auto& va : altp) {
 
@@ -669,7 +672,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
         // if alleles are empty, we just cut at this point
         if (alleles.empty()) {
             Node* l = NULL; Node* r = NULL;
-            divide_path(seq_nodes, va.first, l, r);
+            divide_path(seq_node_ids, va.first, l, r);
         }
 
         for (auto allele : alleles) {
@@ -695,7 +698,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
                 // ensures that we can handle variation at first position
                 // (important when aligning)
                 Node* root = create_node("");
-                seq_nodes[-1] = root;
+                seq_node_ids[-1] = root->id();
                 nodes_by_start_position[-1].insert(root);
                 nodes_by_end_position[0].insert(root);
             }
@@ -705,14 +708,14 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
             Node* right_seq_node = NULL;
 
             // make one cut at the ref-path relative start of the allele
-            divide_path(seq_nodes,
+            divide_path(seq_node_ids,
                         allele_start_pos,
                         left_seq_node,
                         right_seq_node);
 
             // if the ref portion of the allele is not empty, then we need to make another cut
             if (!allele.ref.empty()) {
-                divide_path(seq_nodes,
+                divide_path(seq_node_ids,
                             allele_end_pos,
                             middle_seq_node,
                             right_seq_node);
@@ -767,7 +770,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
             if (allele_end_pos == seq.size()) {
                 // ensures that we can handle variation at last position (important when aligning)
                 Node* end = create_node("");
-                seq_nodes[allele_end_pos] = end;
+                seq_node_ids[allele_end_pos] = end->id();
                 // for consistency, this should be handled below in the start/end connections
                 if (alt_node) {
                     create_edge(alt_node, end);
@@ -829,18 +832,18 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
     }
 
-    sort();
-    compact_ids();
-
+    // hi, i am broken
+    // fix me
     paths.emplace_back();
     Path& seq_path = paths.back();
     seq_path.set_name(name);
-    for (auto& p : seq_nodes) {
-        Node* node = p.second;
-        node->id();
+    for (auto& p : seq_node_ids) {
         Mapping* m = seq_path.add_mapping();
-        m->set_node_id(node->id());
+        m->set_node_id(p.second);
     }
+
+    sort();
+    compact_ids();
 
 }
 
@@ -1732,27 +1735,27 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 }
 
 // for dividing a path of nodes with an underlying coordinate system
-void VG::divide_path(map<long, Node*>& path, long pos, Node*& left, Node*& right) {
+void VG::divide_path(map<long, int64_t>& path, long pos, Node*& left, Node*& right) {
 
-    map<long, Node*>::iterator target = path.upper_bound(pos);
+    map<long, int64_t>::iterator target = path.upper_bound(pos);
     --target; // we should now be pointing to the target ref node
 
     long node_pos = target->first;
-    Node* old = target->second;
+    Node* old = get_node(target->second);
     
     // nothing to do
     if (node_pos == pos) {
-        map<long, Node*>::iterator n = target; --n;
-        left = n->second;
-        right = target->second;
+        map<long, int64_t>::iterator n = target; --n;
+        left = get_node(n->second);
+        right = get_node(target->second);
     } else {
         // divide the target node at our pos
         int diff = pos - node_pos;
         divide_node(old, diff, left, right);
         // left
-        path[node_pos] = left;
+        path[node_pos] = left->id();
         // right
-        path[pos] = right;
+        path[pos] = right->id();
     }
 }
 

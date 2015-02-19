@@ -964,6 +964,7 @@ void help_index(char** argv) {
          << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
          << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
+         << "    -P, --paths FILE      index the paths in FILE" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
          << "    -S, --set-kmer        assert that the kmer size (-k) is in the db" << endl
@@ -982,6 +983,7 @@ int main_index(int argc, char** argv) {
     }
 
     string db_name;
+    string paths_file;
     int kmer_size = 0;
     int edge_max = 0;
     int kmer_stride = 1;
@@ -1007,11 +1009,12 @@ int main_index(int argc, char** argv) {
                 {"set-kmer", no_argument, 0, 'S'},
                 {"threads", required_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
+                {"paths-file",  no_argument, 0, 'P'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:S",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1022,6 +1025,10 @@ int main_index(int argc, char** argv) {
         {
         case 'd':
             db_name = optarg;
+            break;
+
+        case 'P':
+            paths_file = optarg;
             break;
 
         case 'k':
@@ -1105,6 +1112,16 @@ int main_index(int argc, char** argv) {
         }
         index.close();
         index.open_for_write(db_name);
+        index.compact();
+    }
+
+    if (!paths_file.empty()) {
+        Paths paths;
+        ifstream in;
+        in.open(paths_file.c_str());
+        paths.load(in);
+        index.open_for_write(db_name);
+        index.store_paths(paths);
         index.compact();
     }
 

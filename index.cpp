@@ -113,12 +113,14 @@ void Index::compact(void) {
 const string Index::key_for_node(int64_t id) {
     string key;
     id = htobe64(id);
-    key.resize(3*sizeof(char) + sizeof(int64_t));
+    key.resize(5*sizeof(char) + sizeof(int64_t));
     char* k = (char*) key.c_str();
     k[0] = start_sep;
     k[1] = 'g'; // graph elements
     k[2] = start_sep;
     memcpy(k + sizeof(char)*3, &id, sizeof(int64_t));
+    k[3 + sizeof(int64_t)] = start_sep;
+    k[3 + sizeof(int64_t) + 1] = 'n';
     return key;
 }
 
@@ -172,6 +174,44 @@ const string Index::key_for_kmer(const string& kmer, int64_t id) {
     return key;
 }
 
+const string Index::key_for_node_path(int64_t node_id, int64_t path_id, int64_t path_pos) {
+    node_id = htobe64(node_id);
+    path_id = htobe64(path_id);
+    path_pos = htobe64(path_pos);
+    string key;
+    key.resize(7*sizeof(char) + 3*sizeof(int64_t));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'g'; // graph elements
+    k[2] = start_sep;
+    memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
+    k[3 + sizeof(int64_t)] = start_sep;
+    k[4 + sizeof(int64_t)] = 'p';
+    k[5 + sizeof(int64_t)] = start_sep;
+    memcpy(k + sizeof(char)*6 + sizeof(int64_t), &path_id, sizeof(int64_t));
+    k[6 + 2*sizeof(int64_t)] = start_sep;
+    memcpy(k + sizeof(char)*7 + 2*sizeof(int64_t), &path_pos, sizeof(int64_t));
+    return key;
+}
+
+const string Index::key_for_path_position(int64_t path_id, int64_t path_pos, int64_t node_id) {
+    node_id = htobe64(node_id);
+    path_id = htobe64(path_id);
+    path_pos = htobe64(path_pos);
+    string key;
+    key.resize(5*sizeof(char) + 3*sizeof(int64_t));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'p'; // graph elements
+    k[2] = start_sep;
+    memcpy(k + sizeof(char)*3, &path_id, sizeof(int64_t));
+    k[3 + sizeof(int64_t)] = start_sep;
+    memcpy(k + sizeof(char)*4 + sizeof(int64_t), &path_pos, sizeof(int64_t));
+    k[4 + 2*sizeof(int64_t)] = start_sep;
+    memcpy(k + sizeof(char)*5 + 2*sizeof(int64_t), &node_id, sizeof(int64_t));
+    return key;
+}
+
 const string Index::key_prefix_for_kmer(const string& kmer) {
     string key;
     key.resize(3*sizeof(char) + kmer.size());
@@ -211,7 +251,6 @@ const string Index::key_prefix_for_edges_to_node(int64_t to) {
 }
 
 char Index::graph_key_type(string& key) {
-    if (key.size() == (3*sizeof(char) + sizeof(int64_t))) return 'n';
     return key.c_str()[4*sizeof(char) + sizeof(int64_t)];
 }
 
@@ -225,7 +264,7 @@ string Index::entry_to_string(const string& key, const string& value) {
         return kmer_entry_to_string(key, value);
         break;
     case 'p':
-        return position_entry_to_string(key, value);
+        return path_position_to_string(key, value);
         break;
     case 'm':
         return metadata_entry_to_string(key, value);
@@ -295,6 +334,9 @@ string Index::graph_entry_to_string(const string& key, const string& value) {
         s << "{\"key\":\"+g+" << id1 << "+t+" << id2 << "\", \"value\":"<<json << "}";
         free(json);
     } break;
+    case 'p': {
+        s << node_path_to_string(key, value);
+    } break;
     }
     return s.str();
 }
@@ -317,12 +359,71 @@ string Index::kmer_entry_to_string(const string& key, const string& value) {
     return s.str();
 }
 
-string Index::position_entry_to_string(const string& key, const string& value) {
+void Index::parse_node_path(const string& key, const string& value,
+                            int64_t& node_id, int64_t& path_id, int64_t& path_pos, Mapping& mapping) {
+    const char* k = key.c_str();
+    memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
+    memcpy(&path_id, (k + 6*sizeof(char)+sizeof(int64_t)), sizeof(int64_t));
+    memcpy(&path_pos, (k + 7*sizeof(char)+2*sizeof(int64_t)), sizeof(int64_t));
+    node_id = be64toh(node_id);
+    path_id = be64toh(path_id);
+    path_pos = be64toh(path_pos);
+    mapping.ParseFromString(value);
+}
+
+void Index::parse_path_position(const string& key, const string& value,
+                                int64_t& path_id, int64_t& path_pos, int64_t& node_id, Mapping& mapping) {
+    const char* k = key.c_str();
+    memcpy(&path_id, (k + 3*sizeof(char)), sizeof(int64_t));
+    memcpy(&path_pos, (k + 4*sizeof(char)+sizeof(int64_t)), sizeof(int64_t));
+    memcpy(&node_id, (k + 5*sizeof(char)+2*sizeof(int64_t)), sizeof(int64_t));
+    node_id = be64toh(node_id);
+    path_id = be64toh(path_id);
+    path_pos = be64toh(path_pos);
+    mapping.ParseFromString(value);
+}
+
+string Index::node_path_to_string(const string& key, const string& value) {
+    Mapping mapping;
+    int64_t node_id, path_id, path_pos;
+    parse_node_path(key, value, node_id, path_id, path_pos, mapping);
+    stringstream s;
+    char *json = pb2json(mapping);
+    s << "{\"key\":\"+g+" << node_id << "+p+" << path_id << "+" << path_pos << "\", \"value\":"<<json << "}";
+    free(json);
+    return s.str();
+}
+
+string Index::path_position_to_string(const string& key, const string& value) {
+    Mapping mapping;
+    int64_t node_id, path_id, path_pos;
+    parse_path_position(key, value, path_id, path_pos, node_id, mapping);
+    stringstream s;
+    char *json = pb2json(mapping);
+    s << "{\"key\":\"+p+" << path_id << "+" << path_pos << "+" << node_id << "\", \"value\":"<<json << "}";
+    free(json);
+    return s.str();
 }
 
 string Index::metadata_entry_to_string(const string& key, const string& value) {
     stringstream s;
-    s << "{\"key\":\"" << "+" << key[1] << "+" << key.substr(2) << "\", \"value\":\""<< value << "\"}";
+    string prefix = key.substr(3);
+    string val = value;
+    if (prefix == "max_path_id"
+        || prefix.substr(0,9) == "path_name") {
+        stringstream v;
+        int64_t id;
+        memcpy(&id, (char*)value.c_str(), sizeof(int64_t));
+        v << id;
+        val = v.str();
+    } else if (prefix.substr(0,7) == "path_id") {
+        stringstream v;
+        int64_t id;
+        memcpy(&id, ((char*)prefix.c_str())+7, sizeof(int64_t));
+        v << id;
+        prefix = prefix.substr(0,7) + "+" + v.str();
+    }
+    s << "{\"key\":\"" << "+" << key[1] << "+" << prefix << "\", \"value\":\""<< val << "\"}";
     return s.str();
 }
 
@@ -373,6 +474,18 @@ void Index::put_metadata(const string& tag, const string& data) {
     db->Put(write_options, key, data);
 }
 
+void Index::put_node_path(int64_t node_id, int64_t path_id, int64_t path_pos, const Mapping& mapping) {
+    string data;
+    mapping.SerializeToString(&data);
+    db->Put(write_options, key_for_node_path(node_id, path_id, path_pos), data);
+}
+
+void Index::put_path_position(int64_t path_id, int64_t path_pos, int64_t node_id, const Mapping& mapping) {
+    string data;
+    mapping.SerializeToString(&data);
+    db->Put(write_options, key_for_path_position(path_id, path_pos, node_id), data);
+}
+
 void Index::load_graph(VG& graph) {
     // a bit of a hack--- the logging only works with for_each_*parallel
     // also the high parallelism may be causing issues
@@ -392,6 +505,109 @@ void Index::load_graph(VG& graph) {
     rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
     graph.destroy_progress();
     omp_set_num_threads(thread_count);
+}
+
+int64_t Index::get_max_path_id(void) {
+    string data;
+    int64_t id;
+    rocksdb::Status s = get_metadata("max_path_id", data);
+    if (!s.ok()) {
+        id = 0;
+        put_max_path_id(id);
+    } else {
+        memcpy(&id, data.c_str(), sizeof(int64_t));
+    }
+    return id;
+}
+
+void Index::put_max_path_id(int64_t id) {
+    string data;
+    data.resize(sizeof(int64_t));
+    memcpy((char*)data.c_str(), &id, sizeof(int64_t));
+    put_metadata("max_path_id", data);
+}
+
+int64_t Index::new_path_id(const string& name) {
+    int64_t max_id = get_max_path_id();
+    int64_t new_id = max_id + 1;
+    put_max_path_id(new_id);
+    return new_id;
+}
+
+string Index::path_name_prefix(const string& name) {
+    return "path_name" + start_sep + name;
+}
+
+string Index::path_id_prefix(int64_t id) {
+    string prefix = "path_id" + start_sep;
+    size_t prefix_size = prefix.size();
+    prefix.resize(prefix.size() + sizeof(int64_t));
+    memcpy((char*)prefix.c_str() + prefix_size, &id, sizeof(int64_t));
+    return prefix;
+}
+
+void Index::put_path_id_to_name(int64_t id, const string& name) {
+    put_metadata(path_id_prefix(id), name);
+}
+
+void Index::put_path_name_to_id(int64_t id, const string& name) {
+    string data;
+    data.resize(sizeof(int64_t));
+    memcpy((char*)data.c_str(), &id, sizeof(int64_t));
+    put_metadata(path_name_prefix(name), data);
+}
+
+string Index::get_path_name(int64_t id) {
+    string data;
+    get_metadata(path_id_prefix(id), data);
+    return data;
+}
+
+int64_t Index::get_path_id(const string& name) {
+    string data;
+    get_metadata(path_name_prefix(name), data);
+    int64_t id;
+    memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
+    return id;
+}
+
+void Index::store_paths(Paths& paths) {
+    for (auto& path : paths) {
+        store_path(path);
+    }
+}
+
+void Index::store_path(Path& path) {
+    // get a new path id
+    // if there is no name, cry
+    if (!path.has_name()) {
+        cerr << "[vg::Index] error, path has no name" << endl;
+        exit(1);
+    }
+    int64_t path_id = new_path_id(path.name());
+    put_path_id_to_name(path_id, name);
+    put_path_name_to_id(path_id, name);
+    // keep track of position
+    int64_t path_pos = 0;
+    // for each node in the path
+    for (int64_t i = 0; i < path.mapping_size(); ++i) {
+        const Mapping& mapping = path.mapping(i);
+        // put an entry in the path table
+        put_path_position(path_id, path_pos, mapping.node_id(), mapping);
+        // put an entry in the graph table
+        put_node_path(mapping.node_id(), path_id, path_pos, mapping);
+
+        // get the node, to find the size of this step
+        Node node;
+        get_node(mapping.node_id(), node);
+        // TODO use the cigar... if there is one
+        path_pos += node.sequence().size();
+    }
+}
+
+rocksdb::Status Index::get_metadata(const string& key, string& data) {
+    rocksdb::Status s = db->Get(rocksdb::ReadOptions(), key_for_metadata(key), &data);
+    return s;
 }
 
 rocksdb::Status Index::get_node(int64_t id, Node& node) {

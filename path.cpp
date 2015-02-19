@@ -25,6 +25,15 @@ void Paths::for_each(function<void(Path&)>& lambda) {
     std::for_each(begin(), end(), lambda);
 }
 
+void Paths::for_each_mapping(const function<void(Mapping*)>& lambda) {
+    for (auto& path : *this) {
+        for (int64_t i = 0; i < path.mapping_size(); ++i) {
+            Mapping* m = path.mutable_mapping(i);
+            lambda(m);
+        }
+    }
+}
+
 void Paths::for_each_stream(istream& in, function<void(Path&)>& lambda) {
     uint64_t count = 0;
     function<void(uint64_t)> handle_count = [this, &count](uint64_t c) { count = c; };
