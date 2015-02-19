@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 6
+plan tests 9
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -49,3 +49,11 @@ is $triple $(echo "$single * 3" | bc) "storage of multiple graphs in an index su
 
 rm x.vg y.vg z.vg
 rm -rf x.vg.index q.vg.index
+
+vg construct -r small/x.fa -v small/x.vcf.gz -P x.paths >x.vg
+vg index -s x.vg
+vg index -P x.paths -d x.vg.index
+is $(vg index -D x.vg | grep +g | grep +p | wc -l) $(vg view -p x.paths | wc -l) "correct number of elements in path index"
+is $(vg index -D x.vg | grep +path_id | wc -l) 1 "path id recorded"
+is $(vg index -D x.vg | grep +path_name | wc -l) 1 "path name recorded"
+rm -rf x.vg.index x.vg x.paths
