@@ -142,6 +142,15 @@ public:
         return *this;
     }
 
+    // todo
+    // set vg up to not build indexes
+    // providing very light runtime
+    // this would disable a ton of functions
+    // and change the deserialization semantics
+    //
+    //void no_indexes(void);
+    //void yes_indexes(void);
+
     void build_indexes(void);
     void clear_indexes(void);
     void clear_indexes_no_resize(void);

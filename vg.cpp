@@ -5,6 +5,8 @@ namespace vg {
 
 using namespace std;
 
+// todo embed paths
+
 // construct from a stream of protobufs
 VG::VG(istream& in, bool showp) {
 
