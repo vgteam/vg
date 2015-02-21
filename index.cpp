@@ -584,7 +584,9 @@ void Index::store_path(Path& path) {
         cerr << "[vg::Index] error, path has no name" << endl;
         exit(1);
     }
-    int64_t path_id = new_path_id(path.name());
+    // 
+    //int64_t path_id = new_path_id(path.name());
+    int64_t path_id = path.id();
     put_path_id_to_name(path_id, name);
     put_path_name_to_id(path_id, name);
     // keep track of position

@@ -74,8 +74,6 @@ public:
     hash_map<int64_t, vector<int64_t> > edges_from_to;
     hash_map<int64_t, vector<int64_t> > edges_to_from;
 
-    hash_map<int64_t, vector<pair<Path*, Mapping*> > > node_mapping;
-
     // set the edge indexes through this function
     void set_edge(int64_t from, int64_t to, Edge*);
     void print_edges(void);
@@ -88,8 +86,7 @@ public:
     void remove_edge_fti(int64_t from, int64_t to);
     void remove_edge_tfi(int64_t from, int64_t to);
 
-    const vector<pair<Path*, Mapping*> > mappings_of(int64_t id);
-    const Paths paths_of(int64_t id);
+    void cache_paths_in_nodes(void);
 
     // properties of the graph
     size_t size(void); // number of nodes
@@ -157,6 +154,7 @@ public:
     //void yes_indexes(void);
 
     void build_indexes(void);
+    void index_paths(void);
     void clear_indexes(void);
     void clear_indexes_no_resize(void);
     void resize_indexes(void);

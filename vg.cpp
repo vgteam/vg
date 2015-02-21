@@ -26,7 +26,7 @@ VG::VG(istream& in, bool showp) {
     };
 
     stream::for_each(in, lambda, handle_count);
-
+    paths.to_graph(graph);
     destroy_progress();
 
 }
@@ -47,6 +47,8 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
             Node* node = graph.mutable_node(j);
             node_context(node, g);
         }
+        // deal with g.graph.paths;
+        g.paths.to_graph(g.graph);
         update_progress(i);
         return g.graph;
     };
@@ -109,8 +111,7 @@ void VG::add_edges(vector<Edge>& edges) {
 void VG::add_node(Node& node) {
     if (!has_node(node)) {
         Node* new_node = graph.add_node(); // add it to the graph
-        new_node->set_sequence(node.sequence());
-        new_node->set_id(node.id());
+        *new_node = node;
         node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
         node_index[new_node] = graph.node_size()-1;
     }
@@ -119,8 +120,7 @@ void VG::add_node(Node& node) {
 void VG::add_edge(Edge& edge) {
     if (!has_edge(edge)) {
         Edge* new_edge = graph.add_edge(); // add it to the graph
-        new_edge->set_from(edge.from());
-        new_edge->set_to(edge.to());
+        *new_edge = edge;
         set_edge(edge.from(), edge.to(), new_edge);
         edge_index[new_edge] = graph.edge_size()-1;
     }
@@ -208,6 +208,24 @@ void VG::build_indexes(void) {
         Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
         set_edge(e->from(), e->to(), e);
+    }
+}
+
+void VG::cache_paths_in_nodes(void) {
+    int64_t j = 0;
+    for (auto& path : paths) {
+        for (int i = 0; i < path.mapping_size(); ++i) {
+            //cerr << "on mapping " << i << endl;
+            Mapping* m = path.mutable_mapping(i);
+            Node* n = get_node(m->node_id());
+            // todo check for duplicates
+            //cerr << "should be adding " << path.id() << " to node " << n->id() << endl;
+            //cerr << "path name: " << path.name() << endl;
+            //cerr << "node == " << n << endl;
+            //cerr << "node id == " << n->id() << endl;
+            n->add_path_id(path.id());
+            //update_progress(j++);
+        }
     }
 }
 
@@ -459,7 +477,7 @@ void VG::increment_node_ids(int64_t increment) {
             e->set_to(e->to()+increment);
         });
     rebuild_indexes();
-    paths.increment_ids(increment);
+    paths.increment_node_ids(increment);
 }
 
 void VG::decrement_node_ids(int64_t decrement) {
@@ -837,13 +855,16 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
     // hi, i am broken
     // fix me
-    paths.emplace_back();
-    Path& seq_path = paths.back();
-    seq_path.set_name(name);
+    Path* path = paths.get_create_path(name);
     for (auto& p : seq_node_ids) {
-        Mapping* m = seq_path.add_mapping();
-        m->set_node_id(p.second);
+        Mapping m;
+        m.set_node_id(p.second);
+        paths.append_mapping(*path, m);
     }
+    //paths.assign_path_ids();
+    //cache_paths_in_nodes();
+    paths.assign_path_ids();
+    cache_paths_in_nodes();
 
     sort();
     compact_ids();
@@ -1556,33 +1577,43 @@ void VG::node_context(Node* node, VG& g) {
     for (vector<int64_t>::iterator e = from.begin(); e != from.end(); ++e) {
         g.add_edge(*get_edge(node->id(), *e));
     }
-    g.paths.extend(paths_of(node->id()));
+    // and its path members
+    auto& node_mappings = paths.get_node_mapping(node);
+    for (auto& i : node_mappings) {
+        Path* p = g.paths.get_create_path(i.first->name());
+        Mapping* m = i.second;
+        g.paths.append_mapping(*p, *m);
+    }
 }
 
+/*
 const Paths VG::paths_of(int64_t id) {
-    const vector<pair<Path*, Mapping*> >& mappings = mappings_of(id);
+// stack smashing... really?
+
+    const vector<Mapping*>& mappings = mappings_of(id);
     map<string, Path> subpaths;
     for (auto& m : mappings) {
-        Path* path = m.first;
+        cerr << m->node_id() << endl;
+        Path* path = mapping_path[m];
         auto p = subpaths.find(path->name());
         if (p == subpaths.end()) {
             subpaths[path->name()]; // emplace-construct
+            //p = subpaths.find(path->name());
         }
-        Path& new_path = p->second;
+        Path& new_path = subpaths[path->name()];
         if (!new_path.has_name()) new_path.set_name(path->name());
         Mapping* mapping = new_path.add_mapping();
-        *mapping = *m.second;
+        cerr << "before " << m->node_id() << endl;
+        *mapping = *m;
     }
-    Paths paths;
+    Paths new_paths;
     for (auto& p : subpaths) {
         paths.extend(p.second);
     }
-    return paths;
+    cerr << "wut" << endl;
+    return new_paths;
 }
-
-const vector<pair<Path*, Mapping*> > VG::mappings_of(int64_t id) {
-    return node_mapping[id];
-}
+*/
 
 void VG::destroy_node(int64_t id) {
     destroy_node(get_node(id));
@@ -2176,6 +2207,12 @@ void VG::to_dot(ostream& out) {
         Edge* e = graph.mutable_edge(i);
         out << "    " << e->from() << " -> " << e->to() << ";" << endl;
     }
+    // double the edges in each path
+    for (auto& path : paths) {
+        for (int i = 0; i < path.mapping_size()-1; ++i) {
+            out << "    " << path.mapping(i).node_id() << " -> " << path.mapping(i+1).node_id() << ";" << endl;
+        }
+    }
     out << "}" << endl;
 }
 
@@ -2186,6 +2223,12 @@ void VG::to_gfa(ostream& out) {
         Node* n = graph.mutable_node(i);
         stringstream s;
         s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
+        for (int j = 0; j < n->path_id_size(); ++j) {
+            assert(paths.size());
+            Path* p = paths.get_path(n->path_id(j));
+            assert(p);
+            s << "P" << "\t" << n->id() << "\t" << p->name() << "\n";
+        }
         sorted_output[n->id()].push_back(s.str());
     }
     for (int i = 0; i < graph.edge_size(); ++i) {

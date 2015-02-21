@@ -25,7 +25,8 @@ message Node {
     optional double quality = 4;
     optional int32 coverage = 5;
     // user-defined annotations, possibly a string, possibly more binary data
-    optional bytes data = 6;
+    repeated int64 path_id = 6;
+    optional bytes data = 7;
 }
 
 // Edges describe linkages between nodes. They are directed: from=prev, to=next.
@@ -72,7 +73,8 @@ message Mapping {
 message Path {
     optional int32 target_position = 1;
     optional string name = 2;
-    repeated Mapping mapping = 3;
+    optional int64 id = 3;
+    repeated Mapping mapping = 4;
 }
 
 // Alignments link query strings or reads to paths.
