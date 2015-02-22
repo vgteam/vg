@@ -1468,6 +1468,10 @@ int main_view(int argc, char** argv) {
     }
 
     VG* graph;
+    if (optind >= argc) {
+        cerr << "[vg view] error: no filename given" << endl;
+        exit(1);
+    }
     string file_name = argv[optind];
     if (input_type == "vg") {
         if (file_name == "-") {

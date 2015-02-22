@@ -572,7 +572,7 @@ int64_t Index::get_path_id(const string& name) {
 }
 
 void Index::store_paths(Paths& paths) {
-    for (auto& path : paths) {
+    for (auto& path : *paths._paths) {
         store_path(path);
     }
 }
@@ -585,8 +585,8 @@ void Index::store_path(Path& path) {
         exit(1);
     }
     // 
-    //int64_t path_id = new_path_id(path.name());
-    int64_t path_id = path.id();
+    int64_t path_id = new_path_id(path.name());
+    //int64_t path_id = path.id();
     put_path_id_to_name(path_id, name);
     put_path_name_to_id(path_id, name);
     // keep track of position

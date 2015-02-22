@@ -72,6 +72,7 @@ void VG::init(void) {
     show_progress = false;
     progress_message = "progress";
     progress = NULL;
+    paths._paths = graph.mutable_path();
 }
 
 VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
@@ -106,7 +107,6 @@ void VG::add_edges(vector<Edge>& edges) {
         add_edge(edge);
     }
 }
-
 
 void VG::add_node(Node& node) {
     if (!has_node(node)) {
@@ -213,7 +213,7 @@ void VG::build_indexes(void) {
 
 void VG::cache_paths_in_nodes(void) {
     int64_t j = 0;
-    for (auto& path : paths) {
+    for (auto& path : *paths._paths ) {
         for (int i = 0; i < path.mapping_size(); ++i) {
             //cerr << "on mapping " << i << endl;
             Mapping* m = path.mutable_mapping(i);
@@ -223,7 +223,7 @@ void VG::cache_paths_in_nodes(void) {
             //cerr << "path name: " << path.name() << endl;
             //cerr << "node == " << n << endl;
             //cerr << "node id == " << n->id() << endl;
-            n->add_path_id(path.id());
+            n->add_path_name(path.name());
             //update_progress(j++);
         }
     }
@@ -863,7 +863,6 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
     }
     //paths.assign_path_ids();
     //cache_paths_in_nodes();
-    paths.assign_path_ids();
     cache_paths_in_nodes();
 
     sort();
@@ -2208,7 +2207,7 @@ void VG::to_dot(ostream& out) {
         out << "    " << e->from() << " -> " << e->to() << ";" << endl;
     }
     // double the edges in each path
-    for (auto& path : paths) {
+    for (auto& path : *paths._paths) {
         for (int i = 0; i < path.mapping_size()-1; ++i) {
             out << "    " << path.mapping(i).node_id() << " -> " << path.mapping(i+1).node_id() << ";" << endl;
         }
@@ -2223,9 +2222,9 @@ void VG::to_gfa(ostream& out) {
         Node* n = graph.mutable_node(i);
         stringstream s;
         s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
-        for (int j = 0; j < n->path_id_size(); ++j) {
+        for (int j = 0; j < n->path_name_size(); ++j) {
             assert(paths.size());
-            Path* p = paths.get_path(n->path_id(j));
+            Path* p = paths.get_path(n->path_name(j));
             assert(p);
             s << "P" << "\t" << n->id() << "\t" << p->name() << "\n";
         }

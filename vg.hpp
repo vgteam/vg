@@ -44,7 +44,8 @@ public:
     // NB: we can't subclass this safely, so it's best as a member
     Graph graph;
 
-    // paths of the graph
+    // manages paths of the graph
+    // initialized by setting paths._paths = graph.paths
     Paths paths;
 
     // name

@@ -25,7 +25,7 @@ message Node {
     optional double quality = 4;
     optional int32 coverage = 5;
     // user-defined annotations, possibly a string, possibly more binary data
-    repeated int64 path_id = 6;
+    repeated string path_name = 6;
     optional bytes data = 7;
 }
 
@@ -73,8 +73,7 @@ message Mapping {
 message Path {
     optional int32 target_position = 1;
     optional string name = 2;
-    optional int64 id = 3;
-    repeated Mapping mapping = 4;
+    repeated Mapping mapping = 3;
 }
 
 // Alignments link query strings or reads to paths.

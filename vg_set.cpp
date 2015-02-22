@@ -50,9 +50,6 @@ int64_t VGset::merge_id_space(void) {
     auto lambda = [&max_node_id, &max_path_id](VG* g) {
         if (max_node_id > 0) g->increment_node_ids(max_node_id);
         max_node_id = g->max_node_id();
-        cerr << g->paths.max_path_id();
-        if (max_path_id > 0) g->paths.increment_path_ids(max_path_id);
-        max_path_id = g->paths.max_path_id();
     };
     transform(lambda);
     return max_node_id;
