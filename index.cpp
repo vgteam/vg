@@ -504,6 +504,9 @@ void Index::load_graph(VG& graph) {
     graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch); });
     rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
     graph.destroy_progress();
+    graph.create_progress("indexing paths of " + graph.name, graph.paths._paths->size());
+    store_paths(graph.paths);
+    graph.destroy_progress();
     omp_set_num_threads(thread_count);
 }
 
@@ -527,10 +530,12 @@ void Index::put_max_path_id(int64_t id) {
     put_metadata("max_path_id", data);
 }
 
-int64_t Index::new_path_id(const string& name) {
+int64_t Index::new_path_id(const string& path_name) {
     int64_t max_id = get_max_path_id();
     int64_t new_id = max_id + 1;
     put_max_path_id(new_id);
+    put_path_id_to_name(new_id, path_name);
+    put_path_name_to_id(new_id, path_name);
     return new_id;
 }
 
@@ -566,7 +571,7 @@ string Index::get_path_name(int64_t id) {
 int64_t Index::get_path_id(const string& name) {
     string data;
     get_metadata(path_name_prefix(name), data);
-    int64_t id;
+    int64_t id = 0;
     memcpy(&id, (char*)data.c_str(), sizeof(int64_t));
     return id;
 }
@@ -584,11 +589,13 @@ void Index::store_path(Path& path) {
         cerr << "[vg::Index] error, path has no name" << endl;
         exit(1);
     }
-    // 
-    int64_t path_id = new_path_id(path.name());
-    //int64_t path_id = path.id();
-    put_path_id_to_name(path_id, name);
-    put_path_name_to_id(path_id, name);
+    // check if the path name/id mapping already exists
+    int64_t path_id;
+    path_id = get_path_id(path.name());
+    // if it doesn't, create it
+    if (!path_id) {
+        path_id = new_path_id(path.name());
+    }
     // keep track of position
     int64_t path_pos = 0;
     // for each node in the path
@@ -697,6 +704,8 @@ void Index::get_context(int64_t id, VG& graph) {
             graph.add_edge(edge);
 
         } break;
+        case 'p': {
+        } break;
         default:
             cerr << "vg::Index unrecognized key type " << keyt << endl;
             exit(1);
@@ -729,6 +738,8 @@ void Index::get_range(int64_t from_id, int64_t to_id, VG& graph) {
             parse_edge(key, value, type, id1, id2, edge);
             graph.add_edge(edge);
 
+        } break;
+        case 'p': {
         } break;
         default:
             cerr << "vg::Index unrecognized key type " << keyt << endl;

@@ -1109,7 +1109,7 @@ int main_index(int argc, char** argv) {
         }
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
-        }
+        }        
         index.close();
         index.open_for_write(db_name);
         index.compact();
@@ -1394,8 +1394,8 @@ void help_view(char** argv) {
          << "    -g, --gfa             output GFA format (default)" << endl
          << "    -d, --dot             output dot format" << endl
          << "    -j, --json            output VG JSON format" << endl
-         << "    -v, --vg              write VG format (input is GFA)" << endl
-         << "    -p, --paths           given file is a paths file, not a graph" << endl;
+         << "    -v, --vg              write VG format (input is GFA)" << endl;
+    //<< "    -p, --paths           extract paths from graph in VG format" << endl;
 }
 
 int main_view(int argc, char** argv) {

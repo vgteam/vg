@@ -29,7 +29,7 @@ rm -rf z.vg.index z.vg
 
 num_records=$(vg index -D x.vg | wc -l)
 is $? 0 "dumping graph index"
-is $num_records 7933 "correct number of records in graph index"
+is $num_records 8214 "correct number of records in graph index"
 
 rm -rf x.vg.index
 rm -f x.vg
@@ -38,22 +38,23 @@ vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >y.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >z.vg
 
-vg ids -j x.vg y.vg z.vg
-vg index -s -d q.vg.index x.vg y.vg z.vg
+vg concat x.vg y.vg z.vg >q.vg
+
+vg index -s q.vg
 vg index -s x.vg
 
 single=$(vg index -D -d x.vg.index | wc -l)
 triple=$(vg index -D -d q.vg.index | wc -l)
 
-is $triple $(echo "$single * 3" | bc) "storage of multiple graphs in an index succeeds"
+# subtract two for metadata lines about paths that aren't duplicated in the merged
+is $triple $(echo "$single * 3 - 2" | bc) "storage of multiple graphs in an index succeeds"
 
 rm x.vg y.vg z.vg
 rm -rf x.vg.index q.vg.index
 
-vg construct -r small/x.fa -v small/x.vcf.gz -P x.paths >x.vg
+vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s x.vg
-vg index -P x.paths -d x.vg.index
-is $(vg index -D x.vg | grep +g | grep +p | wc -l) $(vg view -p x.paths | wc -l) "correct number of elements in path index"
+is $(vg index -D x.vg | grep +g | grep +p | wc -l) $(vg view x.vg | grep ^P | wc -l) "correct number of elements in path index"
 is $(vg index -D x.vg | grep +path_id | wc -l) 1 "path id recorded"
 is $(vg index -D x.vg | grep +path_name | wc -l) 1 "path name recorded"
 rm -rf x.vg.index x.vg x.paths
