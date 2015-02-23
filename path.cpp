@@ -55,7 +55,7 @@ void Paths::to_graph(Graph& g) {
 }
 
 void Paths::extend(Path& p) {
-    Path* path = create_path(p.name());
+    Path* path = get_create_path(p.name());
     *path = p;
     for (int i = 0; i < path->mapping_size(); ++i) {
         //map<int64_t, set<pair<Path*, Mapping*> > > node_mapping;
@@ -79,34 +79,32 @@ void Paths::extend(Paths& p) {
 
 void Paths::append(Graph& g) {
     for (int i = 0; i < g.path_size(); ++i) {
-        const Path& path = g.path(i);
-        Path* p = get_create_path(path.name());
-        append_path_cache_nodes(*p, path);
+        Path* path = g.mutable_path(i);
+        Path* p = get_create_path(path->name());
+        append_path_cache_nodes(*p, *path);
     }
 }
 
 void Paths::append(Paths& paths) {
-    for (auto& path : *_paths) {
+    for (auto& path : *paths._paths) {
         Path* p = get_create_path(path.name());
         append_path_cache_nodes(*p, path);
     }
 }
 
-void Paths::append_path_cache_nodes(Path& a, const Path& b) {
-    // get end of path
-    int path_start_size = a.mapping_size();
-    append_path(a, b);
+void Paths::append_path_cache_nodes(Path& a, Path& b) {
     // iterate over all the added elements in path
     // add them to the node mapping
-    for (int i = path_start_size; i < a.mapping_size(); ++i) {
-        Mapping* m = a.mutable_mapping(i);
-        get_node_mapping(m->node_id()).insert(make_pair(&a, m));        
+    for (int i = 0; i < b.mapping_size(); ++i) {
+        Mapping* m = a.add_mapping();
+        *m = *b.mutable_mapping(i);
+        get_node_mapping(m->node_id()).insert(make_pair(&a, m));
     }
 }
 
-void Paths::append_mapping(Path& p, Mapping& m) {
+void Paths::append_mapping(const string& name, Mapping& m) {
     // TODO fix interface... this requires the path to be in this container
-    Path* pt = get_path(p.name());
+    Path* pt = get_create_path(name);
     assert(pt); // guard for now
     Mapping* nm = pt->add_mapping();
     *nm = m; // and copy over the details
@@ -119,54 +117,26 @@ bool Paths::has_path(const string& name) {
     return path_by_name.find(name) != path_by_name.end();
 }
 
-/*
-bool Paths::has_path(int64_t id) {
-    return path_by_id.find(id) != path_by_id.end();
-}
-
-void Paths::to_json(ostream& out) {
-    std::for_each(begin(), end(), [this, &out](Path& p) { to_json(out, p); });
-}
-*/
-
 void Paths::increment_node_ids(int64_t inc) {
     std::for_each(_paths->begin(), _paths->end(), [inc](Path& p) {
             increment_node_mapping_ids(p, inc);
         });
+    rebuild_node_mapping();
+}
+
+void Paths::rebuild_node_mapping(void) {
+    //map<int64_t, set<pair<Path*, Mapping*> > > node_mapping;
+    auto old_mapping = node_mapping;
+    node_mapping.clear();
+    for (auto& m : old_mapping) {
+        int64_t id = m.second.begin()->second->node_id();
+        node_mapping[id] = m.second;
+    }
 }
 
 size_t Paths::size(void) {
     return _paths->size();
 }
-
-/*
-void Paths::increment_path_ids(int64_t inc) {
-    std::for_each(begin(), end(), [inc](Path& p) {
-            p.set_id(p.id()+inc);
-        });
-}
-
-void Paths::assign_path_ids(void) {
-    int id = 0;
-    std::for_each(begin(), end(), [this, &id](Path& p) {
-            //cerr << "assigning path id " << p.name() << " = " << id << endl;
-            p.set_id(id++);
-            path_by_id[p.id()] = &p;
-        });
-}
-
-int64_t Paths::max_path_id(void) {
-    if (path_by_id.size()) {
-        return path_by_id.rend()->first;
-    } else {
-        return -1;
-    }
-}
-
-Path* Paths::get_path(int64_t id) {
-    return path_by_id[id];
-}
-*/
 
 Path* Paths::get_path(const string& name) {
     return path_by_name[name];
@@ -190,15 +160,6 @@ set<pair<Path*, Mapping*> >& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
 }
 
-/*
-void Paths::add_node_mapping(Node* n) {
-    auto& m = get_node_mapping(n->id());
-    for (int i = 0; i < n->path_id_size(); ++i) {
-        m.insert(n->path_id(i));
-    }
-}
-*/
-
 Path& increment_node_mapping_ids(Path& p, int64_t inc) {
     for (int i = 0; i < p.mapping_size(); ++i) {
         Mapping* mapping = p.mutable_mapping(i);
@@ -208,14 +169,7 @@ Path& increment_node_mapping_ids(Path& p, int64_t inc) {
 }
 
 Path& append_path(Path& a, const Path& b) {
-    cerr << "before: " << a.mapping_size() << endl;
     a.mutable_mapping()->MergeFrom(b.mapping());
-    cerr << "after: " << a.mapping_size() << endl;
-    for (int i = 0; i < a.mapping_size(); ++i) {
-        char *json2 = pb2json(*a.mutable_mapping(i));
-        cerr<<json2<<endl;
-        free(json2);
-    }
     return a;
 }
 

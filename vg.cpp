@@ -26,7 +26,7 @@ VG::VG(istream& in, bool showp) {
     };
 
     stream::for_each(in, lambda, handle_count);
-    paths.to_graph(graph);
+
     destroy_progress();
 
 }
@@ -47,8 +47,6 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
             Node* node = graph.mutable_node(j);
             node_context(node, g);
         }
-        // deal with g.graph.paths;
-        g.paths.to_graph(g.graph);
         update_progress(i);
         return g.graph;
     };
@@ -466,6 +464,7 @@ void VG::compact_ids(void) {
             m->set_node_id(new_id[m->node_id()]);
         });
     rebuild_indexes();
+    paths.rebuild_node_mapping();
 }
 
 void VG::increment_node_ids(int64_t increment) {
@@ -855,11 +854,10 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
     // hi, i am broken
     // fix me
-    Path* path = paths.get_create_path(name);
     for (auto& p : seq_node_ids) {
         Mapping m;
         m.set_node_id(p.second);
-        paths.append_mapping(*path, m);
+        paths.append_mapping(name, m);
     }
     //paths.assign_path_ids();
     //cache_paths_in_nodes();
@@ -1579,40 +1577,9 @@ void VG::node_context(Node* node, VG& g) {
     // and its path members
     auto& node_mappings = paths.get_node_mapping(node);
     for (auto& i : node_mappings) {
-        Path* p = g.paths.get_create_path(i.first->name());
-        Mapping* m = i.second;
-        g.paths.append_mapping(*p, *m);
+        g.paths.append_mapping(i.first->name(), *i.second);
     }
 }
-
-/*
-const Paths VG::paths_of(int64_t id) {
-// stack smashing... really?
-
-    const vector<Mapping*>& mappings = mappings_of(id);
-    map<string, Path> subpaths;
-    for (auto& m : mappings) {
-        cerr << m->node_id() << endl;
-        Path* path = mapping_path[m];
-        auto p = subpaths.find(path->name());
-        if (p == subpaths.end()) {
-            subpaths[path->name()]; // emplace-construct
-            //p = subpaths.find(path->name());
-        }
-        Path& new_path = subpaths[path->name()];
-        if (!new_path.has_name()) new_path.set_name(path->name());
-        Mapping* mapping = new_path.add_mapping();
-        cerr << "before " << m->node_id() << endl;
-        *mapping = *m;
-    }
-    Paths new_paths;
-    for (auto& p : subpaths) {
-        paths.extend(p.second);
-    }
-    cerr << "wut" << endl;
-    return new_paths;
-}
-*/
 
 void VG::destroy_node(int64_t id) {
     destroy_node(get_node(id));
