@@ -872,6 +872,11 @@ void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
     }
 }
 
+void Index::get_path(VG& graph, const string& name, int64_t start, int64_t end) {
+    // picks up the specified range in the given path
+    // TODO
+}
+
 void Index::put_kmer(const string& kmer,
                      const int64_t id,
                      const int32_t pos) {

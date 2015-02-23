@@ -143,6 +143,7 @@ public:
     void get_edges_of(int64_t id, vector<Edge>& edges);
     void get_edges_from(int64_t from, vector<Edge>& edges);
     void get_edges_to(int64_t to, vector<Edge>& edges);
+    void get_path(VG& graph, const string& name, int64_t start, int64_t end);
 
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);

@@ -48,6 +48,7 @@ public:
 Path& increment_node_mapping_ids(Path& p, int64_t inc);
 Path& append_path(Path& a, const Path& b);
 const Paths paths_from_graph(Graph& g);
+void parse_region(const string& target, string& name, int64_t& start, int64_t& end);
 
 }
 

@@ -729,18 +729,18 @@ int main_paths(int argc, char** argv) {
 void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
          << "options:" << endl
-         << "    -n, --node ID         find node, return 1-hop context as graph" << endl
-         << "    -f, --edges-from ID   return edges from node with ID" << endl
-         << "    -t, --edges-to ID     return edges from node with ID" << endl
-         << "    -k, --kmer STR        return a graph of edges and nodes matching this kmer" << endl
-         << "    -T, --table           instead of a graph, return a table of kmers" << endl
-         << "    -c, --context STEPS   expand the context of the kmer hit subgraphs" << endl
-         << "    -s, --sequence STR    search for sequence STR using --kmer-size kmers" << endl
-         << "    -j, --kmer-stride N   step distance between succesive kmers in sequence (default 1)" << endl
-         << "    -z, --kmer-size N     split up --sequence into kmers of size N" << endl
-         << "    -C, --kmer-count      report approximate count of kmer (-k) in db" << endl
-        // << "    -o, --output FORMAT   use this output format for found elements (default: JSON)" << endl
-         << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl;
+         << "    -n, --node ID          find node, return 1-hop context as graph" << endl
+         << "    -f, --edges-from ID    return edges from node with ID" << endl
+         << "    -t, --edges-to ID      return edges from node with ID" << endl
+         << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
+         << "    -T, --table            instead of a graph, return a table of kmers" << endl
+         << "    -c, --context STEPS    expand the context of the kmer hit subgraphs" << endl
+         << "    -s, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
+         << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
+         << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
+         << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
+         << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl;
 }
 
 int main_find(int argc, char** argv) {
@@ -761,6 +761,7 @@ int main_find(int argc, char** argv) {
     int context_size=0;
     bool count_kmers = false;
     bool kmer_table = false;
+    string target;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -780,11 +781,12 @@ int main_find(int argc, char** argv) {
                 {"output", required_argument, 0, 'o'},
                 {"context", required_argument, 0, 'c'},
                 {"kmer-count", no_argument, 0, 'C'},
+                {"path", required_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CT",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CTp:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -815,6 +817,10 @@ int main_find(int argc, char** argv) {
 
         case 'C':
             count_kmers = true;
+            break;
+
+        case 'p':
+            target = optarg;
             break;
 
         case 'c':

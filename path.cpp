@@ -188,4 +188,25 @@ Path& append_path(Path& a, const Path& b) {
     return a;
 }
 
+void parse_region(const string& target, string& name, int64_t& start, int64_t& end) {
+    start = -1;
+    end = -1;
+    size_t foundFirstColon = target.find(":");
+    // we only have a single string, use the whole sequence as the target
+    if (foundFirstColon == string::npos) {
+        name = target;
+    } else {
+        name = target.substr(0, foundFirstColon);
+	    size_t foundRangeDash = target.find("-", foundFirstColon);
+        if (foundRangeDash == string::npos) {
+            start = atoi(target.substr(foundFirstColon + 1).c_str());
+            end = start;
+        } else {
+            start = atoi(target.substr(foundFirstColon + 1, foundRangeDash - foundRangeDash - 1).c_str());
+            end = atoi(target.substr(foundRangeDash + 1).c_str());
+        }
+    }
+
+}
+
 }
