@@ -27,21 +27,16 @@ rocksdb::Options Index::GetOptions(void) {
     options.max_open_files = 100000;
     options.compression = rocksdb::kSnappyCompression;
     options.compaction_style = rocksdb::kCompactionStyleLevel;
-    options.IncreaseParallelism(threads);
-    options.max_background_compactions = threads;
     options.max_background_flushes = threads;
 
     options.num_levels = 2;
     options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
+    options.write_buffer_size = 1024 * 1024 * 256;
 
     if (bulk_load) {
         options.PrepareForBulkLoad();
-        options.write_buffer_size = 1024 * 1024 * 256;
         //options.target_file_size_base = 1024 * 1024 * 512;
         //options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
-        options.IncreaseParallelism(threads);
-        options.max_background_compactions = threads;
-        options.max_background_flushes = threads;
         options.max_write_buffer_number = threads;
         options.compaction_style = rocksdb::kCompactionStyleNone;
         options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
@@ -503,11 +498,14 @@ void Index::load_graph(VG& graph) {
     graph.create_progress("indexing edges of " + graph.name, graph.graph.edge_size());
     graph.for_each_edge_parallel([this, &batch](Edge* e) { batch_edge(e, batch); });
     rocksdb::Status s = db->Write(rocksdb::WriteOptions(), &batch);
+    omp_set_num_threads(thread_count);
+}
+
+void Index::load_paths(VG& graph) {
     graph.destroy_progress();
     graph.create_progress("indexing paths of " + graph.name, graph.paths._paths->size());
-    store_paths(graph.paths);
+    store_paths(graph);
     graph.destroy_progress();
-    omp_set_num_threads(thread_count);
 }
 
 int64_t Index::get_max_path_id(void) {
@@ -576,13 +574,13 @@ int64_t Index::get_path_id(const string& name) {
     return id;
 }
 
-void Index::store_paths(Paths& paths) {
-    for (auto& path : *paths._paths) {
-        store_path(path);
+void Index::store_paths(VG& graph) {
+    for (auto& path : *graph.paths._paths) {
+        store_path(graph, path);
     }
 }
 
-void Index::store_path(Path& path) {
+void Index::store_path(VG& graph, Path& path) {
     // get a new path id
     // if there is no name, cry
     if (!path.has_name()) {
@@ -600,6 +598,7 @@ void Index::store_path(Path& path) {
     int64_t path_pos = 0;
     // for each node in the path
     for (int64_t i = 0; i < path.mapping_size(); ++i) {
+
         const Mapping& mapping = path.mapping(i);
         // put an entry in the path table
         put_path_position(path_id, path_pos, mapping.node_id(), mapping);
@@ -611,6 +610,8 @@ void Index::store_path(Path& path) {
         get_node(mapping.node_id(), node);
         // TODO use the cigar... if there is one
         path_pos += node.sequence().size();
+
+        graph.update_progress(graph.progress_count+1);
     }
 }
 
@@ -705,6 +706,15 @@ void Index::get_context(int64_t id, VG& graph) {
 
         } break;
         case 'p': {
+            // parse
+            //parse_node_path(const string& key, const string& value,
+            //                int64_t& node_id, int64_t& path_id, int64_t& path_pos, Mapping& mapping)
+            // ...
+            int64_t node_id, path_id, path_pos;
+            Mapping mapping;
+            parse_node_path(it->key().ToString(), it->value().ToString(),
+                            node_id, path_id, path_pos, mapping);
+            graph.paths.append_mapping(get_path_name(path_id), mapping);
         } break;
         default:
             cerr << "vg::Index unrecognized key type " << keyt << endl;

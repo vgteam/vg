@@ -62,6 +62,13 @@ void VGset::store_in_index(Index& index) {
     });
 }
 
+void VGset::store_paths_in_index(Index& index) {
+    for_each([&index, this](VG* g) {
+        g->show_progress = show_progress;
+        index.load_paths(*g);
+    });
+}
+
 // stores kmers of size kmer_size with stride over paths in graphs in the index
 void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
 

@@ -1102,7 +1102,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         create_progress("planning construction", stop_pos-start_pos);
         // break into chunks
         int chunk_start = start;
-        while (!alleles.empty()) {
+        bool invariant_graph = alleles.empty();
+        while (invariant_graph || !alleles.empty()) {
+            invariant_graph = false;
             auto* new_alleles = new map<long, set<vcf::VariantAllele> >;
             // our start position is the "offset" we should subtract from the alleles
             // for correct construction

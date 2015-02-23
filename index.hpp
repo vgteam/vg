@@ -169,8 +169,9 @@ public:
     void put_path_name_to_id(int64_t id, const string& name);
     string get_path_name(int64_t id);
     int64_t get_path_id(const string& name);
-    void store_paths(Paths& paths);
-    void store_path(Path& path);
+    void load_paths(VG& graph);
+    void store_paths(VG& graph); // of graph
+    void store_path(VG& graph, Path& path); // path of graph
 
     // what table is the key in
     char graph_key_type(string& key);

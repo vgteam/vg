@@ -1113,16 +1113,9 @@ int main_index(int argc, char** argv) {
         index.close();
         index.open_for_write(db_name);
         index.compact();
-    }
-
-    if (!paths_file.empty()) {
-        Paths paths;
-        ifstream in;
-        in.open(paths_file.c_str());
-        paths.load(in);
-        index.open_for_write(db_name);
-        index.store_paths(paths);
-        index.compact();
+        if (store_graph) {
+            graphs.store_paths_in_index(index);
+        }
     }
 
     if (set_kmer_size) {
