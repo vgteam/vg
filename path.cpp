@@ -113,6 +113,12 @@ void Paths::append_mapping(const string& name, Mapping& m) {
     ms.insert(make_pair(pt, nm));
 }
 
+void Paths::append_mapping(const string& name, int64_t id) {
+    Mapping m;
+    m.set_node_id(id);
+    append_mapping(name, m);
+}
+
 bool Paths::has_path(const string& name) {
     return path_by_name.find(name) != path_by_name.end();
 }
@@ -158,6 +164,15 @@ set<pair<Path*, Mapping*> >& Paths::get_node_mapping(int64_t id) {
 
 set<pair<Path*, Mapping*> >& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
+}
+
+set<string> Paths::of_node(int64_t id) {
+    set<string> path_names;
+    auto& node_mapping = get_node_mapping(id);
+    for (auto& p : node_mapping) {
+        path_names.insert(p.first->name());
+    }
+    return path_names;
 }
 
 Path& increment_node_mapping_ids(Path& p, int64_t inc) {

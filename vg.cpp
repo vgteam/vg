@@ -209,24 +209,6 @@ void VG::build_indexes(void) {
     }
 }
 
-void VG::cache_paths_in_nodes(void) {
-    int64_t j = 0;
-    for (auto& path : *paths._paths ) {
-        for (int i = 0; i < path.mapping_size(); ++i) {
-            //cerr << "on mapping " << i << endl;
-            Mapping* m = path.mutable_mapping(i);
-            Node* n = get_node(m->node_id());
-            // todo check for duplicates
-            //cerr << "should be adding " << path.id() << " to node " << n->id() << endl;
-            //cerr << "path name: " << path.name() << endl;
-            //cerr << "node == " << n << endl;
-            //cerr << "node id == " << n->id() << endl;
-            n->add_path_name(path.name());
-            //update_progress(j++);
-        }
-    }
-}
-
 void VG::clear_indexes(void) {
     node_index.clear();
     node_by_id.clear();
@@ -852,16 +834,10 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
     }
 
-    // hi, i am broken
-    // fix me
+    // serialize path
     for (auto& p : seq_node_ids) {
-        Mapping m;
-        m.set_node_id(p.second);
-        paths.append_mapping(name, m);
+        paths.append_mapping(name, p.second);
     }
-    //paths.assign_path_ids();
-    //cache_paths_in_nodes();
-    cache_paths_in_nodes();
 
     sort();
     compact_ids();
@@ -881,6 +857,7 @@ void VG::from_gfa(istream& in, bool showp) {
     string seq;
     char side1, side2;
     string cigar;
+    string path_name;
     while(std::getline(in, line)) {
         stringstream ss(line);
         string item;
@@ -894,6 +871,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 case 'L': break;
                 case 'S': break;
                 case 'H': break;
+                case 'P': break;
                 default:
                     cerr << "[vg] error: unrecognized field type " << type << endl;
                     exit(1);
@@ -905,6 +883,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'S': seq = item; break;
                 case 'L': side1 = item[0]; break;
+                case 'P': path_name = item; break;
                 default: break;
                 }
             } break;
@@ -946,6 +925,8 @@ void VG::from_gfa(istream& in, bool showp) {
             edge.set_from(id1);
             edge.set_to(id2);
             add_edge(edge);
+        } else if (type == 'P') {
+            paths.append_mapping(path_name, id1);
         }
     }
 }
@@ -2167,18 +2148,29 @@ void VG::to_dot(ostream& out) {
     out << "    node [shape=plaintext];" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\"];" << endl;
+        auto node_paths = paths.of_node(n->id());
+        if (node_paths.empty()) {
+            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontcolor=red];" << endl;          
+        } else {
+            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\"];" << endl;
+        }
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        out << "    " << e->from() << " -> " << e->to() << ";" << endl;
-    }
-    // double the edges in each path
-    for (auto& path : *paths._paths) {
-        for (int i = 0; i < path.mapping_size()-1; ++i) {
-            out << "    " << path.mapping(i).node_id() << " -> " << path.mapping(i+1).node_id() << ";" << endl;
+        auto from_paths = paths.of_node(e->from());
+        auto to_paths = paths.of_node(e->to());
+        set<string> both_paths;
+        std::set_intersection(from_paths.begin(), from_paths.end(),
+                              to_paths.begin(), to_paths.end(),
+                              std::inserter(both_paths, both_paths.begin()));
+        // are both nodes in the same path?
+        if (both_paths.empty()) {
+            out << "    " << e->from() << " -> " << e->to() << "[color=red];" << endl;
+        } else {
+            out << "    " << e->from() << " -> " << e->to() << ";" << endl;
         }
     }
+
     out << "}" << endl;
 }
 
@@ -2189,11 +2181,8 @@ void VG::to_gfa(ostream& out) {
         Node* n = graph.mutable_node(i);
         stringstream s;
         s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
-        for (int j = 0; j < n->path_name_size(); ++j) {
-            assert(paths.size());
-            Path* p = paths.get_path(n->path_name(j));
-            assert(p);
-            s << "P" << "\t" << n->id() << "\t" << p->name() << "\n";
+        for (auto& name : paths.of_node(n->id())) {
+            s << "P" << "\t" << n->id() << "\t" << name << "\n";
         }
         sorted_output[n->id()].push_back(s.str());
     }

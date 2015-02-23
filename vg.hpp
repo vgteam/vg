@@ -87,8 +87,6 @@ public:
     void remove_edge_fti(int64_t from, int64_t to);
     void remove_edge_tfi(int64_t from, int64_t to);
 
-    void cache_paths_in_nodes(void);
-
     // properties of the graph
     size_t size(void); // number of nodes
     size_t length(void);

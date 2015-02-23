@@ -25,8 +25,7 @@ message Node {
     optional double quality = 4;
     optional int32 coverage = 5;
     // user-defined annotations, possibly a string, possibly more binary data
-    repeated string path_name = 6;
-    optional bytes data = 7;
+    optional bytes data = 6;
 }
 
 // Edges describe linkages between nodes. They are directed: from=prev, to=next.
