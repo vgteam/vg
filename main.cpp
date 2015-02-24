@@ -1331,7 +1331,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(thread_count);
+            omp_set_num_threads(atoi(optarg));
             break;
 
         case 'D':
