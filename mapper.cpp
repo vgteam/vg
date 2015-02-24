@@ -10,6 +10,7 @@ Mapper::Mapper(Index* idex)
     , kmer_min(21)
     , thread_extension(10)
     , thread_extension_max(80)
+    , debug(false)
 {
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty()) {
@@ -56,11 +57,11 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
         if ((double)stride/kmer_size < 0.3 && kmer_size -2 >= kmer_min) {
             kmer_size -= 2;
             stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
-            cerr << "realigning with " << kmer_size << " " << stride << endl;
+            if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
             attempt++;
         } else if ((double)stride/kmer_size >= 0.3 && kmer_size >= kmer_min) {
             stride = max(1, stride/2);
-            cerr << "realigning with " << kmer_size << " " << stride << endl;
+            if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
             attempt++;
         }
     };
@@ -76,7 +77,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             align_threaded(alignment_f, kmer_count_f, kmer_size, stride, attempt);
             end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
-            cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
+            if (debug) cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
         }
 
         if (attempt == 0 || attempt > 0 && kmer_count_r > 0
@@ -86,7 +87,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             align_threaded(alignment_r, kmer_count_r, kmer_size, stride, attempt);
             end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
-            cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
+            if (debug) cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
         }
 
         if (alignment_f.score() == 0 && alignment_r.score() == 0
@@ -101,7 +102,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
     end_both = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds_both = end_both-start_both;
 
-    cerr << elapsed_seconds_both.count() << "\t" << "b" << "\t" << sequence << endl;
+    if (debug) cerr << elapsed_seconds_both.count() << "\t" << "b" << "\t" << sequence << endl;
 
     if (alignment_r.score() > alignment_f.score()) {
         return alignment_r;
@@ -127,7 +128,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     int i = 0;
     for (auto& k : kmers) {
         int approx_matches = index->approx_size_of_kmer_matches(k);
-        cerr << k << "\t" << approx_matches << endl;
+        if (debug) cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
         if (approx_matches > hit_size_threshold) {
             continue;
@@ -139,7 +140,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         ++i;
     }
 
-    cerr << "kept kmer hits " << kmer_count << endl;
+    if (debug) cerr << "kept kmer hits " << kmer_count << endl;
 
     //if (kept_kmer_count == 0 && attempt == 0) {
     //return align_with_increased_sensitivity();
@@ -363,7 +364,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
 
     }
 
-    if (alignment.score() == 0) cerr << "failed alignment" << endl;
+    if (debug && alignment.score() == 0) cerr << "failed alignment" << endl;
 
     return alignment;
 

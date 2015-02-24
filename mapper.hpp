@@ -31,7 +31,7 @@ public:
     Alignment& align_simple(Alignment& alignment, int kmer_size = 0, int stride = 0);
 
     set<int> kmer_sizes;
-
+    bool debug;
     int best_clusters;
     int hit_max;
     int hit_size_threshold;

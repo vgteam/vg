@@ -876,6 +876,8 @@ int main_find(int argc, char** argv) {
     Index index;
     index.open_read_only(db_name);
 
+    // todo targeting
+
     if (!node_ids.empty()) {
         // open index
         // our result
@@ -1248,7 +1250,9 @@ void help_map(char** argv) {
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl
-         << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl;
+         << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl
+         << "    -t, --threads N       number of threads to use" << endl
+         << "    -D, --debug           print debugging information about alignment to stderr" << endl;
 }
 
 int main_map(int argc, char** argv) {
@@ -1265,8 +1269,9 @@ int main_map(int argc, char** argv) {
     int best_clusters = 0;
     string read_file;
     int hit_max = 100;
-
+    int thread_count = 1;
     bool output_json = true;
+    bool debug = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1282,11 +1287,13 @@ int main_map(int argc, char** argv) {
                 {"clusters", required_argument, 0, 'c'},
                 {"reads", required_argument, 0, 'r'},
                 {"hit-max", required_argument, 0, 'm'},
+                {"threads", required_argument, 0, 't'},
+                {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:D",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1322,6 +1329,14 @@ int main_map(int argc, char** argv) {
         case 'r':
             read_file = optarg;
             break;
+
+        case 't':
+            omp_set_num_threads(thread_count);
+            break;
+
+        case 'D':
+            debug = true;
+            break;
  
         case 'h':
         case '?':
@@ -1354,15 +1369,25 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    Index index;
-    index.open_read_only(db_name);
+    thread_count = get_thread_count();
 
-    Mapper mapper(&index);
-    mapper.best_clusters = best_clusters;
-    mapper.hit_max = hit_max;
+    vector<Mapper*> mapper;
+    mapper.resize(thread_count);
+
+    Index idx;
+    idx.open_read_only(db_name);
+
+    for (int i = 0; i < thread_count; ++i) {
+        Mapper* m = new Mapper(&idx);
+        m->best_clusters = best_clusters;
+        m->hit_max = hit_max;
+        m->debug = debug;
+        mapper[i] = m;
+    }
 
     if (!seq.empty()) {
-        Alignment alignment = mapper.align(seq, kmer_size, kmer_stride);
+        int tid = omp_get_thread_num();
+        Alignment alignment = mapper[tid]->align(seq, kmer_size, kmer_stride);
         if (output_json) {
             char *json2 = pb2json(alignment);
             cout<<json2<<endl;
@@ -1371,15 +1396,28 @@ int main_map(int argc, char** argv) {
     }
 
     if (!read_file.empty()) {
-        string line;
         ifstream in(read_file);
-        while(std::getline(in,line)) {
-            Alignment alignment = mapper.align(line, kmer_size, kmer_stride);
-            if (output_json) {
-                char *json2 = pb2json(alignment);
-                cout<<json2<<endl;
-                free(json2);
+        bool more_data = true;
+#pragma omp parallel shared(in, more_data)
+        {
+        string line;
+        int tid = omp_get_thread_num();
+        while (more_data) {
+            line.clear();
+#pragma omp critical (readq)
+            {
+                more_data = std::getline(in,line);
             }
+            if (!line.empty()) {
+                Alignment alignment = mapper[tid]->align(line, kmer_size, kmer_stride);
+                if (output_json) {
+                    char *json2 = pb2json(alignment);
+#pragma omp critical (cout)
+                    cout<<json2<<endl;
+                    free(json2);
+                }
+            }
+        }
         }
     }
 

@@ -91,6 +91,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
         // how many kmer entries to hold onto
         uint64_t buffer_max_size = 100000; // 100k
 
+        // this may need a guard
         auto write_buffer = [&index](int tid, vector<KmerMatch>& buf) {
             rocksdb::WriteBatch batch;
             function<void(KmerMatch&)> keep_kmer = [&index, &batch](KmerMatch& k) {
@@ -104,6 +105,8 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
                            this](string& kmer, Node* n, int p) {
             if (allATGC(kmer)) {
                 int tid = omp_get_thread_num();
+                // note that we don't need to guard this
+                // each thread has its own buffer!
                 auto& buf = buffer[tid];
                 KmerMatch k;
                 k.set_sequence(kmer); k.set_node_id(n->id()); k.set_position(p);
