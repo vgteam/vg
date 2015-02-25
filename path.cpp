@@ -140,7 +140,7 @@ void Paths::rebuild_node_mapping(void) {
     }
 }
 
-size_t Paths::size(void) {
+size_t Paths::size(void) const {
     return _paths->size();
 }
 

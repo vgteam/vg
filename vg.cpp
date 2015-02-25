@@ -207,6 +207,7 @@ void VG::build_indexes(void) {
         edge_index[e] = i;
         set_edge(e->from(), e->to(), e);
     }
+    paths.rebuild_node_mapping();
 }
 
 void VG::clear_indexes(void) {

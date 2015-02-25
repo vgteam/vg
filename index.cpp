@@ -715,10 +715,6 @@ void Index::get_context(int64_t id, VG& graph) {
 
         } break;
         case 'p': {
-            // parse
-            //parse_node_path(const string& key, const string& value,
-            //                int64_t& node_id, int64_t& path_id, int64_t& path_pos, Mapping& mapping)
-            // ...
             int64_t node_id, path_id, path_pos;
             Mapping mapping;
             parse_node_path(it->key().ToString(), it->value().ToString(),
@@ -756,9 +752,13 @@ void Index::get_range(int64_t from_id, int64_t to_id, VG& graph) {
             char type;
             parse_edge(key, value, type, id1, id2, edge);
             graph.add_edge(edge);
-
         } break;
         case 'p': {
+            int64_t node_id, path_id, path_pos;
+            Mapping mapping;
+            parse_node_path(key, value,
+                            node_id, path_id, path_pos, mapping);
+            graph.paths.append_mapping(get_path_name(path_id), mapping);
         } break;
         default:
             cerr << "vg::Index unrecognized key type " << keyt << endl;
@@ -895,6 +895,20 @@ void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
 void Index::get_path(VG& graph, const string& name, int64_t start, int64_t end) {
     // picks up the specified range in the given path
     // TODO
+    // find the flanking start and end nodes
+    int64_t path_id = get_path_id(name);
+    string key_start = key_for_path_position(0, path_id, start);
+    string key_end = key_for_path_position(0, path_id, end);
+    for_range(key_start, key_end, [this, &graph](string& key, string& data) {
+            Mapping mapping;
+            int64_t path_id, path_pos, node_id;
+            parse_path_position(key, data,
+                                path_id, path_pos,
+                                node_id, mapping);
+            get_context(node_id, graph);
+        });
+    // scan the path record in the db to find included nodes
+    // get these and drop them into the graph
 }
 
 void Index::put_kmer(const string& kmer,

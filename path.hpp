@@ -15,6 +15,17 @@ using namespace std;
 
 class Paths {
 public:
+    // copy
+    /*
+    Paths& operator=(const Paths& other) {
+        if (this != &other) {
+            cerr << "copying" << endl;
+            *_paths = *other._paths;
+            rebuild_node_mapping();
+        }
+        return *this;
+    }
+    */
     ::google::protobuf::RepeatedPtrField< ::vg::Path >* _paths;
     map<string, Path*> path_by_name;
     map<int64_t, set<pair<Path*, Mapping*> > > node_mapping;
@@ -26,7 +37,7 @@ public:
     set<pair<Path*, Mapping*> >& get_node_mapping(int64_t id);
     set<string> of_node(int64_t id);
     void append_path_cache_nodes(Path& a, Path& b);
-    size_t size(void);
+    size_t size(void) const;
     //void add_node_mapping(Node* n);
     void load(istream& in);
     void write(ostream& out);

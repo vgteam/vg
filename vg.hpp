@@ -131,15 +131,40 @@ public:
 
     // default constructor, destructor
     ~VG(void);
-    VG& operator=(const VG& other) {
+
+    // copy constructor
+    VG(const VG& other) {
+        init();
         if (this != &other) {
             // cleanup
             clear_indexes();
             // assign
             graph = other.graph;
             // re-index
-            build_indexes();
+            rebuild_indexes();
         }
+    }
+
+    // move constructor
+    VG(VG&& other) noexcept {
+        init();
+        graph = other.graph;
+        other.graph.Clear();
+        rebuild_indexes();
+        // should copy over indexes
+    }
+
+    // copy assignment operator
+    VG& operator=(const VG& other) {
+        VG tmp(other);
+        *this = std::move(tmp);
+        return *this;
+    }
+
+    // move assignment operator
+    VG& operator=(VG&& other) noexcept {
+        std::swap(graph, other.graph);
+        rebuild_indexes();
         return *this;
     }
 
