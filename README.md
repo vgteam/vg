@@ -112,12 +112,12 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] index the kmers of large graphs in reasonable time (48 hours, 32 threads, 2500 samples in 1000 genomes phase 3)
 - [x] compression of serialization format
 - [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
-- [ ] emded paths in serialized graph format (important especially in the case of reference paths)
+- [x] emded paths in serialized graph format (important especially in the case of reference paths)
 - [ ] alignment serialization format
-- [ ] prune non-informative kmers from index, so as to save space
+- [x] prune non-informative kmers from index, so as to save space
 - [ ] per-node, per-sample quality and count information on graph
 - [ ] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
-- [ ] multiple samples in one graph (colors)
+- [x] multiple samples in one graph (colors) - solved by paths
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
 - [ ] genotype likelihood generation (given a source and sink, genotype paths)
 - [ ] genotyping of paths using freebayes-like genotyping model
