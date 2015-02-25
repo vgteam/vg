@@ -119,6 +119,7 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [ ] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
 - [x] multiple samples in one graph (colors) - solved by paths
 - [ ] modify a graph using an alignment's path, adding new nodes as needed and updating the path/alignment to match
+- [ ] path range query from index (give me the subgraph corresponding to a particular genome location)
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
 - [ ] genotype likelihood generation (given a source and sink, genotype paths)
 - [ ] genotyping of paths using freebayes-like genotyping model
