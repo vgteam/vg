@@ -27,10 +27,13 @@ rocksdb::Options Index::GetOptions(void) {
     options.max_open_files = 100000;
     options.compression = rocksdb::kSnappyCompression;
     options.compaction_style = rocksdb::kCompactionStyleLevel;
+    // we are unlikely to reach either of these limits
+    options.IncreaseParallelism(threads);
     options.max_background_flushes = threads;
+    options.max_background_compactions = threads;
 
     options.num_levels = 2;
-    options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
+    options.target_file_size_base = (long) 512 * 1024 * 1024; // 512M
     options.write_buffer_size = 1024 * 1024 * 256;
 
     if (bulk_load) {
@@ -38,6 +41,8 @@ rocksdb::Options Index::GetOptions(void) {
         //options.target_file_size_base = 1024 * 1024 * 512;
         //options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
         options.max_write_buffer_number = threads;
+        options.max_background_flushes = threads;
+        options.max_background_compactions = threads;
         options.compaction_style = rocksdb::kCompactionStyleNone;
         options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
     }
@@ -69,6 +74,7 @@ void Index::open(const std::string& dir, bool read_only) {
     if (!s.ok()) {
         throw indexOpenException();
     }
+    is_open = true;
 
 }
 
@@ -88,12 +94,15 @@ void Index::open_for_bulk_load(string& dir) {
 }
 
 Index::~Index(void) {
-    close();
+    if (is_open) {
+        close();
+    }
 }
 
 void Index::close(void) {
     flush();
     delete db;
+    is_open = false;
 }
 
 void Index::flush(void) {
@@ -929,6 +938,21 @@ void Index::for_range(string& key_start, string& key_end,
 }
 
 // todo, get range estimated size
+
+void Index::prune_kmers(int max_kb_on_disk) {
+    string start = key_prefix_for_kmer("");
+    string end = start + end_sep;
+    for_range(start, end, [this, max_kb_on_disk](string& key, string& value) {
+            string kmer;
+            int64_t id;
+            int32_t pos;
+            parse_kmer(key, value, kmer, id, pos);
+            if (approx_size_of_kmer_matches(kmer) > max_kb_on_disk) {
+                //cerr << "pruning kmer " << kmer << endl;
+                db->Delete(write_options, key);
+            }
+        });
+}
 
 void Index::remember_kmer_size(int size) {
     stringstream s;

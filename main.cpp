@@ -972,7 +972,7 @@ void help_index(char** argv) {
          << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
          << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
-         << "    -P, --paths FILE      index the paths in FILE" << endl
+         << "    -P, --prune KB        remove kmer entries which use more than KB kilobytes" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
          << "    -S, --set-kmer        assert that the kmer size (-k) is in the db" << endl
@@ -991,10 +991,10 @@ int main_index(int argc, char** argv) {
     }
 
     string db_name;
-    string paths_file;
     int kmer_size = 0;
     int edge_max = 0;
     int kmer_stride = 1;
+    int prune_kb = -1;
     bool store_graph = false;
     bool dump_index = false;
     bool describe_index = false;
@@ -1017,7 +1017,7 @@ int main_index(int argc, char** argv) {
                 {"set-kmer", no_argument, 0, 'S'},
                 {"threads", required_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
-                {"paths-file",  no_argument, 0, 'P'},
+                {"prune",  required_argument, 0, 'P'},
                 {0, 0, 0, 0}
             };
 
@@ -1036,7 +1036,7 @@ int main_index(int argc, char** argv) {
             break;
 
         case 'P':
-            paths_file = optarg;
+            prune_kb = atoi(optarg);
             break;
 
         case 'k':
@@ -1108,7 +1108,7 @@ int main_index(int argc, char** argv) {
 
     Index index;
 
-    if (graph_file_names.size() > 0) {
+    if ((store_graph || kmer_size != 0) && graph_file_names.size() > 0) {
         index.open_for_bulk_load(db_name);
         VGset graphs(graph_file_names);
         graphs.show_progress = show_progress;
@@ -1117,24 +1117,41 @@ int main_index(int argc, char** argv) {
         }
         if (kmer_size != 0) {
             graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
-        }        
+        }
+        index.flush();
         index.close();
+        // reopen to index paths
+        // this requires the index to be queryable
         index.open_for_write(db_name);
         index.compact();
         if (store_graph) {
             graphs.store_paths_in_index(index);
         }
+        index.compact();
+        index.close();
+    }
+
+    if (prune_kb >= 0) {
+        if (show_progress) {
+            cerr << "pruning kmers > " << prune_kb << " on disk from " << db_name << endl;
+        }
+        index.open_for_write(db_name);
+        index.prune_kmers(prune_kb);
+        index.compact();
+        index.close();
     }
 
     if (set_kmer_size) {
         assert(kmer_size != 0);
         index.open_for_write(db_name);
         index.remember_kmer_size(kmer_size);
+        index.close();
     }
 
     if (dump_index) {
         index.open_read_only(db_name);
         index.dump(cout);
+        index.close();
     }
 
     if (describe_index) {
@@ -1145,6 +1162,7 @@ int main_index(int argc, char** argv) {
             cout << kmer_size << " ";
         }
         cout << endl;
+        index.close();
     }
 
     return 0;
@@ -1400,25 +1418,30 @@ int main_map(int argc, char** argv) {
         bool more_data = true;
 #pragma omp parallel shared(in, more_data)
         {
-        string line;
-        int tid = omp_get_thread_num();
-        while (more_data) {
-            line.clear();
+            string line;
+            int tid = omp_get_thread_num();
+            while (more_data) {
+                line.clear();
 #pragma omp critical (readq)
-            {
-                more_data = std::getline(in,line);
-            }
-            if (!line.empty()) {
-                Alignment alignment = mapper[tid]->align(line, kmer_size, kmer_stride);
-                if (output_json) {
-                    char *json2 = pb2json(alignment);
+                {
+                    more_data = std::getline(in,line);
+                }
+                if (!line.empty()) {
+                    Alignment alignment = mapper[tid]->align(line, kmer_size, kmer_stride);
+                    if (output_json) {
+                        char *json2 = pb2json(alignment);
 #pragma omp critical (cout)
-                    cout<<json2<<endl;
-                    free(json2);
+                        cout<<json2<<endl;
+                        free(json2);
+                    }
                 }
             }
         }
-        }
+    }
+
+    // clean up
+    for (int i = 0; i < thread_count; ++i) {
+        delete mapper[i];
     }
 
     return 0;

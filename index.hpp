@@ -74,6 +74,7 @@ public:
     int threads;
 
     rocksdb::DB* db;
+    bool is_open;
     rocksdb::Options db_options;
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;
@@ -151,6 +152,7 @@ public:
     void for_kmer_range(const string& kmer, function<void(string&, string&)> lambda);
     void get_kmer_positions(const string& kmer, map<int64_t, vector<int32_t> >& positions);
     void get_kmer_positions(const string& kmer, map<string, vector<pair<int64_t, int32_t> > >& positions);
+    void prune_kmers(int max_kb_on_disk);
 
     void remember_kmer_size(int size);
     set<int> stored_kmer_sizes(void);
