@@ -825,6 +825,7 @@ uint64_t Index::approx_size_of_kmer_matches(const string& kmer) {
 }
 
 void Index::approx_sizes_of_kmer_matches(const vector<string>& kmers, vector<uint64_t>& sizes) {
+    sizes.resize(kmers.size());
     vector<rocksdb::Range> ranges;
     for (auto& kmer : kmers) {
         string start = key_prefix_for_kmer(kmer);

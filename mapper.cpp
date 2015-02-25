@@ -124,10 +124,13 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     const string& sequence = alignment.sequence();
     auto kmers = balanced_kmers(sequence, kmer_size, stride);
 
+    vector<uint64_t> sizes;
+    index->approx_sizes_of_kmer_matches(kmers, sizes);
+
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
     for (auto& k : kmers) {
-        int approx_matches = index->approx_size_of_kmer_matches(k);
+        uint64_t approx_matches = sizes[i];
         if (debug) cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
         if (approx_matches > hit_size_threshold) {
