@@ -149,6 +149,7 @@ public:
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);
     uint64_t approx_size_of_kmer_matches(const string& kmer);
+    void approx_sizes_of_kmer_matches(const vector<string>& kmers, vector<uint64_t>& sizes);
     void for_kmer_range(const string& kmer, function<void(string&, string&)> lambda);
     void get_kmer_positions(const string& kmer, map<int64_t, vector<int32_t> >& positions);
     void get_kmer_positions(const string& kmer, map<string, vector<pair<int64_t, int32_t> > >& positions);
