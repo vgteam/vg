@@ -894,11 +894,12 @@ void Index::get_edges_to(int64_t to, vector<Edge>& edges) {
 
 void Index::get_path(VG& graph, const string& name, int64_t start, int64_t end) {
     // picks up the specified range in the given path
-    // TODO
-    // find the flanking start and end nodes
+    if (start < 0 && end < 0) {
+        start = 0; end = LONG_MAX;
+    }
     int64_t path_id = get_path_id(name);
-    string key_start = key_for_path_position(0, path_id, start);
-    string key_end = key_for_path_position(0, path_id, end);
+    string key_start = key_for_path_position(path_id, start, 0);
+    string key_end = key_for_path_position(path_id, end, 0);
     for_range(key_start, key_end, [this, &graph](string& key, string& data) {
             Mapping mapping;
             int64_t path_id, path_pos, node_id;

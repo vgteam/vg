@@ -876,8 +876,6 @@ int main_find(int argc, char** argv) {
     Index index;
     index.open_read_only(db_name);
 
-    // todo targeting
-
     if (!node_ids.empty()) {
         // open index
         // our result
@@ -912,6 +910,20 @@ int main_find(int argc, char** argv) {
         }
     }
 
+    if (!target.empty()) {
+        string name;
+        int64_t start, end;
+        VG graph;
+        parse_region(target, name, start, end);
+        index.get_path(graph, name, start, end);
+        if (context_size > 0) {
+            index.expand_context(graph, context_size);
+        }
+        graph.serialize_to_ostream(cout);
+    }
+
+    // todo cleanup if/else logic to allow only one function
+    
     if (!sequence.empty()) {
         set<int> kmer_sizes = index.stored_kmer_sizes();
         if (kmer_sizes.empty()) {
@@ -960,7 +972,7 @@ int main_find(int argc, char** argv) {
             result_graph.serialize_to_ostream(cout);
         }
     }
-    
+
     return 0;
 
 }

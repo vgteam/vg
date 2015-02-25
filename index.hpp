@@ -4,6 +4,7 @@
 #include <iostream>
 #include <exception>
 #include <sstream>
+#include <climits>
 
 #include "rocksdb/db.h"
 #include "rocksdb/env.h"
