@@ -1,82 +1,90 @@
 package vg;
 
 
-// graphs are collections of nodes and edges
-// they can represent subgraphs of larger graphs
-// or be wholly-self-sufficient
-// ... but remember protobuf memory limits of 67108864 bytes
+// *Graphs* are collections of nodes and edges
+// They can represent subgraphs of larger graphs
+// or be wholly-self-sufficient.
+// Protobuf memory limits of 67108864 bytes mean we typically keep the size
+// of them small generating graphs as collections of smaller subgraphs.
+//
 message Graph {
     repeated Node node = 1;
     repeated Edge edge = 2;
     repeated Path path = 3;
-    //repeated Alignment alignments = 3;
 }
 
-// Nodes store sequence data and also links to other nodes.
+// *Nodes* store sequence data and also links to other nodes.
 // The graph is doubly-linked via IDs in prev/next fields in the Node objects.
-
+//
 message Node {
-    // sequence, name, and id
-    optional string sequence = 1;
-    optional string name = 2;
-    // an id is required; a node is an element in a graph identified by an id
-    required int64 id = 3;
-    // annotations
-    optional double quality = 4;
-    optional int32 coverage = 5;
-    // user-defined annotations, possibly a string, possibly more binary data
-    optional bytes data = 6;
+    optional string sequence = 1;   // sequence
+    optional string name = 2;  // a name provides an identifier
+    optional int64 id = 3;     // ids are critical, and unique within a graph
+    optional double quality = 4; // sequencing-specific annotations
+    optional int32 coverage = 5; //
+    optional bytes data = 6;   // arbitrary data
 }
 
-// Edges describe linkages between nodes. They are directed: from=prev, to=next.
-// As in GFA, they can possibly describe an overlap structure between nodes
+// *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
+//
 message Edge {
-    // ID of upstream node
-    required int64 from = 1;
-    // ID of downstream node
-    required int64 to = 2;
-    // annotations
-    optional bytes data = 3;
+    optional int64 from = 1; // ID of upstream node
+    optional int64 to = 2;   // ID of downstream node
+    optional bytes data = 3; // arbitrary data
 }
 
-// Edit operations describe positional mapping between two sequences.
-// They are conceptually equivalent to SAM cigars
-
+// *Edits* describe how to generate a new string from elements
+// in the graph. To determine the new string, just walk the series of edits,
+// stepping from_length distance in the basis node, and to_length in the
+// novel element, replacing from_length in the basis node with the sequence.
+//
+// *matches* from_length == to_length, or from_length > 0 and offset unset
+// *snps* from_length == to_length; sequence = alt
+// *deletions* from_length > to_length; sequence may be unset or empty
+// *insertions* from_length < to_length; sequence contains relative insertion
+// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
+//
 message Edit {
-    required int32 length = 1;
-    enum Type {
-        MATCH = 0;
-        INSERTION = 1;
-        DELETION = 2;
-        MISMATCH = 3;
-        SOFTCLIP = 4;
-    }
-    required Type type = 2;
+    optional int32 from_length = 1; // length in target/ref
+    optional int32 to_length = 2; // offset in read/alt
     optional string sequence = 3;
 }
 
-// A node mapping defines the relationship between a target (node)
-// and query (sequence or other node we are relating to the target).
-
+// A Mapping defines the relationship between a node in system and another entity.
+// An empty edit list implies complete match.
+//
 message Mapping {
-    required int64 node_id = 1;
-    repeated Edit edit = 2;
-    // todo should there be a position here?
+    optional int64 node_id = 1; // node id in graph
+    repeated Edit edit = 2; // series of edit to transform to region in read/alt
 }
 
-// Paths can represent:
-//    - haplotypes as series of node mappings that have no edit information
+/*
+// would describe transformation between two graphs
+message GraphMapping {
+    optional int64 ref_node_id = 1;
+    optional int32 ref_position = 2;
+    optional int64 alt_node_id = 3;
+    optional int32 alt_position = 4;
+    repeated Edit edit = 5;
+}
+*/
+
+// Paths are walks through nodes defined by a series of edits.
+// They can be used to represent:
+//    - haplotypes
 //    - mappings of reads, or alignments, by including edits
 //    - relationships between nodes
-
+//    - annotations from other data sources, such as:
+//          genes, exons, motifs, transcripts, peaks
+//
 message Path {
-    optional int32 target_position = 1;
+    optional int32 position = 1; // position in node of the first mapping
     optional string name = 2;
     repeated Mapping mapping = 3;
 }
 
-// Alignments link query strings or reads to paths.
-
+// Alignments link query strings, such as other genomes or reads, to paths.
+//
 message Alignment {
     optional string sequence = 1;
     optional Path path = 2;

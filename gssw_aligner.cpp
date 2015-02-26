@@ -30,7 +30,7 @@ GSSWAligner::GSSWAligner(
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
-        gssw_node* node = (gssw_node*)gssw_node_create(NULL, n->id(),
+        gssw_node* node = (gssw_node*)gssw_node_create(n, n->id(),
                                                        n->sequence().c_str(),
                                                        nt_table,
                                                        score_matrix);
@@ -70,18 +70,24 @@ void GSSWAligner::align(Alignment& alignment) {
 
 }
 
-void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& alignment) {
+void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
+                                            Alignment& alignment) {
 
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
     Path* path = alignment.mutable_path();
-    path->set_target_position(gm->position);
+    path->set_position(gm->position);
 
     gssw_graph_cigar* gc = &gm->cigar;
     gssw_node_cigar* nc = gc->elements;
+    int to_pos = 0;
+    int from_pos = gm->position;
+    string& to_seq = *alignment.mutable_sequence();
 
     for (int i = 0; i < gc->length; ++i, ++nc) {
-
+        if (i > 0) from_pos = 0; // reset for each node after the first
+        Node* from_node = (Node*) nc->node->data;
+        string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
         mapping->set_node_id(nc->node->id);
         gssw_cigar* c = nc->cigar;
@@ -90,21 +96,56 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& a
 
         for (int j=0; j < l; ++j, ++e) {
 
-            Edit* edit = mapping->add_edit();
-            edit->set_length(e->length);
-
+            Edit* edit;
+            int32_t length = e->length;
             switch (e->type) {
-            case 'M':
-                edit->set_type(Edit_Type_MATCH);
-                break;
+            case 'M': {
+                // do the sequences match?
+                // emit a stream of "SNPs" and matches
+                int i = from_pos;
+                int last_start = from_pos;
+                int j = to_pos;
+                for ( ; i < from_pos + length; ++i, ++j) {
+                    if (from_seq[i] != to_seq[j]) {
+                        // emit the last "match" region
+                        if (i-last_start > 0) {
+                            edit = mapping->add_edit();
+                            edit->set_from_length(i-last_start);
+                        }
+                        // set up the SNP
+                        edit = mapping->add_edit();
+                        edit->set_from_length(1);
+                        edit->set_to_length(1);
+                        edit->set_sequence(to_seq.substr(j,1));
+                        last_start = i;
+                    }
+                }
+                // handles the match at the end or the case of no SNP
+                if (i-last_start > 0) {
+                    edit = mapping->add_edit();
+                    edit->set_from_length(i-last_start);
+                }
+                to_pos += length;
+                from_pos += length;
+            } break;
             case 'D':
-                edit->set_type(Edit_Type_DELETION);
+                edit = mapping->add_edit();
+                edit->set_from_length(length);
+                edit->set_to_length(0);
+                from_pos += length;
                 break;
             case 'I':
-                edit->set_type(Edit_Type_INSERTION);
+                edit = mapping->add_edit();
+                edit->set_from_length(0);
+                edit->set_to_length(length);
+                edit->set_sequence(to_seq.substr(to_pos, length));
+                to_pos += length;
                 break;
             case 'S':
-                edit->set_type(Edit_Type_SOFTCLIP);
+                edit = mapping->add_edit();
+                edit->set_from_length(0);
+                edit->set_to_length(length);
+                from_pos += length;
                 break;
             default:
                 cerr << "error [GSSWAligner::gssw_mapping_to_alignment] "

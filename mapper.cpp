@@ -378,8 +378,8 @@ int softclip_start(Alignment& alignment) {
         Path* path = alignment.mutable_path();
         Mapping* first_mapping = path->mutable_mapping(0);
         Edit* first_edit = first_mapping->mutable_edit(0);
-        if (first_edit->type() == Edit_Type_SOFTCLIP) {
-            return first_edit->length();
+        if (first_edit->from_length() > 0 && first_edit->to_length() == 0) {
+            return first_edit->from_length();
         }
     }
     return 0;
@@ -390,8 +390,8 @@ int softclip_end(Alignment& alignment) {
         Path* path = alignment.mutable_path();
         Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
         Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size()-1);
-        if (last_edit->type() == Edit_Type_SOFTCLIP) {
-            return last_edit->length();
+        if (last_edit->from_length() > 0 && last_edit->to_length() == 0) {
+            return last_edit->from_length();
         }
     }
     return 0;
