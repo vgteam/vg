@@ -1120,26 +1120,33 @@ int main_index(int argc, char** argv) {
 
     Index index;
 
-    if ((store_graph || kmer_size != 0) && graph_file_names.size() > 0) {
+    if (store_graph && graph_file_names.size() > 0) {
         index.open_for_bulk_load(db_name);
         VGset graphs(graph_file_names);
         graphs.show_progress = show_progress;
-        if (store_graph) {
-            graphs.store_in_index(index);
-        }
-        if (kmer_size != 0) {
-            graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
-        }
+        graphs.store_in_index(index);
         index.flush();
         index.close();
         // reopen to index paths
         // this requires the index to be queryable
         index.open_for_write(db_name);
         index.compact();
-        if (store_graph) {
-            graphs.store_paths_in_index(index);
-        }
+        graphs.store_paths_in_index(index);
         index.compact();
+        index.flush();
+        index.close();
+    }
+
+    if (kmer_size != 0 && graph_file_names.size() > 0) {
+        index.open_for_bulk_load(db_name);
+        VGset graphs(graph_file_names);
+        graphs.show_progress = show_progress;
+        graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
+        index.flush();
+        index.close();
+        index.open_for_write(db_name);
+        index.compact();
+        index.flush();
         index.close();
     }
 
