@@ -46,7 +46,7 @@ message Edge {
 //
 message Edit {
     optional int32 from_length = 1; // length in target/ref
-    optional int32 to_length = 2; // offset in read/alt
+    optional int32 to_length = 2; // length in read/alt
     optional string sequence = 3;
 }
 
