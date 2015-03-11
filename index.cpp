@@ -45,8 +45,9 @@ rocksdb::Options Index::GetOptions(void) {
 
     // doesn't work this way
     rocksdb::BlockBasedTableOptions topt;
-    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, true));
-    topt.block_cache = rocksdb::NewLRUCache(block_cache_size, 8);
+    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(16, true));
+    //topt.block_cache = rocksdb::NewLRUCache(block_cache_size, 32);
+    topt.no_block_cache = true;
     options.table_factory.reset(NewBlockBasedTableFactory(topt));
 
     if (bulk_load) {
