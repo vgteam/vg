@@ -40,7 +40,7 @@ rocksdb::Options Index::GetOptions(void) {
     options.max_background_compactions = threads;
 
     options.num_levels = 2;
-    options.target_file_size_base = (long) 512 * 1024 * 1024; // 512M
+    options.target_file_size_base = (long) 1024 * 1024 * 1024 * 32; // 32GB
     options.write_buffer_size = 1024 * 1024 * 256;
 
     // doesn't work this way
@@ -52,8 +52,6 @@ rocksdb::Options Index::GetOptions(void) {
 
     if (bulk_load) {
         options.PrepareForBulkLoad();
-        //options.target_file_size_base = 1024 * 1024 * 512;
-        //options.target_file_size_base = (long) 64 * 1024 * 1024 * 1024; // 64G
         options.max_write_buffer_number = threads;
         options.max_background_flushes = threads;
         options.max_background_compactions = threads;
