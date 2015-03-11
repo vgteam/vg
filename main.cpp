@@ -1435,18 +1435,6 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    int write_buf_size = 100;
-
-    auto write_buf = [](vector<string>& buf) {
-        stringstream b;
-        for (auto& a : buf) {
-            b << a << endl;
-        }
-        buf.clear();
-#pragma omp critical (cout)
-        cout << b.str() << endl;
-    };
-
     if (!read_file.empty()) {
         ifstream in(read_file);
         bool more_data = true;
@@ -1464,15 +1452,9 @@ int main_map(int argc, char** argv) {
                     Alignment alignment = mapper[tid]->align(line, kmer_size, kmer_stride);
                     if (output_json) {
                         char *json2 = pb2json(alignment);
-                        //cout << json2 << endl; free(json2);
-                        stringstream s;
-                        s << json2;
+#pragma omp critical (cout)
+                        cout << json2 << "\n";
                         free(json2);
-                        auto& buf = output_buffer[tid];
-                        buf.push_back(s.str());
-                        if (buf.size() > write_buf_size) {
-                            write_buf(buf);
-                        }
                     }
                 }
             }
@@ -1482,8 +1464,9 @@ int main_map(int argc, char** argv) {
     // clean up
     for (int i = 0; i < thread_count; ++i) {
         delete mapper[i];
-        write_buf(output_buffer[i]);
     }
+
+    cout.flush();
 
     return 0;
 
