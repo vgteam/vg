@@ -93,7 +93,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
         ++attempt;
 
         if (alignment_f.score() == 0 && alignment_r.score() == 0
-            && kmer_count_r + kmer_count_f < hit_size_threshold) {
+            && kmer_count_r + kmer_count_f <= hit_size_threshold) {
             increase_sensitivity();
         } else {
             break;
