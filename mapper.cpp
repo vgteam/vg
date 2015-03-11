@@ -81,6 +81,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             if (debug) cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
         }
 
+        if (alignment_f.score() == 0)
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             start = std::chrono::system_clock::now();
