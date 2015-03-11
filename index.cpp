@@ -1,26 +1,5 @@
 #include "index.hpp"
 
-#ifdef __APPLE__
-#include <machine/endian.h>
-#include <libkern/OSByteOrder.h>
-
-#define htobe16(x) OSSwapHostToBigInt16(x)
-#define htole16(x) OSSwapHostToLittleInt16(x)
-#define be16toh(x) OSSwapBigToHostInt16(x)
-#define le16toh(x) OSSwapLittleToHostInt16(x)
-
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#define htole32(x) OSSwapHostToLittleInt32(x)
-#define be32toh(x) OSSwapBigToHostInt32(x)
-#define le32toh(x) OSSwapLittleToHostInt32(x)
-
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#define htole64(x) OSSwapHostToLittleInt64(x)
-#define be64toh(x) OSSwapBigToHostInt64(x)
-#define le64toh(x) OSSwapLittleToHostInt64(x)
-
-#endif
-
 namespace vg {
 
 using namespace std;
@@ -31,6 +10,7 @@ Index::Index(void) {
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
     mem_env = false;
+    block_cache_size = 1024 * 1024 * 1024; // 1GB
 
     threads = 1;
 #pragma omp parallel
@@ -63,13 +43,11 @@ rocksdb::Options Index::GetOptions(void) {
     options.target_file_size_base = (long) 512 * 1024 * 1024; // 512M
     options.write_buffer_size = 1024 * 1024 * 256;
 
-    /*
     // doesn't work this way
     rocksdb::BlockBasedTableOptions topt;
-    topt.filter_policy = rocksdb::NewBloomFilterPolicy(10); // yields ~1% FPR
-    topt.block_cache = rocksdb::NewLRUCache(block_cache_size, 7);
+    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, true));
+    topt.block_cache = rocksdb::NewLRUCache(block_cache_size, 8);
     options.table_factory.reset(NewBlockBasedTableFactory(topt));
-    */
 
     if (bulk_load) {
         options.PrepareForBulkLoad();
