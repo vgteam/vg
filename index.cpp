@@ -26,7 +26,6 @@ rocksdb::Options Index::GetOptions(void) {
     rocksdb::Options options;
 
     if (mem_env) {
-        // will leak, but this should be OK for testing
         options.env = rocksdb::NewMemEnv(options.env);
     }
 
@@ -47,7 +46,7 @@ rocksdb::Options Index::GetOptions(void) {
     rocksdb::BlockBasedTableOptions topt;
     topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(16, true));
     //topt.block_cache = rocksdb::NewLRUCache(block_cache_size, 32);
-    topt.no_block_cache = true;
+    //topt.no_block_cache = true;
     options.table_factory.reset(NewBlockBasedTableFactory(topt));
 
     if (bulk_load) {
