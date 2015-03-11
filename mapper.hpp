@@ -36,8 +36,10 @@ public:
     int hit_max;
     int hit_size_threshold;
     int kmer_min;
+    int kmer_threshold;
     int thread_extension;
     int thread_extension_max;
+    int max_attempts;
 
 };
 

@@ -8,8 +8,10 @@ Mapper::Mapper(Index* idex)
     , hit_max(100)
     , hit_size_threshold(0)
     , kmer_min(21)
+    , kmer_threshold(1)
     , thread_extension(10)
     , thread_extension_max(80)
+    , max_attempts(4)
     , debug(false)
 {
     kmer_sizes = index->stored_kmer_sizes();
@@ -38,6 +40,8 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
     int kmer_hit_count = 0;
     int kept_kmer_count = 0;
 
+    if (debug) cerr << "aligning " << sequence << endl;
+
     // forward
     Alignment alignment_f;
     alignment_f.set_sequence(sequence);
@@ -46,32 +50,29 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
     Alignment alignment_r;
     alignment_r.set_sequence(reverse_complement(sequence));
 
-    int attempt = 0;
     auto increase_sensitivity = [this,
                                  &kmer_size,
                                  &stride,
                                  &sequence,
                                  &alignment_f,
-                                 &alignment_r,
-                                 &attempt]() {
-        if ((double)stride/kmer_size < 0.3 && kmer_size -2 >= kmer_min) {
-            kmer_size -= 2;
+                                 &alignment_r]() {
+        if ((double)stride/kmer_size < 0.5 && kmer_size -2 >= kmer_min) {
+            kmer_size -= 5;
             stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
             if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
-            attempt++;
-        } else if ((double)stride/kmer_size >= 0.3 && kmer_size >= kmer_min) {
+        } else if ((double)stride/kmer_size >= 0.5 && kmer_size >= kmer_min) {
             stride = max(1, stride/2);
             if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
-            attempt++;
         }
     };
 
+    int attempt = 0;
     int kmer_count_f = 0;
     int kmer_count_r = 0;
 
-    while (alignment_f.score() == 0 && alignment_r.score() == 0) {
+    while (alignment_f.score() == 0 && alignment_r.score() == 0 && attempt < max_attempts) {
 
-        if (attempt == 0 || attempt > 0 && kmer_count_f > 0) {
+        {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             start = std::chrono::system_clock::now();
             align_threaded(alignment_f, kmer_count_f, kmer_size, stride, attempt);
@@ -80,8 +81,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             if (debug) cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
         }
 
-        if (attempt == 0 || attempt > 0 && kmer_count_r > 0
-            && alignment_f.score() == 0) {
+        {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             start = std::chrono::system_clock::now();
             align_threaded(alignment_r, kmer_count_r, kmer_size, stride, attempt);
@@ -90,9 +90,10 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             if (debug) cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
         }
 
-        if (alignment_f.score() == 0 && alignment_r.score() == 0
-            && (kmer_count_f + kmer_count_r > 0) && attempt < 2) {
-            increase_sensitivity();            
+        ++attempt;
+
+        if (alignment_f.score() == 0 && alignment_r.score() == 0) {
+            increase_sensitivity();
         } else {
             break;
         }
@@ -124,22 +125,23 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     const string& sequence = alignment.sequence();
     auto kmers = balanced_kmers(sequence, kmer_size, stride);
 
-    vector<uint64_t> sizes;
-    index->approx_sizes_of_kmer_matches(kmers, sizes);
+    //vector<uint64_t> sizes;
+    //index->approx_sizes_of_kmer_matches(kmers, sizes);
 
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
     for (auto& k : kmers) {
-        uint64_t approx_matches = sizes[i];
+        uint64_t approx_matches = index->approx_size_of_kmer_matches(k);
         if (debug) cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
         if (approx_matches > hit_size_threshold) {
             continue;
         }
-        index->get_kmer_positions(k, positions.at(i));
-        //hit_count += positions.at(i).size();
-        if (positions.at(i).size() > hit_max) positions.at(i).clear();
-        kmer_count += positions.at(i).size();
+        auto& kmer_positions = positions.at(i);
+        index->get_kmer_positions(k, kmer_positions);
+        if (kmer_positions.size() > hit_max) kmer_positions.clear();
+        kmer_count += kmer_positions.size();
+        if (kmer_count > kmer_threshold) break;
         ++i;
     }
 
@@ -243,7 +245,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     for (auto& t : node_threads) {
         auto& thread = t.second;
         // if you use very short kmers, this may become necessary
-        if (thread.size() > 1) {
+        if (thread.size()) {
             sorted_threads.insert(thread);
         }
     }
