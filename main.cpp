@@ -10,6 +10,7 @@
 #include "mapper.hpp"
 #include "Variant.h"
 #include "Fasta.h"
+#include <google/protobuf/stubs/common.h>
 
 using namespace std;
 using namespace google::protobuf;
@@ -1732,6 +1733,10 @@ int main_construct(int argc, char** argv) {
     }
 
     graph.serialize_to_ostream(std::cout);
+
+    // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
+    // this would free all the memory used by protobuf:
+    //ShutdownProtobufLibrary();
 
     return 0;
 }

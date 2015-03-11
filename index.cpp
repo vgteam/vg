@@ -998,6 +998,7 @@ void Index::for_range(string& key_start, string& key_end,
         string value = it->value().ToString();
         lambda(key, value);
     }
+    delete it;
 }
 
 // todo, get range estimated size
