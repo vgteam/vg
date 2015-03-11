@@ -61,7 +61,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
             if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
         } else if ((double)stride/kmer_size >= 0.5 && kmer_size >= kmer_min) {
-            stride = max(1, stride/2);
+            stride = max(1, stride/4);
             if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
         }
     };
