@@ -92,8 +92,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
 
         ++attempt;
 
-        if (alignment_f.score() == 0 && alignment_r.score() == 0
-            && kmer_count_r + kmer_count_f <= hit_size_threshold) {
+        if (alignment_f.score() == 0 && alignment_r.score() == 0) {
             increase_sensitivity();
         } else {
             break;
@@ -135,9 +134,8 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         uint64_t approx_matches = index->approx_size_of_kmer_matches(k);
         if (debug) cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
-        kmer_count += approx_matches;
         if (approx_matches > hit_size_threshold) {
-            break;
+            continue;
         }
         auto& kmer_positions = positions.at(i);
         index->get_kmer_positions(k, kmer_positions);
