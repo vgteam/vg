@@ -15,6 +15,7 @@
 #include "rocksdb/cache.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/table.h"
+#include "rocksdb/filter_policy.h"
 
 #include "pb2json.h"
 #include "vg.hpp"
@@ -80,6 +81,7 @@ public:
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;
     bool bulk_load;
+    bool mem_env;
 
     void load_graph(VG& graph);
     void dump(std::ostream& out);

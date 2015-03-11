@@ -9,6 +9,7 @@ Index::Index(void) {
     start_sep = '\x00';
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
+    mem_env = false;
 
     threads = 1;
 #pragma omp parallel
@@ -23,6 +24,11 @@ rocksdb::Options Index::GetOptions(void) {
 
     rocksdb::Options options;
 
+    if (mem_env) {
+        // will leak, but this should be OK for testing
+        options.env = rocksdb::NewMemEnv(options.env);
+    }
+
     options.create_if_missing = true;
     options.max_open_files = 100000;
     options.compression = rocksdb::kSnappyCompression;
@@ -35,6 +41,14 @@ rocksdb::Options Index::GetOptions(void) {
     options.num_levels = 2;
     options.target_file_size_base = (long) 512 * 1024 * 1024; // 512M
     options.write_buffer_size = 1024 * 1024 * 256;
+
+    /*
+    // doesn't work this way
+    rocksdb::BlockBasedTableOptions topt;
+    topt.filter_policy = rocksdb::NewBloomFilterPolicy(10); // yields ~1% FPR
+    topt.block_cache = rocksdb::NewLRUCache(block_cache_size, 7);
+    options.table_factory.reset(NewBlockBasedTableFactory(topt));
+    */
 
     if (bulk_load) {
         options.PrepareForBulkLoad();
@@ -67,6 +81,7 @@ void Index::open(const std::string& dir, bool read_only) {
 
     rocksdb::Status s;
     if (read_only) {
+        //s = rocksdb::DB::Open(db_options, name, &db);
         s = rocksdb::DB::OpenForReadOnly(db_options, name, &db);
     } else {
         s = rocksdb::DB::Open(db_options, name, &db);
@@ -80,6 +95,7 @@ void Index::open(const std::string& dir, bool read_only) {
 
 void Index::open_read_only(string& dir) {
     bulk_load = false;
+    //mem_env = true;
     open(dir, true);
 }
 
