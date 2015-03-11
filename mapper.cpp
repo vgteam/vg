@@ -81,7 +81,6 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             if (debug) cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
         }
 
-        if (alignment_f.score() == 0)
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             start = std::chrono::system_clock::now();
@@ -93,7 +92,8 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
 
         ++attempt;
 
-        if (alignment_f.score() == 0 && alignment_r.score() == 0) {
+        if (alignment_f.score() == 0 && alignment_r.score() == 0
+            && kmer_count_r + kmer_count_f < hit_size_threshold) {
             increase_sensitivity();
         } else {
             break;
@@ -135,8 +135,9 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         uint64_t approx_matches = index->approx_size_of_kmer_matches(k);
         if (debug) cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
+        kmer_count += approx_matches;
         if (approx_matches > hit_size_threshold) {
-            continue;
+            break;
         }
         auto& kmer_positions = positions.at(i);
         index->get_kmer_positions(k, kmer_positions);
