@@ -12,7 +12,7 @@ Mapper::Mapper(Index* idex)
     , thread_extension(10)
     , thread_extension_max(80)
     , max_attempts(3)
-    , softclip_threshold(4)
+    , softclip_threshold(1)
     , prefer_forward(false)
     , target_score_per_bp(1.5)
     , debug(false)
@@ -148,29 +148,22 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         uint64_t approx_matches = index->approx_size_of_kmer_matches(k);
         if (debug) cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
+        // we can do multiple mapping by relaxing this
         if (approx_matches > hit_size_threshold) {
             continue;
         }
         auto& kmer_positions = positions.at(i);
         index->get_kmer_positions(k, kmer_positions);
+        // ignore this kmer if it has too many hits
+        // typically this will be filtered out by the approximate matches filter
         if (kmer_positions.size() > hit_max) kmer_positions.clear();
         kmer_count += kmer_positions.size();
+        // break when we get more than a threshold number of kmers to seed further alignment
         if (kmer_count > kmer_threshold) break;
         ++i;
     }
 
     if (debug) cerr << "kept kmer hits " << kmer_count << endl;
-
-    //if (kept_kmer_count == 0 && attempt == 0) {
-    //return align_with_increased_sensitivity();
-//}
-/*
-    if (kmer_hit_count > 0 && kept_kmer_count == 0) { // || kept_kmer_count > 5* alignment.sequence().size()) {
-        cerr << "bailout" << endl;
-        //return alignment;
-    }
-*/
-
 
     // make threads
     // these start whenever we have a kmer match which is outside of
@@ -235,22 +228,21 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
 
     // now sort the threads and re-cluster them
 
-    // for debugging
-    /*
-    for (auto& t : threads_by_length) {
-        auto& length = t.first;
-        auto& threads = t.second;
-        cerr << length << ":" << endl;
-        for (auto& thread : threads) {
-            cerr << "\t";
-            for (auto& id : thread) {
-                cerr << id << " ";
+    if (debug) {
+        for (auto& t : threads_by_length) {
+            auto& length = t.first;
+            auto& threads = t.second;
+            cerr << length << ":" << endl;
+            for (auto& thread : threads) {
+                cerr << "\t";
+                for (auto& id : thread) {
+                    cerr << id << " ";
+                }
+                cerr << endl;
             }
             cerr << endl;
         }
-        cerr << endl;
     }
-    */
 
     // sort threads by ids
     // if they are at least 2 hits long
@@ -320,7 +312,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         auto& threads = tl->second;
         // by definition, our thread should construct a contiguous graph
         for (auto& thread : threads) {
-            int64_t first = *thread.begin() - thread_ex;
+            int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
             int64_t last = *thread.rbegin() + thread_ex;
             // so we can pick it up efficiently from the index by pulling the range from first to last
             if (debug) cerr << "getting node range " << first << "-" << last << endl;
@@ -368,10 +360,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         cerr << average_node_length << endl;
         cerr << idf << " to " << idl << endl;
         */
-        if (debug) cerr << "getting node range " << idf - ceil((sc_start / average_node_length) * 10) << "-" << idl + ceil((sc_end   / average_node_length) * 10) << endl;
-        index->get_range(idf - ceil((sc_start / average_node_length) * 10),
-                         idl + ceil((sc_end   / average_node_length) * 10),
-                         *graph);
+        int64_t first = max((int64_t)0, idf - (int64_t)ceil((sc_start / average_node_length) * 10));
+        int64_t last =   idl + (int64_t)ceil((sc_end   / average_node_length) * 10);
+        if (debug) cerr << "getting node range " << first << "-" << last << endl;
+        index->get_range(first, last, *graph);
         graph->remove_orphan_edges();
         alignment.clear_path();
         graph->align(alignment);

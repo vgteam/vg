@@ -1451,6 +1451,8 @@ int main_map(int argc, char** argv) {
         }
     }
 
+    auto* output_buf = new vector<Alignment>();
+
     if (!read_file.empty()) {
         ifstream in(read_file);
         bool more_data = true;
@@ -1471,6 +1473,8 @@ int main_map(int argc, char** argv) {
 #pragma omp critical (cout)
                         cout << json2 << "\n";
                         free(json2);
+                    } else {
+                        output_buf->push_back(alignment);
                     }
                 }
             }
