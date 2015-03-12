@@ -38,8 +38,8 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
     create_progress("saving graph", count);
     // partition the graph into a number of chunks (required by format)
     // constructing subgraphs and writing them to the stream
-    function<Graph(uint64_t)> lambda =
-        [this, chunk_size](uint64_t i) -> Graph {
+    function<Graph(uint64_t, bool&)> lambda =
+        [this, chunk_size](uint64_t i, bool& more) -> Graph {
         VG g;
         for (int64_t j = i * chunk_size;
              j < (i+1)*chunk_size && j < graph.node_size();

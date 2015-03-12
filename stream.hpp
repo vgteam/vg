@@ -20,7 +20,7 @@ namespace stream {
 // but if it is 0, it is not written
 // if not all objects are written, return false, otherwise true
 template <typename T>
-bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda) {
+bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t, bool&)>& lambda) {
 
     ::google::protobuf::io::ZeroCopyOutputStream *raw_out =
           new ::google::protobuf::io::OstreamOutputStream(&out);
@@ -29,12 +29,14 @@ bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda
     ::google::protobuf::io::CodedOutputStream *coded_out =
           new ::google::protobuf::io::CodedOutputStream(gzip_out);
 
+    // if count == 0 it means the stream is of unbounded size
     coded_out->WriteVarint64(count);
 
     std::string s;
     uint64_t written = 0;
-    for (int64_t n = 0; n < count; ++n, ++written) {
-        lambda(n).SerializeToString(&s);
+    bool more = true;
+    for (int64_t n = 0; n < count || count == 0 && more; ++n, ++written) {
+        lambda(n, more).SerializeToString(&s);
         coded_out->WriteVarint32(s.size());
         coded_out->WriteRaw(s.data(), s.size());
     }
@@ -70,10 +72,19 @@ bool for_each(std::istream& in,
 
     std::string s;
 
-    for (uint64_t i = 0; i < count; ++i) {
+    for (uint64_t i = 0; i < count || count == 0; ++i) {
 
         ::google::protobuf::io::CodedInputStream *coded_in =
           new ::google::protobuf::io::CodedInputStream(gzip_in);
+
+        if (coded_in->ExpectAtEnd()) {
+            if (count == 0) {
+                break;
+            } else {
+                std::cerr << "[stream] error: end of input before expected number of objects have been read" << std::endl;
+                return 0;
+            }
+        }
 
         uint32_t msgSize = 0;
         coded_in->ReadVarint32(&msgSize);
@@ -91,14 +102,14 @@ bool for_each(std::istream& in,
     delete gzip_in;
     delete raw_in;
 
-    return !count;
+    return true;
 }
 
 template <typename T>
 bool for_each(std::istream& in,
               std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
-    for_each(in, lambda, noop);
+    return for_each(in, lambda, noop);
 }
 
 }
