@@ -12,6 +12,7 @@ Mapper::Mapper(Index* idex)
     , thread_extension(10)
     , thread_extension_max(80)
     , max_attempts(4)
+    , softclip_threshold(2)
     , debug(false)
 {
     kmer_sizes = index->stored_kmer_sizes();
@@ -299,33 +300,40 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     }
 
     int thread_ex = thread_extension;
-    while (alignment.score() == 0 && thread_ex <= thread_extension_max) {
-        // collect the nodes from the best N threads by length
-        // and expand subgraphs as before
-        VG* graph = new VG;
-        tl = threads_by_length.rbegin();
-        for (int i = 0; tl != threads_by_length.rend() && (best_clusters == 0 || i < best_clusters); ++i, ++tl) {
-            auto& threads = tl->second;
-            // by definition, our thread should construct a contiguous graph
-            for (auto& thread : threads) {
-                int64_t first = *thread.begin() - thread_ex;
-                int64_t last = *thread.rbegin() + thread_ex;
-                // so we can pick it up efficiently from the index by pulling the range from first to last
-                index->get_range(first, last, *graph);
-            }
-        }
+    VG* graph = new VG;
 
-        // by default, expand the graph a bit so we are likely to map
-        index->get_connected_nodes(*graph);
-
-        // align
-        alignment.clear_path();
-        graph->align(alignment);
-        delete graph;
-        if (alignment.score() == 0) {
-            thread_ex *= 2;
+    // collect the nodes from the best N threads by length
+    // and expand subgraphs as before
+    //cerr << "extending by " << thread_ex << endl;
+    tl = threads_by_length.rbegin();
+    for (int i = 0; tl != threads_by_length.rend() && (best_clusters == 0 || i < best_clusters); ++i, ++tl) {
+        auto& threads = tl->second;
+        // by definition, our thread should construct a contiguous graph
+        for (auto& thread : threads) {
+            int64_t first = *thread.begin() - thread_ex;
+            int64_t last = *thread.rbegin() + thread_ex;
+            // so we can pick it up efficiently from the index by pulling the range from first to last
+            index->get_range(first, last, *graph);
         }
     }
+
+    // by default, expand the graph a bit so we are likely to map
+    index->get_connected_nodes(*graph);
+
+    // align
+    alignment.clear_path();
+    graph->align(alignment);
+    if (alignment.score() == 0) {
+        thread_ex *= 2;
+    }
+
+    int sc_start = softclip_start(alignment);
+    int sc_end = softclip_end(alignment);
+
+    //cerr << "score was " << alignment.score() << endl;
+    double average_node_length = (sc_start || sc_end) && graph->size() ? graph->length() / graph->size() : 0;
+    //cerr << "avg " << average_node_length << endl;
+    delete graph;
 
     // did we still fail to align?
     // if so, decrease the stride; if we are already at decreased stride, decrease the kmer size
@@ -336,14 +344,11 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // check if we start or end with soft clips
     // if so, try to expand the graph until we don't have any more (or we hit a threshold)
 
-    //cerr << alignment.score() << " " << sc_start << " " << sc_end << endl;
-
     // NB it will probably be faster here to not fully query the DB again,
     // but instead to grow the matching graph in the right direction
-    int sc_start = softclip_start(alignment);
-    int sc_end = softclip_end(alignment);
     // should be adjusted t account for incomplete matching, not just clips
-    if (sc_start > 0 || sc_end > 0) {
+    //cerr << sc_start << " " << sc_end << endl;
+    if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
 
         //cerr << "softclip handling " << softclip_start(alignment) << " " << softclip_end(alignment) << endl;
         VG* graph = new VG;
@@ -351,11 +356,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
 
         int64_t idf = path->mutable_mapping(0)->node_id();
         int64_t idl = path->mutable_mapping(path->mapping_size()-1)->node_id();
-        index->get_range(idf, idl, *graph);
-        while (graph->total_length_of_nodes() < sequence.size() * 3) {
-            cerr << "expanding" << endl;
-            index->expand_context(*graph, context_step); // expand faster here
-        }
+        index->get_range(idf - sc_start / average_node_length * 2,
+                         idl + sc_end   / average_node_length * 2,
+                         *graph);
+        index->expand_context(*graph, context_step * (sc_start + sc_end));
         index->get_connected_nodes(*graph);
 
         alignment.clear_path();
@@ -377,7 +381,7 @@ int softclip_start(Alignment& alignment) {
         Mapping* first_mapping = path->mutable_mapping(0);
         Edit* first_edit = first_mapping->mutable_edit(0);
         if (first_edit->from_length() == 0 && first_edit->to_length() > 0) {
-            return first_edit->from_length();
+            return first_edit->to_length();
         }
     }
     return 0;
@@ -389,7 +393,7 @@ int softclip_end(Alignment& alignment) {
         Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
         Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size()-1);
         if (last_edit->from_length() == 0 && last_edit->to_length() > 0) {
-            return last_edit->from_length();
+            return last_edit->to_length();
         }
     }
     return 0;

@@ -36,6 +36,7 @@ public:
     // alignment functions
     void align(Alignment& alignment);
     void gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& alignment);
+    string graph_cigar(gssw_graph_mapping* gm);
 
     // members
     map<int64_t, gssw_node*> nodes;

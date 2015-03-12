@@ -40,6 +40,7 @@ public:
     int thread_extension;
     int thread_extension_max;
     int max_attempts;
+    int softclip_threshold;
 
 };
 

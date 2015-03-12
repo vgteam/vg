@@ -94,6 +94,7 @@ message Alignment {
     optional int32 score = 6;
     optional int32 query_position = 7;
     optional bytes data = 8;
+    //optional string cigar = 9; // string representation of the path
 }
 
 // used to specify kmer matches against a given node
