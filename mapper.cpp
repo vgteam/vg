@@ -57,14 +57,19 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
                                  &sequence,
                                  &alignment_f,
                                  &alignment_r]() {
-        if ((double)stride/kmer_size < 0.5 && kmer_size -2 >= kmer_min) {
+        kmer_size -= 3;
+        stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
+        if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
+        /*
+        if ((double)stride/kmer_size < 0.5 && kmer_size -5 >= kmer_min) {
             kmer_size -= 5;
             stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
             if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
         } else if ((double)stride/kmer_size >= 0.5 && kmer_size >= kmer_min) {
-            stride = max(1, stride/4);
+            stride = max(1, stride/3);
             if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
         }
+        */
     };
 
     int attempt = 0;
@@ -245,10 +250,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     auto tl = threads_by_length.rbegin();
     for (auto& t : node_threads) {
         auto& thread = t.second;
-        // if you use very short kmers, this may become necessary
-        if (thread.size()) {
-            sorted_threads.insert(thread);
-        }
+        sorted_threads.insert(thread);
     }
     // clean up
     threads_by_length.clear();
@@ -313,19 +315,18 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             int64_t first = *thread.begin() - thread_ex;
             int64_t last = *thread.rbegin() + thread_ex;
             // so we can pick it up efficiently from the index by pulling the range from first to last
+            //cerr << "get range " << first << " " << last << endl;
             index->get_range(first, last, *graph);
         }
     }
 
     // by default, expand the graph a bit so we are likely to map
-    index->get_connected_nodes(*graph);
+    //index->get_connected_nodes(*graph);
+    graph->remove_orphan_edges();
 
     // align
     alignment.clear_path();
     graph->align(alignment);
-    if (alignment.score() == 0) {
-        thread_ex *= 2;
-    }
 
     int sc_start = softclip_start(alignment);
     int sc_end = softclip_end(alignment);
@@ -359,8 +360,9 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         index->get_range(idf - sc_start / average_node_length * 2,
                          idl + sc_end   / average_node_length * 2,
                          *graph);
-        index->expand_context(*graph, context_step * (sc_start + sc_end));
-        index->get_connected_nodes(*graph);
+        //index->expand_context(*graph, context_step * 2);
+        //index->get_connected_nodes(*graph);
+        graph->remove_orphan_edges();
 
         alignment.clear_path();
         graph->align(alignment);
