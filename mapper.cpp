@@ -9,10 +9,10 @@ Mapper::Mapper(Index* idex)
     , hit_size_threshold(0)
     , kmer_min(21)
     , kmer_threshold(1)
-    , thread_extension(10)
+    , thread_extension(3)
     , thread_extension_max(80)
-    , max_attempts(4)
-    , softclip_threshold(2)
+    , max_attempts(3)
+    , softclip_threshold(4)
     , debug(false)
 {
     kmer_sizes = index->stored_kmer_sizes();
@@ -30,7 +30,7 @@ Mapper::~Mapper(void) {
 Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
-    start_both = std::chrono::system_clock::now();
+    if (debug) start_both = std::chrono::system_clock::now();
 
     // if kmer size is not specified, pick it up from the index
     // for simplicity, use the first available kmer size; this could change
@@ -80,20 +80,23 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
 
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
-            start = std::chrono::system_clock::now();
+            if (debug) start = std::chrono::system_clock::now();
             align_threaded(alignment_f, kmer_count_f, kmer_size, stride, attempt);
-            end = std::chrono::system_clock::now();
-            std::chrono::duration<double> elapsed_seconds = end-start;
-            if (debug) cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
+            if (debug) {
+                end = std::chrono::system_clock::now();
+                cerr << (end-start).count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
+            }
         }
 
+        if (alignment_f.score() == 0)
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
-            start = std::chrono::system_clock::now();
+            if (debug) start = std::chrono::system_clock::now();
             align_threaded(alignment_r, kmer_count_r, kmer_size, stride, attempt);
-            end = std::chrono::system_clock::now();
-            std::chrono::duration<double> elapsed_seconds = end-start;
-            if (debug) cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
+            if (debug) {
+                end = std::chrono::system_clock::now();
+                cerr << (end-start).count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
+            }
         }
 
         ++attempt;
@@ -106,10 +109,10 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
 
     }
 
-    end_both = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds_both = end_both-start_both;
-
-    if (debug) cerr << elapsed_seconds_both.count() << "\t" << "b" << "\t" << sequence << endl;
+    if (debug) {
+        end_both = std::chrono::system_clock::now();
+        cerr << (end_both-start_both).count() << "\t" << "b" << "\t" << sequence << endl;
+    }
 
     if (alignment_r.score() > alignment_f.score()) {
         return alignment_r;
@@ -323,7 +326,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // by default, expand the graph a bit so we are likely to map
     //index->get_connected_nodes(*graph);
     graph->remove_orphan_edges();
-
     // align
     alignment.clear_path();
     graph->align(alignment);
@@ -360,10 +362,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         index->get_range(idf - sc_start / average_node_length * 2,
                          idl + sc_end   / average_node_length * 2,
                          *graph);
-        //index->expand_context(*graph, context_step * 2);
-        //index->get_connected_nodes(*graph);
         graph->remove_orphan_edges();
-
         alignment.clear_path();
         graph->align(alignment);
         //cerr << "softclip after " << softclip_start(alignment) << " " << softclip_end(alignment) << endl;
