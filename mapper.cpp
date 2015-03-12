@@ -316,7 +316,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         }
 
         // by default, expand the graph a bit so we are likely to map
-        index->expand_context(*graph, 1);
         index->get_connected_nodes(*graph);
 
         // align
@@ -337,34 +336,31 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // check if we start or end with soft clips
     // if so, try to expand the graph until we don't have any more (or we hit a threshold)
 
-    int sc_start = softclip_start(alignment);
-    int sc_end = softclip_end(alignment);
     //cerr << alignment.score() << " " << sc_start << " " << sc_end << endl;
 
     // NB it will probably be faster here to not fully query the DB again,
     // but instead to grow the matching graph in the right direction
+    int sc_start = softclip_start(alignment);
+    int sc_end = softclip_end(alignment);
+    // should be adjusted t account for incomplete matching, not just clips
     if (sc_start > 0 || sc_end > 0) {
-        // get the target graph
+
+        //cerr << "softclip handling " << softclip_start(alignment) << " " << softclip_end(alignment) << endl;
         VG* graph = new VG;
-        // nodes
         Path* path = alignment.mutable_path();
-        for (int i = 0; i < path->mapping_size(); ++i) {
-            index->get_context(path->mutable_mapping(i)->node_id(), *graph);
-        }
+
+        int64_t idf = path->mutable_mapping(0)->node_id();
+        int64_t idl = path->mutable_mapping(path->mapping_size()-1)->node_id();
+        index->get_range(idf, idl, *graph);
         while (graph->total_length_of_nodes() < sequence.size() * 3) {
+            cerr << "expanding" << endl;
             index->expand_context(*graph, context_step); // expand faster here
         }
         index->get_connected_nodes(*graph);
 
-        /*
-        cerr << "graph " << graph->size() << endl;
-        ofstream f("vg_align.vg");
-        graph->serialize_to_ostream(f);
-        f.close();
-        */
-
         alignment.clear_path();
         graph->align(alignment);
+        //cerr << "softclip after " << softclip_start(alignment) << " " << softclip_end(alignment) << endl;
         delete graph;
 
     }
@@ -380,7 +376,7 @@ int softclip_start(Alignment& alignment) {
         Path* path = alignment.mutable_path();
         Mapping* first_mapping = path->mutable_mapping(0);
         Edit* first_edit = first_mapping->mutable_edit(0);
-        if (first_edit->from_length() > 0 && first_edit->to_length() == 0) {
+        if (first_edit->from_length() == 0 && first_edit->to_length() > 0) {
             return first_edit->from_length();
         }
     }
@@ -392,7 +388,7 @@ int softclip_end(Alignment& alignment) {
         Path* path = alignment.mutable_path();
         Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
         Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size()-1);
-        if (last_edit->from_length() > 0 && last_edit->to_length() == 0) {
+        if (last_edit->from_length() == 0 && last_edit->to_length() > 0) {
             return last_edit->from_length();
         }
     }
