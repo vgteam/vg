@@ -91,7 +91,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             }
         }
 
-        if (!(prefer_forward || (float)alignment_f.score() / (float)sequence.size() < target_score_per_bp))
+        if (!(prefer_forward && (float)alignment_f.score() / (float)sequence.size() >= target_score_per_bp))
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             if (debug) start = std::chrono::system_clock::now();
