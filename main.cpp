@@ -1290,6 +1290,8 @@ void help_map(char** argv) {
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl
          << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl
          << "    -t, --threads N       number of threads to use" << endl
+         << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
+         << "    -X, --score-per-bp N  accept forward if the alignment score per base is > N and -F is set" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl;
 }
 
@@ -1310,6 +1312,8 @@ int main_map(int argc, char** argv) {
     int thread_count = 1;
     bool output_json = true;
     bool debug = false;
+    bool prefer_forward = false;
+    float score_per_bp = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1326,12 +1330,14 @@ int main_map(int argc, char** argv) {
                 {"reads", required_argument, 0, 'r'},
                 {"hit-max", required_argument, 0, 'm'},
                 {"threads", required_argument, 0, 't'},
+                {"prefer-forward", no_argument, 0, 'F'},
+                {"score-per-bp", required_argument, 0, 'X'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:D",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:F",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1374,6 +1380,14 @@ int main_map(int argc, char** argv) {
 
         case 'D':
             debug = true;
+            break;
+
+        case 'F':
+            prefer_forward = true;
+            break;
+
+        case 'X':
+            score_per_bp = atof(optarg);
             break;
  
         case 'h':
@@ -1422,6 +1436,8 @@ int main_map(int argc, char** argv) {
         m->best_clusters = best_clusters;
         m->hit_max = hit_max;
         m->debug = debug;
+        if (score_per_bp) m->target_score_per_bp = score_per_bp;
+        m->prefer_forward = prefer_forward;
         mapper[i] = m;
     }
 

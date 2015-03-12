@@ -9,10 +9,12 @@ Mapper::Mapper(Index* idex)
     , hit_size_threshold(0)
     , kmer_min(21)
     , kmer_threshold(1)
-    , thread_extension(3)
+    , thread_extension(10)
     , thread_extension_max(80)
     , max_attempts(3)
     , softclip_threshold(4)
+    , prefer_forward(false)
+    , target_score_per_bp(1.5)
     , debug(false)
 {
     kmer_sizes = index->stored_kmer_sizes();
@@ -84,18 +86,20 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
             align_threaded(alignment_f, kmer_count_f, kmer_size, stride, attempt);
             if (debug) {
                 end = std::chrono::system_clock::now();
-                cerr << (end-start).count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
+                std::chrono::duration<double> elapsed_seconds = end-start;
+                cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
             }
         }
 
-        if (alignment_f.score() == 0)
+        if (!(prefer_forward || (float)alignment_f.score() / (float)sequence.size() < target_score_per_bp))
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             if (debug) start = std::chrono::system_clock::now();
             align_threaded(alignment_r, kmer_count_r, kmer_size, stride, attempt);
             if (debug) {
                 end = std::chrono::system_clock::now();
-                cerr << (end-start).count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
+                std::chrono::duration<double> elapsed_seconds = end-start;
+                cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
             }
         }
 
@@ -111,7 +115,8 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
 
     if (debug) {
         end_both = std::chrono::system_clock::now();
-        cerr << (end_both-start_both).count() << "\t" << "b" << "\t" << sequence << endl;
+        std::chrono::duration<double> elapsed_seconds = end_both-start_both;
+        cerr << elapsed_seconds.count() << "\t" << "b" << "\t" << sequence << endl;
     }
 
     if (alignment_r.score() > alignment_f.score()) {
@@ -318,7 +323,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             int64_t first = *thread.begin() - thread_ex;
             int64_t last = *thread.rbegin() + thread_ex;
             // so we can pick it up efficiently from the index by pulling the range from first to last
-            //cerr << "get range " << first << " " << last << endl;
+            if (debug) cerr << "getting node range " << first << "-" << last << endl;
             index->get_range(first, last, *graph);
         }
     }
@@ -353,19 +358,24 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     //cerr << sc_start << " " << sc_end << endl;
     if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
 
-        //cerr << "softclip handling " << softclip_start(alignment) << " " << softclip_end(alignment) << endl;
+        if (debug) cerr << "softclip handling " << sc_start << " " << sc_end << endl;
         VG* graph = new VG;
         Path* path = alignment.mutable_path();
 
         int64_t idf = path->mutable_mapping(0)->node_id();
         int64_t idl = path->mutable_mapping(path->mapping_size()-1)->node_id();
-        index->get_range(idf - sc_start / average_node_length * 2,
-                         idl + sc_end   / average_node_length * 2,
+        /*
+        cerr << average_node_length << endl;
+        cerr << idf << " to " << idl << endl;
+        */
+        if (debug) cerr << "getting node range " << idf - ceil((sc_start / average_node_length) * 10) << "-" << idl + ceil((sc_end   / average_node_length) * 10) << endl;
+        index->get_range(idf - ceil((sc_start / average_node_length) * 10),
+                         idl + ceil((sc_end   / average_node_length) * 10),
                          *graph);
         graph->remove_orphan_edges();
         alignment.clear_path();
         graph->align(alignment);
-        //cerr << "softclip after " << softclip_start(alignment) << " " << softclip_end(alignment) << endl;
+        if (debug) cerr << "softclip after " << softclip_start(alignment) << " " << softclip_end(alignment) << endl;
         delete graph;
 
     }

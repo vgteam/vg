@@ -41,6 +41,8 @@ public:
     int thread_extension_max;
     int max_attempts;
     int softclip_threshold;
+    float target_score_per_bp;
+    bool prefer_forward;
 
 };
 
