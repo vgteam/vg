@@ -120,6 +120,8 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] multiple samples in one graph (colors) - solved by paths
 - [ ] modify a graph using an alignment's path, adding new nodes as needed and updating the path/alignment to match
 - [x] path range query from index (give me the subgraph corresponding to a particular genome location)
+- [ ] project alignments back into arbitrary path (such as GRCh37)
+- [ ] use htslib for BAM/CRAM/SAM i/o
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
 - [ ] genotype likelihood generation (given a source and sink, genotype paths)
 - [ ] genotyping of paths using freebayes-like genotyping model
