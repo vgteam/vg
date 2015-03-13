@@ -1287,6 +1287,7 @@ void help_map(char** argv) {
          << "    -r, --reads FILE      take reads from FILE, printing alignments to stdout" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
+         << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default 5)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl
          << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl
          << "    -t, --threads N       number of threads to use" << endl
@@ -1306,6 +1307,7 @@ int main_map(int argc, char** argv) {
     string db_name;
     int kmer_size = 0;
     int kmer_stride = 0;
+    int sens_step = 0;
     int best_clusters = 0;
     string read_file;
     int hit_max = 100;
@@ -1332,12 +1334,13 @@ int main_map(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"score-per-bp", required_argument, 0, 'X'},
+                {"sens-step", required_argument, 0, 'S'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:F",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1360,6 +1363,10 @@ int main_map(int argc, char** argv) {
 
         case 'k':
             kmer_size = atoi(optarg);
+            break;
+
+        case 'S':
+            sens_step = atoi(optarg);
             break;
 
         case 'c':
@@ -1437,6 +1444,7 @@ int main_map(int argc, char** argv) {
         m->hit_max = hit_max;
         m->debug = debug;
         if (score_per_bp) m->target_score_per_bp = score_per_bp;
+        if (sens_step) m->kmer_sensitivity_step = sens_step;
         m->prefer_forward = prefer_forward;
         mapper[i] = m;
     }

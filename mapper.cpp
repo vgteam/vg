@@ -9,7 +9,8 @@ Mapper::Mapper(Index* idex)
     , hit_size_threshold(0)
     , kmer_min(21)
     , kmer_threshold(1)
-    , thread_extension(10)
+    , kmer_sensitivity_step(5)
+    , thread_extension(12)
     , thread_extension_max(80)
     , max_attempts(3)
     , softclip_threshold(1)
@@ -59,7 +60,7 @@ Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
                                  &sequence,
                                  &alignment_f,
                                  &alignment_r]() {
-        kmer_size -= 3;
+        kmer_size -= kmer_sensitivity_step;
         stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
         if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
         /*
@@ -159,7 +160,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         if (kmer_positions.size() > hit_max) kmer_positions.clear();
         kmer_count += kmer_positions.size();
         // break when we get more than a threshold number of kmers to seed further alignment
-        if (kmer_count > kmer_threshold) break;
+        if (kmer_count >= kmer_threshold) break;
         ++i;
     }
 
