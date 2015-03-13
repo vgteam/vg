@@ -72,7 +72,7 @@ vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW)
 mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h
 	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
 
-main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW)
+main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) stream.hpp
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
 
 region.o: region.cpp region.hpp

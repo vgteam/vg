@@ -33,7 +33,7 @@ bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda
 
     std::string s;
     uint64_t written = 0;
-    for (int64_t n = 0; n < count; ++n, ++written) {
+    for (uint64_t n = 0; n < count; ++n, ++written) {
         lambda(n).SerializeToString(&s);
         coded_out->WriteVarint32(s.size());
         coded_out->WriteRaw(s.data(), s.size());
@@ -60,32 +60,39 @@ bool for_each(std::istream& in,
           new ::google::protobuf::io::IstreamInputStream(&in);
     ::google::protobuf::io::GzipInputStream *gzip_in =
           new ::google::protobuf::io::GzipInputStream(raw_in);
-    ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
 
     uint64_t count;
-    coded_in->ReadVarint64(&count);
-    handle_count(count);
-    delete coded_in;
 
-    std::string s;
-
-    for (uint64_t i = 0; i < count; ++i) {
+    // this loop handles a chunked file with many pieces
+    while (in.good()) {
 
         ::google::protobuf::io::CodedInputStream *coded_in =
-          new ::google::protobuf::io::CodedInputStream(gzip_in);
+            new ::google::protobuf::io::CodedInputStream(gzip_in);
 
-        uint32_t msgSize = 0;
-        coded_in->ReadVarint32(&msgSize);
+        coded_in->ReadVarint64(&count);
+        handle_count(count);
+        delete coded_in;
 
-        if ((msgSize > 0) &&
-            (coded_in->ReadString(&s, msgSize))) {
-            T object;
-            object.ParseFromString(s);
-            lambda(object);
+        std::string s;
+
+        for (uint64_t i = 0; i < count; ++i) {
+
+            ::google::protobuf::io::CodedInputStream *coded_in =
+                new ::google::protobuf::io::CodedInputStream(gzip_in);
+
+            uint32_t msgSize = 0;
+            coded_in->ReadVarint32(&msgSize);
+
+            if ((msgSize > 0) &&
+                (coded_in->ReadString(&s, msgSize))) {
+                T object;
+                object.ParseFromString(s);
+                lambda(object);
+            }
+
+            delete coded_in;
         }
 
-        delete coded_in;
     }
 
     delete gzip_in;

@@ -10,6 +10,7 @@
 #include "mapper.hpp"
 #include "Variant.h"
 #include "Fasta.h"
+#include "stream.hpp"
 #include <google/protobuf/stubs/common.h>
 
 using namespace std;
@@ -1293,6 +1294,7 @@ void help_map(char** argv) {
          << "    -t, --threads N       number of threads to use" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
          << "    -X, --score-per-bp N  accept forward if the alignment score per base is > N and -F is set" << endl
+         << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl;
 }
 
@@ -1312,7 +1314,7 @@ int main_map(int argc, char** argv) {
     string read_file;
     int hit_max = 100;
     int thread_count = 1;
-    bool output_json = true;
+    bool output_json = false;
     bool debug = false;
     bool prefer_forward = false;
     float score_per_bp = 0;
@@ -1335,12 +1337,13 @@ int main_map(int argc, char** argv) {
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"score-per-bp", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
+                {"output-json", no_argument, 0, 'J'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:J",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1396,6 +1399,10 @@ int main_map(int argc, char** argv) {
         case 'X':
             score_per_bp = atof(optarg);
             break;
+
+        case 'J':
+            output_json = true;
+            break;
  
         case 'h':
         case '?':
@@ -1432,7 +1439,7 @@ int main_map(int argc, char** argv) {
 
     vector<Mapper*> mapper;
     mapper.resize(thread_count);
-    vector<vector<string> > output_buffer;
+    vector<vector<Alignment> > output_buffer;
     output_buffer.resize(thread_count);
 
     Index idx;
@@ -1459,8 +1466,6 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    auto* output_buf = new vector<Alignment>();
-
     if (!read_file.empty()) {
         ifstream in(read_file);
         bool more_data = true;
@@ -1482,7 +1487,17 @@ int main_map(int argc, char** argv) {
                         cout << json2 << "\n";
                         free(json2);
                     } else {
-                        output_buf->push_back(alignment);
+                        auto& output_buf = output_buffer[tid];
+                        output_buf.push_back(alignment);
+                        if (output_buf.size() >= 1000) {
+                            function<Alignment(uint64_t)> lambda =
+                                [&output_buf] (uint64_t n) {
+                                return output_buf[n];
+                            };
+#pragma omp critical (cout)
+                            stream::write(cout, output_buf.size(), lambda);
+                            output_buf.clear();
+                        }
                     }
                 }
             }
@@ -1492,6 +1507,15 @@ int main_map(int argc, char** argv) {
     // clean up
     for (int i = 0; i < thread_count; ++i) {
         delete mapper[i];
+        auto& output_buf = output_buffer[i];
+        if (!output_buf.empty()) {
+            function<Alignment(uint64_t)> lambda =
+                [&output_buf] (uint64_t n) {
+                return output_buf[n];
+            };
+            stream::write(cout, output_buf.size(), lambda);
+            output_buf.clear();
+        }
     }
 
     cout.flush();
@@ -1506,7 +1530,8 @@ void help_view(char** argv) {
          << "    -g, --gfa             output GFA format (default)" << endl
          << "    -d, --dot             output dot format" << endl
          << "    -j, --json            output VG JSON format" << endl
-         << "    -v, --vg              write VG format (input is GFA)" << endl;
+         << "    -v, --vg              write VG format (input is GFA)" << endl
+         << "    -a, --alignments      input is binary alignment, convert to JSON" << endl;
     //<< "    -p, --paths           extract paths from graph in VG format" << endl;
 }
 
@@ -1532,11 +1557,12 @@ int main_view(int argc, char** argv) {
                 {"json",  no_argument, 0, 'j'},
                 {"vg", no_argument, 0, 'v'},
                 {"paths", no_argument, 0, 'p'},
+                {"alignments", no_argument, 0, 'a'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgjhvp",
+        c = getopt_long (argc, argv, "dgjhvpa",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1560,6 +1586,11 @@ int main_view(int argc, char** argv) {
         case 'v':
             input_type = "gfa";
             output_type = "vg";
+            break;
+
+        case 'a':
+            input_type = "alignments";
+            output_type = "json";
             break;
 
         case 'p':
@@ -1608,6 +1639,20 @@ int main_view(int argc, char** argv) {
         in.open(file_name.c_str());
         graph = new VG;
         graph->paths.load(in);
+    } else if (input_type == "alignments") {
+        function<void(Alignment&)> lambda = [](Alignment& a) {
+            char *json2 = pb2json(a);
+            cout << json2 << "\n";
+            free(json2);
+        };
+        if (file_name == "-") {
+            stream::for_each(std::cin, lambda);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            stream::for_each(in, lambda);
+        }
+        return 0;
     }
 
     if (output_type == "dot") {
