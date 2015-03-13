@@ -21,7 +21,7 @@ is $? 0 "vg map takes -d as input without a variant graph"
 
 vg map -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG x.vg
 
-is $(vg map -r <(vg sim -n 69 -n 1000 -l 100 x.vg) x.vg | vg view -a - | jq -c '.score == 200 // [.score, .sequence]' | grep -v true | wc -l) 0 "alignment is perfect on a small graph"
+is $(vg map -r <(vg sim -s 69 -n 1000 -l 100 x.vg) x.vg | vg view -a - | jq -c '.score == 200 // [.score, .sequence]' | grep -v true | wc -l) 0 "alignment works on a small graph"
 
 rm x.vg
 rm -rf x.vg.index

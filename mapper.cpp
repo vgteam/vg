@@ -7,13 +7,13 @@ Mapper::Mapper(Index* idex)
     , best_clusters(0)
     , hit_max(100)
     , hit_size_threshold(0)
-    , kmer_min(21)
+    , kmer_min(18)
     , kmer_threshold(1)
-    , kmer_sensitivity_step(5)
+    , kmer_sensitivity_step(3)
     , thread_extension(10)
     , thread_extension_max(80)
     , max_attempts(3)
-    , softclip_threshold(1)
+    , softclip_threshold(2)
     , prefer_forward(false)
     , target_score_per_bp(1.5)
     , debug(false)
@@ -160,7 +160,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         if (kmer_positions.size() > hit_max) kmer_positions.clear();
         kmer_count += kmer_positions.size();
         // break when we get more than a threshold number of kmers to seed further alignment
-        if (kmer_count >= kmer_threshold) break;
+        //if (kmer_count >= kmer_threshold) break;
         ++i;
     }
 
@@ -313,6 +313,8 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         auto& threads = tl->second;
         // by definition, our thread should construct a contiguous graph
         for (auto& thread : threads) {
+            // thread extension should be determined during iteration
+            // note that there is a problem and hits tend to be imbalanced
             int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
             int64_t last = *thread.rbegin() + thread_ex;
             // so we can pick it up efficiently from the index by pulling the range from first to last
@@ -349,7 +351,9 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // but instead to grow the matching graph in the right direction
     // should be adjusted t account for incomplete matching, not just clips
     //cerr << sc_start << " " << sc_end << endl;
-    if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
+    // this could be much simpler, just aligning the tails of the read to the target
+    if (false) {
+    //if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
 
         if (debug) cerr << "softclip handling " << sc_start << " " << sc_end << endl;
         VG* graph = new VG;
