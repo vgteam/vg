@@ -20,9 +20,8 @@ message Node {
     optional string sequence = 1;   // sequence
     optional string name = 2;  // a name provides an identifier
     optional int64 id = 3;     // ids are critical, and unique within a graph
-    optional double quality = 4; // sequencing-specific annotations
-    optional int32 coverage = 5; //
-    optional bytes data = 6;   // arbitrary data
+    optional bytes data = 4;   // arbitrary data
+    optional Annotation annotation = 5;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
@@ -31,6 +30,17 @@ message Edge {
     optional int64 from = 1; // ID of upstream node
     optional int64 to = 2;   // ID of downstream node
     optional bytes data = 3; // arbitrary data
+    optional Annotation annotation = 4;
+}
+
+// sequencing-specific annotations
+message Annotation {
+    optional int32 quality = 1;
+    optional int32 coverage = 2;
+    optional int32 forward = 3;
+    optional int32 reverse = 4;
+    optional int32 left = 5;
+    optional int32 right = 6;
 }
 
 // *Edits* describe how to generate a new string from elements
@@ -93,8 +103,8 @@ message Alignment {
     optional int32 mapping_quality = 5;
     optional int32 score = 6;
     optional int32 query_position = 7;
-    optional bytes data = 8;
-    //optional string cigar = 9; // string representation of the path
+    optional bool strand_plus = 8; // true if original sequence is in 5'->3' orientation
+    optional bytes data = 9;
 }
 
 // used to specify kmer matches against a given node

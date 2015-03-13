@@ -9,9 +9,10 @@ LIBGSSW=gssw/src/libgssw.a
 LIBSNAPPY=snappy/libsnappy.a
 LIBROCKSDB=rocksdb/librocksdb.a
 SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
-INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache
-LDFLAGS=-L./ -Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -Lprogressbar -lpb2json -lvcflib -lgssw -lprotobuf -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o
+LIBHTS=htslib/libhts.a
+INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib
+LDFLAGS=-L./ -Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -lpb2json -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o alignment.o
 
 all: vg libvg.a
 
@@ -54,6 +55,9 @@ $(LIBGSSW): gssw/src/gssw.c gssw/src/gssw.h
 $(SPARSEHASH):
 	cd sparsehash && mkdir -p build && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
 
+$(LIBHTS):
+	cd htslib && $(MAKE) lib-static
+
 fastahack/Fasta.o: fastahack/Fasta.h fastahack/Fasta.cpp
 	cd fastahack && $(MAKE)
 
@@ -87,14 +91,17 @@ utility.o: utility.cpp utility.hpp
 path.o: path.cpp path.hpp
 	$(CXX) $(CXXFLAGS) -c -o path.o path.cpp $(INCLUDES)
 
+alignment.o: alignment.cpp alignment.hpp $(LIBHTS)
+	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
+
 json.o: json.cpp json.hpp
 	$(CXX) $(CXXFLAGS) -c -o json.o json.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
-	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o json.o
+	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o json.o alignment.o
 
 clean-vg:
 	rm -f vg

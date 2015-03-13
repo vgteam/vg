@@ -536,8 +536,8 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
 
-void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
-                                map<long, set<vcf::VariantAllele> >& altp,
+void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
+                                map<long, set<vcflib::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
                                 int max_node_size) {
@@ -545,10 +545,10 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
     create_progress("parsing variants", records.size());
 
     for (int i = 0; i < records.size(); ++i) {
-        vcf::Variant& var = records.at(i);
+        vcflib::Variant& var = records.at(i);
         // decompose to alts
         bool flat_input_vcf = false; // hack
-        map<string, vector<vcf::VariantAllele> > alternates
+        map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
@@ -562,7 +562,7 @@ void VG::vcf_records_to_alleles(vector<vcf::Variant>& records,
      destroy_progress();
  }
 
- void VG::slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
+ void VG::slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
                         int start_pos,
                         int stop_pos,
                         int max_node_size) {
@@ -638,7 +638,7 @@ void VG::dice_nodes(int max_node_size) {
 }
 
 
-void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
+void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,
                       string& name) {
 
@@ -670,7 +670,7 @@ void VG::from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
 
     for (auto& va : altp) {
 
-        const set<vcf::VariantAllele>& alleles = va.second;
+        const set<vcflib::VariantAllele>& alleles = va.second;
 
         // if alleles are empty, we just cut at this point
         if (alleles.empty()) {
@@ -994,7 +994,7 @@ void VG::destroy_progress(void) {
     }
 }
 
-VG::VG(vcf::VariantCallFile& variantCallFile,
+VG::VG(vcflib::VariantCallFile& variantCallFile,
        FastaReference& reference,
        string& target_region,
        int vars_per_region,
@@ -1048,9 +1048,9 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
             variantCallFile.setRegion(seq_name);
             stop_pos = reference.sequenceLength(seq_name);
         }
-        vcf::Variant var(variantCallFile);
+        vcflib::Variant var(variantCallFile);
 
-        vector<vcf::Variant>* region = NULL;
+        vector<vcflib::Variant>* region = NULL;
 
         // convert from 1-based input to 0-based internal format
         // and handle the case where we are already doing the whole chromosome
@@ -1059,7 +1059,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
 
         create_progress("loading variants for " + target, stop_pos-start_pos);
         // get records
-        vector<vcf::Variant> records;
+        vector<vcflib::Variant> records;
         int i = 0;
         while (variantCallFile.getNextVariant(var)) {
             bool isDNA = allATGC(var.ref);
@@ -1075,7 +1075,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         }
         destroy_progress();
 
-        map<long,set<vcf::VariantAllele> > alleles;
+        map<long,set<vcflib::VariantAllele> > alleles;
         // decompose records int alleles with offsets against our target sequence
         vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size);
         records.clear(); // clean up
@@ -1106,7 +1106,7 @@ VG::VG(vcf::VariantCallFile& variantCallFile,
         bool invariant_graph = alleles.empty();
         while (invariant_graph || !alleles.empty()) {
             invariant_graph = false;
-            auto* new_alleles = new map<long, set<vcf::VariantAllele> >;
+            auto* new_alleles = new map<long, set<vcflib::VariantAllele> >;
             // our start position is the "offset" we should subtract from the alleles
             // for correct construction
             //chunk_start = (!chunk_start ? 0 : alleles.begin()->first);

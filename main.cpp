@@ -1787,7 +1787,7 @@ int main_construct(int argc, char** argv) {
 
     // set up our inputs
 
-    vcf::VariantCallFile variant_file;
+    vcflib::VariantCallFile variant_file;
     if (vcf_file_name.empty()) {
         cerr << "error:[vg construct] a VCF file is required for graph construction" << endl;
         return 1;

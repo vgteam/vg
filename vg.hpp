@@ -106,21 +106,21 @@ public:
     VG(set<Node*>& nodes, set<Edge*>& edges);
 
     // construct from VCF
-    VG(vcf::VariantCallFile& variantCallFile,
+    VG(vcflib::VariantCallFile& variantCallFile,
        FastaReference& reference,
        string& target,
        int vars_per_region,
        int max_node_size = 0,
        bool showprog = false);
-    void from_alleles(const map<long, set<vcf::VariantAllele> >& altp,
+    void from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,
                       string& chrom);
-    void vcf_records_to_alleles(vector<vcf::Variant>& records,
-                                map<long, set<vcf::VariantAllele> >& altp,
+    void vcf_records_to_alleles(vector<vcflib::Variant>& records,
+                                map<long, set<vcflib::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
                                 int max_node_size = 0);
-    void slice_alleles(map<long, set<vcf::VariantAllele> >& altp,
+    void slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
                        int start_pos,
                        int stop_pos,
                        int max_node_size);
@@ -386,11 +386,11 @@ public:
     // for managing parallel construction
     struct Plan {
         VG* graph;
-        map<long, set<vcf::VariantAllele> >* alleles;
+        map<long, set<vcflib::VariantAllele> >* alleles;
         string seq;
         string name;
         Plan(VG* g,
-             map<long, set<vcf::VariantAllele> >* a,
+             map<long, set<vcflib::VariantAllele> >* a,
              string s,
              string n)
             : graph(g)
