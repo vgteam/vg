@@ -14,8 +14,9 @@ namespace vg {
 
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
-int sam_for_each(string& filename, function<void(Alignment&)>& lambda);
+int sam_for_each(string& filename, function<void(Alignment&)> lambda);
 Alignment bam_to_alignment(bam1_t* b);
+void write_alignments(std::ostream& out, vector<Alignment>& buf);
 
 }
 

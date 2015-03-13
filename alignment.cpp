@@ -1,8 +1,9 @@
 #include "alignment.hpp"
+#include "stream.hpp"
 
 namespace vg {
 
-int sam_for_each(string& filename, function<void(const Alignment&)>& lambda) {
+int sam_for_each(string& filename, function<void(Alignment&)> lambda) {
 
     hFILE *fp = hopen(filename.c_str(), "r");
     samFile *in = hts_hopen(fp, filename.c_str(), "r");
@@ -10,7 +11,8 @@ int sam_for_each(string& filename, function<void(const Alignment&)>& lambda) {
     bam_hdr_t *hdr = sam_hdr_read(in);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        lambda(bam_to_alignment(b));
+        Alignment a = bam_to_alignment(b);
+        lambda(a);
     }
     bam_destroy1(b);
     bam_hdr_destroy(hdr);
@@ -20,6 +22,14 @@ int sam_for_each(string& filename, function<void(const Alignment&)>& lambda) {
     }
     return 1;
 
+}
+
+void write_alignments(std::ostream& out, vector<Alignment>& buf) {
+    function<Alignment(uint64_t)> lambda =
+        [&buf] (uint64_t n) {
+        return buf[n];
+    };
+    stream::write(cout, buf.size(), lambda);
 }
 
 Alignment bam_to_alignment(bam1_t* b) {

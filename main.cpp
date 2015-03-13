@@ -11,6 +11,7 @@
 #include "Variant.h"
 #include "Fasta.h"
 #include "stream.hpp"
+#include "alignment.hpp"
 #include <google/protobuf/stubs/common.h>
 
 using namespace std;
@@ -1533,11 +1534,13 @@ int main_map(int argc, char** argv) {
 void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] [<graph.vg>|<paths.vgp>]" << endl
          << "options:" << endl
-         << "    -g, --gfa             output GFA format (default)" << endl
-         << "    -d, --dot             output dot format" << endl
-         << "    -j, --json            output VG JSON format" << endl
-         << "    -v, --vg              write VG format (input is GFA)" << endl
-         << "    -a, --alignments      input is binary alignment, convert to JSON" << endl;
+         << "    -g, --gfa          output GFA format (default)" << endl
+         << "    -d, --dot          output dot format" << endl
+         << "    -j, --json         output JSON format" << endl
+         << "    -v, --vg           write VG format (input is GFA)" << endl
+         << "    -a, --align-in     input is GAM (vg alignment format: Graph Alignment/Map)" << endl
+         << "    -G, --gam          output GAM format alignments" << endl
+         << "    -b, --bam          input is htslib-parseable alignments" << endl;
     //<< "    -p, --paths           extract paths from graph in VG format" << endl;
 }
 
@@ -1548,8 +1551,8 @@ int main_view(int argc, char** argv) {
         return 1;
     }
 
-    string output_type = "gfa";
-    string input_type = "vg";
+    string output_type;
+    string input_type;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -1563,12 +1566,14 @@ int main_view(int argc, char** argv) {
                 {"json",  no_argument, 0, 'j'},
                 {"vg", no_argument, 0, 'v'},
                 {"paths", no_argument, 0, 'p'},
-                {"alignments", no_argument, 0, 'a'},
+                {"align-in", no_argument, 0, 'a'},
+                {"gam", no_argument, 0, 'G'},
+                {"bam", no_argument, 0, 'b'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgjhvpa",
+        c = getopt_long (argc, argv, "dgjhvpaGb",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1595,8 +1600,15 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'a':
-            input_type = "alignments";
-            output_type = "json";
+            input_type = "gam";
+            break;
+
+        case 'G':
+            output_type = "gam";
+            break;
+
+        case 'b':
+            input_type = "bam";
             break;
 
         case 'p':
@@ -1614,6 +1626,18 @@ int main_view(int argc, char** argv) {
         default:
             abort ();
         }
+    }
+
+    if (output_type.empty()) {
+        if (input_type == "gam") {
+            output_type = "json";
+        } else {
+            output_type = "gfa";
+        }
+    }
+
+    if (input_type.empty()) {
+        input_type = "vg";
     }
 
     VG* graph;
@@ -1645,20 +1669,45 @@ int main_view(int argc, char** argv) {
         in.open(file_name.c_str());
         graph = new VG;
         graph->paths.load(in);
-    } else if (input_type == "alignments") {
-        function<void(Alignment&)> lambda = [](Alignment& a) {
-            char *json2 = pb2json(a);
-            cout << json2 << "\n";
-            free(json2);
-        };
-        if (file_name == "-") {
-            stream::for_each(std::cin, lambda);
+    } else if (input_type == "gam") {
+        if (output_type == "json") {
+            function<void(Alignment&)> lambda = [](Alignment& a) {
+                char *json2 = pb2json(a);
+                cout << json2 << "\n";
+                free(json2);
+            };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+            return 0;
         } else {
-            ifstream in;
-            in.open(file_name.c_str());
-            stream::for_each(in, lambda);
+            // todo
+            return 0;
         }
-        return 0;
+    } else if (input_type == "bam") {
+        if (output_type == "gam") {
+//function<void(const Alignment&)>& lambda) {
+            // todo write buffering procedure in alignment.cpp
+            vector<Alignment> buf;
+            function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
+                buf.push_back(aln);
+                if (buf.size() > 1000) {
+                    write_alignments(std::cout, buf);
+                    buf.clear();
+                }
+            };
+            sam_for_each(file_name, lambda);
+            write_alignments(std::cout, buf);
+            buf.clear();
+            return 0;
+        } else if (output_type == "json") {
+            // todo
+            return 0;
+        }
     }
 
     if (output_type == "dot") {
@@ -1829,7 +1878,7 @@ void vg_help(char** argv) {
          << endl
          << "commands:" << endl 
          << "  -- construct     graph construction" << endl
-         << "  -- view          conversion (protobuf/json/GFA)" << endl
+         << "  -- view          format conversions for graphs and alignments" << endl
          << "  -- index         index features of the graph in a disk-backed key/value store" << endl
          << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
          << "  -- paths         traverse paths in the graph" << endl
