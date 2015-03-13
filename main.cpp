@@ -1463,6 +1463,12 @@ int main_map(int argc, char** argv) {
             char *json2 = pb2json(alignment);
             cout<<json2<<endl;
             free(json2);
+        } else {
+            function<Alignment(uint64_t)> lambda =
+                [&alignment] (uint64_t n) {
+                return alignment;
+            };
+            stream::write(cout, 1, lambda);
         }
     }
 

@@ -10,10 +10,10 @@ Mapper::Mapper(Index* idex)
     , kmer_min(18)
     , kmer_threshold(1)
     , kmer_sensitivity_step(3)
-    , thread_extension(10)
+    , thread_extension(1)
     , thread_extension_max(80)
     , max_attempts(3)
-    , softclip_threshold(2)
+    , softclip_threshold(0)
     , prefer_forward(false)
     , target_score_per_bp(1.5)
     , debug(false)
@@ -315,8 +315,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         for (auto& thread : threads) {
             // thread extension should be determined during iteration
             // note that there is a problem and hits tend to be imbalanced
-            int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
-            int64_t last = *thread.rbegin() + thread_ex;
+            //int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
+            //int64_t last = *thread.rbegin() + thread_ex;
+            int64_t first = *thread.begin();
+            int64_t last = *thread.rbegin();
             // so we can pick it up efficiently from the index by pulling the range from first to last
             if (debug) cerr << "getting node range " << first << "-" << last << endl;
             index->get_range(first, last, *graph);
@@ -329,31 +331,21 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // align
     alignment.clear_path();
     graph->align(alignment);
+    delete graph;
 
     int sc_start = softclip_start(alignment);
     int sc_end = softclip_end(alignment);
 
-    //cerr << "score was " << alignment.score() << endl;
-    double average_node_length = (sc_start || sc_end) && graph->size() ? graph->length() / graph->size() : 0;
-    //cerr << "avg " << average_node_length << endl;
-    delete graph;
-
-    // did we still fail to align?
-    // if so, decrease the stride; if we are already at decreased stride, decrease the kmer size
-    //if (alignment.score() == 0 && (kmer_hit_count > 0 || hit_count > 0)) {
-    //return align_with_increased_sensitivity();
-//}
-
     // check if we start or end with soft clips
     // if so, try to expand the graph until we don't have any more (or we hit a threshold)
+    // expand in the direction where there were soft clips
 
     // NB it will probably be faster here to not fully query the DB again,
     // but instead to grow the matching graph in the right direction
     // should be adjusted t account for incomplete matching, not just clips
     //cerr << sc_start << " " << sc_end << endl;
-    // this could be much simpler, just aligning the tails of the read to the target
-    if (false) {
-    //if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
+
+    if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
 
         if (debug) cerr << "softclip handling " << sc_start << " " << sc_end << endl;
         VG* graph = new VG;
@@ -361,12 +353,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
 
         int64_t idf = path->mutable_mapping(0)->node_id();
         int64_t idl = path->mutable_mapping(path->mapping_size()-1)->node_id();
-        /*
-        cerr << average_node_length << endl;
-        cerr << idf << " to " << idl << endl;
-        */
-        int64_t first = max((int64_t)0, idf - (int64_t)ceil((sc_start / average_node_length) * 10));
-        int64_t last =   idl + (int64_t)ceil((sc_end   / average_node_length) * 10);
+        // step towards the side where there were soft clips
+        // using 10x the thread_extension
+        int64_t first = max((int64_t)0, idf - (int64_t)(sc_start ? thread_ex * 10 : 0));
+        int64_t last =   idl + (int64_t)(sc_end ? thread_ex * 10 : 0);
         if (debug) cerr << "getting node range " << first << "-" << last << endl;
         index->get_range(first, last, *graph);
         graph->remove_orphan_edges();

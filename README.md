@@ -113,7 +113,7 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] compression of serialization format
 - [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - [x] emded paths in serialized graph format (important especially in the case of reference paths)
-- [ ] alignment serialization format
+- [x] alignment serialization format
 - [x] prune non-informative kmers from index, so as to save space
 - [ ] per-node, per-sample quality and count information on graph
 - [ ] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
