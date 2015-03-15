@@ -1,0 +1,89 @@
+##fileformat=VCFv4.1
+##FILTER=<ID=Uncertain,Description="Uncertain genotype due to reason in filter INFO field">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total read depth summed across all datasets, excluding MQ0 reads">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Net Genotype quality across all datasets, defined as difference between most likely and next most likely genotype likelihoods">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Net Genotype across all datasets">
+##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Normalized, Phred-scaled likelihoods summed across all unfiltered datasets for genotypes as defined in the VCF specification">
+##INFO=<ID=allalts,Number=1,Type=Integer,Description="All ALT alleles originally considered at this position">
+##INFO=<ID=datasetcalls,Number=1,Type=Integer,Description="Number of datasets with any genotype call at this position">
+##INFO=<ID=DPSum,Number=1,Type=Integer,Description="Total read depth summed across all datasets, excluding MQ0 reads">
+##INFO=<ID=Entropy,Number=1,Type=Float,Description="Shannon entropy of variant flanking regions, 12bp on both sides">
+##INFO=<ID=filter,Number=1,Type=String,Description="Reason for filtering this genotype as uncertain">
+##INFO=<ID=geno,Number=1,Type=Integer,Description="Most probable genotype, corresponding to the minimum entry in the PL field (e.g., 1=0/0,2=0/1,3=1/1,4=0/2,etc)">
+##INFO=<ID=genoMapGood,Number=1,Type=Integer,Description="Number of datasets calling this genotype with VQSR mapping tranche <= 95">
+##INFO=<ID=HapNoVar,Number=1,Type=Integer,Description="Number of datasets for which HaplotypeCaller called a variant within 35bp and did not call a variant at this location">
+##INFO=<ID=HRun,Number=1,Type=Integer,Description="Largest Contiguous Homopolymer Run of Variant Allele In Either Direction">
+##INFO=<ID=NoCG,Number=0,Type=Flag,Description="Present if no consensus reached, so looked at all datasets except Complete Genomics since it may have a different representation of complex variants">
+##INFO=<ID=NoPLTot,Number=1,Type=Integer,Description="Number of datasets with likelihood ratio > 20 for a genotype different from the called genotype">
+##INFO=<ID=platforms,Number=1,Type=Integer,Description="Number of different platforms that called this genotype">
+##INFO=<ID=platformbias,Number=.,Type=String,Description="Names of platforms that have at more than twice as many incorrect than correct genotypes at this location, indicating platform-specific bias (ill=Illumina,sol=SOLiD,454=454,ion=Ion Torrent,cg=Complete Genomics)">
+##INFO=<ID=platformnames,Number=.,Type=String,Description="Names of platforms that called this genotype (ill=Illumina,sol=SOLiD,454=454,ion=Ion Torrent,cg=Complete Genomics)">
+##INFO=<ID=PL454WG,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~16x 454 whole genome sequencing from 1000 Genomes Project, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLCG,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~73x Complete Genomics whole genome sequencing, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLHSWEx,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~66x 2x100bp Illumina exome sequencing from Broad Institute, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLHSWG,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~68x 2x100bp Illumina whole genome sequencing from Broad Institute, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLILL250,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~50x 2x250bp Illumina PCR-free whole genome sequencing from Broad Institute, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLILLCLIA,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~80x 2x100bp Illumina whole genome sequencing from Illumina CLIA lab, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLIllPCRFree,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~56x 2x100bp Illumina PCR-free whole genome sequencing from Illumina Platinum Genomes Project, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLILLWEx,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~30x 2x54bp Illumina exome sequencing from Broad Institute, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLILLWG,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~39x 2x44bp Illumina whole genome sequencing from Broad Institute, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLIonEx,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~80x mean 237bp Ion Torrent exome sequencing from Life Technologies, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLPlatGen,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~190x 2x100bp Illumina PCR-free whole genome sequencing from Illumina Platinum Genomes Project, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLXIll,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~37x 2x100bp Illumina whole genome sequencing from X Prize, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLXPSolWGLS,Number=.,Type=String,Description="Genotype likelihoods (PL) for ~24x 50bpx35bp SOLiD whole genome sequencing from X Prize, preceded by filtering info if this dataset was not used due to evidence of bias">
+##INFO=<ID=PLminsum,Number=1,Type=Integer,Description="Net Genotype quality across all datasets, defined as difference between most likely and next most likely genotype likelihoods">
+##INFO=<ID=PLminsumOverDP,Number=1,Type=Float,Description="Net Genotype quality across all datasets, defined as difference between most likely and next most likely genotype likelihoods, divided by the depth of coverage">
+##INFO=<ID=RU,Number=1,Type=String,Description="Tandem repeat unit (bases)">
+##INFO=<ID=RPA,Number=.,Type=Integer,Description="Number of times tandem repeat unit is repeated, for each allele (including reference)">
+##INFO=<ID=TrancheABQDmin2,Number=1,Type=Float,Description="2nd lowest VQSR tranche for the called genotype for annotations associated with abnormal allele balance (AB and QD)">
+##INFO=<ID=TrancheAlignmin2,Number=1,Type=Float,Description="2nd lowest VQSR tranche for the called genotype for annotations associated with local alignment errors (distance from the end of the read and clipping)">
+##INFO=<ID=TrancheMapmin2,Number=1,Type=Float,Description="2nd lowest VQSR tranche for the called genotype for annotations associated with mapping errors (mapping quality and depth of coverage)">
+##INFO=<ID=TrancheSSEmin2,Number=1,Type=Float,Description="2nd lowest VQSR tranche for the called genotype for annotations associated with systematic sequencing errors (strand bias and neighboring base quality)">
+##INFO=<ID=varType,Number=1,Type=String,Description="Type of variant">
+##INFO=<ID=YesPLtot,Number=1,Type=Integer,Description="Number of datasets with likelihood ratio > 20 for the called genotype">
+##contig=<ID=1,length=249250621,assembly=b37>
+##contig=<ID=2,length=243199373,assembly=b37>
+##contig=<ID=3,length=198022430,assembly=b37>
+##contig=<ID=4,length=191154276,assembly=b37>
+##contig=<ID=5,length=180915260,assembly=b37>
+##contig=<ID=6,length=171115067,assembly=b37>
+##contig=<ID=7,length=159138663,assembly=b37>
+##contig=<ID=8,length=146364022,assembly=b37>
+##contig=<ID=9,length=141213431,assembly=b37>
+##contig=<ID=10,length=135534747,assembly=b37>
+##contig=<ID=11,length=135006516,assembly=b37>
+##contig=<ID=12,length=133851895,assembly=b37>
+##contig=<ID=13,length=115169878,assembly=b37>
+##contig=<ID=14,length=107349540,assembly=b37>
+##contig=<ID=15,length=102531392,assembly=b37>
+##contig=<ID=16,length=90354753,assembly=b37>
+##contig=<ID=17,length=81195210,assembly=b37>
+##contig=<ID=18,length=78077248,assembly=b37>
+##contig=<ID=19,length=59128983,assembly=b37>
+##contig=<ID=20,length=63025520,assembly=b37>
+##contig=<ID=21,length=48129895,assembly=b37>
+##contig=<ID=22,length=51304566,assembly=b37>
+##contig=<ID=X,length=155270560,assembly=b37>
+##contig=<ID=Y,length=59373566,assembly=b37>
+##contig=<ID=MT,length=16569,assembly=b37>
+##fileDate=20130719
+##phasing=none
+##reference=human_g1k_v37.fasta
+##variants_justified=left
+##INFO=<ID=TYPE,Number=A,Type=String,Description="The type of allele, either snp, mnp, ins, del, or complex.">
+##INFO=<ID=LEN,Number=A,Type=Integer,Description="allele length">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12878
+q	186	.	T	C	11488	PASS	DPSum=824;HRun=0;HapNoVar=0;NoPLTot=0;PL454WG=353,0,389;PLCG=698,0,750;PLHSWG=1303,0,1514;PLILL250=694,0,744;PLILLCLIA=1984,0,1727;PLILLWG=652,0,578;PLIllPCRFree=749,0,1617;PLNCIIonWG=67,0,116;PLPlatGen=4041,0,4291;PLXIll=515,0,763;PLXPSolWGLS=432,0,608;PLminsum=11488;PLminsumOverDP=13.94;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=11;allalts=C;datasetcalls=11;geno=2;genoMapGood=11;platformbias=none;platformnames=ill,454,sol,cg,ion;platforms=5;varType=SNP	GT:DP:GQ:PL	0/1:824:11488:11488,0,13097
+q	1008	.	C	T	6462	PASS	DPSum=569;HRun=0;HapNoVar=0;NoPLTot=0;PL454WG=112,0,152;PLCG=471,0,330;PLHSWG=579,0,778;PLILL250=335,0,178;PLILLCLIA=1013,0,1657;PLILLWG=173,0,294;PLIllPCRFree=781,0,698;PLPlatGen=2598,0,2675;PLXIll=303,0,376;PLXPSolWGLS=97,0,57;PLminsum=6462;PLminsumOverDP=11.36;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=10;allalts=T;datasetcalls=10;geno=2;genoMapGood=10;platformbias=none;platformnames=ill,454,sol,cg;platforms=4;varType=SNP	GT:DP:GQ:PL	0/1:569:6462:6462,0,7195
+q	1817	.	G	A	3061	PASS	DPSum=361;HRun=0;HapNoVar=0;NoPLTot=0;PL454WG=98,0,24;PLCG=125,0,138;PLHSWG=164,0,80;PLILL250=325,0,792;PLILLCLIA=316,0,212;PLILLWG=65,0,27;PLIllPCRFree=546,0,489;PLPlatGen=1422,0,2430;PLminsum=3061;PLminsumOverDP=8.48;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=8;allalts=A;datasetcalls=8;geno=2;genoMapGood=8;platformbias=none;platformnames=ill,454,cg;platforms=3;varType=SNP	GT:DP:GQ:PL	0/1:361:3061:3061,0,4192
+q	1820	.	C	T	3594	PASS	DPSum=358;HRun=0;HapNoVar=0;NoPLTot=0;PL454WG=97,0,20;PLCG=140,0,160;PLHSWG=165,0,106;PLILL250=332,0,821;PLILLCLIA=317,0,191;PLILLWG=63,0,62;PLIllPCRFree=695,0,582;PLPlatGen=1785,0,2767;PLminsum=3594;PLminsumOverDP=10.04;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=7;allalts=T;datasetcalls=8;geno=2;genoMapGood=7;platformbias=none;platformnames=ill,cg;platforms=2;varType=SNP	GT:DP:GQ:PL	0/1:358:3594:3594,0,4709
+q	1917	.	A	G	5718	PASS	DPSum=430;HRun=0;HapNoVar=0;NoPLTot=0;PLCG=175,0,339;PLHSWG=231,0,186;PLILL250=450,0,787;PLILLCLIA=697,0,510;PLILLWG=76,0,179;PLIllPCRFree=776,0,547;PLNCIIonWG=44,0,22;PLPlatGen=3171,0,2815;PLXIll=98,0,94;PLminsum=5479;PLminsumOverDP=12.74;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=9;allalts=G;datasetcalls=9;geno=2;genoMapGood=9;platformbias=none;platformnames=ill,cg,ion;platforms=3;varType=SNP	GT:DP:GQ:PL	0/1:430:5479:5718,0,5479
+q	4449	.	G	A	11413	PASS	DPSum=725;HRun=0;HapNoVar=0;NoPLTot=0;PL454WG=242,0,405;PLCG=685,0,483;PLHSWG=1176,0,998;PLILL250=967,0,487;PLILLCLIA=956,0,1221;PLILLWG=615,0,542;PLIllPCRFree=1346,0,1143;PLNCIIonWG=1,0,192;PLPlatGen=4726,0,3765;PLXIll=699,0,761;PLminsum=9997;PLminsumOverDP=13.79;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=9;allalts=A;datasetcalls=10;geno=2;genoMapGood=9;platformbias=none;platformnames=ill,454,cg;platforms=3;varType=SNP	GT:DP:GQ:PL	0/1:725:9997:11413,0,9997
+q	5009	.	C	T	8517	PASS	DPSum=639;HRun=0;HapNoVar=0;NoPLTot=0;PL454WG=205,0,204;PLCG=744,0,686;PLHSWG=932,0,971;PLILL250=315,0,370;PLILLCLIA=774,0,943;PLILLWG=273,0,298;PLIllPCRFree=878,0,1020;PLNCIIonWG=28,0,82;PLPlatGen=3611,0,4445;PLXIll=567,0,492;PLXPSolWGLS=190,0,302;PLminsum=8517;PLminsumOverDP=13.33;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=11;allalts=T;datasetcalls=11;geno=2;genoMapGood=11;platformbias=none;platformnames=ill,454,sol,cg,ion;platforms=5;varType=SNP	GT:DP:GQ:PL	0/1:639:8517:8517,0,9813
+q	6418	.	G	A	9700	PASS	DPSum=777;HRun=1;HapNoVar=0;NoPLTot=0;PL454WG=117,0,141;PLCG=519,0,688;PLHSWG=1193,0,1365;PLILL250=760,0,399;PLILLCLIA=1473,0,1473;PLILLWG=477,0,680;PLIllPCRFree=743,0,1372;PLPlatGen=3923,0,3639;PLXIll=382,0,826;PLXPSolWGLS=113,0,198;PLminsum=9700;PLminsumOverDP=12.48;RPA=16,17;RU=A;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=10;allalts=A;datasetcalls=10;geno=2;genoMapGood=10;platformbias=none;platformnames=ill,454,sol,cg;platforms=4;varType=SNP	GT:DP:GQ:PL	0/1:777:9700:9700,0,10781
+q	8846	.	T	C	9797	PASS	DPSum=727;HRun=1;HapNoVar=0;NoPLTot=0;PLCG=470,0,525;PLHSWG=1228,0,1675;PLILL250=516,0,649;PLILLCLIA=1506,0,1304;PLILLWG=541,0,453;PLIllPCRFree=1022,0,801;PLNCIIonWG=36,0,132;PLPlatGen=3724,0,4719;PLXIll=623,0,669;PLXPSolWGLS=131,0,408;PLminsum=9797;PLminsumOverDP=13.48;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=10;allalts=C;datasetcalls=10;geno=2;genoMapGood=10;platformbias=none;platformnames=ill,sol,cg,ion;platforms=4;varType=SNP	GT:DP:GQ:PL	0/1:727:9797:9797,0,11335
+q	9791	.	A	C	10272	PASS	DPSum=777;HRun=1;HapNoVar=0;NoPLTot=0;PL454WG=239,0,213;PLCG=839,0,825;PLHSWG=1051,0,1286;PLILL250=337,0,490;PLILLCLIA=1591,0,1298;PLILLWG=458,0,844;PLIllPCRFree=716,0,1064;PLNCIIonWG=254,0,57;PLPlatGen=3778,0,4302;PLXIll=513,0,812;PLXPSolWGLS=496,0,558;PLminsum=10272;PLminsumOverDP=13.22;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=11;allalts=C;datasetcalls=11;geno=2;genoMapGood=11;platformbias=none;platformnames=ill,454,sol,cg,ion;platforms=5;varType=SNP	GT:DP:GQ:PL	0/1:777:10272:10272,0,11749
+q	10532	.	C	A	8913	PASS	DPSum=705;HRun=2;HapNoVar=0;NoPLTot=0;PLCG=653,0,743;PLHSWG=1626,0,1610;PLILL250=501,0,624;PLILLCLIA=896,0,1250;PLILLWG=320,0,420;PLIllPCRFree=908,0,1146;PLPlatGen=3625,0,4125;PLXIll=384,0,581;PLminsum=8913;PLminsumOverDP=12.64;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=8;allalts=A;datasetcalls=8;geno=2;genoMapGood=8;platformbias=none;platformnames=ill,cg;platforms=2;varType=SNP	GT:DP:GQ:PL	0/1:705:8913:8913,0,10499
+q	11261	.	T	C	9848	PASS	DPSum=709;HRun=1;HapNoVar=0;NoPLTot=0;PL454WG=106,0,86;PLCG=471,0,482;PLHSWG=1029,0,914;PLILL250=632,0,656;PLILLCLIA=1189,0,1776;PLILLWG=315,0,760;PLIllPCRFree=987,0,701;PLNCIIonWG=91,0,94;PLPlatGen=4150,0,4008;PLXIll=829,0,904;PLXPSolWGLS=49,0,135;PLminsum=9848;PLminsumOverDP=13.89;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=11;allalts=C;datasetcalls=11;geno=2;genoMapGood=11;platformbias=none;platformnames=ill,454,sol,cg,ion;platforms=5;varType=SNP	GT:DP:GQ:PL	0/1:709:9848:9848,0,10516
+q	11536	.	T	C	11666	PASS	DPSum=841;HRun=1;HapNoVar=0;NoPLTot=0;PL454WG=172,0,410;PLCG=652,0,960;PLHSWEx=31,0,32;PLHSWG=1156,0,1240;PLILL250=818,0,685;PLILLCLIA=1490,0,1870;PLILLWG=807,0,626;PLIllPCRFree=1042,0,1136;PLNCIIonWG=303,0,116;PLPlatGen=4105,0,3971;PLXIll=795,0,850;PLXPSolWGLS=295,0,414;PLminsum=11666;PLminsumOverDP=13.87;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=12;allalts=C;datasetcalls=12;geno=2;genoMapGood=12;platformbias=none;platformnames=ill,454,sol,cg,ion;platforms=5;varType=SNP	GT:DP:GQ:PL	0/1:841:11666:11666,0,12310
+q	12125	.	T	C	11323	PASS	DPSum=806;HRun=1;HapNoVar=0;NoPLTot=0;PL454WG=254,0,312;PLCG=512,0,595;PLHSWG=1073,0,1401;PLILL250=603,0,978;PLILLCLIA=1833,0,1747;PLILLWG=597,0,727;PLIllPCRFree=1219,0,658;PLNCIIonWG=256,0,148;PLPlatGen=4169,0,3563;PLXIll=641,0,783;PLXPSolWGLS=166,0,106;PLminsum=11018;PLminsumOverDP=13.67;TrancheABQDmin2=0;TrancheAlignmin2=0;TrancheMapmin2=0;TrancheSSEmin2=0;YesPLtot=11;allalts=C;datasetcalls=11;geno=2;genoMapGood=11;platformbias=none;platformnames=ill,454,sol,cg,ion;platforms=5;varType=SNP	GT:DP:GQ:PL	0/1:806:11018:11323,0,11018

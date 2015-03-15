@@ -17,9 +17,11 @@ int sam_for_each(string& filename, function<void(Alignment&)> lambda) {
     bam_destroy1(b);
     bam_hdr_destroy(hdr);
     hts_close(in);
+    /*
     if (fp && hclose(fp) < 0) {
         cerr << "htsfile: closing " << filename << " failed" << endl;
     }
+    */
     return 1;
 
 }
@@ -32,6 +34,14 @@ void write_alignments(std::ostream& out, vector<Alignment>& buf) {
     stream::write(cout, buf.size(), lambda);
 }
 
+short quality_char_to_short_int(char c) {
+    return static_cast<short>(c) - 33;
+}
+
+char quality_int_to_char(short i) {
+    return static_cast<char>(i + 33);
+}
+
 Alignment bam_to_alignment(bam1_t* b) {
 
     Alignment alignment;
@@ -41,6 +51,7 @@ Alignment bam_to_alignment(bam1_t* b) {
     int32_t lqseq = b->core.l_qseq;
     string sequence; sequence.resize(lqseq);
     string quality; quality.resize(lqseq);
+    string squality; squality.resize(lqseq);
 
     char* nameptr = bam_get_qname(b);
     memcpy((char*)name.c_str(), nameptr, lqname);
@@ -48,16 +59,18 @@ Alignment bam_to_alignment(bam1_t* b) {
     uint8_t* qualptr = bam_get_qual(b);
     memcpy((char*)quality.c_str(), qualptr, lqseq);
 
+    std::transform(quality.begin(), quality.end(), squality.begin(),
+                   [](char c) { return (char)quality_int_to_char((int8_t)c); });
+
     uint8_t* seqptr = bam_get_seq(b);
     for (int i = 0; i < lqseq; ++i) {
-        //int8_t c = seqptr[i];
         const char singleBase = BAM_DNA_LOOKUP[ ( (seqptr[(i/2)] >> (4*(1-(i%2)))) & 0xf ) ];
         sequence[i] = singleBase;
     }
 
     alignment.set_name(name);
     alignment.set_sequence(sequence);
-    alignment.set_quality(quality);
+    alignment.set_quality(squality);
     return alignment;
 }
 

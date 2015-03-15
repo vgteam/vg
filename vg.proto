@@ -35,12 +35,13 @@ message Edge {
 
 // sequencing-specific annotations
 message Annotation {
-    optional int32 quality = 1;
-    optional int32 coverage = 2;
-    optional int32 forward = 3;
-    optional int32 reverse = 4;
-    optional int32 left = 5;
-    optional int32 right = 6;
+    optional int32 length = 1;
+    optional int32 quality = 2;
+    optional int32 coverage = 3;
+    optional int32 forward = 4;
+    optional int32 reverse = 5;
+    optional int32 left = 6;
+    optional int32 right = 7;
 }
 
 // *Edits* describe how to generate a new string from elements
