@@ -5,8 +5,7 @@ namespace vg {
 
 int sam_for_each(string& filename, function<void(Alignment&)> lambda) {
 
-    hFILE *fp = hopen(filename.c_str(), "r");
-    samFile *in = hts_hopen(fp, filename.c_str(), "r");
+    samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
     bam_hdr_t *hdr = sam_hdr_read(in);
     bam1_t *b = bam_init1();
@@ -17,11 +16,6 @@ int sam_for_each(string& filename, function<void(Alignment&)> lambda) {
     bam_destroy1(b);
     bam_hdr_destroy(hdr);
     hts_close(in);
-    /*
-    if (fp && hclose(fp) < 0) {
-        cerr << "htsfile: closing " << filename << " failed" << endl;
-    }
-    */
     return 1;
 
 }
