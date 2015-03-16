@@ -1671,7 +1671,9 @@ int main_view(int argc, char** argv) {
         graph->paths.load(in);
     } else if (input_type == "gam") {
         if (output_type == "json") {
+            // convert values to printable ones
             function<void(Alignment&)> lambda = [](Alignment& a) {
+                alignment_quality_short_to_char(a);
                 char *json2 = pb2json(a);
                 cout << json2 << "\n";
                 free(json2);

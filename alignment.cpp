@@ -28,12 +28,28 @@ void write_alignments(std::ostream& out, vector<Alignment>& buf) {
     stream::write(cout, buf.size(), lambda);
 }
 
-short quality_char_to_short_int(char c) {
+short quality_char_to_short(char c) {
     return static_cast<short>(c) - 33;
 }
 
-char quality_int_to_char(short i) {
+char quality_short_to_char(short i) {
     return static_cast<char>(i + 33);
+}
+
+void alignment_quality_short_to_char(Alignment& alignment) {
+    const string& quality = alignment.quality();
+    string squality;
+    std::transform(quality.begin(), quality.end(), squality.begin(),
+                   [](char c) { return (char)quality_short_to_char((int8_t)c); });
+    alignment.set_quality(squality);
+}
+
+void alignment_quality_char_to_short(Alignment& alignment) {
+    const string& quality = alignment.quality();
+    string squality;
+    std::transform(quality.begin(), quality.end(), squality.begin(),
+                   [](char c) { return (int8_t)quality_char_to_short((char)c); });
+    alignment.set_quality(squality);
 }
 
 Alignment bam_to_alignment(bam1_t* b) {
@@ -45,7 +61,6 @@ Alignment bam_to_alignment(bam1_t* b) {
     int32_t lqseq = b->core.l_qseq;
     string sequence; sequence.resize(lqseq);
     string quality; quality.resize(lqseq);
-    string squality; squality.resize(lqseq);
 
     char* nameptr = bam_get_qname(b);
     memcpy((char*)name.c_str(), nameptr, lqname);
@@ -53,18 +68,14 @@ Alignment bam_to_alignment(bam1_t* b) {
     uint8_t* qualptr = bam_get_qual(b);
     memcpy((char*)quality.c_str(), qualptr, lqseq);
 
-    std::transform(quality.begin(), quality.end(), squality.begin(),
-                   [](char c) { return (char)quality_int_to_char((int8_t)c); });
-
     uint8_t* seqptr = bam_get_seq(b);
     for (int i = 0; i < lqseq; ++i) {
-        const char singleBase = BAM_DNA_LOOKUP[ ( (seqptr[(i/2)] >> (4*(1-(i%2)))) & 0xf ) ];
-        sequence[i] = singleBase;
+        sequence[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(seqptr, i)];
     }
 
     alignment.set_name(name);
     alignment.set_sequence(sequence);
-    alignment.set_quality(squality);
+    alignment.set_quality(quality);
     return alignment;
 }
 
