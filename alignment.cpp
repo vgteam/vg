@@ -8,9 +8,11 @@ int sam_for_each(string& filename, function<void(Alignment&)> lambda) {
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
     bam_hdr_t *hdr = sam_hdr_read(in);
+    map<string, string> rg_sample;
+    parse_rg_sample_map(hdr->text, rg_sample);
     bam1_t *b = bam_init1();
     while (sam_read1(in, hdr, b) >= 0) {
-        Alignment a = bam_to_alignment(b);
+        Alignment a = bam_to_alignment(b, rg_sample);
         lambda(a);
     }
     bam_destroy1(b);
@@ -18,6 +20,65 @@ int sam_for_each(string& filename, function<void(Alignment&)> lambda) {
     hts_close(in);
     return 1;
 
+}
+
+void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
+    string header(hts_header);
+    vector<string> header_lines = split(header, '\n');
+
+    for (auto& line : header_lines) {
+
+        // get next line from header, skip if empty
+        if ( line.empty() ) { continue; }
+
+        // lines of the header look like:
+        // "@RG     ID:-    SM:NA11832      CN:BCM  PL:454"
+        //                     ^^^^^^^\ is our sample name
+        if ( line.find("@RG") == 0 ) {
+            vector<string> rg_parts = split(line, "\t ");
+            string name;
+            string rg_id;
+            for (auto& part : rg_parts) {
+                size_t colpos = part.find(":");
+                if (colpos != string::npos) {
+                    string fieldname = part.substr(0, colpos);
+                    if (fieldname == "SM") {
+                        name = part.substr(colpos+1);
+                    } else if (fieldname == "ID") {
+                        rg_id = part.substr(colpos+1);
+                    }
+                }
+            }
+            if (name == "") {
+                cerr << "[vg::alignment] Error: could not find 'SM' in @RG line " << endl << line << endl;
+                exit(1);
+            }
+            if (rg_id == "") {
+                cerr << "[vg::alignment] Error: could not find 'ID' in @RG line " << endl << line << endl;
+                exit(1);
+            }
+            map<string, string>::iterator s = rg_sample.find(rg_id);
+            if (s != rg_sample.end()) {
+                if (s->second != name) {
+                    cerr << "[vg::alignment] Error: multiple samples (SM) map to the same read group (RG)" << endl
+                          << endl
+                          << "samples " << name << " and " << s->second << " map to " << rg_id << endl
+                          << endl
+                          << "It will not be possible to determine what sample an alignment belongs to" << endl
+                          << "at runtime." << endl
+                          << endl
+                          << "To resolve the issue, ensure that RG ids are unique to one sample" << endl
+                          << "across all the input files to freebayes." << endl
+                          << endl
+                          << "See bamaddrg (https://github.com/ekg/bamaddrg) for a method which can" << endl
+                          << "add RG tags to alignments." << endl;
+                    exit(1);
+                }
+            }
+            // if it's the same sample name and RG combo, no worries
+            rg_sample[rg_id] = name;
+        }
+    }
 }
 
 void write_alignments(std::ostream& out, vector<Alignment>& buf) {
@@ -52,30 +113,39 @@ void alignment_quality_char_to_short(Alignment& alignment) {
     alignment.set_quality(squality);
 }
 
-Alignment bam_to_alignment(bam1_t* b) {
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
 
     Alignment alignment;
 
-    uint32_t lqname = b->core.l_qname;
-    string name; name.resize(lqname);
+    // get the sequence and qual
     int32_t lqseq = b->core.l_qseq;
     string sequence; sequence.resize(lqseq);
     string quality; quality.resize(lqseq);
 
-    char* nameptr = bam_get_qname(b);
-    memcpy((char*)name.c_str(), nameptr, lqname);
-
+    // take the quality as-is
+    // we have to copy this way--- it's not null terminated
     uint8_t* qualptr = bam_get_qual(b);
     memcpy((char*)quality.c_str(), qualptr, lqseq);
 
+    // process the sequence into chars
     uint8_t* seqptr = bam_get_seq(b);
     for (int i = 0; i < lqseq; ++i) {
         sequence[i] = "=ACMGRSVTWYHKDBN"[bam_seqi(seqptr, i)];
     }
 
-    alignment.set_name(name);
+    // get the read group and sample name
+    uint8_t *rgptr = bam_aux_get(b, "RG");
+    char* rg = (char*) (rgptr+1);
+    string& sname = rg_sample[string(rg)];
+
+    // add features to the alignment
+    alignment.set_name(bam_get_qname(b));
     alignment.set_sequence(sequence);
     alignment.set_quality(quality);
+    alignment.set_is_reverse(bam_is_rev(b));
+    alignment.set_sample_name(sname);
+    alignment.set_read_group(rg);
+
     return alignment;
 }
 

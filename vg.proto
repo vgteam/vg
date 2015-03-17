@@ -104,8 +104,10 @@ message Alignment {
     optional int32 mapping_quality = 5;
     optional int32 score = 6;
     optional int32 query_position = 7;
-    optional bool strand_plus = 8; // true if original sequence is in 5'->3' orientation
-    optional bytes data = 9;
+    optional bool is_reverse = 8; // true if original sequence lies in the 3'->5' orientation
+    optional string sample_name = 9;
+    optional string read_group = 10;
+    optional bytes data = 11;
 }
 
 // used to specify kmer matches against a given node

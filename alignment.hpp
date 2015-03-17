@@ -15,12 +15,13 @@ namespace vg {
 const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
 int sam_for_each(string& filename, function<void(Alignment&)> lambda);
-Alignment bam_to_alignment(bam1_t* b);
+Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 void write_alignments(std::ostream& out, vector<Alignment>& buf);
 short quality_char_to_short(char c);
 char quality_short_to_char(short i);
 void alignment_quality_char_to_short(Alignment& alignment);
 void alignment_quality_short_to_char(Alignment& alignment);
+void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
 
 }
 
