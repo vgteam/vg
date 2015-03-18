@@ -30,29 +30,38 @@ Mapper::~Mapper(void) {
     // noop
 }
 
-Alignment Mapper::align(string& sequence, int kmer_size, int stride) {
+Alignment Mapper::align(string& seq, int kmer_size, int stride) {
+    Alignment aln;
+    aln.set_sequence(seq);
+    return align(aln, kmer_size, stride);
+}
+
+Alignment Mapper::align(Alignment& aln, int kmer_size, int stride) {
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
     if (debug) start_both = std::chrono::system_clock::now();
+    const string& sequence = aln.sequence();
 
     // if kmer size is not specified, pick it up from the index
     // for simplicity, use the first available kmer size; this could change
     if (kmer_size == 0) kmer_size = *kmer_sizes.begin();
     // and start with stride such that we barely cover the read with kmers
-    if (stride == 0) stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
+    if (stride == 0)
+        stride = sequence.size()
+            / ceil((double)sequence.size() / kmer_size);
 
     int kmer_hit_count = 0;
     int kept_kmer_count = 0;
 
-    if (debug) cerr << "aligning " << sequence << endl;
+    if (debug) cerr << "aligning " << aln.sequence() << endl;
 
     // forward
-    Alignment alignment_f;
-    alignment_f.set_sequence(sequence);
+    Alignment alignment_f = aln;
 
     // reverse
-    Alignment alignment_r;
-    alignment_r.set_sequence(reverse_complement(sequence));
+    Alignment alignment_r = aln;
+    alignment_r.set_sequence(reverse_complement(aln.sequence()));
+    alignment_r.set_is_reverse(true);
 
     auto increase_sensitivity = [this,
                                  &kmer_size,

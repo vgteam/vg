@@ -3,7 +3,7 @@
 
 namespace vg {
 
-int sam_for_each(string& filename, function<void(Alignment&)> lambda) {
+int hts_for_each(string& filename, function<void(Alignment&)> lambda) {
 
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) return 0;
@@ -22,6 +22,44 @@ int sam_for_each(string& filename, function<void(Alignment&)> lambda) {
 
 }
 
+int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
+
+    samFile *in = hts_open(filename.c_str(), "r");
+    if (in == NULL) return 0;
+    bam_hdr_t *hdr = sam_hdr_read(in);
+    map<string, string> rg_sample;
+    parse_rg_sample_map(hdr->text, rg_sample);
+
+    int thread_count = get_thread_count();
+    vector<bam1_t*> bs; bs.resize(thread_count);
+    for (auto& b : bs) {
+        b = bam_init1();
+    }
+
+    bool more_data = true;
+#pragma omp parallel shared(in, hdr, more_data, rg_sample)
+    {
+        int tid = omp_get_thread_num();
+        while (more_data) {
+            bam1_t* b = bs[tid];
+#pragma omp critical (hts_input)
+            if (more_data) {
+                more_data = sam_read1(in, hdr, b) >= 0;
+            }
+            if (more_data) {
+                Alignment a = bam_to_alignment(b, rg_sample);
+                lambda(a);
+            }
+        }
+    }
+
+    for (auto& b : bs) bam_destroy1(b);
+    bam_hdr_destroy(hdr);
+    hts_close(in);
+    return 1;
+
+}
+
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     string header(hts_header);
     vector<string> header_lines = split(header, '\n');
@@ -34,7 +72,7 @@ void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
         // lines of the header look like:
         // "@RG     ID:-    SM:NA11832      CN:BCM  PL:454"
         //                     ^^^^^^^\ is our sample name
-        if ( line.find("@RG") == 0 ) {
+        if (line.find("@RG") == 0) {
             vector<string> rg_parts = split(line, "\t ");
             string name;
             string rg_id;
@@ -49,11 +87,11 @@ void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
                     }
                 }
             }
-            if (name == "") {
+            if (name.empty()) {
                 cerr << "[vg::alignment] Error: could not find 'SM' in @RG line " << endl << line << endl;
                 exit(1);
             }
-            if (rg_id == "") {
+            if (rg_id.empty()) {
                 cerr << "[vg::alignment] Error: could not find 'ID' in @RG line " << endl << line << endl;
                 exit(1);
             }

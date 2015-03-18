@@ -107,6 +107,10 @@ message Alignment {
     optional bool is_reverse = 8; // true if original sequence lies in the 3'->5' orientation
     optional string sample_name = 9;
     optional string read_group = 10;
+    // todo add
+    // pairing
+    // reference-relative mapping (?)
+    // identity of graph we mapped against
     optional bytes data = 11;
 }
 

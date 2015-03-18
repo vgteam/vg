@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 6
+plan tests 7
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -k 11 x.vg
@@ -26,5 +26,12 @@ is $(vg map -s $seq x.vg | vg view -a - | jq -c '[.score, .sequence, .path.node_
    $(vg map -s $seq -J x.vg | jq -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
    "binary alignment format is equivalent to json version"
 
-#rm x.vg
-#rm -rf x.vg.index
+rm x.vg
+rm -rf x.vg.index
+
+vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz >giab.vg
+vg index -s -k 27 -e 7 giab.vg                                                   
+is $(vg map -b minigiab/NA12878.chr22.tiny.bam giab.vg | vg view -a - | wc -l) $(samtools view minigiab/NA12878.chr22.tiny.bam | wc -l) "mapping of BAM file produces expected number of alignments"
+
+rm giab.vg
+rm -rf giab.vg.index

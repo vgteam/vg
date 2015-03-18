@@ -1286,7 +1286,8 @@ void help_map(char** argv) {
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl
          << "                          a graph is not required" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-         << "    -r, --reads FILE      take reads from FILE, printing alignments to stdout" << endl
+         << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
+         << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default 5)" << endl
@@ -1313,6 +1314,7 @@ int main_map(int argc, char** argv) {
     int sens_step = 0;
     int best_clusters = 0;
     string read_file;
+    string hts_file;
     int hit_max = 100;
     int thread_count = 1;
     bool output_json = false;
@@ -1339,12 +1341,13 @@ int main_map(int argc, char** argv) {
                 {"score-per-bp", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"output-json", no_argument, 0, 'J'},
+                {"hts-input", no_argument, 0, 'b'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:J",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1385,6 +1388,10 @@ int main_map(int argc, char** argv) {
             read_file = optarg;
             break;
 
+        case 'b':
+            hts_file = optarg;
+            break;
+
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
@@ -1417,7 +1424,7 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    if (seq.empty() && read_file.empty()) {
+    if (seq.empty() && read_file.empty() && hts_file.empty()) {
         cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
         return 1;
     }
@@ -1509,6 +1516,40 @@ int main_map(int argc, char** argv) {
                 }
             }
         }
+    }
+
+
+    if (!hts_file.empty()) {
+        function<void(Alignment&)> lambda =
+            [&mapper,
+             &output_buffer,
+             &output_json,
+             &kmer_size,
+             &kmer_stride]
+            (Alignment& alignment) {
+            int tid = omp_get_thread_num();
+            alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride);
+            if (output_json) {
+                char *json2 = pb2json(alignment);
+#pragma omp critical (cout)
+                cout << json2 << "\n";
+                free(json2);
+            } else {
+                auto& output_buf = output_buffer[tid];
+                output_buf.push_back(alignment);
+                if (output_buf.size() >= 1000) {
+                    function<Alignment(uint64_t)> lambda =
+                        [&output_buf] (uint64_t n) {
+                        return output_buf[n];
+                    };
+#pragma omp critical (cout)
+                    stream::write(cout, output_buf.size(), lambda);
+                    output_buf.clear();
+                }
+            }
+        };
+        // run
+        hts_for_each_parallel(hts_file, lambda);
     }
 
     // clean up
@@ -1702,7 +1743,7 @@ int main_view(int argc, char** argv) {
                     buf.clear();
                 }
             };
-            sam_for_each(file_name, lambda);
+            hts_for_each(file_name, lambda);
             write_alignments(std::cout, buf);
             buf.clear();
             return 0;

@@ -23,6 +23,7 @@ public:
     Index* index;
 
     Alignment align(string& seq, int kmer_size = 0, int stride = 0);
+    Alignment align(Alignment& read, int kmer_size = 0, int stride = 0);
     Alignment& align_threaded(Alignment& read,
                               int& hit_count,
                               int kmer_size = 0,
