@@ -702,6 +702,9 @@ pair<list<int64_t>, int64_t> Index::get_nearest_node_prev_path_member(int64_t no
         if (get_node_path(node_id, path_id, path_pos, mapping) > 0) {
             return make_pair(bpath, node_id);
         }
+        Node n = node;
+        nq.clear();
+        nq[nullpath] = n;
     }
     // BFS back
     int steps_back = 0;
@@ -742,6 +745,9 @@ pair<list<int64_t>, int64_t> Index::get_nearest_node_next_path_member(int64_t no
         if (get_node_path(node_id, path_id, path_pos, mapping) > 0) {
             return make_pair(bpath, node_id);
         }
+        Node n = node;
+        nq.clear();
+        nq[nullpath] = n;
     }
     // BFS back
     int steps_back = 0;
@@ -780,6 +786,7 @@ bool Index::get_node_path_relative_position(int64_t node_id, int64_t path_id,
     auto null_pair = make_pair(nullpath, (int64_t)0);
     auto to_path_prev = get_nearest_node_prev_path_member(node_id, path_id, prev_pos);
     if (to_path_prev == null_pair) {
+        cerr << "no to path" << endl;
         return false;
     } else {
         path_prev = to_path_prev.first;
@@ -787,12 +794,43 @@ bool Index::get_node_path_relative_position(int64_t node_id, int64_t path_id,
 
     auto to_path_next = get_nearest_node_next_path_member(node_id, path_id, next_pos);
     if (to_path_next == null_pair) {
+        cerr << "no from path" << endl;
         return false;
     } else {
         path_next = to_path_next.first;
     }
 
     return true;
+}
+
+Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id) {
+    Mapping mapping;
+    mapping.set_node_id(node_id);
+    list<int64_t> path_prev, path_next;
+    int64_t prev_pos=0, next_pos=0;
+    if (get_node_path_relative_position(node_id, path_id,
+                                        path_prev, prev_pos, path_next, next_pos)) {
+        Edit* edit = mapping.add_edit();
+        Node node; get_node(node_id, node);
+        bool in_path = path_prev.back() == node_id && path_next.front() == node_id;
+        int32_t to_length = node.sequence().size();
+        int32_t from_length = in_path ? to_length : next_pos - prev_pos;
+        if (from_length == to_length) {
+            edit->set_from_length(from_length);
+        } else {
+            edit->set_from_length(from_length);
+            edit->set_to_length(to_length);
+        }
+    }
+    return mapping;
+}
+
+void Index::project_path(Path& to_project, string path_name,
+                         int64_t& pos, vector<Mapping>& cigar) {
+    for (int i = 0; i < to_project.mapping_size(); ++i) {
+        const Mapping& mapping = to_project.mapping(i);
+        // todo
+    }
 }
 
 void Index::expand_context(VG& graph, int steps = 1) {

@@ -187,4 +187,9 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
     return alignment;
 }
 
+void project_alignment(Alignment& alignment, Index& index, string& path_name,
+                       string& chrom, int64_t& pos, string& cigar) {
+    // establish a position and a mapping for the alignment
+}
+
 }

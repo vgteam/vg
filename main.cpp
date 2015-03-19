@@ -926,9 +926,16 @@ int main_find(int argc, char** argv) {
             list<int64_t> path_prev, path_next;
             int64_t prev_pos=0, next_pos=0;
             if (index.get_node_path_relative_position(node_id, path_id,
-                                                      path_prev, prev_pos, path_next, next_pos)) {
-                cout << node_id << " " << path_prev.front() << " " << prev_pos
-                     << " " << path_next.back() << " " << next_pos << endl;
+                                                      path_prev, prev_pos,
+                                                      path_next, next_pos)) {
+
+                cout << node_id << "\t" << path_prev.front() << "\t" << prev_pos
+                     << "\t" << path_next.back() << "\t" << next_pos << "\t";
+
+                Mapping m = index.path_relative_mapping(node_id, path_id);
+                char *json2 = pb2json(m);
+                cout<<json2<<endl;
+                free(json2);
             }
         }
     }

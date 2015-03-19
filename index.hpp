@@ -178,6 +178,9 @@ public:
     bool get_node_path_relative_position(int64_t node_id, int64_t path_id,
                                          list<int64_t>& path_prev, int64_t& prev_pos,
                                          list<int64_t>& path_next, int64_t& next_pos);
+    Mapping path_relative_mapping(int64_t node_id, int64_t path_id);
+    void project_path(Path& to_project, string path_name,
+                      int64_t& pos, vector<Mapping>& cigar);
 
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);
