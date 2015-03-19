@@ -923,11 +923,6 @@ int main_find(int argc, char** argv) {
     if (!node_ids.empty() && !path_name.empty()) {
         int64_t path_id = index.get_path_id(path_name);
         for (auto node_id : node_ids) {
-            int64_t path_pos = 0;
-            Mapping mapping;
-            if (index.get_node_path(node_id, path_id, path_pos, mapping) > 0) {
-                cout << node_id << " " << path_name << " " << path_id << " " << path_pos << endl;
-            }
             list<int64_t> path_prev, path_next;
             int64_t prev_pos=0, next_pos=0;
             if (index.get_node_path_relative_position(node_id, path_id,

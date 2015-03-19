@@ -692,8 +692,17 @@ int Index::get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, Ma
 
 pair<list<int64_t>, int64_t> Index::get_nearest_node_prev_path_member(int64_t node_id, int64_t path_id, int64_t& path_pos, int max_steps) {
     list<int64_t> nullpath;
+    list<int64_t> bpath;
     map<list<int64_t>, Node> nq;
-    get_node(node_id, nq[nullpath]);
+    { // handle this node
+        bpath.push_front(node_id);
+        Node& node = nq[bpath];
+        get_node(node_id, node);
+        Mapping mapping;
+        if (get_node_path(node_id, path_id, path_pos, mapping) > 0) {
+            return make_pair(bpath, node_id);
+        }
+    }
     // BFS back
     int steps_back = 0;
     while (steps_back++ < max_steps) {
@@ -707,9 +716,11 @@ pair<list<int64_t>, int64_t> Index::get_nearest_node_prev_path_member(int64_t no
                 int64_t id = edge.from();
                 list<int64_t> npath = path;
                 npath.push_front(id);
-                get_node(id, cq[npath]);
+                Node& node = cq[npath];
+                get_node(id, node);
                 Mapping mapping;
                 if (get_node_path(id, path_id, path_pos, mapping) > 0) {
+                    path_pos += node.sequence().size();
                     return make_pair(npath, id);
                 }
             }
@@ -721,8 +732,17 @@ pair<list<int64_t>, int64_t> Index::get_nearest_node_prev_path_member(int64_t no
 
 pair<list<int64_t>, int64_t> Index::get_nearest_node_next_path_member(int64_t node_id, int64_t path_id, int64_t& path_pos, int max_steps) {
     list<int64_t> nullpath;
+    list<int64_t> bpath;
     map<list<int64_t>, Node> nq;
-    get_node(node_id, nq[nullpath]);
+    { // handle this node
+        bpath.push_back(node_id);
+        Node& node = nq[bpath];
+        get_node(node_id, node);
+        Mapping mapping;
+        if (get_node_path(node_id, path_id, path_pos, mapping) > 0) {
+            return make_pair(bpath, node_id);
+        }
+    }
     // BFS back
     int steps_back = 0;
     while (steps_back++ < max_steps) {
@@ -736,7 +756,8 @@ pair<list<int64_t>, int64_t> Index::get_nearest_node_next_path_member(int64_t no
                 int64_t id = edge.to();
                 list<int64_t> npath = path;
                 npath.push_back(id);
-                get_node(id, cq[npath]);
+                Node& node = cq[npath];
+                get_node(id, node);
                 Mapping mapping;
                 if (get_node_path(id, path_id, path_pos, mapping) > 0) {
                     return make_pair(npath, id);
