@@ -743,6 +743,7 @@ void help_find(char** argv) {
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
          << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
+         << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl;
 }
 
@@ -765,6 +766,7 @@ int main_find(int argc, char** argv) {
     bool count_kmers = false;
     bool kmer_table = false;
     string target;
+    string path_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -785,11 +787,12 @@ int main_find(int argc, char** argv) {
                 {"context", required_argument, 0, 'c'},
                 {"kmer-count", no_argument, 0, 'C'},
                 {"path", required_argument, 0, 'p'},
+                {"position-in", required_argument, 0, 'P'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CTp:",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CTp:P:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -824,6 +827,10 @@ int main_find(int argc, char** argv) {
 
         case 'p':
             target = optarg;
+            break;
+
+        case 'P':
+            path_name = optarg;
             break;
 
         case 'c':
@@ -879,7 +886,7 @@ int main_find(int argc, char** argv) {
     Index index;
     index.open_read_only(db_name);
 
-    if (!node_ids.empty()) {
+    if (!node_ids.empty() && path_name.empty()) {
         // open index
         // our result
         // get the context of the node
@@ -910,6 +917,24 @@ int main_find(int argc, char** argv) {
         index.get_edges_to(to_id, edges);
         for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
             cout << e->from() << "\t" << e->to() << endl;
+        }
+    }
+
+    if (!node_ids.empty() && !path_name.empty()) {
+        int64_t path_id = index.get_path_id(path_name);
+        for (auto node_id : node_ids) {
+            int64_t path_pos = 0;
+            Mapping mapping;
+            if (index.get_node_path(node_id, path_id, path_pos, mapping) > 0) {
+                cout << node_id << " " << path_name << " " << path_id << " " << path_pos << endl;
+            }
+            list<int64_t> path_prev, path_next;
+            int64_t prev_pos=0, next_pos=0;
+            if (index.get_node_path_relative_position(node_id, path_id,
+                                                      path_prev, prev_pos, path_next, next_pos)) {
+                cout << node_id << " " << path_prev.front() << " " << prev_pos
+                     << " " << path_next.back() << " " << next_pos << endl;
+            }
         }
     }
 

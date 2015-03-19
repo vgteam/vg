@@ -129,6 +129,7 @@ public:
     rocksdb::Status get_node(int64_t id, Node& node);
     rocksdb::Status get_edge(int64_t from, int64_t to, Edge& edge);
     rocksdb::Status get_metadata(const string& key, string& data);
+    int get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, Mapping& mapping);
 
     // obtain the key corresponding to each entity
     const string key_for_node(int64_t id);
@@ -140,7 +141,8 @@ public:
     const string key_prefix_for_kmer(const string& kmer);
     const string key_for_metadata(const string& tag);
     const string key_for_path_position(int64_t node_id, int64_t path_id, int64_t path_pos);
-    const string key_for_node_path(int64_t node_id, int64_t path_id, int64_t path_pos);
+    const string key_for_node_path_position(int64_t node_id, int64_t path_id, int64_t path_pos);
+    const string key_prefix_for_node_path(int64_t node_id, int64_t path_id);
 
     // deserialize a key/value pair
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);
@@ -170,6 +172,12 @@ public:
     void get_edges_from(int64_t from, vector<Edge>& edges);
     void get_edges_to(int64_t to, vector<Edge>& edges);
     void get_path(VG& graph, const string& name, int64_t start, int64_t end);
+    void node_path_position(int64_t id, string& path_name, int64_t& position, int64_t& offset);
+    pair<list<int64_t>, int64_t> get_nearest_node_prev_path_member(int64_t node_id, int64_t path_id, int64_t& path_pos, int max_steps = 4);
+    pair<list<int64_t>, int64_t> get_nearest_node_next_path_member(int64_t node_id, int64_t path_id, int64_t& path_pos, int max_steps = 4);
+    bool get_node_path_relative_position(int64_t node_id, int64_t path_id,
+                                         list<int64_t>& path_prev, int64_t& prev_pos,
+                                         list<int64_t>& path_next, int64_t& next_pos);
 
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);

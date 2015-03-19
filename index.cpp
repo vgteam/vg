@@ -191,7 +191,7 @@ const string Index::key_for_kmer(const string& kmer, int64_t id) {
     return key;
 }
 
-const string Index::key_for_node_path(int64_t node_id, int64_t path_id, int64_t path_pos) {
+const string Index::key_for_node_path_position(int64_t node_id, int64_t path_id, int64_t path_pos) {
     node_id = htobe64(node_id);
     path_id = htobe64(path_id);
     path_pos = htobe64(path_pos);
@@ -208,6 +208,23 @@ const string Index::key_for_node_path(int64_t node_id, int64_t path_id, int64_t 
     memcpy(k + sizeof(char)*6 + sizeof(int64_t), &path_id, sizeof(int64_t));
     k[6 + 2*sizeof(int64_t)] = start_sep;
     memcpy(k + sizeof(char)*7 + 2*sizeof(int64_t), &path_pos, sizeof(int64_t));
+    return key;
+}
+
+const string Index::key_prefix_for_node_path(int64_t node_id, int64_t path_id) {
+    node_id = htobe64(node_id);
+    path_id = htobe64(path_id);
+    string key;
+    key.resize(6*sizeof(char) + 2*sizeof(int64_t));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'g'; // graph elements
+    k[2] = start_sep;
+    memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
+    k[3 + sizeof(int64_t)] = start_sep;
+    k[4 + sizeof(int64_t)] = 'p';
+    k[5 + sizeof(int64_t)] = start_sep;
+    memcpy(k + sizeof(char)*6 + sizeof(int64_t), &path_id, sizeof(int64_t));
     return key;
 }
 
@@ -252,19 +269,13 @@ const string Index::key_for_metadata(const string& tag) {
 }
 
 const string Index::key_prefix_for_edges_from_node(int64_t from) {
-    string key = key_for_node(from);
-    key.resize(key.size() + 2);
-    key[key.size() - 2] = start_sep;
-    key[key.size() - 1] = 'f';
-    return key;
+    string key = key_for_edge_from_to(from, 0);
+    return key.substr(0, key.size()-sizeof(int64_t));
 }
 
 const string Index::key_prefix_for_edges_to_node(int64_t to) {
-    string key = key_for_node(to);
-    key.resize(key.size() + 2);
-    key[key.size() - 2] = start_sep;
-    key[key.size() - 1] = 't';
-    return key;
+    string key = key_for_edge_to_from(to, 0);
+    return key.substr(0, key.size()-sizeof(int64_t));
 }
 
 char Index::graph_key_type(string& key) {
@@ -494,7 +505,7 @@ void Index::put_metadata(const string& tag, const string& data) {
 void Index::put_node_path(int64_t node_id, int64_t path_id, int64_t path_pos, const Mapping& mapping) {
     string data;
     mapping.SerializeToString(&data);
-    db->Put(write_options, key_for_node_path(node_id, path_id, path_pos), data);
+    db->Put(write_options, key_for_node_path_position(node_id, path_id, path_pos), data);
 }
 
 void Index::put_path_position(int64_t path_id, int64_t path_pos, int64_t node_id, const Mapping& mapping) {
@@ -658,6 +669,109 @@ rocksdb::Status Index::get_edge(int64_t from, int64_t to, Edge& edge) {
         edge.ParseFromString(value);
     }
     return s;
+}
+
+int Index::get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, Mapping& mapping) {
+    string value;
+    string key = key_prefix_for_node_path(node_id, path_id);
+    string start = key + start_sep;
+    string end = key + end_sep;
+    // NB: uses the first position in the range
+    // apply to the range matching the kmer in the db
+    int count = 0;
+    for_range(start, end, [this, &count, &node_id, &path_id, &path_pos, &mapping](string& key, string& value) {
+            if (count == 0) {
+                parse_node_path(key, value,
+                                node_id, path_id,
+                                path_pos, mapping);
+            }
+            ++count;
+        });
+    return count;
+}
+
+pair<list<int64_t>, int64_t> Index::get_nearest_node_prev_path_member(int64_t node_id, int64_t path_id, int64_t& path_pos, int max_steps) {
+    list<int64_t> nullpath;
+    map<list<int64_t>, Node> nq;
+    get_node(node_id, nq[nullpath]);
+    // BFS back
+    int steps_back = 0;
+    while (steps_back++ < max_steps) {
+        map<list<int64_t>, Node> cq;
+        for (auto& n : nq) {
+            Node& node = n.second;
+            const list<int64_t>& path = n.first;
+            vector<Edge> e_to;
+            get_edges_to(node.id(), e_to);
+            for (auto& edge : e_to) {
+                int64_t id = edge.from();
+                list<int64_t> npath = path;
+                npath.push_front(id);
+                get_node(id, cq[npath]);
+                Mapping mapping;
+                if (get_node_path(id, path_id, path_pos, mapping) > 0) {
+                    return make_pair(npath, id);
+                }
+            }
+        }
+        nq = cq;
+    }
+    return make_pair(nullpath, 0);
+}
+
+pair<list<int64_t>, int64_t> Index::get_nearest_node_next_path_member(int64_t node_id, int64_t path_id, int64_t& path_pos, int max_steps) {
+    list<int64_t> nullpath;
+    map<list<int64_t>, Node> nq;
+    get_node(node_id, nq[nullpath]);
+    // BFS back
+    int steps_back = 0;
+    while (steps_back++ < max_steps) {
+        map<list<int64_t>, Node> cq;
+        for (auto& n : nq) {
+            Node& node = n.second;
+            const list<int64_t>& path = n.first;
+            vector<Edge> e_from;
+            get_edges_from(node.id(), e_from);
+            for (auto& edge : e_from) {
+                int64_t id = edge.to();
+                list<int64_t> npath = path;
+                npath.push_back(id);
+                get_node(id, cq[npath]);
+                Mapping mapping;
+                if (get_node_path(id, path_id, path_pos, mapping) > 0) {
+                    return make_pair(npath, id);
+                }
+            }
+        }
+        nq = cq;
+    }
+    return make_pair(nullpath, 0);
+}
+
+bool Index::get_node_path_relative_position(int64_t node_id, int64_t path_id,
+                                            list<int64_t>& path_prev, int64_t& prev_pos,
+                                            list<int64_t>& path_next, int64_t& next_pos) {
+    // scan the range before the node
+    // start with our node, and walk back BFS until we find a node with a path
+    // are any parents part of the path?
+    list<int64_t> nullpath;
+
+    auto null_pair = make_pair(nullpath, (int64_t)0);
+    auto to_path_prev = get_nearest_node_prev_path_member(node_id, path_id, prev_pos);
+    if (to_path_prev == null_pair) {
+        return false;
+    } else {
+        path_prev = to_path_prev.first;
+    }
+
+    auto to_path_next = get_nearest_node_next_path_member(node_id, path_id, next_pos);
+    if (to_path_next == null_pair) {
+        return false;
+    } else {
+        path_next = to_path_next.first;
+    }
+
+    return true;
 }
 
 void Index::expand_context(VG& graph, int steps = 1) {
@@ -923,6 +1037,12 @@ void Index::get_path(VG& graph, const string& name, int64_t start, int64_t end) 
         });
     // scan the path record in the db to find included nodes
     // get these and drop them into the graph
+}
+
+void node_path_position(int64_t id, string& path_name, int64_t& position, int64_t& offset) {
+    // if we are in the path, trivial
+    // if not, run a BFS back to the nearest node in the path
+    
 }
 
 void Index::put_kmer(const string& kmer,
