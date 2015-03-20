@@ -911,8 +911,6 @@ map<string, pair<int64_t, int64_t> > Index::path_layout(void) {
     // for each path
     for (auto& p : pbyid) {
         // find the start and end nodes
-        //cerr << path_first_node(p.second) << endl;
-        //cerr << path_last_node(p.second) << endl;
         layout[p.first] = make_pair(path_first_node(p.second),
                                     path_last_node(p.second));
     }

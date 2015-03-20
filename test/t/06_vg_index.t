@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 9
+plan tests 10
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -58,3 +58,13 @@ is $(vg index -D x.vg | grep +g | grep +p | wc -l) $(vg view x.vg | grep ^P | wc
 is $(vg index -D x.vg | grep +path_id | wc -l) 1 "path id recorded"
 is $(vg index -D x.vg | grep +path_name | wc -l) 1 "path name recorded"
 rm -rf x.vg.index x.vg x.paths
+
+vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg construct -v small/x.vcf.gz -r small/x.fa -m 50 | vg view - | sed s/x/y/ | vg view -v - >y.vg
+vg ids -j x.vg y.vg
+
+vg index -s -d q.idx x.vg y.vg
+is $(vg index -L -d q.idx | tail -1 | awk '{ print $3 }' ) 426 "end of the second path found correctly"
+
+rm -rf q.idx x.vg y.vg
+
