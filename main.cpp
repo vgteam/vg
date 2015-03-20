@@ -1093,6 +1093,7 @@ void help_index(char** argv) {
          << "    -P, --prune KB        remove kmer entries which use more than KB kilobytes" << endl
          << "    -D, --dump            print the contents of the db to stdout" << endl
          << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
+         << "    -L, --path-layout     describes the path layout of the graph" << endl
          << "    -S, --set-kmer        assert that the kmer size (-k) is in the db" << endl
          << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
          << "                          (this is required if you are using multiple graphs files" << endl
@@ -1118,6 +1119,7 @@ int main_index(int argc, char** argv) {
     bool describe_index = false;
     bool show_progress = false;
     bool set_kmer_size = false;
+    bool path_layout = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1136,11 +1138,12 @@ int main_index(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"progress",  no_argument, 0, 'p'},
                 {"prune",  required_argument, 0, 'P'},
+                {"path-layout", no_argument, 0, 'L'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:L",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1179,6 +1182,10 @@ int main_index(int argc, char** argv) {
 
         case 'M':
             describe_index = true;
+            break;
+
+        case 'L':
+            path_layout = true;
             break;
 
         case 'S':
@@ -1287,6 +1294,17 @@ int main_index(int argc, char** argv) {
             cout << kmer_size << " ";
         }
         cout << endl;
+        index.close();
+    }
+
+    if (path_layout) {
+        index.open_read_only(db_name);
+        //index.path_layout();
+        map<string, int64_t> path_by_id = index.paths_by_id();
+        auto path_layout = index.path_layout();
+        for (auto& p : path_layout) {
+            cout << p.first << " " << p.second.first << " " << p.second.second << endl;
+        }
         index.close();
     }
 

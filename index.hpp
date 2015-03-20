@@ -140,7 +140,7 @@ public:
     const string key_for_kmer(const string& kmer, int64_t id);
     const string key_prefix_for_kmer(const string& kmer);
     const string key_for_metadata(const string& tag);
-    const string key_for_path_position(int64_t node_id, int64_t path_id, int64_t path_pos);
+    const string key_for_path_position(int64_t path_id, int64_t path_pos, int64_t node_id);
     const string key_for_node_path_position(int64_t node_id, int64_t path_id, int64_t path_pos);
     const string key_prefix_for_node_path(int64_t node_id, int64_t path_id);
 
@@ -181,7 +181,10 @@ public:
     Mapping path_relative_mapping(int64_t node_id, int64_t path_id,
                                   list<int64_t>& path_prev, int64_t& prev_pos,
                                   list<int64_t>& path_next, int64_t& next_pos);
-    bool project_path(Path& source, string path_name, Path& projection);
+    bool project_path(const Path& source, string path_name, Alignment& projection, int window = 5);
+    map<string, pair<int64_t, int64_t> > path_layout(void);
+    int64_t path_first_node(int64_t path_id);
+    int64_t path_last_node(int64_t path_id);
 
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);
@@ -213,6 +216,7 @@ public:
     void load_paths(VG& graph);
     void store_paths(VG& graph); // of graph
     void store_path(VG& graph, Path& path); // path of graph
+    map<string, int64_t> paths_by_id(void);
 
     // what table is the key in
     char graph_key_type(string& key);

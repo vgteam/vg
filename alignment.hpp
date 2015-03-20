@@ -19,7 +19,7 @@ int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 //bam1_t* alignment_to_bam(Alignment& alignment, Index& index, map<string, string>& rg_sample);
-void project_alignment(Alignment& alignment, Index& index, string& path_name);
+bool project_alignment(Alignment& alignment, Index& index, string& path_name);
 void write_alignments(std::ostream& out, vector<Alignment>& buf);
 short quality_char_to_short(char c);
 char quality_short_to_char(short i);

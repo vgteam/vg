@@ -835,8 +835,88 @@ Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id,
 // removing elements which aren't in the path of interest
 // realign to this graph
 // cross fingers
-bool Index::project_path(Path& source, string path_name, Path& projection) {
+bool Index::project_path(const Path& source, string path_name, Alignment& projection, int window) {
+    VG graph;
+    // get start and end nodes in path
+    // get range between +/- window
+    int64_t from_id = source.mapping(0).node_id() - window;
+    int64_t to_id = source.mapping(source.mapping_size()-1).node_id() + window;
+    get_range(from_id, to_id, graph);
+    string source_seq = graph.path_sequence(source);
+    graph.keep_path(path_name);
+    projection.set_sequence(source_seq);
+    graph.align(projection);
+    if (projection.path().mapping_size() == 0) {
+        return false;
+    } else {
+        return true;
+    }
+}
 
+map<string, int64_t> Index::paths_by_id(void) {
+    map<string, int64_t> byid;
+    string start = key_for_metadata(path_id_prefix(0));
+    start = start.substr(0, start.size()-sizeof(int64_t));
+    string end = start + end_sep;
+    for_range(start, end, [this, &byid](string& key, string& value) {
+            int64_t& id = byid[value];
+            memcpy(&id, (void*)(key.c_str() + 10*sizeof(char)), sizeof(int64_t));
+        });
+    return byid;
+}
+
+int64_t Index::path_first_node(int64_t path_id) {
+    string k = key_for_path_position(path_id, 0, 0);
+    k = k.substr(0, 4 + sizeof(int64_t));
+    rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+    rocksdb::Slice start = rocksdb::Slice(k);
+    rocksdb::Slice end = rocksdb::Slice(k+end_sep);
+    int64_t node_id = 0;
+    it->Seek(start);
+    if (it->Valid()) {
+        string key = it->key().ToString();
+        string value = it->value().ToString();
+        int64_t path_id2, path_pos; Mapping mapping;
+        parse_path_position(key, value, path_id2, path_pos, node_id, mapping);
+    }
+    delete it;
+    return node_id;
+}
+
+int64_t Index::path_last_node(int64_t path_id) {
+    // we aim to seek to the first item in the next path, then step back
+    string key_start = key_for_path_position(path_id, 0, 0);
+    string key_end = key_for_path_position(path_id+1, 0, 0);
+    rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
+    //rocksdb::Slice start = rocksdb::Slice(key_start);
+    rocksdb::Slice end = rocksdb::Slice(key_end);
+    int64_t node_id = 0;
+    it->Seek(end);
+    it->Prev();
+    // horrible hack
+    if (!it->Valid()) it->SeekToLast(); // XXXX
+    if (it->Valid()) {
+        string key = it->key().ToString();
+        string value = it->value().ToString();
+        int64_t path_id2, path_pos; Mapping mapping;
+        parse_path_position(key, value, path_id2, path_pos, node_id, mapping);
+    }
+    delete it;
+    return node_id;
+}
+
+map<string, pair<int64_t, int64_t> > Index::path_layout(void) {
+    map<string, pair<int64_t, int64_t> > layout;
+    map<string, int64_t> pbyid = paths_by_id();
+    // for each path
+    for (auto& p : pbyid) {
+        // find the start and end nodes
+        //cerr << path_first_node(p.second) << endl;
+        //cerr << path_last_node(p.second) << endl;
+        layout[p.first] = make_pair(path_first_node(p.second),
+                                    path_last_node(p.second));
+    }
+    return layout;
 }
 
 void Index::expand_context(VG& graph, int steps = 1) {

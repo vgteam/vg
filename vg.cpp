@@ -2009,7 +2009,7 @@ void VG::kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int ed
     }
 }
 
-string VG::path_sequence(Path& path) {
+string VG::path_sequence(const Path& path) {
     string sequence;
     for (int i = 0; i < path.mapping_size(); ++i) {
         sequence.append(node_by_id[path.mapping(i).node_id()]->sequence());
