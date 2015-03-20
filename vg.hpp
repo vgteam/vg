@@ -261,6 +261,7 @@ public:
 
     // remove edges for which one of the nodes is not present
     void remove_orphan_edges(void);
+    void keep_path(string& path_name);
 
     // edges
     Edge* create_edge(Node* from, Node* to);

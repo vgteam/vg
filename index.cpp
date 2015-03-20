@@ -803,11 +803,11 @@ bool Index::get_node_path_relative_position(int64_t node_id, int64_t path_id,
     return true;
 }
 
-Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id) {
+Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id,
+                                     list<int64_t>& path_prev, int64_t& prev_pos,
+                                     list<int64_t>& path_next, int64_t& next_pos) {
     Mapping mapping;
     mapping.set_node_id(node_id);
-    list<int64_t> path_prev, path_next;
-    int64_t prev_pos=0, next_pos=0;
     if (get_node_path_relative_position(node_id, path_id,
                                         path_prev, prev_pos, path_next, next_pos)) {
         Edit* edit = mapping.add_edit();
@@ -825,12 +825,18 @@ Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id) {
     return mapping;
 }
 
-void Index::project_path(Path& to_project, string path_name,
-                         int64_t& pos, vector<Mapping>& cigar) {
-    for (int i = 0; i < to_project.mapping_size(); ++i) {
-        const Mapping& mapping = to_project.mapping(i);
-        // todo
-    }
+// transform the path into a path relative to another path (defined by path_name)
+// source -> projection (in path_name coordinate space)
+// the product is equivalent to a pairwise alignment between this path and the other
+
+// new approach
+// get path sequence
+// get graph component overlapping path
+// removing elements which aren't in the path of interest
+// realign to this graph
+// cross fingers
+bool Index::project_path(Path& source, string path_name, Path& projection) {
+
 }
 
 void Index::expand_context(VG& graph, int steps = 1) {

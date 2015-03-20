@@ -18,6 +18,80 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
+void help_mod(char** argv) {
+    cerr << "usage: " << argv[0] << " mod [options] <graph.vg> >[mod.vg]" << endl
+         << "Modifies graph, outputs modified on stdout." << endl
+         << endl
+         << "options:" << endl
+         << "    -k, --keep-path NAME  keep only nodes and edges in the path" << endl;
+}
+
+int main_mod(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_mod(argv);
+        return 1;
+    }
+
+    string path_name;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"help", no_argument, 0, 'h'},
+                {"keep-path", required_argument, 0, 'k'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hk:",
+                         long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+
+        case 'k':
+            path_name = optarg;
+            break;
+
+        case 'h':
+        case '?':
+            help_mod(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    VG* graph;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(file_name.c_str());
+        graph = new VG(in);
+    }
+
+    if (!path_name.empty()) {
+        graph->keep_path(path_name);
+    }
+
+    graph->serialize_to_ostream(std::cout);
+
+    delete graph;
+
+    return 0;
+}
+
 void help_sim(char** argv) {
     cerr << "usage: " << argv[0] << " sim [options] <graph.vg>" << endl
          << "Simulates reads from the graph(s). Output is a list of reads." << endl
@@ -932,7 +1006,9 @@ int main_find(int argc, char** argv) {
                 cout << node_id << "\t" << path_prev.front() << "\t" << prev_pos
                      << "\t" << path_next.back() << "\t" << next_pos << "\t";
 
-                Mapping m = index.path_relative_mapping(node_id, path_id);
+                Mapping m = index.path_relative_mapping(node_id, path_id,
+                                                        path_prev, prev_pos,
+                                                        path_next, next_pos);
                 char *json2 = pb2json(m);
                 cout<<json2<<endl;
                 free(json2);
@@ -1959,7 +2035,8 @@ void vg_help(char** argv) {
          << "  -- ids           manipulate node ids" << endl
          << "  -- concat        concatenate graphs tail-to-head" << endl
          << "  -- kmers         enumerate kmers of the graph" << endl
-         << "  -- sim           simulate reads from the graph" << endl;
+         << "  -- sim           simulate reads from the graph" << endl
+         << "  -- mod           filter and transform the graph" << endl;
 }
 
 int main(int argc, char *argv[])
@@ -1999,6 +2076,8 @@ int main(int argc, char *argv[])
         return main_kmers(argc, argv);
     } else if (command == "sim") {
         return main_sim(argc, argv);
+    } else if (command == "mod") {
+        return main_mod(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

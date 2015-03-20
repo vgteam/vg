@@ -192,4 +192,23 @@ void project_alignment(Alignment& alignment, Index& index, string& path_name,
     // establish a position and a mapping for the alignment
 }
 
+int to_length(Mapping& m) {
+    int l = 0;
+    for (int i = 0; i < m.edit_size(); ++i) {
+        const Edit& e = m.edit(i);
+        l += e.to_length();
+    }
+    return l;
+}
+
+int from_length(Mapping& m) {
+    int l = 0;
+    for (int i = 0; i < m.edit_size(); ++i) {
+        const Edit& e = m.edit(i);
+        l += e.from_length();
+    }
+    return l;
+
+}
+
 }

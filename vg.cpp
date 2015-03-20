@@ -1683,6 +1683,19 @@ void VG::remove_orphan_edges(void) {
     }
 }
 
+void VG::keep_path(string& path_name) {
+    vector<Node*> to_remove;
+    for_each_node([this, &path_name, &to_remove](Node* node) {
+            const set<string> pn = paths.of_node(node->id());
+            if (!pn.count(path_name)) {
+                to_remove.push_back(node);
+            }
+        });
+    for (auto n : to_remove) {
+        destroy_node(n);
+    }
+}
+
 // utilities
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
