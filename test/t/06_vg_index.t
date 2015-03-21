@@ -60,11 +60,11 @@ is $(vg index -D x.vg | grep +path_name | wc -l) 1 "path name recorded"
 rm -rf x.vg.index x.vg x.paths
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-vg construct -v small/x.vcf.gz -r small/x.fa -m 50 | vg view - | sed s/x/y/ | vg view -v - >y.vg
+vg construct -v small/x.vcf.gz -r small/x.fa | vg view - | sed s/x/y/ | vg view -v - >y.vg
 vg ids -j x.vg y.vg
 
 vg index -s -d q.idx x.vg y.vg
-is $(vg index -L -d q.idx | tail -1 | awk '{ print $3 }' ) 426 "end of the second path found correctly"
+is $(vg index -L -d q.idx | tail -1 | awk '{ print $3 }' ) 420 "end of the second path found correctly"
 
 rm -rf q.idx x.vg y.vg
 
