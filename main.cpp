@@ -18,6 +18,124 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
+void help_project(char** argv) {
+    cerr << "usage: " << argv[0] << " project [options] <aln.gam> >[proj.cram]" << endl
+         << "Transforms alignments to be relative to particular paths." << endl
+         << endl
+         << "options:" << endl
+         << "    -d, --db-name DIR       use the graph in this database" << endl
+         << "    -p, --into-path NAME    project into just this path" << endl
+         << "    -i, --into-paths FILE   project into path names listed in FILE (one per line)" << endl
+         << "    -P, --into-prefix NAME  project into all paths with NAME as their prefix" << endl
+         << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
+         << "    -b, --bam-output        write BAM to stdout" << endl
+         << "    -s, --sam-output        write SAM to stdout" << endl;
+}
+
+int main_project(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_project(argv);
+        return 1;
+    }
+
+    string db_name;
+    string path_name;
+    string path_prefix;
+    string path_file;
+    string output_type = "sam";
+    string input_type = "gam";
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"help", no_argument, 0, 'h'},
+                {"db-name", required_argument, 0, 'd'},
+                {"into-path", required_argument, 0, 'p'},
+                {"into-paths", required_argument, 0, 'i'},
+                {"into-prefix", required_argument, 0, 'P'},
+                {"cram-output", no_argument, 0, 'c'},
+                {"bam-output", no_argument, 0, 'b'},
+                {"sam-output", no_argument, 0, 's'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hd:p:i:P:cbs",
+                         long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+
+        case 'd':
+            db_name = optarg;
+            break;
+
+        case 'p':
+            path_name = optarg;
+            break;
+
+        case 'i':
+            path_file = optarg;
+            break;
+
+        case 'P':
+            path_prefix = optarg;
+            break;
+
+        case 'c':
+            output_type = "cram";
+            break;
+
+        case 'b':
+            output_type = "bam";
+            break;
+
+        case 's':
+            output_type = "sam";
+            break;
+
+        case 'h':
+        case '?':
+            help_project(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    string file_name = argv[optind];
+
+    Index index;
+    // open index
+    index.open_read_only(db_name);
+
+    if (input_type == "gam") {
+        function<void(Alignment&)> lambda = [&index, &path_name](Alignment& a) {
+            project_alignment(a, index, path_name);
+            function<Alignment(uint64_t)> lambda = [&a] (uint64_t n) { return a; };
+            stream::write(cout, 1, lambda);
+        };
+        if (file_name == "-") {
+            stream::for_each(std::cin, lambda);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            stream::for_each(in, lambda);
+        }
+    }
+
+    return 0;
+}
+
 void help_mod(char** argv) {
     cerr << "usage: " << argv[0] << " mod [options] <graph.vg> >[mod.vg]" << endl
          << "Modifies graph, outputs modified on stdout." << endl
@@ -958,11 +1076,10 @@ int main_find(int argc, char** argv) {
     }
 
     Index index;
+    // open index
     index.open_read_only(db_name);
 
     if (!node_ids.empty() && path_name.empty()) {
-        // open index
-        // our result
         // get the context of the node
         vector<VG> graphs;
         for (auto node_id : node_ids) {
@@ -2054,7 +2171,8 @@ void vg_help(char** argv) {
          << "  -- concat        concatenate graphs tail-to-head" << endl
          << "  -- kmers         enumerate kmers of the graph" << endl
          << "  -- sim           simulate reads from the graph" << endl
-         << "  -- mod           filter and transform the graph" << endl;
+         << "  -- mod           filter and transform the graph" << endl
+         << "  -- project       map alignments onto specific paths" << endl;
 }
 
 int main(int argc, char *argv[])
@@ -2096,6 +2214,8 @@ int main(int argc, char *argv[])
         return main_sim(argc, argv);
     } else if (command == "mod") {
         return main_mod(argc, argv);
+    } else if (command == "project") {
+        return main_project(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

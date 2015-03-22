@@ -151,6 +151,10 @@ void alignment_quality_char_to_short(Alignment& alignment) {
     alignment.set_quality(squality);
 }
 
+void alignment_to_bam(const Alignment a, bam1_t *b, map<string, string>& rg_sample) {
+
+}
+
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
 
     Alignment alignment;
@@ -187,13 +191,12 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
     return alignment;
 }
 
-bool project_alignment(Alignment& alignment, Index& index, string& path_name,
-                       string& chrom, int64_t& pos, string& cigar) {
+bool project_alignment(Alignment& alignment, Index& index, string& path_name) {
     // establish a position and a mapping for the alignment against the other path
-    Alignment projected;
+    Alignment projected = alignment;
     bool result = index.project_path(alignment.path(), path_name, projected);
     if (result) {
-        
+        alignment = projected;
     }
 }
 
