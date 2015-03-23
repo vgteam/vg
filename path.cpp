@@ -131,13 +131,20 @@ void Paths::increment_node_ids(int64_t inc) {
 }
 
 void Paths::rebuild_node_mapping(void) {
+    // starts with paths and rebuilds the index
     //map<int64_t, set<pair<Path*, Mapping*> > > node_mapping;
-    auto old_mapping = node_mapping;
     node_mapping.clear();
-    for (auto& m : old_mapping) {
-        int64_t id = m.second.begin()->second->node_id();
-        node_mapping[id] = m.second;
+    for (auto& path : *_paths) {
+        for (int i = 0; i < path.mapping_size(); ++i) {
+            //map<int64_t, set<pair<Path*, Mapping*> > > node_mapping;
+            Mapping* m = path.mutable_mapping(i);
+            get_node_mapping(m->node_id()).insert(make_pair(&path, m));
+        }
     }
+}
+
+void Paths::remove_node(int64_t id) {
+    node_mapping.erase(id);
 }
 
 size_t Paths::size(void) const {
@@ -146,6 +153,48 @@ size_t Paths::size(void) const {
 
 Path* Paths::get_path(const string& name) {
     return path_by_name[name];
+}
+
+void Paths::remove_paths(const set<string>& names) {
+    for (auto& nm : node_mapping) {
+        auto mapping_copy = nm.second;
+        auto& mapping = nm.second;
+        for (auto& p : mapping_copy) {
+            if (names.count(p.first->name())) {
+                mapping.erase(p);
+            }
+        }
+    }
+    ::google::protobuf::RepeatedPtrField< ::vg::Path > new_paths;
+    for (auto& path : *_paths) {
+        if (!names.count(path.name())) {
+            Path* new_path = new_paths.Add();
+            *new_path = path;
+        }
+    }
+    _paths->Clear();
+    _paths->CopyFrom(new_paths);
+}
+
+void Paths::keep_paths(const set<string>& names) {
+    for (auto& nm : node_mapping) {
+        auto mapping_copy = nm.second;
+        auto& mapping = nm.second;
+        for (auto& p : mapping_copy) {
+            if (!names.count(p.first->name())) {
+                mapping.erase(p);
+            }
+        }
+    }
+    ::google::protobuf::RepeatedPtrField< ::vg::Path > new_paths;
+    for (auto& path : *_paths) {
+        if (names.count(path.name())) {
+            Path* new_path = new_paths.Add();
+            *new_path = path;
+        }
+    }
+    _paths->Clear();
+    _paths->CopyFrom(new_paths);
 }
 
 Path* Paths::get_create_path(const string& name) {

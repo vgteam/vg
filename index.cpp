@@ -835,16 +835,19 @@ Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id,
 // removing elements which aren't in the path of interest
 // realign to this graph
 // cross fingers
-bool Index::project_path(const Path& source, string path_name, Alignment& projection, int window) {
+// should change to project alignment
+bool Index::project_alignment(const Alignment& source, string path_name, Alignment& projection, int window) {
     VG graph;
     // get start and end nodes in path
     // get range between +/- window
-    int64_t from_id = source.mapping(0).node_id() - window;
-    int64_t to_id = source.mapping(source.mapping_size()-1).node_id() + window;
+    int64_t from_id = source.path().mapping(0).node_id() - window;
+    int64_t to_id = source.path().mapping(source.path().mapping_size()-1).node_id() + window;
     get_range(from_id, to_id, graph);
-    string source_seq = graph.path_sequence(source);
+    graph.remove_orphan_edges();
+    //string source_seq = graph.path_sequence(source);
     graph.keep_path(path_name);
-    projection.set_sequence(source_seq);
+    //graph.serialize_to_file("projection.vg"); // debugging
+    projection.set_sequence(source.sequence());
     graph.align(projection);
     if (projection.path().mapping_size() == 0) {
         return false;

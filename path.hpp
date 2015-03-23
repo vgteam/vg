@@ -30,6 +30,9 @@ public:
     map<string, Path*> path_by_name;
     map<int64_t, set<pair<Path*, Mapping*> > > node_mapping;
     void rebuild_node_mapping(void);
+    void remove_paths(const set<string>& names);
+    void keep_paths(const set<string>& name);
+    void remove_node(int64_t id);
     bool has_path(const string& name);
     Path* get_path(const string& name);
     Path* get_create_path(const string& name);

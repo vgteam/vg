@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <functional>
+#include <vector>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -29,12 +30,14 @@ bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda
     ::google::protobuf::io::CodedOutputStream *coded_out =
           new ::google::protobuf::io::CodedOutputStream(gzip_out);
 
+    // prefix the chunk with the number of objects
     coded_out->WriteVarint64(count);
 
     std::string s;
     uint64_t written = 0;
     for (uint64_t n = 0; n < count; ++n, ++written) {
         lambda(n).SerializeToString(&s);
+        // and prefix each object with its size
         coded_out->WriteVarint32(s.size());
         coded_out->WriteRaw(s.data(), s.size());
     }
@@ -46,6 +49,17 @@ bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda
     return !count || written == count;
 }
 
+template <typename T>
+bool write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_limit) {
+    bool wrote = false;
+    if (buffer.size() >= buffer_limit) {
+        std::function<T(uint64_t)> lambda = [&buffer](uint64_t n) { return buffer.at(n); };
+#pragma omp critical (stream_out)
+        wrote = write(out, buffer.size(), lambda);
+        buffer.clear();
+    }
+    return wrote;
+}
 
 // deserialize the input stream into the objects
 // count containts the count read
@@ -60,41 +74,31 @@ bool for_each(std::istream& in,
           new ::google::protobuf::io::IstreamInputStream(&in);
     ::google::protobuf::io::GzipInputStream *gzip_in =
           new ::google::protobuf::io::GzipInputStream(raw_in);
+    ::google::protobuf::io::CodedInputStream *coded_in =
+          new ::google::protobuf::io::CodedInputStream(gzip_in);
 
     uint64_t count;
-
     // this loop handles a chunked file with many pieces
-    while (in.good()) {
+    // such as we might write in a multithreaded process
+    while (coded_in->ReadVarint64(&count)) {
 
-        ::google::protobuf::io::CodedInputStream *coded_in =
-            new ::google::protobuf::io::CodedInputStream(gzip_in);
-
-        coded_in->ReadVarint64(&count);
         handle_count(count);
-        delete coded_in;
 
         std::string s;
-
         for (uint64_t i = 0; i < count; ++i) {
-
-            ::google::protobuf::io::CodedInputStream *coded_in =
-                new ::google::protobuf::io::CodedInputStream(gzip_in);
-
             uint32_t msgSize = 0;
+            // the messages are prefixed by their size
             coded_in->ReadVarint32(&msgSize);
-
             if ((msgSize > 0) &&
                 (coded_in->ReadString(&s, msgSize))) {
                 T object;
                 object.ParseFromString(s);
                 lambda(object);
             }
-
-            delete coded_in;
         }
-
     }
 
+    delete coded_in;
     delete gzip_in;
     delete raw_in;
 

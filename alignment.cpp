@@ -191,14 +191,17 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
     return alignment;
 }
 
+/*
 bool project_alignment(Alignment& alignment, Index& index, string& path_name) {
     // establish a position and a mapping for the alignment against the other path
     Alignment projected = alignment;
+    projected.mutable_path()->clear_mapping();
     bool result = index.project_path(alignment.path(), path_name, projected);
     if (result) {
         alignment = projected;
     }
 }
+*/
 
 int to_length(Mapping& m) {
     int l = 0;

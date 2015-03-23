@@ -196,6 +196,7 @@ public:
 
     // write to a stream in chunked graphs
     void serialize_to_ostream(ostream& out, int64_t chunk_size = 1000);
+    void serialize_to_file(const string& file_name, int64_t chunk_size = 1000);
 
     // can we handle this with merge?
     //void concatenate(VG& g);

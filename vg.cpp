@@ -56,6 +56,12 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
     destroy_progress();
 }
 
+void VG::serialize_to_file(const string& file_name, int64_t chunk_size) {
+    ofstream f(file_name);
+    serialize_to_ostream(f);
+    f.close();
+}
+
 VG::~VG(void) {
     destroy_alignable_graph();
 }
@@ -207,7 +213,6 @@ void VG::build_indexes(void) {
         edge_index[e] = i;
         set_edge(e->from(), e->to(), e);
     }
-    paths.rebuild_node_mapping();
 }
 
 void VG::clear_indexes(void) {
@@ -246,6 +251,7 @@ void VG::rebuild_indexes(void) {
     //resize_indexes();
     clear_indexes_no_resize();
     build_indexes();
+    paths.rebuild_node_mapping();
 }
 
 bool VG::empty(void) {
@@ -447,7 +453,6 @@ void VG::compact_ids(void) {
             m->set_node_id(new_id[m->node_id()]);
         });
     rebuild_indexes();
-    paths.rebuild_node_mapping();
 }
 
 void VG::increment_node_ids(int64_t increment) {
@@ -1684,16 +1689,42 @@ void VG::remove_orphan_edges(void) {
 }
 
 void VG::keep_path(string& path_name) {
-    vector<Node*> to_remove;
-    for_each_node([this, &path_name, &to_remove](Node* node) {
+    // edges have implicit path
+    // now... at least ...
+    // maybe they shouldn't
+    vector<Node*> path;
+    vector<Node*> nodes_to_remove;
+    for_each_node([this, &path_name, &path, &nodes_to_remove](Node* node) {
             const set<string> pn = paths.of_node(node->id());
             if (!pn.count(path_name)) {
-                to_remove.push_back(node);
+                nodes_to_remove.push_back(node);
+            } else {
+                path.push_back(node);
             }
         });
-    for (auto n : to_remove) {
-        destroy_node(n);
+    Node* prev = path.front();
+    set<pair<int64_t, int64_t> > edges_to_keep;
+    for (auto node : path) {
+        if (node != prev) {
+            edges_to_keep.insert(make_pair(prev->id(), node->id()));
+            prev = node;
+        }
     }
+    set<pair<int64_t, int64_t> > edges_to_destroy;
+    for_each_edge([this, &edges_to_keep, &edges_to_destroy](Edge* edge) {
+            auto ep = make_pair(edge->from(), edge->to());
+            if (!edges_to_keep.count(ep)) {
+                edges_to_destroy.insert(ep);
+            }
+        });
+    for (auto edge : edges_to_destroy) {
+        destroy_edge(edge.first, edge.second);
+    }
+    for (auto node : nodes_to_remove) {
+        destroy_node(node);
+    }
+    set<string> names; names.insert(path_name);
+    paths.keep_paths(names);
 }
 
 // utilities

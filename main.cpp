@@ -119,10 +119,12 @@ int main_project(int argc, char** argv) {
     index.open_read_only(db_name);
 
     if (input_type == "gam") {
-        function<void(Alignment&)> lambda = [&index, &path_name](Alignment& a) {
-            project_alignment(a, index, path_name);
-            function<Alignment(uint64_t)> lambda = [&a] (uint64_t n) { return a; };
-            stream::write(cout, 1, lambda);
+        vector<Alignment> buffer;
+        function<void(Alignment&)> lambda = [&index, &path_name, &buffer](Alignment& src) {
+            Alignment proj;
+            index.project_alignment(src, path_name, proj);
+            buffer.push_back(proj);
+            stream::write_buffered(cout, buffer, 1000);
         };
         if (file_name == "-") {
             stream::for_each(std::cin, lambda);
@@ -131,7 +133,9 @@ int main_project(int argc, char** argv) {
             in.open(file_name.c_str());
             stream::for_each(in, lambda);
         }
+        stream::write_buffered(cout, buffer, 0); // flush
     }
+    cout.flush();
 
     return 0;
 }
@@ -1741,21 +1745,12 @@ int main_map(int argc, char** argv) {
                     } else {
                         auto& output_buf = output_buffer[tid];
                         output_buf.push_back(alignment);
-                        if (output_buf.size() >= 1000) {
-                            function<Alignment(uint64_t)> lambda =
-                                [&output_buf] (uint64_t n) {
-                                return output_buf[n];
-                            };
-#pragma omp critical (cout)
-                            stream::write(cout, output_buf.size(), lambda);
-                            output_buf.clear();
-                        }
+                        stream::write_buffered(cout, output_buf, 1000);
                     }
                 }
             }
         }
     }
-
 
     if (!hts_file.empty()) {
         function<void(Alignment&)> lambda =
@@ -1775,15 +1770,7 @@ int main_map(int argc, char** argv) {
             } else {
                 auto& output_buf = output_buffer[tid];
                 output_buf.push_back(alignment);
-                if (output_buf.size() >= 1000) {
-                    function<Alignment(uint64_t)> lambda =
-                        [&output_buf] (uint64_t n) {
-                        return output_buf[n];
-                    };
-#pragma omp critical (cout)
-                    stream::write(cout, output_buf.size(), lambda);
-                    output_buf.clear();
-                }
+                stream::write_buffered(cout, output_buf, 1000);
             }
         };
         // run
@@ -1794,13 +1781,8 @@ int main_map(int argc, char** argv) {
     for (int i = 0; i < thread_count; ++i) {
         delete mapper[i];
         auto& output_buf = output_buffer[i];
-        if (!output_buf.empty()) {
-            function<Alignment(uint64_t)> lambda =
-                [&output_buf] (uint64_t n) {
-                return output_buf[n];
-            };
-            stream::write(cout, output_buf.size(), lambda);
-            output_buf.clear();
+        if (!output_json) {
+            stream::write_buffered(cout, output_buf, 0);
         }
     }
 

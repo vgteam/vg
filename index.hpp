@@ -181,7 +181,8 @@ public:
     Mapping path_relative_mapping(int64_t node_id, int64_t path_id,
                                   list<int64_t>& path_prev, int64_t& prev_pos,
                                   list<int64_t>& path_next, int64_t& next_pos);
-    bool project_path(const Path& source, string path_name, Alignment& projection, int window = 5);
+    //bool project_path(const Path& source, string path_name, Alignment& projection, int window = );
+    bool project_alignment(const Alignment& source, string path_name, Alignment& projection, int window = 5);
     map<string, pair<int64_t, int64_t> > path_layout(void);
     int64_t path_first_node(int64_t path_id);
     int64_t path_last_node(int64_t path_id);
