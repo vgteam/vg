@@ -842,7 +842,7 @@ bool Index::project_alignment(const Alignment& source, string path_name, Alignme
     // get range between +/- window
     int64_t from_id = source.path().mapping(0).node_id() - window;
     int64_t to_id = source.path().mapping(source.path().mapping_size()-1).node_id() + window;
-    get_range(from_id, to_id, graph);
+    get_range(max((int64_t)0, from_id), to_id, graph);
     graph.remove_orphan_edges();
     //string source_seq = graph.path_sequence(source);
     graph.keep_path(path_name);
