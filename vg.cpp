@@ -1692,18 +1692,25 @@ void VG::remove_orphan_edges(void) {
     }
 }
 
-void VG::keep_path(string& path_name) {
+void VG::keep_paths(set<string>& path_names) {
     // edges have implicit path
     // now... at least ...
     // maybe they shouldn't
     vector<Node*> path;
     vector<Node*> nodes_to_remove;
-    for_each_node([this, &path_name, &path, &nodes_to_remove](Node* node) {
-            const set<string> pn = paths.of_node(node->id());
-            if (!pn.count(path_name)) {
-                nodes_to_remove.push_back(node);
-            } else {
+    for_each_node([this, &path_names, &path, &nodes_to_remove](Node* node) {
+            // use set intersection
+            bool to_keep = false;
+            for (auto& s : paths.of_node(node->id())) {
+                if (path_names.count(s)) {
+                    to_keep = true;
+                    break;
+                }
+            }
+            if (to_keep) {
                 path.push_back(node);
+            } else {
+                nodes_to_remove.push_back(node);
             }
         });
     Node* prev = path.front();
@@ -1727,8 +1734,16 @@ void VG::keep_path(string& path_name) {
     for (auto node : nodes_to_remove) {
         destroy_node(node);
     }
-    set<string> names; names.insert(path_name);
+    set<string> names;
+    for (auto& s : path_names) {
+        names.insert(s);
+    }
     paths.keep_paths(names);
+}
+
+void VG::keep_path(string& path_name) {
+    set<string> s; s.insert(path_name);
+    keep_paths(s);
 }
 
 // utilities

@@ -835,7 +835,17 @@ Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id,
 // removing elements which aren't in the path of interest
 // realign to this graph
 // cross fingers
-bool Index::surject_alignment(const Alignment& source, string path_name, Alignment& surjection, int window) {
+
+            // what we need:
+            /*
+                         const string& refseq,
+                         const int32_t refpos,
+                         const string& cigar,
+                         const string& mateseq,
+                         const int32_t matepos,
+                         const int32_t tlen);
+            */
+bool Index::surject_alignment(const Alignment& source, set<string>& path_names, Alignment& surjection, int window) {
     VG graph;
     // get start and end nodes in path
     // get range between +/- window
@@ -844,13 +854,14 @@ bool Index::surject_alignment(const Alignment& source, string path_name, Alignme
     get_range(max((int64_t)0, from_id), to_id, graph);
     graph.remove_orphan_edges();
     //string source_seq = graph.path_sequence(source);
-    graph.keep_path(path_name);
+    graph.keep_paths(path_names);
     //graph.serialize_to_file("surjection.vg"); // debugging
     surjection.set_sequence(source.sequence());
     graph.align(surjection);
     if (surjection.path().mapping_size() == 0) {
         return false;
     } else {
+        // we need the cigar
         return true;
     }
 }

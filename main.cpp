@@ -45,6 +45,7 @@ int main_surject(int argc, char** argv) {
     string path_file;
     string output_type = "sam";
     string input_type = "gam";
+    string header_file;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -59,11 +60,12 @@ int main_surject(int argc, char** argv) {
                 {"cram-output", no_argument, 0, 'c'},
                 {"bam-output", no_argument, 0, 'b'},
                 {"sam-output", no_argument, 0, 's'},
+                {"header-from", required_argument, 0, 'H'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:p:i:P:cbs",
+        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -87,6 +89,10 @@ int main_surject(int argc, char** argv) {
 
         case 'P':
             path_prefix = optarg;
+            break;
+
+        case 'H':
+            header_file = optarg;
             break;
 
         case 'c':
@@ -118,11 +124,32 @@ int main_surject(int argc, char** argv) {
     // open index
     index.open_read_only(db_name);
 
+    set<string> path_names;
+    if (!path_file.empty()){
+        // open the file
+        ifstream in(path_file);
+        string line;
+        while (std::getline(in,line)) {
+            path_names.insert(line);
+        }
+    } else {
+        path_names.insert(path_name);
+    }
+
     if (input_type == "gam") {
         vector<Alignment> buffer;
-        function<void(Alignment&)> lambda = [&index, &path_name, &buffer](Alignment& src) {
+        function<void(Alignment&)> lambda = [&index, &path_names, &buffer](Alignment& src) {
             Alignment proj;
-            index.surject_alignment(src, path_name, proj);
+            // what we need:
+            /*
+                         const string& refseq,
+                         const int32_t refpos,
+                         const string& cigar,
+                         const string& mateseq,
+                         const int32_t matepos,
+                         const int32_t tlen);
+            */
+            index.surject_alignment(src, path_names, proj);
             buffer.push_back(proj);
             stream::write_buffered(cout, buffer, 1000);
         };

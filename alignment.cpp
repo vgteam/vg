@@ -60,6 +60,19 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
 
 }
 
+string hts_file_header(string& filename) {
+    samFile *in = hts_open(filename.c_str(), "r");
+    if (in == NULL) {
+        cerr << "[vg::alignment] could not open " << filename << endl;
+        exit(1);
+    }
+    bam_hdr_t *hdr = sam_hdr_read(in);
+    string s = hdr->text;
+    bam_hdr_destroy(hdr);
+    hts_close(in);
+    return s;
+}
+
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     string header(hts_header);
     vector<string> header_lines = split(header, '\n');
@@ -136,23 +149,94 @@ char quality_short_to_char(short i) {
 }
 
 void alignment_quality_short_to_char(Alignment& alignment) {
-    const string& quality = alignment.quality();
+    alignment.set_quality(string_quality_short_to_char(alignment.quality()));
+}
+
+string string_quality_short_to_char(const string& quality) {
     string squality;
     std::transform(quality.begin(), quality.end(), squality.begin(),
                    [](char c) { return (char)quality_short_to_char((int8_t)c); });
-    alignment.set_quality(squality);
+    return squality;
 }
 
 void alignment_quality_char_to_short(Alignment& alignment) {
-    const string& quality = alignment.quality();
+    alignment.set_quality(string_quality_char_to_short(alignment.quality()));
+}
+
+string string_quality_char_to_short(const string& quality) {
     string squality;
     std::transform(quality.begin(), quality.end(), squality.begin(),
                    [](char c) { return (int8_t)quality_char_to_short((char)c); });
-    alignment.set_quality(squality);
+    return squality;
 }
 
-void alignment_to_bam(const Alignment a, bam1_t *b, map<string, string>& rg_sample) {
+// remember to clean up with bam_destroy1(b);
+bam1_t* alignment_to_bam(const string& sam_header,
+                         const Alignment& alignment,
+                         const string& refseq,
+                         const int32_t refpos,
+                         const string& cigar,
+                         const string& mateseq,
+                         const int32_t matepos,
+                         const int32_t tlen) {
 
+    string sam_file = sam_header + alignment_to_sam(alignment, refseq, refpos, cigar, mateseq, matepos, tlen);
+    const char* sam = sam_file.c_str();
+    samFile *in = sam_open(sam, "r");
+    bam_hdr_t *header = sam_hdr_read(in);
+    bam1_t *aln = bam_init1();
+    if (sam_read1(in, header, aln) >= 0) {
+        return aln;
+    } else {
+        cerr << "[vg::alignment] Failure to parse SAM record" << endl
+             << sam << endl;
+        exit(1);
+    }
+}
+
+string alignment_to_sam(const Alignment& alignment,
+                        const string& refseq,
+                        const int32_t refpos,
+                        const string& cigar,
+                        const string& mateseq,
+                        const int32_t matepos,
+                        const int32_t tlen) {
+    stringstream sam;
+    sam << alignment.name() << "\t"
+        << sam_flag(alignment) << "\t"
+        << refseq << "\t"
+        << refpos << "\t"
+        << alignment.mapping_quality() << "\t"
+        << cigar << "\t"
+        << (mateseq == refseq ? "=" : mateseq) << "\t"
+        << matepos << "\t"
+        << alignment.sequence() << "\t"
+        << string_quality_short_to_char(alignment.quality()) << "\n";
+    return sam.str();
+}
+
+// act like the path this is against is the reference
+// and generate an equivalent cigar
+string cigar_against_path(const Alignment& alignment) {
+    const Path& path = alignment.path();
+    for (const auto& mapping : path.mapping()) {
+        
+    }
+}
+
+int32_t sam_flag(const Alignment& alignment) {
+    int32_t flag = 0;
+    if (alignment.score() == 0) {
+        // unmapped
+        flag |= 0x4;
+    } else {
+        // correctly aligned
+        flag |= 0x2;
+    }
+    if (alignment.is_reverse()) {
+        flag |= 0x10;
+    }
+    return flag;
 }
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
@@ -190,18 +274,6 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
 
     return alignment;
 }
-
-/*
-bool project_alignment(Alignment& alignment, Index& index, string& path_name) {
-    // establish a position and a mapping for the alignment against the other path
-    Alignment projected = alignment;
-    projected.mutable_path()->clear_mapping();
-    bool result = index.project_path(alignment.path(), path_name, projected);
-    if (result) {
-        alignment = projected;
-    }
-}
-*/
 
 int to_length(Mapping& m) {
     int l = 0;
