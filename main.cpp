@@ -18,24 +18,24 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
-void help_project(char** argv) {
-    cerr << "usage: " << argv[0] << " project [options] <aln.gam> >[proj.cram]" << endl
+void help_surject(char** argv) {
+    cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl
          << "Transforms alignments to be relative to particular paths." << endl
          << endl
          << "options:" << endl
          << "    -d, --db-name DIR       use the graph in this database" << endl
-         << "    -p, --into-path NAME    project into just this path" << endl
-         << "    -i, --into-paths FILE   project into path names listed in FILE (one per line)" << endl
-         << "    -P, --into-prefix NAME  project into all paths with NAME as their prefix" << endl
+         << "    -p, --into-path NAME    surject into just this path" << endl
+         << "    -i, --into-paths FILE   surject into path names listed in FILE (one per line)" << endl
+         << "    -P, --into-prefix NAME  surject into all paths with NAME as their prefix" << endl
          << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl;
 }
 
-int main_project(int argc, char** argv) {
+int main_surject(int argc, char** argv) {
 
     if (argc == 2) {
-        help_project(argv);
+        help_surject(argv);
         return 1;
     }
 
@@ -103,7 +103,7 @@ int main_project(int argc, char** argv) {
 
         case 'h':
         case '?':
-            help_project(argv);
+            help_surject(argv);
             exit(1);
             break;
 
@@ -122,7 +122,7 @@ int main_project(int argc, char** argv) {
         vector<Alignment> buffer;
         function<void(Alignment&)> lambda = [&index, &path_name, &buffer](Alignment& src) {
             Alignment proj;
-            index.project_alignment(src, path_name, proj);
+            index.surject_alignment(src, path_name, proj);
             buffer.push_back(proj);
             stream::write_buffered(cout, buffer, 1000);
         };
@@ -2154,7 +2154,7 @@ void vg_help(char** argv) {
          << "  -- kmers         enumerate kmers of the graph" << endl
          << "  -- sim           simulate reads from the graph" << endl
          << "  -- mod           filter and transform the graph" << endl
-         << "  -- project       map alignments onto specific paths" << endl;
+         << "  -- surject       map alignments onto specific paths" << endl;
 }
 
 int main(int argc, char *argv[])
@@ -2196,8 +2196,8 @@ int main(int argc, char *argv[])
         return main_sim(argc, argv);
     } else if (command == "mod") {
         return main_mod(argc, argv);
-    } else if (command == "project") {
-        return main_project(argc, argv);
+    } else if (command == "surject") {
+        return main_surject(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
