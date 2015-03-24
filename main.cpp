@@ -2100,14 +2100,12 @@ int main_construct(int argc, char** argv) {
     // set up our inputs
 
     vcflib::VariantCallFile variant_file;
-    if (vcf_file_name.empty()) {
-        cerr << "error:[vg construct] a VCF file is required for graph construction" << endl;
-        return 1;
-    }
-    variant_file.open(vcf_file_name);
-    if (!variant_file.is_open()) {
-        cerr << "error:[vg construct] could not open" << vcf_file_name << endl;
-        return 1;
+    if (!vcf_file_name.empty()) {
+        variant_file.open(vcf_file_name);
+        if (!variant_file.is_open()) {
+            cerr << "error:[vg construct] could not open" << vcf_file_name << endl;
+            return 1;
+        }
     }
 
     FastaReference reference;

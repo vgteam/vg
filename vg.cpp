@@ -593,7 +593,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
      };
 
      if (max_node_size > 0) {
-         create_progress("enforcing node size limit ", altp.rbegin()->first);
+         create_progress("enforcing node size limit ", (altp.empty()? 0 : altp.rbegin()->first));
          // break apart big nodes
          int last_pos = start_pos;
          for (auto& position : altp) {
@@ -1048,9 +1048,13 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                      start_pos,
                      stop_pos);
         if (stop_pos > 0) {
-            variantCallFile.setRegion(seq_name, start_pos, stop_pos);
+            if (variantCallFile.is_open()) {
+                variantCallFile.setRegion(seq_name, start_pos, stop_pos);
+            }
         } else {
-            variantCallFile.setRegion(seq_name);
+            if (variantCallFile.is_open()) {
+                variantCallFile.setRegion(seq_name);
+            }
             stop_pos = reference.sequenceLength(seq_name);
         }
         vcflib::Variant var(variantCallFile);
@@ -1066,7 +1070,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         // get records
         vector<vcflib::Variant> records;
         int i = 0;
-        while (variantCallFile.getNextVariant(var)) {
+        while (variantCallFile.is_open() && variantCallFile.getNextVariant(var)) {
             bool isDNA = allATGC(var.ref);
             for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
                 if (!allATGC(*a)) isDNA = false;

@@ -835,7 +835,6 @@ Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id,
 // removing elements which aren't in the path of interest
 // realign to this graph
 // cross fingers
-// should change to surject alignment
 bool Index::surject_alignment(const Alignment& source, string path_name, Alignment& surjection, int window) {
     VG graph;
     // get start and end nodes in path
