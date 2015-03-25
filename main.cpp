@@ -156,6 +156,8 @@ int main_surject(int argc, char** argv) {
             }
             stream::write_buffered(cout, buffer, 0); // flush
         } else {
+            // bam/sam/cram output
+
             // what we need for bam output:
             /*
               const string& refseq,
@@ -172,6 +174,7 @@ int main_surject(int argc, char** argv) {
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
                 // the surjection function should get us what we need
                 // to write bam/cram/sam
+                
             };
             if (file_name == "-") {
                 stream::for_each(std::cin, lambda);

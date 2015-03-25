@@ -218,10 +218,41 @@ string alignment_to_sam(const Alignment& alignment,
 // act like the path this is against is the reference
 // and generate an equivalent cigar
 string cigar_against_path(const Alignment& alignment) {
+    stringstream cigar;
     const Path& path = alignment.path();
     for (const auto& mapping : path.mapping()) {
-        // TODO
+        for (const auto& edit : mapping.edit()) {
+            if (edit.has_from_length()) {
+                if (!edit.has_to_length()) {
+// *matches* from_length == to_length, or from_length > 0 and offset unset
+                    // match state
+                    cigar << edit.from_length() << "M";
+                } else {
+                    // mismatch/sub state
+// *snps* from_length == to_length; sequence = alt
+                    if (edit.from_length() == edit.to_length()) {
+                        cigar << edit.from_length() << "M";
+                    } else if (edit.from_length() == 0) {
+// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
+                        cigar << edit.to_length() << "S";
+                    } else if (edit.from_length() > edit.to_length()) {
+// *deletions* from_length > to_length; sequence may be unset or empty
+                        int32_t del = edit.from_length() - edit.to_length();
+                        int32_t eq = edit.to_length();
+                        if (eq) cigar << eq << "M";
+                        cigar << del << "D";
+                    } else if (edit.from_length() < edit.to_length()) {
+// *insertions* from_length < to_length; sequence contains relative insertion
+                        int32_t ins = edit.to_length() - edit.from_length();
+                        int32_t eq = edit.from_length();
+                        if (eq) cigar << eq << "M";
+                        cigar << ins << "I";
+                    }
+                }
+            }
+        }
     }
+    return cigar.str();
 }
 
 int32_t sam_flag(const Alignment& alignment) {
