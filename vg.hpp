@@ -262,7 +262,7 @@ public:
 
     // remove edges for which one of the nodes is not present
     void remove_orphan_edges(void);
-    void keep_paths(set<string>& path_names);
+    void keep_paths(set<string>& path_names, set<string>& kept_names);
     void keep_path(string& path_name);
 
     // edges

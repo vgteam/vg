@@ -220,7 +220,7 @@ string alignment_to_sam(const Alignment& alignment,
 string cigar_against_path(const Alignment& alignment) {
     const Path& path = alignment.path();
     for (const auto& mapping : path.mapping()) {
-        
+        // TODO
     }
 }
 

@@ -43,7 +43,7 @@ int main_surject(int argc, char** argv) {
     string path_name;
     string path_prefix;
     string path_file;
-    string output_type = "sam";
+    string output_type = "gam";
     string input_type = "gam";
     string header_file;
 
@@ -137,30 +137,50 @@ int main_surject(int argc, char** argv) {
     }
 
     if (input_type == "gam") {
-        vector<Alignment> buffer;
-        function<void(Alignment&)> lambda = [&index, &path_names, &buffer](Alignment& src) {
-            Alignment proj;
-            // what we need:
-            /*
-                         const string& refseq,
-                         const int32_t refpos,
-                         const string& cigar,
-                         const string& mateseq,
-                         const int32_t matepos,
-                         const int32_t tlen);
-            */
-            index.surject_alignment(src, path_names, proj);
-            buffer.push_back(proj);
-            stream::write_buffered(cout, buffer, 1000);
-        };
-        if (file_name == "-") {
-            stream::for_each(std::cin, lambda);
+        if (output_type == "gam") {
+            vector<Alignment> buffer;
+            function<void(Alignment&)> lambda = [&index, &path_names, &buffer](Alignment& src) {
+                Alignment surj;
+                string path_name;
+                int64_t path_pos;
+                index.surject_alignment(src, path_names, surj, path_name, path_pos);
+                buffer.push_back(surj);
+                stream::write_buffered(cout, buffer, 1000);
+            };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+            stream::write_buffered(cout, buffer, 0); // flush
         } else {
-            ifstream in;
-            in.open(file_name.c_str());
-            stream::for_each(in, lambda);
+            // what we need for bam output:
+            /*
+              const string& refseq,
+              const int32_t refpos,
+              const string& cigar,
+              const string& mateseq,
+              const int32_t matepos,
+              const int32_t tlen
+            */
+            function<void(Alignment&)> lambda = [&index, &path_names](Alignment& src) {
+                Alignment surj;
+                string path_name;
+                int64_t path_pos;
+                index.surject_alignment(src, path_names, surj, path_name, path_pos);
+                // the surjection function should get us what we need
+                // to write bam/cram/sam
+            };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
         }
-        stream::write_buffered(cout, buffer, 0); // flush
     }
     cout.flush();
 

@@ -845,7 +845,12 @@ Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id,
                          const int32_t matepos,
                          const int32_t tlen);
             */
-bool Index::surject_alignment(const Alignment& source, set<string>& path_names, Alignment& surjection, int window) {
+bool Index::surject_alignment(const Alignment& source,
+                              set<string>& path_names,
+                              Alignment& surjection,
+                              string& path_name,
+                              int64_t& path_pos,
+                              int window) {
     VG graph;
     // get start and end nodes in path
     // get range between +/- window
@@ -854,15 +859,33 @@ bool Index::surject_alignment(const Alignment& source, set<string>& path_names, 
     get_range(max((int64_t)0, from_id), to_id, graph);
     graph.remove_orphan_edges();
     //string source_seq = graph.path_sequence(source);
-    graph.keep_paths(path_names);
+    // which path(s) did we keep?
+    set<string> kept_paths;
+    graph.keep_paths(path_names, kept_paths);
     //graph.serialize_to_file("surjection.vg"); // debugging
     surjection.set_sequence(source.sequence());
     graph.align(surjection);
-    if (surjection.path().mapping_size() == 0) {
-        return false;
-    } else {
-        // we need the cigar
+    if (surjection.path().mapping_size() == 0 && kept_paths.size() == 1) {
+        // determine the paths of the node we mapped into
+        //  ... get the id of the first node, get the pahs of it
+        path_name = *kept_paths.begin();
+        int64_t path_id = get_path_id(path_name);
+        int64_t hit_id = surjection.path().mapping(0).node_id();
+        int64_t pos = surjection.path().position();
+        // we pick up positional information using the index
+        int64_t prev_pos=0, next_pos=0;
+        list<int64_t> path_prev, path_next;
+        get_node_path_relative_position(hit_id, path_id, path_prev, prev_pos, path_next, next_pos);
+        // as a surjection this node must be in the path
+        // the nearest place we map should be the head of this node
+        assert(path_prev.size()==1 && hit_id == path_prev.front());
+        // we then add the position of this node against the path to our offset in the node
+        // to get the final chrom+position for the surjection
+        path_pos = prev_pos + pos;
+        // we need the cigar, but this comes from a function on the alignment itself
         return true;
+    } else {
+        return false;
     }
 }
 

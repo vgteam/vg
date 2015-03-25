@@ -1692,17 +1692,18 @@ void VG::remove_orphan_edges(void) {
     }
 }
 
-void VG::keep_paths(set<string>& path_names) {
+void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
     // edges have implicit path
     // now... at least ...
     // maybe they shouldn't
     vector<Node*> path;
     vector<Node*> nodes_to_remove;
-    for_each_node([this, &path_names, &path, &nodes_to_remove](Node* node) {
+    for_each_node([this, &kept_names, &path_names, &path, &nodes_to_remove](Node* node) {
             // use set intersection
             bool to_keep = false;
             for (auto& s : paths.of_node(node->id())) {
                 if (path_names.count(s)) {
+                    kept_names.insert(s);
                     to_keep = true;
                     break;
                 }
@@ -1742,8 +1743,8 @@ void VG::keep_paths(set<string>& path_names) {
 }
 
 void VG::keep_path(string& path_name) {
-    set<string> s; s.insert(path_name);
-    keep_paths(s);
+    set<string> s,k; s.insert(path_name);
+    keep_paths(s, k);
 }
 
 // utilities
