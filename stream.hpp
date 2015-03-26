@@ -78,9 +78,13 @@ bool for_each(std::istream& in,
           new ::google::protobuf::io::CodedInputStream(gzip_in);
 
     uint64_t count;
+    coded_in->ReadVarint64(&count);
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    while (coded_in->ReadVarint64(&count)) {
+    if (!count) return !count;
+    do {
+        delete coded_in;
+        coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
 
         handle_count(count);
 
@@ -96,7 +100,7 @@ bool for_each(std::istream& in,
                 lambda(object);
             }
         }
-    }
+    } while (coded_in->ReadVarint64(&count));
 
     delete coded_in;
     delete gzip_in;
