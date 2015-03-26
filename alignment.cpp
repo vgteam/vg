@@ -212,6 +212,12 @@ bam1_t* alignment_to_bam(const string& sam_header,
              << sam << endl;
         exit(1);
     }
+    bam_hdr_destroy(header);
+    free(header);
+    sam_close(in); // clean up
+    free(in);
+    // ^^^ this all fails to clean up the allocated memory
+    // what's going on?
 }
 
 string alignment_to_sam(const Alignment& alignment,

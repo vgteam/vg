@@ -191,7 +191,7 @@ int main_surject(int argc, char** argv) {
             map<string, pair<int64_t, int64_t> > path_layout;
             map<string, int64_t> path_length;
             index.path_layout(path_layout, path_length);
-            vector<bam1_t*> buffer;
+            vector<tuple<string, int64_t, Alignment> > buffer;
             map<string, string> rg_sample;
             // figure out rg_sample mapping...
             // can we process some alignments first?
@@ -200,18 +200,7 @@ int main_surject(int argc, char** argv) {
             samFile* out = 0;
             int read_sample_limit = 1000; // how many reads to look at before we reconstruct the header from the RG/sample pairing
 
-            bam_hdr_t* hdr = hts_string_header(header, path_length, rg_sample);
-            if ((out = sam_open(file_name.c_str(), out_mode)) == 0) {
-                cerr << "failed to open \""
-                     << (file_name.size() ? file_name : "standard output")
-                     << " for writing" << endl;
-                return 1;
-            } else {
-                // write the header
-                if (sam_hdr_write(out, hdr) != 0) {
-                    cerr << "[vg surject] error: failed to write the SAM header" << endl;
-                }
-            }
+            bam_hdr_t* hdr;
             // what we need for bam output:
             /*
               const string& refseq,
@@ -222,12 +211,10 @@ int main_surject(int argc, char** argv) {
               const int32_t tlen
             */
             auto open_handle_buffer = [&hdr, &header, &path_length, &rg_sample,
-                                       &out_mode, &out, &file_name, &buffer](void) {
+                                       &out_mode, &out, &buffer](void) {
                 hdr = hts_string_header(header, path_length, rg_sample);
-                if ((out = sam_open(file_name.c_str(), out_mode)) == 0) {
-                    cerr << "failed to open \""
-                         << (file_name.size() ? file_name : "standard output")
-                         << " for writing" << endl;
+                if ((out = sam_open("-", out_mode)) == 0) {
+                    cerr << "failed to open stdout for writing" << endl;
                     return 1;
                 } else {
                     // write the header
@@ -235,10 +222,22 @@ int main_surject(int argc, char** argv) {
                         cerr << "[vg surject] error: failed to write the SAM header" << endl;
                     }
                 }
-                for (auto br : buffer) {
-                    int r = sam_write1(out, hdr, br);
-                    if (r == 0) { cerr << "writing to " << file_name << " failed" << endl; return 1; }
-                    bam_destroy1(br);
+                for (auto s : buffer) {
+                    auto& path_nom = get<0>(s);
+                    auto& path_pos = get<1>(s);
+                    auto& surj = get<2>(s);
+                    string cigar = cigar_against_path(surj);
+                    bam1_t* b = alignment_to_bam(header,
+                                                 surj,
+                                                 path_nom,
+                                                 path_pos,
+                                                 cigar,
+                                                 "=",
+                                                 path_pos,
+                                                 0);
+                    int r = sam_write1(out, hdr, b);
+                    if (r == 0) { cerr << "writing to stdout failed" << endl; return 1; }
+                    bam_destroy1(b);
                 }
                 buffer.clear();
             };
@@ -256,7 +255,6 @@ int main_surject(int argc, char** argv) {
                                                  &count,
                                                  &hdr,
                                                  &out_mode,
-                                                 &file_name,
                                                  &open_handle_buffer](Alignment& src) {
                 Alignment surj;
                 string path_name;
@@ -267,25 +265,25 @@ int main_surject(int argc, char** argv) {
                 if (surj.has_read_group() && surj.has_sample_name()) {
                     rg_sample[surj.read_group()] = surj.sample_name();
                 }
-                string cigar = cigar_against_path(surj);
-                bam1_t* b = alignment_to_bam(header,
-                                             surj,
-                                             path_name,
-                                             path_pos,
-                                             cigar,
-                                             "=",
-                                             path_pos,
-                                             0);
 
                 // have we sampled enough reads to try to rebuild the header?
                 if (count == read_sample_limit) {
-                    buffer.push_back(b);
+                    buffer.push_back(make_tuple(path_name, path_pos, surj));
                     open_handle_buffer();
                 } else if (count < read_sample_limit) {
-                    buffer.push_back(b);
+                    buffer.push_back(make_tuple(path_name, path_pos, surj));
                 } else {
+                    string cigar = cigar_against_path(surj);
+                    bam1_t* b = alignment_to_bam(header,
+                                                 surj,
+                                                 path_name,
+                                                 path_pos,
+                                                 cigar,
+                                                 "=",
+                                                 path_pos,
+                                                 0);
                     int r = sam_write1(out, hdr, b);
-                    if (r == 0) { cerr << "writing to " << file_name << " failed" << endl; return 1; }
+                    if (r == 0) { cerr << "writing to stdout failed" << endl; return 1; }
                     bam_destroy1(b);
                 }
 
