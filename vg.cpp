@@ -1714,12 +1714,14 @@ void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
                 nodes_to_remove.push_back(node);
             }
         });
-    Node* prev = path.front();
     set<pair<int64_t, int64_t> > edges_to_keep;
-    for (auto node : path) {
-        if (node != prev) {
-            edges_to_keep.insert(make_pair(prev->id(), node->id()));
-            prev = node;
+    if (path.size()) {
+        Node* prev = path.front();
+        for (auto node : path) {
+            if (node != prev) {
+                edges_to_keep.insert(make_pair(prev->id(), node->id()));
+                prev = node;
+            }
         }
     }
     set<pair<int64_t, int64_t> > edges_to_destroy;
