@@ -206,18 +206,14 @@ bam1_t* alignment_to_bam(const string& sam_header,
     bam_hdr_t *header = sam_hdr_read(in);
     bam1_t *aln = bam_init1();
     if (sam_read1(in, header, aln) >= 0) {
+        bam_hdr_destroy(header);
+        sam_close(in); // clean up
         return aln;
     } else {
         cerr << "[vg::alignment] Failure to parse SAM record" << endl
              << sam << endl;
         exit(1);
     }
-    bam_hdr_destroy(header);
-    free(header);
-    sam_close(in); // clean up
-    free(in);
-    // ^^^ this all fails to clean up the allocated memory
-    // what's going on?
 }
 
 string alignment_to_sam(const Alignment& alignment,

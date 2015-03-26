@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 2
+plan tests 3
 
 vg construct -r small/x.fa >j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -17,5 +17,8 @@ is $(vg map -r <(vg sim -s 1337 -n 100 j.vg) x.vg | vg surject -p x -d x.vg.inde
 
 is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.index - | vg view -a - | wc -l) \
     100 "vg surject works for every read simulated from a dense graph"
+
+is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.index -b - | samtools view - | wc -l) \
+    100 "vg surject produces valid BAM output"
 
 rm -rf j.vg x.vg x.vg.index
