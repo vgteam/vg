@@ -867,7 +867,8 @@ bool Index::surject_alignment(const Alignment& source,
     surjection = source;
     surjection.clear_path();
     graph.align(surjection);
-    if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
+    if (surjection.has_path() &&
+        surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
         // determine the paths of the node we mapped into
         //  ... get the id of the first node, get the pahs of it
         assert(kept_paths.size() == 1);
