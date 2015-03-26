@@ -854,6 +854,9 @@ bool Index::surject_alignment(const Alignment& source,
     VG graph;
     // get start and end nodes in path
     // get range between +/- window
+    if (!source.has_path()) {
+        return false;
+    }
     int64_t from_id = source.path().mapping(0).node_id() - window;
     int64_t to_id = source.path().mapping(source.path().mapping_size()-1).node_id() + window;
     get_range(max((int64_t)0, from_id), to_id, graph);
@@ -867,8 +870,7 @@ bool Index::surject_alignment(const Alignment& source,
     surjection = source;
     surjection.clear_path();
     graph.align(surjection);
-    if (surjection.has_path() &&
-        surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
+    if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
         // determine the paths of the node we mapped into
         //  ... get the id of the first node, get the pahs of it
         assert(kept_paths.size() == 1);
