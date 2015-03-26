@@ -476,7 +476,11 @@ const int balanced_stride(int read_length, int kmer_size, int stride) {
     double r = read_length;
     double k = kmer_size;
     double j = stride;
-    return round((r-k)/round((r-k)/j));
+    if (r > j) {
+        return round((r-k)/round((r-k)/j));
+    } else {
+        return j;
+    }
 }
 
 const vector<string> balanced_kmers(const string& seq, const int kmer_size, const int stride) {
@@ -484,7 +488,7 @@ const vector<string> balanced_kmers(const string& seq, const int kmer_size, cons
     vector<string> kmers;
     int b = balanced_stride(seq.size(), kmer_size, stride);
     if (!seq.empty()) {
-        for (int i = 0; i < seq.size()-kmer_size; i+=b) {
+        for (int i = 0; i+kmer_size < seq.size(); i+=b) {
             kmers.push_back(seq.substr(i,kmer_size));
         }
     }
