@@ -27,4 +27,4 @@ is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.inde
 is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.index -c - | samtools view - | wc -l) \
     100 "vg surject produces valid CRAM output"
 
-#rm -rf j.vg x.vg x.vg.index
+rm -rf j.vg x.vg x.vg.index
