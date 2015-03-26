@@ -17,7 +17,10 @@ const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
-string hts_file_header(string& filename);
+bam_hdr_t* hts_file_header(string& filename, string& header);
+bam_hdr_t* hts_string_header(string& header,
+                             map<string, int64_t>& path_length,
+                             map<string, string>& rg_sample);
 void write_alignments(std::ostream& out, vector<Alignment>& buf);
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);

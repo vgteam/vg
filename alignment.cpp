@@ -60,17 +60,37 @@ int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
 
 }
 
-string hts_file_header(string& filename) {
+bam_hdr_t* hts_file_header(string& filename, string& header) {
     samFile *in = hts_open(filename.c_str(), "r");
     if (in == NULL) {
         cerr << "[vg::alignment] could not open " << filename << endl;
         exit(1);
     }
     bam_hdr_t *hdr = sam_hdr_read(in);
-    string s = hdr->text;
+    header = hdr->text;
     bam_hdr_destroy(hdr);
     hts_close(in);
-    return s;
+    return hdr;
+}
+
+bam_hdr_t* hts_string_header(string& header,
+                             map<string, int64_t>& path_length,
+                             map<string, string>& rg_sample) {
+    stringstream hdr;
+    hdr << "@HD\tVN:1.5\tSO:unknown\n";
+    for (auto& p : path_length) {
+        hdr << "@SQ\tSN:" << p.first << "\t" << "LN:" << p.second << "\n";
+    }
+    for (auto& s : rg_sample) {
+        hdr << "@RG\tID:" << s.first << "\t" << "SM:" << s.second << "\n";
+    }
+    hdr << "@PG\tID:0\tPN:vg\n";
+    header = hdr.str();
+    string sam = "data:" + header;
+    samFile *in = sam_open(sam.c_str(), "r");
+    bam_hdr_t *h = sam_hdr_read(in);
+    sam_close(in);
+    return h;
 }
 
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
@@ -180,7 +200,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const int32_t matepos,
                          const int32_t tlen) {
 
-    string sam_file = sam_header + alignment_to_sam(alignment, refseq, refpos, cigar, mateseq, matepos, tlen);
+    string sam_file = "data:" + sam_header + alignment_to_sam(alignment, refseq, refpos, cigar, mateseq, matepos, tlen);
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);
@@ -202,7 +222,8 @@ string alignment_to_sam(const Alignment& alignment,
                         const int32_t matepos,
                         const int32_t tlen) {
     stringstream sam;
-    sam << alignment.name() << "\t"
+    
+    sam << (alignment.has_name() ? alignment.name() : "null") << "\t"
         << sam_flag(alignment) << "\t"
         << refseq << "\t"
         << refpos << "\t"
@@ -210,49 +231,70 @@ string alignment_to_sam(const Alignment& alignment,
         << cigar << "\t"
         << (mateseq == refseq ? "=" : mateseq) << "\t"
         << matepos << "\t"
+        << tlen << "\t"
         << alignment.sequence() << "\t"
-        << string_quality_short_to_char(alignment.quality()) << "\n";
+        << (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I')) << "\n";
     return sam.str();
 }
 
 // act like the path this is against is the reference
 // and generate an equivalent cigar
 string cigar_against_path(const Alignment& alignment) {
-    stringstream cigar;
+    vector<pair<int, char> > cigar;
     const Path& path = alignment.path();
+    int l = 0;
     for (const auto& mapping : path.mapping()) {
         for (const auto& edit : mapping.edit()) {
             if (edit.has_from_length()) {
                 if (!edit.has_to_length()) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
                     // match state
-                    cigar << edit.from_length() << "M";
+                    cigar.push_back(make_pair(edit.from_length(), 'M'));
                 } else {
                     // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
                     if (edit.from_length() == edit.to_length()) {
-                        cigar << edit.from_length() << "M";
-                    } else if (edit.from_length() == 0) {
+                        cigar.push_back(make_pair(edit.from_length(), 'M'));
+                    } else if (edit.from_length() == 0 && !edit.has_sequence()) {
 // *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
-                        cigar << edit.to_length() << "S";
+                        cigar.push_back(make_pair(edit.to_length(), 'S'));
                     } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
                         int32_t del = edit.from_length() - edit.to_length();
                         int32_t eq = edit.to_length();
-                        if (eq) cigar << eq << "M";
-                        cigar << del << "D";
+                        if (eq) cigar.push_back(make_pair(eq, 'M'));
+                        cigar.push_back(make_pair(del, 'D'));
                     } else if (edit.from_length() < edit.to_length()) {
 // *insertions* from_length < to_length; sequence contains relative insertion
                         int32_t ins = edit.to_length() - edit.from_length();
                         int32_t eq = edit.from_length();
-                        if (eq) cigar << eq << "M";
-                        cigar << ins << "I";
+                        if (eq) cigar.push_back(make_pair(eq, 'M'));
+                        cigar.push_back(make_pair(ins, 'I'));
                     }
                 }
             }
         }
     }
-    return cigar.str();
+    vector<pair<int, char> > cigar_comp;
+    pair<int, char> cur = make_pair(0, '\0');
+    for (auto& e : cigar) {
+        if (cur == make_pair(0, '\0')) {
+            cur = e;
+        } else {
+            if (cur.second == e.second) {
+                cur.first += e.first;
+            } else {
+                cigar_comp.push_back(cur);
+                cur = e;
+            }
+        }
+    }
+    cigar_comp.push_back(cur);
+    stringstream cigarss;
+    for (auto& e : cigar_comp) {
+        cigarss << e.first << e.second;
+    }
+    return cigarss.str();
 }
 
 int32_t sam_flag(const Alignment& alignment) {

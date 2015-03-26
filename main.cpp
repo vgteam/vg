@@ -27,9 +27,11 @@ void help_surject(char** argv) {
          << "    -p, --into-path NAME    surject into just this path" << endl
          << "    -i, --into-paths FILE   surject into path names listed in FILE (one per line)" << endl
          << "    -P, --into-prefix NAME  surject into all paths with NAME as their prefix" << endl
+         << "    -H, --header-from FILE  use the header in the SAM/CRAM/BAM file for the output" << endl
          << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
-         << "    -s, --sam-output        write SAM to stdout" << endl;
+         << "    -s, --sam-output        write SAM to stdout" << endl
+         << "    -C, --compression N     level for compression [0-9]" << endl;
 }
 
 int main_surject(int argc, char** argv) {
@@ -46,6 +48,7 @@ int main_surject(int argc, char** argv) {
     string output_type = "gam";
     string input_type = "gam";
     string header_file;
+    int compress_level = 9;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -61,11 +64,12 @@ int main_surject(int argc, char** argv) {
                 {"bam-output", no_argument, 0, 'b'},
                 {"sam-output", no_argument, 0, 's'},
                 {"header-from", required_argument, 0, 'H'},
+                {"compress", required_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:",
+        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -104,7 +108,12 @@ int main_surject(int argc, char** argv) {
             break;
 
         case 's':
+            compress_level = -1;
             output_type = "sam";
+            break;
+
+        case 'C':
+            compress_level = atoi(optarg);
             break;
 
         case 'h':
@@ -156,8 +165,46 @@ int main_surject(int argc, char** argv) {
             }
             stream::write_buffered(cout, buffer, 0); // flush
         } else {
+            char out_mode[5];
+            string out_format = "";
+            strcpy(out_mode, "w");
+            if (output_type == "bam") { out_format = "b"; }
+            else if (output_type == "cram") { out_format = "c"; }
+            else { out_format = ""; }
+            if (compress_level >= 0) out_format = "b";
+            strcat(out_mode, out_format.c_str());
+            if (compress_level >= 0) {
+                char tmp[2];
+                tmp[0] = compress_level + '0'; tmp[1] = '\0';
+                strcat(out_mode, tmp);
+            }
+            // get the header
+            /*
+            if (header_file.empty()) {
+                cerr << "[vg surject] error: --header-from must be specified for SAM/BAM/CRAM output" << endl;
+                return 1;
+            }
+            */
+            string header;
+            map<string, int64_t> path_by_id = index.paths_by_id();
+            map<string, pair<int64_t, int64_t> > path_layout;
+            map<string, int64_t> path_length;
+            index.path_layout(path_layout, path_length);
+            map<string, string> rg_sample;
+            bam_hdr_t* hdr = hts_string_header(header, path_length, rg_sample);
             // bam/sam/cram output
-
+            samFile* out = 0;
+            if ((out = sam_open(file_name.c_str(), out_mode)) == 0) {
+                cerr << "failed to open \""
+                     << (file_name.size() ? file_name : "standard output")
+                     << " for writing" << endl;
+                return 1;
+            } else {
+                // write the header
+                if (sam_hdr_write(out, hdr) != 0) {
+                    cerr << "[vg surject] error: failed to write the SAM header" << endl;
+                }
+            }
             // what we need for bam output:
             /*
               const string& refseq,
@@ -167,14 +214,33 @@ int main_surject(int argc, char** argv) {
               const int32_t matepos,
               const int32_t tlen
             */
-            function<void(Alignment&)> lambda = [&index, &path_names](Alignment& src) {
+            function<void(Alignment&)> lambda = [&index,
+                                                 &path_names,
+                                                 &header,
+                                                 &out,
+                                                 &hdr,
+                                                 &file_name](Alignment& src) {
                 Alignment surj;
                 string path_name;
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
+                string cigar = cigar_against_path(surj);
+                bam1_t* b = alignment_to_bam(header,
+                                             surj,
+                                             path_name,
+                                             path_pos,
+                                             cigar,
+                                             "=",
+                                             path_pos,
+                                             0);
                 // the surjection function should get us what we need
                 // to write bam/cram/sam
-                
+                int r = sam_write1(out, hdr, b);
+                if (r == 0) {
+                    cerr << "writing to " << file_name << " failed" << endl;
+                    return 1;
+                }
+                bam_destroy1(b);
             };
             if (file_name == "-") {
                 stream::for_each(std::cin, lambda);
@@ -183,6 +249,8 @@ int main_surject(int argc, char** argv) {
                 in.open(file_name.c_str());
                 stream::for_each(in, lambda);
             }
+            bam_hdr_destroy(hdr);
+            sam_close(out);
         }
     }
     cout.flush();
@@ -1472,9 +1540,11 @@ int main_index(int argc, char** argv) {
         index.open_read_only(db_name);
         //index.path_layout();
         map<string, int64_t> path_by_id = index.paths_by_id();
-        auto path_layout = index.path_layout();
-        for (auto& p : path_layout) {
-            cout << p.first << " " << p.second.first << " " << p.second.second << endl;
+        map<string, pair<int64_t, int64_t> > layout;
+        map<string, int64_t> length;
+        index.path_layout(layout, length);
+        for (auto& p : layout) {
+            cout << p.first << " " << p.second.first << " " << p.second.second << " " << length[p.first] << endl;
         }
         index.close();
     }

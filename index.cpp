@@ -865,10 +865,12 @@ bool Index::surject_alignment(const Alignment& source,
     //graph.serialize_to_file("surjection.vg"); // debugging
     surjection.set_sequence(source.sequence());
     graph.align(surjection);
-    if (surjection.path().mapping_size() == 0 && kept_paths.size() == 1) {
+    if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
         // determine the paths of the node we mapped into
         //  ... get the id of the first node, get the pahs of it
+        assert(kept_paths.size() == 1);
         path_name = *kept_paths.begin();
+
         int64_t path_id = get_path_id(path_name);
         int64_t hit_id = surjection.path().mapping(0).node_id();
         int64_t pos = surjection.path().position();
@@ -919,7 +921,7 @@ int64_t Index::path_first_node(int64_t path_id) {
     return node_id;
 }
 
-int64_t Index::path_last_node(int64_t path_id) {
+int64_t Index::path_last_node(int64_t path_id, int64_t& path_length) {
     // we aim to seek to the first item in the next path, then step back
     string key_start = key_for_path_position(path_id, 0, 0);
     string key_end = key_for_path_position(path_id+1, 0, 0);
@@ -936,21 +938,24 @@ int64_t Index::path_last_node(int64_t path_id) {
         string value = it->value().ToString();
         int64_t path_id2, path_pos; Mapping mapping;
         parse_path_position(key, value, path_id2, path_pos, node_id, mapping);
+        Node node; get_node(node_id, node);
+        path_length = path_pos + node.sequence().size();
     }
     delete it;
     return node_id;
 }
 
-map<string, pair<int64_t, int64_t> > Index::path_layout(void) {
-    map<string, pair<int64_t, int64_t> > layout;
+void Index::path_layout(map<string, pair<int64_t, int64_t> >& layout,
+                        map<string, int64_t>& lengths) {
     map<string, int64_t> pbyid = paths_by_id();
     // for each path
     for (auto& p : pbyid) {
         // find the start and end nodes
+        int64_t path_length;
         layout[p.first] = make_pair(path_first_node(p.second),
-                                    path_last_node(p.second));
+                                    path_last_node(p.second, path_length));
+        lengths[p.first] = path_length;
     }
-    return layout;
 }
 
 void Index::expand_context(VG& graph, int steps = 1) {

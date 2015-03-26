@@ -187,9 +187,10 @@ public:
                            string& path_name,
                            int64_t& path_pos,
                            int window = 5);
-    map<string, pair<int64_t, int64_t> > path_layout(void);
+    void path_layout(map<string, pair<int64_t, int64_t> >& layout,
+                     map<string, int64_t>& lengths);
     int64_t path_first_node(int64_t path_id);
-    int64_t path_last_node(int64_t path_id);
+    int64_t path_last_node(int64_t path_id, int64_t& path_length);
 
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);

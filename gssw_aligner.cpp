@@ -96,7 +96,6 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
         gssw_cigar_element* e = c->elements;
 
         for (int j=0; j < l; ++j, ++e) {
-
             Edit* edit;
             int32_t length = e->length;
             switch (e->type) {
@@ -118,7 +117,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                         edit->set_from_length(1);
                         edit->set_to_length(1);
                         edit->set_sequence(to_seq.substr(j,1));
-                        last_start = i;
+                        last_start = i+1;
                     }
                 }
                 // handles the match at the end or the case of no SNP
