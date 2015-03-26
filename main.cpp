@@ -190,10 +190,16 @@ int main_surject(int argc, char** argv) {
             map<string, pair<int64_t, int64_t> > path_layout;
             map<string, int64_t> path_length;
             index.path_layout(path_layout, path_length);
+            vector<bam1_t*> buffer;
             map<string, string> rg_sample;
-            bam_hdr_t* hdr = hts_string_header(header, path_length, rg_sample);
+            // figure out rg_sample mapping...
+            // can we process some alignments first?
+
             // bam/sam/cram output
             samFile* out = 0;
+            int read_sample_limit = 1000; // how many reads to look at before we reconstruct the header from the RG/sample pairing
+
+            bam_hdr_t* hdr = hts_string_header(header, path_length, rg_sample);
             if ((out = sam_open(file_name.c_str(), out_mode)) == 0) {
                 cerr << "failed to open \""
                      << (file_name.size() ? file_name : "standard output")
@@ -214,16 +220,50 @@ int main_surject(int argc, char** argv) {
               const int32_t matepos,
               const int32_t tlen
             */
+            auto open_handle_buffer = [&hdr, &header, &path_length, &rg_sample,
+                                       &out_mode, &out, &file_name, &buffer](void) {
+                hdr = hts_string_header(header, path_length, rg_sample);
+                if ((out = sam_open(file_name.c_str(), out_mode)) == 0) {
+                    cerr << "failed to open \""
+                         << (file_name.size() ? file_name : "standard output")
+                         << " for writing" << endl;
+                    return 1;
+                } else {
+                    // write the header
+                    if (sam_hdr_write(out, hdr) != 0) {
+                        cerr << "[vg surject] error: failed to write the SAM header" << endl;
+                    }
+                }
+                for (auto br : buffer) {
+                    int r = sam_write1(out, hdr, br);
+                    if (r == 0) { cerr << "writing to " << file_name << " failed" << endl; return 1; }
+                    bam_destroy1(br);
+                }
+                buffer.clear();
+            };
+
+            int64_t count = 0;
             function<void(Alignment&)> lambda = [&index,
                                                  &path_names,
+                                                 &path_length,
+                                                 &rg_sample,
+                                                 &read_sample_limit,
                                                  &header,
                                                  &out,
+                                                 &buffer,
+                                                 &count,
                                                  &hdr,
-                                                 &file_name](Alignment& src) {
+                                                 &out_mode,
+                                                 &file_name,
+                                                 &open_handle_buffer](Alignment& src) {
                 Alignment surj;
                 string path_name;
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
+                // record 
+                if (surj.has_read_group() && surj.has_sample_name()) {
+                    rg_sample[surj.read_group()] = surj.sample_name();
+                }
                 string cigar = cigar_against_path(surj);
                 bam1_t* b = alignment_to_bam(header,
                                              surj,
@@ -233,15 +273,25 @@ int main_surject(int argc, char** argv) {
                                              "=",
                                              path_pos,
                                              0);
+
+                // have we sampled enough reads to try to rebuild the header?
+                if (count == read_sample_limit) {
+                    buffer.push_back(b);
+                    open_handle_buffer();
+                } else if (count < read_sample_limit) {
+                    buffer.push_back(b);
+                } else {
+                    int r = sam_write1(out, hdr, b);
+                    if (r == 0) { cerr << "writing to " << file_name << " failed" << endl; return 1; }
+                    bam_destroy1(b);
+                }
+
                 // the surjection function should get us what we need
                 // to write bam/cram/sam
-                int r = sam_write1(out, hdr, b);
-                if (r == 0) {
-                    cerr << "writing to " << file_name << " failed" << endl;
-                    return 1;
-                }
-                bam_destroy1(b);
+                ++count;
             };
+
+            // now apply the alignment processor to the stream
             if (file_name == "-") {
                 stream::for_each(std::cin, lambda);
             } else {
@@ -249,6 +299,7 @@ int main_surject(int argc, char** argv) {
                 in.open(file_name.c_str());
                 stream::for_each(in, lambda);
             }
+            if (!buffer.empty()) { open_handle_buffer(); }
             bam_hdr_destroy(hdr);
             sam_close(out);
         }
@@ -1650,6 +1701,8 @@ void help_map(char** argv) {
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
+         << "    -N, --sample NAME     for --reads input, add this sample" << endl
+         << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default 5)" << endl
@@ -1683,6 +1736,8 @@ int main_map(int argc, char** argv) {
     bool debug = false;
     bool prefer_forward = false;
     float score_per_bp = 0;
+    string sample_name;
+    string read_group;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1697,6 +1752,8 @@ int main_map(int argc, char** argv) {
                 {"kmer-size", required_argument, 0, 'k'},
                 {"clusters", required_argument, 0, 'c'},
                 {"reads", required_argument, 0, 'r'},
+                {"sample", required_argument, 0, 'N'},
+                {"read-group", required_argument, 0, 'R'},
                 {"hit-max", required_argument, 0, 'm'},
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
@@ -1709,7 +1766,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1748,6 +1805,14 @@ int main_map(int argc, char** argv) {
 
         case 'r':
             read_file = optarg;
+            break;
+
+        case 'R':
+            read_group = optarg;
+            break;
+
+        case 'N':
+            sample_name = optarg;
             break;
 
         case 'b':
@@ -1829,6 +1894,8 @@ int main_map(int argc, char** argv) {
     if (!seq.empty()) {
         int tid = omp_get_thread_num();
         Alignment alignment = mapper[tid]->align(seq, kmer_size, kmer_stride);
+        if (!sample_name.empty()) alignment.set_sample_name(sample_name);
+        if (!read_group.empty()) alignment.set_read_group(read_group);
         if (output_json) {
             char *json2 = pb2json(alignment);
             cout<<json2<<endl;
@@ -1857,6 +1924,8 @@ int main_map(int argc, char** argv) {
                 }
                 if (!line.empty()) {
                     Alignment alignment = mapper[tid]->align(line, kmer_size, kmer_stride);
+                    if (!sample_name.empty()) alignment.set_sample_name(sample_name);
+                    if (!read_group.empty()) alignment.set_read_group(read_group);
                     if (output_json) {
                         char *json2 = pb2json(alignment);
 #pragma omp critical (cout)

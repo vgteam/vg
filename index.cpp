@@ -863,7 +863,9 @@ bool Index::surject_alignment(const Alignment& source,
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
     //graph.serialize_to_file("surjection.vg"); // debugging
-    surjection.set_sequence(source.sequence());
+    //surjection.set_sequence(source.sequence());
+    surjection = source;
+    surjection.clear_path();
     graph.align(surjection);
     if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
         // determine the paths of the node we mapped into

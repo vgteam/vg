@@ -226,14 +226,16 @@ string alignment_to_sam(const Alignment& alignment,
     sam << (alignment.has_name() ? alignment.name() : "null") << "\t"
         << sam_flag(alignment) << "\t"
         << refseq << "\t"
-        << refpos << "\t"
+        << refpos + 1 << "\t" // positions are 1-based in SAM
         << alignment.mapping_quality() << "\t"
         << cigar << "\t"
         << (mateseq == refseq ? "=" : mateseq) << "\t"
-        << matepos << "\t"
+        << matepos + 1 << "\t"
         << tlen << "\t"
         << alignment.sequence() << "\t"
-        << (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I')) << "\n";
+        << (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
+    if (alignment.has_read_group()) sam << "\tRG:Z:" << alignment.read_group();
+    sam << "\n";
     return sam.str();
 }
 
