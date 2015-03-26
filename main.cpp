@@ -49,6 +49,7 @@ int main_surject(int argc, char** argv) {
     string input_type = "gam";
     string header_file;
     int compress_level = 9;
+    int default_mq = 30;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -248,6 +249,7 @@ int main_surject(int argc, char** argv) {
                                                  &path_length,
                                                  &rg_sample,
                                                  &read_sample_limit,
+                                                 &default_mq,
                                                  &header,
                                                  &out,
                                                  &buffer,
@@ -260,6 +262,7 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
+                if (!surj.has_mapping_quality()) { surj.set_mapping_quality(default_mq); }
                 // record 
                 if (surj.has_read_group() && surj.has_sample_name()) {
                     rg_sample[surj.read_group()] = surj.sample_name();

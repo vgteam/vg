@@ -300,16 +300,17 @@ string cigar_against_path(const Alignment& alignment) {
 }
 
 int32_t sam_flag(const Alignment& alignment) {
-    int32_t flag = 0;
+    int16_t flag = 0;
+
     if (alignment.score() == 0) {
         // unmapped
-        flag |= 0x4;
+        flag |= BAM_FUNMAP;
     } else {
         // correctly aligned
-        flag |= 0x2;
+        flag |= BAM_FPROPER_PAIR;
     }
     if (alignment.is_reverse()) {
-        flag |= 0x10;
+        flag |= BAM_FREVERSE;
     }
     return flag;
 }
