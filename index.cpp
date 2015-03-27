@@ -854,7 +854,7 @@ bool Index::surject_alignment(const Alignment& source,
     VG graph;
     // get start and end nodes in path
     // get range between +/- window
-    if (!source.has_path()) {
+    if (!source.has_path() || source.path().mapping_size() == 0) {
         return false;
     }
     int64_t from_id = source.path().mapping(0).node_id() - window;

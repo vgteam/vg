@@ -1953,6 +1953,7 @@ int main_map(int argc, char** argv) {
             int tid = omp_get_thread_num();
             alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride);
             if (output_json) {
+                //alignment_quality_short_to_char(alignment);
                 char *json2 = pb2json(alignment);
 #pragma omp critical (cout)
                 cout << json2 << "\n";
@@ -2124,7 +2125,7 @@ int main_view(int argc, char** argv) {
         if (output_type == "json") {
             // convert values to printable ones
             function<void(Alignment&)> lambda = [](Alignment& a) {
-                alignment_quality_short_to_char(a);
+                //alignment_quality_short_to_char(a);
                 char *json2 = pb2json(a);
                 cout << json2 << "\n";
                 free(json2);

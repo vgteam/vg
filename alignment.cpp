@@ -175,7 +175,7 @@ void alignment_quality_short_to_char(Alignment& alignment) {
 string string_quality_short_to_char(const string& quality) {
     string squality;
     std::transform(quality.begin(), quality.end(), squality.begin(),
-                   [](char c) { return (char)quality_short_to_char((int8_t)c); });
+                   [](char c) { return (char)quality_short_to_char(c); });
     return squality;
 }
 
@@ -186,7 +186,7 @@ void alignment_quality_char_to_short(Alignment& alignment) {
 string string_quality_char_to_short(const string& quality) {
     string squality;
     std::transform(quality.begin(), quality.end(), squality.begin(),
-                   [](char c) { return (int8_t)quality_char_to_short((char)c); });
+                   [](char c) { return (char)quality_char_to_short(c); });
     return squality;
 }
 
@@ -324,12 +324,10 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
     // get the sequence and qual
     int32_t lqseq = b->core.l_qseq;
     string sequence; sequence.resize(lqseq);
-    string quality; quality.resize(lqseq);
 
-    // take the quality as-is
-    // we have to copy this way--- it's not null terminated
     uint8_t* qualptr = bam_get_qual(b);
-    memcpy((char*)quality.c_str(), qualptr, lqseq);
+    string quality;//(lqseq, 0);
+    quality.assign((char*)qualptr, lqseq);
 
     // process the sequence into chars
     uint8_t* seqptr = bam_get_seq(b);
@@ -340,15 +338,21 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
     // get the read group and sample name
     uint8_t *rgptr = bam_aux_get(b, "RG");
     char* rg = (char*) (rgptr+1);
-    string& sname = rg_sample[string(rg)];
+    //if (!rg_sample
+    string sname;
+    if (!rg_sample.empty()) {
+        sname = rg_sample[string(rg)];
+    }
 
     // add features to the alignment
     alignment.set_name(bam_get_qname(b));
     alignment.set_sequence(sequence);
     alignment.set_quality(quality);
     alignment.set_is_reverse(bam_is_rev(b));
-    alignment.set_sample_name(sname);
-    alignment.set_read_group(rg);
+    if (sname.size()) {
+        alignment.set_sample_name(sname);
+        alignment.set_read_group(rg);
+    }
 
     return alignment;
 }

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 7
+plan tests 8
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -k 11 x.vg
@@ -25,6 +25,8 @@ seq=TCAGATTCTCATCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTG
 is $(vg map -s $seq x.vg | vg view -a - | jq -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
    $(vg map -s $seq -J x.vg | jq -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
    "binary alignment format is equivalent to json version"
+
+is $(vg map -b small/x.bam x.vg -J | jq .quality | grep null | wc -l) 0 "alignment from BAM correctly handles qualities"
 
 rm x.vg
 rm -rf x.vg.index

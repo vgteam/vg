@@ -100,7 +100,7 @@ message Alignment {
     optional string sequence = 1;
     optional Path path = 2;
     optional string name = 3;
-    optional string quality = 4;
+    optional bytes quality = 4;
     optional int32 mapping_quality = 5;
     optional int32 score = 6;
     optional int32 query_position = 7;
