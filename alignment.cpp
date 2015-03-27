@@ -240,9 +240,8 @@ string alignment_to_sam(const Alignment& alignment,
         for (int i = 0; i < quality.size(); ++i) {
             sam << quality_short_to_char(quality[i]);
         }
-        sam << "\t";
     } else {
-        sam << string(alignment.sequence().size(), 'I') << "\t";
+        sam << string(alignment.sequence().size(), 'I');
     }
     //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
     if (alignment.has_read_group()) sam << "\tRG:Z:" << alignment.read_group();
