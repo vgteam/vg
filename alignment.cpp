@@ -225,23 +225,24 @@ string alignment_to_sam(const Alignment& alignment,
                         const int32_t tlen) {
     stringstream sam;
 
-    sam << (alignment.has_name() ? alignment.name() : "null") << "\t"
+    sam << (alignment.has_name() ? alignment.name() : "*") << "\t"
         << sam_flag(alignment) << "\t"
-        << refseq << "\t"
-        << refpos + 1 << "\t" // positions are 1-based in SAM
+        << (refseq.empty() ? "*" : refseq) << "\t"
+        << (refpos == 0 ? 0 : refpos + 1) << "\t" // positions are 1-based in SAM, 0 means unmapped
         << alignment.mapping_quality() << "\t"
-        << cigar << "\t"
+        << (alignment.has_path() && alignment.path().mapping_size() ? cigar : "*") << "\t"
         << (mateseq == refseq ? "=" : mateseq) << "\t"
-        << matepos + 1 << "\t"
+        << (matepos == 0 ? 0 : matepos + 1) << "\t"
         << tlen << "\t"
-        << alignment.sequence() << "\t";
+        << (alignment.has_sequence() ? alignment.sequence() : "*") << "\t";
     if (alignment.has_quality()) {
         const string& quality = alignment.quality();
         for (int i = 0; i < quality.size(); ++i) {
             sam << quality_short_to_char(quality[i]);
         }
     } else {
-        sam << string(alignment.sequence().size(), 'I');
+        sam << "*";
+        //sam << string(alignment.sequence().size(), 'I');
     }
     //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
     if (alignment.has_read_group()) sam << "\tRG:Z:" << alignment.read_group();

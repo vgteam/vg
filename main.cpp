@@ -261,11 +261,13 @@ int main_surject(int argc, char** argv) {
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
                 if (!surj.path().mapping_size()) {
+                    /*
                     cerr << "alignment is not mapped" << endl;
                     char *json2 = pb2json(src);
                     cerr << json2 << endl; free(json2);
                     json2 = pb2json(surj);
                     cerr << json2 << endl; free(json2);
+                    */
                     surj = src;
                     //exit(1);
                 }
