@@ -52,8 +52,10 @@ string string_quality_short_to_char(const string& quality);
 void alignment_quality_char_to_short(Alignment& alignment);
 void alignment_quality_short_to_char(Alignment& alignment);
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
-int to_length(Mapping& m);
-int from_length(Mapping& m);
+int alignment_to_length(const Alignment& a);
+int alignment_from_length(const Alignment& a);
+int to_length(const Mapping& m);
+int from_length(const Mapping& m);
 
 }
 

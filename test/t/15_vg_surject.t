@@ -28,3 +28,10 @@ is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.inde
     100 "vg surject produces valid CRAM output"
 
 rm -rf j.vg x.vg x.vg.index
+
+vg index -s -k 27 -e 7 graphs/fail.vg
+
+read=TTCCTGTGTTTATTAGCCATGCCTAGAGTGGGATGCGCCATTGGTCATCTTCTGGCCCCTGTTGTCGGCATGTAACTTAATACCACAACCAGGCATAGGTGAAAGATTGGAGGAAAGATGAGTGACAGCATCAACTTCTCTCACAACCTAG
+#is $(vg map -s $read graphs/fail.vg | vg surject -i graphs/GRCh37.path_names -d graphs/fail.vg.index -s - | grep $read | wc -l) 1 "surjection of a cigar with an insertion and a deletion"
+
+rm -rf graphs/fail.vg.index

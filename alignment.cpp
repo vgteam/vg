@@ -254,7 +254,13 @@ string alignment_to_sam(const Alignment& alignment,
 // and generate an equivalent cigar
 string cigar_against_path(const Alignment& alignment) {
     vector<pair<int, char> > cigar;
+    assert(alignment.has_path());
     const Path& path = alignment.path();
+    if (alignment_to_length(alignment) != alignment.sequence().size()) {
+        cerr << alignment_to_length(alignment) << " vs " << alignment.sequence().size() << endl;
+        char *json2 = pb2json(alignment);
+        cerr << json2 << endl; free(json2);
+    }
     int l = 0;
     for (const auto& mapping : path.mapping()) {
         for (const auto& edit : mapping.edit()) {
@@ -366,16 +372,36 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
     return alignment;
 }
 
-int to_length(Mapping& m) {
+int alignment_to_length(const Alignment& a) {
     int l = 0;
-    for (int i = 0; i < m.edit_size(); ++i) {
-        const Edit& e = m.edit(i);
-        l += e.to_length();
+    for (const auto& m : a.path().mapping()) {
+        l += to_length(m);
     }
     return l;
 }
 
-int from_length(Mapping& m) {
+int alignment_from_length(const Alignment& a) {
+    int l = 0;
+    for (const auto& m : a.path().mapping()) {
+        l += from_length(m);
+    }
+    return l;
+}
+
+int to_length(const Mapping& m) {
+    int l = 0;
+    for (int i = 0; i < m.edit_size(); ++i) {
+        const Edit& e = m.edit(i);
+        if (e.has_from_length() && !e.has_to_length()) {
+            l += e.from_length();
+        } else {
+            l += e.to_length();
+        }
+    }
+    return l;
+}
+
+int from_length(const Mapping& m) {
     int l = 0;
     for (int i = 0; i < m.edit_size(); ++i) {
         const Edit& e = m.edit(i);
