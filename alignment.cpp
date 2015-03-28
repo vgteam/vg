@@ -224,7 +224,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const int32_t matepos,
                         const int32_t tlen) {
     stringstream sam;
-    
+
     sam << (alignment.has_name() ? alignment.name() : "null") << "\t"
         << sam_flag(alignment) << "\t"
         << refseq << "\t"

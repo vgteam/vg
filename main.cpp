@@ -260,6 +260,12 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
+                if (!surj.path().mapping_size()) {
+                    //cerr << "how is it possible that the alignment doesn't have a name?" << endl;
+                    //cerr << src.name() << endl;
+                    surj = src;
+                    //exit(1);
+                }
                 if (!surj.has_mapping_quality()) { surj.set_mapping_quality(default_mq); }
                 // record 
                 if (surj.has_read_group() && surj.has_sample_name()) {
