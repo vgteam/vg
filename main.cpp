@@ -12,6 +12,7 @@
 #include "Fasta.h"
 #include "stream.hpp"
 #include "alignment.hpp"
+#include "convert.hpp"
 #include <google/protobuf/stubs/common.h>
 
 using namespace std;
@@ -1121,6 +1122,7 @@ void help_find(char** argv) {
          << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
+         << "    -r, --node-range N:M   get nodes from N to M" << endl
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl;
 }
 
@@ -1144,6 +1146,7 @@ int main_find(int argc, char** argv) {
     bool kmer_table = false;
     string target;
     string path_name;
+    string range;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1165,11 +1168,12 @@ int main_find(int argc, char** argv) {
                 {"kmer-count", no_argument, 0, 'C'},
                 {"path", required_argument, 0, 'p'},
                 {"position-in", required_argument, 0, 'P'},
+                {"node-range", required_argument, 0, 'r'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CTp:P:",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CTp:P:r:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1228,6 +1232,10 @@ int main_find(int argc, char** argv) {
 
         case 'T':
             kmer_table = true;
+            break;
+
+        case 'r':
+            range = optarg;
             break;
 
         case 'o':
@@ -1324,6 +1332,23 @@ int main_find(int argc, char** argv) {
         VG graph;
         parse_region(target, name, start, end);
         index.get_path(graph, name, start, end);
+        if (context_size > 0) {
+            index.expand_context(graph, context_size);
+        }
+        graph.serialize_to_ostream(cout);
+    }
+
+    if (!range.empty()) {
+        VG graph;
+        int64_t id_start=0, id_end=0;
+        vector<string> parts = split_delims(range, ":");
+        if (parts.size() == 1) {
+            cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
+            exit(1);
+        }
+        convert(parts.front(), id_start);
+        convert(parts.back(), id_end);
+        index.get_range(id_start, id_end, graph);
         if (context_size > 0) {
             index.expand_context(graph, context_size);
         }

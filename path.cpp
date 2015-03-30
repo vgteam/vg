@@ -258,4 +258,44 @@ void parse_region(const string& target, string& name, int64_t& start, int64_t& e
 
 }
 
+int path_to_length(const Path& path) {
+    int l = 0;
+    for (const auto& m : path.mapping()) {
+        l += mapping_to_length(m);
+    }
+    return l;
+}
+
+int path_from_length(const Path& path) {
+    int l = 0;
+    for (const auto& m : path.mapping()) {
+        l += mapping_from_length(m);
+    }
+    return l;
+}
+
+int mapping_to_length(const Mapping& m) {
+    int l = 0;
+    for (int i = 0; i < m.edit_size(); ++i) {
+        const Edit& e = m.edit(i);
+        if (e.has_from_length() && !e.has_to_length()) {
+            l += e.from_length();
+        } else {
+            l += e.to_length();
+        }
+    }
+    return l;
+}
+
+int mapping_from_length(const Mapping& m) {
+    int l = 0;
+    for (int i = 0; i < m.edit_size(); ++i) {
+        const Edit& e = m.edit(i);
+        l += e.from_length();
+    }
+    return l;
+
+}
+
+
 }

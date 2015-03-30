@@ -8,7 +8,7 @@
 #include "vg.pb.h"
 #include "Variant.h"
 #include "Fasta.h"
-
+#include "path.hpp"
 
 namespace vg {
 

@@ -95,7 +95,7 @@ bam_hdr_t* hts_string_header(string& header,
 
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     string header(hts_header);
-    vector<string> header_lines = split(header, '\n');
+    vector<string> header_lines = split_delims(header, "\n");
 
     for (auto& line : header_lines) {
 
@@ -106,7 +106,7 @@ void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
         // "@RG     ID:-    SM:NA11832      CN:BCM  PL:454"
         //                     ^^^^^^^\ is our sample name
         if (line.find("@RG") == 0) {
-            vector<string> rg_parts = split(line, "\t ");
+            vector<string> rg_parts = split_delims(line, "\t ");
             string name;
             string rg_id;
             for (auto& part : rg_parts) {

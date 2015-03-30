@@ -72,7 +72,6 @@ void GSSWAligner::align(Alignment& alignment) {
 
 void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                                             Alignment& alignment) {
-
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
     Path* path = alignment.mutable_path();
@@ -83,10 +82,17 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
     gssw_node_cigar* nc = gc->elements;
     int to_pos = 0;
     int from_pos = gm->position;
+    //cerr << "gm->position " << gm->position << endl;
     string& to_seq = *alignment.mutable_sequence();
+    //cerr << "-------------" << endl;
+
+    //gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
+
 
     for (int i = 0; i < gc->length; ++i, ++nc) {
         if (i > 0) from_pos = 0; // reset for each node after the first
+        // check that the current alignment has a sensible length
+
         Node* from_node = (Node*) nc->node->data;
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
@@ -94,36 +100,39 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
         gssw_cigar* c = nc->cigar;
         int l = c->length;
         gssw_cigar_element* e = c->elements;
+        //cerr << from_node->id() << ":" << endl;
 
         for (int j=0; j < l; ++j, ++e) {
             Edit* edit;
             int32_t length = e->length;
+            //cerr << e->length << e->type << endl;
             switch (e->type) {
             case 'M': {
                 // do the sequences match?
                 // emit a stream of "SNPs" and matches
-                int i = from_pos;
+                int h = from_pos;
                 int last_start = from_pos;
-                int j = to_pos;
-                for ( ; i < from_pos + length; ++i, ++j) {
-                    if (from_seq[i] != to_seq[j]) {
+                int k = to_pos;
+                for ( ; h < from_pos + length; ++h, ++k) {
+                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+                    if (from_seq[h] != to_seq[k]) {
                         // emit the last "match" region
-                        if (i-last_start > 0) {
+                        if (h-last_start > 0) {
                             edit = mapping->add_edit();
-                            edit->set_from_length(i-last_start);
+                            edit->set_from_length(h-last_start);
                         }
                         // set up the SNP
                         edit = mapping->add_edit();
                         edit->set_from_length(1);
                         edit->set_to_length(1);
-                        edit->set_sequence(to_seq.substr(j,1));
-                        last_start = i+1;
+                        edit->set_sequence(to_seq.substr(k,1));
+                        last_start = h+1;
                     }
                 }
                 // handles the match at the end or the case of no SNP
-                if (i-last_start > 0) {
+                if (h-last_start > 0) {
                     edit = mapping->add_edit();
-                    edit->set_from_length(i-last_start);
+                    edit->set_from_length(h-last_start);
                 }
                 to_pos += length;
                 from_pos += length;
@@ -145,7 +154,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                 edit = mapping->add_edit();
                 edit->set_from_length(0);
                 edit->set_to_length(length);
-                from_pos += length;
+                to_pos += length;
                 break;
             default:
                 cerr << "error [GSSWAligner::gssw_mapping_to_alignment] "
@@ -155,6 +164,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
 
             }
         }
+        //cerr << "path to_length " << path_to_length(*path) << endl;
     }
 }
 

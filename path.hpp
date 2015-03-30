@@ -63,6 +63,10 @@ Path& increment_node_mapping_ids(Path& p, int64_t inc);
 Path& append_path(Path& a, const Path& b);
 const Paths paths_from_graph(Graph& g);
 void parse_region(const string& target, string& name, int64_t& start, int64_t& end);
+int path_to_length(const Path& path);
+int path_from_length(const Path& path);
+int mapping_to_length(const Mapping& m);
+int mapping_from_length(const Mapping& m);
 
 }
 

@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 5
+plan tests 6
 
 vg construct -r small/x.fa >j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -32,6 +32,6 @@ rm -rf j.vg x.vg x.vg.index
 vg index -s -k 27 -e 7 graphs/fail.vg
 
 read=TTCCTGTGTTTATTAGCCATGCCTAGAGTGGGATGCGCCATTGGTCATCTTCTGGCCCCTGTTGTCGGCATGTAACTTAATACCACAACCAGGCATAGGTGAAAGATTGGAGGAAAGATGAGTGACAGCATCAACTTCTCTCACAACCTAG
-#is $(vg map -s $read graphs/fail.vg | vg surject -i graphs/GRCh37.path_names -d graphs/fail.vg.index -s - | grep $read | wc -l) 1 "surjection of a cigar with an insertion and a deletion"
+is $(vg map -s $read graphs/fail.vg | vg surject -i graphs/GRCh37.path_names -d graphs/fail.vg.index -s - | grep $read | wc -l) 1 "surjection works for a longer (151bp) read"
 
 rm -rf graphs/fail.vg.index
