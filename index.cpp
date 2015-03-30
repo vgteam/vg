@@ -861,15 +861,9 @@ bool Index::surject_alignment(const Alignment& source,
     int64_t to_id = source.path().mapping(source.path().mapping_size()-1).node_id() + window;
     get_range(max((int64_t)0, from_id), to_id, graph);
     graph.remove_orphan_edges();
-    //string source_seq = graph.path_sequence(source);
     // which path(s) did we keep?
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
-    assert(kept_paths.size() == 1); // testing only
-    string seq;
-    graph.for_each_node([&seq](Node* n) { seq.append(n->sequence()); });
-    //graph.serialize_to_file("surjection.vg"); // debugging
-    //surjection.set_sequence(source.sequence());
     surjection = source;
     surjection.clear_path();
     graph.align(surjection);
