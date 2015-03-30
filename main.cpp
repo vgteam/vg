@@ -327,7 +327,8 @@ void help_mod(char** argv) {
          << "Modifies graph, outputs modified on stdout." << endl
          << endl
          << "options:" << endl
-         << "    -k, --keep-path NAME  keep only nodes and edges in the path" << endl;
+         << "    -k, --keep-path NAME  keep only nodes and edges in the path" << endl
+         << "    -o, --remove-orphans  remove orphan edges from graph (edge specified but node missing)" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -338,6 +339,7 @@ int main_mod(int argc, char** argv) {
     }
 
     string path_name;
+    bool remove_orphans = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -346,11 +348,12 @@ int main_mod(int argc, char** argv) {
             {
                 {"help", no_argument, 0, 'h'},
                 {"keep-path", required_argument, 0, 'k'},
+                {"remove-orphans", no_argument, 0, 'o'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:",
+        c = getopt_long (argc, argv, "hk:o",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -362,6 +365,10 @@ int main_mod(int argc, char** argv) {
 
         case 'k':
             path_name = optarg;
+            break;
+
+        case 'o':
+            remove_orphans = true;
             break;
 
         case 'h':
@@ -387,6 +394,10 @@ int main_mod(int argc, char** argv) {
 
     if (!path_name.empty()) {
         graph->keep_path(path_name);
+    }
+
+    if (remove_orphans) {
+        graph->remove_orphan_edges();
     }
 
     graph->serialize_to_ostream(std::cout);
