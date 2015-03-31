@@ -54,7 +54,6 @@ void GSSWAligner::align(Alignment& alignment) {
                     nt_table, score_matrix,
                     gap_open, gap_extension, 15, 2);
 
-    //gssw_graph_print_score_matrices(_gssw_graph, sequence.c_str(), sequence.size());
     gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
                                                     sequence.c_str(),
                                                     sequence.size(),

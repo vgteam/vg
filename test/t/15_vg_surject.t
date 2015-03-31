@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 6
+plan tests 7
 
 vg construct -r small/x.fa >j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -35,3 +35,10 @@ read=TTCCTGTGTTTATTAGCCATGCCTAGAGTGGGATGCGCCATTGGTCATCTTCTGGCCCCTGTTGTCGGCATGTAA
 is $(vg map -s $read graphs/fail.vg | vg surject -i graphs/GRCh37.path_names -d graphs/fail.vg.index -s - | grep $read | wc -l) 1 "surjection works for a longer (151bp) read"
 
 rm -rf graphs/fail.vg.index
+
+vg index -s -k 27 -e 7 graphs/fail2.vg
+
+read=TATTTACGGCGGGGGCCCACCTTTGACCCTTTTTTTTTTTCAAGCAGAAGACGGCATACGAGATCACTTCGAGAGATCGGTCTCGGCATTCCTGCTGAACCGCTCTTCCGATCTACCCTAACCCTAACCCCAACCCCTAACCCTAACCCCA
+is $(vg map -s $read graphs/fail2.vg | vg surject -i graphs/GRCh37.path_names -d graphs/fail2.vg.index -s - | grep $read | wc -l) 1 "surjection works for another difficult read"
+
+#rm -rf graphs/fail2.vg.index
