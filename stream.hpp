@@ -134,6 +134,8 @@ bool for_each_parallel(std::istream& in,
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
     std::list<T> objects;
+    int64_t object_count = 0;
+    int64_t read_threshold = 5000;
     if (!count) return !count;
 #pragma omp parallel shared(more, objects, count, in, lambda, handle_count, raw_in, gzip_in, coded_in)
     do {
@@ -145,6 +147,7 @@ bool for_each_parallel(std::istream& in,
             if (!objects.empty()) {
                 object = objects.back();
                 objects.pop_back();
+                --object_count;
                 has_object = true;
             }
         }
@@ -154,7 +157,7 @@ bool for_each_parallel(std::istream& in,
 
 #pragma omp master
         {
-            if (more && objects.empty()) {
+            while (more && object_count < read_threshold) {
                 delete coded_in;
                 coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
                 handle_count(count);
@@ -168,7 +171,10 @@ bool for_each_parallel(std::istream& in,
                         T object;
                         object.ParseFromString(s);
 #pragma omp critical (objects)
-                        objects.push_front(object);
+                        {
+                            objects.push_front(object);
+                            ++object_count;
+                        }
                     }
                 }
                 more = coded_in->ReadVarint64(&count);

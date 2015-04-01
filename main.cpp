@@ -155,17 +155,17 @@ int main_surject(int argc, char** argv) {
 
     if (input_type == "gam") {
         if (output_type == "gam") {
-            vector<Alignment> buffer;
+            int thread_count = get_thread_count();
+            vector<vector<Alignment> > buffer;
+            buffer.resize(thread_count);
             function<void(Alignment&)> lambda = [&index, &path_names, &buffer](Alignment& src) {
+                int tid = omp_get_thread_num();
                 Alignment surj;
                 string path_name;
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
-#pragma omp critical (cout)
-                {
-                    buffer.push_back(surj);
-                    stream::write_buffered(cout, buffer, 1000);
-                }
+                buffer[tid].push_back(surj);
+                stream::write_buffered(cout, buffer[tid], 1000);
             };
             if (file_name == "-") {
                 stream::for_each_parallel(std::cin, lambda);
@@ -174,7 +174,9 @@ int main_surject(int argc, char** argv) {
                 in.open(file_name.c_str());
                 stream::for_each_parallel(in, lambda);
             }
-            stream::write_buffered(cout, buffer, 0); // flush
+            for (int i = 0; i < thread_count; ++i) {
+                stream::write_buffered(cout, buffer[i], 0); // flush
+            }
         } else {
             char out_mode[5];
             string out_format = "";
