@@ -25,10 +25,11 @@ void help_surject(char** argv) {
          << endl
          << "options:" << endl
          << "    -d, --db-name DIR       use the graph in this database" << endl
+         << "    -t, --threads N         number of threads to use" << endl
          << "    -p, --into-path NAME    surject into just this path" << endl
          << "    -i, --into-paths FILE   surject into path names listed in FILE (one per line)" << endl
          << "    -P, --into-prefix NAME  surject into all paths with NAME as their prefix" << endl
-         << "    -H, --header-from FILE  use the header in the SAM/CRAM/BAM file for the output" << endl
+        //<< "    -H, --header-from FILE  use the header in the SAM/CRAM/BAM file for the output" << endl
          << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
@@ -59,6 +60,7 @@ int main_surject(int argc, char** argv) {
             {
                 {"help", no_argument, 0, 'h'},
                 {"db-name", required_argument, 0, 'd'},
+                {"threads", required_argument, 0, 't'},
                 {"into-path", required_argument, 0, 'p'},
                 {"into-paths", required_argument, 0, 'i'},
                 {"into-prefix", required_argument, 0, 'P'},
@@ -71,7 +73,7 @@ int main_surject(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:",
+        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:t:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -112,6 +114,10 @@ int main_surject(int argc, char** argv) {
         case 's':
             compress_level = -1;
             output_type = "sam";
+            break;
+
+        case 't':
+            omp_set_num_threads(atoi(optarg));
             break;
 
         case 'C':
@@ -155,15 +161,18 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
-                buffer.push_back(surj);
-                stream::write_buffered(cout, buffer, 1000);
+#pragma omp critical (cout)
+                {
+                    buffer.push_back(surj);
+                    stream::write_buffered(cout, buffer, 1000);
+                }
             };
             if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
+                stream::for_each_parallel(std::cin, lambda);
             } else {
                 ifstream in;
                 in.open(file_name.c_str());
-                stream::for_each(in, lambda);
+                stream::for_each_parallel(in, lambda);
             }
             stream::write_buffered(cout, buffer, 0); // flush
         } else {
@@ -236,7 +245,9 @@ int main_surject(int argc, char** argv) {
                                                  "=",
                                                  path_pos,
                                                  0);
-                    int r = sam_write1(out, hdr, b);
+                    int r = 0;
+#pragma omp critical (cout)
+                    r = sam_write1(out, hdr, b);
                     if (r == 0) { cerr << "writing to stdout failed" << endl; return 1; }
                     bam_destroy1(b);
                 }
@@ -278,13 +289,8 @@ int main_surject(int argc, char** argv) {
                     rg_sample[surj.read_group()] = surj.sample_name();
                 }
 
-                // have we sampled enough reads to try to rebuild the header?
-                if (count == read_sample_limit) {
-                    buffer.push_back(make_tuple(path_name, path_pos, surj));
-                    open_handle_buffer();
-                } else if (count < read_sample_limit) {
-                    buffer.push_back(make_tuple(path_name, path_pos, surj));
-                } else {
+                // parallel processing
+                if (count > read_sample_limit) {
                     string cigar = cigar_against_path(surj);
                     bam1_t* b = alignment_to_bam(header,
                                                  surj,
@@ -294,23 +300,34 @@ int main_surject(int argc, char** argv) {
                                                  "=",
                                                  path_pos,
                                                  0);
-                    int r = sam_write1(out, hdr, b);
+                    int r = 0;
+#pragma omp critical (cout)
+                    r = sam_write1(out, hdr, b);
                     if (r == 0) { cerr << "writing to stdout failed" << endl; return 1; }
                     bam_destroy1(b);
                 }
 
-                // the surjection function should get us what we need
-                // to write bam/cram/sam
-                ++count;
+                // have we sampled enough reads to try to rebuild the header?
+#pragma omp critical (hts_header)
+                if (count <= read_sample_limit) {
+                    if (count == read_sample_limit) {
+                        buffer.push_back(make_tuple(path_name, path_pos, surj));
+                        open_handle_buffer();
+                    } else {
+                        buffer.push_back(make_tuple(path_name, path_pos, surj));
+                    }
+                    ++count;
+                }
+
             };
 
             // now apply the alignment processor to the stream
             if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
+                stream::for_each_parallel(std::cin, lambda);
             } else {
                 ifstream in;
                 in.open(file_name.c_str());
-                stream::for_each(in, lambda);
+                stream::for_each_parallel(in, lambda);
             }
             if (!buffer.empty()) { open_handle_buffer(); }
             bam_hdr_destroy(hdr);

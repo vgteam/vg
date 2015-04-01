@@ -116,6 +116,79 @@ bool for_each(std::istream& in,
     for_each(in, lambda, noop);
 }
 
+template <typename T>
+bool for_each_parallel(std::istream& in,
+                       std::function<void(T&)>& lambda,
+                       std::function<void(uint64_t)>& handle_count) {
+
+    ::google::protobuf::io::ZeroCopyInputStream *raw_in =
+          new ::google::protobuf::io::IstreamInputStream(&in);
+    ::google::protobuf::io::GzipInputStream *gzip_in =
+          new ::google::protobuf::io::GzipInputStream(raw_in);
+    ::google::protobuf::io::CodedInputStream *coded_in =
+          new ::google::protobuf::io::CodedInputStream(gzip_in);
+
+    uint64_t count;
+    bool more = coded_in->ReadVarint64(&count);
+    // this loop handles a chunked file with many pieces
+    // such as we might write in a multithreaded process
+    list<T> objects;
+    if (!count) return !count;
+#pragma omp parallel shared(more, objects, count, in, lambda, handle_count, raw_in, gzip_in, coded_in)
+    do {
+
+        bool has_object = false;
+        T object;
+#pragma omp critical (objects)
+        {
+            if (!objects.empty()) {
+                object = objects.back();
+                objects.pop_back();
+                has_object = true;
+            }
+        }
+        if (has_object) {
+            lambda(object);
+        }
+
+#pragma omp master
+        {
+            if (more && objects.empty()) {
+                delete coded_in;
+                coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
+                handle_count(count);
+                std::string s;
+                for (uint64_t i = 0; i < count; ++i) {
+                    uint32_t msgSize = 0;
+                    // the messages are prefixed by their size
+                    coded_in->ReadVarint32(&msgSize);
+                    if ((msgSize > 0) &&
+                        (coded_in->ReadString(&s, msgSize))) {
+                        T object;
+                        object.ParseFromString(s);
+#pragma omp critical (objects)
+                        objects.push_back(object);
+                    }
+                }
+                more = coded_in->ReadVarint64(&count);
+            }
+        }
+    } while (more || !objects.empty());
+
+    delete coded_in;
+    delete gzip_in;
+    delete raw_in;
+
+    return !count;
+}
+
+template <typename T>
+bool for_each_parallel(std::istream& in,
+              std::function<void(T&)>& lambda) {
+    std::function<void(uint64_t)> noop = [](uint64_t) { };
+    for_each_parallel(in, lambda, noop);
+}
+
 }
 
 #endif

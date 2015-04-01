@@ -200,6 +200,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const int32_t matepos,
                          const int32_t tlen) {
 
+    assert(!sam_header.empty());
     string sam_file = "data:" + sam_header + alignment_to_sam(alignment, refseq, refpos, cigar, mateseq, matepos, tlen);
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
@@ -228,11 +229,12 @@ string alignment_to_sam(const Alignment& alignment,
     sam << (alignment.has_name() ? alignment.name() : "*") << "\t"
         << sam_flag(alignment) << "\t"
         << (refseq.empty() ? "*" : refseq) << "\t"
-        << (refpos == 0 ? 0 : refpos + 1) << "\t" // positions are 1-based in SAM, 0 means unmapped
+        << refpos + 1 << "\t"
+        //<< (alignment.path().mapping_size() ? refpos + 1 : 0) << "\t" // positions are 1-based in SAM, 0 means unmapped
         << alignment.mapping_quality() << "\t"
         << (alignment.has_path() && alignment.path().mapping_size() ? cigar : "*") << "\t"
         << (mateseq == refseq ? "=" : mateseq) << "\t"
-        << (matepos == 0 ? 0 : matepos + 1) << "\t"
+        << matepos + 1 << "\t"
         << tlen << "\t"
         << (alignment.has_sequence() ? alignment.sequence() : "*") << "\t";
     if (alignment.has_quality()) {
