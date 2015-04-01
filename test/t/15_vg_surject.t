@@ -41,4 +41,4 @@ vg index -s -k 27 -e 7 graphs/fail2.vg
 read=TATTTACGGCGGGGGCCCACCTTTGACCCTTTTTTTTTTTCAAGCAGAAGACGGCATACGAGATCACTTCGAGAGATCGGTCTCGGCATTCCTGCTGAACCGCTCTTCCGATCTACCCTAACCCTAACCCCAACCCCTAACCCTAACCCCA
 is $(vg map -s $read graphs/fail2.vg | vg surject -i graphs/GRCh37.path_names -d graphs/fail2.vg.index -s - | grep $read | wc -l) 1 "surjection works for another difficult read"
 
-#rm -rf graphs/fail2.vg.index
+rm -rf graphs/fail2.vg.index
