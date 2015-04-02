@@ -212,7 +212,7 @@ int main_surject(int argc, char** argv) {
             samFile* out = 0;
             int read_sample_limit = 1000; // how many reads to look at before we reconstruct the header from the RG/sample pairing
 
-            bam_hdr_t* hdr;
+            bam_hdr_t* hdr = NULL;
             // what we need for bam output:
             /*
               const string& refseq,
@@ -291,8 +291,27 @@ int main_surject(int argc, char** argv) {
                     rg_sample[surj.read_group()] = surj.sample_name();
                 }
 
+                bool cached_read = false;
+
+                // have we sampled enough reads to try to rebuild the header?
+                // is there a race here?
+                if (count < read_sample_limit) {
+#pragma omp critical (hts_header)
+                    {
+                        ++count;
+                        if (count == read_sample_limit) {
+                            buffer.push_back(make_tuple(path_name, path_pos, surj));
+                            open_handle_buffer();
+                            cached_read = true;
+                        } else if (count < read_sample_limit) {
+                            buffer.push_back(make_tuple(path_name, path_pos, surj));
+                            cached_read = true;
+                        }
+                    }
+                }
+
                 // parallel processing
-                if (count > read_sample_limit) {
+                if (count > read_sample_limit && !cached_read) {
                     string cigar = cigar_against_path(surj);
                     bam1_t* b = alignment_to_bam(header,
                                                  surj,
@@ -309,17 +328,7 @@ int main_surject(int argc, char** argv) {
                     bam_destroy1(b);
                 }
 
-                // have we sampled enough reads to try to rebuild the header?
-#pragma omp critical (hts_header)
-                if (count <= read_sample_limit) {
-                    if (count == read_sample_limit) {
-                        buffer.push_back(make_tuple(path_name, path_pos, surj));
-                        open_handle_buffer();
-                    } else {
-                        buffer.push_back(make_tuple(path_name, path_pos, surj));
-                    }
-                    ++count;
-                }
+
 
             };
 
