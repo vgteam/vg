@@ -213,6 +213,7 @@ int main_surject(int argc, char** argv) {
             int read_sample_limit = 1000; // how many reads to look at before we reconstruct the header from the RG/sample pairing
 
             bam_hdr_t* hdr = NULL;
+            bool hts_file_open = false;
             // what we need for bam output:
             /*
               const string& refseq,
@@ -223,7 +224,7 @@ int main_surject(int argc, char** argv) {
               const int32_t tlen
             */
             auto open_handle_buffer = [&hdr, &header, &path_length, &rg_sample,
-                                       &out_mode, &out, &buffer](void) {
+                                       &out_mode, &out, &buffer, &hts_file_open](void) {
                 hdr = hts_string_header(header, path_length, rg_sample);
                 if ((out = sam_open("-", out_mode)) == 0) {
                     cerr << "failed to open stdout for writing" << endl;
@@ -254,6 +255,7 @@ int main_surject(int argc, char** argv) {
                     bam_destroy1(b);
                 }
                 buffer.clear();
+                hts_file_open = true;
             };
 
             int64_t count = 0;
@@ -268,6 +270,7 @@ int main_surject(int argc, char** argv) {
                                                  &buffer,
                                                  &count,
                                                  &hdr,
+                                                 &hts_file_open,
                                                  &out_mode,
                                                  &open_handle_buffer](Alignment& src) {
                 Alignment surj;
@@ -312,6 +315,7 @@ int main_surject(int argc, char** argv) {
 
                 // parallel processing
                 if (count > read_sample_limit && !cached_read) {
+                    while (!hts_file_open) usleep(10);
                     string cigar = cigar_against_path(surj);
                     bam1_t* b = alignment_to_bam(header,
                                                  surj,
