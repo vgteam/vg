@@ -203,17 +203,18 @@ int main_surject(int argc, char** argv) {
             map<string, pair<int64_t, int64_t> > path_layout;
             map<string, int64_t> path_length;
             index.path_layout(path_layout, path_length);
-            vector<tuple<string, int64_t, Alignment> > buffer;
+            int thread_count = get_thread_count();
+            vector<vector<tuple<string, int64_t, Alignment> > > buffer;
+            buffer.resize(thread_count);
             map<string, string> rg_sample;
-            // figure out rg_sample mapping...
-            // can we process some alignments first?
 
             // bam/sam/cram output
             samFile* out = 0;
-            int read_sample_limit = 1000; // how many reads to look at before we reconstruct the header from the RG/sample pairing
+            int buffer_limit = 10; // how many reads to look at before we reconstruct the header from the RG/sample pairing
 
             bam_hdr_t* hdr = NULL;
-            bool hts_file_open = false;
+            int64_t count = 0;
+
             // what we need for bam output:
             /*
               const string& refseq,
@@ -223,70 +224,69 @@ int main_surject(int argc, char** argv) {
               const int32_t matepos,
               const int32_t tlen
             */
-            auto open_handle_buffer = [&hdr, &header, &path_length, &rg_sample,
-                                       &out_mode, &out, &buffer, &hts_file_open](void) {
-                hdr = hts_string_header(header, path_length, rg_sample);
-                if ((out = sam_open("-", out_mode)) == 0) {
-                    cerr << "failed to open stdout for writing" << endl;
-                    return 1;
-                } else {
-                    // write the header
-                    if (sam_hdr_write(out, hdr) != 0) {
-                        cerr << "[vg surject] error: failed to write the SAM header" << endl;
+            auto handle_buffer =
+                [&hdr, &header, &path_length, &rg_sample, &buffer_limit,
+                 &out_mode, &out](vector<tuple<string, int64_t, Alignment> >& buf) {
+                if (buf.size() >= buffer_limit) {
+                    // do we have enough data to open the file?
+#pragma omp critical (hts_header)
+                    {
+                        if (!hdr) {
+                            hdr = hts_string_header(header, path_length, rg_sample);
+                            if ((out = sam_open("-", out_mode)) == 0) {
+                                cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
+                                exit(1);
+                            } else {
+                                // write the header
+                                if (sam_hdr_write(out, hdr) != 0) {
+                                    cerr << "[vg surject] error: failed to write the SAM header" << endl;
+                                }
+                            }
+                        }
                     }
-                }
-                for (auto s : buffer) {
-                    auto& path_nom = get<0>(s);
-                    auto& path_pos = get<1>(s);
-                    auto& surj = get<2>(s);
-                    string cigar = cigar_against_path(surj);
-                    bam1_t* b = alignment_to_bam(header,
-                                                 surj,
-                                                 path_nom,
-                                                 path_pos,
-                                                 cigar,
-                                                 "=",
-                                                 path_pos,
-                                                 0);
-                    int r = 0;
+                    // MUST be that another thread has opened the file by here
+                    for (auto& s : buf) {
+                        auto& path_nom = get<0>(s);
+                        auto& path_pos = get<1>(s);
+                        auto& surj = get<2>(s);
+                        string cigar = cigar_against_path(surj);
+                        bam1_t* b = alignment_to_bam(header,
+                                                     surj,
+                                                     path_nom,
+                                                     path_pos,
+                                                     cigar,
+                                                     "=",
+                                                     path_pos,
+                                                     0);
+                        int r = 0;
 #pragma omp critical (cout)
-                    r = sam_write1(out, hdr, b);
-                    if (r == 0) { cerr << "writing to stdout failed" << endl; return 1; }
-                    bam_destroy1(b);
+                        r = sam_write1(out, hdr, b);
+                        if (r == 0) { cerr << "writing to stdout failed" << endl; return 1; }
+                        bam_destroy1(b);
+                    }
+                    buf.clear();
                 }
-                buffer.clear();
-                hts_file_open = true;
             };
 
-            int64_t count = 0;
             function<void(Alignment&)> lambda = [&index,
                                                  &path_names,
                                                  &path_length,
                                                  &rg_sample,
-                                                 &read_sample_limit,
                                                  &default_mq,
                                                  &header,
                                                  &out,
                                                  &buffer,
                                                  &count,
                                                  &hdr,
-                                                 &hts_file_open,
                                                  &out_mode,
-                                                 &open_handle_buffer](Alignment& src) {
+                                                 &handle_buffer](Alignment& src) {
+                int tid = omp_get_thread_num();
                 Alignment surj;
                 string path_name;
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos);
                 if (!surj.path().mapping_size()) {
-                    /*
-                    cerr << "alignment is not mapped" << endl;
-                    char *json2 = pb2json(src);
-                    cerr << json2 << endl; free(json2);
-                    json2 = pb2json(surj);
-                    cerr << json2 << endl; free(json2);
-                    */
                     surj = src;
-                    //exit(1);
                 }
                 if (!surj.has_mapping_quality()) { surj.set_mapping_quality(default_mq); }
                 // record 
@@ -294,45 +294,8 @@ int main_surject(int argc, char** argv) {
                     rg_sample[surj.read_group()] = surj.sample_name();
                 }
 
-                bool cached_read = false;
-
-                // have we sampled enough reads to try to rebuild the header?
-                // is there a race here?
-                if (count < read_sample_limit) {
-#pragma omp critical (hts_header)
-                    {
-                        ++count;
-                        if (count == read_sample_limit) {
-                            buffer.push_back(make_tuple(path_name, path_pos, surj));
-                            open_handle_buffer();
-                            cached_read = true;
-                        } else if (count < read_sample_limit) {
-                            buffer.push_back(make_tuple(path_name, path_pos, surj));
-                            cached_read = true;
-                        }
-                    }
-                }
-
-                // parallel processing
-                if (count > read_sample_limit && !cached_read) {
-                    while (!hts_file_open) usleep(10);
-                    string cigar = cigar_against_path(surj);
-                    bam1_t* b = alignment_to_bam(header,
-                                                 surj,
-                                                 path_name,
-                                                 path_pos,
-                                                 cigar,
-                                                 "=",
-                                                 path_pos,
-                                                 0);
-                    int r = 0;
-#pragma omp critical (cout)
-                    r = sam_write1(out, hdr, b);
-                    if (r == 0) { cerr << "writing to stdout failed" << endl; return 1; }
-                    bam_destroy1(b);
-                }
-
-
+                buffer[tid].push_back(make_tuple(path_name, path_pos, surj));
+                handle_buffer(buffer[tid]);
 
             };
 
@@ -344,7 +307,10 @@ int main_surject(int argc, char** argv) {
                 in.open(file_name.c_str());
                 stream::for_each_parallel(in, lambda);
             }
-            if (!buffer.empty()) { open_handle_buffer(); }
+            buffer_limit = 0;
+            for (auto& buf : buffer) {
+                handle_buffer(buf);
+            }
             bam_hdr_destroy(hdr);
             sam_close(out);
         }
