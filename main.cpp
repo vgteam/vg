@@ -245,6 +245,7 @@ int main_surject(int argc, char** argv) {
                         }
                     }
                     // MUST be that another thread has opened the file by here
+#pragma omp critical (cout)
                     for (auto& s : buf) {
                         auto& path_nom = get<0>(s);
                         auto& path_pos = get<1>(s);
@@ -259,9 +260,8 @@ int main_surject(int argc, char** argv) {
                                                      path_pos,
                                                      0);
                         int r = 0;
-#pragma omp critical (cout)
                         r = sam_write1(out, hdr, b);
-                        if (r == 0) { cerr << "writing to stdout failed" << endl; return 1; }
+                        if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
                         bam_destroy1(b);
                     }
                     buf.clear();
