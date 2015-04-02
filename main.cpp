@@ -243,26 +243,27 @@ int main_surject(int argc, char** argv) {
                                 }
                             }
                         }
-                        for (auto& s : buf) {
-                            auto& path_nom = get<0>(s);
-                            auto& path_pos = get<1>(s);
-                            auto& surj = get<2>(s);
-                            string cigar = cigar_against_path(surj);
-                            bam1_t* b = alignment_to_bam(header,
-                                                         surj,
-                                                         path_nom,
-                                                         path_pos,
-                                                         cigar,
-                                                         "=",
-                                                         path_pos,
-                                                         0);
-                            int r = 0;
-                            r = sam_write1(out, hdr, b);
-                            if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
-                            bam_destroy1(b);
-                        }
-                        buf.clear();
                     }
+                    for (auto& s : buf) {
+                        auto& path_nom = get<0>(s);
+                        auto& path_pos = get<1>(s);
+                        auto& surj = get<2>(s);
+                        string cigar = cigar_against_path(surj);
+                        bam1_t* b = alignment_to_bam(header,
+                                                     surj,
+                                                     path_nom,
+                                                     path_pos,
+                                                     cigar,
+                                                     "=",
+                                                     path_pos,
+                                                     0);
+                        int r = 0;
+#pragma omp critical (cout)
+                        r = sam_write1(out, hdr, b);
+                        if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
+                        bam_destroy1(b);
+                    }
+                    buf.clear();
                 }
             };
 
