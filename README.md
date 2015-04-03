@@ -26,12 +26,34 @@ Now, obtain the repo and its submodules:
 
 Then build with `make`, and run with `./vg`.
 
-### What can I do?
+### Variation graph construction
 
-Try building a graph and aligning to it:
+The simplest thing to do with `vg` is to build a graph and align to it. At present, you'll want to use a reference and VCF file to do so. If you're working in the `test/` directory:
 
 ```sh
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+```
+
+### Viewing, conversion
+
+`vg view` provides a way to convert the graph into various formats:
+
+```sh
+# GFA output
+vg view x.vg >x.gfa
+
+# dot output suitable  for graphviz
+vg view -d x.vg >x.dot
+
+# json version of binary alignments
+vg view -a x.gam >x.json
+```
+
+### Alignment
+
+As this is a small graph, you could align to it using a full-length partial order alignment:
+
+```sh
 vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG x.vg
 ```
 
@@ -41,19 +63,35 @@ Note that you don't have to store the graph on disk at all, you can simply pipe 
 vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -
 ```
 
-You can also index and then map reads against the index of the graph:
+Most commands allow the streaming of graphs into and out of `vg`.
+
+### Mapping
+
+If you graph is large, you want to use `vg index` to store the graph and `vg map` to align reads. `vg map` implements a kmer based seed and extend alignment model that is similar to that used in aligners like novoalign or MOSAIK. First an on-disk index is built with `vg index` which includes the graph itself and kmers of a particular size. When mapping, any kmer size shorter than that used in the index can be employed, and by default the mapper will decrease the kmer size to increase sensitivity when alignment at a particular _k_ fails.
+
+`vg map` generates a gzip-compressed stream of protobuf objects describing alignments. This serialized format can then be 
 
 ```sh
 # construct the graph
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
 # store the graph in the index, and also index the kmers in the graph of size 11
+# you can provide a list of .vg files on the command line, which is useful if you
+# have constructed a graph for each chromosome in a large reference
 vg index -s -k 11 x.vg
 
 # align a read to the indexed version of the graph
 # note that the graph file is not opened, but x.vg.index is assumed
-vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -k 11 x.vg >alignment.json
+vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG x.vg >read.gam
+
+# simulate a bunch of 150bp reads from the graph and map them
+vg map -r <(vg sim -n 1000 -l 150 x.vg) x.vg >aln.gam
+
+# surject the alignments back into the reference space of sequence "x", yielding a BAM file
+vg surject -p x -b aln.gam >aln.bam
 ```
+
+### Command line interface
 
 A variety of commands are available:
 
@@ -68,6 +106,10 @@ A variety of commands are available:
 - *join*: combine graphs (parallel)
 - *concat*: combine graphs (serial)
 - *ids*: id manipulation
+- *kmers*: generate kmers from a graph
+- *sim*: simulate reads by walking paths in the graph
+- *mod*: various transformations of the graph
+- *surject*: force graph alignments into a linear reference space
 
 ## Implementation notes
 
