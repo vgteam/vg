@@ -229,7 +229,7 @@ int main_surject(int argc, char** argv) {
                  &out_mode, &out](vector<tuple<string, int64_t, Alignment> >& buf) {
                 if (buf.size() >= buffer_limit) {
                     // do we have enough data to open the file?
-#pragma omp critical (hts_out)
+#pragma omp critical (hts_header)
                     {
                         if (!hdr) {
                             hdr = hts_string_header(header, path_length, rg_sample);
@@ -290,6 +290,7 @@ int main_surject(int argc, char** argv) {
                 if (!surj.has_mapping_quality()) { surj.set_mapping_quality(default_mq); }
                 // record 
                 if (surj.has_read_group() && surj.has_sample_name()) {
+#pragma omp critical (hts_header)
                     rg_sample[surj.read_group()] = surj.sample_name();
                 }
 
