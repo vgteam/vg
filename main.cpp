@@ -297,7 +297,7 @@ int main_surject(int argc, char** argv) {
                 }
                 if (!surj.has_mapping_quality()) { surj.set_mapping_quality(default_mq); }
                 // record 
-                if (surj.has_read_group() && surj.has_sample_name()) {
+                if (!hdr && surj.has_read_group() && surj.has_sample_name()) {
 #pragma omp critical (hts_header)
                     rg_sample[surj.read_group()] = surj.sample_name();
                 }
