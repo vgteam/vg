@@ -33,7 +33,8 @@ void help_surject(char** argv) {
          << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
-         << "    -C, --compression N     level for compression [0-9]" << endl;
+         << "    -C, --compression N     level for compression [0-9]" << endl
+         << "    -w, --window N          use N nodes on either side of the alignment to surject (default 5)" << endl;
 }
 
 int main_surject(int argc, char** argv) {
@@ -52,6 +53,7 @@ int main_surject(int argc, char** argv) {
     string header_file;
     int compress_level = 9;
     int default_mq = 30;
+    int window = 5;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -69,11 +71,12 @@ int main_surject(int argc, char** argv) {
                 {"sam-output", no_argument, 0, 's'},
                 {"header-from", required_argument, 0, 'H'},
                 {"compress", required_argument, 0, 'C'},
+                {"window", required_argument, 0, 'w'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:t:",
+        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:t:w:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -124,6 +127,10 @@ int main_surject(int argc, char** argv) {
             compress_level = atoi(optarg);
             break;
 
+        case 'w':
+            window = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             help_surject(argv);
@@ -158,12 +165,12 @@ int main_surject(int argc, char** argv) {
             int thread_count = get_thread_count();
             vector<vector<Alignment> > buffer;
             buffer.resize(thread_count);
-            function<void(Alignment&)> lambda = [&index, &path_names, &buffer](Alignment& src) {
+            function<void(Alignment&)> lambda = [&index, &path_names, &buffer, &window](Alignment& src) {
                 int tid = omp_get_thread_num();
                 Alignment surj;
                 string path_name;
                 int64_t path_pos;
-                index.surject_alignment(src, path_names, surj, path_name, path_pos);
+                index.surject_alignment(src, path_names, surj, path_name, path_pos, window);
                 buffer[tid].push_back(surj);
                 stream::write_buffered(cout, buffer[tid], 1000);
             };
@@ -270,6 +277,7 @@ int main_surject(int argc, char** argv) {
             function<void(Alignment&)> lambda = [&index,
                                                  &path_names,
                                                  &path_length,
+                                                 &window,
                                                  &rg_sample,
                                                  &default_mq,
                                                  &header,
@@ -283,7 +291,7 @@ int main_surject(int argc, char** argv) {
                 Alignment surj;
                 string path_name;
                 int64_t path_pos;
-                index.surject_alignment(src, path_names, surj, path_name, path_pos);
+                index.surject_alignment(src, path_names, surj, path_name, path_pos, window);
                 if (!surj.path().mapping_size()) {
                     surj = src;
                 }
