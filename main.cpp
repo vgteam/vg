@@ -217,23 +217,17 @@ int main_surject(int argc, char** argv) {
 
             // bam/sam/cram output
             samFile* out = 0;
-            int buffer_limit = 10; // how many reads to look at before we reconstruct the header from the RG/sample pairing
+            int buffer_limit = 100;
 
             bam_hdr_t* hdr = NULL;
             int64_t count = 0;
+            omp_lock_t output_lock;
+            omp_init_lock(&output_lock);
 
-            // what we need for bam output:
-            /*
-              const string& refseq,
-              const int32_t refpos,
-              const string& cigar,
-              const string& mateseq,
-              const int32_t matepos,
-              const int32_t tlen
-            */
+            // handles buffers, possibly opening the output file if we're on the first record
             auto handle_buffer =
                 [&hdr, &header, &path_length, &rg_sample, &buffer_limit,
-                 &out_mode, &out](vector<tuple<string, int64_t, Alignment> >& buf) {
+                 &out_mode, &out, &output_lock](vector<tuple<string, int64_t, Alignment> >& buf) {
                 if (buf.size() >= buffer_limit) {
                     // do we have enough data to open the file?
 #pragma omp critical (hts_header)
@@ -251,26 +245,30 @@ int main_surject(int argc, char** argv) {
                             }
                         }
                     }
-                    for (auto& s : buf) {
-                        auto& path_nom = get<0>(s);
-                        auto& path_pos = get<1>(s);
-                        auto& surj = get<2>(s);
-                        string cigar = cigar_against_path(surj);
-                        bam1_t* b = alignment_to_bam(header,
-                                                     surj,
-                                                     path_nom,
-                                                     path_pos,
-                                                     cigar,
-                                                     "=",
-                                                     path_pos,
-                                                     0);
-                        int r = 0;
+                    // try to get a lock, and force things if we've built up a huge buffer waiting
+                    if (omp_test_lock(&output_lock) || buf.size() > 10*buffer_limit) {
+                        for (auto& s : buf) {
+                            auto& path_nom = get<0>(s);
+                            auto& path_pos = get<1>(s);
+                            auto& surj = get<2>(s);
+                            string cigar = cigar_against_path(surj);
+                            bam1_t* b = alignment_to_bam(header,
+                                                         surj,
+                                                         path_nom,
+                                                         path_pos,
+                                                         cigar,
+                                                         "=",
+                                                         path_pos,
+                                                         0);
+                            int r = 0;
 #pragma omp critical (cout)
-                        r = sam_write1(out, hdr, b);
-                        if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
-                        bam_destroy1(b);
+                            r = sam_write1(out, hdr, b);
+                            if (r == 0) { cerr << "[vg surject] error: writing to stdout failed" << endl; exit(1); }
+                            bam_destroy1(b);
+                        }
+                        omp_unset_lock(&output_lock);
+                        buf.clear();
                     }
-                    buf.clear();
                 }
             };
 
@@ -321,6 +319,7 @@ int main_surject(int argc, char** argv) {
             }
             bam_hdr_destroy(hdr);
             sam_close(out);
+            omp_destroy_lock(&output_lock);
         }
     }
     cout.flush();
