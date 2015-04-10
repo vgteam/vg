@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <functional>
+#include <zlib.h>
 #include "vg.hpp"
 #include "index.hpp"
 
@@ -17,6 +18,12 @@ const char* const BAM_DNA_LOOKUP = "=ACMGRSVTWYHKDBN";
 
 int hts_for_each(string& filename, function<void(Alignment&)> lambda);
 int hts_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
+int fastq_for_each(string& filename, function<void(Alignment&)> lambda);
+bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment);
+bool get_next_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2);
+size_t fastq_unpaired_for_each(string& filename, function<void(Alignment&)> lambda);
+size_t fastq_paired_for_each(string& filename, function<void(Alignment&, Alignment&)> lambda);
+//int fastq_for_each_parallel(string& filename, function<void(Alignment&)> lambda);
 bam_hdr_t* hts_file_header(string& filename, string& header);
 bam_hdr_t* hts_string_header(string& header,
                              map<string, int64_t>& path_length,

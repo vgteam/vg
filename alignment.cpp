@@ -93,6 +93,75 @@ bam_hdr_t* hts_string_header(string& header,
     return h;
 }
 
+bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& alignment) {
+
+    alignment.Clear();
+
+    // handle name
+    if (0!=gzgets(fp,buffer,len)) {
+        string name = buffer;
+        name = name.substr(1); // trim off leading @
+        // XXX todo trim trailing /1 /2
+        alignment.set_name(name);
+    } else { return false; }
+    // handle sequence
+    if (0!=gzgets(fp,buffer,len)) {
+        cerr << buffer << endl;
+        alignment.set_sequence(buffer);
+    } else {
+        cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+    }
+    // handle "+" sep
+    if (0!=gzgets(fp,buffer,len)) {
+    } else {
+        cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+    }
+    // handle quality
+    if (0!=gzgets(fp,buffer,len)) {
+        string quality = string_quality_char_to_short(buffer);
+        alignment.set_quality(quality);
+    } else {
+        cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
+    }
+
+    return true;
+
+}
+
+bool get_next_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2) {
+    return get_next_alignment_from_fastq(fp, buffer, len, mate1) && get_next_alignment_from_fastq(fp, buffer, len, mate2);
+}
+
+size_t fastq_unpaired_for_each(string& filename, function<void(Alignment&)> lambda) {
+    gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    size_t len = 2 << 18; // 256k
+    size_t nLines = 0;
+    char *buffer = new char[len];
+    Alignment alignment;
+    while(get_next_alignment_from_fastq(fp, buffer, len, alignment)) {
+        lambda(alignment);
+        nLines++;
+    }
+    gzclose(fp);
+    delete buffer;
+    return nLines;
+}
+
+size_t fastq_paired_for_each(string& filename, function<void(Alignment&, Alignment&)> lambda) {
+    gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    size_t len = 2 << 18; // 256k
+    size_t nLines = 0;
+    char *buffer = new char[len];
+    Alignment mate1, mate2;
+    while(get_next_alignment_pair_from_fastq(fp, buffer, len, mate1, mate2)) {
+        lambda(mate1, mate2);
+        nLines++;
+    }
+    gzclose(fp);
+    delete buffer;
+    return nLines;
+}
+
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
     string header(hts_header);
     vector<string> header_lines = split_delims(header, "\n");
