@@ -138,6 +138,113 @@ bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, s
     return get_next_alignment_from_fastq(fp1, buffer, len, mate1) && get_next_alignment_from_fastq(fp2, buffer, len, mate2);
 }
 
+
+size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignment&)> lambda) {
+    gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    size_t len = 2 << 18; // 256k
+    size_t nLines = 0;
+    int thread_count = get_thread_count();
+    //vector<Alignment> alns; alns.resize(thread_count);
+    vector<char*> bufs; bufs.resize(thread_count);
+    for (auto& buf : bufs) {
+        buf = new char[len];
+    }
+    bool more_data = true;
+#pragma omp parallel shared(fp, more_data, bufs)
+    {
+        int tid = omp_get_thread_num();
+        while (more_data) {
+            Alignment aln;
+            char* buf = bufs[tid];
+#pragma omp critical (fastq_input)
+            if (more_data) {
+                more_data = get_next_alignment_from_fastq(fp, buf, len, aln);
+                nLines++;
+            }
+            if (more_data) {
+                lambda(aln);
+            }
+        }
+    }
+    for (auto& buf : bufs) {
+        delete buf;
+    }
+    gzclose(fp);
+    return nLines;
+}
+
+size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<void(Alignment&, Alignment&)> lambda) {
+    gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    size_t len = 2 << 18; // 256k
+    size_t nLines = 0;
+    int thread_count = get_thread_count();
+    //vector<Alignment> alns; alns.resize(thread_count);
+    vector<char*> bufs; bufs.resize(thread_count);
+    for (auto& buf : bufs) {
+        buf = new char[len];
+    }
+    bool more_data = true;
+#pragma omp parallel shared(fp, more_data, bufs)
+    {
+        int tid = omp_get_thread_num();
+        while (more_data) {
+            Alignment mate1, mate2;
+            char* buf = bufs[tid];
+#pragma omp critical (fastq_input)
+            if (more_data) {
+                more_data = get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
+                nLines++;
+            }
+            if (more_data) {
+                lambda(mate1, mate2);
+            }
+        }
+    }
+    for (auto& buf : bufs) {
+        delete buf;
+    }
+    gzclose(fp);
+    return nLines;
+}
+
+size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda) {
+    gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    gzFile fp2 = (file2 != "-") ? gzopen(file2.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    size_t len = 2 << 18; // 256k
+    size_t nLines = 0;
+    int thread_count = get_thread_count();
+    //vector<Alignment> alns; alns.resize(thread_count);
+    vector<char*> bufs; bufs.resize(thread_count);
+    for (auto& buf : bufs) {
+        buf = new char[len];
+    }
+    bool more_data = true;
+#pragma omp parallel shared(fp1, fp2, more_data, bufs)
+    {
+        int tid = omp_get_thread_num();
+        while (more_data) {
+            Alignment mate1, mate2;
+            char* buf = bufs[tid];
+#pragma omp critical (fastq_input)
+            if (more_data) {
+                more_data = get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
+                nLines++;
+            }
+            if (more_data) {
+                lambda(mate1, mate2);
+            }
+        }
+    }
+    for (auto& buf : bufs) {
+        delete buf;
+    }
+    gzclose(fp1);
+    gzclose(fp2);
+    return nLines;
+}
+
+
+
 size_t fastq_unpaired_for_each(string& filename, function<void(Alignment&)> lambda) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     size_t len = 2 << 18; // 256k

@@ -1755,6 +1755,8 @@ void help_map(char** argv) {
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
+         << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
+         << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
          << "    -N, --sample NAME     for --reads input, add this sample" << endl
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -1792,6 +1794,8 @@ int main_map(int argc, char** argv) {
     float score_per_bp = 0;
     string sample_name;
     string read_group;
+    string fastq1, fastq2;
+    bool interleaved_fastq = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1815,12 +1819,14 @@ int main_map(int argc, char** argv) {
                 {"sens-step", required_argument, 0, 'S'},
                 {"output-json", no_argument, 0, 'J'},
                 {"hts-input", no_argument, 0, 'b'},
+                {"fastq", no_argument, 0, 'f'},
+                {"interleaved", no_argument, 0, 'i'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1871,6 +1877,16 @@ int main_map(int argc, char** argv) {
 
         case 'b':
             hts_file = optarg;
+            break;
+
+        case 'f':
+            if (fastq1.empty()) fastq1 = optarg;
+            else if (fastq2.empty()) fastq2 = optarg;
+            else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
+            break;
+
+        case 'i':
+            interleaved_fastq = true;
             break;
 
         case 't':
