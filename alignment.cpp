@@ -99,6 +99,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
 
     // handle name
     if (0!=gzgets(fp,buffer,len)) {
+        buffer[strlen(buffer)-1] = '\0';
         string name = buffer;
         name = name.substr(1); // trim off leading @
         // XXX todo trim trailing /1 /2
@@ -106,7 +107,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
     } else { return false; }
     // handle sequence
     if (0!=gzgets(fp,buffer,len)) {
-        cerr << buffer << endl;
+        buffer[strlen(buffer)-1] = '\0';
         alignment.set_sequence(buffer);
     } else {
         cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);
@@ -118,6 +119,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
     }
     // handle quality
     if (0!=gzgets(fp,buffer,len)) {
+        buffer[strlen(buffer)-1] = '\0';
         string quality = string_quality_char_to_short(buffer);
         alignment.set_quality(quality);
     } else {
@@ -128,8 +130,12 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
 
 }
 
-bool get_next_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2) {
+bool get_next_interleaved_alignment_pair_from_fastq(gzFile fp, char* buffer, size_t len, Alignment& mate1, Alignment& mate2) {
     return get_next_alignment_from_fastq(fp, buffer, len, mate1) && get_next_alignment_from_fastq(fp, buffer, len, mate2);
+}
+
+bool get_next_alignment_pair_from_fastqs(gzFile fp1, gzFile fp2, char* buffer, size_t len, Alignment& mate1, Alignment& mate2) {
+    return get_next_alignment_from_fastq(fp1, buffer, len, mate1) && get_next_alignment_from_fastq(fp2, buffer, len, mate2);
 }
 
 size_t fastq_unpaired_for_each(string& filename, function<void(Alignment&)> lambda) {
@@ -147,19 +153,37 @@ size_t fastq_unpaired_for_each(string& filename, function<void(Alignment&)> lamb
     return nLines;
 }
 
-size_t fastq_paired_for_each(string& filename, function<void(Alignment&, Alignment&)> lambda) {
+size_t fastq_paired_interleaved_for_each(string& filename, function<void(Alignment&, Alignment&)> lambda) {
     gzFile fp = (filename != "-") ? gzopen(filename.c_str(), "r") : gzdopen(fileno(stdin), "r");
     size_t len = 2 << 18; // 256k
     size_t nLines = 0;
     char *buffer = new char[len];
     Alignment mate1, mate2;
-    while(get_next_alignment_pair_from_fastq(fp, buffer, len, mate1, mate2)) {
+    while(get_next_interleaved_alignment_pair_from_fastq(fp, buffer, len, mate1, mate2)) {
         lambda(mate1, mate2);
         nLines++;
     }
     gzclose(fp);
     delete buffer;
     return nLines;
+}
+
+size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<void(Alignment&, Alignment&)> lambda) {
+    gzFile fp1 = (file1 != "-") ? gzopen(file1.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    gzFile fp2 = (file2 != "-") ? gzopen(file2.c_str(), "r") : gzdopen(fileno(stdin), "r");
+    size_t len = 2 << 18; // 256k
+    size_t nLines = 0;
+    char *buffer = new char[len];
+    Alignment mate1, mate2;
+    while(get_next_alignment_pair_from_fastqs(fp1, fp2, buffer, len, mate1, mate2)) {
+        lambda(mate1, mate2);
+        nLines++;
+    }
+    gzclose(fp1);
+    gzclose(fp2);
+    delete buffer;
+    return nLines;
+
 }
 
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample) {
@@ -242,10 +266,11 @@ void alignment_quality_short_to_char(Alignment& alignment) {
 }
 
 string string_quality_short_to_char(const string& quality) {
-    string squality;
-    std::transform(quality.begin(), quality.end(), squality.begin(),
-                   [](char c) { return (char)quality_short_to_char(c); });
-    return squality;
+    stringstream s;
+    for (int i = 0; i < quality.size(); ++i) {
+        s << quality_short_to_char(quality[i]);
+    }
+    return s.str();
 }
 
 void alignment_quality_char_to_short(Alignment& alignment) {
@@ -253,10 +278,11 @@ void alignment_quality_char_to_short(Alignment& alignment) {
 }
 
 string string_quality_char_to_short(const string& quality) {
-    string squality;
-    std::transform(quality.begin(), quality.end(), squality.begin(),
-                   [](char c) { return (char)quality_char_to_short(c); });
-    return squality;
+    stringstream s;
+    for (int i = 0; i < quality.size(); ++i) {
+        s << quality_short_to_char(quality[i]);
+    }
+    return s.str();
 }
 
 // remember to clean up with bam_destroy1(b);
@@ -306,6 +332,7 @@ string alignment_to_sam(const Alignment& alignment,
         << matepos + 1 << "\t"
         << tlen << "\t"
         << (alignment.has_sequence() ? alignment.sequence() : "*") << "\t";
+    // hack much?
     if (alignment.has_quality()) {
         const string& quality = alignment.quality();
         for (int i = 0; i < quality.size(); ++i) {

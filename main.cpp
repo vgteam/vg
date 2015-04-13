@@ -2037,7 +2037,7 @@ int main_map(int argc, char** argv) {
 }
 
 void help_view(char** argv) {
-    cerr << "usage: " << argv[0] << " view [options] [<graph.vg>|<paths.vgp>]" << endl
+    cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
          << "options:" << endl
          << "    -g, --gfa          output GFA format (default)" << endl
          << "    -d, --dot          output dot format" << endl
@@ -2045,7 +2045,9 @@ void help_view(char** argv) {
          << "    -v, --vg           write VG format (input is GFA)" << endl
          << "    -a, --align-in     input is GAM (vg alignment format: Graph Alignment/Map)" << endl
          << "    -G, --gam          output GAM format alignments" << endl
-         << "    -b, --bam          input is htslib-parseable alignments" << endl;
+         << "    -b, --bam          input is htslib-parseable alignments" << endl
+         << "    -f, --fastq        input is fastq, GAM out, two positional file arguments if paired" << endl
+         << "    -i, --interleaved  fastq is interleaved paired-ended" << endl;
     //<< "    -p, --paths           extract paths from graph in VG format" << endl;
 }
 
@@ -2058,6 +2060,8 @@ int main_view(int argc, char** argv) {
 
     string output_type;
     string input_type;
+    string fastq1, fastq2;
+    bool interleaved_fastq = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -2074,11 +2078,13 @@ int main_view(int argc, char** argv) {
                 {"align-in", no_argument, 0, 'a'},
                 {"gam", no_argument, 0, 'G'},
                 {"bam", no_argument, 0, 'b'},
+                {"fastq", no_argument, 0, 'f'},
+                {"interleaved", no_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgjhvpaGb",
+        c = getopt_long (argc, argv, "dgjhvpaGbif",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2119,6 +2125,15 @@ int main_view(int argc, char** argv) {
         case 'p':
             input_type = "paths";
             output_type = "paths";
+            break;
+
+        case 'f':
+            input_type = "fastq";
+            output_type = "gam";
+            break;
+
+        case 'i':
+            interleaved_fastq = true;
             break;
 
         case 'h':
@@ -2215,6 +2230,47 @@ int main_view(int argc, char** argv) {
             // todo
             return 0;
         }
+    } else if (input_type == "fastq") {
+        fastq1 = argv[optind++];
+        if (optind < argc) {
+            fastq2 = argv[optind];            
+        }
+        if (output_type == "gam") {
+            vector<Alignment> buf;
+            if (!interleaved_fastq && fastq2.empty()) {
+                function<void(Alignment&)> lambda = [&buf](Alignment& aln) {
+                    buf.push_back(aln);
+                    if (buf.size() > 1000) {
+                        write_alignments(std::cout, buf);
+                        buf.clear();
+                    }
+                };
+                fastq_unpaired_for_each(fastq1, lambda);
+            } else if (interleaved_fastq && fastq2.empty()) {
+                function<void(Alignment&, Alignment&)> lambda = [&buf](Alignment& aln1, Alignment& aln2) {
+                    buf.push_back(aln1);
+                    buf.push_back(aln2);
+                    if (buf.size() > 1000) {
+                        write_alignments(std::cout, buf);
+                        buf.clear();
+                    }
+                };
+                fastq_paired_interleaved_for_each(fastq1, lambda);
+            } else if (!fastq2.empty()) {
+                function<void(Alignment&, Alignment&)> lambda = [&buf](Alignment& aln1, Alignment& aln2) {
+                    buf.push_back(aln1);
+                    buf.push_back(aln2);
+                    if (buf.size() > 1000) {
+                        write_alignments(std::cout, buf);
+                        buf.clear();
+                    }
+                };
+                fastq_paired_two_files_for_each(fastq1, fastq2, lambda);
+            }
+            write_alignments(std::cout, buf);
+            buf.clear();
+        }
+        return 0;
     }
 
     if (output_type == "dot") {
