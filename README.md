@@ -165,6 +165,7 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] _surject_ alignments back into arbitrary path (such as GRCh37)
 - [x] use htslib for BAM/CRAM/SAM i/o
 - [ ] factor longer functions in main.cpp into library functions for easier reuse
+- [ ] kmers input to GCSA: kmer, node+position, previous characters, successive characters
 - [ ] properly handle pairs in alignment
 - [ ] read paired-end data in FASTQ format
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
