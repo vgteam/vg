@@ -36,6 +36,12 @@ Alignment Mapper::align(string& seq, int kmer_size, int stride) {
     return align(aln, kmer_size, stride);
 }
 
+pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& read2, int kmer_size, int stride) {
+    // TODO
+    // use paired-end resolution techniques
+    return make_pair(align(read1, kmer_size, stride), align(read2, kmer_size, stride));
+}
+
 Alignment Mapper::align(Alignment& aln, int kmer_size, int stride) {
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;

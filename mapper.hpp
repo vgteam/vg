@@ -24,11 +24,18 @@ public:
 
     Alignment align(string& seq, int kmer_size = 0, int stride = 0);
     Alignment align(Alignment& read, int kmer_size = 0, int stride = 0);
+
+    // paired-end based
+    pair<Alignment, Alignment> align_paired(Alignment& read1, Alignment& read2, int kmer_size = 0, int stride = 0);
+
+    // base algorithm for above
     Alignment& align_threaded(Alignment& read,
                               int& hit_count,
                               int kmer_size = 0,
                               int stride = 0,
                               int attempt = 0);
+
+    // not used
     Alignment& align_simple(Alignment& alignment, int kmer_size = 0, int stride = 0);
 
     set<int> kmer_sizes;

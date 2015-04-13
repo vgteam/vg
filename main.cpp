@@ -1921,7 +1921,7 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    if (seq.empty() && read_file.empty() && hts_file.empty()) {
+    if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty()) {
         cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
         return 1;
     }
@@ -2022,7 +2022,6 @@ int main_map(int argc, char** argv) {
             int tid = omp_get_thread_num();
             alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride);
             if (output_json) {
-                //alignment_quality_short_to_char(alignment);
                 char *json2 = pb2json(alignment);
 #pragma omp critical (cout)
                 cout << json2 << "\n";
@@ -2035,6 +2034,83 @@ int main_map(int argc, char** argv) {
         };
         // run
         hts_for_each_parallel(hts_file, lambda);
+    }
+
+    if (!fastq1.empty()) {
+        if (interleaved_fastq) {
+            // paired interleaved
+            function<void(Alignment&, Alignment&)> lambda =
+                [&mapper,
+                 &output_buffer,
+                 &output_json,
+                 &kmer_size,
+                 &kmer_stride]
+                (Alignment& aln1, Alignment& aln2) {
+                int tid = omp_get_thread_num();
+                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride);
+                if (output_json) {
+                    char *json1 = pb2json(alnp.first);
+                    char *json2 = pb2json(alnp.second);
+#pragma omp critical (cout)
+                    cout << json1 << "\n" << json2 << "\n";
+                    free(json1); free(json2);
+                } else {
+                    auto& output_buf = output_buffer[tid];
+                    output_buf.push_back(aln1);
+                    output_buf.push_back(aln2);
+                    stream::write_buffered(cout, output_buf, 1000);
+                }
+            };
+            fastq_paired_interleaved_for_each_parallel(fastq1, lambda);
+        } else if (fastq2.empty()) {
+            // single
+            function<void(Alignment&)> lambda =
+                [&mapper,
+                 &output_buffer,
+                 &output_json,
+                 &kmer_size,
+                 &kmer_stride]
+                (Alignment& alignment) {
+                int tid = omp_get_thread_num();
+                alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride);
+                if (output_json) {
+                    char *json2 = pb2json(alignment);
+#pragma omp critical (cout)
+                    cout << json2 << "\n";
+                    free(json2);
+                } else {
+                    auto& output_buf = output_buffer[tid];
+                    output_buf.push_back(alignment);
+                    stream::write_buffered(cout, output_buf, 1000);
+                }
+            };
+            fastq_unpaired_for_each_parallel(fastq1, lambda);
+        } else {
+            // paired two-file
+            function<void(Alignment&, Alignment&)> lambda =
+                [&mapper,
+                 &output_buffer,
+                 &output_json,
+                 &kmer_size,
+                 &kmer_stride]
+                (Alignment& aln1, Alignment& aln2) {
+                int tid = omp_get_thread_num();
+                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride);
+                if (output_json) {
+                    char *json1 = pb2json(alnp.first);
+                    char *json2 = pb2json(alnp.second);
+#pragma omp critical (cout)
+                    cout << json1 << "\n" << json2 << "\n";
+                    free(json1); free(json2);
+                } else {
+                    auto& output_buf = output_buffer[tid];
+                    output_buf.push_back(aln1);
+                    output_buf.push_back(aln2);
+                    stream::write_buffered(cout, output_buf, 1000);
+                }
+            };
+            fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
+        }
     }
 
     // clean up
