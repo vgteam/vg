@@ -69,18 +69,20 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
     // solution: collect a buffer of alignments and then align them using unpaired approach
     //           detect read orientation and mean (and sd) of pair distance
 
-    Alignment aln1 = read1;
-    Alignment aln2 = read2;
-    align(aln1, kmer_size, stride);
+    //if (try_both_first) {
+    Alignment aln1 = align(read1, kmer_size, stride);
+    Alignment aln2 = align(read2, kmer_size, stride);
+    // link the fragments
+    aln1.mutable_fragment_next()->set_name(aln2.name());
+    aln2.mutable_fragment_next()->set_name(aln1.name());
+    // and then try to rescue unmapped mates
     if (aln1.score() == 0) {
-        align(aln2, kmer_size, stride);
         align_mate_in_window(aln2, aln1, pair_window);
-    } else {
+    } else if (aln2.score() == 0) {
         align_mate_in_window(aln1, aln2, pair_window);
-        if (aln2.score() == 0) {
-            align(aln2, kmer_size, stride);
-        }
     }
+    // TODO
+    // mark them as discordant if there is an issue?
     return make_pair(aln1, aln2);
 
 }

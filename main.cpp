@@ -1758,6 +1758,7 @@ void help_map(char** argv) {
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
          << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
          << "    -p, --pair-window N   align to a graph up to N ids away from the mapping location of one mate for the other" << endl
+        //<< "    -B, --try-both-mates  attempt to align both reads individually, then used paired end resolution to fix" << endl
          << "    -N, --sample NAME     for --reads input, add this sample" << endl
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -1798,6 +1799,7 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_fastq = false;
     int pair_window = 64; // ~11bp/node
+    bool try_both_mates_first = false;
 
     int c;
     optind = 2; // force optind past command positional argument
