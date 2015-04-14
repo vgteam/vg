@@ -1757,6 +1757,7 @@ void help_map(char** argv) {
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
          << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
+         << "    -p, --pair-window N   align to a graph up to N ids away from the mapping location of one mate for the other" << endl
          << "    -N, --sample NAME     for --reads input, add this sample" << endl
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -1796,6 +1797,7 @@ int main_map(int argc, char** argv) {
     string read_group;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
+    int pair_window = 64; // ~11bp/node
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1821,12 +1823,13 @@ int main_map(int argc, char** argv) {
                 {"hts-input", no_argument, 0, 'b'},
                 {"fastq", no_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
+                {"pair-window", required_argument, 0, 'p'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -1887,6 +1890,10 @@ int main_map(int argc, char** argv) {
 
         case 'i':
             interleaved_fastq = true;
+            break;
+
+        case 'p':
+            pair_window = atoi(optarg);
             break;
 
         case 't':
@@ -2044,10 +2051,11 @@ int main_map(int argc, char** argv) {
                  &output_buffer,
                  &output_json,
                  &kmer_size,
-                 &kmer_stride]
+                 &kmer_stride,
+                 &pair_window]
                 (Alignment& aln1, Alignment& aln2) {
                 int tid = omp_get_thread_num();
-                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride);
+                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, pair_window);
                 if (output_json) {
                     char *json1 = pb2json(alnp.first);
                     char *json2 = pb2json(alnp.second);
@@ -2092,10 +2100,11 @@ int main_map(int argc, char** argv) {
                  &output_buffer,
                  &output_json,
                  &kmer_size,
-                 &kmer_stride]
+                 &kmer_stride,
+                 &pair_window]
                 (Alignment& aln1, Alignment& aln2) {
                 int tid = omp_get_thread_num();
-                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride);
+                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, pair_window);
                 if (output_json) {
                     char *json1 = pb2json(alnp.first);
                     char *json2 = pb2json(alnp.second);

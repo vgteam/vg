@@ -36,10 +36,53 @@ Alignment Mapper::align(string& seq, int kmer_size, int stride) {
     return align(aln, kmer_size, stride);
 }
 
-pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& read2, int kmer_size, int stride) {
-    // TODO
+// align read2 near read1's mapping location
+void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_window) {
+    if (read1.score() == 0) return; // bail out if we haven't aligned the first
+    // try to recover in region
+    Path* path = read1.mutable_path();
+    int64_t idf = path->mutable_mapping(0)->node_id();
+    int64_t idl = path->mutable_mapping(path->mapping_size()-1)->node_id();
+    // but which way should we expand? this will make things much easier
+    // just use the whole "window" for now
+    int64_t first = max((int64_t)0, idf - pair_window);
+    int64_t last = idl + (int64_t) pair_window;
+    VG* graph = new VG;
+    index->get_range(first, last, *graph);
+    graph->remove_orphan_edges();
+    read2.clear_path();
+    graph->align(read2);
+    delete graph;
+}
+
+pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& read2, int kmer_size, int stride, int pair_window) {
+
     // use paired-end resolution techniques
-    return make_pair(align(read1, kmer_size, stride), align(read2, kmer_size, stride));
+    //
+    // attempt mapping of first mate
+    // if it works, expand the search space for the second (try to avoid new kmer lookups)
+    //     (alternatively, do the whole kmer lookup thing but then restrict the constructed
+    //      graph to a range near the first alignment)
+    // if it doesn't work, try the second, then expand the range to align the first
+    //
+    // problem: need to develop model of pair orientations
+    // solution: collect a buffer of alignments and then align them using unpaired approach
+    //           detect read orientation and mean (and sd) of pair distance
+
+    Alignment aln1 = read1;
+    Alignment aln2 = read2;
+    align(aln1, kmer_size, stride);
+    if (aln1.score() == 0) {
+        align(aln2, kmer_size, stride);
+        align_mate_in_window(aln2, aln1, pair_window);
+    } else {
+        align_mate_in_window(aln1, aln2, pair_window);
+        if (aln2.score() == 0) {
+            align(aln2, kmer_size, stride);
+        }
+    }
+    return make_pair(aln1, aln2);
+
 }
 
 Alignment Mapper::align(Alignment& aln, int kmer_size, int stride) {

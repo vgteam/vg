@@ -25,8 +25,14 @@ public:
     Alignment align(string& seq, int kmer_size = 0, int stride = 0);
     Alignment align(Alignment& read, int kmer_size = 0, int stride = 0);
 
+    void align_mate_in_window(Alignment& read1, Alignment& read2, int pair_window);
+
     // paired-end based
-    pair<Alignment, Alignment> align_paired(Alignment& read1, Alignment& read2, int kmer_size = 0, int stride = 0);
+    pair<Alignment, Alignment> align_paired(Alignment& read1,
+                                            Alignment& read2,
+                                            int kmer_size = 0,
+                                            int stride = 0,
+                                            int pair_window = 64);
 
     // base algorithm for above
     Alignment& align_threaded(Alignment& read,
