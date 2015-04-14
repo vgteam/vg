@@ -120,7 +120,9 @@ Once constructed, a variant graph (.vg is the suggested file extension) is typic
 The serialization of very large graphs (>62MB) is enabled by the use of protocol buffer ZeroCopyStreams. Graphs are decomposed into sets of N (presently 10k) nodes, and these are written, with their edges, into graph objects that can be streamed into and out of vg. Graphs of unbounded size are possible using this approach.
 
 ## Development
+See the project's [issues](https://github.com/ekg/vg/issues).
 
+Some completed work, for historical purposes:
 - [x] data models for reference graph and alignments against it (vg.proto)
 - [x] local alignment against the graph (vg.cpp)
 - [x] index capable of storing large graphs on disk and efficiently retrieving subgraphs (index.cpp)
@@ -153,27 +155,13 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
 - [x] index the kmers of large graphs in reasonable time (48 hours, 32 threads, 2500 samples in 1000 genomes phase 3)
 - [x] compression of serialization format
-- [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - [x] emded paths in serialized graph format (important especially in the case of reference paths)
 - [x] alignment serialization format
 - [x] prune non-informative kmers from index, so as to save space
-- [ ] per-node, per-sample quality and count information on graph
-- [ ] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
 - [x] multiple samples in one graph (colors) - solved by paths
-- [ ] modify a graph using an alignment's path, adding new nodes as needed and updating the path/alignment to match
 - [x] path range query from index (give me the subgraph corresponding to a particular genome location)
 - [x] _surject_ alignments back into arbitrary path (such as GRCh37)
 - [x] use htslib for BAM/CRAM/SAM i/o
-- [ ] factor longer functions in main.cpp into library functions for easier reuse
-- [ ] kmers input to GCSA: kmer, node+position, previous characters, successive characters
-- [ ] properly handle pairs in alignment
-- [ ] read paired-end data in FASTQ format
-- [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
-- [ ] genotype likelihood generation (given a source and sink, genotype paths)
-- [ ] genotyping of paths using freebayes-like genotyping model
-- [ ] genotyping using dynamic programming genotyping model and compressed sequence results against graph
-- [ ] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
-- [ ] [perceptual DNA hashing](http://arxiv-web3.library.cornell.edu/abs/1412.5517) to reduce index memory usage
 
 ## License
 
