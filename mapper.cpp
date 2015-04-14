@@ -74,11 +74,11 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
     Alignment aln2 = align(read2, kmer_size, stride);
     // link the fragments
     aln1.mutable_fragment_next()->set_name(aln2.name());
-    aln2.mutable_fragment_next()->set_name(aln1.name());
+    aln2.mutable_fragment_prev()->set_name(aln1.name());
     // and then try to rescue unmapped mates
-    if (aln1.score() == 0) {
+    if (aln1.score() == 0 && aln2.score()) {
         align_mate_in_window(aln2, aln1, pair_window);
-    } else if (aln2.score() == 0) {
+    } else if (aln2.score() == 0 && aln1.score()) {
         align_mate_in_window(aln1, aln2, pair_window);
     }
     // TODO

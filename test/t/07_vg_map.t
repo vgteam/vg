@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 9
+plan tests 10
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -k 11 x.vg
@@ -36,6 +36,11 @@ vg index -s -k 27 -e 7 giab.vg
 is $(vg map -b minigiab/NA12878.chr22.tiny.bam giab.vg | vg view -a - | wc -l) $(samtools view minigiab/NA12878.chr22.tiny.bam | wc -l) "mapping of BAM file produces expected number of alignments"
 
 is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - giab.vg | vg view -a - | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | grep ^@ | wc -l) "mapping from a fastq produces the expected number of alignments"
+
+count_prev=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam -o x | samtools bam2fq - 2>/dev/null | vg map -if - giab.vg | vg view -a - | jq .fragment_prev.name | grep null | wc -l)
+count_next=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam -o x | samtools bam2fq - 2>/dev/null | vg map -if - giab.vg | vg view -a - | jq .fragment_next.name | grep null | wc -l)
+
+is $count_prev $count_next "vg connects paired-end reads in gam output"
 
 rm giab.vg
 rm -rf giab.vg.index

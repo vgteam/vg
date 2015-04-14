@@ -2066,8 +2066,8 @@ int main_map(int argc, char** argv) {
                     free(json1); free(json2);
                 } else {
                     auto& output_buf = output_buffer[tid];
-                    output_buf.push_back(aln1);
-                    output_buf.push_back(aln2);
+                    output_buf.push_back(alnp.first);
+                    output_buf.push_back(alnp.second);
                     stream::write_buffered(cout, output_buf, 1000);
                 }
             };
@@ -2115,8 +2115,8 @@ int main_map(int argc, char** argv) {
                     free(json1); free(json2);
                 } else {
                     auto& output_buf = output_buffer[tid];
-                    output_buf.push_back(aln1);
-                    output_buf.push_back(aln2);
+                    output_buf.push_back(alnp.first);
+                    output_buf.push_back(alnp.second);
                     stream::write_buffered(cout, output_buf, 1000);
                 }
             };
