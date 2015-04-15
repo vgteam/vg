@@ -174,6 +174,7 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [ ] genotyping using dynamic programming genotyping model and compressed sequence results against graph
 - [ ] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
 - [ ] [perceptual DNA hashing](http://arxiv-web3.library.cornell.edu/abs/1412.5517) to reduce index memory usage
+- [ ] implement pBWT for quick haplotype lookup, which is useful to constrain kmer indexing space and also to support long haplotype driven genotyping
 
 ## License
 
