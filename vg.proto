@@ -69,17 +69,6 @@ message Mapping {
     repeated Edit edit = 2; // series of edit to transform to region in read/alt
 }
 
-/*
-// would describe transformation between two graphs
-message GraphMapping {
-    optional int64 ref_node_id = 1;
-    optional int32 ref_position = 2;
-    optional int64 alt_node_id = 3;
-    optional int32 alt_position = 4;
-    repeated Edit edit = 5;
-}
-*/
-
 // Paths are walks through nodes defined by a series of edits.
 // They can be used to represent:
 //    - haplotypes

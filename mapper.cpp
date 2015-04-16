@@ -77,12 +77,22 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
     aln2.mutable_fragment_prev()->set_name(aln1.name());
     // and then try to rescue unmapped mates
     if (aln1.score() == 0 && aln2.score()) {
+        // should we reverse the read??
+        if (aln2.is_reverse()) {
+            aln1.set_sequence(reverse_complement(aln1.sequence()));
+            aln1.set_is_reverse(true);
+        }
         align_mate_in_window(aln2, aln1, pair_window);
     } else if (aln2.score() == 0 && aln1.score()) {
+        if (aln1.is_reverse()) {
+            aln2.set_sequence(reverse_complement(aln2.sequence()));
+            aln2.set_is_reverse(true);
+        }
         align_mate_in_window(aln1, aln2, pair_window);
     }
     // TODO
     // mark them as discordant if there is an issue?
+    // this needs to be detected with care using statistics built up from a bunch of reads
     return make_pair(aln1, aln2);
 
 }

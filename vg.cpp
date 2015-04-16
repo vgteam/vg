@@ -2044,6 +2044,51 @@ void VG::expand_path(const list<Node*>& path, vector<Node*>& expanded) {
     }
 }
 
+void VG::include(Path& path) {
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        Mapping* m = path.mutable_mapping(i);
+        Node* n = get_node(m->node_id());
+        int f = 0;
+        int t = 0;
+        for (int j = 0; j < m->edit_size(); ++j) {
+            const Edit& edit = m->edit(j);
+            if (edit.has_from_length() && !edit.has_to_length()) {
+                f += edit.from_length();
+                t += edit.from_length();
+            } else if (edit.has_from_length() && edit.has_to_length()) {
+                // cut at f, and f + from_length
+                Node* l=NULL;
+                Node* r=NULL;
+                Node* m=NULL;
+                Node* c=NULL;
+                if (edit.from_length()) {
+                    divide_node(n, f, l, m);
+                    divide_node(m, edit.from_length(), m, r);
+                    // there is a quirk (for sanity, efficiency later)
+                    // if we "delete" over several nodes, we should join one path for the deletion
+                    if (edit.to_length() == 0) {
+                        // deletion
+                        assert(edit.from_length());
+                        create_edge(l, r);
+                    } else {
+                        // swap/ SNP
+                        c = create_node(edit.sequence());
+                        create_edge(l, c);
+                        create_edge(c, r);
+                    }
+                } else {
+                    divide_node(n, f, l, r);
+                    // insertion
+                    assert(edit.to_length());
+                    c = create_node(edit.sequence());
+                    create_edge(l, c);
+                    create_edge(c, r);
+                }
+            } // do nothing for soft clips, where we have to_length and unset from_length
+        }
+    }
+}
+
 void VG::node_starts_in_path(const list<Node*>& path,
                              map<Node*, int>& node_start) {
     int i = 0;

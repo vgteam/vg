@@ -222,6 +222,9 @@ public:
     // just ensure that ids are unique, then apply extend
     void combine(VG& g);
 
+    // edit the graph to include the path
+    void include(Path& path);
+
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
     void add_edge(Edge& edge);
