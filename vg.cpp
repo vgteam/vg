@@ -2048,7 +2048,7 @@ void VG::include(Path& path) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         Mapping* m = path.mutable_mapping(i);
         Node* n = get_node(m->node_id());
-        int f = 0;
+        int f = i ? 0 : path.position(); // handle path position quirk
         int t = 0;
         for (int j = 0; j < m->edit_size(); ++j) {
             const Edit& edit = m->edit(j);
