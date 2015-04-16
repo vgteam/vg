@@ -163,6 +163,23 @@ Some completed work, for historical purposes:
 - [x] _surject_ alignments back into arbitrary path (such as GRCh37)
 - [x] use htslib for BAM/CRAM/SAM i/o
 
+Some upcoming work (and associated [issues](https://github.com/ekg/vg/issues)):
+- [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations [#10](https://github.com/ekg/vg/issues/10)
+- [ ] per-node, per-sample quality and count information on graph [#11](https://github.com/ekg/vg/issues/11)
+- [ ] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph [#12](https://github.com/ekg/vg/issues/12)
+- [ ] modify a graph using an alignment's path, adding new nodes as needed and updating the path/alignment to match [#13](https://github.com/ekg/vg/issues/13)
+- [ ] factor longer functions in main.cpp into library functions for easier reuse [#14](https://github.com/ekg/vg/issues/14)
+- [ ] kmers input to GCSA: kmer, node+position, previous characters, successive characters [#15](https://github.com/ekg/vg/issues/15)
+- [ ] properly handle pairs in alignment [#16](https://github.com/ekg/vg/issues/16)
+- [ ] read paired-end data in FASTQ format [#17](https://github.com/ekg/vg/issues/17)
+- [ ] dynamic programming method to estimate path qualities given per-node qualities and counts [#18](https://github.com/ekg/vg/issues/18)
+- [ ] genotype likelihood generation (given a source and sink, genotype paths) [#19](https://github.com/ekg/vg/issues/19)
+- [ ] genotyping of paths using freebayes-like genotyping model [#20](https://github.com/ekg/vg/issues/20)
+- [ ] genotyping using dynamic programming genotyping model and compressed sequence results against graph [#21](https://github.com/ekg/vg/issues/21)
+- [ ] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment) [#22](https://github.com/ekg/vg/issues/22)
+- [ ] [perceptual DNA hashing](http://arxiv-web3.library.cornell.edu/abs/1412.5517) to reduce index memory usage [#23](https://github.com/ekg/vg/issues/23)
+
+
 ## License
 
 MIT
