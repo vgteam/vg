@@ -808,6 +808,7 @@ Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id,
                                      list<int64_t>& path_next, int64_t& next_pos) {
     Mapping mapping;
     mapping.set_node_id(node_id);
+    // what about offset?
     if (get_node_path_relative_position(node_id, path_id,
                                         path_prev, prev_pos, path_next, next_pos)) {
         Edit* edit = mapping.add_edit();
@@ -875,7 +876,7 @@ bool Index::surject_alignment(const Alignment& source,
 
         int64_t path_id = get_path_id(path_name);
         int64_t hit_id = surjection.path().mapping(0).node_id();
-        int64_t pos = surjection.path().position();
+        int64_t pos = surjection.path().mapping(0).offset();
         // we pick up positional information using the index
         int64_t prev_pos=0, next_pos=0;
         list<int64_t> path_prev, path_next;

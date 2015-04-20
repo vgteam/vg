@@ -12,4 +12,4 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | 
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
     "vg mod yields a graph with only a particular path"
 
-is $(vg mod -o graphs/orphans.vg | vg view - | wc -l) 11 "orphan edge removal works"
+is $(vg mod -o graphs/orphans.vg | vg view - | wc -l) 8 "orphan edge removal works"

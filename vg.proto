@@ -11,6 +11,7 @@ message Graph {
     repeated Node node = 1;
     repeated Edge edge = 2;
     repeated Path path = 3;
+    repeated Info info = 4;
 }
 
 // *Nodes* store sequence data and also links to other nodes.
@@ -21,7 +22,7 @@ message Node {
     optional string name = 2;  // a name provides an identifier
     optional int64 id = 3;     // ids are critical, and unique within a graph
     optional bytes data = 4;   // arbitrary data
-    optional Annotation annotation = 5;
+    repeated Info info = 5;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
@@ -29,19 +30,19 @@ message Node {
 message Edge {
     optional int64 from = 1; // ID of upstream node
     optional int64 to = 2;   // ID of downstream node
-    optional bytes data = 3; // arbitrary data
-    optional Annotation annotation = 4;
+    optional bool from_start = 3; // if the edge leaves from the 5' (start) of a node
+    optional bool to_end = 4; // if the edge goes to the 3' (end) of a node
+    optional bytes data = 5; // arbitrary data
+    repeated Info info = 6;
 }
 
-// sequencing-specific annotations
-message Annotation {
-    optional int32 length = 1;
-    optional int32 quality = 2;
-    optional int32 coverage = 3;
-    optional int32 forward = 4;
-    optional int32 reverse = 5;
-    optional int32 left = 6;
-    optional int32 right = 7;
+// info fields can be used to annotate objects in the graph
+message Info {
+    optional string id = 1;
+    optional string str = 2;
+    optional int64 int = 3;
+    optional bytes data = 4;
+    repeated Info info = 5;
 }
 
 // *Edits* describe how to generate a new string from elements
@@ -59,14 +60,18 @@ message Edit {
     optional int32 from_length = 1; // length in target/ref
     optional int32 to_length = 2; // length in read/alt
     optional string sequence = 3;
+    repeated Info info = 4;
 }
 
 // A Mapping defines the relationship between a node in system and another entity.
 // An empty edit list implies complete match.
 //
 message Mapping {
-    optional int64 node_id = 1; // node id in graph
-    repeated Edit edit = 2; // series of edit to transform to region in read/alt
+    optional int64 node_id = 1;
+    optional int64 offset = 2;
+    repeated Edit edit = 3; // series of edit to transform to region in read/alt
+    optional bool is_reverse = 4; // does the mapping go from the end of the node to the start
+    repeated Info info = 5;
 }
 
 // Paths are walks through nodes defined by a series of edits.
@@ -78,9 +83,9 @@ message Mapping {
 //          genes, exons, motifs, transcripts, peaks
 //
 message Path {
-    optional int32 position = 1; // position in node of the first mapping
-    optional string name = 2;
-    repeated Mapping mapping = 3;
+    optional string name = 1;
+    repeated Mapping mapping = 2;
+    repeated Info info = 3;
 }
 
 // Alignments link query strings, such as other genomes or reads, to paths.
@@ -96,14 +101,10 @@ message Alignment {
     optional bool is_reverse = 8; // true if original sequence lies in the 3'->5' orientation
     optional string sample_name = 9;
     optional string read_group = 10;
-    // fragments are encoded in a nested way
-    // space can be saved when this is repeated for both pairs by using semantics in which
-    // alignments nested within this field only encode 
-    optional Alignment fragment_prev = 11;
-    optional Alignment fragment_next = 12;
-    // reference-relative mapping (?)
-    // identity of graph we mapped against
+    optional Alignment fragment_prev = 11; // e.g. contains an alignment with only a name, or only a graph mapping position
+    optional Alignment fragment_next = 12; // same thing for next in fragment
     optional bytes data = 13;
+    repeated Info info = 14;
 }
 
 // Fragments represent the library fragments that yield pairs of alignments
@@ -112,8 +113,7 @@ message Fragment {
     repeated Alignment alignment = 1;
 }
 
-// used to specify kmer matches against a given node
-// the context of this is dependent on implementation, use in db, etc.
+// used to serialize kmer matches
 message KmerMatch {
     optional string sequence = 1;
     optional int64 node_id = 2;

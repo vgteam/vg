@@ -71,10 +71,10 @@ void GSSWAligner::align(Alignment& alignment) {
 
 void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                                             Alignment& alignment) {
+    alignment.clear_path();
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
     Path* path = alignment.mutable_path();
-    path->set_position(gm->position);
     //alignment.set_cigar(graph_cigar(gm));
 
     gssw_graph_cigar* gc = &gm->cigar;
@@ -96,6 +96,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
         mapping->set_node_id(nc->node->id);
+        mapping->set_offset(from_pos);
         gssw_cigar* c = nc->cigar;
         int l = c->length;
         gssw_cigar_element* e = c->elements;
