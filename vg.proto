@@ -30,9 +30,9 @@ message Node {
 message Edge {
     optional int64 from = 1; // ID of upstream node
     optional int64 to = 2;   // ID of downstream node
-    optional bytes data = 3; // arbitrary data
-    optional bool from_start = 4; // if the edge leaves from the 5' (start) of a node
-    optional bool to_end = 5; // if the edge goes to the 3' (end) of a node
+    optional bool from_start = 3; // if the edge leaves from the 5' (start) of a node
+    optional bool to_end = 4; // if the edge goes to the 3' (end) of a node
+    optional bytes data = 5; // arbitrary data
     repeated Info info = 6;
 }
 
