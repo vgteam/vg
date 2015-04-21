@@ -461,66 +461,11 @@ string cigar_against_path(const Alignment& alignment) {
     vector<pair<int, char> > cigar;
     assert(alignment.has_path());
     const Path& path = alignment.path();
-    /*
-    if (alignment_to_length(alignment) != alignment.sequence().size()) {
-        cerr << alignment_to_length(alignment) << " vs " << alignment.sequence().size() << endl;
-        char *json2 = pb2json(alignment);
-        cerr << json2 << endl; free(json2);
-    }
-    */
     int l = 0;
     for (const auto& mapping : path.mapping()) {
-        for (const auto& edit : mapping.edit()) {
-            if (edit.has_from_length()) {
-                if (!edit.has_to_length()) {
-// *matches* from_length == to_length, or from_length > 0 and offset unset
-                    // match state
-                    cigar.push_back(make_pair(edit.from_length(), 'M'));
-                } else {
-                    // mismatch/sub state
-// *snps* from_length == to_length; sequence = alt
-                    if (edit.from_length() == edit.to_length()) {
-                        cigar.push_back(make_pair(edit.from_length(), 'M'));
-                    } else if (edit.from_length() == 0 && !edit.has_sequence()) {
-// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
-                        cigar.push_back(make_pair(edit.to_length(), 'S'));
-                    } else if (edit.from_length() > edit.to_length()) {
-// *deletions* from_length > to_length; sequence may be unset or empty
-                        int32_t del = edit.from_length() - edit.to_length();
-                        int32_t eq = edit.to_length();
-                        if (eq) cigar.push_back(make_pair(eq, 'M'));
-                        cigar.push_back(make_pair(del, 'D'));
-                    } else if (edit.from_length() < edit.to_length()) {
-// *insertions* from_length < to_length; sequence contains relative insertion
-                        int32_t ins = edit.to_length() - edit.from_length();
-                        int32_t eq = edit.from_length();
-                        if (eq) cigar.push_back(make_pair(eq, 'M'));
-                        cigar.push_back(make_pair(ins, 'I'));
-                    }
-                }
-            }
-        }
+        mapping_cigar(mapping, cigar);
     }
-    vector<pair<int, char> > cigar_comp;
-    pair<int, char> cur = make_pair(0, '\0');
-    for (auto& e : cigar) {
-        if (cur == make_pair(0, '\0')) {
-            cur = e;
-        } else {
-            if (cur.second == e.second) {
-                cur.first += e.first;
-            } else {
-                cigar_comp.push_back(cur);
-                cur = e;
-            }
-        }
-    }
-    cigar_comp.push_back(cur);
-    stringstream cigarss;
-    for (auto& e : cigar_comp) {
-        cigarss << e.first << e.second;
-    }
-    return cigarss.str();
+    return cigar_string(cigar);
 }
 
 int32_t sam_flag(const Alignment& alignment) {

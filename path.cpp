@@ -102,20 +102,37 @@ void Paths::append_path_cache_nodes(Path& a, Path& b) {
     }
 }
 
+// problem, won't allow us to keep multiple identical mapping to the same node,
+// as will happen with looping paths
+bool Paths::has_mapping(const string& name, Mapping& m) {
+    auto& node_mapping = get_node_mapping(m.node_id());
+    for (auto& p : node_mapping) {
+        Path* path = p.first;
+        if (path->name() == name) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Paths::append_mapping(const string& name, Mapping& m) {
     // TODO fix interface... this requires the path to be in this container
     Path* pt = get_create_path(name);
     assert(pt); // guard for now
-    Mapping* nm = pt->add_mapping();
-    *nm = m; // and copy over the details
-    // add it to the node mappings
-    auto& ms = get_node_mapping(m.node_id());
-    ms.insert(make_pair(pt, nm));
+// TODO check if we have the mapping already ?
+    if (!has_mapping(name, m)) {
+        Mapping* nm = pt->add_mapping();
+        *nm = m; // and copy over the details
+        // add it to the node mappings
+        auto& ms = get_node_mapping(m.node_id());
+        ms.insert(make_pair(pt, nm));
+    }
 }
 
-void Paths::append_mapping(const string& name, int64_t id) {
+void Paths::append_mapping(const string& name, int64_t id, bool is_reverse) {
     Mapping m;
     m.set_node_id(id);
+    if (is_reverse) m.set_is_reverse(true);
     append_mapping(name, m);
 }
 

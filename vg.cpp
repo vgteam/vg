@@ -864,6 +864,7 @@ void VG::from_gfa(istream& in, bool showp) {
     char side1, side2;
     string cigar;
     string path_name;
+    bool is_reverse = false;
     while(std::getline(in, line)) {
         stringstream ss(line);
         string item;
@@ -897,6 +898,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'L': id2 = atol(item.c_str()); break;
                 case 'S': too_many_fields(); break;
+                case 'P': is_reverse = (item == "+" ? false : true); break;
                 default: break;
                 }
                 break;
@@ -904,6 +906,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'L': side2 = item[0]; break;
                 case 'S': too_many_fields(); break;
+                case 'P': cigar = item; break;
                 default: break;
                 }
                 break;
@@ -932,7 +935,7 @@ void VG::from_gfa(istream& in, bool showp) {
             edge.set_to(id2);
             add_edge(edge);
         } else if (type == 'P') {
-            paths.append_mapping(path_name, id1);
+            paths.append_mapping(path_name, id1, is_reverse);
         }
     }
 }
@@ -945,6 +948,62 @@ void VG::print_edges(void) {
         cerr << f << "->" << t << " ";
     }
     cerr << endl;
+}
+
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
+    for (const auto& edit : mapping.edit()) {
+        if (edit.has_from_length()) {
+            if (!edit.has_to_length()) {
+// *matches* from_length == to_length, or from_length > 0 and offset unset
+                // match state
+                cigar.push_back(make_pair(edit.from_length(), 'M'));
+            } else {
+                // mismatch/sub state
+// *snps* from_length == to_length; sequence = alt
+                if (edit.from_length() == edit.to_length()) {
+                    cigar.push_back(make_pair(edit.from_length(), 'M'));
+                } else if (edit.from_length() == 0 && !edit.has_sequence()) {
+// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
+                    cigar.push_back(make_pair(edit.to_length(), 'S'));
+                } else if (edit.from_length() > edit.to_length()) {
+// *deletions* from_length > to_length; sequence may be unset or empty
+                    int32_t del = edit.from_length() - edit.to_length();
+                    int32_t eq = edit.to_length();
+                    if (eq) cigar.push_back(make_pair(eq, 'M'));
+                    cigar.push_back(make_pair(del, 'D'));
+                } else if (edit.from_length() < edit.to_length()) {
+// *insertions* from_length < to_length; sequence contains relative insertion
+                    int32_t ins = edit.to_length() - edit.from_length();
+                    int32_t eq = edit.from_length();
+                    if (eq) cigar.push_back(make_pair(eq, 'M'));
+                    cigar.push_back(make_pair(ins, 'I'));
+                }
+            }
+        }
+    }
+}
+
+string cigar_string(vector<pair<int, char> >& cigar) {
+    vector<pair<int, char> > cigar_comp;
+    pair<int, char> cur = make_pair(0, '\0');
+    for (auto& e : cigar) {
+        if (cur == make_pair(0, '\0')) {
+            cur = e;
+        } else {
+            if (cur.second == e.second) {
+                cur.first += e.first;
+            } else {
+                cigar_comp.push_back(cur);
+                cur = e;
+            }
+        }
+    }
+    cigar_comp.push_back(cur);
+    stringstream cigarss;
+    for (auto& e : cigar_comp) {
+        cigarss << e.first << e.second;
+    }
+    return cigarss.str();
 }
 
 bool allATGC(string& s) {
@@ -2012,6 +2071,7 @@ Path VG::create_path(const list<Node*>& nodes) {
     for (list<Node*>::const_iterator n = nodes.begin(); n != nodes.end(); ++n) {
         Mapping* mapping = path.add_mapping();
         mapping->set_node_id((*n)->id());
+        // assumed to be always forward
     }
     return path;
 }
@@ -2029,7 +2089,11 @@ string VG::path_string(Path& path) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         Mapping* m = path.mutable_mapping(i);
         Node* n = node_by_id[m->node_id()];
-        seq.append(n->sequence());
+        if (m->has_is_reverse() && m->is_reverse()) {
+            seq.append(reverse_complement(n->sequence()));
+        } else {
+            seq.append(n->sequence());
+        }
     }
     return seq;
 }
@@ -2047,6 +2111,7 @@ void VG::expand_path(const list<Node*>& path, vector<Node*>& expanded) {
 void VG::include(Path& path) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         Mapping* m = path.mutable_mapping(i);
+        // TODO is it reversed?
         Node* n = get_node(m->node_id());
         int f = m->offset();
         int t = 0;
@@ -2295,8 +2360,26 @@ void VG::to_gfa(ostream& out) {
         Node* n = graph.mutable_node(i);
         stringstream s;
         s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
-        for (auto& name : paths.of_node(n->id())) {
-            s << "P" << "\t" << n->id() << "\t" << name << "\n";
+        auto& node_mapping = paths.get_node_mapping(n->id());
+        set<Mapping*> seen;
+        for (auto& p : node_mapping) {
+            if (seen.count(p.second)) continue;
+            else seen.insert(p.second);
+            const Mapping& mapping = *p.second;
+            string cigar;
+            if (mapping.edit_size() > 0) {
+                vector<pair<int, char> > cigarv;
+                mapping_cigar(mapping, cigarv);
+                cigar = cigar_string(cigarv);
+            } else {
+                // empty mapping edit implies perfect match
+                stringstream cigarss;
+                cigarss << n->sequence().size() << "M";
+                cigar = cigarss.str();
+            }
+            string orientation = mapping.has_is_reverse() && mapping.is_reverse() ? "-" : "+";
+            s << "P" << "\t" << n->id() << "\t" << p.first->name() << "\t"
+              << orientation << "\t" << cigar << "\n";
         }
         sorted_output[n->id()].push_back(s.str());
     }

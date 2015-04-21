@@ -36,6 +36,7 @@ public:
     bool has_path(const string& name);
     Path* get_path(const string& name);
     Path* get_create_path(const string& name);
+    bool has_mapping(const string& name, Mapping& m);
     set<pair<Path*, Mapping*> >& get_node_mapping(Node* n);
     set<pair<Path*, Mapping*> >& get_node_mapping(int64_t id);
     set<string> of_node(int64_t id);
@@ -47,7 +48,7 @@ public:
     void from_graph(Graph& g);
     void to_graph(Graph& g);
     void append_mapping(const string& name, Mapping& m);
-    void append_mapping(const string& name, int64_t id);
+    void append_mapping(const string& name, int64_t id, bool is_reverse = false);
     void append(Paths& p);
     void append(Graph& g);
     void extend(Paths& p);

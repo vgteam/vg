@@ -418,6 +418,8 @@ private:
 // utility functions
 
 bool allATGC(string& s);
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
+string cigar_string(vector<pair<int, char> >& cigar);
 
 } // end namespace vg
 
