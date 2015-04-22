@@ -332,8 +332,10 @@ void help_mod(char** argv) {
          << "Modifies graph, outputs modified on stdout." << endl
          << endl
          << "options:" << endl
-         << "    -k, --keep-path NAME  keep only nodes and edges in the path" << endl
-         << "    -o, --remove-orphans  remove orphan edges from graph (edge specified but node missing)" << endl;
+         << "    -i, --include-aln FILE  include the paths implied by alignments in the graph" << endl
+         << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
+         << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -345,6 +347,8 @@ int main_mod(int argc, char** argv) {
 
     string path_name;
     bool remove_orphans = false;
+    string aln_file;
+    bool compact_ids = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -352,13 +356,15 @@ int main_mod(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"help", no_argument, 0, 'h'},
+                {"include-aln", required_argument, 0, 'i'},
+                {"compact-ids", no_argument, 0, 'c'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:o",
+        c = getopt_long (argc, argv, "hk:oi:c",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -367,6 +373,14 @@ int main_mod(int argc, char** argv) {
 
         switch (c)
         {
+
+        case 'i':
+            aln_file = optarg;
+            break;
+
+        case 'c':
+            compact_ids = true;
+            break;
 
         case 'k':
             path_name = optarg;
@@ -403,6 +417,24 @@ int main_mod(int argc, char** argv) {
 
     if (remove_orphans) {
         graph->remove_orphan_edges();
+    }
+
+    if (!aln_file.empty()) {
+        function<void(Alignment&)> lambda = [&graph](Alignment& aln) {
+            const Path& path = aln.path();
+            graph->include(path);
+        };
+        if (aln_file == "-") {
+            stream::for_each(std::cin, lambda);
+        } else {
+            ifstream in;
+            in.open(aln_file.c_str());
+            stream::for_each(in, lambda);
+        }
+        if (compact_ids) {
+            graph->sort();
+            graph->compact_ids();
+        }
     }
 
     graph->serialize_to_ostream(std::cout);
@@ -2554,7 +2586,7 @@ void vg_help(char** argv) {
          << "  -- concat        concatenate graphs tail-to-head" << endl
          << "  -- kmers         enumerate kmers of the graph" << endl
          << "  -- sim           simulate reads from the graph" << endl
-         << "  -- mod           filter and transform the graph" << endl
+         << "  -- mod           filter, transform, and edit the graph" << endl
          << "  -- surject       map alignments onto specific paths" << endl;
 }
 

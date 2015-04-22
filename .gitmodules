@@ -1,6 +1,6 @@
 [submodule "pb2json"]
 	path = pb2json
-	url = https://github.com/shafreeck/pb2json.git
+	url = https://github.com/ekg/pb2json.git
 [submodule "vcflib"]
 	path = vcflib
 	url = https://github.com/ekg/vcflib.git

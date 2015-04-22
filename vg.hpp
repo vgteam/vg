@@ -140,6 +140,7 @@ public:
             clear_indexes();
             // assign
             graph = other.graph;
+            paths = other.paths;
             // re-index
             rebuild_indexes();
         }
@@ -149,6 +150,7 @@ public:
     VG(VG&& other) noexcept {
         init();
         graph = other.graph;
+        paths = other.paths;
         other.graph.Clear();
         rebuild_indexes();
         // should copy over indexes
@@ -223,7 +225,7 @@ public:
     void combine(VG& g);
 
     // edit the graph to include the path
-    void include(Path& path);
+    void include(const Path& path);
 
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
@@ -420,6 +422,7 @@ private:
 bool allATGC(string& s);
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(vector<pair<int, char> >& cigar);
+void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset);
 
 } // end namespace vg
 

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <functional>
 #include <set>
+#include <list>
 #include "pb2json.h"
 #include "vg.pb.h"
 #include "json.hpp"
@@ -15,45 +16,66 @@ using namespace std;
 
 class Paths {
 public:
+
+    Paths(void);
+
     // copy
-    /*
-    Paths& operator=(const Paths& other) {
+    Paths(const Paths& other) {
         if (this != &other) {
-            cerr << "copying" << endl;
-            *_paths = *other._paths;
+            _paths = other._paths;
             rebuild_node_mapping();
         }
+    }
+    // move constructor
+    Paths(Paths&& other) noexcept {
+        _paths = other._paths;
+        other.clear();
+        rebuild_node_mapping();
+    }
+
+    // copy assignment operator
+    Paths& operator=(const Paths& other) {
+        Paths tmp(other);
+        *this = std::move(tmp);
         return *this;
     }
-    */
-    ::google::protobuf::RepeatedPtrField< ::vg::Path >* _paths;
-    map<string, Path*> path_by_name;
-    map<int64_t, set<pair<Path*, Mapping*> > > node_mapping;
+
+    // move assignment operator
+    Paths& operator=(Paths&& other) noexcept {
+        std::swap(_paths, other._paths);
+        rebuild_node_mapping();
+        return *this;
+    }
+
+    //::google::protobuf::RepeatedPtrField< ::vg::Path >* _paths;
+    map<string, list<Mapping> > _paths;
+    map<Mapping*, list<Mapping>::iterator> _mapping_itr;
+    map<int64_t, set<pair<string, Mapping*> > > node_mapping;
     void rebuild_node_mapping(void);
+    void sync_paths_with_mapping_lists(void);
     void remove_paths(const set<string>& names);
     void keep_paths(const set<string>& name);
     void remove_node(int64_t id);
     bool has_path(const string& name);
-    Path* get_path(const string& name);
-    Path* get_create_path(const string& name);
-    bool has_mapping(const string& name, Mapping& m);
-    set<pair<Path*, Mapping*> >& get_node_mapping(Node* n);
-    set<pair<Path*, Mapping*> >& get_node_mapping(int64_t id);
+    list<Mapping>& get_path(const string& name);
+    list<Mapping>& get_create_path(const string& name);
+    list<Mapping>& create_path(const string& name);
+    bool has_mapping(const string& name, const Mapping& m);
+    set<pair<string, Mapping*> >& get_node_mapping(Node* n);
+    set<pair<string, Mapping*> >& get_node_mapping(int64_t id);
     set<string> of_node(int64_t id);
-    void append_path_cache_nodes(Path& a, Path& b);
     size_t size(void) const;
+    void clear(void);
     //void add_node_mapping(Node* n);
     void load(istream& in);
     void write(ostream& out);
-    void from_graph(Graph& g);
     void to_graph(Graph& g);
-    void append_mapping(const string& name, Mapping& m);
+    void append_mapping(const string& name, const Mapping& m);
     void append_mapping(const string& name, int64_t id, bool is_reverse = false);
     void append(Paths& p);
     void append(Graph& g);
     void extend(Paths& p);
     void extend(Path& p);
-    Path* create_path(const string& name);
     void for_each(function<void(Path&)>& lambda);
     void for_each_stream(istream& in, function<void(Path&)>& lambda);
     void increment_node_ids(int64_t inc);

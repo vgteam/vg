@@ -536,7 +536,7 @@ void Index::load_graph(VG& graph) {
 
 void Index::load_paths(VG& graph) {
     graph.destroy_progress();
-    graph.create_progress("indexing paths of " + graph.name, graph.paths._paths->size());
+    graph.create_progress("indexing paths of " + graph.name, graph.paths._paths.size());
     store_paths(graph);
     graph.destroy_progress();
 }
@@ -608,9 +608,10 @@ int64_t Index::get_path_id(const string& name) {
 }
 
 void Index::store_paths(VG& graph) {
-    for (auto& path : *graph.paths._paths) {
+    function<void(Path&)> lambda = [this, &graph](Path& path) {
         store_path(graph, path);
-    }
+    };
+    graph.paths.for_each(lambda);
 }
 
 void Index::store_path(VG& graph, Path& path) {

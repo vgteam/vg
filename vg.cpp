@@ -5,7 +5,6 @@ namespace vg {
 
 using namespace std;
 
-// todo embed paths
 
 // construct from a stream of protobufs
 VG::VG(istream& in, bool showp) {
@@ -27,6 +26,9 @@ VG::VG(istream& in, bool showp) {
 
     stream::for_each(in, lambda, handle_count);
 
+    // store paths in graph
+    paths.to_graph(graph);
+
     destroy_progress();
 
 }
@@ -47,6 +49,9 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
             Node* node = graph.mutable_node(j);
             node_context(node, g);
         }
+        // store paths
+        g.paths.to_graph(g.graph);
+        
         update_progress(i);
         return g.graph;
     };
@@ -76,7 +81,6 @@ void VG::init(void) {
     show_progress = false;
     progress_message = "progress";
     progress = NULL;
-    paths._paths = graph.mutable_path();
 }
 
 VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
@@ -1016,6 +1020,26 @@ bool allATGC(string& s) {
     return true;
 }
 
+// todo, make a version that works for non-invariants
+void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset) {
+    int f = 0;
+    int t = 0;
+    Mapping* target = &left;
+    for (int i = 0; i < orig.edit_size(); ++i) {
+        const Edit& e = orig.edit(i);
+        Edit* ne = target->add_edit();
+        if (e.from_length() + f >= offset) {
+            // break edit
+            ne->set_from_length(offset - f);
+            target = &right;
+            ne = target->add_edit();
+            ne->set_from_length(e.from_length() + f - offset);
+        } else {
+            *ne = e;
+        }
+    }
+}
+
 void VG::create_progress(const string& message, long count) {
     if (show_progress) {
         progress_message = message;
@@ -1583,8 +1607,9 @@ Node* VG::create_node(string seq) {
     // create the node
     Node* node = graph.add_node();
     node->set_sequence(seq);
+    // ensure we properly update the current_id that's used to generate new ids
+    if (current_id == 1) current_id = max_node_id()+1;
     node->set_id(current_id++);
-    //cerr << "creating node " << node->id() << endl;
     // copy it into the graph
     // and drop into our id index
     node_by_id[node->id()] = node;
@@ -1629,7 +1654,7 @@ void VG::node_context(Node* node, VG& g) {
     // and its path members
     auto& node_mappings = paths.get_node_mapping(node);
     for (auto& i : node_mappings) {
-        g.paths.append_mapping(i.first->name(), *i.second);
+        g.paths.append_mapping(i.first, *i.second);
     }
 }
 
@@ -1864,6 +1889,21 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
     // connect left to right
     create_edge(left, right);
+
+    // update our paths before destroying the old node
+    // it's not clear how to handle non-matching paths
+    /*
+    auto& node_path_mapping = paths.get_node_mapping(node);
+    // apply to left and right
+    for (auto& pm : node_path_mapping) {
+        Path* p = pm.first;
+        Mapping* m = pm.second;
+        // we have to divide the mapping
+        Mapping l, r; divide_invariant_mapping(*m, l, r, pos);
+        paths.node_mapping[node->id()].erase(pm);
+        paths.node_mapping[node->id()].insert(pm);
+    }
+    */
 
     destroy_node(node);
 
@@ -2108,15 +2148,21 @@ void VG::expand_path(const list<Node*>& path, vector<Node*>& expanded) {
     }
 }
 
-void VG::include(Path& path) {
+void VG::include(const Path& path) {
+    // TODO we are failing in two basic ways
+    // 1) failing to account for the current node we should be on after edits
+    // 2) not maintaining the existing path architecture through edits
     for (int i = 0; i < path.mapping_size(); ++i) {
-        Mapping* m = path.mutable_mapping(i);
+        const Mapping& m = path.mapping(i);
         // TODO is it reversed?
-        Node* n = get_node(m->node_id());
-        int f = m->offset();
+        Node* n = get_node(m.node_id());
+        int f = m.offset();
         int t = 0;
-        for (int j = 0; j < m->edit_size(); ++j) {
-            const Edit& edit = m->edit(j);
+        for (int j = 0; j < m.edit_size(); ++j) {
+            const Edit& edit = m.edit(j);
+            char *json2 = pb2json(edit);
+            cerr << json2 <<endl;
+            free(json2);
             if (edit.has_from_length() && !edit.has_to_length()) {
                 f += edit.from_length();
                 t += edit.from_length();
@@ -2127,7 +2173,9 @@ void VG::include(Path& path) {
                 Node* m=NULL;
                 Node* c=NULL;
                 if (edit.from_length()) {
+                    cerr << "dividing node 1" << endl;
                     divide_node(n, f, l, m);
+                    cerr << "dividing node 2" << endl;
                     divide_node(m, edit.from_length(), m, r);
                     // there is a quirk (for sanity, efficiency later)
                     // if we "delete" over several nodes, we should join one path for the deletion
@@ -2141,11 +2189,20 @@ void VG::include(Path& path) {
                         create_edge(l, c);
                         create_edge(c, r);
                     }
+                    cerr << "dividing node ... done" << endl;
                 } else {
+                    cerr << "dividing node 3" << endl;
                     divide_node(n, f, l, r);
+                    cerr << "dividing node ... done" << endl;
                     // insertion
                     assert(edit.to_length());
+                    // one of these doesn't work
+                    // the first
+                    // why
                     c = create_node(edit.sequence());
+                    //create_edge(c, x);
+                    print_edges();
+                    //create_edge(l, r);
                     create_edge(l, c);
                     create_edge(c, r);
                 }
@@ -2378,7 +2435,7 @@ void VG::to_gfa(ostream& out) {
                 cigar = cigarss.str();
             }
             string orientation = mapping.has_is_reverse() && mapping.is_reverse() ? "-" : "+";
-            s << "P" << "\t" << n->id() << "\t" << p.first->name() << "\t"
+            s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
               << orientation << "\t" << cigar << "\n";
         }
         sorted_output[n->id()].push_back(s.str());
