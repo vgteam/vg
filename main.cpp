@@ -30,7 +30,9 @@ void help_surject(char** argv) {
          << "    -i, --into-paths FILE   surject into path names listed in FILE (one per line)" << endl
          << "    -P, --into-prefix NAME  surject into all paths with NAME as their prefix" << endl
         //<< "    -H, --header-from FILE  use the header in the SAM/CRAM/BAM file for the output" << endl
-         << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
+        // todo, reenable
+        // << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
+        // << "    -f, --reference FILE    use this file when writing CRAM to rebuild sequence header" << endl
          << "    -b, --bam-output        write BAM to stdout" << endl
          << "    -s, --sam-output        write SAM to stdout" << endl
          << "    -C, --compression N     level for compression [0-9]" << endl
@@ -54,6 +56,7 @@ int main_surject(int argc, char** argv) {
     int compress_level = 9;
     int default_mq = 30;
     int window = 5;
+    string fasta_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -67,6 +70,7 @@ int main_surject(int argc, char** argv) {
                 {"into-paths", required_argument, 0, 'i'},
                 {"into-prefix", required_argument, 0, 'P'},
                 {"cram-output", no_argument, 0, 'c'},
+                {"reference", required_argument, 0, 'f'},
                 {"bam-output", no_argument, 0, 'b'},
                 {"sam-output", no_argument, 0, 's'},
                 {"header-from", required_argument, 0, 'H'},
@@ -76,7 +80,7 @@ int main_surject(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:t:w:",
+        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:t:w:f:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -108,6 +112,10 @@ int main_surject(int argc, char** argv) {
 
         case 'c':
             output_type = "cram";
+            break;
+
+        case 'f':
+            fasta_filename = optarg;
             break;
 
         case 'b':
@@ -191,7 +199,6 @@ int main_surject(int argc, char** argv) {
             if (output_type == "bam") { out_format = "b"; }
             else if (output_type == "cram") { out_format = "c"; }
             else { out_format = ""; }
-            if (compress_level >= 0) out_format = "b";
             strcat(out_mode, out_format.c_str());
             if (compress_level >= 0) {
                 char tmp[2];
@@ -227,7 +234,7 @@ int main_surject(int argc, char** argv) {
             // handles buffers, possibly opening the output file if we're on the first record
             auto handle_buffer =
                 [&hdr, &header, &path_length, &rg_sample, &buffer_limit,
-                 &out_mode, &out, &output_lock](vector<tuple<string, int64_t, Alignment> >& buf) {
+                 &out_mode, &out, &output_lock, &fasta_filename](vector<tuple<string, int64_t, Alignment> >& buf) {
                 if (buf.size() >= buffer_limit) {
                     // do we have enough data to open the file?
 #pragma omp critical (hts_header)
@@ -235,6 +242,12 @@ int main_surject(int argc, char** argv) {
                         if (!hdr) {
                             hdr = hts_string_header(header, path_length, rg_sample);
                             if ((out = sam_open("-", out_mode)) == 0) {
+                                /*
+                                if (!fasta_filename.empty()) {
+                                    string fai_filename = fasta_filename + ".fai";
+                                    hts_set_fai_filename(out, fai_filename.c_str());
+                                }
+                                */
                                 cerr << "[vg surject] failed to open stdout for writing HTS output" << endl;
                                 exit(1);
                             } else {

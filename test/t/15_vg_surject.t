@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 7
+plan tests 6
 
 vg construct -r small/x.fa >j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -24,8 +24,8 @@ is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.inde
 is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.index -b - | samtools view - | wc -l) \
     100 "vg surject produces valid BAM output"
 
-is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.index -c - | samtools view - | wc -l) \
-    100 "vg surject produces valid CRAM output"
+#is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg surject -p x -d x.vg.index -c - | samtools view - | wc -l) \
+#    100 "vg surject produces valid CRAM output"
 
 rm -rf j.vg x.vg x.vg.index
 
