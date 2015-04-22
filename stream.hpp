@@ -84,14 +84,14 @@ bool for_each(std::istream& in,
     // such as we might write in a multithreaded process
     if (!count) return !count;
     do {
-        delete coded_in;
-        coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
 
         handle_count(count);
 
         std::string s;
         for (uint64_t i = 0; i < count; ++i) {
             uint32_t msgSize = 0;
+            delete coded_in;
+            coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
             // the messages are prefixed by their size
             coded_in->ReadVarint32(&msgSize);
             if ((msgSize > 0) &&
@@ -159,13 +159,13 @@ bool for_each_parallel(std::istream& in,
 #pragma omp master
         {
             while (more_input && object_count < read_threshold) {
-                delete coded_in;
-                coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
                 handle_count(count);
                 std::string s;
                 for (uint64_t i = 0; i < count; ++i) {
                     uint32_t msgSize = 0;
                     // the messages are prefixed by their size
+                    delete coded_in;
+                    coded_in = new ::google::protobuf::io::CodedInputStream(gzip_in);
                     coded_in->ReadVarint32(&msgSize);
                     if ((msgSize > 0) &&
                         (coded_in->ReadString(&s, msgSize))) {
