@@ -47,12 +47,15 @@ public:
         return *this;
     }
 
-    //::google::protobuf::RepeatedPtrField< ::vg::Path >* _paths;
     map<string, list<Mapping> > _paths;
-    map<Mapping*, list<Mapping>::iterator> _mapping_itr;
+    map<Mapping*, list<Mapping>::iterator> mapping_itr;
+    map<Mapping*, string> mapping_path;
+    void rebuild_mapping_aux(void);
     map<int64_t, set<pair<string, Mapping*> > > node_mapping;
     void rebuild_node_mapping(void);
-    void sync_paths_with_mapping_lists(void);
+    //void sync_paths_with_mapping_lists(void);
+    list<Mapping>::iterator remove_mapping(Mapping* m);
+    list<Mapping>::iterator insert_mapping(list<Mapping>::iterator w, const string& path_name, const Mapping& m);
     void remove_paths(const set<string>& names);
     void keep_paths(const set<string>& name);
     void remove_node(int64_t id);
@@ -61,8 +64,11 @@ public:
     list<Mapping>& get_create_path(const string& name);
     list<Mapping>& create_path(const string& name);
     bool has_mapping(const string& name, const Mapping& m);
+    bool has_node_mapping(int64_t id);
+    bool has_node_mapping(Node* n);
     set<pair<string, Mapping*> >& get_node_mapping(Node* n);
     set<pair<string, Mapping*> >& get_node_mapping(int64_t id);
+    string mapping_path_name(Mapping* m);
     set<string> of_node(int64_t id);
     size_t size(void) const;
     void clear(void);

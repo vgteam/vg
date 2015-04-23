@@ -1652,9 +1652,11 @@ void VG::node_context(Node* node, VG& g) {
         g.add_edge(*get_edge(node->id(), *e));
     }
     // and its path members
-    auto& node_mappings = paths.get_node_mapping(node);
-    for (auto& i : node_mappings) {
-        g.paths.append_mapping(i.first, *i.second);
+    if (paths.has_node_mapping(node)) {
+        auto& node_mappings = paths.get_node_mapping(node);
+        for (auto& i : node_mappings) {
+            g.paths.append_mapping(i.first, *i.second);
+        }
     }
 }
 
@@ -1890,20 +1892,29 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     // connect left to right
     create_edge(left, right);
 
-    // update our paths before destroying the old node
-    // it's not clear how to handle non-matching paths
-    /*
-    auto& node_path_mapping = paths.get_node_mapping(node);
-    // apply to left and right
-    for (auto& pm : node_path_mapping) {
-        Path* p = pm.first;
-        Mapping* m = pm.second;
-        // we have to divide the mapping
-        Mapping l, r; divide_invariant_mapping(*m, l, r, pos);
-        paths.node_mapping[node->id()].erase(pm);
-        paths.node_mapping[node->id()].insert(pm);
+    // divide paths
+    // note that we can't do this (yet) for non-exact matching paths
+    if (paths.has_node_mapping(node)) {
+        auto& node_path_mapping = paths.get_node_mapping(node);
+        // apply to left and right
+        vector<Mapping*> to_divide;
+        for (auto& pm : node_path_mapping) {
+            cerr << "hey" << endl;
+            string path_name = pm.first;
+            Mapping* m = pm.second;
+            to_divide.push_back(m);
+        }
+        for (auto m : to_divide) {
+            // we have to divide the mapping
+            string path_name = paths.mapping_path_name(m);
+            Mapping l, r; divide_invariant_mapping(*m, l, r, pos);
+            // with the mapping divided, insert the pieces where the old one was
+            auto mpit = paths.remove_mapping(m);
+            // insert right then left (insert puts *before* the iterator)
+            mpit = paths.insert_mapping(mpit, path_name, r);
+            mpit = paths.insert_mapping(mpit, path_name, l);
+        }
     }
-    */
 
     destroy_node(node);
 

@@ -141,9 +141,13 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
 // TODO check if we have the mapping already ?
     if (!has_mapping(name, m)) {
         pt.push_back(m);
+        Mapping* mp = &pt.back();
         // add it to the node mappings
         auto& ms = get_node_mapping(m.node_id());
-        ms.insert(make_pair(name, &pt.back()));
+        ms.insert(make_pair(name, mp));
+        list<Mapping>::iterator mi = pt.end(); --mi;
+        mapping_itr[mp] = mi;
+        mapping_path[mp] = name;
     }
 }
 
@@ -171,7 +175,6 @@ void Paths::increment_node_ids(int64_t inc) {
 
 void Paths::rebuild_node_mapping(void) {
     // starts with paths and rebuilds the index
-    //map<int64_t, set<pair<Path*, Mapping*> > > node_mapping;
     node_mapping.clear();
     for (auto& p : _paths) {
         const string& path_name = p.first;
@@ -182,8 +185,54 @@ void Paths::rebuild_node_mapping(void) {
     }
 }
 
+void Paths::rebuild_mapping_aux(void) {
+//    map<Mapping*, list<Mapping>::iterator> mapping_itr
+    mapping_itr.clear();
+    mapping_path.clear();
+    for (auto& p : _paths) {
+        const string& path_name = p.first;
+        list<Mapping>& path = p.second;
+        for (list<Mapping>::iterator i = path.begin(); i != path.end(); ++i) {
+            mapping_itr[&*i] = i;
+            mapping_path[&*i] = path_name;
+        }
+    }
+}
+
 void Paths::remove_node(int64_t id) {
     node_mapping.erase(id);
+}
+
+list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
+    if (mapping_path.find(m) == mapping_path.end()) cerr << "no mapping" << endl;
+    const string& path_name = mapping_path[m];
+    int64_t id = m->node_id();
+    auto& x = _paths[path_name];
+    list<Mapping>::iterator p = _paths[path_name].erase(mapping_itr[m]);
+    if (has_node_mapping(id)) {
+        auto& node_path_mapping = get_node_mapping(id);
+        node_path_mapping.erase(make_pair(path_name, m));
+        if (node_path_mapping.empty()) node_mapping.erase(id);
+    }
+    mapping_path.erase(m);
+    mapping_itr.erase(m);
+    return p;
+}
+
+list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const string& path_name, const Mapping& m) {
+    auto px = _paths.find(path_name);
+    list<Mapping>& path = px->second;
+    list<Mapping>::iterator p;
+    if (path.empty()) {
+        path.push_front(m);
+        p = path.begin();
+    } else {
+        p = path.insert(w, m);
+    }
+    get_node_mapping(m.node_id()).insert(make_pair(path_name, &*p));
+    mapping_path[&*p] = path_name;
+    mapping_itr[&*p] = p;
+    return p;
 }
 
 size_t Paths::size(void) const {
@@ -204,6 +253,7 @@ void Paths::remove_paths(const set<string>& names) {
         _paths.erase(name);
     }
     rebuild_node_mapping();
+    rebuild_mapping_aux();
 }
 
 void Paths::keep_paths(const set<string>& names) {
@@ -228,12 +278,29 @@ list<Mapping>& Paths::get_create_path(const string& name) {
     }
 }
 
+bool Paths::has_node_mapping(int64_t id) {
+    return node_mapping.find(id) != node_mapping.end();
+}
+
+bool Paths::has_node_mapping(Node* n) {
+    return node_mapping.find(n->id()) != node_mapping.end();
+}
+
 set<pair<string, Mapping*> >& Paths::get_node_mapping(int64_t id) {
     return node_mapping[id];
 }
 
 set<pair<string, Mapping*> >& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
+}
+
+string Paths::mapping_path_name(Mapping* m) {
+    auto n = mapping_path.find(m);
+    if (n == mapping_path.end()) {
+        return "";
+    } else {
+        return n->second;
+    }
 }
 
 set<string> Paths::of_node(int64_t id) {
