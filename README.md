@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/ekg/vg.svg)](https://travis-ci.org/ekg/vg)
 
-## variant graph data structures, interchange formats, alignment, genotyping, and variant calling methods
+## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
 If we know about variation in a given population, we should include that knowledge in our primary sequence analyses, or risk bias against things we've seen before. Reference bias is real. We can work around it by formulating our reference system as a graph: either an assembly, or a directed acyclic one similar to how we represent a multiple sequence alignment.
 
@@ -115,7 +115,7 @@ A variety of commands are available:
 
 `vg` is based around a graph object (vg::VG) which has a native serialized representation that is almost identical on disk and in-memory, with the exception of adjacency indexes that are built when the object is parsed from a stream or file. These graph objects are the results of queries of larger indexes, or manipulation (for example joins or concatenations) of other graphs. vg is designed for interactive, stream-oriented use. You can, for instance, construct a graph, merge it with another one, and pipe the result into a local alignment process. The graph object can be stored in an index (vg::Index), aligned against directly (vg::GSSWAligner), or "mapped" against in a global sense (vg::Mapper), using an index of kmers.
 
-Once constructed, a variant graph (.vg is the suggested file extension) is typically around the same size as the reference (FASTA) and uncompressed variant set (VCF) which were used to build it. The index, however, may be much larger, perhaps more than an order of magnitude. This is less of a concern as it is not loaded into memory, but could be a pain point as vg is scaled up to whole-genome mapping.
+Once constructed, a variation graph (.vg is the suggested file extension) is typically around the same size as the reference (FASTA) and uncompressed variant set (VCF) which were used to build it. The index, however, may be much larger, perhaps more than an order of magnitude. This is less of a concern as it is not loaded into memory, but could be a pain point as vg is scaled up to whole-genome mapping.
 
 The serialization of very large graphs (>62MB) is enabled by the use of protocol buffer ZeroCopyStreams. Graphs are decomposed into sets of N (presently 10k) nodes, and these are written, with their edges, into graph objects that can be streamed into and out of vg. Graphs of unbounded size are possible using this approach.
 
