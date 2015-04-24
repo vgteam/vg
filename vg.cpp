@@ -1021,23 +1021,11 @@ bool allATGC(string& s) {
 }
 
 // todo, make a version that works for non-invariants
-void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset) {
-    int f = 0;
-    int t = 0;
-    Mapping* target = &left;
-    for (int i = 0; i < orig.edit_size(); ++i) {
-        const Edit& e = orig.edit(i);
-        Edit* ne = target->add_edit();
-        if (e.from_length() + f >= offset) {
-            // break edit
-            ne->set_from_length(offset - f);
-            target = &right;
-            ne = target->add_edit();
-            ne->set_from_length(e.from_length() + f - offset);
-        } else {
-            *ne = e;
-        }
-    }
+void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* nl, Node* nr) {
+    // an invariant mapping is, by definition, without any edits
+    assert(orig.edit_size() == 0);
+    left.set_node_id(nl->id());
+    right.set_node_id(nr->id());
 }
 
 void VG::create_progress(const string& message, long count) {
@@ -1762,6 +1750,13 @@ void VG::remove_node_forwarding_edges(Node* node) {
          e != edges_to_create.end(); ++e) {
         create_edge(e->first, e->second);
     }
+    // remove the node from paths
+    if (paths.has_node_mapping(node)) {
+        auto& node_mappings = paths.get_node_mapping(node);
+        for (auto& p : node_mappings) {
+            paths.remove_mapping(p.second);
+        }
+    }
     destroy_node(node);
 }
 
@@ -1899,7 +1894,6 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         // apply to left and right
         vector<Mapping*> to_divide;
         for (auto& pm : node_path_mapping) {
-            cerr << "hey" << endl;
             string path_name = pm.first;
             Mapping* m = pm.second;
             to_divide.push_back(m);
@@ -1907,7 +1901,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         for (auto m : to_divide) {
             // we have to divide the mapping
             string path_name = paths.mapping_path_name(m);
-            Mapping l, r; divide_invariant_mapping(*m, l, r, pos);
+            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, left, right);
             // with the mapping divided, insert the pieces where the old one was
             auto mpit = paths.remove_mapping(m);
             // insert right then left (insert puts *before* the iterator)
@@ -2164,6 +2158,7 @@ void VG::include(const Path& path) {
     // 1) failing to account for the current node we should be on after edits
     // 2) not maintaining the existing path architecture through edits
     for (int i = 0; i < path.mapping_size(); ++i) {
+        // copy the mapping
         const Mapping& m = path.mapping(i);
         // TODO is it reversed?
         Node* n = get_node(m.node_id());
@@ -2171,9 +2166,6 @@ void VG::include(const Path& path) {
         int t = 0;
         for (int j = 0; j < m.edit_size(); ++j) {
             const Edit& edit = m.edit(j);
-            char *json2 = pb2json(edit);
-            cerr << json2 <<endl;
-            free(json2);
             if (edit.has_from_length() && !edit.has_to_length()) {
                 f += edit.from_length();
                 t += edit.from_length();
@@ -2184,11 +2176,10 @@ void VG::include(const Path& path) {
                 Node* m=NULL;
                 Node* c=NULL;
                 if (edit.from_length()) {
-                    cerr << "dividing node 1" << endl;
                     divide_node(n, f, l, m);
-                    cerr << "dividing node 2" << endl;
                     divide_node(m, edit.from_length(), m, r);
-                    // there is a quirk (for sanity, efficiency later)
+                    n = m; f = 0; t = 0;
+                    // TODO there is a quirk (for sanity, efficiency later)
                     // if we "delete" over several nodes, we should join one path for the deletion
                     if (edit.to_length() == 0) {
                         // deletion
@@ -2200,26 +2191,19 @@ void VG::include(const Path& path) {
                         create_edge(l, c);
                         create_edge(c, r);
                     }
-                    cerr << "dividing node ... done" << endl;
                 } else {
-                    cerr << "dividing node 3" << endl;
                     divide_node(n, f, l, r);
-                    cerr << "dividing node ... done" << endl;
+                    n = r; f = 0; t = 0;
                     // insertion
                     assert(edit.to_length());
-                    // one of these doesn't work
-                    // the first
-                    // why
                     c = create_node(edit.sequence());
-                    //create_edge(c, x);
-                    print_edges();
-                    //create_edge(l, r);
                     create_edge(l, c);
                     create_edge(c, r);
                 }
             } // do nothing for soft clips, where we have to_length and unset from_length
         }
     }
+    remove_null_nodes_forwarding_edges();
 }
 
 void VG::node_starts_in_path(const list<Node*>& path,

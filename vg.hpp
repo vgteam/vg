@@ -422,7 +422,7 @@ private:
 bool allATGC(string& s);
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(vector<pair<int, char> >& cigar);
-void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset);
+void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* nl, Node* nr);
 
 } // end namespace vg
 

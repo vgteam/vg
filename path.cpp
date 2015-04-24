@@ -235,6 +235,15 @@ list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const s
     return p;
 }
 
+void Paths::to_json(ostream& out) {
+    function<void(Path&)> lambda = [this, &out](Path& p) {
+        char *json2 = pb2json(p);
+        out << json2 <<endl;
+        free(json2);
+    };
+    for_each(lambda);
+}
+
 size_t Paths::size(void) const {
     return _paths.size();
 }

@@ -60,6 +60,7 @@ public:
     void keep_paths(const set<string>& name);
     void remove_node(int64_t id);
     bool has_path(const string& name);
+    void to_json(ostream& out);
     list<Mapping>& get_path(const string& name);
     list<Mapping>& get_create_path(const string& name);
     list<Mapping>& create_path(const string& name);
