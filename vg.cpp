@@ -2169,13 +2169,13 @@ void VG::include(const Path& path) {
             if (edit.has_from_length() && !edit.has_to_length()) {
                 f += edit.from_length();
                 t += edit.from_length();
-            } else if (edit.has_from_length() && edit.has_to_length()) {
+            } else if (edit.has_from_length() && edit.has_to_length() ) {
                 // cut at f, and f + from_length
                 Node* l=NULL;
                 Node* r=NULL;
                 Node* m=NULL;
                 Node* c=NULL;
-                if (edit.from_length()) {
+                if (edit.from_length() > 0) {
                     divide_node(n, f, l, m);
                     divide_node(m, edit.from_length(), m, r);
                     n = m; f = 0; t = 0;
@@ -2185,13 +2185,15 @@ void VG::include(const Path& path) {
                         // deletion
                         assert(edit.from_length());
                         create_edge(l, r);
+                        n = r;
                     } else {
                         // swap/ SNP
                         c = create_node(edit.sequence());
                         create_edge(l, c);
                         create_edge(c, r);
+                        n = r;
                     }
-                } else {
+                } else if (edit.has_sequence()) {
                     divide_node(n, f, l, r);
                     n = r; f = 0; t = 0;
                     // insertion
@@ -2199,8 +2201,12 @@ void VG::include(const Path& path) {
                     c = create_node(edit.sequence());
                     create_edge(l, c);
                     create_edge(c, r);
+                } else {
+                    // do nothing for soft clips, where we have to_length and unset from_length
+                    f += edit.from_length();
+                    t += edit.to_length();
                 }
-            } // do nothing for soft clips, where we have to_length and unset from_length
+            }
         }
     }
     remove_null_nodes_forwarding_edges();
