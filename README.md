@@ -170,8 +170,8 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] use htslib for BAM/CRAM/SAM i/o
 - [ ] factor longer functions in main.cpp into library functions for easier reuse
 - [ ] kmers input to GCSA: kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
-- [ ] properly handle pairs in alignment
-- [ ] read paired-end data in FASTQ format
+- [ ] properly handle pairs in alignment and surjection
+- [x] read paired-end data in FASTQ format
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
 - [ ] genotype likelihood generation (given a source and sink, genotype paths)
 - [ ] genotyping of paths using freebayes-like genotyping model
@@ -179,6 +179,7 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [ ] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
 - [ ] [perceptual DNA hashing](http://arxiv-web3.library.cornell.edu/abs/1412.5517) to reduce index memory usage
 - [ ] implement pBWT for quick haplotype lookup, which is useful to constrain kmer indexing space and also to support long haplotype driven genotyping
+- [ ] test compressed bitvectors and intvectors from sdsl-lite for storage of genome paths and annotations
 
 ## License
 
