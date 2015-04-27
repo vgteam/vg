@@ -4,9 +4,15 @@
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
-If we know about variation in a given population, we should include that knowledge in our primary sequence analyses, or risk bias against things we've seen before. Reference bias is real. We can work around it by formulating our reference system as a graph: either an assembly, or a directed acyclic one similar to how we represent a multiple sequence alignment.
-
 ![Variation graph](https://raw.githubusercontent.com/ekg/vg/master/figures/example.png)
+
+_Variation graphs_ provide a succinct encoding of the sequences of many genomes. A variation graph (in particular as implemented in vg) is composed of:
+
+* _nodes_, which are labeled by sequences and ids
+* _edges_, which connect two nodes via either of their respective ends
+* _paths_, describe genomes and sequence alignments as walks through nodes connected by edges
+
+This model is similar to a number of sequence graphs that have been used in assembly and multiple sequence alignment. Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed. For visual documentation, please refer to a presentation on the topic: [Resequencing against a human whole genome variation graph](https://docs.google.com/presentation/d/1bbl2zY4qWQ0yYBHhoVuXb79HdgajRotIUa_VEn3kTpI/edit?usp=sharing) (April 14, 2015).
 
 ## Usage
 
