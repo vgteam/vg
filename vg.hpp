@@ -348,17 +348,25 @@ public:
     // kmers
     void for_each_kmer_parallel(int kmer_size,
                                 int edge_max,
-                                function<void(string&, Node*, int)> lambda,
+                                function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                                 int stride = 1);
     void for_each_kmer(int kmer_size,
                        int edge_max,
-                       function<void(string&, Node*, int)> lambda,
+                       function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                        int stride = 1);
+    // for gcsa2
+    void kmer_context(string& kmer,
+                      list<Node*>& path,
+                      Node* node,
+                      int32_t offset,
+                      vector<char>& prev_chars,
+                      vector<char>& next_chars,
+                      vector<pair<int64_t, int32_t> >& next_positions);
 
 private:
     void _for_each_kmer(int kmer_size,
                         int edge_max,
-                        function<void(string&, Node*, int)> lambda,
+                        function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                         bool parallel,
                         int stride);
 

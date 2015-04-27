@@ -102,7 +102,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
         };
 
         auto cache_kmer = [&buffer, &buffer_max_size, &write_buffer,
-                           this](string& kmer, Node* n, int p) {
+                           this](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
             if (allATGC(kmer)) {
                 int tid = omp_get_thread_num();
                 // note that we don't need to guard this
@@ -138,7 +138,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
 
 }
 
-void VGset::for_each_kmer_parallel(function<void(string&, Node*, int)>& lambda,
+void VGset::for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*>&, VG&)>& lambda,
                                    int kmer_size, int edge_max, int stride) {
     for_each([&lambda, kmer_size, edge_max, stride, this](VG* g) {
         g->show_progress = show_progress;

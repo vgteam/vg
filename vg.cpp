@@ -2500,21 +2500,21 @@ Alignment VG::align(string& sequence) {
 
 void VG::for_each_kmer_parallel(int kmer_size,
                                 int edge_max,
-                                function<void(string&, Node*, int)> lambda,
+                                function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                                 int stride) {
     _for_each_kmer(kmer_size, edge_max, lambda, true, stride);
 }
 
 void VG::for_each_kmer(int kmer_size,
                        int edge_max,
-                       function<void(string&, Node*, int)> lambda,
+                       function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                        int stride) {
     _for_each_kmer(kmer_size, edge_max, lambda, false, stride);
 }
 
 void VG::_for_each_kmer(int kmer_size,
                         int edge_max,
-                        function<void(string&, Node*, int)> lambda,
+                        function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                         bool parallel,
                         int stride) {
 
@@ -2577,7 +2577,7 @@ void VG::_for_each_kmer(int kmer_size,
                     pair<bool, bool> c = cache->retrieve(cache_key);
                     if (!c.second) {
                         cache->put(cache_key, true);
-                        lambda(kmer, node, kmer_relative_start);
+                        lambda(kmer, node, kmer_relative_start, path, *this);
                     }
                 }
                 ++j;
@@ -2591,6 +2591,70 @@ void VG::_for_each_kmer(int kmer_size,
         for_each_kpath(kmer_size, edge_max, handle_path);
     }
 
+}
+
+void VG::kmer_context(string& kmer,
+                      list<Node*>& path,
+                      Node* node,
+                      int32_t offset,
+                      vector<char>& prev_chars,
+                      vector<char>& next_chars,
+                      vector<pair<int64_t, int32_t> >& next_positions) {
+    // walk through the graph until we get to our node
+    auto np = path.begin();
+    int pos = 0;
+    while (np != path.end()) {
+        if (node == *np) {
+            break;
+        }
+        pos += (*np)->sequence().size();
+        ++np;
+    }
+
+    if (offset == 0) {
+        // for each node connected to this one
+        // what's its last character?
+        // add to prev_chars
+        vector<Node*> prev_nodes;
+        nodes_prev(node, prev_nodes);
+        for (auto n : prev_nodes) {
+            const string& seq = n->sequence();
+            prev_chars.push_back(seq[seq.size()-1]);
+        }
+    } else {
+        prev_chars.push_back(node->sequence()[offset-1]);
+    }
+
+    // find the kmer end
+    pos = offset; // point at start of kmer
+    bool first_in_path = true;
+    // while we're not through with the path
+    while (np != path.end()) {
+        Node* n = *np;
+        int newpos = pos + n->sequence().size();
+        if (first_in_path) {
+            newpos = n->sequence().size() - pos;
+            first_in_path = false;
+        }
+        if (newpos == kmer.size()) {
+            // 1 past  is the ending in the last node?
+            vector<Node*> next_nodes;
+            nodes_next(n, next_nodes);
+            for (auto m : next_nodes) {
+                next_chars.push_back(m->sequence()[0]);
+                next_positions.push_back(make_pair(m->id(), 0));
+            }
+            break;
+        } else if (newpos > kmer.size()) {
+            int off = n->sequence().size() - (newpos - kmer.size());
+            next_chars.push_back(n->sequence()[off]);
+            next_positions.push_back(make_pair(n->id(), off));
+            break;
+        } else {
+            pos = newpos;
+            ++np;
+        }
+    }
 }
 
 void VG::collect_subgraph(Node* node, set<Node*>& subgraph) {
