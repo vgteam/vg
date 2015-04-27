@@ -10,7 +10,7 @@ _Variation graphs_ provide a succinct encoding of the sequences of many genomes.
 
 * _nodes_, which are labeled by sequences and ids
 * _edges_, which connect two nodes via either of their respective ends
-* _paths_, describe genomes, sequence alignments, and annotations such as gene models and transcripts as walks through nodes connected by edges
+* _paths_, describe genomes, sequence alignments, and annotations (such as gene models and transcripts) as walks through nodes connected by edges
 
 This model is similar to a number of sequence graphs that have been used in assembly and multiple sequence alignment. Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed. For visual documentation, please refer to a presentation on the topic: [Resequencing against a human whole genome variation graph](https://docs.google.com/presentation/d/1bbl2zY4qWQ0yYBHhoVuXb79HdgajRotIUa_VEn3kTpI/edit?usp=sharing) (April 14, 2015).
 
