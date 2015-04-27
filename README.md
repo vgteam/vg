@@ -75,8 +75,6 @@ Most commands allow the streaming of graphs into and out of `vg`.
 
 If your graph is large, you want to use `vg index` to store the graph and `vg map` to align reads. `vg map` implements a kmer based seed and extend alignment model that is similar to that used in aligners like novoalign or MOSAIK. First an on-disk index is built with `vg index` which includes the graph itself and kmers of a particular size. When mapping, any kmer size shorter than that used in the index can be employed, and by default the mapper will decrease the kmer size to increase sensitivity when alignment at a particular _k_ fails.
 
-`vg map` generates a gzip-compressed stream of protobuf objects describing alignments. This serialized format can then be 
-
 ```sh
 # construct the graph
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
