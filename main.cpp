@@ -432,7 +432,7 @@ int main_mod(int argc, char** argv) {
         graph->remove_orphan_edges();
     }
 
-    if (!aln_file.empty()) {
+    if (!aln_file.empty()) {        
         function<void(Alignment&)> lambda = [&graph](Alignment& aln) {
             const Path& path = aln.path();
             graph->include(path);
@@ -655,39 +655,8 @@ int main_kmers(int argc, char** argv) {
     graphs.show_progress = show_progress;
 
     if (gcsa_out) {
-        function<void(string&, Node*, int, list<Node*>&, VG&)>
-            lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
-            if (p >= 0) {
-//kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
-                vector<char> prev_chars;
-                vector<char> next_chars;
-                vector<pair<int64_t, int32_t> > next_positions;
-                graph.kmer_context(kmer,
-                                   path,
-                                   n,
-                                   p,
-                                   prev_chars,
-                                   next_chars,
-                                   next_positions);
-                stringstream pc, nc, np;
-                for (auto c : prev_chars) {
-                    pc << c << ",";
-                }
-                string pcs = pc.str(); if (!pcs.empty()) pcs.pop_back();
-                for (auto c : next_chars) {
-                    nc << c << ",";
-                }
-                string ncs = nc.str(); if (!ncs.empty()) ncs.pop_back();
-                for (auto& p : next_positions) {
-                    np << p.first << ":" << p.second << ",";
-                }
-                string nps = np.str(); if (!nps.empty()) nps.pop_back();
-#pragma omp critical (cout)
-                cout << kmer << '\t' << n->id() << ':' << p
-                     << '\t' << pcs << '\t' << ncs << '\t' << nps << '\n';
-            }
-        };
-        graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride);
+        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride);
+
     } else {
         function<void(string&, Node*, int, list<Node*>&, VG& graph)>
             lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {

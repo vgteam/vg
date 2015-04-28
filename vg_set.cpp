@@ -147,5 +147,48 @@ void VGset::for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*
     });
 }
 
+void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride) {
+
+    function<void(string&, Node*, int, list<Node*>&, VG&)>
+        lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
+        if (p >= 0) {
+//kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
+            vector<char> prev_chars;
+            vector<char> next_chars;
+            vector<pair<int64_t, int32_t> > next_positions;
+            graph.kmer_context(kmer,
+                               path,
+                               n,
+                               p,
+                               prev_chars,
+                               next_chars,
+                               next_positions);
+            stringstream pc, nc, np;
+            for (auto c : prev_chars) {
+                pc << c << ",";
+            }
+            string pcs = pc.str(); if (!pcs.empty()) pcs.pop_back();
+            for (auto c : next_chars) {
+                nc << c << ",";
+            }
+            string ncs = nc.str(); if (!ncs.empty()) ncs.pop_back();
+            for (auto& p : next_positions) {
+                np << p.first << ":" << p.second << ",";
+            }
+            string nps = np.str(); if (!nps.empty()) nps.pop_back();
+#pragma omp critical (cout)
+            cout << kmer << '\t' << n->id() << ':' << p
+            << '\t' << pcs << '\t' << ncs << '\t' << nps << '\n';
+        }
+    };
+
+    for_each([&lambda, kmer_size, edge_max, stride, this](VG* g) {
+        g->show_progress = show_progress;
+        g->progress_message = "processing kmers of " + g->name;
+        // add in start and end markers that are required by GCSA
+        g->add_start_and_end_markers(kmer_size, '#', '$');
+        g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride);
+    });
+}
 
 }

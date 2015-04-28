@@ -381,5 +381,12 @@ int mapping_from_length(const Mapping& m) {
 
 }
 
+void path_into_mappings(const Path& path, map<int64_t, vector<Mapping> >& mappings) {
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        const Mapping& m = path.mapping(i);
+        mappings[m.node_id()].push_back(m);
+    }
+}
+
 
 }

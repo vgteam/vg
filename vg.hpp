@@ -226,6 +226,8 @@ public:
 
     // edit the graph to include the path
     void include(const Path& path);
+    // or a set of mappings
+    void include(const vector<Mapping>& mappings);
 
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
@@ -284,6 +286,8 @@ public:
 
     // connect node -> nodes
     void connect_node_to_nodes(Node* node, vector<Node*>& nodes);
+    // connect nodes -> node
+    void connect_nodes_to_node(vector<Node*>& nodes, Node* node);
 
     // utilities
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
@@ -385,9 +389,14 @@ public:
 
     // join head nodes of graph to common null node
     Node* join_heads(void);
+    // or heads and tails to common
+    void join_heads(Node* node);
+    void join_tails(Node* node);
 
     // add singular head and tail null nodes to graph
     void wrap_with_null_nodes(void);
+    // to prepare for indexing with GCSA; length is at least kmer length to be used
+    void add_start_and_end_markers(int length, char start_char, char end_char);
 
     bool show_progress;
     string progress_message;

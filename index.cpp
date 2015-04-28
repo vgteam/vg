@@ -268,6 +268,22 @@ const string Index::key_for_metadata(const string& tag) {
     return key;
 }
 
+const string Index::key_for_mapping(const Mapping& mapping) {
+    string key;
+    string data;
+    mapping.SerializeToString(&data);
+    key.resize(3*sizeof(char) + data.size());
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 's'; // mappings (~sides)
+    k[2] = start_sep;
+    memcpy(k + sizeof(char)*3, data.c_str(), data.size());
+}
+
+const string Index::key_for_alignment(const Alignment& alignment) {
+
+}
+
 const string Index::key_prefix_for_edges_from_node(int64_t from) {
     string key = key_for_edge_from_to(from, 0);
     return key.substr(0, key.size()-sizeof(int64_t));
@@ -512,6 +528,18 @@ void Index::put_path_position(int64_t path_id, int64_t path_pos, int64_t node_id
     string data;
     mapping.SerializeToString(&data);
     db->Put(write_options, key_for_path_position(path_id, path_pos, node_id), data);
+}
+
+void Index::put_mapping(const Mapping& mapping) {
+    string data;
+    mapping.SerializeToString(&data);
+    db->Put(write_options, key_for_mapping(mapping), data);
+}
+
+void Index::put_alignment(const Alignment& alignment) {
+    string data;
+    alignment.SerializeToString(&data);
+    db->Put(write_options, key_for_alignment(alignment), data);
 }
 
 void Index::load_graph(VG& graph) {

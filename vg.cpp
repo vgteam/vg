@@ -2212,6 +2212,59 @@ void VG::include(const Path& path) {
     remove_null_nodes_forwarding_edges();
 }
 
+void VG::include(const vector<Mapping>& mappings) {
+    for (auto& m : mappings) {
+        // TODO is it reversed?
+        Node* n = get_node(m.node_id());
+        int f = m.offset();
+        int t = 0;
+        for (int j = 0; j < m.edit_size(); ++j) {
+            const Edit& edit = m.edit(j);
+            if (edit.has_from_length() && !edit.has_to_length()) {
+                f += edit.from_length();
+                t += edit.from_length();
+            } else if (edit.has_from_length() && edit.has_to_length() ) {
+                // cut at f, and f + from_length
+                Node* l=NULL;
+                Node* r=NULL;
+                Node* m=NULL;
+                Node* c=NULL;
+                if (edit.from_length() > 0) {
+                    divide_node(n, f, l, m);
+                    divide_node(m, edit.from_length(), m, r);
+                    n = m; f = 0; t = 0;
+                    // TODO there is a quirk (for sanity, efficiency later)
+                    // if we "delete" over several nodes, we should join one path for the deletion
+                    if (edit.to_length() == 0) {
+                        // deletion
+                        assert(edit.from_length());
+                        create_edge(l, r);
+                        n = r;
+                    } else {
+                        // swap/ SNP
+                        c = create_node(edit.sequence());
+                        create_edge(l, c);
+                        create_edge(c, r);
+                        n = r;
+                    }
+                } else if (edit.has_sequence()) {
+                    divide_node(n, f, l, r);
+                    n = r; f = 0; t = 0;
+                    // insertion
+                    assert(edit.to_length());
+                    c = create_node(edit.sequence());
+                    create_edge(l, c);
+                    create_edge(c, r);
+                } else {
+                    // do nothing for soft clips, where we have to_length and unset from_length
+                    f += edit.from_length();
+                    t += edit.to_length();
+                }
+            }
+        }
+    }
+}
+
 void VG::node_starts_in_path(const list<Node*>& path,
                              map<Node*, int>& node_start) {
     int i = 0;
@@ -2466,6 +2519,12 @@ void VG::connect_node_to_nodes(Node* node, vector<Node*>& nodes) {
     }
 }
 
+void VG::connect_nodes_to_node(vector<Node*>& nodes, Node* node) {
+    for (vector<Node*>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
+        create_edge((*n)->id(), node->id());
+    }
+}
+
 // join all subgraphs together to a "null" head node
 Node* VG::join_heads(void) {
     current_id = max_node_id()+1;
@@ -2474,6 +2533,29 @@ Node* VG::join_heads(void) {
     head_nodes(heads);
     connect_node_to_nodes(root, heads);
     return root;
+}
+
+void VG::join_heads(Node* node) {
+    vector<Node*> heads;
+    head_nodes(heads);
+    connect_node_to_nodes(node, heads);
+}
+
+void VG::join_tails(Node* node) {
+    vector<Node*> tails;
+    tail_nodes(tails);
+    connect_nodes_to_node(tails, node);
+}
+
+void VG::add_start_and_end_markers(int length, char start_char, char end_char) {
+    // first do the head
+    string start_string(length, start_char);
+    Node* head = create_node(start_string);
+    join_heads(head);
+    // then the tail
+    string end_string(length, end_char);
+    Node* tail = create_node(end_string);
+    join_tails(tail);
 }
 
 Alignment& VG::align(Alignment& alignment) {
