@@ -268,20 +268,56 @@ const string Index::key_for_metadata(const string& tag) {
     return key;
 }
 
-const string Index::key_for_mapping(const Mapping& mapping) {
+const string Index::key_for_mapping_prefix(int64_t node_id) {
+    node_id = htobe64(node_id);
     string key;
-    string data;
-    mapping.SerializeToString(&data);
-    key.resize(3*sizeof(char) + data.size());
+    key.resize(3*sizeof(char) + sizeof(int64_t));
     char* k = (char*) key.c_str();
     k[0] = start_sep;
     k[1] = 's'; // mappings (~sides)
     k[2] = start_sep;
-    memcpy(k + sizeof(char)*3, data.c_str(), data.size());
+    memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
+    return key;
+}
+
+const string Index::key_for_mapping(const Mapping& mapping) {
+    string data;
+    mapping.SerializeToString(&data);
+    const string prefix = key_for_mapping_prefix(mapping.node_id());
+    // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
+    const string hash = sha1head(data, 8);
+    string key = prefix;
+    key.resize(prefix.size() + sizeof(char) + hash.size());
+    char* k = (char*) key.c_str();
+    k[prefix.size()] = start_sep;
+    memcpy(k + prefix.size() + sizeof(char), hash.c_str(), hash.size());
+    return key;
+}
+
+const string Index::key_for_alignment_prefix(int64_t node_id) {
+    node_id = htobe64(node_id);
+    string key;
+    key.resize(3*sizeof(char) + sizeof(int64_t));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'a'; // mappings (~sides)
+    k[2] = start_sep;
+    memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
+    return key;
 }
 
 const string Index::key_for_alignment(const Alignment& alignment) {
-
+    string data;
+    alignment.SerializeToString(&data);
+    const string prefix = key_for_alignment_prefix(alignment.path().mapping(0).node_id());
+    // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
+    const string hash = sha1head(data, 8);
+    string key = prefix;
+    key.resize(prefix.size() + sizeof(char) + hash.size());
+    char* k = (char*) key.c_str();
+    k[prefix.size()] = start_sep;
+    memcpy(k + prefix.size() + sizeof(char), hash.c_str(), hash.size());
+    return key;
 }
 
 const string Index::key_prefix_for_edges_from_node(int64_t from) {
@@ -312,6 +348,12 @@ string Index::entry_to_string(const string& key, const string& value) {
         break;
     case 'm':
         return metadata_entry_to_string(key, value);
+        break;
+    case 's':
+        return mapping_entry_to_string(key, value);
+        break;
+    case 'a':
+        return alignment_entry_to_string(key, value);
         break;
     default:
         break;
@@ -427,6 +469,24 @@ void Index::parse_path_position(const string& key, const string& value,
     mapping.ParseFromString(value);
 }
 
+void Index::parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping) {
+    const char* k = key.c_str();
+    memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
+    hash.resize(8);
+    memcpy((char*)hash.c_str(), (k + 4*sizeof(char) + sizeof(int64_t)), 8*sizeof(char));
+    node_id = be64toh(node_id);
+    mapping.ParseFromString(value);
+}
+
+void Index::parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment) {
+    const char* k = key.c_str();
+    memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
+    hash.resize(8);
+    memcpy((char*)hash.c_str(), (k + 4*sizeof(char) + sizeof(int64_t)), 8*sizeof(char));
+    node_id = be64toh(node_id);
+    alignment.ParseFromString(value);
+}
+
 string Index::node_path_to_string(const string& key, const string& value) {
     Mapping mapping;
     int64_t node_id, path_id, path_pos;
@@ -471,6 +531,29 @@ string Index::metadata_entry_to_string(const string& key, const string& value) {
     return s.str();
 }
 
+string Index::mapping_entry_to_string(const string& key, const string& value) {
+    Mapping mapping;
+    int64_t node_id;
+    string hash;
+    parse_mapping(key, value, node_id, hash, mapping);
+    stringstream s;
+    char *json = pb2json(mapping);
+    s << "{\"key\":\"+s+" << node_id << "+" << hash << "\", \"value\":"<< json << "}";
+    free(json);
+    return s.str();
+}
+
+string Index::alignment_entry_to_string(const string& key, const string& value) {
+    Alignment alignment;
+    int64_t node_id;
+    string hash;
+    parse_alignment(key, value, node_id, hash, alignment);
+    stringstream s;
+    char *json = pb2json(alignment);
+    s << "{\"key\":\"+a+" << node_id << "+" << hash << "\", \"value\":"<< json << "}";
+    free(json);
+    return s.str();
+}
 
 void Index::dump(ostream& out) {
     rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
@@ -698,6 +781,26 @@ rocksdb::Status Index::get_edge(int64_t from, int64_t to, Edge& edge) {
         edge.ParseFromString(value);
     }
     return s;
+}
+
+void Index::get_mappings(int64_t node_id, vector<Mapping>& mappings) {
+    string start = key_for_mapping_prefix(node_id);
+    string end = start + end_sep;
+    for_range(start, end, [this, &mappings](string& key, string& value) {
+            mappings.emplace_back();
+            Mapping& mapping = mappings.back();
+            mapping.ParseFromString(value);
+        });
+}
+
+void Index::get_alignments(int64_t node_id, vector<Alignment>& alignments) {
+    string start = key_for_alignment_prefix(node_id);
+    string end = start + end_sep;
+    for_range(start, end, [this, &alignments](string& key, string& value) {
+            alignments.emplace_back();
+            Alignment& alignment = alignments.back();
+            alignment.ParseFromString(value);
+        });
 }
 
 int Index::get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, Mapping& mapping) {

@@ -82,7 +82,7 @@ public:
     ~Index(void);
 
     rocksdb::Options GetOptions(void);
-    void open(const std::string& dir, bool read_only);
+    void open(const std::string& dir, bool read_only = false);
     void open_read_only(string& dir);
     void open_for_write(string& dir);
     void open_for_bulk_load(string& dir);
@@ -134,8 +134,8 @@ public:
     rocksdb::Status get_edge(int64_t from, int64_t to, Edge& edge);
     rocksdb::Status get_metadata(const string& key, string& data);
     int get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, Mapping& mapping);
-    rocksdb::Status get_mappings(int64_t node_id, vector<Mapping>& mappings); // todo
-    rocksdb::Status get_alignments(int64_t node_id, vector<Alignment>& alignments); // todo
+    void get_mappings(int64_t node_id, vector<Mapping>& mappings);
+    void get_alignments(int64_t node_id, vector<Alignment>& alignments);
 
     // obtain the key corresponding to each entity
     const string key_for_node(int64_t id);
@@ -149,8 +149,10 @@ public:
     const string key_for_path_position(int64_t path_id, int64_t path_pos, int64_t node_id);
     const string key_for_node_path_position(int64_t node_id, int64_t path_id, int64_t path_pos);
     const string key_prefix_for_node_path(int64_t node_id, int64_t path_id);
-    const string key_for_mapping(const Mapping& mapping); // todo
-    const string key_for_alignment(const Alignment& alignment); // todo
+    const string key_for_mapping_prefix(int64_t node_id);
+    const string key_for_mapping(const Mapping& mapping);
+    const string key_for_alignment_prefix(int64_t node_id);
+    const string key_for_alignment(const Alignment& alignment);
 
     // deserialize a key/value pair
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);
@@ -160,8 +162,8 @@ public:
                          int64_t& node_id, int64_t& path_id, int64_t& path_pos, Mapping& mapping);
     void parse_path_position(const string& key, const string& value,
                              int64_t& path_id, int64_t& path_pos, int64_t& node_id, Mapping& mapping);
-    void parse_mapping(const string& key, const string& value, int64_t& node_id, int64_t& offset, Mapping& mapping); // todo
-    void parse_alignment(const string& key, const string& value, int64_t& node_id, int64_t& offset, Alignment& alignment); // todo
+    void parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping);
+    void parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment);
 
     // for dumping graph state/ inspection
     string entry_to_string(const string& key, const string& value);
@@ -171,8 +173,8 @@ public:
     string metadata_entry_to_string(const string& key, const string& value);
     string node_path_to_string(const string& key, const string& value);
     string path_position_to_string(const string& key, const string& value);
-    string mapping_entry_to_string(const string& key, const string& value); // todo
-    string alignment_entry_to_string(const string& key, const string& value); // todo
+    string mapping_entry_to_string(const string& key, const string& value);
+    string alignment_entry_to_string(const string& key, const string& value);
 
     // accessors, traversal, context
     void get_context(int64_t id, VG& graph);

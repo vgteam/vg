@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 10
+plan tests 13
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -16,6 +16,9 @@ is $? 0 "indexing nodes and edges of graph"
 vg index -k 11 x.vg
 is $? 0 "indexing 11mers"
 
+vg index -C x.vg
+is $? 0 "index compaction"
+
 #vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of 1mb graph succeeds"
 
@@ -25,13 +28,19 @@ is $? 0 "indexing 11mers"
 #is $(tail -1 z.vg.index/LOG | grep ERROR | wc -l) 0 "indexing does not close on error"
 
 # clean up
-rm -rf z.vg.index z.vg
+#rm -rf z.vg.index z.vg
 
 num_records=$(vg index -D x.vg | wc -l)
 is $? 0 "dumping graph index"
 is $num_records 8214 "correct number of records in graph index"
 
-rm -rf x.vg.index
+vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg index -a - -d x.vg.aln
+is $(vg index -D -d x.vg.aln | wc -l) 100 "index can store alignments"
+
+vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg index -m - -d x.vg.map
+is $(vg index -D -d x.vg.map | wc -l) $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg view -a - | jq -c '.path.mapping[]' | sort | uniq | wc -l) "index stores all unique mappings"
+
+rm -rf x.vg.index x.vg.map x.vg.aln
 rm -f x.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg

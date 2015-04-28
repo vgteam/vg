@@ -1491,20 +1491,23 @@ int main_find(int argc, char** argv) {
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
          << "options:" << endl
-         << "    -s, --store           store graph (do this first to build db!)" << endl
-         << "    -k, --kmer-size N     index kmers of size N in the graph" << endl
-         << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
-         << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
-         << "    -P, --prune KB        remove kmer entries which use more than KB kilobytes" << endl
-         << "    -D, --dump            print the contents of the db to stdout" << endl
-         << "    -M, --metadata        describe aspects of the db stored in metadata" << endl
-         << "    -L, --path-layout     describes the path layout of the graph" << endl
-         << "    -S, --set-kmer        assert that the kmer size (-k) is in the db" << endl
-         << "    -d, --db-name DIR     create rocksdb in DIR (defaults to <graph>.index/)" << endl
-         << "                          (this is required if you are using multiple graphs files" << endl
-        //<< "    -b, --tmp-db-base S   use this base name for temporary indexes" << endl
-         << "    -t, --threads N       number of threads to use" << endl
-         << "    -p, --progress        show progress" << endl;
+         << "    -s, --store-graph      store graph (do this first to build db!)" << endl
+         << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
+         << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
+         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
+         << "    -e, --edge-max N       cross no more than N edges when determining k-paths" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
+         << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
+         << "    -D, --dump             print the contents of the db to stdout" << endl
+         << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
+         << "    -L, --path-layout      describes the path layout of the graph" << endl
+         << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
+         << "    -d, --db-name DIR      create rocksdb in DIR (defaults to <graph>.index/)" << endl
+         << "                           (this is required if you are using multiple graphs files" << endl
+        //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
+         << "    -C, --compact          compact the index into a single level (improves performance)" << endl
+         << "    -t, --threads N        number of threads to use" << endl
+         << "    -p, --progress         show progress" << endl;
 }
 
 int main_index(int argc, char** argv) {
@@ -1525,6 +1528,9 @@ int main_index(int argc, char** argv) {
     bool show_progress = false;
     bool set_kmer_size = false;
     bool path_layout = false;
+    bool store_alignments = false;
+    bool store_mappings = false;
+    bool compact = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1536,7 +1542,9 @@ int main_index(int argc, char** argv) {
                 {"kmer-size", required_argument, 0, 'k'},
                 {"edge-max", required_argument, 0, 'e'},
                 {"kmer-stride", required_argument, 0, 'j'},
-                {"store", no_argument, 0, 's'},
+                {"store-graph", no_argument, 0, 's'},
+                {"store-alignments", no_argument, 0, 'a'},
+                {"store-mappings", no_argument, 0, 'm'},
                 {"dump", no_argument, 0, 'D'},
                 {"metadata", no_argument, 0, 'M'},
                 {"set-kmer", no_argument, 0, 'S'},
@@ -1544,11 +1552,12 @@ int main_index(int argc, char** argv) {
                 {"progress",  no_argument, 0, 'p'},
                 {"prune",  required_argument, 0, 'P'},
                 {"path-layout", no_argument, 0, 'L'},
+                {"compact", no_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:L",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaC",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1601,6 +1610,18 @@ int main_index(int argc, char** argv) {
             store_graph = true;
             break;
 
+        case 'a':
+            store_alignments = true;
+            break;
+
+        case 'm':
+            store_mappings = true;
+            break;
+
+        case 'C':
+            compact = true;
+            break;
+
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
@@ -1618,18 +1639,18 @@ int main_index(int argc, char** argv) {
 
     if (edge_max == 0) edge_max = kmer_size + 1;
 
-    vector<string> graph_file_names;
+    vector<string> file_names;
     while (optind < argc) {
         string file_name = argv[optind++];
-        graph_file_names.push_back(file_name);
+        file_names.push_back(file_name);
     }
 
     if (db_name.empty()) {
-        if (graph_file_names.size() > 1) {
+        if (file_names.size() > 1) {
             cerr << "error:[vg index] working on multiple graphs and no db name (-d) given, exiting" << endl;
             return 1;
-        } else if (graph_file_names.size() == 1) {
-            db_name = *graph_file_names.begin() + ".index";
+        } else if (file_names.size() == 1) {
+            db_name = *file_names.begin() + ".index";
         } else {
             cerr << "error:[vg index] no graph or db given, exiting" << endl;
             return 1;
@@ -1638,9 +1659,16 @@ int main_index(int argc, char** argv) {
 
     Index index;
 
-    if (store_graph && graph_file_names.size() > 0) {
+    if (compact) {
+        index.open_for_write(db_name);
+        index.compact();
+        index.flush();
+        index.close();
+    }
+
+    if (store_graph && file_names.size() > 0) {
         index.open_for_bulk_load(db_name);
-        VGset graphs(graph_file_names);
+        VGset graphs(file_names);
         graphs.show_progress = show_progress;
         graphs.store_in_index(index);
         index.flush();
@@ -1655,9 +1683,48 @@ int main_index(int argc, char** argv) {
         index.close();
     }
 
-    if (kmer_size != 0 && graph_file_names.size() > 0) {
+    if (store_alignments && file_names.size() > 0) {
+        index.open_for_write(db_name);
+        function<void(Alignment&)> lambda = [&index](Alignment& aln) {
+            index.put_alignment(aln);
+        };
+        for (auto& file_name : file_names) {
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+        }
+        index.flush();
+        index.close();
+    }
+
+    if (store_mappings && file_names.size() > 0) {
+        index.open_for_write(db_name);
+        function<void(Alignment&)> lambda = [&index](Alignment& aln) {
+            const Path& path = aln.path();
+            for (int i = 0; i < path.mapping_size(); ++i) {
+                index.put_mapping(path.mapping(i));
+            }
+        };
+        for (auto& file_name : file_names) {
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+        }
+        index.flush();
+        index.close();
+    }
+
+    if (kmer_size != 0 && file_names.size() > 0) {
         index.open_for_bulk_load(db_name);
-        VGset graphs(graph_file_names);
+        VGset graphs(file_names);
         graphs.show_progress = show_progress;
         graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         index.flush();

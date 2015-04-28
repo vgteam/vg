@@ -45,4 +45,14 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
     return split_delims(s, delims, elems);
 }
 
+const std::string sha1sum(const std::string& data) {
+    SHA1 checksum;
+    checksum.update(data);
+    return checksum.final();
+}
+
+const std::string sha1head(const std::string& data, size_t head) {
+    return sha1sum(data).substr(0, head);
+}
+
 }
