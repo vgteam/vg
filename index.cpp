@@ -311,6 +311,9 @@ const string Index::key_for_alignment(const Alignment& alignment) {
     alignment.SerializeToString(&data);
     const string prefix = key_for_alignment_prefix(alignment.path().mapping(0).node_id());
     // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
+    // maybe this shouldn't be a hash, but a random nonce--- although keep in mind
+    // that for the alignment to be identical, it would need the same read name, quality score, sequence, mapping, etc.
+    // in other words it'd be an exact duplicate
     const string hash = sha1head(data, 8);
     string key = prefix;
     key.resize(prefix.size() + sizeof(char) + hash.size());
