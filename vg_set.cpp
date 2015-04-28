@@ -167,11 +167,21 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
             for (auto c : prev_chars) {
                 pc << c << ",";
             }
-            string pcs = pc.str(); if (!pcs.empty()) pcs.pop_back();
+            string pcs = pc.str();
+            if (!pcs.empty()) {
+                pcs.pop_back();
+            } else {
+                pcs = "$"; // wrap around to the end
+            }
             for (auto c : next_chars) {
                 nc << c << ",";
             }
-            string ncs = nc.str(); if (!ncs.empty()) ncs.pop_back();
+            string ncs = nc.str();
+            if (!ncs.empty()) {
+                ncs.pop_back();
+            } else {
+                ncs = "#"; // wrap around to the start
+            }
             for (auto& p : next_positions) {
                 np << p.first << ":" << p.second << ",";
             }
