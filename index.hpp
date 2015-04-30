@@ -238,6 +238,10 @@ public:
     void store_path(VG& graph, Path& path); // path of graph
     map<string, int64_t> paths_by_id(void);
 
+    // alignments and mappings
+    void for_each_mapping(function<void(const Mapping&)> lambda);
+    void for_each_alignment(function<void(const Alignment&)> lambda);
+
     // what table is the key in
     char graph_key_type(string& key);
 

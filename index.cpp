@@ -39,8 +39,8 @@ rocksdb::Options Index::GetOptions(void) {
     options.max_background_compactions = threads;
 
     options.num_levels = 2;
-    options.target_file_size_base = (long) 1024 * 1024 * 256; // 256MB
-    options.write_buffer_size = (long) 1024 * 1024 * 256;
+    options.target_file_size_base = (long) 512000000; // 512MB
+    options.write_buffer_size = (long) 256000000; // 256MB
 
     // doesn't work this way
     rocksdb::BlockBasedTableOptions topt;
@@ -58,8 +58,7 @@ rocksdb::Options Index::GetOptions(void) {
         options.memtable_factory.reset(new rocksdb::VectorRepFactory(1000));
     }
 
-    options.compression_per_level.resize(
-        options.num_levels);
+    options.compression_per_level.resize(options.num_levels);
     for (int i = 0; i < options.num_levels; ++i) {
         if (i == 0) {
             options.compression_per_level[i] = rocksdb::kSnappyCompression;
@@ -1094,6 +1093,26 @@ void Index::path_layout(map<string, pair<int64_t, int64_t> >& layout,
                                     path_last_node(p.second, path_length));
         lengths[p.first] = path_length;
     }
+}
+
+void Index::for_each_alignment(function<void(const Alignment&)> lambda) {
+    string start = start_sep + "a";
+    string end = start + end_sep;
+    for_range(start, end, [this, &lambda](string& key, string& value) {
+            Alignment alignment;
+            alignment.ParseFromString(value);
+            lambda(alignment);
+        });
+}
+
+void Index::for_each_mapping(function<void(const Mapping&)> lambda) {
+    string start = start_sep + "a";
+    string end = start + end_sep;
+    for_range(start, end, [this, &lambda](string& key, string& value) {
+            Mapping mapping;
+            mapping.ParseFromString(value);
+            lambda(mapping);
+        });
 }
 
 void Index::expand_context(VG& graph, int steps = 1) {

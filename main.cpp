@@ -1200,6 +1200,8 @@ void help_find(char** argv) {
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
+        //<< "    -a, --alignments       write all stored alignments in sorted order (in GAM)" << endl
+        //<< "    -m, --mappings         write stored mappings in sorted order (in json)" << endl
          << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl;
 }
 
@@ -1224,6 +1226,8 @@ int main_find(int argc, char** argv) {
     string target;
     string path_name;
     string range;
+    bool get_alignments = false;
+    bool get_mappings = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1246,11 +1250,13 @@ int main_find(int argc, char** argv) {
                 {"path", required_argument, 0, 'p'},
                 {"position-in", required_argument, 0, 'P'},
                 {"node-range", required_argument, 0, 'r'},
+                {"alignments", no_argument, 0, 'a'},
+                {"mappings", no_argument, 0, 'm'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CTp:P:r:",
+        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CTp:P:r:am",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1315,6 +1321,14 @@ int main_find(int argc, char** argv) {
             range = optarg;
             break;
 
+        case 'a':
+            get_alignments = true;
+            break;
+
+        case 'm':
+            get_mappings = true;
+            break;
+
         case 'o':
             output_format = optarg;
             break;
@@ -1348,6 +1362,9 @@ int main_find(int argc, char** argv) {
     Index index;
     // open index
     index.open_read_only(db_name);
+
+    if (get_alignments) {
+    }
 
     if (!node_ids.empty() && path_name.empty()) {
         // get the context of the node
@@ -1667,18 +1684,18 @@ int main_index(int argc, char** argv) {
     }
 
     if (store_graph && file_names.size() > 0) {
-        index.open_for_bulk_load(db_name);
+        index.open_for_write(db_name);
         VGset graphs(file_names);
         graphs.show_progress = show_progress;
         graphs.store_in_index(index);
-        index.flush();
-        index.close();
+        //index.flush();
+        //index.close();
         // reopen to index paths
         // this requires the index to be queryable
-        index.open_for_write(db_name);
-        index.compact();
+        //index.open_for_write(db_name);
+        //index.compact();
         graphs.store_paths_in_index(index);
-        index.compact();
+        //index.compact();
         index.flush();
         index.close();
     }
@@ -1723,14 +1740,13 @@ int main_index(int argc, char** argv) {
     }
 
     if (kmer_size != 0 && file_names.size() > 0) {
-        index.open_for_bulk_load(db_name);
+        index.open_for_write(db_name);
         VGset graphs(file_names);
         graphs.show_progress = show_progress;
         graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         index.flush();
         index.close();
         index.open_for_write(db_name);
-        index.compact();
         index.flush();
         index.close();
     }
