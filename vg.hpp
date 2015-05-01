@@ -365,9 +365,9 @@ public:
                       list<Node*>& path,
                       Node* node,
                       int32_t offset,
-                      vector<char>& prev_chars,
-                      vector<char>& next_chars,
-                      vector<pair<int64_t, int32_t> >& next_positions);
+                      set<char>& prev_chars,
+                      set<char>& next_chars,
+                      set<pair<int64_t, int32_t> >& next_positions);
 
 private:
     void _for_each_kmer(int kmer_size,

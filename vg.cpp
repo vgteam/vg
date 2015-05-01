@@ -2687,9 +2687,9 @@ void VG::kmer_context(string& kmer,
                       list<Node*>& path,
                       Node* node,
                       int32_t offset,
-                      vector<char>& prev_chars,
-                      vector<char>& next_chars,
-                      vector<pair<int64_t, int32_t> >& next_positions) {
+                      set<char>& prev_chars,
+                      set<char>& next_chars,
+                      set<pair<int64_t, int32_t> >& next_positions) {
     // walk through the graph until we get to our node
     auto np = path.begin();
     int pos = 0;
@@ -2709,10 +2709,10 @@ void VG::kmer_context(string& kmer,
         nodes_prev(node, prev_nodes);
         for (auto n : prev_nodes) {
             const string& seq = n->sequence();
-            prev_chars.push_back(seq[seq.size()-1]);
+            prev_chars.insert(seq[seq.size()-1]);
         }
     } else {
-        prev_chars.push_back(node->sequence()[offset-1]);
+        prev_chars.insert(node->sequence()[offset-1]);
     }
 
     // find the kmer end
@@ -2731,14 +2731,14 @@ void VG::kmer_context(string& kmer,
             vector<Node*> next_nodes;
             nodes_next(n, next_nodes);
             for (auto m : next_nodes) {
-                next_chars.push_back(m->sequence()[0]);
-                next_positions.push_back(make_pair(m->id(), 0));
+                next_chars.insert(m->sequence()[0]);
+                next_positions.insert(make_pair(m->id(), 0));
             }
             break;
         } else if (newpos > kmer.size()) {
             int off = n->sequence().size() - (newpos - kmer.size());
-            next_chars.push_back(n->sequence()[off]);
-            next_positions.push_back(make_pair(n->id(), off));
+            next_chars.insert(n->sequence()[off]);
+            next_positions.insert(make_pair(n->id(), off));
             break;
         } else {
             pos = newpos;

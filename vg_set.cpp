@@ -153,9 +153,9 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
         lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
         if (p >= 0) {
 //kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
-            vector<char> prev_chars;
-            vector<char> next_chars;
-            vector<pair<int64_t, int32_t> > next_positions;
+            set<char> prev_chars;
+            set<char> next_chars;
+            set<pair<int64_t, int32_t> > next_positions;
             graph.kmer_context(kmer,
                                path,
                                n,
