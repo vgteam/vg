@@ -39,7 +39,7 @@ public:
     void index_kmers(Index& index, int kmer_size, int edge_max, int stride = 1);
     void for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*>&, VG&)>& lambda,
                                 int kmer_size, int edge_max, int stride, bool allow_dups);
-    void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups);
+    void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups = true);
 
     bool show_progress;
     

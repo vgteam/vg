@@ -2615,11 +2615,15 @@ void VG::_for_each_kmer(int kmer_size,
     }
     // constructs the cache key
     // experiment -- use a struct here
-    auto make_cache_key = [](string& kmer, Node* node, int start) -> string {
+    auto make_cache_key = [](string& kmer,
+                             int64_t start_node, int start_pos,
+                             int64_t end_node, int end_pos) -> string {
         string cache_key = kmer;
-        cache_key.resize(kmer.size() + sizeof(Node*) + sizeof(int));
-        memcpy((char*)cache_key.c_str()+kmer.size(), &node, sizeof(Node*));
-        memcpy((char*)cache_key.c_str()+kmer.size()+sizeof(Node*), &start, sizeof(Node*));
+        cache_key.resize(kmer.size() + sizeof(Node*) + 2*sizeof(int64_t) + 2*sizeof(int));
+        memcpy((char*)cache_key.c_str()+kmer.size(), &start_node, sizeof(int64_t));
+        memcpy((char*)cache_key.c_str()+kmer.size()+1*sizeof(int64_t), &start_pos, sizeof(int));
+        memcpy((char*)cache_key.c_str()+kmer.size()+2*sizeof(int64_t)+sizeof(int), &end_node, sizeof(int64_t));
+        memcpy((char*)cache_key.c_str()+kmer.size()+3*sizeof(int64_t)+sizeof(int), &end_pos, sizeof(int));
         return cache_key;
     };
 
@@ -2660,11 +2664,22 @@ void VG::_for_each_kmer(int kmer_size,
                     int node_position = node_start[node];
                     int kmer_relative_start = i - node_position;
                     if (allow_dups) {
-                        lambda(kmer, node, kmer_relative_start, path, *this);
-                    } else {
-                        string cache_key = make_cache_key(kmer, node, kmer_relative_start);
+                        // figure out end position and node
+                        Node* end = (i+kmer_size >= node_by_path_position.size())
+                            ? NULL
+                            : node_by_path_position[i+kmer_size];
+                        int node_end_position = (end == NULL) ? 0 : i+kmer_size - node_start[end];
+                        string cache_key = make_cache_key(kmer, node->id(), kmer_relative_start,
+                                                          (end==NULL? 0 :end->id()), node_end_position);
                         pair<bool, bool> c = cache->retrieve(cache_key);
-                        if (!c.second) {
+                        if (!c.second && node != NULL) {
+                            cache->put(cache_key, true);
+                            lambda(kmer, node, kmer_relative_start, path, *this);
+                        }
+                    } else {
+                        string cache_key = make_cache_key(kmer, node->id(), kmer_relative_start, 0, 0);
+                        pair<bool, bool> c = cache->retrieve(cache_key);
+                        if (!c.second && node != NULL) {
                             cache->put(cache_key, true);
                             lambda(kmer, node, kmer_relative_start, path, *this);
                         }

@@ -562,10 +562,10 @@ void help_kmers(char** argv) {
          << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
+         << "    -d, --allow-dups      don't filter out duplicated kmers" << endl
          << "    -g, --gcsa-out        output a table suitable for input to GCSA2" << endl
          << "                          kmer, starting position, previous characters," << endl
          << "                          successive characters, successive positions" << endl
-         << "    -d, --allow-dups      don't filter out duplicated kmers" << endl
          << "    -p, --progress        show progress" << endl;
 }
 
@@ -662,7 +662,7 @@ int main_kmers(int argc, char** argv) {
     graphs.show_progress = show_progress;
 
     if (gcsa_out) {
-        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, allow_dups);
+        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride);
 
     } else {
         function<void(string&, Node*, int, list<Node*>&, VG& graph)>

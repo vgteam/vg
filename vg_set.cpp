@@ -149,46 +149,82 @@ void VGset::for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*
 
 void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups) {
 
+    struct KmerPosition {
+        string kmer;
+        string pos;
+        set<char> prev_chars;
+        set<char> next_chars;
+        set<string> next_positions;
+    };
+
+    map<int, pair<int64_t, map<pair<string, int32_t>, KmerPosition > > > output_cache;
+#pragma omp parallel
+    {
+#pragma omp single
+        for (int i = 0; i < omp_get_num_threads(); ++i) {
+            output_cache[i].first = 0;
+        }
+    }
+
+    auto write_cache = [](map<pair<string, int32_t>, KmerPosition >& cache){
+        for (auto& k : cache) {
+            auto& kp = k.second;
+            stringstream line;
+            line << kp.kmer << '\t' << kp.pos << '\t';
+            for (auto c : kp.prev_chars) line << c << ',';
+            if (!kp.prev_chars.empty()) { line.seekp(-1, line.cur);
+            } else { line << '$'; }
+            line << '\t';
+            for (auto c : kp.next_chars) line << c << ',';
+            if (!kp.next_chars.empty()) { line.seekp(-1, line.cur);
+            } else { line << '#'; }
+            line << '\t';
+            for (auto& p : kp.next_positions) line << p << ',';
+            string rec = line.str();
+            // handle origin marker
+            if (kp.next_positions.empty()) { line << "0:0"; rec = line.str(); }
+            else { rec.pop_back(); }
+#pragma omp critical (cout)
+            {
+                cout << rec << endl;
+            }
+        }
+    };
+
     function<void(string&, Node*, int, list<Node*>&, VG&)>
-        lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
-        if (p >= 0) {
+        lambda = [&write_cache, &output_cache]
+                 (string& kmer, Node* node, int pos, list<Node*>& path, VG& graph) {
+        if (pos >= 0) {
 //kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
             set<char> prev_chars;
             set<char> next_chars;
             set<pair<int64_t, int32_t> > next_positions;
             graph.kmer_context(kmer,
                                path,
-                               n,
-                               p,
+                               node,
+                               pos,
                                prev_chars,
                                next_chars,
                                next_positions);
-            stringstream pc, nc, np;
-            for (auto c : prev_chars) {
-                pc << c << ",";
+
+            auto& cache = output_cache[omp_get_thread_num()];
+            if (cache.first != node->id()) {
+                write_cache(cache.second);
+                cache.second.clear();
+                cache.first = node->id();
             }
-            string pcs = pc.str();
-            if (!pcs.empty()) {
-                pcs.pop_back();
-            } else {
-                pcs = "$"; // wrap around to the end
+            auto& other = cache.second[make_pair(kmer, pos)];
+            if (other.kmer.empty()) other.kmer = kmer;
+            if (other.pos.empty()) {
+                stringstream ps; ps << node->id() << ":" << pos;
+                other.pos = ps.str();
             }
-            for (auto c : next_chars) {
-                nc << c << ",";
+            for (auto c : prev_chars) other.prev_chars.insert(c);
+            for (auto c : next_chars) other.next_chars.insert(c);
+            for (auto p : next_positions) {
+                stringstream ps; ps << p.first << ":" << p.second;
+                other.next_positions.insert(ps.str());
             }
-            string ncs = nc.str();
-            if (!ncs.empty()) {
-                ncs.pop_back();
-            } else {
-                ncs = "#"; // wrap around to the start
-            }
-            for (auto& p : next_positions) {
-                np << p.first << ":" << p.second << ",";
-            }
-            string nps = np.str(); if (!nps.empty()) nps.pop_back();
-#pragma omp critical (cout)
-            cout << kmer << '\t' << n->id() << ':' << p
-            << '\t' << pcs << '\t' << ncs << '\t' << nps << '\n';
         }
     };
 
@@ -199,6 +235,13 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
         g->add_start_and_end_markers(kmer_size, '#', '$');
         g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride, allow_dups);
     });
+
+// clean up caches
+#pragma omp parallel
+    {
+        auto& cache = output_cache[omp_get_thread_num()];
+        write_cache(cache.second);
+    }
 }
 
 }

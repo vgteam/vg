@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 7
+plan tests 8
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     7141 \
@@ -29,6 +29,8 @@ is $(vg kmers -g -k 11 -t 1 x.vg | wc -l) 2168 "GCSA2 output produces the expect
 is $(vg kmers -g -k 11 -t 1 x.vg | grep AATAAGGCTTG | md5sum | cut -f 1 -d\ ) "72e6700f7a6906d2d34e3bf12de78e9f" "GCSA2 output works when next position is multiple"
 
 is $(vg kmers -g -k 11 -t 1 x.vg | grep CATATTAGCCA | md5sum | cut -f 1 -d\ ) "2bbb55f269882959418f9f55e651cd2a" "GCSA2 output works when previous characters are multiple"
+
+is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 - | grep AAGAATACAA | md5sum | cut -f 1 -d\ ) "b56ea597d9f876f99d24e25fe0c710c1" "GCSA2 output correctly represents repeated kmers at the same position"
 
 rm x.vg
 rm -rf x.vg.index
