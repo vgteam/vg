@@ -565,6 +565,7 @@ void help_kmers(char** argv) {
          << "    -g, --gcsa-out        output a table suitable for input to GCSA2" << endl
          << "                          kmer, starting position, previous characters," << endl
          << "                          successive characters, successive positions" << endl
+         << "    -d, --allow-dups      don't filter out duplicated kmers" << endl
          << "    -p, --progress        show progress" << endl;
 }
 
@@ -580,6 +581,7 @@ int main_kmers(int argc, char** argv) {
     int kmer_stride = 1;
     bool show_progress = false;
     bool gcsa_out = false;
+    bool allow_dups = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -592,12 +594,13 @@ int main_kmers(int argc, char** argv) {
                 {"edge-max", required_argument, 0, 'e'},
                 {"threads", required_argument, 0, 't'},
                 {"gcsa-out", no_argument, 0, 'g'},
+                {"allow-dups", no_argument, 0, 'd'},
                 {"progress",  no_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:g",
+        c = getopt_long (argc, argv, "hk:j:pt:e:gd",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -625,6 +628,10 @@ int main_kmers(int argc, char** argv) {
 
         case 'g':
             gcsa_out = true;
+            break;
+
+        case 'd':
+            allow_dups = true;
             break;
 
         case 'p':
@@ -655,7 +662,7 @@ int main_kmers(int argc, char** argv) {
     graphs.show_progress = show_progress;
 
     if (gcsa_out) {
-        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride);
+        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, allow_dups);
 
     } else {
         function<void(string&, Node*, int, list<Node*>&, VG& graph)>
@@ -663,7 +670,7 @@ int main_kmers(int argc, char** argv) {
 #pragma omp critical (cout)
             cout << kmer << '\t' << n->id() << '\t' << p << '\n';
         };
-        graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride);
+        graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride, allow_dups);
     }
     cout.flush();
 

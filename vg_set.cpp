@@ -139,15 +139,15 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
 }
 
 void VGset::for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*>&, VG&)>& lambda,
-                                   int kmer_size, int edge_max, int stride) {
-    for_each([&lambda, kmer_size, edge_max, stride, this](VG* g) {
+                                   int kmer_size, int edge_max, int stride, bool allow_dups) {
+    for_each([&lambda, kmer_size, edge_max, stride, allow_dups, this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
-        g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride);
+        g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride, allow_dups);
     });
 }
 
-void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride) {
+void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups) {
 
     function<void(string&, Node*, int, list<Node*>&, VG&)>
         lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
@@ -192,12 +192,12 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
         }
     };
 
-    for_each([&lambda, kmer_size, edge_max, stride, this](VG* g) {
+    for_each([&lambda, kmer_size, edge_max, stride, allow_dups, this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
         // add in start and end markers that are required by GCSA
         g->add_start_and_end_markers(kmer_size, '#', '$');
-        g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride);
+        g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride, allow_dups);
     });
 }
 

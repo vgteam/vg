@@ -2583,22 +2583,25 @@ Alignment VG::align(string& sequence) {
 void VG::for_each_kmer_parallel(int kmer_size,
                                 int edge_max,
                                 function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
-                                int stride) {
-    _for_each_kmer(kmer_size, edge_max, lambda, true, stride);
+                                int stride,
+                                bool allow_dups) {
+    _for_each_kmer(kmer_size, edge_max, lambda, true, stride, allow_dups);
 }
 
 void VG::for_each_kmer(int kmer_size,
                        int edge_max,
                        function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
-                       int stride) {
-    _for_each_kmer(kmer_size, edge_max, lambda, false, stride);
+                       int stride,
+                       bool allow_dups) {
+    _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups);
 }
 
 void VG::_for_each_kmer(int kmer_size,
                         int edge_max,
                         function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                         bool parallel,
-                        int stride) {
+                        int stride,
+                        bool allow_dups) {
 
     // use an LRU cache to clean up duplicates over the last 1mb
     // use one per thread so as to avoid contention
@@ -2624,6 +2627,7 @@ void VG::_for_each_kmer(int kmer_size,
                         lambda,
                         kmer_size,
                         stride,
+                        allow_dups,
                         &lru,
                         &make_cache_key](Node* node, list<Node*>& path) {
 
@@ -2655,11 +2659,15 @@ void VG::_for_each_kmer(int kmer_size,
                 if (node == node_by_path_position[i+j]) {
                     int node_position = node_start[node];
                     int kmer_relative_start = i - node_position;
-                    string cache_key = make_cache_key(kmer, node, kmer_relative_start);
-                    pair<bool, bool> c = cache->retrieve(cache_key);
-                    if (!c.second) {
-                        cache->put(cache_key, true);
+                    if (allow_dups) {
                         lambda(kmer, node, kmer_relative_start, path, *this);
+                    } else {
+                        string cache_key = make_cache_key(kmer, node, kmer_relative_start);
+                        pair<bool, bool> c = cache->retrieve(cache_key);
+                        if (!c.second) {
+                            cache->put(cache_key, true);
+                            lambda(kmer, node, kmer_relative_start, path, *this);
+                        }
                     }
                 }
                 ++j;
