@@ -26,7 +26,7 @@ is $(vg kmers -g -k 11 -t 1 x.vg | wc -l) 2168 "GCSA2 output produces the expect
 
 #is $(vg kmers -g -k 11 -t 1 x.vg | cut -f 1 | sort | uniq | wc -l) $(vg kmers -k 11 x.vg | cut -f 1 | sort | uniq | wc -l) "GCSA2 produces output for all kmers"
 
-is $(vg kmers -g -k 11 -t 1 x.vg | grep AATAAGGCTTG | md5sum | cut -f 1 -d\ ) "2a96868a10b85f80dd918bbd102e7e89" "GCSA2 output works when next position is multiple"
+is $(vg kmers -g -k 11 -t 1 x.vg | grep AATAAGGCTTG | md5sum | cut -f 1 -d\ ) "72e6700f7a6906d2d34e3bf12de78e9f" "GCSA2 output works when next position is multiple"
 
 is $(vg kmers -g -k 11 -t 1 x.vg | grep CATATTAGCCA | md5sum | cut -f 1 -d\ ) "2bbb55f269882959418f9f55e651cd2a" "GCSA2 output works when previous characters are multiple"
 
