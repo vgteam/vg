@@ -1740,12 +1740,13 @@ int main_index(int argc, char** argv) {
     }
 
     if (kmer_size != 0 && file_names.size() > 0) {
-        index.open_for_write(db_name);
+        index.open_for_bulk_load(db_name);
         VGset graphs(file_names);
         graphs.show_progress = show_progress;
         graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
         index.flush();
         index.close();
+        // forces compaction
         index.open_for_write(db_name);
         index.flush();
         index.close();
