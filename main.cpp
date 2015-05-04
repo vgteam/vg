@@ -1700,9 +1700,8 @@ int main_index(int argc, char** argv) {
         // reopen to index paths
         // this requires the index to be queryable
         //index.open_for_write(db_name);
-        //index.compact();
         graphs.store_paths_in_index(index);
-        //index.compact();
+        index.compact();
         index.flush();
         index.close();
     }
@@ -1756,6 +1755,7 @@ int main_index(int argc, char** argv) {
         // forces compaction
         index.open_for_write(db_name);
         index.flush();
+        index.compact();
         index.close();
     }
 
