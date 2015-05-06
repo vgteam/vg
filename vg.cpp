@@ -2158,7 +2158,6 @@ void VG::include(const Path& path) {
     // 1) failing to account for the current node we should be on after edits
     // 2) not maintaining the existing path architecture through edits
     for (int i = 0; i < path.mapping_size(); ++i) {
-        // copy the mapping
         const Mapping& m = path.mapping(i);
         // TODO is it reversed?
         Node* n = get_node(m.node_id());
@@ -2212,56 +2211,119 @@ void VG::include(const Path& path) {
     remove_null_nodes_forwarding_edges();
 }
 
-void VG::include(const vector<Mapping>& mappings) {
-    for (auto& m : mappings) {
-        // TODO is it reversed?
-        Node* n = get_node(m.node_id());
-        int f = m.offset();
-        int t = 0;
-        for (int j = 0; j < m.edit_size(); ++j) {
-            const Edit& edit = m.edit(j);
-            if (edit.has_from_length() && !edit.has_to_length()) {
-                f += edit.from_length();
-                t += edit.from_length();
-            } else if (edit.has_from_length() && edit.has_to_length() ) {
-                // cut at f, and f + from_length
-                Node* l=NULL;
-                Node* r=NULL;
-                Node* m=NULL;
-                Node* c=NULL;
-                if (edit.from_length() > 0) {
-                    divide_node(n, f, l, m);
-                    divide_node(m, edit.from_length(), m, r);
-                    n = m; f = 0; t = 0;
-                    // TODO there is a quirk (for sanity, efficiency later)
-                    // if we "delete" over several nodes, we should join one path for the deletion
-                    if (edit.to_length() == 0) {
-                        // deletion
-                        assert(edit.from_length());
-                        create_edge(l, r);
-                        n = r;
-                    } else {
-                        // swap/ SNP
-                        c = create_node(edit.sequence());
-                        create_edge(l, c);
-                        create_edge(c, r);
-                        n = r;
+void VG::edit_node(int64_t node_id, const vector<Mapping>& mappings) {
+
+    // assume these are all for the same node
+    //int64_t node_id = mappings.front().node_id();
+    // convert edits to a series of cut points
+    set<int> cut_at;
+    // map pairs of cut points to sequences of novel paths joining the cut points
+    map<pair<int, int>, vector<string> > cut_seqs;
+    for (auto& mapping : mappings) {
+        // check that we're really working on one node
+        assert(mapping.node_id() == node_id);
+        int offset = 0;
+        for (int i = 0; i < mapping.edit_size(); ++i) {
+            const Edit& edit = mapping.edit(i);
+            //edits[offset].push_back(edit);
+            if (edit.has_from_length()) {
+                int end = offset + edit.from_length();
+                if (edit.has_to_length()
+                    && !(edit.from_length() == 0 // ignore soft clips
+                         && (offset == 0 || i == mapping.edit_size() - 1))) {
+                    cut_seqs[make_pair(offset, end)].push_back(edit.has_sequence() ? edit.sequence() : "");
+                    cut_at.insert(offset);
+                    cut_at.insert(end);
+                }
+                offset = end;
+            }
+        }
+    }
+
+    // tricky bit
+    // we need to put the node pointers into structures to track the sides of each cut
+    // however, as we make the subsequent cut we end up changing the node* destructively
+
+    Node* n = get_node(node_id);
+    Node* l = NULL;
+    Node* r = NULL;
+    int offset = 0;
+    map<int, tuple<set<Node*>, set<Node*>, set<Node*> > > cuts;
+
+    // make the cuts
+    set<Node*> emptyset;
+    for (auto cut : cut_at) {
+        //int last_off = offset;
+        //cerr << cut << " " << offset << endl;
+        divide_node(n, cut-offset, l, r);
+        // record cut
+        set<Node*> left{l};
+        set<Node*> right{r};
+        cuts[cut] = make_tuple(left, emptyset, right);
+        // adjust last cut (we just cut up the second node in the pair)
+        if (offset > 0) {
+            get<2>(cuts[offset]) = left;
+        }
+        offset = cut;
+        n = r;
+    }
+
+    // add the novel seqs
+    // and join deletions
+    for (auto& cs : cut_seqs) {
+        // get the left and right
+        int f = cs.first.first; // we go from after the left node at this cut
+        int t = cs.first.second; // to before the second node in this cut
+        auto& left = get<0>(cuts[f]);
+        auto& center = get<1>(cuts[f]);
+        auto& right = get<2>(cuts[t]);
+        for (auto& seq : cs.second) {
+            if (!seq.empty()) {
+                Node* c = create_node(seq);
+                center.insert(c);
+            } else {
+                for (auto& lp : left) {
+                    for (auto& rp : right) {
+                        create_edge(lp, rp);
                     }
-                } else if (edit.has_sequence()) {
-                    divide_node(n, f, l, r);
-                    n = r; f = 0; t = 0;
-                    // insertion
-                    assert(edit.to_length());
-                    c = create_node(edit.sequence());
-                    create_edge(l, c);
-                    create_edge(c, r);
-                } else {
-                    // do nothing for soft clips, where we have to_length and unset from_length
-                    f += edit.from_length();
-                    t += edit.to_length();
                 }
             }
         }
+    }
+    
+
+    // join in the novel seqs
+    // remember: map<pair<int, int>, vector<string> > cut_seqs;
+    for (auto& cs : cut_seqs) {
+        // get the left and right
+        int f = cs.first.first; // we go from after the left node at this cut
+        int t = cs.first.second; // to before the second node in this cut
+        auto& left = get<0>(cuts[f]);
+        auto& center = get<1>(cuts[f]);
+        auto& right = get<2>(cuts[t]);
+        for (auto& seq : cs.second) {
+            for (auto& lp : left) {
+                for (auto& rp : right) {
+                    if (!center.empty()) {
+                        for (auto& cp : center) {
+                            create_edge(lp, cp);
+                            create_edge(cp, rp);
+                        }
+                    } else {
+                        create_edge(lp, rp);
+                    }
+                }
+            }
+        }
+    }
+
+    // now we should have incorporated the edits against a given node
+}
+
+// mappings sorted by node id
+void VG::edit(const map<int64_t, vector<Mapping> >& mappings) {
+    for (auto& node : mappings) {
+        edit_node(node.first, node.second);
     }
 }
 

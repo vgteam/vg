@@ -432,10 +432,14 @@ int main_mod(int argc, char** argv) {
         graph->remove_orphan_edges();
     }
 
-    if (!aln_file.empty()) {        
-        function<void(Alignment&)> lambda = [&graph](Alignment& aln) {
+    if (!aln_file.empty()) {
+        map<int64_t, vector<Mapping> > mappings; // keyed by id
+        function<void(Alignment&)> lambda = [&graph, &mappings](Alignment& aln) {
             const Path& path = aln.path();
-            graph->include(path);
+            for (int i = 0; i < path.mapping_size(); ++i) {
+                const Mapping& mapping = path.mapping(i);
+                mappings[mapping.node_id()].push_back(mapping);
+            }
         };
         if (aln_file == "-") {
             stream::for_each(std::cin, lambda);
@@ -444,6 +448,9 @@ int main_mod(int argc, char** argv) {
             in.open(aln_file.c_str());
             stream::for_each(in, lambda);
         }
+        // now that everything is sorted, execute the edits
+        graph->edit(mappings);
+        // and optionally compact ids
         if (compact_ids) {
             graph->sort();
             graph->compact_ids();

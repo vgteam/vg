@@ -226,8 +226,10 @@ public:
 
     // edit the graph to include the path
     void include(const Path& path);
-    // or a set of mappings
-    void include(const vector<Mapping>& mappings);
+    // or a set of mappings against one node
+    void edit_node(int64_t node_id, const vector<Mapping>& mappings);
+    // for each node, modify it with the associated mappings
+    void edit(const map<int64_t, vector<Mapping> >& mappings);
 
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
