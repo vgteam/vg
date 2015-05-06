@@ -2218,7 +2218,7 @@ void VG::edit_node(int64_t node_id, const vector<Mapping>& mappings) {
     // convert edits to a series of cut points
     set<int> cut_at;
     // map pairs of cut points to sequences of novel paths joining the cut points
-    map<pair<int, int>, vector<string> > cut_seqs;
+    map<pair<int, int>, set<string> > cut_seqs;
     for (auto& mapping : mappings) {
         // check that we're really working on one node
         assert(mapping.node_id() == node_id);
@@ -2231,7 +2231,7 @@ void VG::edit_node(int64_t node_id, const vector<Mapping>& mappings) {
                 if (edit.has_to_length()
                     && !(edit.from_length() == 0 // ignore soft clips
                          && (offset == 0 || i == mapping.edit_size() - 1))) {
-                    cut_seqs[make_pair(offset, end)].push_back(edit.has_sequence() ? edit.sequence() : "");
+                    cut_seqs[make_pair(offset, end)].insert(edit.has_sequence() ? edit.sequence() : "");
                     cut_at.insert(offset);
                     cut_at.insert(end);
                 }
