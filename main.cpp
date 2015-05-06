@@ -592,16 +592,17 @@ int main_sim(int argc, char** argv) {
         string perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
         // avoid short reads at the end of the graph by retrying
         int iter = 0;
-        while (perfect_read.size() < read_length && iter++ < 1000) {
+        while (perfect_read.size() < read_length && ++iter < 1000) {
             perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
             // if we can't make a suitable read in 1000 tries, then maybe the graph is too small?
         }
         if (iter == 1000) {
             cerr << "couldn't simulate read, perhaps the chosen length is too long for this graph?" << endl;
+        } else {
+            // apply errors
+            string readseq = introduce_read_errors(perfect_read);
+            cout << readseq << endl;
         }
-        // apply errors
-        string readseq = introduce_read_errors(perfect_read);
-        cout << readseq << endl;
     }
     delete graph;
 
