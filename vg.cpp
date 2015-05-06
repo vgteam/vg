@@ -2516,9 +2516,11 @@ void VG::to_dot(ostream& out) {
                               to_paths.begin(), to_paths.end(),
                               std::inserter(both_paths, both_paths.begin()));
         // are both nodes in the same path?
-        if (both_paths.empty()) {
+        if (both_paths.empty()
+            || !paths.are_consecutive_nodes_in_path(e->from(), e->to(), *both_paths.begin())) {
             out << "    " << e->from() << " -> " << e->to() << "[color=red];" << endl;
         } else {
+            // are the nodes consecutive in the path?
             out << "    " << e->from() << " -> " << e->to() << ";" << endl;
         }
     }

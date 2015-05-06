@@ -71,6 +71,7 @@ public:
     set<pair<string, Mapping*> >& get_node_mapping(int64_t id);
     string mapping_path_name(Mapping* m);
     set<string> of_node(int64_t id);
+    bool are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name);
     size_t size(void) const;
     void clear(void);
     //void add_node_mapping(Node* n);

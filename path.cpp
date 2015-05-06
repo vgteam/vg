@@ -321,6 +321,26 @@ set<string> Paths::of_node(int64_t id) {
     return path_names;
 }
 
+bool Paths::are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name) {
+    if (of_node(id1).count(path_name) && of_node(id2).count(path_name)) {
+        auto& p1 = get_node_mapping(id1);
+        auto& p2 = get_node_mapping(id2);
+        // is p1 directly before p2?
+        list<Mapping>::iterator i1, i2;
+        // note that this will get the first mapping in each path, not an arbitrary one
+        // (we can have looping paths, so there could be several mappings per path)
+        for (auto& nm : p1) {
+            if (nm.first == path_name) i1 = mapping_itr[nm.second];
+        }
+        for (auto& nm : p2) {
+            if (nm.first == path_name) i2 = mapping_itr[nm.second];
+        }
+        ++i1; // increment the first node's mapping iterator
+        if (i1 == i2) return true;
+    }
+    return false;
+}
+
 void parse_region(const string& target, string& name, int64_t& start, int64_t& end) {
     start = -1;
     end = -1;
