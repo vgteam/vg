@@ -471,7 +471,9 @@ void help_sim(char** argv) {
          << "options:" << endl
          << "    -l, --read-length N   write reads of length N" << endl
          << "    -n, --num-reads N     simulate N reads" << endl
-         << "    -s, --random-seed N   use this specific seed for the PRNG" << endl;
+         << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
+         << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
+         << "    -i, --indel-error N   indel error rate (default 0.0)" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -484,6 +486,8 @@ int main_sim(int argc, char** argv) {
     int read_length = 100;
     int num_reads = 1;
     int seed_val = time(NULL);
+    double base_error = 0;
+    double indel_error = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -498,7 +502,7 @@ int main_sim(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -518,6 +522,14 @@ int main_sim(int argc, char** argv) {
 
         case 's':
             seed_val = atoi(optarg);
+            break;
+
+        case 'e':
+            base_error = atof(optarg);
+            break;
+
+        case 'i':
+            indel_error = atof(optarg);
             break;
 
         case 'h':
@@ -547,12 +559,48 @@ int main_sim(int argc, char** argv) {
     mt19937 rng;
     rng.seed(seed_val);
 
-    for (int i = 0; i < num_reads; ++i) {
-        string readseq = graph->random_read(read_length, rng, min_id, max_id, true);
-        // avoid short reads at the end of the graph by retrying
-        while (readseq.size() < read_length) {
-            readseq = graph->random_read(read_length, rng, min_id, max_id, true);
+    string bases = "ATGC";
+    uniform_real_distribution<double> rprob(0, 1);
+    uniform_int_distribution<int> rbase(0, 3);
+
+    function<string(const string&)> introduce_read_errors
+        = [&rng, &rprob, &rbase, &bases, base_error, indel_error](const string& perfect_read) {
+
+        if (base_error == 0 && indel_error == 0) return perfect_read;
+        string read;
+        for (auto c : perfect_read) {
+            if (rprob(rng) <= base_error) {
+                // pick another base than what c is
+                char e;
+                do {
+                    e = bases[rbase(rng)];
+                } while (e == c);
+                c = e;
+            }
+            if (rprob(rng) <= indel_error) {
+                if (rprob(rng) < 0.5) {
+                    read.push_back(bases[rbase(rng)]);
+                } // else do nothing, == deletion of base
+            } else {
+                read.push_back(c);
+            }
         }
+        return read;
+    };
+
+    for (int i = 0; i < num_reads; ++i) {
+        string perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
+        // avoid short reads at the end of the graph by retrying
+        int iter = 0;
+        while (perfect_read.size() < read_length && iter++ < 1000) {
+            perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
+            // if we can't make a suitable read in 1000 tries, then maybe the graph is too small?
+        }
+        if (iter == 1000) {
+            cerr << "couldn't simulate read, perhaps the chosen length is too long for this graph?" << endl;
+        }
+        // apply errors
+        string readseq = introduce_read_errors(perfect_read);
         cout << readseq << endl;
     }
     delete graph;
