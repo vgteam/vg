@@ -9,11 +9,11 @@
 #include <functional>
 #include <vector>
 #include <list>
-#include <google/protobuf/stubs/common.h>
-#include <google/protobuf/io/zero_copy_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <google/protobuf/io/gzip_stream.h>
-#include <google/protobuf/io/coded_stream.h>
+#include "google/protobuf/stubs/common.h"
+#include "google/protobuf/io/zero_copy_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "google/protobuf/io/gzip_stream.h"
+#include "google/protobuf/io/coded_stream.h"
 
 namespace stream {
 

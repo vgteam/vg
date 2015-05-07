@@ -2,17 +2,17 @@
 
 CXX=g++ -std=c++11 -fopenmp -g
 CXXFLAGS=-O3
-pb2json=pb2json/libpb2json.a
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
+LIBPROTOBUF=protobuf/libprotobuf.a
 LIBSNAPPY=snappy/libsnappy.a
 LIBROCKSDB=rocksdb/librocksdb.a
 SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
 LIBHTS=htslib/libhts.a
-INCLUDES=-I./ -Ipb2json -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1
-LDFLAGS=-L./ -Lpb2json -Lvcflib -Lgssw/src -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -lpb2json -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o alignment.o sha1/sha1.o
+INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1
+LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o
 
 all: vg libvg.a
 
@@ -28,6 +28,10 @@ test/build_graph: test/build_graph.cpp
 profiling:
 	$(MAKE) CXXFLAGS="$(CXXFLAGS) -g" all
 
+$(LIBPROTOBUF): protobuf/src/google/protobuf/*cc  protobuf/src/google/protobuf/*h
+	cd protobuf && mkdir -p build && ./autogen.sh && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
+	cp protobuf/build/lib/libprotobuf.a protobuf/
+
 $(LIBSNAPPY): snappy/*cc snappy/*h
 	cd snappy && mkdir -p build && ./autogen.sh && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
 	cp snappy/build/lib/libsnappy.a snappy/
@@ -38,13 +42,10 @@ $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksd
 progress_bar/progress_bar.o: progress_bar/progress_bar.cpp progress_bar/progress_bar.hpp
 	cd progress_bar && make
 
-$(pb2json):
-	cd pb2json && $(MAKE) libpb2json.a
-
 cpp/vg.pb.cc: cpp/vg.pb.h
-cpp/vg.pb.h: vg.proto
+cpp/vg.pb.h: vg.proto $(LIBPROTOBUF)
 	mkdir -p cpp
-	protoc vg.proto --cpp_out=cpp
+	protobuf/build/bin/protoc vg.proto --cpp_out=cpp
 
 $(LIBVCFLIB): vcflib/src/Variant.h vcflib/src/Variant.cpp
 	cd vcflib && $(MAKE) libvcflib.a
@@ -64,47 +65,50 @@ fastahack/Fasta.o: fastahack/Fasta.h fastahack/Fasta.cpp
 cpp/vg.pb.o: cpp/vg.pb.h cpp/vg.pb.cc
 	$(CXX) $(CXXFLAGS) -c -o cpp/vg.pb.o cpp/vg.pb.cc $(INCLUDES)
 
-vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(SPARSEHASH) lru_cache/lru_cache.h stream.hpp
+vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(SPARSEHASH) lru_cache/lru_cache.h stream.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(INCLUDES)
 
-gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW)
+gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(INCLUDES)
 
-vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW)
+vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o vg_set.o vg_set.cpp $(INCLUDES)
 
-mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h
+mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
 
-main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) stream.hpp
+main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
 
-region.o: region.cpp region.hpp
+region.o: region.cpp region.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o region.o region.cpp $(INCLUDES)
 
-index.o: index.cpp index.hpp
+index.o: index.cpp index.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
-utility.o: utility.cpp utility.hpp
+utility.o: utility.cpp utility.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o utility.o utility.cpp $(INCLUDES)
 
-path.o: path.cpp path.hpp
+path.o: path.cpp path.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o path.o path.cpp $(INCLUDES)
 
-alignment.o: alignment.cpp alignment.hpp $(LIBHTS)
+alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
 
-json.o: json.cpp json.hpp
+json.o: json.cpp json.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o json.o json.cpp $(INCLUDES)
 
 sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
 	$(CXX) $(CXXFLAGS) -c -o sha1/sha1.o sha1/sha1.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(pb2json) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS)
+pb2json.o: pb2json.cpp pb2json.h $(LIBPROTOBUF)
+	$(CXX) $(CXXFLAGS) -c -o pb2json.o pb2json.cpp $(INCLUDES)
+
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
-	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o json.o alignment.o sha1/sha1.o
+	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o
 
 clean-vg:
 	rm -f vg
@@ -114,8 +118,9 @@ clean-vg:
 
 clean: clean-vg
 	cd test && $(MAKE) clean
-	cd pb2json && $(MAKE) clean
 	cd vcflib && $(MAKE) clean
 	cd snappy && $(MAKE) clean
 	rm -f snappy/libsnappy.a
+	cd protobuf && $(MAKE) clean && rm -rf build
+	rm -f protobuf/libprotobuf.a
 	cd rocksdb && $(MAKE) clean

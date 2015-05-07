@@ -1,7 +1,7 @@
 #include <jansson.h>
 #include <string>
-#include <google/protobuf/descriptor.h>
-#include <google/protobuf/message.h>
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/message.h"
 //using namespace google::protobuf;
 char *pb2json(const google::protobuf::Message &msg);
 char *pb2json(google::protobuf::Message *msg,const char *buf,int len);
