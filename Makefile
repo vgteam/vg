@@ -54,6 +54,8 @@ $(LIBGSSW): gssw/src/gssw.c gssw/src/gssw.h
 	cd gssw/src && $(MAKE) libgssw.a
 
 $(SPARSEHASH): sparsehash/build/include/sparsehash/dense_hash_map
+
+sparsehash/build/include/sparsehash/dense_hash_map:
 	cd sparsehash && mkdir -p build && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
 
 $(LIBHTS):
