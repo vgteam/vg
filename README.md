@@ -165,7 +165,8 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
 - [x] multiple samples in one graph (colors) - solved by paths
 - [x] modify a graph using an alignment's path, adding new nodes as needed and updating the path/alignment to match
-- [ ] modify a graph using many alignments (update mod procedure to include many mappings)
+- [x] modify a graph using many alignments (update mod procedure to include many mappings)
+- [ ] use an alignment to add a named path to the graph
 - [x] path range query from index (give me the subgraph corresponding to a particular genome location)
 - [x] _surject_ alignments back into arbitrary path (such as GRCh37)
 - [x] use htslib for BAM/CRAM/SAM i/o
