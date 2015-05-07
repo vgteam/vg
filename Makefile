@@ -68,34 +68,34 @@ cpp/vg.pb.o: cpp/vg.pb.h cpp/vg.pb.cc
 vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(SPARSEHASH) lru_cache/lru_cache.h stream.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(INCLUDES)
 
-gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF)
+gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(INCLUDES)
 
-vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF)
+vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o vg_set.o vg_set.cpp $(INCLUDES)
 
-mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF)
+mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
 
-main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBPROTOBUF)
+main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
 
-region.o: region.cpp region.hpp $(LIBPROTOBUF)
+region.o: region.cpp region.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o region.o region.cpp $(INCLUDES)
 
 index.o: index.cpp index.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
-utility.o: utility.cpp utility.hpp $(LIBPROTOBUF)
+utility.o: utility.cpp utility.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o utility.o utility.cpp $(INCLUDES)
 
-path.o: path.cpp path.hpp $(LIBPROTOBUF)
+path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o path.o path.cpp $(INCLUDES)
 
-alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF)
+alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
 
-json.o: json.cpp json.hpp $(LIBPROTOBUF)
+json.o: json.cpp json.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o json.o json.cpp $(INCLUDES)
 
 sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
@@ -104,7 +104,7 @@ sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
 pb2json.o: pb2json.cpp pb2json.h $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o pb2json.o pb2json.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
@@ -124,3 +124,4 @@ clean: clean-vg
 	cd protobuf && $(MAKE) clean && rm -rf build
 	rm -f protobuf/libprotobuf.a
 	cd rocksdb && $(MAKE) clean
+	cd sparsehash && $(MAKE) clean && rm -rf build

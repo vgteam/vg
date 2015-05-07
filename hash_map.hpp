@@ -1,8 +1,8 @@
 #ifndef HASH_MAP_H
 #define HASH_MAP_H
 
-#include <sparsehash/sparse_hash_map>
-#include <sparsehash/dense_hash_map>
+#include "sparsehash/sparse_hash_map"
+#include "sparsehash/dense_hash_map"
 
 
 // http://stackoverflow.com/questions/4870437/pairint-int-pair-as-key-of-unordered-map-issue#comment5439557_4870467
