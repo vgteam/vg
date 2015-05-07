@@ -53,7 +53,7 @@ $(LIBVCFLIB): vcflib/src/Variant.h vcflib/src/Variant.cpp
 $(LIBGSSW): gssw/src/gssw.c gssw/src/gssw.h
 	cd gssw/src && $(MAKE) libgssw.a
 
-$(SPARSEHASH):
+$(SPARSEHASH): sparsehash/build/include/sparsehash/dense_hash_map
 	cd sparsehash && mkdir -p build && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
 
 $(LIBHTS):
@@ -83,7 +83,7 @@ main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBP
 region.o: region.cpp region.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o region.o region.cpp $(INCLUDES)
 
-index.o: index.cpp index.hpp $(LIBPROTOBUF)
+index.o: index.cpp index.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
 utility.o: utility.cpp utility.hpp $(LIBPROTOBUF) $(SPARSEHASH)
