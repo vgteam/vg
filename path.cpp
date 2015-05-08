@@ -408,5 +408,49 @@ void path_into_mappings(const Path& path, map<int64_t, vector<Mapping> >& mappin
     }
 }
 
+// designed for merging longer paths with substantial overlap into one long path
+Path merge_paths(vector<Path>& paths) {
+    Path result;
+    map<int64_t, map<int32_t, vector<Path*> > > paths_by_position;
+    for (auto& path: paths) {
+        if (path.mapping_size() > 0) {
+            const Mapping& mapping = path.mapping(0);
+            paths_by_position[mapping.node_id()][mapping.offset()].push_back(&path);
+        }
+    }
+    for (auto& n : paths_by_position) {
+        for (auto& o : n.second) {
+            for (auto& p : o.second) {
+                Path path = *p;
+                // scan forward in this path until we're past the soft clips
+                const Edit& first_edit = path.mapping(0).edit(0);
+                bool has_softclip = (first_edit.from_length() == 0 && first_edit.to_length() > 0);
+                int merge_from = has_softclip ? 1 : 0;
+                int64_t merge_at_id = path.mapping(merge_from).node_id();
+                // scan backwards in the result path until we get to the same node/offset in this path
+                int cut_result_at = 0;
+                for (int i = result.mapping_size()-1; i > 0; --i) {
+                    if (result.mapping(i).node_id() == merge_at_id) {
+                        cut_result_at = i; break;
+                    }
+                }
+                if (cut_result_at == 0) {
+                    cerr << "cannot merge paths, no overlap" << endl;
+                    exit(1);
+                }
+                int to_remove = result.mapping_size() - cut_result_at;
+                for (int i = 0; i < to_remove; ++i) {
+                    result.mutable_mapping()->RemoveLast();
+                }
+                // cut off the softclipped mapping if there is one
+                if (merge_from > 0) path.mutable_mapping()->erase(path.mutable_mapping()->begin());
+                // append this path to the result
+                result.mutable_mapping()->MergeFrom(path.mapping());
+            }
+        }
+    }
+    return result;
+}
+
 
 }

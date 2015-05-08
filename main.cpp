@@ -1978,6 +1978,7 @@ void help_map(char** argv) {
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
          << "    -X, --score-per-bp N  accept forward if the alignment score per base is > N and -F is set" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
+         << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl;
 }
 
@@ -2007,6 +2008,7 @@ int main_map(int argc, char** argv) {
     string fastq1, fastq2;
     bool interleaved_fastq = false;
     int pair_window = 64; // ~11bp/node
+    int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
 
     int c;
@@ -2034,12 +2036,13 @@ int main_map(int argc, char** argv) {
                 {"fastq", no_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
+                {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2124,6 +2127,10 @@ int main_map(int argc, char** argv) {
 
         case 'J':
             output_json = true;
+            break;
+
+        case 'B':
+            band_width = atoi(optarg);
             break;
  
         case 'h':

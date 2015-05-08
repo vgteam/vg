@@ -99,6 +99,7 @@ int path_from_length(const Path& path);
 int mapping_to_length(const Mapping& m);
 int mapping_from_length(const Mapping& m);
 void path_into_mappings(const Path& path, map<int64_t, vector<Mapping> >& mappings);
+Path merge_paths(vector<Path>& paths);
 
 }
 
