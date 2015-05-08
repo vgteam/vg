@@ -39,8 +39,8 @@ rocksdb::Options Index::GetOptions(void) {
     options.max_background_compactions = threads;
 
     options.num_levels = 2;
-    options.target_file_size_base = (long) 1024 * 1024 * 256; // ~256MB
-    options.write_buffer_size = (long) 1024 * 1024 * 256; // ~256MB
+    options.target_file_size_base = (long) 1024 * 1024 * 512; // ~512MB (bigger in practice)
+    options.write_buffer_size = 1024 * 1024 * 256; // ~256MB
 
     // doesn't work this way
     rocksdb::BlockBasedTableOptions topt;
