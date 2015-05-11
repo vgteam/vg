@@ -54,7 +54,6 @@ int main_surject(int argc, char** argv) {
     string input_type = "gam";
     string header_file;
     int compress_level = 9;
-    int default_mq = 30;
     int window = 5;
     string fasta_filename;
 
@@ -290,7 +289,6 @@ int main_surject(int argc, char** argv) {
                                                  &path_length,
                                                  &window,
                                                  &rg_sample,
-                                                 &default_mq,
                                                  &header,
                                                  &out,
                                                  &buffer,
@@ -306,9 +304,8 @@ int main_surject(int argc, char** argv) {
                 if (!surj.path().mapping_size()) {
                     surj = src;
                 }
-                if (!surj.has_mapping_quality()) { surj.set_mapping_quality(default_mq); }
                 // record 
-                if (!hdr && surj.has_read_group() && surj.has_sample_name()) {
+                if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
 #pragma omp critical (hts_header)
                     rg_sample[surj.read_group()] = surj.sample_name();
                 }
@@ -438,7 +435,7 @@ int main_mod(int argc, char** argv) {
             const Path& path = aln.path();
             for (int i = 0; i < path.mapping_size(); ++i) {
                 const Mapping& mapping = path.mapping(i);
-                mappings[mapping.node_id()].push_back(mapping);
+                mappings[mapping.position().node_id()].push_back(mapping);
             }
         };
         if (aln_file == "-") {
@@ -2187,7 +2184,7 @@ int main_map(int argc, char** argv) {
 
     if (!seq.empty()) {
         int tid = omp_get_thread_num();
-        Alignment alignment = mapper[tid]->align(seq, kmer_size, kmer_stride);
+        Alignment alignment = mapper[tid]->align(seq, kmer_size, kmer_stride, band_width);
         if (!sample_name.empty()) alignment.set_sample_name(sample_name);
         if (!read_group.empty()) alignment.set_read_group(read_group);
         if (output_json) {
@@ -2217,7 +2214,7 @@ int main_map(int argc, char** argv) {
                     more_data = std::getline(in,line);
                 }
                 if (!line.empty()) {
-                    Alignment alignment = mapper[tid]->align(line, kmer_size, kmer_stride);
+                    Alignment alignment = mapper[tid]->align(line, kmer_size, kmer_stride, band_width);
                     if (!sample_name.empty()) alignment.set_sample_name(sample_name);
                     if (!read_group.empty()) alignment.set_read_group(read_group);
                     if (output_json) {
@@ -2241,10 +2238,11 @@ int main_map(int argc, char** argv) {
              &output_buffer,
              &output_json,
              &kmer_size,
-             &kmer_stride]
+             &kmer_stride,
+             &band_width]
             (Alignment& alignment) {
             int tid = omp_get_thread_num();
-            alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride);
+            alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride, band_width);
             if (output_json) {
                 char *json2 = pb2json(alignment);
 #pragma omp critical (cout)
@@ -2269,10 +2267,11 @@ int main_map(int argc, char** argv) {
                  &output_json,
                  &kmer_size,
                  &kmer_stride,
+                 &band_width,
                  &pair_window]
                 (Alignment& aln1, Alignment& aln2) {
                 int tid = omp_get_thread_num();
-                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, pair_window);
+                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
                 if (output_json) {
                     char *json1 = pb2json(alnp.first);
                     char *json2 = pb2json(alnp.second);
@@ -2294,10 +2293,11 @@ int main_map(int argc, char** argv) {
                  &output_buffer,
                  &output_json,
                  &kmer_size,
-                 &kmer_stride]
+                 &kmer_stride,
+                 &band_width]
                 (Alignment& alignment) {
                 int tid = omp_get_thread_num();
-                alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride);
+                alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride, band_width);
                 if (output_json) {
                     char *json2 = pb2json(alignment);
 #pragma omp critical (cout)
@@ -2318,10 +2318,11 @@ int main_map(int argc, char** argv) {
                  &output_json,
                  &kmer_size,
                  &kmer_stride,
+                 &band_width,
                  &pair_window]
                 (Alignment& aln1, Alignment& aln2) {
                 int tid = omp_get_thread_num();
-                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, pair_window);
+                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
                 if (output_json) {
                     char *json1 = pb2json(alnp.first);
                     char *json2 = pb2json(alnp.second);
@@ -2604,7 +2605,7 @@ int main_view(int argc, char** argv) {
     } else if (output_type == "paths") {
         function<void(Path&)> dump_path = [](Path& p) {
             for (int i = 0; i < p.mapping_size(); ++i) {
-                cout << p.name() << "\t" << p.mapping(i).node_id() << endl;
+                cout << p.name() << "\t" << p.mapping(i).position().node_id() << endl;
             }
         };
         graph->paths.for_each(dump_path);

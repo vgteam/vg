@@ -83,7 +83,7 @@ void Paths::extend(Path& p) {
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
         path.push_back(m);
-        get_node_mapping(m.node_id()).insert(make_pair(p.name(), &path.back()));
+        get_node_mapping(m.position().node_id()).insert(make_pair(p.name(), &path.back()));
     }
 }
 
@@ -125,7 +125,7 @@ Path& append_path(Path& a, const Path& b) {
 // problem, won't allow us to keep multiple identical mapping to the same node,
 // as will happen with looping paths
 bool Paths::has_mapping(const string& name, const Mapping& m) {
-    auto& node_mapping = get_node_mapping(m.node_id());
+    auto& node_mapping = get_node_mapping(m.position().node_id());
     for (auto& p : node_mapping) {
         const string& path_name = p.first;
         if (path_name == name) {
@@ -143,7 +143,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
         pt.push_back(m);
         Mapping* mp = &pt.back();
         // add it to the node mappings
-        auto& ms = get_node_mapping(m.node_id());
+        auto& ms = get_node_mapping(m.position().node_id());
         ms.insert(make_pair(name, mp));
         list<Mapping>::iterator mi = pt.end(); --mi;
         mapping_itr[mp] = mi;
@@ -153,8 +153,8 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
 
 void Paths::append_mapping(const string& name, int64_t id, bool is_reverse) {
     Mapping m;
-    m.set_node_id(id);
-    if (is_reverse) m.set_is_reverse(true);
+    m.mutable_position()->set_node_id(id);
+    m.set_is_reverse(is_reverse);
     append_mapping(name, m);
 }
 
@@ -167,7 +167,7 @@ void Paths::increment_node_ids(int64_t inc) {
         const string& name = p.first;
         list<Mapping>& path = p.second;
         for (auto& m : path) {
-            m.set_node_id(m.node_id()+inc);
+            m.mutable_position()->set_node_id(m.position().node_id()+inc);
         }
     }
     rebuild_node_mapping();
@@ -180,7 +180,7 @@ void Paths::rebuild_node_mapping(void) {
         const string& path_name = p.first;
         list<Mapping>& path = p.second;
         for (auto& m : path) {
-            get_node_mapping(m.node_id()).insert(make_pair(path_name, &m));
+            get_node_mapping(m.position().node_id()).insert(make_pair(path_name, &m));
         }
     }
 }
@@ -206,7 +206,7 @@ void Paths::remove_node(int64_t id) {
 list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     if (mapping_path.find(m) == mapping_path.end()) cerr << "no mapping" << endl;
     const string& path_name = mapping_path[m];
-    int64_t id = m->node_id();
+    int64_t id = m->position().node_id();
     auto& x = _paths[path_name];
     list<Mapping>::iterator p = _paths[path_name].erase(mapping_itr[m]);
     if (has_node_mapping(id)) {
@@ -229,7 +229,7 @@ list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const s
     } else {
         p = path.insert(w, m);
     }
-    get_node_mapping(m.node_id()).insert(make_pair(path_name, &*p));
+    get_node_mapping(m.position().node_id()).insert(make_pair(path_name, &*p));
     mapping_path[&*p] = path_name;
     mapping_itr[&*p] = p;
     return p;
@@ -382,11 +382,8 @@ int mapping_to_length(const Mapping& m) {
     int l = 0;
     for (int i = 0; i < m.edit_size(); ++i) {
         const Edit& e = m.edit(i);
-        if (e.has_from_length() && !e.has_to_length()) {
-            l += e.from_length();
-        } else {
-            l += e.to_length();
-        }
+        l += e.from_length();
+        l += e.to_length();
     }
     return l;
 }
@@ -404,33 +401,43 @@ int mapping_from_length(const Mapping& m) {
 void path_into_mappings(const Path& path, map<int64_t, vector<Mapping> >& mappings) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         const Mapping& m = path.mapping(i);
-        mappings[m.node_id()].push_back(m);
+        mappings[m.position().node_id()].push_back(m);
     }
 }
 
 // designed for merging longer paths with substantial overlap into one long path
 Path merge_paths(vector<Path>& paths) {
-    Path result;
-    map<int64_t, map<int32_t, vector<Path*> > > paths_by_position;
+    map<int64_t, map<int32_t, list<Path*> > > paths_by_position;
     for (auto& path: paths) {
         if (path.mapping_size() > 0) {
             const Mapping& mapping = path.mapping(0);
-            paths_by_position[mapping.node_id()][mapping.offset()].push_back(&path);
+            paths_by_position[mapping.position().node_id()][mapping.position().offset()].push_back(&path);
         }
     }
+    // == the first path
+    Path result = *paths_by_position.begin()->second.begin()->second.front();
+    paths_by_position.begin()->second.begin()->second.pop_front();
     for (auto& n : paths_by_position) {
         for (auto& o : n.second) {
             for (auto& p : o.second) {
+
+                // you need to join the end of the first to the beginning of the second
+                // one problem is soft clipping--- this needs to be handled 
+                // otherwise we want the last path-matching position in the first
+                // and the first path-matching position in the second
+                // we need to determine their positional difference
+                
                 Path path = *p;
-                // scan forward in this path until we're past the soft clips
+                // scan forward in this path until we're past the soft clips and/or offset
                 const Edit& first_edit = path.mapping(0).edit(0);
-                bool has_softclip = (first_edit.from_length() == 0 && first_edit.to_length() > 0);
-                int merge_from = has_softclip ? 1 : 0;
-                int64_t merge_at_id = path.mapping(merge_from).node_id();
+                bool has_softclip_or_offset = (path.mapping(0).position().offset() > 0
+                                               || first_edit.from_length() == 0 && first_edit.to_length() > 0);
+                int merge_from = has_softclip_or_offset ? 1 : 0;
+                int64_t merge_at_id = path.mapping(merge_from).position().node_id();
                 // scan backwards in the result path until we get to the same node/offset in this path
                 int cut_result_at = 0;
                 for (int i = result.mapping_size()-1; i > 0; --i) {
-                    if (result.mapping(i).node_id() == merge_at_id) {
+                    if (result.mapping(i).position().node_id() == merge_at_id) {
                         cut_result_at = i; break;
                     }
                 }

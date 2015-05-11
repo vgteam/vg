@@ -428,7 +428,7 @@ string alignment_to_sam(const Alignment& alignment,
                         const int32_t tlen) {
     stringstream sam;
 
-    sam << (alignment.has_name() ? alignment.name() : "*") << "\t"
+    sam << (!alignment.name().empty() ? alignment.name() : "*") << "\t"
         << sam_flag(alignment) << "\t"
         << (refseq.empty() ? "*" : refseq) << "\t"
         << refpos + 1 << "\t"
@@ -438,9 +438,9 @@ string alignment_to_sam(const Alignment& alignment,
         << (mateseq == refseq ? "=" : mateseq) << "\t"
         << matepos + 1 << "\t"
         << tlen << "\t"
-        << (alignment.has_sequence() ? alignment.sequence() : "*") << "\t";
+        << (!alignment.sequence().empty() ? alignment.sequence() : "*") << "\t";
     // hack much?
-    if (alignment.has_quality()) {
+    if (!alignment.quality().empty()) {
         const string& quality = alignment.quality();
         for (int i = 0; i < quality.size(); ++i) {
             sam << quality_short_to_char(quality[i]);
@@ -450,7 +450,7 @@ string alignment_to_sam(const Alignment& alignment,
         //sam << string(alignment.sequence().size(), 'I');
     }
     //<< (alignment.has_quality() ? string_quality_short_to_char(alignment.quality()) : string(alignment.sequence().size(), 'I'));
-    if (alignment.has_read_group()) sam << "\tRG:Z:" << alignment.read_group();
+    if (!alignment.read_group().empty()) sam << "\tRG:Z:" << alignment.read_group();
     sam << "\n";
     return sam.str();
 }
@@ -544,11 +544,8 @@ int to_length(const Mapping& m) {
     int l = 0;
     for (int i = 0; i < m.edit_size(); ++i) {
         const Edit& e = m.edit(i);
-        if (e.has_from_length() && !e.has_to_length()) {
-            l += e.from_length();
-        } else {
-            l += e.to_length();
-        }
+        l += e.from_length();
+        l += e.to_length();
     }
     return l;
 }
@@ -561,6 +558,25 @@ int from_length(const Mapping& m) {
     }
     return l;
 
+}
+
+void merge_alignments(Alignment& a1, const Alignment& a2) {
+    vector<Path> paths = { a1.path(), a2.path() };
+    cerr << "-------------------------------------" << endl;
+    char *json2 = pb2json(a1);
+    cout<<json2<<endl;
+    free(json2);
+    json2 = pb2json(a2);
+    cout<<json2<<endl;
+    free(json2);
+    Path merged_path = merge_paths(paths);
+    int a1_length = path_to_length(a1.path());
+    int a2_length = path_to_length(a2.path());
+    int merged_length = path_to_length(merged_path);
+    cerr << "a1l = " << a1_length << " a2l = " << a2_length << " ml = " << merged_length << endl;
+    int diff = (a1_length + a2_length) - merged_length;
+    a1.mutable_sequence()->append(a2.sequence().substr(diff));
+    *a1.mutable_path() = merged_path;
 }
 
 }

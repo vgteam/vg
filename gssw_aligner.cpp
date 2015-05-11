@@ -95,8 +95,8 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
         Node* from_node = (Node*) nc->node->data;
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
-        mapping->set_node_id(nc->node->id);
-        mapping->set_offset(from_pos);
+        mapping->mutable_position()->set_node_id(nc->node->id);
+        mapping->mutable_position()->set_offset(from_pos);
         gssw_cigar* c = nc->cigar;
         int l = c->length;
         gssw_cigar_element* e = c->elements;
@@ -120,6 +120,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                         if (h-last_start > 0) {
                             edit = mapping->add_edit();
                             edit->set_from_length(h-last_start);
+                            edit->set_to_length(h-last_start);
                         }
                         // set up the SNP
                         edit = mapping->add_edit();
@@ -133,6 +134,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                 if (h-last_start > 0) {
                     edit = mapping->add_edit();
                     edit->set_from_length(h-last_start);
+                    edit->set_to_length(h-last_start);
                 }
                 to_pos += length;
                 from_pos += length;

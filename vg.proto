@@ -1,5 +1,6 @@
-package vg;
+syntax = "proto3";
 
+package vg;
 
 // *Graphs* are collections of nodes and edges
 // They can represent subgraphs of larger graphs
@@ -11,7 +12,7 @@ message Graph {
     repeated Node node = 1;
     repeated Edge edge = 2;
     repeated Path path = 3;
-    repeated Info info = 4;
+    map<string, Info> info = 4;
 }
 
 // *Nodes* store sequence data and also links to other nodes.
@@ -22,7 +23,7 @@ message Node {
     optional string name = 2;  // a name provides an identifier
     optional int64 id = 3;     // ids are critical, and unique within a graph
     optional bytes data = 4;   // arbitrary data
-    repeated Info info = 5;
+    map<string, Info> info = 5;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
@@ -33,7 +34,7 @@ message Edge {
     optional bool from_start = 3; // if the edge leaves from the 5' (start) of a node
     optional bool to_end = 4; // if the edge goes to the 3' (end) of a node
     optional bytes data = 5; // arbitrary data
-    repeated Info info = 6;
+    map<string, Info> info = 6;
 }
 
 // info fields can be used to annotate objects in the graph
@@ -42,7 +43,7 @@ message Info {
     optional string str = 2;
     optional int64 int = 3;
     optional bytes data = 4;
-    repeated Info info = 5;
+    map<string, Info> info = 5;
 }
 
 // *Edits* describe how to generate a new string from elements
@@ -50,7 +51,7 @@ message Info {
 // stepping from_length distance in the basis node, and to_length in the
 // novel element, replacing from_length in the basis node with the sequence.
 //
-// *matches* from_length == to_length, or from_length > 0 and offset unset
+// *matches* from_length == to_length
 // *snps* from_length == to_length; sequence = alt
 // *deletions* from_length > to_length; sequence may be unset or empty
 // *insertions* from_length < to_length; sequence contains relative insertion
@@ -60,18 +61,25 @@ message Edit {
     optional int32 from_length = 1; // length in target/ref
     optional int32 to_length = 2; // length in read/alt
     optional string sequence = 3;
-    repeated Info info = 4;
+    map<string, Info> info = 4;
 }
 
 // A Mapping defines the relationship between a node in system and another entity.
 // An empty edit list implies complete match.
 //
 message Mapping {
+    optional Position position = 1;
+    repeated Edit edit = 2; // series of edit to transform to region in read/alt
+    optional bool is_reverse = 3; // does the mapping go from the end of the node to the start
+    map<string, Info> info = 4;
+}
+
+// A position in the graph is a pair of node and offset
+//
+message Position {
     optional int64 node_id = 1;
     optional int64 offset = 2;
-    repeated Edit edit = 3; // series of edit to transform to region in read/alt
-    optional bool is_reverse = 4; // does the mapping go from the end of the node to the start
-    repeated Info info = 5;
+    map<string, Info> info = 3;
 }
 
 // Paths are walks through nodes defined by a series of edits.
@@ -85,7 +93,7 @@ message Mapping {
 message Path {
     optional string name = 1;
     repeated Mapping mapping = 2;
-    repeated Info info = 3;
+    map<string, Info> info = 3;
 }
 
 // Alignments link query strings, such as other genomes or reads, to paths.
@@ -104,7 +112,7 @@ message Alignment {
     optional Alignment fragment_prev = 11; // e.g. contains an alignment with only a name, or only a graph mapping position
     optional Alignment fragment_next = 12; // same thing for next in fragment
     optional bytes data = 13;
-    repeated Info info = 14;
+    map<string, Info> info = 14;
 }
 
 // Fragments represent the library fragments that yield pairs of alignments

@@ -7,6 +7,8 @@
 #include <ctime>
 #include "vg.hpp"
 #include "index.hpp"
+#include "alignment.hpp"
+#include "path.hpp"
 #include "pb2json.h"
 
 namespace vg {
@@ -22,16 +24,19 @@ public:
     ~Mapper(void);
     Index* index;
 
-    Alignment align(string& seq, int kmer_size = 0, int stride = 0);
-    Alignment align(Alignment& read, int kmer_size = 0, int stride = 0);
+    Alignment align(string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    Alignment align(Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
 
     void align_mate_in_window(Alignment& read1, Alignment& read2, int pair_window);
+
+    Alignment align_banded(Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
 
     // paired-end based
     pair<Alignment, Alignment> align_paired(Alignment& read1,
                                             Alignment& read2,
                                             int kmer_size = 0,
                                             int stride = 0,
+                                            int band_width = 1000,
                                             int pair_window = 64);
 
     // base algorithm for above

@@ -30,10 +30,10 @@ Mapper::~Mapper(void) {
     // noop
 }
 
-Alignment Mapper::align(string& seq, int kmer_size, int stride) {
+Alignment Mapper::align(string& seq, int kmer_size, int stride, int band_width) {
     Alignment aln;
     aln.set_sequence(seq);
-    return align(aln, kmer_size, stride);
+    return align(aln, kmer_size, stride, band_width);
 }
 
 // align read2 near read1's mapping location
@@ -41,8 +41,8 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     if (read1.score() == 0) return; // bail out if we haven't aligned the first
     // try to recover in region
     Path* path = read1.mutable_path();
-    int64_t idf = path->mutable_mapping(0)->node_id();
-    int64_t idl = path->mutable_mapping(path->mapping_size()-1)->node_id();
+    int64_t idf = path->mutable_mapping(0)->position().node_id();
+    int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
     // but which way should we expand? this will make things much easier
     // just use the whole "window" for now
     int64_t first = max((int64_t)0, idf - pair_window);
@@ -55,7 +55,7 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     delete graph;
 }
 
-pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& read2, int kmer_size, int stride, int pair_window) {
+pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& read2, int kmer_size, int stride, int band_width, int pair_window) {
 
     // use paired-end resolution techniques
     //
@@ -70,8 +70,8 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
     //           detect read orientation and mean (and sd) of pair distance
 
     //if (try_both_first) {
-    Alignment aln1 = align(read1, kmer_size, stride);
-    Alignment aln2 = align(read2, kmer_size, stride);
+    Alignment aln1 = align(read1, kmer_size, stride, band_width);
+    Alignment aln2 = align(read2, kmer_size, stride, band_width);
     // link the fragments
     aln1.mutable_fragment_next()->set_name(aln2.name());
     aln2.mutable_fragment_prev()->set_name(aln1.name());
@@ -97,7 +97,42 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
 
 }
 
-Alignment Mapper::align(Alignment& aln, int kmer_size, int stride) {
+Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int band_width) {
+    // split the alignment up into overlapping chunks of band_width size
+    list<Alignment> alignments;
+    assert(read.sequence().size() > band_width);
+    int div = 2;
+    while (read.sequence().size()/div > band_width) {
+        ++div;
+    }
+    int segment_size = read.sequence().size()/div;
+    // and overlap them too
+    Alignment merged;
+    for (int i = 0; i < div; ++i) {
+        {
+            Alignment aln = read;
+            aln.set_sequence(read.sequence().substr(i*segment_size, segment_size));
+            if (i == 0) {
+                merged = align(aln, kmer_size, stride);
+            } else {
+                merge_alignments(merged, align(aln, kmer_size, stride));
+            }
+        }
+        // and the overlapped bit --- here we're using 50% overlap
+        if (i != div-1) { // if we're not at the last sequence
+            Alignment aln = read;
+            aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2, segment_size));
+            merge_alignments(merged, align(aln, kmer_size, stride));
+        }
+    }
+    return merged;
+}
+
+Alignment Mapper::align(Alignment& aln, int kmer_size, int stride, int band_width) {
+
+    if (aln.sequence().size() > band_width) {
+        return align_banded(aln, kmer_size, stride, band_width);
+    }
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
     if (debug) start_both = std::chrono::system_clock::now();
@@ -421,8 +456,8 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         VG* graph = new VG;
         Path* path = alignment.mutable_path();
 
-        int64_t idf = path->mutable_mapping(0)->node_id();
-        int64_t idl = path->mutable_mapping(path->mapping_size()-1)->node_id();
+        int64_t idf = path->mutable_mapping(0)->position().node_id();
+        int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
         // step towards the side where there were soft clips
         // using 10x the thread_extension
         int64_t first = max((int64_t)0, idf - (int64_t)(sc_start ? thread_ex * 10 : 0));

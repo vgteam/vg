@@ -282,7 +282,7 @@ const string Index::key_for_mapping_prefix(int64_t node_id) {
 const string Index::key_for_mapping(const Mapping& mapping) {
     string data;
     mapping.SerializeToString(&data);
-    const string prefix = key_for_mapping_prefix(mapping.node_id());
+    const string prefix = key_for_mapping_prefix(mapping.position().node_id());
     // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
     const string hash = sha1head(data, 8);
     string key = prefix;
@@ -308,7 +308,7 @@ const string Index::key_for_alignment_prefix(int64_t node_id) {
 const string Index::key_for_alignment(const Alignment& alignment) {
     string data;
     alignment.SerializeToString(&data);
-    const string prefix = key_for_alignment_prefix(alignment.path().mapping(0).node_id());
+    const string prefix = key_for_alignment_prefix(alignment.path().mapping(0).position().node_id());
     // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
     // maybe this shouldn't be a hash, but a random nonce--- although keep in mind
     // that for the alignment to be identical, it would need the same read name, quality score, sequence, mapping, etc.
@@ -730,7 +730,7 @@ void Index::store_paths(VG& graph) {
 void Index::store_path(VG& graph, Path& path) {
     // get a new path id
     // if there is no name, cry
-    if (!path.has_name()) {
+    if (path.name().empty()) {
         cerr << "[vg::Index] error, path has no name" << endl;
         exit(1);
     }
@@ -748,13 +748,13 @@ void Index::store_path(VG& graph, Path& path) {
 
         const Mapping& mapping = path.mapping(i);
         // put an entry in the path table
-        put_path_position(path_id, path_pos, mapping.node_id(), mapping);
+        put_path_position(path_id, path_pos, mapping.position().node_id(), mapping);
         // put an entry in the graph table
-        put_node_path(mapping.node_id(), path_id, path_pos, mapping);
+        put_node_path(mapping.position().node_id(), path_id, path_pos, mapping);
 
         // get the node, to find the size of this step
         Node node;
-        get_node(mapping.node_id(), node);
+        get_node(mapping.position().node_id(), node);
         // TODO use the cigar... if there is one
         path_pos += node.sequence().size();
 
@@ -941,7 +941,7 @@ Mapping Index::path_relative_mapping(int64_t node_id, int64_t path_id,
                                      list<int64_t>& path_prev, int64_t& prev_pos,
                                      list<int64_t>& path_next, int64_t& next_pos) {
     Mapping mapping;
-    mapping.set_node_id(node_id);
+    mapping.mutable_position()->set_node_id(node_id);
     // what about offset?
     if (get_node_path_relative_position(node_id, path_id,
                                         path_prev, prev_pos, path_next, next_pos)) {
@@ -992,8 +992,8 @@ bool Index::surject_alignment(const Alignment& source,
     if (!source.has_path() || source.path().mapping_size() == 0) {
         return false;
     }
-    int64_t from_id = source.path().mapping(0).node_id() - window;
-    int64_t to_id = source.path().mapping(source.path().mapping_size()-1).node_id() + window;
+    int64_t from_id = source.path().mapping(0).position().node_id() - window;
+    int64_t to_id = source.path().mapping(source.path().mapping_size()-1).position().node_id() + window;
     get_range(max((int64_t)0, from_id), to_id, graph);
     graph.remove_orphan_edges();
     // which path(s) did we keep?
@@ -1009,8 +1009,8 @@ bool Index::surject_alignment(const Alignment& source,
         path_name = *kept_paths.begin();
 
         int64_t path_id = get_path_id(path_name);
-        int64_t hit_id = surjection.path().mapping(0).node_id();
-        int64_t pos = surjection.path().mapping(0).offset();
+        int64_t hit_id = surjection.path().mapping(0).position().node_id();
+        int64_t pos = surjection.path().mapping(0).position().offset();
         // we pick up positional information using the index
         int64_t prev_pos=0, next_pos=0;
         list<int64_t> path_prev, path_next;

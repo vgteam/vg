@@ -6,6 +6,7 @@
 #include <zlib.h>
 #include "vg.hpp"
 #include "index.hpp"
+#include "path.hpp"
 
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
@@ -70,6 +71,7 @@ int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
 int to_length(const Mapping& m);
 int from_length(const Mapping& m);
+void merge_alignments(Alignment& a1, const Alignment& a2);
 
 }
 

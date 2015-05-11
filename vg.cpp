@@ -454,7 +454,7 @@ void VG::compact_ids(void) {
             e->set_from(new_id[e->from()]);
             e->set_to(new_id[e->to()]); });
     paths.for_each_mapping([&new_id](Mapping* m) {
-            m->set_node_id(new_id[m->node_id()]);
+            m->mutable_position()->set_node_id(new_id[m->position().node_id()]);
         });
     rebuild_indexes();
 }
@@ -956,32 +956,30 @@ void VG::print_edges(void) {
 
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
     for (const auto& edit : mapping.edit()) {
-        if (edit.has_from_length()) {
-            if (!edit.has_to_length()) {
+        if (edit.from_length() && edit.from_length() == edit.to_length()) {
 // *matches* from_length == to_length, or from_length > 0 and offset unset
-                // match state
-                cigar.push_back(make_pair(edit.from_length(), 'M'));
-            } else {
-                // mismatch/sub state
+            // match state
+            cigar.push_back(make_pair(edit.from_length(), 'M'));
+        } else {
+            // mismatch/sub state
 // *snps* from_length == to_length; sequence = alt
-                if (edit.from_length() == edit.to_length()) {
-                    cigar.push_back(make_pair(edit.from_length(), 'M'));
-                } else if (edit.from_length() == 0 && !edit.has_sequence()) {
+            if (edit.from_length() == edit.to_length()) {
+                cigar.push_back(make_pair(edit.from_length(), 'M'));
+            } else if (edit.from_length() == 0 && edit.sequence().empty()) {
 // *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
-                    cigar.push_back(make_pair(edit.to_length(), 'S'));
-                } else if (edit.from_length() > edit.to_length()) {
+                cigar.push_back(make_pair(edit.to_length(), 'S'));
+            } else if (edit.from_length() > edit.to_length()) {
 // *deletions* from_length > to_length; sequence may be unset or empty
-                    int32_t del = edit.from_length() - edit.to_length();
-                    int32_t eq = edit.to_length();
-                    if (eq) cigar.push_back(make_pair(eq, 'M'));
-                    cigar.push_back(make_pair(del, 'D'));
-                } else if (edit.from_length() < edit.to_length()) {
+                int32_t del = edit.from_length() - edit.to_length();
+                int32_t eq = edit.to_length();
+                if (eq) cigar.push_back(make_pair(eq, 'M'));
+                cigar.push_back(make_pair(del, 'D'));
+            } else if (edit.from_length() < edit.to_length()) {
 // *insertions* from_length < to_length; sequence contains relative insertion
-                    int32_t ins = edit.to_length() - edit.from_length();
-                    int32_t eq = edit.from_length();
-                    if (eq) cigar.push_back(make_pair(eq, 'M'));
-                    cigar.push_back(make_pair(ins, 'I'));
-                }
+                int32_t ins = edit.to_length() - edit.from_length();
+                int32_t eq = edit.from_length();
+                if (eq) cigar.push_back(make_pair(eq, 'M'));
+                cigar.push_back(make_pair(ins, 'I'));
             }
         }
     }
@@ -1024,8 +1022,8 @@ bool allATGC(string& s) {
 void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* nl, Node* nr) {
     // an invariant mapping is, by definition, without any edits
     assert(orig.edit_size() == 0);
-    left.set_node_id(nl->id());
-    right.set_node_id(nr->id());
+    left.mutable_position()->set_node_id(nl->id());
+    right.mutable_position()->set_node_id(nr->id());
 }
 
 void VG::create_progress(const string& message, long count) {
@@ -2115,7 +2113,7 @@ Path VG::create_path(const list<Node*>& nodes) {
     Path path;
     for (list<Node*>::const_iterator n = nodes.begin(); n != nodes.end(); ++n) {
         Mapping* mapping = path.add_mapping();
-        mapping->set_node_id((*n)->id());
+        mapping->mutable_position()->set_node_id((*n)->id());
         // assumed to be always forward
     }
     return path;
@@ -2133,8 +2131,8 @@ string VG::path_string(Path& path) {
     string seq;
     for (int i = 0; i < path.mapping_size(); ++i) {
         Mapping* m = path.mutable_mapping(i);
-        Node* n = node_by_id[m->node_id()];
-        if (m->has_is_reverse() && m->is_reverse()) {
+        Node* n = node_by_id[m->position().node_id()];
+        if (m->is_reverse()) {
             seq.append(reverse_complement(n->sequence()));
         } else {
             seq.append(n->sequence());
@@ -2160,15 +2158,15 @@ void VG::include(const Path& path) {
     for (int i = 0; i < path.mapping_size(); ++i) {
         const Mapping& m = path.mapping(i);
         // TODO is it reversed?
-        Node* n = get_node(m.node_id());
-        int f = m.offset();
+        Node* n = get_node(m.position().node_id());
+        int f = m.position().offset();
         int t = 0;
         for (int j = 0; j < m.edit_size(); ++j) {
             const Edit& edit = m.edit(j);
-            if (edit.has_from_length() && !edit.has_to_length()) {
+            if (edit.from_length() && edit.from_length() == edit.to_length()) {
                 f += edit.from_length();
                 t += edit.from_length();
-            } else if (edit.has_from_length() && edit.has_to_length() ) {
+            } else {
                 // cut at f, and f + from_length
                 Node* l=NULL;
                 Node* r=NULL;
@@ -2192,7 +2190,7 @@ void VG::include(const Path& path) {
                         create_edge(c, r);
                         n = r;
                     }
-                } else if (edit.has_sequence()) {
+                } else if (!edit.sequence().empty()) { // create a node
                     divide_node(n, f, l, r);
                     n = r; f = 0; t = 0;
                     // insertion
@@ -2221,22 +2219,22 @@ void VG::edit_node(int64_t node_id, const vector<Mapping>& mappings) {
     map<pair<int, int>, set<string> > cut_seqs;
     for (auto& mapping : mappings) {
         // check that we're really working on one node
-        assert(mapping.node_id() == node_id);
+        assert(mapping.position().node_id() == node_id);
         int offset = 0;
         for (int i = 0; i < mapping.edit_size(); ++i) {
             const Edit& edit = mapping.edit(i);
             //edits[offset].push_back(edit);
-            if (edit.has_from_length()) {
-                int end = offset + edit.from_length();
-                if (edit.has_to_length()
-                    && !(edit.from_length() == 0 // ignore soft clips
-                         && (offset == 0 || i == mapping.edit_size() - 1))) {
-                    cut_seqs[make_pair(offset, end)].insert(edit.has_sequence() ? edit.sequence() : "");
-                    cut_at.insert(offset);
-                    cut_at.insert(end);
-                }
-                offset = end;
+            int end = offset + edit.from_length();
+            if (edit.from_length() == edit.to_length() ||
+                (i == 0 || i == mapping.edit_size() - 1) && edit.from_length() == 0) {
+                // soft clip, ignore
+                // match, ignore
+            } else {
+                cut_seqs[make_pair(offset, end)].insert(edit.sequence());
+                cut_at.insert(offset);
+                cut_at.insert(end);
             }
+            offset = end;
         }
     }
 
@@ -2345,10 +2343,11 @@ void VG::kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int ed
     }
 }
 
+// not quite right -- only for exact matching paths
 string VG::path_sequence(const Path& path) {
     string sequence;
     for (int i = 0; i < path.mapping_size(); ++i) {
-        sequence.append(node_by_id[path.mapping(i).node_id()]->sequence());
+        sequence.append(node_by_id[path.mapping(i).position().node_id()]->sequence());
     }
     return sequence;
 }
@@ -2552,7 +2551,7 @@ void VG::to_gfa(ostream& out) {
                 cigarss << n->sequence().size() << "M";
                 cigar = cigarss.str();
             }
-            string orientation = mapping.has_is_reverse() && mapping.is_reverse() ? "-" : "+";
+            string orientation = mapping.is_reverse() ? "-" : "+";
             s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
               << orientation << "\t" << cigar << "\n";
         }
