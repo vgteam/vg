@@ -69,8 +69,6 @@ void alignment_quality_short_to_char(Alignment& alignment);
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
 int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
-int to_length(const Mapping& m);
-int from_length(const Mapping& m);
 void merge_alignments(Alignment& a1, const Alignment& a2);
 
 }

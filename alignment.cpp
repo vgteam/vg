@@ -540,43 +540,29 @@ int alignment_from_length(const Alignment& a) {
     return l;
 }
 
-int to_length(const Mapping& m) {
-    int l = 0;
-    for (int i = 0; i < m.edit_size(); ++i) {
-        const Edit& e = m.edit(i);
-        l += e.from_length();
-        l += e.to_length();
-    }
-    return l;
-}
-
-int from_length(const Mapping& m) {
-    int l = 0;
-    for (int i = 0; i < m.edit_size(); ++i) {
-        const Edit& e = m.edit(i);
-        l += e.from_length();
-    }
-    return l;
-
-}
-
 void merge_alignments(Alignment& a1, const Alignment& a2) {
-    vector<Path> paths = { a1.path(), a2.path() };
+    /*
     cerr << "-------------------------------------" << endl;
     char *json2 = pb2json(a1);
-    cout<<json2<<endl;
+    cerr<<json2<<endl;
     free(json2);
     json2 = pb2json(a2);
-    cout<<json2<<endl;
+    cerr<<json2<<endl;
     free(json2);
-    Path merged_path = merge_paths(paths);
-    int a1_length = path_to_length(a1.path());
-    int a2_length = path_to_length(a2.path());
-    int merged_length = path_to_length(merged_path);
-    cerr << "a1l = " << a1_length << " a2l = " << a2_length << " ml = " << merged_length << endl;
-    int diff = (a1_length + a2_length) - merged_length;
-    a1.mutable_sequence()->append(a2.sequence().substr(diff));
+    */
+    int kept1, kept2;
+    Path merged_path = merge_paths(a1.path(), a2.path(), kept1, kept2);
+    //cerr << "kept " << kept1 << " " << kept2 << endl;
+    a1.set_sequence(a1.sequence().substr(0, kept1));
+    a1.mutable_sequence()->append(a2.sequence().substr(a2.sequence().size()-kept2));
     *a1.mutable_path() = merged_path;
+    if (path_to_length(a1.path()) != a1.sequence().size()) {
+        cerr << path_to_length(a1.path()) << " (to_length) != " << a1.sequence().size() << " (sequence size)" << endl;
+        char* json = pb2json(a1);
+        cerr<<json<<endl;
+        free(json);
+        exit(1);
+    }
 }
 
 }

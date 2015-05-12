@@ -382,7 +382,6 @@ int mapping_to_length(const Mapping& m) {
     int l = 0;
     for (int i = 0; i < m.edit_size(); ++i) {
         const Edit& e = m.edit(i);
-        l += e.from_length();
         l += e.to_length();
     }
     return l;
@@ -405,57 +404,180 @@ void path_into_mappings(const Path& path, map<int64_t, vector<Mapping> >& mappin
     }
 }
 
-// designed for merging longer paths with substantial overlap into one long path
-Path merge_paths(vector<Path>& paths) {
-    map<int64_t, map<int32_t, list<Path*> > > paths_by_position;
-    for (auto& path: paths) {
-        if (path.mapping_size() > 0) {
-            const Mapping& mapping = path.mapping(0);
-            paths_by_position[mapping.position().node_id()][mapping.position().offset()].push_back(&path);
-        }
+int softclip_start(const Mapping& mapping) {
+    int from_length = 0;
+    int to_length = 0;
+    int i = 0;
+    while (i < mapping.edit_size() && from_length == 0) {
+        from_length += mapping.edit(i).from_length();
+        if (from_length > 0) break;
+        to_length += mapping.edit(i).to_length();
+        ++i;
     }
-    // == the first path
-    Path result = *paths_by_position.begin()->second.begin()->second.front();
-    paths_by_position.begin()->second.begin()->second.pop_front();
-    for (auto& n : paths_by_position) {
-        for (auto& o : n.second) {
-            for (auto& p : o.second) {
+    return to_length;
+}
 
-                // you need to join the end of the first to the beginning of the second
-                // one problem is soft clipping--- this needs to be handled 
-                // otherwise we want the last path-matching position in the first
-                // and the first path-matching position in the second
-                // we need to determine their positional difference
-                
-                Path path = *p;
-                // scan forward in this path until we're past the soft clips and/or offset
-                const Edit& first_edit = path.mapping(0).edit(0);
-                bool has_softclip_or_offset = (path.mapping(0).position().offset() > 0
-                                               || first_edit.from_length() == 0 && first_edit.to_length() > 0);
-                int merge_from = has_softclip_or_offset ? 1 : 0;
-                int64_t merge_at_id = path.mapping(merge_from).position().node_id();
-                // scan backwards in the result path until we get to the same node/offset in this path
-                int cut_result_at = 0;
-                for (int i = result.mapping_size()-1; i > 0; --i) {
-                    if (result.mapping(i).position().node_id() == merge_at_id) {
-                        cut_result_at = i; break;
-                    }
+int softclip_end(const Mapping& mapping) {
+    int from_length = 0;
+    int to_length = 0;
+    int i = mapping.edit_size()-1;
+    while (i >= 0 && from_length == 0) {
+        from_length += mapping.edit(i).from_length();
+        if (from_length > 0) break;
+        to_length += mapping.edit(i).to_length();
+        --i;
+    }
+    return to_length;
+}
+
+// returns the first non-softclip position in the path
+Position first_path_position(const Path& path) {
+    // step through soft clips
+    int i = 0;
+    while (i < path.mapping_size()) {
+        if (from_length(path.mapping(i))) break;
+        ++i;
+    }
+    if (i == path.mapping_size()) { cerr << "[vg::Path] end of path without a from_length" << endl; exit(1); }
+    const Mapping& mapping = path.mapping(i);
+    // find the soft clip length here
+    Position pos = mapping.position();
+    pos.set_offset(pos.offset()+softclip_start(mapping));
+    return pos;
+}
+
+Position last_path_position(const Path& path) {
+    int i = path.mapping_size()-1;
+    while (i >= 0) {
+        if (from_length(path.mapping(i))) break;
+        --i;
+    }
+    if (i < 0) { cerr << "[vg::Path] start of path without a from_length" << endl; exit(1); }
+    const Mapping& mapping = path.mapping(i);
+    // find the soft clip length here
+    Position pos = mapping.position();
+    pos.set_offset(pos.offset() + from_length(mapping));
+    return pos;
+}
+
+int to_length(const Mapping& m) {
+    int l = 0;
+    for (int i = 0; i < m.edit_size(); ++i) {
+        const Edit& e = m.edit(i);
+        l += e.to_length();
+    }
+    return l;
+}
+
+int from_length(const Mapping& m) {
+    int l = 0;
+    for (int i = 0; i < m.edit_size(); ++i) {
+        const Edit& e = m.edit(i);
+        l += e.from_length();
+    }
+    return l;
+}
+
+// designed for merging longer paths with substantial overlap into one long path
+Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2) {
+
+    // how much of each path do we keep?
+    // used when manipulating path sequences elsewhere
+    kept_path1 = 0;
+    kept_path2 = 0;
+
+    // todo.... handle edge case
+    // where we match positions that split a single node
+    // probably we are going to get bit by this
+
+    // balanced algorithm
+    // step one position, then the other until the node ids match
+    int p1 = path1.mapping_size();
+    int p2 = -1; // and do the same for the first mapping
+    //int64_t p1_node, p2_node;
+    const Mapping* p1mp;
+    const Mapping* p2mp;
+    while (p1 > 0 && p2 < path2.mapping_size()-1) {
+        --p1;
+        p1mp = &path1.mapping(p1);
+        if (p2 != -1 && p1mp->position().node_id() == p2mp->position().node_id()) break;
+        ++p2;
+        p2mp = &path2.mapping(p2);
+        if (p1mp->position().node_id() == p2mp->position().node_id()) break;
+    }
+
+    //cerr << "p1 " << p1 << " p2 " << p2 << endl;
+    assert(p1mp->position().node_id() == p2mp->position().node_id());
+
+    const Mapping& p1m = *p1mp;
+    const Mapping& p2m = *p2mp;
+
+    Path result;
+
+    for (int i = 0; i < p1; ++i) {
+        Mapping* m = result.add_mapping();
+        *m = path1.mapping(i);
+        kept_path1 += to_length(*m);
+    }
+
+    // we are now pointing at the same node
+    // however, the alignment may not completely overlap the node
+    // so we need to ensure that we have overlap
+    //if (p1 == path1.mapping_size()-1 || p2 == 0) {
+        // we could be partially mapping to a node
+        // add up the total sequence length across the two
+        //to_length(
+    if (p2m.position().offset()) {
+        if (from_length(p1m) < p2m.position().offset()) {
+            char *json1 = pb2json(p1m);
+            char *json2 = pb2json(p1m);
+            cerr << "[vg::Path] cannot merge paths as their ends do not overlap" << endl
+                 <<json1 << endl << json2 <<endl;
+            free(json2); free(json1);
+            exit(1);
+        }
+        // we have overlap or match
+        kept_path1 += p2m.position().offset();
+        kept_path2 += to_length(p2m);
+        // make a new mapping that combines the two
+        Mapping* m = result.add_mapping();
+        *m->mutable_position() = p1m.position();
+        // now add the edits from the previous mapping to the next mapping
+        for (int i = 0; i < p1m.edit_size(); ++i) {
+            Edit* e = m->add_edit();
+            *e = p1m.edit(i);
+        }
+        // and skip this length in the next mapping
+        int to_skip = mapping_to_length(*m) - p2m.position().offset();
+        for (int i = 0; i < p2m.edit_size(); ++i) {
+            if (to_skip > p2m.edit(i).to_length()) {
+            } else {
+                // divide the edit
+                Edit* e = m->add_edit();
+                *e = p2m.edit(i);
+                e->set_to_length(e->to_length() - to_skip);
+                e->set_from_length(e->from_length() - to_skip);
+                if (!e->sequence().empty()) {
+                    e->set_sequence(e->sequence().substr(to_skip));
                 }
-                if (cut_result_at == 0) {
-                    cerr << "cannot merge paths, no overlap" << endl;
-                    exit(1);
-                }
-                int to_remove = result.mapping_size() - cut_result_at;
-                for (int i = 0; i < to_remove; ++i) {
-                    result.mutable_mapping()->RemoveLast();
-                }
-                // cut off the softclipped mapping if there is one
-                if (merge_from > 0) path.mutable_mapping()->erase(path.mutable_mapping()->begin());
-                // append this path to the result
-                result.mutable_mapping()->MergeFrom(path.mapping());
             }
         }
+        // offset is 0
+        m->mutable_position()->set_offset(0);
+    } else {
+        kept_path2 += to_length(p2m);
+        Mapping* m = result.add_mapping();
+        *m = p2m;
     }
+
+    if (p2+1 < path2.mapping_size()) {
+        for (int i = p2+1; i < path2.mapping_size(); ++i) {
+            Mapping* m = result.add_mapping();
+            *m = path2.mapping(i);
+            kept_path2 += to_length(*m);
+        }
+    }
+
     return result;
 }
 
