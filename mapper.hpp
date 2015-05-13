@@ -63,6 +63,7 @@ public:
     int softclip_threshold;
     float target_score_per_bp;
     bool prefer_forward;
+    bool greedy_accept;
 
 };
 

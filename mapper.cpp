@@ -15,6 +15,7 @@ Mapper::Mapper(Index* idex)
     , max_attempts(3)
     , softclip_threshold(0)
     , prefer_forward(false)
+    , greedy_accept(false)
     , target_score_per_bp(1.5)
     , debug(false)
 {
@@ -283,7 +284,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
 
     int max_iter = sequence.size();
     int iter = 0;
-    int context_step = 1;
     int64_t max_subgraph_size = 0;
     int max_thread_gap = 30; // counted in nodes
 
@@ -335,6 +335,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // now sort the threads and re-cluster them
 
     if (debug) {
+        cerr << "initial threads" << endl;
         for (auto& t : threads_by_length) {
             auto& length = t.first;
             auto& threads = t.second;
@@ -390,13 +391,16 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
 
     // debugging
     /*
-    for (auto& t : threads_by_last) {
-        auto& thread = t.second;
-        cerr << t.first << "\t";
-        for (auto& id : thread) {
-            cerr << id << " ";
+    if (debug) {
+        cerr << "threads by last" << endl;
+        for (auto& t : threads_by_last) {
+            auto& thread = t.second;
+            cerr << t.first << "\t";
+            for (auto& id : thread) {
+                cerr << id << " ";
+            }
+            cerr << endl;
         }
-        cerr << endl;
     }
     */
 
@@ -407,8 +411,25 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         threads.push_back(thread);
     }
 
+    if (debug) {
+        cerr << "threads ready for alignment" << endl;
+        for (auto& t : threads_by_length) {
+            auto& length = t.first;
+            auto& threads = t.second;
+            cerr << length << ":" << endl;
+            for (auto& thread : threads) {
+                cerr << "\t";
+                for (auto& id : thread) {
+                    cerr << id << " ";
+                }
+                cerr << endl;
+            }
+            cerr << endl;
+        }
+    }
+
     int thread_ex = thread_extension;
-    VG* graph = new VG;
+    map<vector<int64_t>*, Alignment> alignments;
 
     // collect the nodes from the best N threads by length
     // and expand subgraphs as before
@@ -420,23 +441,49 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         for (auto& thread : threads) {
             // thread extension should be determined during iteration
             // note that there is a problem and hits tend to be imbalanced
-            //int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
-            //int64_t last = *thread.rbegin() + thread_ex;
-            int64_t first = *thread.begin();
-            int64_t last = *thread.rbegin();
+            int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
+            int64_t last = *thread.rbegin() + thread_ex;
+            //int64_t first = *thread.begin();
+            //int64_t last = *thread.rbegin();
             // so we can pick it up efficiently from the index by pulling the range from first to last
             if (debug) cerr << "getting node range " << first << "-" << last << endl;
+            VG* graph = new VG;
             index->get_range(first, last, *graph);
+            Alignment& ta = alignments[&thread];
+            ta = alignment;
+            // by default, expand the graph a bit so we are likely to map
+            //index->get_connected_nodes(*graph);
+            graph->remove_orphan_edges();
+            // align
+            ta.clear_path();
+            graph->align(ta);
+            delete graph;
+            if (greedy_accept && (float)ta.score() / (float)ta.sequence().size() >= target_score_per_bp) {
+                break;
+            }
         }
     }
 
-    // by default, expand the graph a bit so we are likely to map
-    //index->get_connected_nodes(*graph);
-    graph->remove_orphan_edges();
-    // align
-    alignment.clear_path();
-    graph->align(alignment);
-    delete graph;
+    // now find the best alignment
+    int sum_score = 0;
+    double mean_score = 0;
+    map<int, set<Alignment*> > alignment_by_score;
+    for (auto& ta : alignments) {
+        Alignment* aln = &ta.second;
+        alignment_by_score[aln->score()].insert(aln);
+    }
+
+    // get the best alignment
+    set<Alignment*>& best = alignment_by_score.rbegin()->second;
+    //cerr << alignment_by_score.size() << endl;
+    if (!alignment_by_score.empty()) {
+        alignment = **best.begin();
+        if (debug) {
+            cerr << "best alignment score " << alignment.score() << endl;
+        }
+    } else {
+        alignment.clear_path();
+    }
 
     int sc_start = softclip_start(alignment);
     int sc_end = softclip_end(alignment);

@@ -1988,7 +1988,8 @@ void help_map(char** argv) {
          << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
-         << "    -X, --score-per-bp N  accept forward if the alignment score per base is > N and -F is set" << endl
+         << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
+         << "    -X, --score-per-bp N  accept early alignment if the alignment score per base is > N and -F or -G is set" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl;
@@ -2015,6 +2016,7 @@ int main_map(int argc, char** argv) {
     bool output_json = false;
     bool debug = false;
     bool prefer_forward = false;
+    bool greedy_accept = false;
     float score_per_bp = 0;
     string sample_name;
     string read_group;
@@ -2042,6 +2044,7 @@ int main_map(int argc, char** argv) {
                 {"hit-max", required_argument, 0, 'm'},
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
+                {"greedy-accept", no_argument, 0, 'G'},
                 {"score-per-bp", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"thread-ex", required_argument, 0, 'x'},
@@ -2056,7 +2059,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:G",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2139,6 +2142,10 @@ int main_map(int argc, char** argv) {
             prefer_forward = true;
             break;
 
+        case 'G':
+            greedy_accept = true;
+            break;
+
         case 'X':
             score_per_bp = atof(optarg);
             break;
@@ -2200,6 +2207,7 @@ int main_map(int argc, char** argv) {
         if (score_per_bp) m->target_score_per_bp = score_per_bp;
         if (sens_step) m->kmer_sensitivity_step = sens_step;
         m->prefer_forward = prefer_forward;
+        m->greedy_accept = greedy_accept;
         m->thread_extension = thread_ex;
         mapper[i] = m;
     }
