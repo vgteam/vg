@@ -616,6 +616,7 @@ void help_kmers(char** argv) {
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -d, --allow-dups      don't filter out duplicated kmers" << endl
+         << "    -n, --allow-negs      don't filter out relative negative positions of kmers" << endl
          << "    -g, --gcsa-out        output a table suitable for input to GCSA2" << endl
          << "                          kmer, starting position, previous characters," << endl
          << "                          successive characters, successive positions" << endl
@@ -635,6 +636,7 @@ int main_kmers(int argc, char** argv) {
     bool show_progress = false;
     bool gcsa_out = false;
     bool allow_dups = false;
+    bool allow_negs = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -648,12 +650,13 @@ int main_kmers(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"gcsa-out", no_argument, 0, 'g'},
                 {"allow-dups", no_argument, 0, 'd'},
+                {"allow-negs", no_argument, 0, 'n'},
                 {"progress",  no_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:gd",
+        c = getopt_long (argc, argv, "hk:j:pt:e:gdn",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -685,6 +688,10 @@ int main_kmers(int argc, char** argv) {
 
         case 'd':
             allow_dups = true;
+            break;
+
+        case 'n':
+            allow_negs = true;
             break;
 
         case 'p':
@@ -723,7 +730,7 @@ int main_kmers(int argc, char** argv) {
 #pragma omp critical (cout)
             cout << kmer << '\t' << n->id() << '\t' << p << '\n';
         };
-        graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride, allow_dups);
+        graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride, allow_dups, allow_negs);
     }
     cout.flush();
 
@@ -1575,6 +1582,7 @@ void help_index(char** argv) {
          << "    -e, --edge-max N       cross no more than N edges when determining k-paths" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
+         << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
@@ -1607,6 +1615,7 @@ int main_index(int argc, char** argv) {
     bool path_layout = false;
     bool store_alignments = false;
     bool store_mappings = false;
+    bool allow_negs = false;
     bool compact = false;
 
     int c;
@@ -1630,11 +1639,12 @@ int main_index(int argc, char** argv) {
                 {"prune",  required_argument, 0, 'P'},
                 {"path-layout", no_argument, 0, 'L'},
                 {"compact", no_argument, 0, 'C'},
+                {"allow-negs", no_argument, 0, 'n'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaC",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCn",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1693,6 +1703,10 @@ int main_index(int argc, char** argv) {
 
         case 'm':
             store_mappings = true;
+            break;
+
+        case 'n':
+            allow_negs = true;
             break;
 
         case 'C':
@@ -1802,7 +1816,7 @@ int main_index(int argc, char** argv) {
         index.open_for_bulk_load(db_name);
         VGset graphs(file_names);
         graphs.show_progress = show_progress;
-        graphs.index_kmers(index, kmer_size, edge_max, kmer_stride);
+        graphs.index_kmers(index, kmer_size, edge_max, kmer_stride, allow_negs);
         index.flush();
         index.close();
         // forces compaction
@@ -1969,6 +1983,7 @@ void help_map(char** argv) {
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default 5)" << endl
+         << "    -x, --thread-ex N     grab this many neighboring nodes around each thread for alignment (default 2)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl
          << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl
          << "    -t, --threads N       number of threads to use" << endl
@@ -1996,6 +2011,7 @@ int main_map(int argc, char** argv) {
     string hts_file;
     int hit_max = 100;
     int thread_count = 1;
+    int thread_ex = 2;
     bool output_json = false;
     bool debug = false;
     bool prefer_forward = false;
@@ -2028,6 +2044,7 @@ int main_map(int argc, char** argv) {
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"score-per-bp", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
+                {"thread-ex", required_argument, 0, 'x'},
                 {"output-json", no_argument, 0, 'J'},
                 {"hts-input", no_argument, 0, 'b'},
                 {"fastq", no_argument, 0, 'f'},
@@ -2039,7 +2056,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2074,6 +2091,10 @@ int main_map(int argc, char** argv) {
 
         case 'm':
             hit_max = atoi(optarg);
+            break;
+
+        case 'x':
+            thread_ex = atoi(optarg);
             break;
 
         case 'r':
@@ -2179,6 +2200,7 @@ int main_map(int argc, char** argv) {
         if (score_per_bp) m->target_score_per_bp = score_per_bp;
         if (sens_step) m->kmer_sensitivity_step = sens_step;
         m->prefer_forward = prefer_forward;
+        m->thread_extension = thread_ex;
         mapper[i] = m;
     }
 

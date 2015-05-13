@@ -13,7 +13,8 @@ is $? 0 "construction"
 vg index -s x.vg
 is $? 0 "indexing nodes and edges of graph"
 
-vg index -k 11 x.vg
+# note that we use "negatives" here even if it isn't so by default
+vg index -n -k 11 x.vg
 is $? 0 "indexing 11mers"
 
 node_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^S" | cut -f 2 | grep '1$\|2$\|9$\|5$\|6$\|8$' | wc -l)

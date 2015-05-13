@@ -356,12 +356,14 @@ public:
                                 int edge_max,
                                 function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                                 int stride = 1,
-                                bool allow_dups = false);
+                                bool allow_dups = false,
+                                bool allow_negatives = false);
     void for_each_kmer(int kmer_size,
                        int edge_max,
                        function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                        int stride = 1,
-                       bool allow_dups = false);
+                       bool allow_dups = false,
+                       bool allow_negatives = false);
     // for gcsa2
     void kmer_context(string& kmer,
                       list<Node*>& path,
@@ -377,7 +379,8 @@ private:
                         function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                         bool parallel,
                         int stride,
-                        bool allow_dups);
+                        bool allow_dups,
+                        bool allow_negatives);
 
 
 public:

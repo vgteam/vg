@@ -2647,16 +2647,18 @@ void VG::for_each_kmer_parallel(int kmer_size,
                                 int edge_max,
                                 function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                                 int stride,
-                                bool allow_dups) {
-    _for_each_kmer(kmer_size, edge_max, lambda, true, stride, allow_dups);
+                                bool allow_dups,
+                                bool allow_negatives) {
+    _for_each_kmer(kmer_size, edge_max, lambda, true, stride, allow_dups, allow_negatives);
 }
 
 void VG::for_each_kmer(int kmer_size,
                        int edge_max,
                        function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                        int stride,
-                       bool allow_dups) {
-    _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups);
+                       bool allow_dups,
+                       bool allow_negatives) {
+    _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups, allow_negatives);
 }
 
 void VG::_for_each_kmer(int kmer_size,
@@ -2664,7 +2666,8 @@ void VG::_for_each_kmer(int kmer_size,
                         function<void(string&, Node*, int, list<Node*>&, VG&)> lambda,
                         bool parallel,
                         int stride,
-                        bool allow_dups) {
+                        bool allow_dups,
+                        bool allow_negatives) {
 
     // use an LRU cache to clean up duplicates over the last 1mb
     // use one per thread so as to avoid contention
@@ -2695,6 +2698,7 @@ void VG::_for_each_kmer(int kmer_size,
                         kmer_size,
                         stride,
                         allow_dups,
+                        allow_negatives,
                         &lru,
                         &make_cache_key](Node* node, list<Node*>& path) {
 
@@ -2726,6 +2730,7 @@ void VG::_for_each_kmer(int kmer_size,
                 if (node == node_by_path_position[i+j]) {
                     int node_position = node_start[node];
                     int kmer_relative_start = i - node_position;
+                    if (!allow_negatives && kmer_relative_start < 0) { ++j; continue; }
                     if (allow_dups) {
                         // figure out end position and node
                         Node* end = (i+kmer_size >= node_by_path_position.size())

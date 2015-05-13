@@ -70,11 +70,11 @@ void VGset::store_paths_in_index(Index& index) {
 }
 
 // stores kmers of size kmer_size with stride over paths in graphs in the index
-void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
+void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride, bool allow_negatives) {
 
     // create a vector of output files
     // as many as there are threads
-    for_each([&index, kmer_size, edge_max, stride, this](VG* g) {
+    for_each([&index, kmer_size, edge_max, stride, allow_negatives, this](VG* g) {
 
         int thread_count;
 #pragma omp parallel
@@ -119,7 +119,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
         };
 
         g->create_progress("indexing kmers of " + g->name, buffer.size());
-        g->for_each_kmer_parallel(kmer_size, edge_max, cache_kmer, stride);
+        g->for_each_kmer_parallel(kmer_size, edge_max, cache_kmer, stride, false, allow_negatives);
         g->destroy_progress();
 
         g->create_progress("flushing kmer buffers " + g->name, g->size());
@@ -139,11 +139,11 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride) {
 }
 
 void VGset::for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*>&, VG&)>& lambda,
-                                   int kmer_size, int edge_max, int stride, bool allow_dups) {
-    for_each([&lambda, kmer_size, edge_max, stride, allow_dups, this](VG* g) {
+                                   int kmer_size, int edge_max, int stride, bool allow_dups, bool allow_negatives) {
+    for_each([&lambda, kmer_size, edge_max, stride, allow_dups, allow_negatives, this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
-        g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride, allow_dups);
+        g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride, allow_dups, allow_negatives);
     });
 }
 

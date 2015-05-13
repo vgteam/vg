@@ -32,7 +32,7 @@ is $? 0 "index compaction"
 
 num_records=$(vg index -D x.vg | wc -l)
 is $? 0 "dumping graph index"
-is $num_records 8214 "correct number of records in graph index"
+is $num_records 3207 "correct number of records in graph index"
 
 vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg index -a - -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 100 "index can store alignments"

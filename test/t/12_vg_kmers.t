@@ -6,11 +6,15 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 8
+plan tests 9
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
+    2133 \
+    "correct numbers of kmers in the graph when reporting only start positions"
+
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -n -k 11 - | sort | uniq | wc -l) \
     7141 \
-    "correct numbers of kmers in the graph"
+    "correct numbers of kmers in the graph when including negative-offset entries"
 
 is  $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz -t 4 | vg kmers -k 11 - | wc -l) \
@@ -18,7 +22,7 @@ is  $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | u
 
 vg construct -v small/x.vcf.gz -r small/x.fa >x.vg
 vg index -s x.vg
-is $(vg find -n 10 -c 1 x.vg | vg kmers -k 11 - | sort -n -k 2 -k 3 | tail -1 | cut -f 2) \
+is $(vg find -n 10 -c 1 x.vg | vg kmers -n -k 11 - | sort -n -k 2 -k 3 | tail -1 | cut -f 2) \
     12 \
     "kmers correctly generated from all nodes"
 
@@ -35,6 +39,6 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 - | gr
 rm x.vg
 rm -rf x.vg.index
 
-is $(vg kmers -k 11 -e 7 jumble/j.vg | wc -l) \
+is $(vg kmers -n -k 11 -e 7 jumble/j.vg | wc -l) \
     9300 \
     "edge-max correctly bounds the number of kmers in a complex graph"
