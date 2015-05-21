@@ -1578,6 +1578,7 @@ void help_index(char** argv) {
          << "    -s, --store-graph      store graph (do this first to build db!)" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
+         << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -e, --edge-max N       cross no more than N edges when determining k-paths" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
@@ -1617,6 +1618,7 @@ int main_index(int argc, char** argv) {
     bool store_mappings = false;
     bool allow_negs = false;
     bool compact = false;
+    bool dump_alignments = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1630,6 +1632,7 @@ int main_index(int argc, char** argv) {
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"store-graph", no_argument, 0, 's'},
                 {"store-alignments", no_argument, 0, 'a'},
+                {"dump-alignments", no_argument, 0, 'A'},
                 {"store-mappings", no_argument, 0, 'm'},
                 {"dump", no_argument, 0, 'D'},
                 {"metadata", no_argument, 0, 'M'},
@@ -1644,7 +1647,7 @@ int main_index(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCn",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnA",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1699,6 +1702,10 @@ int main_index(int argc, char** argv) {
 
         case 'a':
             store_alignments = true;
+            break;
+
+        case 'A':
+            dump_alignments = true;
             break;
 
         case 'm':
@@ -1788,6 +1795,18 @@ int main_index(int argc, char** argv) {
             }
         }
         index.flush();
+        index.close();
+    }
+
+    if (dump_alignments) {
+        vector<Alignment> output_buf;
+        index.open_read_only(db_name);
+        auto lambda = [&output_buf](const Alignment& aln) {
+            output_buf.push_back(aln);
+            stream::write_buffered(cout, output_buf, 1000);
+        };
+        index.for_each_alignment(lambda);
+        stream::write_buffered(cout, output_buf, 0);
         index.close();
     }
 

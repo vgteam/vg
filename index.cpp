@@ -299,7 +299,7 @@ const string Index::key_for_alignment_prefix(int64_t node_id) {
     key.resize(3*sizeof(char) + sizeof(int64_t));
     char* k = (char*) key.c_str();
     k[0] = start_sep;
-    k[1] = 'a'; // mappings (~sides)
+    k[1] = 'a'; // alignments
     k[2] = start_sep;
     memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
     return key;
@@ -1096,7 +1096,12 @@ void Index::path_layout(map<string, pair<int64_t, int64_t> >& layout,
 }
 
 void Index::for_each_alignment(function<void(const Alignment&)> lambda) {
-    string start = start_sep + "a";
+    string key;
+    key.resize(2*sizeof(char));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'a'; // alignments
+    string start = key;
     string end = start + end_sep;
     for_range(start, end, [this, &lambda](string& key, string& value) {
             Alignment alignment;
@@ -1106,7 +1111,7 @@ void Index::for_each_alignment(function<void(const Alignment&)> lambda) {
 }
 
 void Index::for_each_mapping(function<void(const Mapping&)> lambda) {
-    string start = start_sep + "a";
+    string start = start_sep + "s";
     string end = start + end_sep;
     for_range(start, end, [this, &lambda](string& key, string& value) {
             Mapping mapping;
