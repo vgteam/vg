@@ -174,7 +174,7 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] kmers input to GCSA: kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
 - [ ] properly handle pairs in alignment and surjection
 - [x] read paired-end data in FASTQ format
-- [ ] allow the efficient alignment of very long sequences by banding
+- [x] allow the efficient alignment of very long sequences by banding
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
 - [ ] genotype likelihood generation (given a source and sink, genotype paths)
 - [ ] genotyping of paths using freebayes-like genotyping model
