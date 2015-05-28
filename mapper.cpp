@@ -254,6 +254,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
     for (auto& k : kmers) {
+        if (!allATGC(k)) continue; // we can't handle Ns in this scheme
         uint64_t approx_matches = index->approx_size_of_kmer_matches(k);
         if (debug) cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
