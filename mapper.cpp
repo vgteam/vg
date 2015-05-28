@@ -5,15 +5,16 @@ namespace vg {
 Mapper::Mapper(Index* idex)
     : index(idex)
     , best_clusters(0)
+    , cluster_min(2)
     , hit_max(100)
     , hit_size_threshold(0)
-    , kmer_min(18)
+    , kmer_min(11)
     , kmer_threshold(1)
     , kmer_sensitivity_step(3)
     , thread_extension(1)
     , thread_extension_max(80)
     , max_thread_gap(30)
-    , max_attempts(3)
+    , max_attempts(7)
     , softclip_threshold(0)
     , prefer_forward(false)
     , greedy_accept(false)
@@ -406,8 +407,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // rebuild our threads_by_length set
     for (auto& t : threads_by_last) {
         auto& thread = t.second;
-        auto& threads = threads_by_length[thread.size()];
-        threads.push_back(thread);
+        if (thread.size() >= cluster_min) {
+            auto& threads = threads_by_length[thread.size()];
+            threads.push_back(thread);
+        }
     }
 
     if (debug) {

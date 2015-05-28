@@ -52,6 +52,7 @@ public:
     set<int> kmer_sizes;
     bool debug;
     int best_clusters;
+    int cluster_min;
     int hit_max;
     int hit_size_threshold;
     int kmer_min;

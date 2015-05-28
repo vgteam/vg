@@ -2001,10 +2001,12 @@ void help_map(char** argv) {
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
-         << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default 5)" << endl
-         << "    -x, --thread-ex N     grab this many neighboring nodes around each thread for alignment (default 2)" << endl
-         << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment" << endl
-         << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default 100)" << endl
+         << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
+         << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
+         << "    -x, --thread-ex N     grab this many neighboring nodes around each thread for alignment (default: 2)" << endl
+         << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
+         << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
+         << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default: 100)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
          << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
@@ -2027,6 +2029,8 @@ int main_map(int argc, char** argv) {
     int kmer_stride = 0;
     int sens_step = 0;
     int best_clusters = 0;
+    int cluster_min = 2;
+    int max_attempts = 7;
     string read_file;
     string hts_file;
     int hit_max = 100;
@@ -2057,6 +2061,8 @@ int main_map(int argc, char** argv) {
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'k'},
                 {"clusters", required_argument, 0, 'c'},
+                {"cluster-min", required_argument, 0, 'C'},
+                {"max-attempts", required_argument, 0, 'A'},
                 {"reads", required_argument, 0, 'r'},
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
@@ -2078,7 +2084,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:G",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:GC:A:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2109,6 +2115,14 @@ int main_map(int argc, char** argv) {
 
         case 'c':
             best_clusters = atoi(optarg);
+            break;
+
+        case 'C':
+            cluster_min = atoi(optarg);
+            break;
+
+        case 'A':
+            max_attempts = atoi(optarg);
             break;
 
         case 'm':
@@ -2228,6 +2242,8 @@ int main_map(int argc, char** argv) {
         m->prefer_forward = prefer_forward;
         m->greedy_accept = greedy_accept;
         m->thread_extension = thread_ex;
+        m->cluster_min = cluster_min;
+        m->max_attempts = max_attempts;
         mapper[i] = m;
     }
 
