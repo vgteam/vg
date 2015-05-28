@@ -56,6 +56,7 @@ public:
     int hit_size_threshold;
     int kmer_min;
     int kmer_threshold;
+    int max_thread_gap;
     int kmer_sensitivity_step;
     int thread_extension;
     int thread_extension_max;

@@ -12,6 +12,7 @@ Mapper::Mapper(Index* idex)
     , kmer_sensitivity_step(3)
     , thread_extension(1)
     , thread_extension_max(80)
+    , max_thread_gap(30)
     , max_attempts(3)
     , softclip_threshold(0)
     , prefer_forward(false)
@@ -285,7 +286,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     int max_iter = sequence.size();
     int iter = 0;
     int64_t max_subgraph_size = 0;
-    int max_thread_gap = 30; // counted in nodes
 
     i = 0;
     for (auto& p : positions) {
@@ -352,19 +352,18 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     }
 
     // sort threads by ids
-    // if they are at least 2 hits long
     set<vector<int64_t> > sorted_threads;
     auto tl = threads_by_length.rbegin();
     for (auto& t : node_threads) {
         auto& thread = t.second;
         sorted_threads.insert(thread);
     }
-    // clean up
     threads_by_length.clear();
 
     // go back through and combine closely-linked threads
     // ... but only if their kmer order is proper
     map<int64_t, vector<int64_t> > threads_by_last;
+    // go from threads that are longer to ones that are shorter
     for (auto& thread : sorted_threads) {
         //cerr << thread.front() << "-" << thread.back() << endl;
         auto prev = threads_by_last.upper_bound(thread.front()-max_thread_gap);
@@ -435,7 +434,12 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // and expand subgraphs as before
     //cerr << "extending by " << thread_ex << endl;
     tl = threads_by_length.rbegin();
-    for (int i = 0; tl != threads_by_length.rend() && (best_clusters == 0 || i < best_clusters); ++i, ++tl) {
+    bool accepted = false;
+    for (int i = 0;
+         !accepted
+             && tl != threads_by_length.rend()
+             && (best_clusters == 0 || i < best_clusters);
+         ++i, ++tl) {
         auto& threads = tl->second;
         // by definition, our thread should construct a contiguous graph
         for (auto& thread : threads) {
@@ -457,8 +461,36 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             // align
             ta.clear_path();
             graph->align(ta);
+
+            // check if we start or end with soft clips
+            // if so, try to expand the graph until we don't have any more (or we hit a threshold)
+            // expand in the direction where there were soft clips
+            int sc_start = softclip_start(ta);
+            int sc_end = softclip_end(ta);
+
+            if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
+                if (debug) cerr << "softclip handling " << sc_start << " " << sc_end << endl;
+                Path* path = ta.mutable_path();
+                int64_t idf = path->mutable_mapping(0)->position().node_id();
+                int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
+                // step towards the side where there were soft clips
+                // using 10x the thread_extension
+                int64_t first = max((int64_t)0, idf - (int64_t)(sc_start ? thread_ex * 10 : 0));
+                int64_t last = idl + (int64_t)(sc_end ? thread_ex * 10 : 0);
+                if (debug) cerr << "getting node range " << first << "-" << last << endl;
+                index->get_range(first, last, *graph);
+                graph->remove_orphan_edges();
+                ta.clear_path();
+                graph->align(ta);
+                if (debug) cerr << "softclip after " << softclip_start(ta) << " " << softclip_end(ta) << endl;
+            }
+
             delete graph;
+
+            if (debug) cerr << "score per bp is " << (float)ta.score() / (float)ta.sequence().size() << endl;
             if (greedy_accept && (float)ta.score() / (float)ta.sequence().size() >= target_score_per_bp) {
+                if (debug) cerr << "greedy accept" << endl;
+                accepted = true;
                 break;
             }
         }
@@ -483,40 +515,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         }
     } else {
         alignment.clear_path();
-    }
-
-    int sc_start = softclip_start(alignment);
-    int sc_end = softclip_end(alignment);
-
-    // check if we start or end with soft clips
-    // if so, try to expand the graph until we don't have any more (or we hit a threshold)
-    // expand in the direction where there were soft clips
-
-    // NB it will probably be faster here to not fully query the DB again,
-    // but instead to grow the matching graph in the right direction
-    // should be adjusted t account for incomplete matching, not just clips
-    //cerr << sc_start << " " << sc_end << endl;
-
-    if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
-
-        if (debug) cerr << "softclip handling " << sc_start << " " << sc_end << endl;
-        VG* graph = new VG;
-        Path* path = alignment.mutable_path();
-
-        int64_t idf = path->mutable_mapping(0)->position().node_id();
-        int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
-        // step towards the side where there were soft clips
-        // using 10x the thread_extension
-        int64_t first = max((int64_t)0, idf - (int64_t)(sc_start ? thread_ex * 10 : 0));
-        int64_t last =   idl + (int64_t)(sc_end ? thread_ex * 10 : 0);
-        if (debug) cerr << "getting node range " << first << "-" << last << endl;
-        index->get_range(first, last, *graph);
-        graph->remove_orphan_edges();
-        alignment.clear_path();
-        graph->align(alignment);
-        if (debug) cerr << "softclip after " << softclip_start(alignment) << " " << softclip_end(alignment) << endl;
-        delete graph;
-
     }
 
     if (debug && alignment.score() == 0) cerr << "failed alignment" << endl;
