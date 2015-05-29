@@ -10,7 +10,7 @@ Index::Index(void) {
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
     mem_env = false;
-    block_cache_size = 1024 * 1024 * 1024; // 1GB
+    block_cache_size = (long) 10 * 1024 * 1024 * 1024; // 10GB
 
     threads = 1;
 #pragma omp parallel
@@ -44,7 +44,7 @@ rocksdb::Options Index::GetOptions(void) {
 
     // doesn't work this way
     rocksdb::BlockBasedTableOptions topt;
-    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, true));
+    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(16, true));
     topt.block_cache = rocksdb::NewLRUCache(block_cache_size, 7);
     //topt.no_block_cache = true;
     options.table_factory.reset(NewBlockBasedTableFactory(topt));
