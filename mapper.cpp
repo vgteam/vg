@@ -467,7 +467,6 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             ta.clear_path();
             ta.set_score(0);
             graph->align(ta);
-            delete graph;
 
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
@@ -482,18 +481,18 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
                 int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
                 // step towards the side where there were soft clips
                 // using 10x the thread_extension
-                int64_t first = max((int64_t)0, idf - (int64_t) max(thread_ex, 1) * 10);
-                int64_t last = idl + (int64_t) max(thread_ex,1) * 10;
-                if (debug) cerr << "getting node range " << first << "-" << last << endl;
-                graph = new VG;
-                index->get_range(first, last, *graph);
+                int64_t f = max((int64_t)0, idf - (int64_t) max(thread_ex, 1) * 10);
+                int64_t l = idl + (int64_t) max(thread_ex, 1) * 10;
+                if (debug) cerr << "getting node range " << f << "-" << l << endl;
+                index->get_range(f, l, *graph);
                 graph->remove_orphan_edges();
                 ta.clear_path();
                 ta.set_score(0);
                 graph->align(ta);
-                delete graph;
                 if (debug) cerr << "softclip after " << softclip_start(ta) << " " << softclip_end(ta) << endl;
             }
+
+            delete graph;
 
             if (debug) cerr << "score per bp is " << (float)ta.score() / (float)ta.sequence().size() << endl;
             if (greedy_accept && (float)ta.score() / (float)ta.sequence().size() >= target_score_per_bp) {
