@@ -477,12 +477,12 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
                 if (debug) cerr << "softclip handling " << sc_start << " " << sc_end << endl;
                 Path* path = ta.mutable_path();
-                int64_t idf = first; //path->mutable_mapping(0)->position().node_id();
-                int64_t idl = last; //path->mutable_mapping(path->mapping_size()-1)->position().node_id();
+                int64_t idf = path->mutable_mapping(0)->position().node_id();
+                int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
                 // step towards the side where there were soft clips
                 // using 10x the thread_extension
-                int64_t first = max((int64_t)0, idf - (int64_t)(sc_start ? max(thread_ex * 10, 5) : 0));
-                int64_t last = idl + (int64_t)(sc_end ? max(thread_ex * 10, 5) : 0);
+                int64_t first = max((int64_t)0, idf - (int64_t) max(thread_ex, 1) * 10);
+                int64_t last = idl + (int64_t) max(thread_ex,1) * 10;
                 if (debug) cerr << "getting node range " << first << "-" << last << endl;
                 index->get_range(first, last, *graph);
                 graph->remove_orphan_edges();
