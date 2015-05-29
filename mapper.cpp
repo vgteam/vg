@@ -54,6 +54,7 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     index->get_range(first, last, *graph);
     graph->remove_orphan_edges();
     read2.clear_path();
+    read2.set_score(0);
     graph->align(read2);
     delete graph;
 }
@@ -464,6 +465,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             graph->remove_orphan_edges();
             // align
             ta.clear_path();
+            ta.set_score(0);
             graph->align(ta);
 
             // check if we start or end with soft clips
@@ -479,12 +481,13 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
                 int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
                 // step towards the side where there were soft clips
                 // using 10x the thread_extension
-                int64_t first = max((int64_t)0, idf - (int64_t)(sc_start ? thread_ex * 10 : 0));
-                int64_t last = idl + (int64_t)(sc_end ? thread_ex * 10 : 0);
+                int64_t first = max((int64_t)0, idf - (int64_t)(sc_start ? max(thread_ex * 10, 10) : 0));
+                int64_t last = idl + (int64_t)(sc_end ? max(thread_ex * 10, 10) : 0);
                 if (debug) cerr << "getting node range " << first << "-" << last << endl;
                 index->get_range(first, last, *graph);
                 graph->remove_orphan_edges();
                 ta.clear_path();
+                ta.set_score(0);
                 graph->align(ta);
                 if (debug) cerr << "softclip after " << softclip_start(ta) << " " << softclip_end(ta) << endl;
             }
@@ -519,6 +522,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         }
     } else {
         alignment.clear_path();
+        alignment.set_score(0);
     }
 
     if (debug && alignment.score() == 0) cerr << "failed alignment" << endl;
