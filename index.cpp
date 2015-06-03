@@ -10,7 +10,7 @@ Index::Index(void) {
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
     mem_env = false;
-    block_cache_size = (long) 10 * 1024 * 1024 * 1024; // 10GB
+    //block_cache_size = 1024 * 1024 * 10; // 10MB
 
     threads = 1;
 #pragma omp parallel
@@ -30,7 +30,7 @@ rocksdb::Options Index::GetOptions(void) {
     }
 
     options.create_if_missing = true;
-    options.max_open_files = 100000;
+    options.max_open_files = -1;
     options.compression = rocksdb::kSnappyCompression;
     options.compaction_style = rocksdb::kCompactionStyleLevel;
     // we are unlikely to reach either of these limits
@@ -44,11 +44,13 @@ rocksdb::Options Index::GetOptions(void) {
 
     // doesn't work this way
     rocksdb::BlockBasedTableOptions topt;
-    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(16, true));
-    topt.block_cache = rocksdb::NewLRUCache(block_cache_size, 7);
-    //topt.no_block_cache = true;
+    topt.filter_policy.reset(rocksdb::NewBloomFilterPolicy(10, true));
+    topt.block_cache = rocksdb::NewLRUCache(512 * 1024 * 1024, 7);
+    topt.no_block_cache = true;
     options.table_factory.reset(NewBlockBasedTableFactory(topt));
     options.table_cache_numshardbits = 7;
+    options.allow_mmap_reads = true;
+    options.allow_mmap_writes = false;
 
     if (bulk_load) {
         options.PrepareForBulkLoad();
