@@ -2001,6 +2001,7 @@ void help_map(char** argv) {
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
+         << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -x, --thread-ex N     grab this many neighboring nodes around each thread for alignment (default: 2)" << endl
@@ -2048,6 +2049,7 @@ int main_map(int argc, char** argv) {
     int pair_window = 64; // ~11bp/node
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
+    float min_kmer_entropy = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2060,6 +2062,7 @@ int main_map(int argc, char** argv) {
                 {"db-name", required_argument, 0, 'd'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'k'},
+                {"min-kmer-entropy", required_argument, 0, 'E'},
                 {"clusters", required_argument, 0, 'c'},
                 {"cluster-min", required_argument, 0, 'C'},
                 {"max-attempts", required_argument, 0, 'A'},
@@ -2084,7 +2087,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:GC:A:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:GC:A:E:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2119,6 +2122,10 @@ int main_map(int argc, char** argv) {
 
         case 'C':
             cluster_min = atoi(optarg);
+            break;
+
+        case 'E':
+            min_kmer_entropy = atof(optarg);
             break;
 
         case 'A':
@@ -2244,6 +2251,7 @@ int main_map(int argc, char** argv) {
         m->thread_extension = thread_ex;
         m->cluster_min = cluster_min;
         m->max_attempts = max_attempts;
+        m->min_kmer_entropy = min_kmer_entropy;
         mapper[i] = m;
     }
 

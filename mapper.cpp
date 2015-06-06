@@ -19,6 +19,7 @@ Mapper::Mapper(Index* idex)
     , prefer_forward(false)
     , greedy_accept(false)
     , target_score_per_bp(1.5)
+    , min_kmer_entropy(0)
     , debug(false)
 {
     kmer_sizes = index->stored_kmer_sizes();
@@ -256,6 +257,8 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     int i = 0;
     for (auto& k : kmers) {
         if (!allATGC(k)) continue; // we can't handle Ns in this scheme
+        //if (debug) cerr << "kmer " << k << " entropy = " << entropy(k) << endl;
+        if (min_kmer_entropy > 0 && entropy(k) < min_kmer_entropy) continue;
         uint64_t approx_matches = index->approx_size_of_kmer_matches(k);
         if (debug) cerr << k << "\t" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative

@@ -12,7 +12,7 @@ SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
 LIBHTS=htslib/libhts.a
 INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1
 LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o entropy.o
 
 all: vg libvg.a
 
@@ -105,6 +105,9 @@ sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
 
 pb2json.o: pb2json.cpp pb2json.h $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o pb2json.o pb2json.cpp $(INCLUDES)
+
+entropy.o: entropy.cpp entropy.hpp
+	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
 
 vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
