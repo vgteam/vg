@@ -1,7 +1,7 @@
 .PHONY: all clean test get-deps
 
-CXX=g++ -std=c++11 -fopenmp -g
-CXXFLAGS=-O3
+CXX=g++ 
+CXXFLAGS=-O3 -std=c++11 -fopenmp -g -march=native
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
