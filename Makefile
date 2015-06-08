@@ -23,7 +23,7 @@ test: vg libvg.a test/build_graph
 	cd test && $(MAKE)
 
 test/build_graph: test/build_graph.cpp
-	$(CXX) test/build_graph.cpp $(INCLUDES) -lvg $(LDFLAGS) -o test/build_graph
+	$(CXX) $(CXXFLAGS) test/build_graph.cpp $(INCLUDES) -lvg $(LDFLAGS) -o test/build_graph
 
 profiling:
 	$(MAKE) CXXFLAGS="$(CXXFLAGS) -g" all
