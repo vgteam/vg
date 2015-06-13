@@ -10,6 +10,7 @@ Index::Index(void) {
     end_sep = '\xff';
     write_options = rocksdb::WriteOptions();
     mem_env = false;
+    use_snappy = false;
     //block_cache_size = 1024 * 1024 * 10; // 10MB
 
     threads = 1;
@@ -63,7 +64,7 @@ rocksdb::Options Index::GetOptions(void) {
 
     options.compression_per_level.resize(options.num_levels);
     for (int i = 0; i < options.num_levels; ++i) {
-        if (i == 0) {
+        if (i == 0 || use_snappy == true) {
             options.compression_per_level[i] = rocksdb::kSnappyCompression;
         } else {
             options.compression_per_level[i] = rocksdb::kZlibCompression;

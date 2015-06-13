@@ -2216,11 +2216,14 @@ void VG::edit_node(int64_t node_id, const vector<Mapping>& mappings) {
     // convert edits to a series of cut points
     set<int> cut_at;
     // map pairs of cut points to sequences of novel paths joining the cut points
-    map<pair<int, int>, set<string> > cut_seqs;
+    map<pair<int, int>, set<pair<string, string> > > cut_seqs;
     for (auto& mapping : mappings) {
         // check that we're really working on one node
         assert(mapping.position().node_id() == node_id);
         int offset = 0;
+        const auto& nitr = mapping.info().find("path_name");
+        assert(nitr != mapping.info().end());
+        const string& name = nitr->second.str();
         for (int i = 0; i < mapping.edit_size(); ++i) {
             const Edit& edit = mapping.edit(i);
             //edits[offset].push_back(edit);
@@ -2230,7 +2233,7 @@ void VG::edit_node(int64_t node_id, const vector<Mapping>& mappings) {
                 // soft clip, ignore
                 // match, ignore
             } else {
-                cut_seqs[make_pair(offset, end)].insert(edit.sequence());
+                cut_seqs[make_pair(offset, end)].insert(make_pair(edit.sequence(), name));
                 cut_at.insert(offset);
                 cut_at.insert(end);
             }
@@ -2275,9 +2278,13 @@ void VG::edit_node(int64_t node_id, const vector<Mapping>& mappings) {
         auto& left = get<0>(cuts[f]);
         auto& center = get<1>(cuts[f]);
         auto& right = get<2>(cuts[t]);
-        for (auto& seq : cs.second) {
+        for (auto& p : cs.second) {
+            auto& seq = p.first;
+            auto& name = p.second;
             if (!seq.empty()) {
                 Node* c = create_node(seq);
+                // add to path
+                paths.append_mapping(name, c->id(), false);
                 center.insert(c);
             } else {
                 for (auto& lp : left) {

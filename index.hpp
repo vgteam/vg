@@ -100,6 +100,7 @@ public:
 
     rocksdb::DB* db;
     bool is_open;
+    bool use_snappy;
     rocksdb::Options db_options;
     rocksdb::WriteOptions write_options;
     rocksdb::ColumnFamilyOptions column_family_options;

@@ -432,9 +432,12 @@ int main_mod(int argc, char** argv) {
     if (!aln_file.empty()) {
         map<int64_t, vector<Mapping> > mappings; // keyed by id
         function<void(Alignment&)> lambda = [&graph, &mappings](Alignment& aln) {
+            const string& name = aln.name();
             const Path& path = aln.path();
             for (int i = 0; i < path.mapping_size(); ++i) {
-                const Mapping& mapping = path.mapping(i);
+                Mapping mapping = path.mapping(i);
+                Info info; info.set_str(name);
+                (*mapping.mutable_info())["path_name"] = info;
                 mappings[mapping.position().node_id()].push_back(mapping);
             }
         };
@@ -1592,6 +1595,7 @@ void help_index(char** argv) {
          << "                           (this is required if you are using multiple graphs files" << endl
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
+         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl;
 }
@@ -1619,6 +1623,7 @@ int main_index(int argc, char** argv) {
     bool allow_negs = false;
     bool compact = false;
     bool dump_alignments = false;
+    bool use_snappy = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1643,11 +1648,12 @@ int main_index(int argc, char** argv) {
                 {"path-layout", no_argument, 0, 'L'},
                 {"compact", no_argument, 0, 'C'},
                 {"allow-negs", no_argument, 0, 'n'},
+                {"use-snappy", no_argument, 0, 'Q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnA",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQ",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1720,6 +1726,10 @@ int main_index(int argc, char** argv) {
             compact = true;
             break;
 
+        case 'Q':
+            use_snappy = true;
+            break;
+
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
@@ -1756,6 +1766,7 @@ int main_index(int argc, char** argv) {
     }
 
     Index index;
+    index.use_snappy = use_snappy;
 
     if (compact) {
         index.open_for_write(db_name);
@@ -1991,6 +2002,7 @@ void help_map(char** argv) {
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl
          << "                          a graph is not required" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
@@ -2025,6 +2037,7 @@ int main_map(int argc, char** argv) {
     }
 
     string seq;
+    string seq_name;
     string db_name;
     int kmer_size = 0;
     int kmer_stride = 0;
@@ -2059,6 +2072,7 @@ int main_map(int argc, char** argv) {
                 /* These options set a flag. */
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"sequence", required_argument, 0, 's'},
+                {"seq-name", required_argument, 0, 'Q'},
                 {"db-name", required_argument, 0, 'd'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'k'},
@@ -2087,7 +2101,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:GC:A:E:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:GC:A:E:Q:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2098,6 +2112,10 @@ int main_map(int argc, char** argv) {
         {
         case 's':
             seq = optarg;
+            break;
+
+        case 'Q':
+            seq_name = optarg;
             break;
 
         case 'd':
@@ -2260,6 +2278,7 @@ int main_map(int argc, char** argv) {
         Alignment alignment = mapper[tid]->align(seq, kmer_size, kmer_stride, band_width);
         if (!sample_name.empty()) alignment.set_sample_name(sample_name);
         if (!read_group.empty()) alignment.set_read_group(read_group);
+        if (!seq_name.empty()) alignment.set_name(seq_name);
         if (output_json) {
             char *json2 = pb2json(alignment);
             cout<<json2<<endl;
