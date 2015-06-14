@@ -2228,7 +2228,7 @@ void VG::edit_node(int64_t node_id, const vector<Mapping>& mappings) {
             const Edit& edit = mapping.edit(i);
             //edits[offset].push_back(edit);
             int end = offset + edit.from_length();
-            if (edit.from_length() == edit.to_length() ||
+            if (edit.sequence().empty() && edit.from_length() == edit.to_length() ||
                 (i == 0 || i == mapping.edit_size() - 1) && edit.from_length() == 0) {
                 // soft clip, ignore
                 // match, ignore
