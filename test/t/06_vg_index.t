@@ -59,7 +59,7 @@ triple=$(vg index -D -d q.vg.index | wc -l)
 # subtract two for metadata lines about paths that aren't duplicated in the merged
 is $triple $(echo "$single * 3 - 2" | bc) "storage of multiple graphs in an index succeeds"
 
-rm x.vg y.vg z.vg
+rm x.vg y.vg z.vg q.vg
 rm -rf x.vg.index q.vg.index
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
