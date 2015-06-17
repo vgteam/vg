@@ -1,5 +1,8 @@
 .PHONY: all clean
 
+CXX=g++
+CXXFLAGS=-O3 -std=c++11 -fopenmp -ffast-math -funroll-loops -g
+
 vg=../vg
 
 all: test clean

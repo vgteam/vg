@@ -13,7 +13,7 @@
 #include "stream.hpp"
 #include "alignment.hpp"
 #include "convert.hpp"
-#include <google/protobuf/stubs/common.h>
+#include "google/protobuf/stubs/common.h"
 
 using namespace std;
 using namespace google::protobuf;

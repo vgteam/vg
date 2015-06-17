@@ -19,30 +19,30 @@ message Graph {
 // The graph is doubly-linked via IDs in prev/next fields in the Node objects.
 //
 message Node {
-    optional string sequence = 1;   // sequence
-    optional string name = 2;  // a name provides an identifier
-    optional int64 id = 3;     // ids are critical, and unique within a graph
-    optional bytes data = 4;   // arbitrary data
+    string sequence = 1;   // sequence
+    string name = 2;  // a name provides an identifier
+    int64 id = 3;     // ids are critical, and unique within a graph
+    bytes data = 4;   // arbitrary data
     map<string, Info> info = 5;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
 //
 message Edge {
-    optional int64 from = 1; // ID of upstream node
-    optional int64 to = 2;   // ID of downstream node
-    optional bool from_start = 3; // if the edge leaves from the 5' (start) of a node
-    optional bool to_end = 4; // if the edge goes to the 3' (end) of a node
-    optional bytes data = 5; // arbitrary data
+    int64 from = 1; // ID of upstream node
+    int64 to = 2;   // ID of downstream node
+    bool from_start = 3; // if the edge leaves from the 5' (start) of a node
+    bool to_end = 4; // if the edge goes to the 3' (end) of a node
+    bytes data = 5; // arbitrary data
     map<string, Info> info = 6;
 }
 
 // info fields can be used to annotate objects in the graph
 message Info {
-    optional string id = 1;
-    optional string str = 2;
-    optional int64 int = 3;
-    optional bytes data = 4;
+    string id = 1;
+    string str = 2;
+    int64 int = 3;
+    bytes data = 4;
     map<string, Info> info = 5;
 }
 
@@ -58,9 +58,9 @@ message Info {
 // *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
 //
 message Edit {
-    optional int32 from_length = 1; // length in target/ref
-    optional int32 to_length = 2; // length in read/alt
-    optional string sequence = 3;
+    int32 from_length = 1; // length in target/ref
+    int32 to_length = 2; // length in read/alt
+    string sequence = 3;
     map<string, Info> info = 4;
 }
 
@@ -68,17 +68,17 @@ message Edit {
 // An empty edit list implies complete match.
 //
 message Mapping {
-    optional Position position = 1;
+    Position position = 1;
     repeated Edit edit = 2; // series of edit to transform to region in read/alt
-    optional bool is_reverse = 3; // does the mapping go from the end of the node to the start
+    bool is_reverse = 3; // does the mapping go from the end of the node to the start
     map<string, Info> info = 4;
 }
 
 // A position in the graph is a pair of node and offset
 //
 message Position {
-    optional int64 node_id = 1;
-    optional int64 offset = 2;
+    int64 node_id = 1;
+    int64 offset = 2;
     map<string, Info> info = 3;
 }
 
@@ -91,7 +91,7 @@ message Position {
 //          genes, exons, motifs, transcripts, peaks
 //
 message Path {
-    optional string name = 1;
+    string name = 1;
     repeated Mapping mapping = 2;
     map<string, Info> info = 3;
 }
@@ -99,19 +99,19 @@ message Path {
 // Alignments link query strings, such as other genomes or reads, to paths.
 //
 message Alignment {
-    optional string sequence = 1;
-    optional Path path = 2;
-    optional string name = 3;
-    optional bytes quality = 4;
-    optional int32 mapping_quality = 5;
-    optional int32 score = 6;
-    optional int32 query_position = 7;
-    optional bool is_reverse = 8; // true if original sequence lies in the 3'->5' orientation
-    optional string sample_name = 9;
-    optional string read_group = 10;
-    optional Alignment fragment_prev = 11; // e.g. contains an alignment with only a name, or only a graph mapping position
-    optional Alignment fragment_next = 12; // same thing for next in fragment
-    optional bytes data = 13;
+    string sequence = 1;
+    Path path = 2;
+    string name = 3;
+    bytes quality = 4;
+    int32 mapping_quality = 5;
+    int32 score = 6;
+    int32 query_position = 7;
+    bool is_reverse = 8; // true if original sequence lies in the 3'->5' orientation
+    string sample_name = 9;
+    string read_group = 10;
+    Alignment fragment_prev = 11; // e.g. contains an alignment with only a name, or only a graph mapping position
+    Alignment fragment_next = 12; // same thing for next in fragment
+    bytes data = 13;
     map<string, Info> info = 14;
 }
 
@@ -123,7 +123,7 @@ message Fragment {
 
 // used to serialize kmer matches
 message KmerMatch {
-    optional string sequence = 1;
-    optional int64 node_id = 2;
-    optional sint32 position = 3;
+    string sequence = 1;
+    int64 node_id = 2;
+    sint32 position = 3;
 }

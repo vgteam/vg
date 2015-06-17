@@ -1,7 +1,7 @@
 .PHONY: all clean test get-deps
 
-CXX=g++ -std=c++11 -fopenmp -g
-CXXFLAGS=-O3
+CXX=g++
+CXXFLAGS=-O3 -std=c++11 -fopenmp -g # -ffast-math -funroll-loops
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
@@ -23,7 +23,7 @@ test: vg libvg.a test/build_graph
 	cd test && $(MAKE)
 
 test/build_graph: test/build_graph.cpp
-	$(CXX) test/build_graph.cpp $(INCLUDES) -lvg $(LDFLAGS) -o test/build_graph
+	$(CXX) $(CXXFLAGS) test/build_graph.cpp $(INCLUDES) -lvg $(LDFLAGS) -o test/build_graph
 
 profiling:
 	$(MAKE) CXXFLAGS="$(CXXFLAGS) -g" all
