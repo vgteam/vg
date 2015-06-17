@@ -474,6 +474,9 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
             // expand in the direction where there were soft clips
+
+            if (!ta.has_path()) continue;
+            
             int sc_start = softclip_start(ta);
             int sc_end = softclip_end(ta);
 
