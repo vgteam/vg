@@ -90,16 +90,18 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
 
     for (int i = 0; i < gc->length; ++i, ++nc) {
         if (i > 0) from_pos = 0; // reset for each node after the first
-        // check that the current alignment has a sensible length
+        // check that the current alignment has a non-zero length
+        gssw_cigar* c = nc->cigar;
+        int l = c->length;
+        if (l == 0) continue;
+        gssw_cigar_element* e = c->elements;
 
         Node* from_node = (Node*) nc->node->data;
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
         mapping->mutable_position()->set_node_id(nc->node->id);
         mapping->mutable_position()->set_offset(from_pos);
-        gssw_cigar* c = nc->cigar;
-        int l = c->length;
-        gssw_cigar_element* e = c->elements;
+
         //cerr << from_node->id() << ":" << endl;
 
         for (int j=0; j < l; ++j, ++e) {
