@@ -2927,23 +2927,42 @@ void VG::kmer_context(string& kmer,
 }
 
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
-    auto prev_maxed = [this, &head_node](Node* node) {
+    set<Node*> prev_maxed_nodes;
+    set<Node*> next_maxed_nodes;
+    auto prev_maxed = [this, &prev_maxed_nodes](Node* node) {
+        prev_maxed_nodes.insert(node);
+    };
+    auto next_maxed = [this, &next_maxed_nodes](Node* node) {
+        next_maxed_nodes.insert(node);
+    };
+    auto noop = [](Node* node, list<Node*>& path) { };
+    for_each_kpath(path_length, edge_max, prev_maxed, next_maxed, noop);
+
+    for (auto* node : prev_maxed_nodes) {
         // remove the node, forward from links to head node
         for (auto& e : edges_from(node)) {
             create_edge(head_node->id(), e);
         }
         destroy_node(node);
-    };
-    auto next_maxed = [this, &tail_node](Node* node) {
+    }
+
+    for (auto* node : next_maxed_nodes) {
         // remove the node, forward to links to tail node
         for (auto& e : edges_to(node)) {
             create_edge(e, tail_node->id());
         }
         destroy_node(node);
-
-    };
-    auto noop = [](Node* node, list<Node*>& path) { };
-    for_each_kpath(path_length, edge_max, prev_maxed, next_maxed, noop);
+    }
+    for (auto* n : head_nodes()) {
+        if (n != head_node) {
+            create_edge(head_node, n);
+        }
+    }
+    for (auto* n : tail_nodes()) {
+        if (n != tail_node) {
+            create_edge(n, tail_node);
+        }
+    }
 }
 
 void VG::collect_subgraph(Node* node, set<Node*>& subgraph) {

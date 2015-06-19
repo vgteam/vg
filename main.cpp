@@ -349,7 +349,9 @@ void help_mod(char** argv) {
          << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
          << "                            cross more than --edge-max edges" << endl
          << "    -l, --path-length N     when pruning complex regions evaluate paths of this many nodes" << endl
-         << "    -e, --edge-max N        when pruning complex regions limit paths to this many edge crossings" << endl;
+         << "    -e, --edge-max N        when pruning complex regions limit paths to this many edge crossings" << endl
+         << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
+         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -366,6 +368,7 @@ int main_mod(int argc, char** argv) {
     bool prune_complex = false;
     int path_length = 0;
     int edge_max = 0;
+    bool add_start_and_end_markers = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -380,11 +383,12 @@ int main_mod(int argc, char** argv) {
                 {"prune-complex", no_argument, 0, 'p'},
                 {"path-length", required_argument, 0, 'l'},
                 {"edge-max", required_argument, 0, 'e'},
+                {"markers", no_argument, 0, 'm'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:m",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -420,6 +424,10 @@ int main_mod(int argc, char** argv) {
 
         case 'e':
             edge_max = atoi(optarg);
+            break;
+
+        case 'm':
+            add_start_and_end_markers = true;
             break;
 
         case 'h':
@@ -481,13 +489,25 @@ int main_mod(int argc, char** argv) {
 
     if (prune_complex) {
         if (!(path_length > 0 && edge_max > 0)) {
-            cerr << "when pruning complex regions you must specify a --path-length and --edge-max" << endl;
+            cerr << "[vg mod]: when pruning complex regions you must specify a --path-length and --edge-max" << endl;
             return 1;
         }
         Node* head_node = NULL;
         Node* tail_node = NULL;
         graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
         graph->prune_complex(path_length, edge_max, head_node, tail_node);
+        graph->destroy_node(head_node);
+        graph->destroy_node(tail_node);
+    }
+
+    if (add_start_and_end_markers) {
+        if (!(path_length > 0)) {
+            cerr << "[vg mod]: when adding start and end markers you must provide a --path-length" << endl;
+            return 1;
+        }
+        Node* head_node = NULL;
+        Node* tail_node = NULL;
+        graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
     }
 
     graph->serialize_to_ostream(std::cout);

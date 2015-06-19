@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 7
+plan tests 8
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -29,3 +29,5 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG t.vg | vg mod 
 
 rm t.vg
 rm -rf t.vg.index
+
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 8 -e 4 - | vg kmers -g -k 8 - | sort | md5sum | awk '{ print $1 }') 7caff8f7497ad9cf2762e2d95d54a241 "graph complexity reduction works as expected"
