@@ -191,21 +191,32 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
         }
     };
 
+    Node* head_node=NULL;
+    Node* tail_node=NULL;
+
     function<void(string&, Node*, int, list<Node*>&, VG&)>
-        lambda = [&write_cache, &output_cache]
+        lambda = [&write_cache, &output_cache, &kmer_size, &edge_max, &head_node, &tail_node]
                  (string& kmer, Node* node, int pos, list<Node*>& path, VG& graph) {
         if (pos >= 0) {
 //kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
+            // todo, handle edge bounding
+            // we need to check if the previous or next kmer will be excluded based on
+            // edge bounding
+            // if so, we should connect to the source or sink node
             set<char> prev_chars;
             set<char> next_chars;
             set<pair<int64_t, int32_t> > next_positions;
             graph.kmer_context(kmer,
+                               kmer_size,
+                               edge_max,
                                path,
                                node,
                                pos,
                                prev_chars,
                                next_chars,
-                               next_positions);
+                               next_positions,
+                               head_node,
+                               tail_node);
 
             auto& cache = output_cache[omp_get_thread_num()];
             if (cache.first != node->id()) {
@@ -228,11 +239,11 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
         }
     };
 
-    for_each([&lambda, kmer_size, edge_max, stride, allow_dups, this](VG* g) {
+    for_each([&lambda, kmer_size, edge_max, stride, allow_dups, &head_node, &tail_node, this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
         // add in start and end markers that are required by GCSA
-        g->add_start_and_end_markers(kmer_size, '#', '$');
+        g->add_start_and_end_markers(kmer_size, '#', '$', head_node, tail_node);
         g->for_each_kmer_parallel(kmer_size, edge_max, lambda, stride, allow_dups);
     });
 

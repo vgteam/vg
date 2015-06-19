@@ -274,6 +274,10 @@ public:
     void keep_paths(set<string>& path_names, set<string>& kept_names);
     void keep_path(string& path_name);
 
+    // path stats
+    int path_edge_count(list<Node*>& path, int32_t offset, int path_length);
+    int path_end_node_offset(list<Node*>& path, int32_t offset, int path_length);
+
     // edges
     Edge* create_edge(Node* from, Node* to);
     Edge* create_edge(int64_t from, int64_t to);
@@ -341,6 +345,8 @@ public:
     // traversal
     void nodes_prev(Node* n, vector<Node*>& nodes);
     void nodes_next(Node* n, vector<Node*>& nodes);
+    int node_count_prev(Node* n);
+    int node_count_next(Node* n);
 
     // paths
     Path create_path(const list<Node*>& nodes);
@@ -364,14 +370,19 @@ public:
                        int stride = 1,
                        bool allow_dups = false,
                        bool allow_negatives = false);
+
     // for gcsa2
     void kmer_context(string& kmer,
+                      int kmer_size,
+                      int edge_max,
                       list<Node*>& path,
                       Node* node,
                       int32_t offset,
                       set<char>& prev_chars,
                       set<char>& next_chars,
-                      set<pair<int64_t, int32_t> >& next_positions);
+                      set<pair<int64_t, int32_t> >& next_positions,
+                      Node* head_node,
+                      Node* tail_node);
 
 private:
     void _for_each_kmer(int kmer_size,
@@ -405,7 +416,8 @@ public:
     // add singular head and tail null nodes to graph
     void wrap_with_null_nodes(void);
     // to prepare for indexing with GCSA; length is at least kmer length to be used
-    void add_start_and_end_markers(int length, char start_char, char end_char);
+    void add_start_and_end_markers(int length, char start_char, char end_char,
+                                   Node*& head_node, Node*& tail_node);
 
     bool show_progress;
     string progress_message;

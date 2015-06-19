@@ -1951,6 +1951,18 @@ void VG::nodes_next(Node* node, vector<Node*>& nodes) {
     }
 }
 
+int VG::node_count_prev(Node* n) {
+    vector<Node*> nodes;
+    nodes_prev(n, nodes);
+    return nodes.size();
+}
+
+int VG::node_count_next(Node* n) {
+    vector<Node*> nodes;
+    nodes_next(n, nodes);
+    return nodes.size();
+}
+
 void VG::prev_kpaths_from_node(Node* node, int length, int edge_max,
                                list<Node*> postfix, set<list<Node*> >& paths) {
     if (length == 0 || edge_max == 0) { return; }
@@ -2617,7 +2629,8 @@ void VG::join_tails(Node* node) {
     connect_nodes_to_node(tails, node);
 }
 
-void VG::add_start_and_end_markers(int length, char start_char, char end_char) {
+void VG::add_start_and_end_markers(int length, char start_char, char end_char,
+                                   Node*& head_node, Node*& tail_node) {
     // first do the head
     string start_string(length, start_char);
     Node* head = create_node(start_string);
@@ -2626,6 +2639,10 @@ void VG::add_start_and_end_markers(int length, char start_char, char end_char) {
     string end_string(length, end_char);
     Node* tail = create_node(end_string);
     join_tails(tail);
+
+    // share with calling context
+    head_node = head;
+    tail_node = tail;
 }
 
 Alignment& VG::align(Alignment& alignment) {
@@ -2773,13 +2790,42 @@ void VG::_for_each_kmer(int kmer_size,
 
 }
 
+int VG::path_edge_count(list<Node*>& path, int32_t offset, int path_length) {
+    int edge_count = 0;
+    // starting from offset in the first node
+    // how many edges do we cross?
+    int l = path_length;
+    list<Node*>::iterator pitr = path.begin();
+    l -= (*pitr++)->sequence().size() - offset;
+    while (l > 0) {
+        ++edge_count;
+        l -= (*pitr++)->sequence().size();
+    }
+    return edge_count;
+}
+
+int VG::path_end_node_offset(list<Node*>& path, int32_t offset, int path_length) {
+    int l = path_length;
+    list<Node*>::iterator pitr = path.begin();
+    l -= (*pitr++)->sequence().size() - offset;
+    while (l > 0) {
+        l -= (*pitr++)->sequence().size();
+    }
+    l += (*--pitr)->sequence().size();
+    return l;
+}
+
 void VG::kmer_context(string& kmer,
+                      int kmer_size,
+                      int edge_max,
                       list<Node*>& path,
                       Node* node,
                       int32_t offset,
                       set<char>& prev_chars,
                       set<char>& next_chars,
-                      set<pair<int64_t, int32_t> >& next_positions) {
+                      set<pair<int64_t, int32_t> >& next_positions,
+                      Node* head_node,
+                      Node* tail_node) {
     // walk through the graph until we get to our node
     auto np = path.begin();
     int pos = 0;
@@ -2791,15 +2837,35 @@ void VG::kmer_context(string& kmer,
         ++np;
     }
 
+    //cerr << "edge_max " << edge_max << endl;
+    //cerr << "edge count " << path_edge_count(path, offset, kmer_size) << endl;
+    //assert(path_edge_count(path, offset, kmer_size) <= edge_max);
+
     if (offset == 0) {
         // for each node connected to this one
         // what's its last character?
         // add to prev_chars
         vector<Node*> prev_nodes;
         nodes_prev(node, prev_nodes);
-        for (auto n : prev_nodes) {
-            const string& seq = n->sequence();
-            prev_chars.insert(seq[seq.size()-1]);
+        // would we lose the previous kmers?
+        if (edge_max > 0 && edge_max < kmer_size
+            && path_edge_count(path, offset, kmer_size) == edge_max
+            && path_end_node_offset(path, offset, kmer_size) > 1) {
+            // find the head node
+            // and use that to connect
+            cerr << "will drop start " << endl;
+            if (head_node) {
+                const string& seq = head_node->sequence();
+                prev_chars.insert(seq[seq.size()-1]);
+            } // else nothing
+        } else {
+            for (auto n : prev_nodes) {
+                // we might lose the previous kmer
+                // if so, we should list the prev chars and positions
+                // as the origin node
+                const string& seq = n->sequence();
+                prev_chars.insert(seq[seq.size()-1]);
+            }
         }
     } else {
         prev_chars.insert(node->sequence()[offset-1]);
@@ -2812,17 +2878,48 @@ void VG::kmer_context(string& kmer,
     while (np != path.end()) {
         Node* n = *np;
         int newpos = pos + n->sequence().size();
+
+        // QUESTION:
+        // Would the edge_max constraint cause us to drop the next kmer?
+        // ANSWER:
+        // It will when the count of edges in the implied path would be >edge_max
+        // So assemble these paths and answer that question.
+        // --- you can assemble any one of them, or simpler,
+        // the question to ask is 1) are we losing an edge crossing on the left?
+        // 2) are we gaining a new edge crossing on the right?
+
         if (first_in_path) {
             newpos = n->sequence().size() - pos;
             first_in_path = false;
         }
         if (newpos == kmer.size()) {
-            // 1 past  is the ending in the last node?
+            // we might lose the next kmer
+            // if the current path crosses the edge max number of edges
+            // and the next doesn't lose an edge on the left
             vector<Node*> next_nodes;
             nodes_next(n, next_nodes);
             for (auto m : next_nodes) {
                 next_chars.insert(m->sequence()[0]);
                 next_positions.insert(make_pair(m->id(), 0));
+            }
+            if (edge_max > 0 && edge_max < kmer_size
+                && path_edge_count(path, offset, kmer_size) == edge_max
+                && path_end_node_offset(path, offset, kmer_size) != 1) {
+                if (offset == 0 && (*path.begin())->sequence().size() == 1) {
+                    //cerr << "we can't overflow" << endl;
+                } else {
+                    Node* end_node = *path.rbegin();
+                    if (path_end_node_offset(path, offset, kmer_size)
+                        == (end_node->sequence().size() - 1)
+                        && node_count_next(end_node)) {
+                        cerr << "will drop end" << endl;
+                        //cerr << "We should overflow" << endl;
+                        next_chars.clear();
+                        next_positions.clear();
+                        next_chars.insert(tail_node->sequence()[0]);
+                        next_positions.insert(make_pair(tail_node->id(), 0));
+                    }
+                }
             }
             break;
         } else if (newpos > kmer.size()) {
