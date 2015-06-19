@@ -1242,10 +1242,16 @@ int main_paths(int argc, char** argv) {
         callback = &paths_to_json;
     }
 
+    auto noop = [](Node*) { }; // don't handle the failed regions of the graph yet
+
     if (node_id) {
-        graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, edge_max, *callback);
+        graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, edge_max,
+                                      noop, noop,
+                                      *callback);
     } else {
-        graph->for_each_kpath_parallel(max_length, edge_max, *callback);
+        graph->for_each_kpath_parallel(max_length, edge_max,
+                                       noop, noop,
+                                       *callback);
     }
 
     delete graph;

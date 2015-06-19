@@ -196,6 +196,10 @@ public:
     // helper to merge_union
     void remove_duplicated_in(VG& g);
 
+    // limit the local complexity of the graph, connecting pruned components to a head and tail node
+    // depending on the direction which we come into the node when the edge_max is passed
+    void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
+
     // write to a stream in chunked graphs
     void serialize_to_ostream(ostream& out, int64_t chunk_size = 1000);
     void serialize_to_file(const string& file_name, int64_t chunk_size = 1000);
@@ -315,22 +319,50 @@ public:
     GSSWAligner* gssw_aligner;
 
     // returns all node-crossing paths with up to length across node boundaries
-    void for_each_kpath(int k, int edge_max, function<void(Node*,list<Node*>&)> lambda);
-    void for_each_kpath_parallel(int k, int edge_max, function<void(Node*,list<Node*>&)> lambda);
-    void for_each_kpath(int k, int edge_max, function<void(Node*,Path&)> lambda);
-    void for_each_kpath_parallel(int k, int edge_max, function<void(Node*,Path&)> lambda);
+    void for_each_kpath(int k, int edge_max,
+                        function<void(Node*)> handle_prev_maxed,
+                        function<void(Node*)> handle_next_maxed,
+                        function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath_parallel(int k, int edge_max,
+                                 function<void(Node*)> handle_prev_maxed,
+                                 function<void(Node*)> handle_next_maxed,
+                                 function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath(int k, int edge_max,
+                        function<void(Node*)> handle_prev_maxed,
+                        function<void(Node*)> handle_next_maxed,
+                        function<void(Node*,Path&)> lambda);
+    void for_each_kpath_parallel(int k, int edge_max,
+                                 function<void(Node*)> handle_prev_maxed,
+                                 function<void(Node*)> handle_next_maxed,
+                                 function<void(Node*,Path&)> lambda);
+    void for_each_kpath_of_node(Node* node, int k, int edge_max,
+                                function<void(Node*)> handle_prev_maxed,
+                                function<void(Node*)> handle_next_maxed,
+                                function<void(Node*,list<Node*>&)> lambda);
+    void for_each_kpath_of_node(Node* n, int k, int edge_max,
+                                function<void(Node*)> handle_prev_maxed,
+                                function<void(Node*)> handle_next_maxed,
+                                function<void(Node*,Path&)> lambda);
 
-    void for_each_kpath_of_node(Node* n, int k, int edge_max, function<void(Node*,list<Node*>&)> lambda);
-    void for_each_kpath_of_node(Node* n, int k, int edge_max, function<void(Node*,Path&)> lambda);
+    void kpaths(set<list<Node*> >& paths, int length, int edge_max,
+                function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed);
+    void kpaths(vector<Path>& paths, int length, int edge_max,
+                function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed);
 
-    void kpaths(vector<Path>& paths, int length, int edge_max);
-    void kpaths(set<list<Node*> >& paths, int length, int edge_max);
-
-    void kpaths_of_node(Node* node, set<list<Node*> >& paths, int length, int edge_max);
-    void kpaths_of_node(Node* node, vector<Path>& paths, int length, int edge_max);
-    void kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int edge_max);
-    void prev_kpaths_from_node(Node* node, int length, int edge_max, list<Node*> postfix, set<list<Node*> >& paths);
-    void next_kpaths_from_node(Node* node, int length, int edge_max, list<Node*> prefix, set<list<Node*> >& paths);
+    void kpaths_of_node(Node* node, set<list<Node*> >& paths,
+                        int length, int edge_max,
+                        function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed);
+    void kpaths_of_node(Node* node, vector<Path>& paths,
+                        int length, int edge_max,
+                        function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed);
+    void kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int edge_max,
+                        function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed);
+    void prev_kpaths_from_node(Node* node, int length, int edge_max,
+                               list<Node*> postfix, set<list<Node*> >& paths,
+                               function<void(Node*)>& maxed_nodes);
+    void next_kpaths_from_node(Node* node, int length, int edge_max,
+                               list<Node*> prefix, set<list<Node*> >& paths,
+                               function<void(Node*)>& maxed_nodes);
 
     void paths_between(Node* from, Node* to, vector<Path>& paths);
     void paths_between(int64_t from, int64_t to, vector<Path>& paths);

@@ -1952,8 +1952,13 @@ void VG::nodes_next(Node* node, vector<Node*>& nodes) {
 }
 
 void VG::prev_kpaths_from_node(Node* node, int length, int edge_max,
-                               list<Node*> postfix, set<list<Node*> >& paths) {
-    if (length == 0 || edge_max == 0) { return; }
+                               list<Node*> postfix, set<list<Node*> >& paths,
+                               function<void(Node*)>& maxed_nodes) {
+    if (length == 0) return;
+    if (edge_max == 0) {
+        maxed_nodes(node);
+        return;
+    }
     // start at node
     // do a leftward DFS up to length limit to establish paths from the left of the node
     postfix.push_front(node);
@@ -1965,7 +1970,7 @@ void VG::prev_kpaths_from_node(Node* node, int length, int edge_max,
     } // implicit else
     for (vector<Node*>::iterator p = prev_nodes.begin(); p != prev_nodes.end(); ++p) {
         if ((*p)->sequence().size() < length) {
-            prev_kpaths_from_node(*p, length - (*p)->sequence().size(), edge_max - 1, postfix, paths);
+            prev_kpaths_from_node(*p, length - (*p)->sequence().size(), edge_max - 1, postfix, paths, maxed_nodes);
         } else {
             // create a path for this node
             list<Node*> new_path = postfix;
@@ -1976,8 +1981,13 @@ void VG::prev_kpaths_from_node(Node* node, int length, int edge_max,
 }
 
 void VG::next_kpaths_from_node(Node* node, int length, int edge_max,
-                               list<Node*> prefix, set<list<Node*> >& paths) {
-    if (length == 0 || edge_max == 0) { return; }
+                               list<Node*> prefix, set<list<Node*> >& paths,
+                               function<void(Node*)>& maxed_nodes) {
+    if (length == 0) return;
+    if (edge_max == 0) {
+        maxed_nodes(node);
+        return;
+    }
     // start at node
     // do a leftward DFS up to length limit to establish paths from the left of the node
     prefix.push_back(node);
@@ -1989,7 +1999,7 @@ void VG::next_kpaths_from_node(Node* node, int length, int edge_max,
     } // implicit else
     for (vector<Node*>::iterator n = next_nodes.begin(); n != next_nodes.end(); ++n) {
         if ((*n)->sequence().size() < length) {
-            next_kpaths_from_node(*n, length - (*n)->sequence().size(), edge_max - 1, prefix, paths);
+            next_kpaths_from_node(*n, length - (*n)->sequence().size(), edge_max - 1, prefix, paths, maxed_nodes);
         } else {
             // create a path for this node
             list<Node*> new_path = prefix;
@@ -2002,17 +2012,21 @@ void VG::next_kpaths_from_node(Node* node, int length, int edge_max,
 // iterate over the kpaths in the graph, doing something
 
 void VG::for_each_kpath(int k, int edge_max,
+                        function<void(Node*)> prev_maxed,
+                        function<void(Node*)> next_maxed,
                         function<void(Node*,list<Node*>&)> lambda) {
-    auto by_node = [k, edge_max, &lambda, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, lambda);
+    auto by_node = [k, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
+        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node(by_node);
 }
 
 void VG::for_each_kpath(int k, int edge_max,
+                        function<void(Node*)> prev_maxed,
+                        function<void(Node*)> next_maxed,
                         function<void(Node*,Path&)> lambda) {
-    auto by_node = [k, edge_max, &lambda, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, lambda);
+    auto by_node = [k, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
+        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node(by_node);
 }
@@ -2022,17 +2036,20 @@ void VG::for_each_kpath(int k, int edge_max,
 // that need to be guarded explicitly
 
 void VG::for_each_kpath_parallel(int k, int edge_max,
+                                 function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed,
                                  function<void(Node*,list<Node*>&)> lambda) {
-    auto by_node = [k, edge_max, &lambda, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, lambda);
+    auto by_node = [k, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
+        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node_parallel(by_node);
 }
 
 void VG::for_each_kpath_parallel(int k, int edge_max,
+                                 function<void(Node*)> prev_maxed,
+                                 function<void(Node*)> next_maxed,
                                  function<void(Node*,Path&)> lambda) {
-    auto by_node = [k, edge_max, &lambda, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, lambda);
+    auto by_node = [k, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
+        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node_parallel(by_node);
 }
@@ -2040,22 +2057,26 @@ void VG::for_each_kpath_parallel(int k, int edge_max,
 // per-node kpaths
 
 void VG::for_each_kpath_of_node(Node* n, int k, int edge_max,
+                                function<void(Node*)> prev_maxed,
+                                function<void(Node*)> next_maxed,
                                 function<void(Node*,Path&)> lambda) {
     auto apply_to_path = [&lambda, this](Node* n, list<Node*>& p) {
         Path path = create_path(p);
         lambda(n, path);
     };
-    for_each_kpath_of_node(n, k, edge_max, apply_to_path);
+    for_each_kpath_of_node(n, k, edge_max, prev_maxed, next_maxed, apply_to_path);
 }
 
 void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
+                                function<void(Node*)> prev_maxed,
+                                function<void(Node*)> next_maxed,
                                 function<void(Node*,list<Node*>&)> lambda) {
     // get left, then right
     set<list<Node*> > prev_paths;
     set<list<Node*> > next_paths;
     list<Node*> empty_list;
-    prev_kpaths_from_node(node, k, edge_max, empty_list, prev_paths);
-    next_kpaths_from_node(node, k, edge_max, empty_list, next_paths);
+    prev_kpaths_from_node(node, k, edge_max, empty_list, prev_paths, prev_maxed);
+    next_kpaths_from_node(node, k, edge_max, empty_list, next_paths, next_maxed);
     // now take the cross and give to the callback
     for (set<list<Node*> >::iterator p = prev_paths.begin(); p != prev_paths.end(); ++p) {
         for (set<list<Node*> >::iterator n = next_paths.begin(); n != next_paths.end(); ++n) {
@@ -2071,17 +2092,19 @@ void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
 }
 
 void VG::kpaths_of_node(Node* node, set<list<Node*> >& paths,
-                        int length, int edge_max) {
+                        int length, int edge_max,
+                        function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed) {
     auto collect_path = [&paths](Node* n, list<Node*>& path) {
         paths.insert(path);
     };
-    for_each_kpath_of_node(node, length, edge_max, collect_path);
+    for_each_kpath_of_node(node, length, edge_max, prev_maxed, next_maxed, collect_path);
 }
 
 void VG::kpaths_of_node(Node* node, vector<Path>& paths,
-                        int length, int edge_max) {
+                        int length, int edge_max,
+                        function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed) {
     set<list<Node*> > unique_paths;
-    kpaths_of_node(node, unique_paths, length, edge_max);
+    kpaths_of_node(node, unique_paths, length, edge_max, prev_maxed, next_maxed);
     for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
         Path path = create_path(*p);
         paths.push_back(path);
@@ -2090,16 +2113,18 @@ void VG::kpaths_of_node(Node* node, vector<Path>& paths,
 
 // aggregators, when a callback won't work
 
-void VG::kpaths(set<list<Node*> >& paths, int length, int edge_max) {
+void VG::kpaths(set<list<Node*> >& paths, int length, int edge_max,
+                function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
-        kpaths_of_node(node, paths, length, edge_max);
+        kpaths_of_node(node, paths, length, edge_max, prev_maxed, next_maxed);
     }
 }
 
-void VG::kpaths(vector<Path>& paths, int length, int edge_max) {
+void VG::kpaths(vector<Path>& paths, int length, int edge_max,
+                function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed) {
     set<list<Node*> > unique_paths;
-    kpaths(unique_paths, length, edge_max);
+    kpaths(unique_paths, length, edge_max, prev_maxed, next_maxed);
     for (set<list<Node*> >::iterator p = unique_paths.begin(); p != unique_paths.end(); ++p) {
         Path path = create_path(*p);
         paths.push_back(path);
@@ -2342,11 +2367,12 @@ void VG::node_starts_in_path(const list<Node*>& path,
     }
 }
 
-void VG::kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int edge_max) {
+void VG::kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int edge_max,
+                        function<void(Node*)> prev_maxed, function<void(Node*)> next_maxed) {
     hash_map<int64_t, Node*>::iterator n = node_by_id.find(node_id);
     if (n != node_by_id.end()) {
         Node* node = n->second;
-        kpaths_of_node(node, paths, length, edge_max);
+        kpaths_of_node(node, paths, length, edge_max, prev_maxed, next_maxed);
     }
 }
 
@@ -2765,10 +2791,12 @@ void VG::_for_each_kmer(int kmer_size,
         }
     };
 
+    auto noop = [](Node*) { };
+
     if (parallel) {
-        for_each_kpath_parallel(kmer_size, edge_max, handle_path);
+        for_each_kpath_parallel(kmer_size, edge_max, noop, noop, handle_path);
     } else {
-        for_each_kpath(kmer_size, edge_max, handle_path);
+        for_each_kpath(kmer_size, edge_max, noop, noop, handle_path);
     }
 
 }
