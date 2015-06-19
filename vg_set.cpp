@@ -214,9 +214,7 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
                                pos,
                                prev_chars,
                                next_chars,
-                               next_positions,
-                               head_node,
-                               tail_node);
+                               next_positions);
 
             auto& cache = output_cache[omp_get_thread_num()];
             if (cache.first != node->id()) {

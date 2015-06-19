@@ -412,9 +412,11 @@ public:
                       int32_t offset,
                       set<char>& prev_chars,
                       set<char>& next_chars,
-                      set<pair<int64_t, int32_t> >& next_positions,
-                      Node* head_node,
-                      Node* tail_node);
+                      set<pair<int64_t, int32_t> >& next_positions);
+    // for pruning graph prior to indexing with gcsa2
+    // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to
+    // head_node or tail_node depending on which direction the path extension was stopped
+    void prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node);
 
 private:
     void _for_each_kmer(int kmer_size,

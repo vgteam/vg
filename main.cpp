@@ -345,7 +345,11 @@ void help_mod(char** argv) {
          << "    -i, --include-aln FILE  include the paths implied by alignments in the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
-         << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl;
+         << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
+         << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
+         << "                            cross more than --edge-max edges" << endl
+         << "    -l, --path-length N     when pruning complex regions evaluate paths of this many nodes" << endl
+         << "    -e, --edge-max N        when pruning complex regions limit paths to this many edge crossings" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -359,6 +363,9 @@ int main_mod(int argc, char** argv) {
     bool remove_orphans = false;
     string aln_file;
     bool compact_ids = false;
+    bool prune_complex = false;
+    int path_length = 0;
+    int edge_max = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -370,11 +377,14 @@ int main_mod(int argc, char** argv) {
                 {"compact-ids", no_argument, 0, 'c'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
+                {"prune-complex", no_argument, 0, 'p'},
+                {"path-length", required_argument, 0, 'l'},
+                {"edge-max", required_argument, 0, 'e'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:c",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -398,6 +408,18 @@ int main_mod(int argc, char** argv) {
 
         case 'o':
             remove_orphans = true;
+            break;
+
+        case 'p':
+            prune_complex = true;
+            break;
+
+        case 'l':
+            path_length = atoi(optarg);
+            break;
+
+        case 'e':
+            edge_max = atoi(optarg);
             break;
 
         case 'h':
@@ -455,6 +477,17 @@ int main_mod(int argc, char** argv) {
             graph->sort();
             graph->compact_ids();
         }
+    }
+
+    if (prune_complex) {
+        if (!(path_length > 0 && edge_max > 0)) {
+            cerr << "when pruning complex regions you must specify a --path-length and --edge-max" << endl;
+            return 1;
+        }
+        Node* head_node = NULL;
+        Node* tail_node = NULL;
+        graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
+        graph->prune_complex(path_length, edge_max, head_node, tail_node);
     }
 
     graph->serialize_to_ostream(std::cout);
@@ -1242,7 +1275,7 @@ int main_paths(int argc, char** argv) {
         callback = &paths_to_json;
     }
 
-    auto noop = [](Node*) { }; // don't handle the failed regions of the graph yet
+    auto noop = [](Node*) { }; // don't handle the failed regions of the graph yetj
 
     if (node_id) {
         graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, edge_max,

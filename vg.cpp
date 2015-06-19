@@ -2851,9 +2851,8 @@ void VG::kmer_context(string& kmer,
                       int32_t offset,
                       set<char>& prev_chars,
                       set<char>& next_chars,
-                      set<pair<int64_t, int32_t> >& next_positions,
-                      Node* head_node,
-                      Node* tail_node) {
+                      set<pair<int64_t, int32_t> >& next_positions) {
+
     // walk through the graph until we get to our node
     auto np = path.begin();
     int pos = 0;
@@ -2875,25 +2874,9 @@ void VG::kmer_context(string& kmer,
         // add to prev_chars
         vector<Node*> prev_nodes;
         nodes_prev(node, prev_nodes);
-        // would we lose the previous kmers?
-        if (edge_max > 0 && edge_max < kmer_size
-            && path_edge_count(path, offset, kmer_size) == edge_max
-            && path_end_node_offset(path, offset, kmer_size) > 1) {
-            // find the head node
-            // and use that to connect
-            cerr << "will drop start " << endl;
-            if (head_node) {
-                const string& seq = head_node->sequence();
-                prev_chars.insert(seq[seq.size()-1]);
-            } // else nothing
-        } else {
-            for (auto n : prev_nodes) {
-                // we might lose the previous kmer
-                // if so, we should list the prev chars and positions
-                // as the origin node
-                const string& seq = n->sequence();
-                prev_chars.insert(seq[seq.size()-1]);
-            }
+        for (auto n : prev_nodes) {
+            const string& seq = n->sequence();
+            prev_chars.insert(seq[seq.size()-1]);
         }
     } else {
         prev_chars.insert(node->sequence()[offset-1]);
@@ -2930,25 +2913,6 @@ void VG::kmer_context(string& kmer,
                 next_chars.insert(m->sequence()[0]);
                 next_positions.insert(make_pair(m->id(), 0));
             }
-            if (edge_max > 0 && edge_max < kmer_size
-                && path_edge_count(path, offset, kmer_size) == edge_max
-                && path_end_node_offset(path, offset, kmer_size) != 1) {
-                if (offset == 0 && (*path.begin())->sequence().size() == 1) {
-                    //cerr << "we can't overflow" << endl;
-                } else {
-                    Node* end_node = *path.rbegin();
-                    if (path_end_node_offset(path, offset, kmer_size)
-                        == (end_node->sequence().size() - 1)
-                        && node_count_next(end_node)) {
-                        cerr << "will drop end" << endl;
-                        //cerr << "We should overflow" << endl;
-                        next_chars.clear();
-                        next_positions.clear();
-                        next_chars.insert(tail_node->sequence()[0]);
-                        next_positions.insert(make_pair(tail_node->id(), 0));
-                    }
-                }
-            }
             break;
         } else if (newpos > kmer.size()) {
             int off = n->sequence().size() - (newpos - kmer.size());
@@ -2960,6 +2924,26 @@ void VG::kmer_context(string& kmer,
             ++np;
         }
     }
+}
+
+void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
+    auto prev_maxed = [this, &head_node](Node* node) {
+        // remove the node, forward from links to head node
+        for (auto& e : edges_from(node)) {
+            create_edge(head_node->id(), e);
+        }
+        destroy_node(node);
+    };
+    auto next_maxed = [this, &tail_node](Node* node) {
+        // remove the node, forward to links to tail node
+        for (auto& e : edges_to(node)) {
+            create_edge(e, tail_node->id());
+        }
+        destroy_node(node);
+
+    };
+    auto noop = [](Node* node, list<Node*>& path) { };
+    for_each_kpath(path_length, edge_max, prev_maxed, next_maxed, noop);
 }
 
 void VG::collect_subgraph(Node* node, set<Node*>& subgraph) {
