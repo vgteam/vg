@@ -390,7 +390,7 @@ int main_mod(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:",
                          long_options, &option_index);
 
         // Detect the end of the options.
