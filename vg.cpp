@@ -2927,18 +2927,35 @@ void VG::kmer_context(string& kmer,
 }
 
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
-    set<Node*> prev_maxed_nodes;
-    set<Node*> next_maxed_nodes;
+    vector<set<Node*> > prev_maxed_nodes;
+    vector<set<Node*> > next_maxed_nodes;
+#pragma omp parallel
+    {
+#pragma omp single
+        {
+            int threads = omp_get_num_threads();
+            prev_maxed_nodes.resize(threads);
+            next_maxed_nodes.resize(threads);
+        }
+    }
     auto prev_maxed = [this, &prev_maxed_nodes](Node* node) {
-        prev_maxed_nodes.insert(node);
+        int tid = omp_get_thread_num();
+        prev_maxed_nodes[tid].insert(node);
     };
     auto next_maxed = [this, &next_maxed_nodes](Node* node) {
-        next_maxed_nodes.insert(node);
+        int tid = omp_get_thread_num();
+        next_maxed_nodes[tid].insert(node);
     };
     auto noop = [](Node* node, list<Node*>& path) { };
-    for_each_kpath(path_length, edge_max, prev_maxed, next_maxed, noop);
+    for_each_kpath_parallel(path_length, edge_max, prev_maxed, next_maxed, noop);
 
-    for (auto* node : prev_maxed_nodes) {
+    set<Node*> prev;
+    for (auto& p : prev_maxed_nodes) {
+        for (auto* node : p) {
+            prev.insert(node);
+        }
+    }
+    for (auto* node : prev) {
         // remove the node, forward from links to head node
         for (auto& e : edges_from(node)) {
             create_edge(head_node->id(), e);
@@ -2946,7 +2963,13 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
         destroy_node(node);
     }
 
-    for (auto* node : next_maxed_nodes) {
+    set<Node*> next;
+    for (auto& n : next_maxed_nodes) {
+        for (auto* node : n) {
+            next.insert(node);
+        }
+    }
+    for (auto* node : next) {
         // remove the node, forward to links to tail node
         for (auto& e : edges_to(node)) {
             create_edge(e, tail_node->id());

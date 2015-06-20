@@ -351,7 +351,8 @@ void help_mod(char** argv) {
          << "    -l, --path-length N     when pruning complex regions evaluate paths of this many nodes" << endl
          << "    -e, --edge-max N        when pruning complex regions limit paths to this many edge crossings" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
-         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl;
+         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
+         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -384,11 +385,12 @@ int main_mod(int argc, char** argv) {
                 {"path-length", required_argument, 0, 'l'},
                 {"edge-max", required_argument, 0, 'e'},
                 {"markers", no_argument, 0, 'm'},
+                {"threads", no_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:m",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -428,6 +430,10 @@ int main_mod(int argc, char** argv) {
 
         case 'm':
             add_start_and_end_markers = true;
+            break;
+
+        case 't':
+            omp_set_num_threads(atoi(optarg));
             break;
 
         case 'h':
