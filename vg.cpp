@@ -2988,6 +2988,28 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
     }
 }
 
+void VG::prune_short_subgraphs(size_t min_size) {
+    list<VG> subgraphs;
+    disjoint_subgraphs(subgraphs);
+    for (auto& g : subgraphs) {
+        // calculate length
+        // if < N
+        if (g.total_length_of_nodes() < min_size) {
+            g.for_each_node([this](Node* n) {
+                    // remove from this graph a node of the same id
+                    this->destroy_node(n->id());
+                });
+        }
+    }
+}
+
+/*
+// todo
+void VG::prune_complex_subgraphs(size_t ) {
+
+}
+*/
+
 void VG::collect_subgraph(Node* node, set<Node*>& subgraph) {
 
     // add node to subgraph

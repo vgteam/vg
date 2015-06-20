@@ -199,6 +199,7 @@ public:
     // limit the local complexity of the graph, connecting pruned components to a head and tail node
     // depending on the direction which we come into the node when the edge_max is passed
     void prune_complex_paths(int length, int edge_max, Node* head_node, Node* tail_node);
+    void prune_short_subgraphs(size_t min_size);
 
     // write to a stream in chunked graphs
     void serialize_to_ostream(ostream& out, int64_t chunk_size = 1000);

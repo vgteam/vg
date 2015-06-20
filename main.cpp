@@ -348,7 +348,10 @@ void help_mod(char** argv) {
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
          << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
          << "                            cross more than --edge-max edges" << endl
-         << "    -l, --path-length N     when pruning complex regions evaluate paths of this many nodes" << endl
+         << "    -p, --prune-complex     remove nodes that are reached by paths of --length which" << endl
+         << "                            cross more than --edge-max edges" << endl
+         << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
+         << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
          << "    -e, --edge-max N        when pruning complex regions limit paths to this many edge crossings" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
@@ -370,6 +373,7 @@ int main_mod(int argc, char** argv) {
     int path_length = 0;
     int edge_max = 0;
     bool add_start_and_end_markers = false;
+    bool prune_subgraphs = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -382,7 +386,8 @@ int main_mod(int argc, char** argv) {
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {"prune-complex", no_argument, 0, 'p'},
-                {"path-length", required_argument, 0, 'l'},
+                {"prune-subgraphs", no_argument, 0, 'S'},
+                {"length", required_argument, 0, 'l'},
                 {"edge-max", required_argument, 0, 'e'},
                 {"markers", no_argument, 0, 'm'},
                 {"threads", no_argument, 0, 't'},
@@ -390,7 +395,7 @@ int main_mod(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:S",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -418,6 +423,10 @@ int main_mod(int argc, char** argv) {
 
         case 'p':
             prune_complex = true;
+            break;
+
+        case 'S':
+            prune_subgraphs = true;
             break;
 
         case 'l':
@@ -504,6 +513,10 @@ int main_mod(int argc, char** argv) {
         graph->prune_complex(path_length, edge_max, head_node, tail_node);
         graph->destroy_node(head_node);
         graph->destroy_node(tail_node);
+    }
+
+    if (prune_subgraphs) {
+        graph->prune_short_subgraphs(path_length);
     }
 
     if (add_start_and_end_markers) {
