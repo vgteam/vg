@@ -1384,6 +1384,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 }
 
 void VG::sort(void) {
+    if (size() <= 1) return;
     deque<Node*> sorted_nodes;
     topological_sort(sorted_nodes);
     deque<Node*>::iterator n = sorted_nodes.begin();
@@ -2992,11 +2993,15 @@ void VG::prune_short_subgraphs(size_t min_size) {
     list<VG> subgraphs;
     disjoint_subgraphs(subgraphs);
     for (auto& g : subgraphs) {
+        vector<Node*> heads;
+        g.head_nodes(heads);
         // calculate length
         // if < N
         if (g.total_length_of_nodes() < min_size) {
+            //cerr << "removing" << endl;
             g.for_each_node([this](Node* n) {
                     // remove from this graph a node of the same id
+                    //cerr << n->id() << endl;
                     this->destroy_node(n->id());
                 });
         }
@@ -3010,30 +3015,46 @@ void VG::prune_complex_subgraphs(size_t ) {
 }
 */
 
-void VG::collect_subgraph(Node* node, set<Node*>& subgraph) {
+void VG::collect_subgraph(Node* start_node, set<Node*>& subgraph) {
 
     // add node to subgraph
-    subgraph.insert(node);
+    subgraph.insert(start_node);
+    
+    set<Node*> checked;
+    set<Node*> to_check;
+    to_check.insert(start_node);
 
-    // for each predecessor of node
-    vector<Node*> prev;
-    nodes_prev(node, prev);
-    for (vector<Node*>::iterator p = prev.begin(); p != prev.end(); ++p) {
-        // if it's not already been examined, collect its neighborhood
-        if (!subgraph.count(*p)) {
-            collect_subgraph(*p, subgraph);
+    while (!to_check.empty()) {
+        // for each predecessor of node
+        set<Node*> curr_check = to_check;
+        to_check.clear();
+        for (auto* node : curr_check) {
+            if (checked.count(node)) {
+                continue;
+            } else {
+                checked.insert(node);
+            }
+            vector<Node*> prev;
+            nodes_prev(node, prev);
+            for (vector<Node*>::iterator p = prev.begin(); p != prev.end(); ++p) {
+            // if it's not already been examined, collect its neighborhood
+                if (!subgraph.count(*p)) {
+                    subgraph.insert(*p);
+                    to_check.insert(*p);
+                }
+            }
+            // for each successor of node
+            vector<Node*> next;
+            nodes_next(node, next);
+            for (vector<Node*>::iterator n = next.begin(); n != next.end(); ++n) {
+                if (!subgraph.count(*n)) {
+                    subgraph.insert(*n);
+                    to_check.insert(*n);
+                }
+            }
         }
     }
-
-    // for each successor of node
-    vector<Node*> next;
-    nodes_next(node, next);
-    for (vector<Node*>::iterator n = next.begin(); n != next.end(); ++n) {
-        if (!subgraph.count(*n)) {
-            collect_subgraph(*n, subgraph);
-        }
-    }
-
+    //cerr << "node " << start_node->id() << " subgraph size " << subgraph.size() << endl;
 }
 
 void VG::disjoint_subgraphs(list<VG>& subgraphs) {
