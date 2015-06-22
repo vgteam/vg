@@ -459,7 +459,7 @@ string alignment_to_sam(const Alignment& alignment,
 // and generate an equivalent cigar
 string cigar_against_path(const Alignment& alignment) {
     vector<pair<int, char> > cigar;
-    assert(alignment.has_path());
+    if (!alignment.has_path()) return "";
     const Path& path = alignment.path();
     int l = 0;
     for (const auto& mapping : path.mapping()) {
