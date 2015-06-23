@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 6
+plan tests 8
 
 vg construct -r small/x.fa >j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -42,3 +42,9 @@ read=TATTTACGGCGGGGGCCCACCTTTGACCCTTTTTTTTTTTCAAGCAGAAGACGGCATACGAGATCACTTCGAGAG
 is $(vg map -s $read graphs/fail2.vg | vg surject -i graphs/GRCh37.path_names -d graphs/fail2.vg.index -s - | grep $read | wc -l) 1 "surjection works for another difficult read"
 
 rm -rf graphs/fail2.vg.index
+
+vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz >minigiab.vg
+vg index -s -k 11 minigiab.vg
+is $(vg map -b minigiab/NA12878.chr22.tiny.bam minigiab.vg | vg surject -d minigiab.vg.index -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from BAM input"
+is $(vg map -f minigiab/NA12878.chr22.tiny.fq.gz minigiab.vg | vg surject -d minigiab.vg.index -s - | grep chr22.bin8.cram:166:6027 | grep BBBBBFBFI | wc -l) 1 "mapping reproduces qualities from fastq input"
+rm -rf minigiab.vg*

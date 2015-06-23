@@ -373,11 +373,11 @@ void alignment_quality_short_to_char(Alignment& alignment) {
 }
 
 string string_quality_short_to_char(const string& quality) {
-    stringstream s;
+    string buffer; buffer.resize(quality.size());
     for (int i = 0; i < quality.size(); ++i) {
-        s << quality_short_to_char(quality[i]);
+        buffer[i] = quality_short_to_char(quality[i]);
     }
-    return s.str();
+    return buffer;
 }
 
 void alignment_quality_char_to_short(Alignment& alignment) {
@@ -385,11 +385,11 @@ void alignment_quality_char_to_short(Alignment& alignment) {
 }
 
 string string_quality_char_to_short(const string& quality) {
-    stringstream s;
+    string buffer; buffer.resize(quality.size());
     for (int i = 0; i < quality.size(); ++i) {
-        s << quality_short_to_char(quality[i]);
+        buffer[i] = quality_char_to_short(quality[i]);
     }
-    return s.str();
+    return buffer;
 }
 
 // remember to clean up with bam_destroy1(b);
