@@ -11,7 +11,7 @@ LIBROCKSDB=rocksdb/librocksdb.a
 SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
 LIBHTS=htslib/libhts.a
 INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1
-LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
+LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lrt
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o entropy.o
 
 all: vg libvg.a
