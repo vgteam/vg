@@ -2528,14 +2528,15 @@ int main_map(int argc, char** argv) {
 void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
          << "options:" << endl
-         << "    -g, --gfa          output GFA format (default)" << endl
-         << "    -d, --dot          output dot format" << endl
-         << "    -j, --json         output JSON format" << endl
-         << "    -v, --vg           write VG format (input is GFA)" << endl
-         << "    -a, --align-in     input is GAM (vg alignment format: Graph Alignment/Map)" << endl
-         << "    -G, --gam          output GAM format alignments" << endl
-         << "    -b, --bam          input is htslib-parseable alignments" << endl
-         << "    -f, --fastq        input is fastq, GAM out, two positional file arguments if paired" << endl
+         << "    -g, --gfa            output GFA format (default)" << endl
+         << "    -d, --dot            output dot format" << endl
+         << "    -j, --json           output JSON format" << endl
+         << "    -v, --vg             write VG format (input is GFA)" << endl
+         << "    -a, --align-in       input is GAM (vg alignment format: Graph Alignment/Map)" << endl
+         << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
+         << "    -G, --gam            output GAM format alignments" << endl
+         << "    -b, --bam            input is htslib-parseable alignments" << endl
+         << "    -f, --fastq          input is fastq, GAM out, two positional file arguments if paired" << endl
          << "    -i, --interleaved  fastq is interleaved paired-ended" << endl;
     //<< "    -p, --paths           extract paths from graph in VG format" << endl;
 }
@@ -2549,6 +2550,7 @@ int main_view(int argc, char** argv) {
 
     string output_type;
     string input_type;
+    string alignments;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
 
@@ -2569,11 +2571,12 @@ int main_view(int argc, char** argv) {
                 {"bam", no_argument, 0, 'b'},
                 {"fastq", no_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
+                {"aln-graph", required_argument, 0, 'A'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgjhvpaGbif",
+        c = getopt_long (argc, argv, "dgjhvpaGbifA:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2625,6 +2628,10 @@ int main_view(int argc, char** argv) {
             interleaved_fastq = true;
             break;
 
+        case 'A':
+            alignments = optarg;
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -2647,6 +2654,14 @@ int main_view(int argc, char** argv) {
 
     if (input_type.empty()) {
         input_type = "vg";
+    }
+
+    vector<Alignment> alns;
+    if (!alignments.empty()) {
+        function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
+        ifstream in;
+        in.open(alignments.c_str());
+        stream::for_each(in, lambda);
     }
 
     VG* graph;
@@ -2763,7 +2778,7 @@ int main_view(int argc, char** argv) {
     }
 
     if (output_type == "dot") {
-        graph->to_dot(std::cout);
+        graph->to_dot(std::cout, alns);
     } else if (output_type == "json") {
         char *json2 = pb2json(graph->graph);
         cout<<json2<<endl;

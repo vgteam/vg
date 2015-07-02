@@ -17,7 +17,7 @@ is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG x.vg -J | tr ','
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -d x.vg.index >/dev/null
 is $? 0 "vg map takes -d as input without a variant graph"
 
-is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -J x.vg | grep to_length | grep '"sequence": "T"' | wc -l) 1 "vg map can align across a SNP"
+is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCGTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG x.vg -J | jq . | grep '"sequence": "G"' | wc -l) 1 "vg map can align across a SNP"
 
 is $(vg map -r <(vg sim -s 69 -n 1000 -l 100 x.vg) x.vg | vg view -a - | jq -c '.score == 200 // [.score, .sequence]' | grep -v true | wc -l) 0 "alignment works on a small graph"
 

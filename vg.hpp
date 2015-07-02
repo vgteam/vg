@@ -306,7 +306,7 @@ public:
     //void node_replace_prev(Node* node, Node* before, Node* after);
     //void node_replace_next(Node* node, Node* before, Node* after);
 
-    void to_dot(ostream& out);
+    void to_dot(ostream& out, vector<Alignment> alignments = {});
     void to_gfa(ostream& out);
     bool is_valid(void);
 
@@ -495,6 +495,7 @@ private:
 bool allATGC(string& s);
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(vector<pair<int, char> >& cigar);
+string mapping_string(const string& source, const Mapping& mapping);
 void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* nl, Node* nr);
 
 } // end namespace vg

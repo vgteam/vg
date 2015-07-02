@@ -985,6 +985,37 @@ void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
     }
 }
 
+string mapping_string(const string& source, const Mapping& mapping) {
+    string result;
+    int p = mapping.position().offset();
+    for (const auto& edit : mapping.edit()) {
+        // mismatch/sub state
+// *matches* from_length == to_length, or from_length > 0 and offset unset
+// *snps* from_length == to_length; sequence = alt
+        // mismatch/sub state
+        if (edit.from_length() == edit.to_length()) {
+            if (!edit.sequence().empty()) {
+                result += edit.sequence();
+            } else {
+                result += source.substr(p, edit.from_length());
+            }
+            p += edit.from_length();
+        } else if (edit.from_length() == 0 && edit.sequence().empty()) {
+// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
+            //cigar.push_back(make_pair(edit.to_length(), 'S'));
+        } else if (edit.from_length() > edit.to_length()) {
+// *deletions* from_length > to_length; sequence may be unset or empty
+            result += edit.sequence();
+            p += edit.from_length();
+        } else if (edit.from_length() < edit.to_length()) {
+// *insertions* from_length < to_length; sequence contains relative insertion
+            result += edit.sequence();
+            p += edit.from_length();
+        }
+    }
+    return result;
+}
+
 string cigar_string(vector<pair<int, char> >& cigar) {
     vector<pair<int, char> > cigar_comp;
     pair<int, char> cur = make_pair(0, '\0');
@@ -2540,16 +2571,17 @@ bool VG::is_valid(void) {
     return true;
 }
 
-void VG::to_dot(ostream& out) {
-    out << "digraph graphname {" << endl;
+void VG::to_dot(ostream& out, vector<Alignment> alignments) {
+    out << "graph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
+    out << "    rankdir=LR;" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
         if (node_paths.empty()) {
-            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontcolor=red];" << endl;          
+            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontcolor=red,color=red,shape=box];" << endl;
         } else {
-            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\"];" << endl;
+            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box];" << endl;
         }
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
@@ -2563,13 +2595,67 @@ void VG::to_dot(ostream& out) {
         // are both nodes in the same path?
         if (both_paths.empty()
             || !paths.are_consecutive_nodes_in_path(e->from(), e->to(), *both_paths.begin())) {
-            out << "    " << e->from() << " -> " << e->to() << "[color=red];" << endl;
+            out << "    " << e->from() << " -- " << e->to() << "[color=red];" << endl;
         } else {
             // are the nodes consecutive in the path?
-            out << "    " << e->from() << " -> " << e->to() << ";" << endl;
+            out << "    " << e->from() << " -- " << e->to() << ";" << endl;
         }
     }
-
+    // add nodes for the alignments and link them to the nodes they match
+    int alnid = max_node_id()+1;
+    for (auto& aln : alignments) {
+        // check direction
+        if (!aln.is_reverse()) {
+            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
+            out << "    " << alnid << " -- " << alnid+1 << " [color=green];" << endl;
+        } else {
+            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
+            out << "    " << alnid << " -- " << alnid+1 << " [color=purple];" << endl;
+        }
+        alnid++;
+        for (int i = 0; i < aln.path().mapping_size(); ++i) {
+            const Mapping& m = aln.path().mapping(i);
+            //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
+            //string cigar_string(vector<pair<int, char> >& cigar);
+            vector<pair<int, char> > cigar;
+            mapping_cigar(m, cigar);
+            stringstream mapid;
+            const string& nodestr = get_node(m.position().node_id())->sequence();
+            string mstr = mapping_string(nodestr, m);
+            //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
+            mapid << cigar_string(cigar) << ":" << mstr;
+            // determine sequence of this portion of the alignment
+            // set color based on cigar/mapping relationship
+            string nstr;
+            if (i == 0) {
+                nstr = nodestr.substr(m.position().offset());
+            } else if (i == aln.path().mapping_size()-1) {
+                nstr = nodestr.substr(0, mapping_from_length(m));
+            } else {
+                nstr = nodestr;
+            }
+            string color = "blue";
+            if (mstr != nstr) { // some mismatch, indicate with orange color
+                color = "orange";
+            }
+            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontcolor=" << color << "];" << endl;
+            if (i > 0) {
+                out << "    " << alnid-1 << " -- " << alnid << "[color=" << color << "];" << endl;
+            }
+            out << "    " << alnid << " -- " << m.position().node_id() << "[color=" << color << ", style=invis];" << endl;
+            out << "    { rank = same; " << alnid << "; " << m.position().node_id() << "; };" << endl;
+            //out << "    " << m.position().node_id() << " -- " << alnid << "[color=" << color << ", style=invis];" << endl;
+            alnid++;
+        }
+        if (!aln.is_reverse()) {
+            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
+            out << "    " << alnid-1 << " -- " << alnid << " [color=purple];" << endl;
+        } else {
+            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
+            out << "    " << alnid-1 << " -- " << alnid << " [color=green];" << endl;
+        }
+        alnid++;
+    }
     out << "}" << endl;
 }
 
