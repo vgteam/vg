@@ -21,6 +21,10 @@ This model is similar to a number of sequence graphs that have been used in asse
 You'll need the protobuf and jansson development libraries installed on your server.
 
     sudo apt-get install protobuf-compiler libprotoc-dev libjansson-dev automake libtool
+    
+Additionally, to run the tests, you will need jq.
+
+    sudo apt-get install jq
 
 You can also run `make get-deps`.
 
