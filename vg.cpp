@@ -2808,6 +2808,7 @@ void VG::_for_each_kmer(int kmer_size,
 
     // use an LRU cache to clean up duplicates over the last 1mb
     // use one per thread so as to avoid contention
+    // TODO: How do we know this is big enough?
     map<int, LRUCache<string, bool>* > lru;
 #pragma omp parallel
     {

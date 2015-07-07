@@ -405,6 +405,12 @@ public:
                        bool allow_negatives = false);
 
     // for gcsa2
+    // For the given kmer of the given length starting at the given offset into
+    // the given Node along the given path, fill in prev_chars with the
+    // characters that preceed it, next_chars with the characters that follow
+    // it, and next_positions with the (node ID, offset) pairs of the places you
+    // can go next (from the right end of the kmer). Refuses to follow more than
+    // edge_max edges
     void kmer_context(string& kmer,
                       int kmer_size,
                       int edge_max,

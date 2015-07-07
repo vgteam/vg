@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 14
+plan tests 16
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -20,6 +20,9 @@ is $? 0 "indexing 11mers"
 
 vg index -C x.vg
 is $? 0 "index compaction"
+
+vg index -g -k 16 x.vg
+is $? 0 "building a GCSA2 index"
 
 #vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of 1mb graph succeeds"
@@ -43,7 +46,7 @@ is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignme
 vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg index -m - -d x.vg.map
 is $(vg index -D -d x.vg.map | wc -l) $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg view -a - | jq -c '.path.mapping[]' | sort | uniq | wc -l) "index stores all unique mappings"
 
-rm -rf x.vg.index x.vg.map x.vg.aln
+rm -rf x.vg.index x.vg.gcsa x.vg.map x.vg.aln
 rm -f x.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -61,8 +64,11 @@ triple=$(vg index -D -d q.vg.index | wc -l)
 # subtract two for metadata lines about paths that aren't duplicated in the merged
 is $triple $(echo "$single * 3 - 2" | bc) "storage of multiple graphs in an index succeeds"
 
+vg index -g -k 2 -d qx.vg.gcsa q.vg x.vg
+is $? 0 "building a GCSA2 index of two graphs"
+
 rm x.vg y.vg z.vg q.vg
-rm -rf x.vg.index q.vg.index
+rm -rf x.vg.index q.vg.index qx.vg.gcsa
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s x.vg
