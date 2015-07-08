@@ -512,6 +512,7 @@ int main_mod(int argc, char** argv) {
         Node* tail_node = NULL;
         graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
         graph->prune_complex(path_length, edge_max, head_node, tail_node);
+        // These nodes were created in the graph, so we can destroy them by pointer.
         graph->destroy_node(head_node);
         graph->destroy_node(tail_node);
     }
@@ -1656,6 +1657,9 @@ int main_find(int argc, char** argv) {
 
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
+         << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
+         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl 
+         << "must come first." << endl
          << "general options:" << endl
          << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl

@@ -214,12 +214,9 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
         }
     };
 
-    Node* head_node=NULL;
-    Node* tail_node=NULL;
-
     // We're going to visit every kmer in each graph.
     function<void(string&, Node*, int, list<Node*>&, VG&)>
-        visit_kmer = [&process_cache, &thread_caches, &kmer_size, &edge_max, &head_node, &tail_node]
+        visit_kmer = [&process_cache, &thread_caches, &kmer_size, &edge_max]
                      (string& kmer, Node* node, int pos, list<Node*>& path, VG& graph) {
         if (pos >= 0) {
             //kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
@@ -271,21 +268,57 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
         }
     };
 
+    // We have pointers to our own head and tail nodes, and we will own them.
+    // None of the VG graphs can own them since they get destroyed during the
+    // for_each. TODO: the next free ID in the first graph (which creates these
+    // nodes) must be free in all the graphs.
+    Node* head_node = nullptr;
+    Node* tail_node = nullptr;
+
     // For every graph in our set, visit all the kmers in parallel and make and process KmerPositions for them.
     for_each([&visit_kmer, kmer_size, edge_max, stride, allow_dups, &head_node, &tail_node, this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
-        // add in start and end markers that are required by GCSA
-        g->add_start_and_end_markers(kmer_size, '#', '$', head_node, tail_node);
+        
+        if(head_node == nullptr) {
+            // This is the first graph. Add the head and tail nodes, but make our own copies before we destroy the graph.
+            g->add_start_and_end_markers(kmer_size, '#', '$', head_node, tail_node);
+            head_node = new Node(*head_node);
+            tail_node = new Node(*tail_node);
+        } else {
+            // Add the existing head and tail nodes
+            if(min(head_node->id(), tail_node->id()) <= g->max_node_id()) {
+                // If the IDs we got for these nodes when we made them in the
+                // first graph are too small, we have to complain. It would be
+                // nice if we could make a path through all the graphs, get the
+                // max ID, and then use that to determine the head and tail node
+                // IDs, but we can't because we ahve to be able to stream the
+                // graphs.
+                cerr << "error:[for_each_gcsa_kmer_position_parallel] created a head or "
+                     << "tail node in first graph with id used by later graph " << g->name 
+                     << ". Put the graph with the largest ids first and try again." << endl;
+                exit(1);
+            }
+            g->add_start_and_end_markers(kmer_size, '#', '$', head_node, tail_node);
+        }
+        // Process all the kmers in the graph
         g->for_each_kmer_parallel(kmer_size, edge_max, visit_kmer, stride, allow_dups);
     });
-
+    
 // clean up caches
 #pragma omp parallel
     {
         auto& cache = thread_caches[omp_get_thread_num()];
         process_cache(cache.second);
     }
+    
+    // delete the head and tail nodes
+    if(head_node != nullptr) {
+        delete head_node;
+    }
+    if(tail_node != nullptr) {
+        delete tail_node;
+    }    
 }
 
 void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride, vector<gcsa::KMer>& kmers_out, bool allow_dups) {

@@ -45,7 +45,7 @@ public:
     // Write out kmer lines to GCSA2
     void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups = true);
     
-    // gets all the kmers in GCSA's internal format. TODO: is it good design to have this here?
+    // gets all the kmers in GCSA's internal format.
     void get_gcsa_kmers(int kmer_size, int edge_max, int stride, vector<gcsa::KMer>& kmers_out, bool allow_dups = true);
 
     bool show_progress;

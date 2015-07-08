@@ -236,6 +236,7 @@ public:
     // for each node, modify it with the associated mappings
     void edit(const map<int64_t, vector<Mapping> >& mappings);
 
+    // Add in the given node, by value
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
     void add_edge(Edge& edge);
@@ -255,7 +256,9 @@ public:
     Node* create_node(string seq);
     Node* get_node(int64_t id);
     void node_context(Node* node, VG& g);
+    // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
+    // destroy the node with the given ID.
     void destroy_node(int64_t id);
     bool has_node(int64_t id);
     bool has_node(Node* node);
@@ -287,7 +290,9 @@ public:
     Edge* create_edge(Node* from, Node* to);
     Edge* create_edge(int64_t from, int64_t to);
     Edge* get_edge(int64_t from, int64_t to);
+    // destroy the edge at the given pointer. This pointer must point to an edge owned by the graph.
     void destroy_edge(Edge* edge);
+    // destroy the edge between the nodes with the given IDs.
     void destroy_edge(int64_t from, int64_t to);
     bool has_edge(int64_t from, int64_t to);
     bool has_edge(Edge* edge);
@@ -456,7 +461,14 @@ public:
 
     // add singular head and tail null nodes to graph
     void wrap_with_null_nodes(void);
-    // to prepare for indexing with GCSA; length is at least kmer length to be used
+    
+    // Connect all existing head nodes to the given head node, and all existing
+    // tail nodes to the given tail node. If either is null, it is created with
+    // the specified length from the appropriate specified start/stop character,
+    // and the corresponding pointer is updated. Used to prepare for indexing
+    // with GCSA; length must be at least the GCSA kmer length to be used. Nodes
+    // created here are owned by the graph, and will be deleted when the VG
+    // object is deleted.
     void add_start_and_end_markers(int length, char start_char, char end_char,
                                    Node*& head_node, Node*& tail_node);
 
