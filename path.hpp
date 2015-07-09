@@ -6,9 +6,8 @@
 #include <functional>
 #include <set>
 #include <list>
-#include "pb2json.h"
+#include "json2pb.h"
 #include "vg.pb.h"
-#include "json.hpp"
 
 namespace vg {
 

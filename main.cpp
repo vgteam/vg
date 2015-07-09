@@ -3,7 +3,7 @@
 #include <ctime>
 #include <getopt.h>
 #include "gcsa.h"
-#include "pb2json.h"
+#include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
 #include "vg_set.hpp"
@@ -1305,10 +1305,9 @@ int main_paths(int argc, char** argv) {
     };
 
     function<void(Node*,Path&)> paths_to_json = [](Node* n, Path& p) {
-        char *json2 = pb2json(p);
+        string json2 = pb2json(p);
 #pragma omp critical(cout)
         cout<<json2<<endl;
-        free(json2);
     };
 
     function<void(Node*, Path&)>* callback = &paths_to_seqs;
@@ -1563,9 +1562,7 @@ int main_find(int argc, char** argv) {
                 Mapping m = index.path_relative_mapping(node_id, path_id,
                                                         path_prev, prev_pos,
                                                         path_next, next_pos);
-                char *json2 = pb2json(m);
-                cout<<json2<<endl;
-                free(json2);
+                cout << pb2json(m) << endl;
             }
         }
     }
@@ -2151,9 +2148,7 @@ int main_align(int argc, char** argv) {
 
     Alignment alignment = graph->align(seq);
 
-    char *json2 = pb2json(alignment);
-    cout<<json2<<endl;
-    free(json2);
+    cout << pb2json(alignment) << endl;
 
     delete graph;
 
@@ -2445,9 +2440,7 @@ int main_map(int argc, char** argv) {
         if (!read_group.empty()) alignment.set_read_group(read_group);
         if (!seq_name.empty()) alignment.set_name(seq_name);
         if (output_json) {
-            char *json2 = pb2json(alignment);
-            cout<<json2<<endl;
-            free(json2);
+            cout << pb2json(alignment) << endl;
         } else {
             function<Alignment(uint64_t)> lambda =
                 [&alignment] (uint64_t n) {
@@ -2475,10 +2468,9 @@ int main_map(int argc, char** argv) {
                     if (!sample_name.empty()) alignment.set_sample_name(sample_name);
                     if (!read_group.empty()) alignment.set_read_group(read_group);
                     if (output_json) {
-                        char *json2 = pb2json(alignment);
+                        string json2 = pb2json(alignment);
 #pragma omp critical (cout)
                         cout << json2 << "\n";
-                        free(json2);
                     } else {
                         auto& output_buf = output_buffer[tid];
                         output_buf.push_back(alignment);
@@ -2501,10 +2493,9 @@ int main_map(int argc, char** argv) {
             int tid = omp_get_thread_num();
             alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride, band_width);
             if (output_json) {
-                char *json2 = pb2json(alignment);
+                string json2 = pb2json(alignment);
 #pragma omp critical (cout)
                 cout << json2 << "\n";
-                free(json2);
             } else {
                 auto& output_buf = output_buffer[tid];
                 output_buf.push_back(alignment);
@@ -2530,11 +2521,10 @@ int main_map(int argc, char** argv) {
                 int tid = omp_get_thread_num();
                 auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
                 if (output_json) {
-                    char *json1 = pb2json(alnp.first);
-                    char *json2 = pb2json(alnp.second);
+                    string json1 = pb2json(alnp.first);
+                    string json2 = pb2json(alnp.second);
 #pragma omp critical (cout)
                     cout << json1 << "\n" << json2 << "\n";
-                    free(json1); free(json2);
                 } else {
                     auto& output_buf = output_buffer[tid];
                     output_buf.push_back(alnp.first);
@@ -2556,10 +2546,9 @@ int main_map(int argc, char** argv) {
                 int tid = omp_get_thread_num();
                 alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride, band_width);
                 if (output_json) {
-                    char *json2 = pb2json(alignment);
+                    string json2 = pb2json(alignment);
 #pragma omp critical (cout)
                     cout << json2 << "\n";
-                    free(json2);
                 } else {
                     auto& output_buf = output_buffer[tid];
                     output_buf.push_back(alignment);
@@ -2581,11 +2570,10 @@ int main_map(int argc, char** argv) {
                 int tid = omp_get_thread_num();
                 auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
                 if (output_json) {
-                    char *json1 = pb2json(alnp.first);
-                    char *json2 = pb2json(alnp.second);
+                    string json1 = pb2json(alnp.first);
+                    string json2 = pb2json(alnp.second);
 #pragma omp critical (cout)
                     cout << json1 << "\n" << json2 << "\n";
-                    free(json1); free(json2);
                 } else {
                     auto& output_buf = output_buffer[tid];
                     output_buf.push_back(alnp.first);
@@ -2785,9 +2773,7 @@ int main_view(int argc, char** argv) {
             // convert values to printable ones
             function<void(Alignment&)> lambda = [](Alignment& a) {
                 //alignment_quality_short_to_char(a);
-                char *json2 = pb2json(a);
-                cout << json2 << "\n";
-                free(json2);
+                cout << pb2json(a) << "\n";
             };
             if (file_name == "-") {
                 stream::for_each(std::cin, lambda);
@@ -2867,9 +2853,7 @@ int main_view(int argc, char** argv) {
     if (output_type == "dot") {
         graph->to_dot(std::cout, alns);
     } else if (output_type == "json") {
-        char *json2 = pb2json(graph->graph);
-        cout<<json2<<endl;
-        free(json2);
+        cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
     } else if (output_type == "vg") {

@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include "pb2json.h"
+#include "json2pb.h"
 #include "vg.pb.h"
 #include "vg.hpp"
 
@@ -27,9 +27,7 @@ int main(int argc,char *argv[])
     n.SerializeToOstream(&of);
     */
 
-	char *json3 = pb2json(graph.graph);
-	cout<<json3<<endl;
-	free(json3);
+	cout<< pb2json(graph.graph) <<endl;
 
     return 0;
 }

@@ -17,7 +17,6 @@
 #include "region.hpp"
 #include "path.hpp"
 #include "utility.hpp"
-#include "json.hpp"
 
 #include "vg.pb.h"
 #include "hash_map.hpp"
