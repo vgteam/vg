@@ -9,6 +9,7 @@
 #define __JSON2PB_H__
 
 #include <string>
+#include <cstdio>
 
 namespace google {
 namespace protobuf {
@@ -17,6 +18,7 @@ class Message;
 }
 
 void json2pb(google::protobuf::Message &msg, const char *buf, size_t size);
+void json2pb(google::protobuf::Message &msg, FILE *fp);
 std::string pb2json(const google::protobuf::Message &msg);
 
 #endif//__JSON2PB_H__

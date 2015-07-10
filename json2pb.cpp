@@ -14,6 +14,7 @@
 #include <json2pb.h>
 
 #include <stdexcept>
+#include <cstdio>
 
 namespace {
 #include "bin2ascii.h"
@@ -243,6 +244,24 @@ void json2pb(Message &msg, const char *buf, size_t size)
 	json_error_t error;
 
 	root = json_loadb(buf, size, 0, &error);
+
+	if (!root)
+		throw j2pb_error(std::string("Load failed: ") + error.text);
+
+	json_autoptr _auto(root);
+
+	if (!json_is_object(root))
+		throw j2pb_error("Malformed JSON: not an object");
+
+	_json2pb(msg, root);
+}
+
+void json2pb(Message &msg, FILE *fp)
+{
+    json_t *root;
+	json_error_t error;
+
+	root = json_loadf(fp, JSON_DISABLE_EOF_CHECK, &error);
 
 	if (!root)
 		throw j2pb_error(std::string("Load failed: ") + error.text);

@@ -100,6 +100,10 @@ public:
 
     // construct from protobufs
     VG(istream& in, bool showp = false);
+    
+    // construct from an arbitrary source of Graph protobuf messages (which
+    // populates the given Graph and returns a flag for whether it's valid).
+    VG(function<bool(Graph&)>& get_next_graph, bool showp = false);
 
     // construct from sets of nodes and edges (e.g. subgraph of another graph)
     VG(set<Node*>& nodes, set<Edge*>& edges);
