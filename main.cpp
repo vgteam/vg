@@ -2871,6 +2871,8 @@ int main_view(int argc, char** argv) {
                 in.open(file_name.c_str());
                 stream::for_each(in, lambda);
             }
+            
+            cout.flush();
             return 0;
         } else {
             // todo
@@ -2892,6 +2894,7 @@ int main_view(int argc, char** argv) {
             hts_for_each(file_name, lambda);
             write_alignments(std::cout, buf);
             buf.clear();
+            cout.flush();
             return 0;
         } else if (output_type == "json") {
             // todo
@@ -2945,6 +2948,7 @@ int main_view(int argc, char** argv) {
             cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;
             return 1;
         }
+        cout.flush();
         return 0;
     }
 
@@ -2977,7 +2981,8 @@ int main_view(int argc, char** argv) {
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
     }
-
+    
+    cout.flush();
     delete graph;
 
     return 0;
