@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 10
+plan tests 11
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     2133 \
@@ -20,6 +20,10 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -n -k 11 - | sort |
 is  $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 -d - | sort | uniq | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz -t 4 | vg kmers -k 11 -d - | wc -l) \
     "only unique kmers are produced"
+    
+is $(vg kmers -k 15 reversing/reversing_edge.vg | grep "CAAATAAGTGTAATC" | wc -l) 1 "to_end edges are handled correctly"
+
+is $(vg kmers -k 15 reversing/reversing_edge.vg | grep "AAATAAGTGTAATCA" | wc -l) 1 "from_start edges are handled correctly"
 
 vg construct -v small/x.vcf.gz -r small/x.fa >x.vg
 vg index -s x.vg

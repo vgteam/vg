@@ -816,10 +816,14 @@ int main_kmers(int argc, char** argv) {
     if (gcsa_out) {
         graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, allow_dups, head_id, tail_id);
     } else {
-        function<void(string&, Node*, int, list<Node*>&, VG& graph)>
-            lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
+        function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG& graph)>
+            lambda = [](string& kmer, NodeTraversal n, int p, list<NodeTraversal>& path, VG& graph) {
+            // We encode orientation by negating the IDs for backward nodes.
+            // Their offsets are from the end of the node in its local forward
+            // orientation, and are negated in the output.
+            int sign = n.backward ? -1 : 1;            
 #pragma omp critical (cout)
-            cout << kmer << '\t' << n->id() << '\t' << p << '\n';
+            cout << kmer << '\t' << n.node->id() * sign << '\t' << p * sign << '\n';
         };
         graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride, allow_dups, allow_negs);
     }
@@ -1331,7 +1335,7 @@ int main_paths(int argc, char** argv) {
         callback = &paths_to_json;
     }
 
-    auto noop = [](Node*) { }; // don't handle the failed regions of the graph yetj
+    auto noop = [](NodeTraversal) { }; // don't handle the failed regions of the graph yet
 
     if (node_id) {
         graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, edge_max,

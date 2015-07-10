@@ -126,4 +126,7 @@ message KmerMatch {
     string sequence = 1;
     int64 node_id = 2;
     sint32 position = 3;
+    
+    // If true, this kmer is backwards relative to its node, and position counts from the end of the node.
+    bool backward = 4; 
 }
