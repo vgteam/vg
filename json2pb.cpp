@@ -8,6 +8,14 @@
 #include <errno.h>
 #include <jansson.h>
 
+// Backport json_boolean if needed (for jansson <2.4)
+// This macro comes from the Jansson docs, and is thus 
+// Copyright (c) 2009-2014 Petri Lehtinen <petri@digip.org>, distributed under
+// the MIT license.
+#ifndef json_boolean
+#define json_boolean(val) ((val) ? json_true() : json_false())
+#endif
+
 #include <google/protobuf/message.h>
 #include <google/protobuf/descriptor.h>
 
