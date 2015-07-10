@@ -5,6 +5,8 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
+export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
+
 plan tests 14
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
