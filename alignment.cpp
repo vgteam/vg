@@ -561,9 +561,7 @@ void merge_alignments(Alignment& a1, const Alignment& a2) {
     }
     if (path_to_length(a1.path()) != a1.sequence().size()) {
         cerr << path_to_length(a1.path()) << " (to_length) != " << a1.sequence().size() << " (sequence size)" << endl;
-        char* json = pb2json(a1);
-        cerr<<json<<endl;
-        free(json);
+        cerr << pb2json(a1) << endl;
         exit(1);
     }
 }

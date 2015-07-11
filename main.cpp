@@ -1,8 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <ctime>
+#include <cstdio>
 #include <getopt.h>
-#include "pb2json.h"
+#include "gcsa.h"
+#include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
 #include "vg_set.hpp"
@@ -511,6 +513,7 @@ int main_mod(int argc, char** argv) {
         Node* tail_node = NULL;
         graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
         graph->prune_complex(path_length, edge_max, head_node, tail_node);
+        // These nodes were created in the graph, so we can destroy them by pointer.
         graph->destroy_node(head_node);
         graph->destroy_node(tail_node);
     }
@@ -1303,10 +1306,9 @@ int main_paths(int argc, char** argv) {
     };
 
     function<void(Node*,Path&)> paths_to_json = [](Node* n, Path& p) {
-        char *json2 = pb2json(p);
+        string json2 = pb2json(p);
 #pragma omp critical(cout)
         cout<<json2<<endl;
-        free(json2);
     };
 
     function<void(Node*, Path&)>* callback = &paths_to_seqs;
@@ -1561,9 +1563,7 @@ int main_find(int argc, char** argv) {
                 Mapping m = index.path_relative_mapping(node_id, path_id,
                                                         path_prev, prev_pos,
                                                         path_next, next_pos);
-                char *json2 = pb2json(m);
-                cout<<json2<<endl;
-                free(json2);
+                cout << pb2json(m) << endl;
             }
         }
     }
@@ -1655,27 +1655,34 @@ int main_find(int argc, char** argv) {
 
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
-         << "options:" << endl
+         << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
+         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl 
+         << "must come first." << endl
+         << "general options:" << endl
+         << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
+         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
+         << "    -e, --edge-max N       cross no more than N edges when determining k-paths" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
+         << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
+         << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+         << "                           (this is required if you are using multiple graphs files)" << endl
+         << "    -t, --threads N        number of threads to use" << endl
+         << "    -p, --progress         show progress" << endl
+         << "rocksdb options (ignored with -g):" << endl
          << "    -s, --store-graph      store graph (do this first to build db!)" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
          << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
-         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
-         << "    -e, --edge-max N       cross no more than N edges when determining k-paths" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
          << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-         << "    -d, --db-name DIR      create rocksdb in DIR (defaults to <graph>.index/)" << endl
-         << "                           (this is required if you are using multiple graphs files" << endl
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl
-         << "    -t, --threads N        number of threads to use" << endl
-         << "    -p, --progress         show progress" << endl;
+         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl;
+         
 }
 
 int main_index(int argc, char** argv) {
@@ -1702,6 +1709,8 @@ int main_index(int argc, char** argv) {
     bool compact = false;
     bool dump_alignments = false;
     bool use_snappy = false;
+    bool gcsa_out = false;
+    int doubling_steps = gcsa::GCSA::DOUBLING_STEPS; // TODO: add an option for this?
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1727,11 +1736,12 @@ int main_index(int argc, char** argv) {
                 {"compact", no_argument, 0, 'C'},
                 {"allow-negs", no_argument, 0, 'n'},
                 {"use-snappy", no_argument, 0, 'Q'},
+                {"gcsa-out", no_argument, 0, 'g'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQ",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1811,6 +1821,10 @@ int main_index(int argc, char** argv) {
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
+            
+        case 'g':
+            gcsa_out = true;
+            break;
  
         case 'h':
         case '?':
@@ -1836,12 +1850,83 @@ int main_index(int argc, char** argv) {
             cerr << "error:[vg index] working on multiple graphs and no db name (-d) given, exiting" << endl;
             return 1;
         } else if (file_names.size() == 1) {
-            db_name = *file_names.begin() + ".index";
+            if(gcsa_out) {
+                // Name the database for gcsa
+                db_name = *file_names.begin() + gcsa::GCSA::EXTENSION;
+            } else {
+                // Name the database for rocksdb
+                db_name = *file_names.begin() + ".index";
+            }
         } else {
             cerr << "error:[vg index] no graph or db given, exiting" << endl;
             return 1;
         }
     }
+    
+    if(kmer_size == 0 && gcsa_out) {
+        // gcsa doesn't do anything if we tell it a kmer size of 0.
+        cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
+        return 1;
+    }
+    
+    if(kmer_size < 0) {
+        cerr << "error:[vg index] kmer size cannot be negative" << endl;
+        return 1;
+    }
+    
+    if(kmer_stride <= 0) {
+        // kmer strides of 0 (or negative) are silly.
+        cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
+        return 1;
+    }
+
+    if(gcsa_out) {
+        // We need to make a gcsa index.
+    
+        // Load up the graphs
+        VGset graphs(file_names);
+
+        graphs.show_progress = show_progress;
+
+        // Go get the kmers of the correct size
+        vector<gcsa::KMer> kmers;
+        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, kmers);
+        
+        // Handle finding the sink node
+        size_t sink_node_id = 0;
+        for(auto kmer : kmers) {
+            if(gcsa::Key::label(kmer.key) == 0) {
+                // This kmer lets us know the sink node.
+                sink_node_id = gcsa::Node::id(kmer.from);
+                break;
+            }
+        }
+        
+        for(auto& kmer : kmers) {
+            // Mark kmers that go to the sink node as "sorted", since they have stop
+            // characters in them and can't be extended.
+            // TODO: Can we just check for the presence of "$" during conversion and not do this serial loop?
+            if(gcsa::Node::id(kmer.to) == sink_node_id && gcsa::Node::offset(kmer.to) > 0) {
+                kmer.makeSorted();
+            }
+            
+            //cout << kmer << std::endl;
+        }
+        
+        if(show_progress) {
+            cerr << "Found " << kmers.size() << " kmer instances" << endl;
+        }
+        
+        // Make the index with the kmers
+        gcsa::GCSA gcsa_index(kmers, kmer_size, doubling_steps);
+        
+        // Save it to the index filename
+        sdsl::store_to_file(gcsa_index, db_name);
+        
+        // Skip all the Snappy stuff we can't do (yet).
+        return 0;
+    }
+    
 
     Index index;
     index.use_snappy = use_snappy;
@@ -2067,9 +2152,7 @@ int main_align(int argc, char** argv) {
 
     Alignment alignment = graph->align(seq);
 
-    char *json2 = pb2json(alignment);
-    cout<<json2<<endl;
-    free(json2);
+    cout << pb2json(alignment) << endl;
 
     delete graph;
 
@@ -2361,9 +2444,7 @@ int main_map(int argc, char** argv) {
         if (!read_group.empty()) alignment.set_read_group(read_group);
         if (!seq_name.empty()) alignment.set_name(seq_name);
         if (output_json) {
-            char *json2 = pb2json(alignment);
-            cout<<json2<<endl;
-            free(json2);
+            cout << pb2json(alignment) << endl;
         } else {
             function<Alignment(uint64_t)> lambda =
                 [&alignment] (uint64_t n) {
@@ -2391,10 +2472,9 @@ int main_map(int argc, char** argv) {
                     if (!sample_name.empty()) alignment.set_sample_name(sample_name);
                     if (!read_group.empty()) alignment.set_read_group(read_group);
                     if (output_json) {
-                        char *json2 = pb2json(alignment);
+                        string json2 = pb2json(alignment);
 #pragma omp critical (cout)
                         cout << json2 << "\n";
-                        free(json2);
                     } else {
                         auto& output_buf = output_buffer[tid];
                         output_buf.push_back(alignment);
@@ -2417,10 +2497,9 @@ int main_map(int argc, char** argv) {
             int tid = omp_get_thread_num();
             alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride, band_width);
             if (output_json) {
-                char *json2 = pb2json(alignment);
+                string json2 = pb2json(alignment);
 #pragma omp critical (cout)
                 cout << json2 << "\n";
-                free(json2);
             } else {
                 auto& output_buf = output_buffer[tid];
                 output_buf.push_back(alignment);
@@ -2446,11 +2525,10 @@ int main_map(int argc, char** argv) {
                 int tid = omp_get_thread_num();
                 auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
                 if (output_json) {
-                    char *json1 = pb2json(alnp.first);
-                    char *json2 = pb2json(alnp.second);
+                    string json1 = pb2json(alnp.first);
+                    string json2 = pb2json(alnp.second);
 #pragma omp critical (cout)
                     cout << json1 << "\n" << json2 << "\n";
-                    free(json1); free(json2);
                 } else {
                     auto& output_buf = output_buffer[tid];
                     output_buf.push_back(alnp.first);
@@ -2472,10 +2550,9 @@ int main_map(int argc, char** argv) {
                 int tid = omp_get_thread_num();
                 alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride, band_width);
                 if (output_json) {
-                    char *json2 = pb2json(alignment);
+                    string json2 = pb2json(alignment);
 #pragma omp critical (cout)
                     cout << json2 << "\n";
-                    free(json2);
                 } else {
                     auto& output_buf = output_buffer[tid];
                     output_buf.push_back(alignment);
@@ -2497,11 +2574,10 @@ int main_map(int argc, char** argv) {
                 int tid = omp_get_thread_num();
                 auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
                 if (output_json) {
-                    char *json1 = pb2json(alnp.first);
-                    char *json2 = pb2json(alnp.second);
+                    string json1 = pb2json(alnp.first);
+                    string json2 = pb2json(alnp.second);
 #pragma omp critical (cout)
                     cout << json1 << "\n" << json2 << "\n";
-                    free(json1); free(json2);
                 } else {
                     auto& output_buf = output_buffer[tid];
                     output_buf.push_back(alnp.first);
@@ -2529,19 +2605,31 @@ int main_map(int argc, char** argv) {
 }
 
 void help_view(char** argv) {
-    cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
+    cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <graph.json> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
          << "options:" << endl
          << "    -g, --gfa            output GFA format (default)" << endl
-         << "    -d, --dot            output dot format" << endl
+         << "    -F, --gfa-in         input GFA format" << endl
+         
+         << "    -v, --vg             output VG format (input defaults to GFA)" << endl
+         << "    -V, --vg-in          input VG format (default)" << endl
+         
          << "    -j, --json           output JSON format" << endl
-         << "    -v, --vg             write VG format (input is GFA)" << endl
-         << "    -a, --align-in       input is GAM (vg alignment format: Graph Alignment/Map)" << endl
+         << "    -J, --json-in        input JSON format" << endl
+         
+         << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
+         << "                         Alignment/Map)" << endl
+         << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
-         << "    -G, --gam            output GAM format alignments" << endl
-         << "    -b, --bam            input is htslib-parseable alignments" << endl
-         << "    -f, --fastq          input is fastq, GAM out, two positional file arguments if paired" << endl
-         << "    -i, --interleaved  fastq is interleaved paired-ended" << endl;
+         
+         << "    -d, --dot            output dot format" << endl
+         
+         << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
+         
+         << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
+         << "                         positional file arguments if paired" << endl
+         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl;
     //<< "    -p, --paths           extract paths from graph in VG format" << endl;
+    // TODO: Can we regularize the option names for input and output types?
 }
 
 int main_view(int argc, char** argv) {
@@ -2550,6 +2638,17 @@ int main_view(int argc, char** argv) {
         help_view(argv);
         return 1;
     }
+
+    // Supported conversions:
+    //      TO  vg  json    gfa gam bam fastq   dot
+    // FROM
+    // vg       Y   Y       Y   N   N   N       Y       
+    // json     Y   Y       Y   N   N   N       Y
+    // gfa      Y   Y       Y   N   N   N       Y  
+    // gam      N   Y       N   N   N   N       N
+    // bam      N   N       N   Y   N   N       N
+    // fastq    N   N       N   Y   N   N       N
+    // dot      N   N       N   N   N   N       N
 
     string output_type;
     string input_type;
@@ -2566,8 +2665,11 @@ int main_view(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
+                {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
+                {"json-in",  no_argument, 0, 'J'},
                 {"vg", no_argument, 0, 'v'},
+                {"vg-in", no_argument, 0, 'V'},
                 {"paths", no_argument, 0, 'p'},
                 {"align-in", no_argument, 0, 'a'},
                 {"gam", no_argument, 0, 'G'},
@@ -2579,7 +2681,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgjhvpaGbifA:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2595,26 +2697,49 @@ int main_view(int argc, char** argv) {
         case 'g':
             output_type = "gfa";
             break;
+            
+        case 'F':
+            input_type = "gfa";
+            break;
  
         case 'j':
             output_type = "json";
             break;
-
-        case 'v':
-            input_type = "gfa";
-            output_type = "vg";
+            
+        case 'J':
+            input_type = "json";
             break;
 
-        case 'a':
-            input_type = "gam";
+        case 'v':
+            output_type = "vg";
+            if(input_type.empty()) {
+                // Default to GFA -> VG
+                input_type = "gfa";
+            }
+            break;
+            
+        case 'V':
+            input_type = "vg";
             break;
 
         case 'G':
             output_type = "gam";
             break;
+            
+        case 'a':
+            input_type = "gam";
+            if(output_type.empty()) {
+                // Default to GAM -> JSON
+                output_type = "json";
+            }
+            break;
 
         case 'b':
             input_type = "bam";
+            if(output_type.empty()) {
+                // Default to BAM -> GAM, since BAM isn't convertable to our normal default.
+                output_type = "gam";
+            }
             break;
 
         case 'p':
@@ -2624,7 +2749,10 @@ int main_view(int argc, char** argv) {
 
         case 'f':
             input_type = "fastq";
-            output_type = "gam";
+            if(output_type.empty()) {
+                // Default to FASTQ -> GAM
+                output_type = "gam";
+            }
             break;
 
         case 'i':
@@ -2647,18 +2775,14 @@ int main_view(int argc, char** argv) {
         }
     }
 
-    if (output_type.empty()) {
-        if (input_type == "gam") {
-            output_type = "json";
-        } else {
-            output_type = "gfa";
-        }
-    }
-
+    // If the user specified nothing else, we default to VG in and GFA out.
     if (input_type.empty()) {
         input_type = "vg";
     }
-
+    if (output_type.empty()) {
+        output_type = "gfa";
+    }
+    
     vector<Alignment> alns;
     if (!alignments.empty()) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
@@ -2667,7 +2791,7 @@ int main_view(int argc, char** argv) {
         stream::for_each(in, lambda);
     }
 
-    VG* graph;
+    VG* graph = nullptr;
     if (optind >= argc) {
         cerr << "[vg view] error: no filename given" << endl;
         exit(1);
@@ -2681,6 +2805,7 @@ int main_view(int argc, char** argv) {
             in.open(file_name.c_str());
             graph = new VG(in);
         }
+        // VG can convert to any of the graph formats, so keep going
     } else if (input_type == "gfa") {
         if (file_name == "-") {
             graph = new VG;
@@ -2691,19 +2816,56 @@ int main_view(int argc, char** argv) {
             graph = new VG;
             graph->from_gfa(in);
         }
+        // GFA can convert to any of the graph formats, so keep going
+    } else if(input_type == "json") {
+        // We need to load a JSON graph, which means we need to mess about with FILE pointers, since jansson is a C API.
+        
+        FILE* json_file;
+        
+        if (file_name == "-") {
+            // Read standard input
+            json_file = stdin;
+        } else {
+            // Open the file for reading
+            json_file = fopen(file_name.c_str(), "r");
+        }
+        
+        // Make a new VG that calls this function over and over to read Graphs.
+        function<bool(Graph&)> get_next_graph = [&](Graph& subgraph) -> bool {
+            // Check if the file ends now, and skip whitespace between records.
+            char peeked;
+            do {
+                peeked = fgetc(json_file);
+                if(peeked == EOF) {
+                    // File ended or otherwise errored. TODO: check for other
+                    // errors and complain.
+                    return false;
+                }
+            } while(isspace(peeked));
+            // Put it back
+            ungetc(peeked, json_file);
+            
+            // Now we know we have non-whitespace between here and EOF.
+            // If it's not JSON, we want to die. So read it as JSON.
+            json2pb(subgraph, json_file);
+            
+            // We read it successfully!
+            return true;
+        };
+        graph = new VG(get_next_graph, false);
+        
     } else if (input_type == "paths") {
         ifstream in;
         in.open(file_name.c_str());
         graph = new VG;
         graph->paths.load(in);
+        // Paths in is always used with paths out.
     } else if (input_type == "gam") {
         if (output_type == "json") {
             // convert values to printable ones
             function<void(Alignment&)> lambda = [](Alignment& a) {
                 //alignment_quality_short_to_char(a);
-                char *json2 = pb2json(a);
-                cout << json2 << "\n";
-                free(json2);
+                cout << pb2json(a) << "\n";
             };
             if (file_name == "-") {
                 stream::for_each(std::cin, lambda);
@@ -2712,10 +2874,13 @@ int main_view(int argc, char** argv) {
                 in.open(file_name.c_str());
                 stream::for_each(in, lambda);
             }
+            
+            cout.flush();
             return 0;
         } else {
             // todo
-            return 0;
+            cerr << "[vg view] error: GAM can only be converted to JSON" << endl;
+            return 1;
         }
     } else if (input_type == "bam") {
         if (output_type == "gam") {
@@ -2732,10 +2897,15 @@ int main_view(int argc, char** argv) {
             hts_for_each(file_name, lambda);
             write_alignments(std::cout, buf);
             buf.clear();
+            cout.flush();
             return 0;
         } else if (output_type == "json") {
             // todo
+            cerr << "[vg view] error: BAM to JSON conversion not yet implemented" << endl;
             return 0;
+        } else {
+            cerr << "[vg view] error: BAM can only be converted to GAM" << endl;
+            return 1;
         }
     } else if (input_type == "fastq") {
         fastq1 = argv[optind++];
@@ -2776,16 +2946,28 @@ int main_view(int argc, char** argv) {
             }
             write_alignments(std::cout, buf);
             buf.clear();
+        } else {
+            // We can't convert fastq to the other graph formats
+            cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;
+            return 1;
         }
+        cout.flush();
         return 0;
     }
+
+    if(graph == nullptr) {
+        // Make sure we didn't forget to implement an input format.
+        cerr << "[vg view] error: cannot load graph in " << input_type << " format" << endl;
+        return 1;
+    }
+
+    // Now we know graph was filled in from the input format. Spit it out in the
+    // requested output format.
 
     if (output_type == "dot") {
         graph->to_dot(std::cout, alns);
     } else if (output_type == "json") {
-        char *json2 = pb2json(graph->graph);
-        cout<<json2<<endl;
-        free(json2);
+        cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
     } else if (output_type == "vg") {
@@ -2797,8 +2979,13 @@ int main_view(int argc, char** argv) {
             }
         };
         graph->paths.for_each(dump_path);
+    } else {
+        // We somehow got here with a bad output format.
+        cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
+        return 1;
     }
-
+    
+    cout.flush();
     delete graph;
 
     return 0;
@@ -2825,7 +3012,7 @@ int main_construct(int argc, char** argv) {
         return 1;
     }
 
-    string fasta_file_name, vcf_file_name;
+    string fasta_file_name, vcf_file_name, json_filename;
     string region;
     string output_type = "VG";
     bool progress = false;
@@ -2891,7 +3078,7 @@ int main_construct(int argc, char** argv) {
         case 'm':
             max_node_size = atoi(optarg);
             break;
- 
+            
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -2903,8 +3090,6 @@ int main_construct(int argc, char** argv) {
             abort ();
         }
     }
-
-    // set up our inputs
 
     vcflib::VariantCallFile variant_file;
     if (!vcf_file_name.empty()) {

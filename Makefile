@@ -10,9 +10,11 @@ LIBSNAPPY=snappy/libsnappy.a
 LIBROCKSDB=rocksdb/librocksdb.a
 SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
 LIBHTS=htslib/libhts.a
-INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1
-LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o entropy.o
+LIBGCSA2=gcsa2/libgcsa2.a
+SDSLLITE=sdsl-lite/Make.helper
+INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2
+LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lrt -lgcsa2 -lsdsl
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o sha1/sha1.o json2pb.o entropy.o
 
 all: vg libvg.a
 
@@ -22,7 +24,7 @@ get-deps:
 test: vg libvg.a test/build_graph
 	cd test && $(MAKE)
 
-test/build_graph: test/build_graph.cpp
+test/build_graph: test/build_graph.cpp libvg.a
 	$(CXX) $(CXXFLAGS) test/build_graph.cpp $(INCLUDES) -lvg $(LDFLAGS) -o test/build_graph
 
 profiling:
@@ -38,6 +40,14 @@ $(LIBSNAPPY): snappy/*cc snappy/*h
 
 $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksdb/db/*.h
 	cd rocksdb && $(MAKE) static_lib
+
+$(LIBGCSA2): gcsa2/*.cpp gcsa2/*.h $(SDSLLITE)
+	cd gcsa2 && $(MAKE) libgcsa2.a
+	touch $(LIBGCSA2)
+
+$(SDSLLITE): sdsl-lite/lib/*.cpp sdsl-lite/include/sdsl/*.hpp
+	cd sdsl-lite && mkdir -p install && ./install.sh `pwd`/install
+	touch $(SDSLLITE)
 
 progress_bar/progress_bar.o: progress_bar/progress_bar.cpp progress_bar/progress_bar.hpp
 	cd progress_bar && make
@@ -73,13 +83,13 @@ vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(S
 gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(INCLUDES)
 
-vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH)
+vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -c -o vg_set.o vg_set.cpp $(INCLUDES)
 
 mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
 
-main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBPROTOBUF) $(SPARSEHASH)
+main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
 
 region.o: region.cpp region.hpp $(LIBPROTOBUF) $(SPARSEHASH)
@@ -97,28 +107,26 @@ path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
 
-json.o: json.cpp json.hpp $(LIBPROTOBUF) $(SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o json.o json.cpp $(INCLUDES)
-
 sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
 	$(CXX) $(CXXFLAGS) -c -o sha1/sha1.o sha1/sha1.cpp $(INCLUDES)
 
-pb2json.o: pb2json.cpp pb2json.h $(LIBPROTOBUF)
-	$(CXX) $(CXXFLAGS) -c -o pb2json.o pb2json.cpp $(INCLUDES)
+json2pb.o: json2pb.cpp json2pb.h bin2ascii.h $(LIBPROTOBUF)
+	$(CXX) $(CXXFLAGS) -c -o json2pb.o json2pb.cpp $(INCLUDES)
 
 entropy.o: entropy.cpp entropy.hpp
 	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(SPARSEHASH)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
-	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o
+	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o alignment.o sha1/sha1.o json2pb.o
 
 clean-vg:
 	rm -f vg
 	rm -f cpp/*
 	rm -f *.o
+	rm -f libvg.a
 	cd progress_bar && make clean
 
 clean: clean-vg
@@ -130,3 +138,5 @@ clean: clean-vg
 	rm -f protobuf/libprotobuf.a
 	cd rocksdb && $(MAKE) clean
 	cd sparsehash && $(MAKE) clean && rm -rf build
+	cd gcsa2 && $(MAKE) clean
+	rm -f $(SDSLLITE) && cd sdsl-lite && ./uninstall.sh `pwd`/install

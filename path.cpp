@@ -237,9 +237,7 @@ list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const s
 
 void Paths::to_json(ostream& out) {
     function<void(Path&)> lambda = [this, &out](Path& p) {
-        char *json2 = pb2json(p);
-        out << json2 <<endl;
-        free(json2);
+        out << pb2json(p) <<endl;
     };
     for_each(lambda);
 }
@@ -532,11 +530,8 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
         //to_length(
     if (p2m.position().offset()) {
         if (from_length(p1m) < p2m.position().offset()) {
-            char *json1 = pb2json(p1m);
-            char *json2 = pb2json(p2m);
             cerr << "[vg::Path] cannot merge paths as their ends do not overlap" << endl
-                 <<json1 << endl << json2 <<endl;
-            free(json2); free(json1);
+                 << pb2json(p1m) << endl << pb2json(p2m) <<endl;
             exit(1);
         }
         // we have overlap or match
