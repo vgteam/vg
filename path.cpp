@@ -490,27 +490,30 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     // where we match positions that split a single node
     // probably we are going to get bit by this
 
-    // balanced algorithm
-    // step one position, then the other until the node ids match
-    int p1 = path1.mapping_size();
-    int p2 = -1; // and do the same for the first mapping
+    int64_t p1_start = path1.mapping(0).position().node_id();
+    int64_t p1_end = path1.mapping(path1.mapping_size()-1).position().node_id();
+    int64_t p2_start = path2.mapping(0).position().node_id();
+    int64_t p2_end = path2.mapping(path2.mapping_size()-1).position().node_id();
+    //cerr << p1_start << "-" << p1_end << " should overlap " << p2_start << "-" << p2_end << endl;
+
+    // scan through the second until we match the tail of the first
+    int p1 = path1.mapping_size()-1;
+    int p2 = 0; // and do the same for the first mapping
     //int64_t p1_node, p2_node;
-    const Mapping* p1mp;
-    const Mapping* p2mp;
-    while (p1 > 0 && p2 < path2.mapping_size()-1) {
-        --p1;
-        p1mp = &path1.mapping(p1);
-        if (p2 != -1 && p1mp->position().node_id() == p2mp->position().node_id()) break;
-        ++p2;
+    const Mapping* p1mp = &path1.mapping(p1);
+    const Mapping* p2mp = &path2.mapping(p2);
+    while (p2 < path2.mapping_size()) {
         p2mp = &path2.mapping(p2);
         if (p1mp->position().node_id() == p2mp->position().node_id()) break;
+        ++p2;
+        //cerr << p1mp->position().node_id() << " --- " << p2mp->position().node_id() << endl;
     }
-
-    //cerr << "p1 " << p1 << " p2 " << p2 << endl;
-    assert(p1mp->position().node_id() == p2mp->position().node_id());
 
     const Mapping& p1m = *p1mp;
     const Mapping& p2m = *p2mp;
+
+    //cerr << p1m.position().node_id() << " vs " << p2m.position().node_id() << endl;
+    assert(p1mp->position().node_id() == p2mp->position().node_id());
 
     Path result;
 
@@ -530,7 +533,7 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     if (p2m.position().offset()) {
         if (from_length(p1m) < p2m.position().offset()) {
             char *json1 = pb2json(p1m);
-            char *json2 = pb2json(p1m);
+            char *json2 = pb2json(p2m);
             cerr << "[vg::Path] cannot merge paths as their ends do not overlap" << endl
                  <<json1 << endl << json2 <<endl;
             free(json2); free(json1);

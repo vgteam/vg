@@ -116,7 +116,12 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     for (int i = 0; i < div; ++i) {
         {
             Alignment aln = read;
-            aln.set_sequence(read.sequence().substr(i*segment_size, segment_size));
+            if (i+1 == div) {
+                // ensure we get all the sequence
+                aln.set_sequence(read.sequence().substr(i*segment_size));
+            } else {
+                aln.set_sequence(read.sequence().substr(i*segment_size, segment_size));
+            }
             if (i == 0) {
                 merged = align(aln, kmer_size, stride);
             } else {

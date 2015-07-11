@@ -1853,6 +1853,9 @@ int main_index(int argc, char** argv) {
         index.close();
     }
 
+    // todo, switch to xg for graph storage
+    // index should write and load index/xg or such
+    // then a handful of functions used in main.cpp and mapper.cpp need to be rewritten to use the xg index
     if (store_graph && file_names.size() > 0) {
         index.open_for_write(db_name);
         VGset graphs(file_names);

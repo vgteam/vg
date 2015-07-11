@@ -541,21 +541,24 @@ int alignment_from_length(const Alignment& a) {
 }
 
 void merge_alignments(Alignment& a1, const Alignment& a2) {
-    /*
-    cerr << "-------------------------------------" << endl;
-    char *json2 = pb2json(a1);
-    cerr<<json2<<endl;
-    free(json2);
-    json2 = pb2json(a2);
-    cerr<<json2<<endl;
-    free(json2);
-    */
     int kept1, kept2;
-    Path merged_path = merge_paths(a1.path(), a2.path(), kept1, kept2);
-    //cerr << "kept " << kept1 << " " << kept2 << endl;
-    a1.set_sequence(a1.sequence().substr(0, kept1));
-    a1.mutable_sequence()->append(a2.sequence().substr(a2.sequence().size()-kept2));
-    *a1.mutable_path() = merged_path;
+    // determine likely order
+    int64_t a1_start = a1.path().mapping(0).position().node_id();
+    int64_t a2_start = a2.path().mapping(0).position().node_id();
+    // and use this to change the direction of the merge
+    // reverse?
+    Path merged_path = a1_start <= a2_start ?
+                                  merge_paths(a1.path(), a2.path(), kept1, kept2)
+                                  : merge_paths(a2.path(), a1.path(), kept2, kept1);
+    if (a1_start <= a2_start) {
+        string seq = a1.sequence().substr(0, kept1) + a2.sequence().substr(a2.sequence().size()-kept2);
+        a1.set_sequence(seq);
+        *a1.mutable_path() = merged_path;
+    } else {
+        string seq = a2.sequence().substr(0, kept2) + a1.sequence().substr(a1.sequence().size()-kept1);
+        a1.set_sequence(seq);
+        *a1.mutable_path() = merged_path;
+    }
     if (path_to_length(a1.path()) != a1.sequence().size()) {
         cerr << path_to_length(a1.path()) << " (to_length) != " << a1.sequence().size() << " (sequence size)" << endl;
         char* json = pb2json(a1);
