@@ -33,6 +33,29 @@ VG::VG(istream& in, bool showp) {
 
 }
 
+// construct from an arbitrary source of Graph protobuf messages
+VG::VG(function<bool(Graph&)>& get_next_graph, bool showp) {
+    // set up uninitialized values
+    init();
+    show_progress = showp;
+    
+    // We can't show loading progress since we don't know the total number of
+    // subgraphs.
+    
+    // Try to load the first graph
+    Graph subgraph;
+    bool got_subgraph = get_next_graph(subgraph);
+    while(got_subgraph) {
+        // If there is a valid subgraph, add it to ourselves.
+        extend(subgraph);
+        // Try and load the next subgraph, if it exists.
+        got_subgraph = get_next_graph(subgraph);
+    }
+
+    // store paths in graph
+    paths.to_graph(graph);
+}
+
 void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
 
     // save the number of the messages to be serialized into the output file

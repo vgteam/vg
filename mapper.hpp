@@ -9,7 +9,7 @@
 #include "index.hpp"
 #include "alignment.hpp"
 #include "path.hpp"
-#include "pb2json.h"
+#include "json2pb.h"
 #include "entropy.hpp"
 
 namespace vg {

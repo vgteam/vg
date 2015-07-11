@@ -188,8 +188,6 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
 void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride, 
                                                  function<void(KmerPosition&)> lambda, bool allow_dups) {
 
-    
-
     // This maps from thread number to current node ID, and a map from kmer
     // string and offset in the node to the KmerPosition describing that kmer
     // instance. Each node belongs to only one thread, and threads handle nodes

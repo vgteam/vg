@@ -403,18 +403,14 @@ string Index::graph_entry_to_string(const string& key, const string& value) {
         int64_t id;
         Node node;
         parse_node(key, value, id, node);
-        char *json = pb2json(node);
-        s << "{\"key\":\"+g+" << id << "+n\", \"value\":"<<json << "}";
-        free(json);
+        s << "{\"key\":\"+g+" << id << "+n\", \"value\":"<< pb2json(node) << "}";
     } break;
     case 'f': {
         Edge edge;
         int64_t id1, id2;
         char type;
         parse_edge(key, value, type, id1, id2, edge);
-        char *json = pb2json(edge);
-        s << "{\"key\":\"+g+" << id1 << "+f+" << id2 << "\", \"value\":"<<json << "}";
-        free(json);
+        s << "{\"key\":\"+g+" << id1 << "+f+" << id2 << "\", \"value\":"<< pb2json(edge) << "}";
     } break;
     case 't': {
         Edge edge;
@@ -422,9 +418,7 @@ string Index::graph_entry_to_string(const string& key, const string& value) {
         char type;
         parse_edge(key, value, type, id1, id2, edge);
         //get_edge(id2, id1, edge);
-        char *json = pb2json(edge);
-        s << "{\"key\":\"+g+" << id1 << "+t+" << id2 << "\", \"value\":"<<json << "}";
-        free(json);
+        s << "{\"key\":\"+g+" << id1 << "+t+" << id2 << "\", \"value\":"<< pb2json(edge) << "}";
     } break;
     case 'p': {
         s << node_path_to_string(key, value);
@@ -498,9 +492,7 @@ string Index::node_path_to_string(const string& key, const string& value) {
     int64_t node_id, path_id, path_pos;
     parse_node_path(key, value, node_id, path_id, path_pos, mapping);
     stringstream s;
-    char *json = pb2json(mapping);
-    s << "{\"key\":\"+g+" << node_id << "+p+" << path_id << "+" << path_pos << "\", \"value\":"<<json << "}";
-    free(json);
+    s << "{\"key\":\"+g+" << node_id << "+p+" << path_id << "+" << path_pos << "\", \"value\":"<< pb2json(mapping) << "}";
     return s.str();
 }
 
@@ -509,9 +501,7 @@ string Index::path_position_to_string(const string& key, const string& value) {
     int64_t node_id, path_id, path_pos;
     parse_path_position(key, value, path_id, path_pos, node_id, mapping);
     stringstream s;
-    char *json = pb2json(mapping);
-    s << "{\"key\":\"+p+" << path_id << "+" << path_pos << "+" << node_id << "\", \"value\":"<<json << "}";
-    free(json);
+    s << "{\"key\":\"+p+" << path_id << "+" << path_pos << "+" << node_id << "\", \"value\":"<< pb2json(mapping) << "}";
     return s.str();
 }
 
@@ -543,9 +533,7 @@ string Index::mapping_entry_to_string(const string& key, const string& value) {
     string hash;
     parse_mapping(key, value, node_id, hash, mapping);
     stringstream s;
-    char *json = pb2json(mapping);
-    s << "{\"key\":\"+s+" << node_id << "+" << hash << "\", \"value\":"<< json << "}";
-    free(json);
+    s << "{\"key\":\"+s+" << node_id << "+" << hash << "\", \"value\":"<< pb2json(mapping) << "}";
     return s.str();
 }
 
@@ -555,9 +543,7 @@ string Index::alignment_entry_to_string(const string& key, const string& value) 
     string hash;
     parse_alignment(key, value, node_id, hash, alignment);
     stringstream s;
-    char *json = pb2json(alignment);
-    s << "{\"key\":\"+a+" << node_id << "+" << hash << "\", \"value\":"<< json << "}";
-    free(json);
+    s << "{\"key\":\"+a+" << node_id << "+" << hash << "\", \"value\":"<< pb2json(alignment) << "}";
     return s.str();
 }
 

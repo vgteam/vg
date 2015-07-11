@@ -543,12 +543,8 @@ int alignment_from_length(const Alignment& a) {
 void merge_alignments(Alignment& a1, const Alignment& a2) {
     /*
     cerr << "-------------------------------------" << endl;
-    char *json2 = pb2json(a1);
-    cerr<<json2<<endl;
-    free(json2);
-    json2 = pb2json(a2);
-    cerr<<json2<<endl;
-    free(json2);
+    cerr << pb2json(a1) << endl;
+    cerr << pb2json(a2) << endl;
     */
     int kept1, kept2;
     Path merged_path = merge_paths(a1.path(), a2.path(), kept1, kept2);
@@ -558,9 +554,7 @@ void merge_alignments(Alignment& a1, const Alignment& a2) {
     *a1.mutable_path() = merged_path;
     if (path_to_length(a1.path()) != a1.sequence().size()) {
         cerr << path_to_length(a1.path()) << " (to_length) != " << a1.sequence().size() << " (sequence size)" << endl;
-        char* json = pb2json(a1);
-        cerr<<json<<endl;
-        free(json);
+        cerr << pb2json(a1) << endl;
         exit(1);
     }
 }

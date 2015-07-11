@@ -14,7 +14,7 @@ LIBGCSA2=gcsa2/libgcsa2.a
 SDSLLITE=sdsl-lite/Make.helper
 INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2
 LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lrt -lgcsa2 -lsdsl
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o entropy.o
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o sha1/sha1.o json2pb.o entropy.o
 
 all: vg libvg.a
 
@@ -24,7 +24,7 @@ get-deps:
 test: vg libvg.a test/build_graph
 	cd test && $(MAKE)
 
-test/build_graph: test/build_graph.cpp
+test/build_graph: test/build_graph.cpp libvg.a
 	$(CXX) $(CXXFLAGS) test/build_graph.cpp $(INCLUDES) -lvg $(LDFLAGS) -o test/build_graph
 
 profiling:
@@ -107,14 +107,11 @@ path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
 
-json.o: json.cpp json.hpp $(LIBPROTOBUF) $(SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o json.o json.cpp $(INCLUDES)
-
 sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
 	$(CXX) $(CXXFLAGS) -c -o sha1/sha1.o sha1/sha1.cpp $(INCLUDES)
 
-pb2json.o: pb2json.cpp pb2json.h $(LIBPROTOBUF)
-	$(CXX) $(CXXFLAGS) -c -o pb2json.o pb2json.cpp $(INCLUDES)
+json2pb.o: json2pb.cpp json2pb.h bin2ascii.h $(LIBPROTOBUF)
+	$(CXX) $(CXXFLAGS) -c -o json2pb.o json2pb.cpp $(INCLUDES)
 
 entropy.o: entropy.cpp entropy.hpp
 	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
@@ -123,12 +120,13 @@ vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAP
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
-	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o json.o alignment.o sha1/sha1.o pb2json.o
+	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o alignment.o sha1/sha1.o json2pb.o
 
 clean-vg:
 	rm -f vg
 	rm -f cpp/*
 	rm -f *.o
+	rm -f libvg.a
 	cd progress_bar && make clean
 
 clean: clean-vg
@@ -141,4 +139,4 @@ clean: clean-vg
 	cd rocksdb && $(MAKE) clean
 	cd sparsehash && $(MAKE) clean && rm -rf build
 	cd gcsa2 && $(MAKE) clean
-	cd sdsl-lite && ./uninstall.sh `pwd`/build
+	rm -f $(SDSLLITE) && cd sdsl-lite && ./uninstall.sh `pwd`/install
