@@ -119,7 +119,7 @@ void VG::add_edges(vector<Edge>& edges) {
 void VG::add_node(Node& node) {
     if (!has_node(node)) {
         Node* new_node = graph.add_node(); // add it to the graph
-        *new_node = node;
+        *new_node = node; // overwrite it with the value of the given node
         node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
         node_index[new_node] = graph.node_size()-1;
     }
@@ -2745,17 +2745,26 @@ void VG::join_tails(Node* node) {
 void VG::add_start_and_end_markers(int length, char start_char, char end_char,
                                    Node*& head_node, Node*& tail_node) {
     // first do the head
-    string start_string(length, start_char);
-    Node* head = create_node(start_string);
-    join_heads(head);
-    // then the tail
-    string end_string(length, end_char);
-    Node* tail = create_node(end_string);
-    join_tails(tail);
 
-    // share with calling context
-    head_node = head;
-    tail_node = tail;
+    if(head_node == nullptr) {
+        // We get to create the head node
+        string start_string(length, start_char);
+        head_node = create_node(start_string);
+    } else {
+        // We got a head node
+        add_node(*head_node);
+    }
+    // Attach the new head node to all the existing heads
+    join_heads(head_node);
+    
+    // then the tail
+    if(tail_node == nullptr) {
+        string end_string(length, end_char);
+        tail_node = create_node(end_string);
+    } else {
+        add_node(*tail_node);
+    }
+    join_tails(tail_node);
 }
 
 Alignment& VG::align(Alignment& alignment) {
@@ -2808,6 +2817,7 @@ void VG::_for_each_kmer(int kmer_size,
 
     // use an LRU cache to clean up duplicates over the last 1mb
     // use one per thread so as to avoid contention
+    // TODO: How do we know this is big enough?
     map<int, LRUCache<string, bool>* > lru;
 #pragma omp parallel
     {

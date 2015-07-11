@@ -2,6 +2,7 @@
 #include <fstream>
 #include <ctime>
 #include <getopt.h>
+#include "gcsa.h"
 #include "pb2json.h"
 #include "vg.hpp"
 #include "vg.pb.h"
@@ -511,6 +512,7 @@ int main_mod(int argc, char** argv) {
         Node* tail_node = NULL;
         graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
         graph->prune_complex(path_length, edge_max, head_node, tail_node);
+        // These nodes were created in the graph, so we can destroy them by pointer.
         graph->destroy_node(head_node);
         graph->destroy_node(tail_node);
     }
@@ -1655,27 +1657,34 @@ int main_find(int argc, char** argv) {
 
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
-         << "options:" << endl
+         << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
+         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl 
+         << "must come first." << endl
+         << "general options:" << endl
+         << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
+         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
+         << "    -e, --edge-max N       cross no more than N edges when determining k-paths" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
+         << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
+         << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+         << "                           (this is required if you are using multiple graphs files)" << endl
+         << "    -t, --threads N        number of threads to use" << endl
+         << "    -p, --progress         show progress" << endl
+         << "rocksdb options (ignored with -g):" << endl
          << "    -s, --store-graph      store graph (do this first to build db!)" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
          << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
-         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
-         << "    -e, --edge-max N       cross no more than N edges when determining k-paths" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
          << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
          << "    -D, --dump             print the contents of the db to stdout" << endl
          << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
          << "    -L, --path-layout      describes the path layout of the graph" << endl
          << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-         << "    -d, --db-name DIR      create rocksdb in DIR (defaults to <graph>.index/)" << endl
-         << "                           (this is required if you are using multiple graphs files" << endl
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl
-         << "    -t, --threads N        number of threads to use" << endl
-         << "    -p, --progress         show progress" << endl;
+         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl;
+         
 }
 
 int main_index(int argc, char** argv) {
@@ -1702,6 +1711,8 @@ int main_index(int argc, char** argv) {
     bool compact = false;
     bool dump_alignments = false;
     bool use_snappy = false;
+    bool gcsa_out = false;
+    int doubling_steps = gcsa::GCSA::DOUBLING_STEPS; // TODO: add an option for this?
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1727,11 +1738,12 @@ int main_index(int argc, char** argv) {
                 {"compact", no_argument, 0, 'C'},
                 {"allow-negs", no_argument, 0, 'n'},
                 {"use-snappy", no_argument, 0, 'Q'},
+                {"gcsa-out", no_argument, 0, 'g'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQ",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1811,6 +1823,10 @@ int main_index(int argc, char** argv) {
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
+            
+        case 'g':
+            gcsa_out = true;
+            break;
  
         case 'h':
         case '?':
@@ -1836,12 +1852,83 @@ int main_index(int argc, char** argv) {
             cerr << "error:[vg index] working on multiple graphs and no db name (-d) given, exiting" << endl;
             return 1;
         } else if (file_names.size() == 1) {
-            db_name = *file_names.begin() + ".index";
+            if(gcsa_out) {
+                // Name the database for gcsa
+                db_name = *file_names.begin() + gcsa::GCSA::EXTENSION;
+            } else {
+                // Name the database for rocksdb
+                db_name = *file_names.begin() + ".index";
+            }
         } else {
             cerr << "error:[vg index] no graph or db given, exiting" << endl;
             return 1;
         }
     }
+    
+    if(kmer_size == 0 && gcsa_out) {
+        // gcsa doesn't do anything if we tell it a kmer size of 0.
+        cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
+        return 1;
+    }
+    
+    if(kmer_size < 0) {
+        cerr << "error:[vg index] kmer size cannot be negative" << endl;
+        return 1;
+    }
+    
+    if(kmer_stride <= 0) {
+        // kmer strides of 0 (or negative) are silly.
+        cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
+        return 1;
+    }
+
+    if(gcsa_out) {
+        // We need to make a gcsa index.
+    
+        // Load up the graphs
+        VGset graphs(file_names);
+
+        graphs.show_progress = show_progress;
+
+        // Go get the kmers of the correct size
+        vector<gcsa::KMer> kmers;
+        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, kmers);
+        
+        // Handle finding the sink node
+        size_t sink_node_id = 0;
+        for(auto kmer : kmers) {
+            if(gcsa::Key::label(kmer.key) == 0) {
+                // This kmer lets us know the sink node.
+                sink_node_id = gcsa::Node::id(kmer.from);
+                break;
+            }
+        }
+        
+        for(auto& kmer : kmers) {
+            // Mark kmers that go to the sink node as "sorted", since they have stop
+            // characters in them and can't be extended.
+            // TODO: Can we just check for the presence of "$" during conversion and not do this serial loop?
+            if(gcsa::Node::id(kmer.to) == sink_node_id && gcsa::Node::offset(kmer.to) > 0) {
+                kmer.makeSorted();
+            }
+            
+            //cout << kmer << std::endl;
+        }
+        
+        if(show_progress) {
+            cerr << "Found " << kmers.size() << " kmer instances" << endl;
+        }
+        
+        // Make the index with the kmers
+        gcsa::GCSA gcsa_index(kmers, kmer_size, doubling_steps);
+        
+        // Save it to the index filename
+        sdsl::store_to_file(gcsa_index, db_name);
+        
+        // Skip all the Snappy stuff we can't do (yet).
+        return 0;
+    }
+    
 
     Index index;
     index.use_snappy = use_snappy;
