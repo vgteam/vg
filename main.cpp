@@ -2074,16 +2074,17 @@ int main_index(int argc, char** argv) {
 }
 
 void help_align(char** argv) {
-    cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.vga" << endl
+    cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.gam" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-        //<< "    -p, --print-cigar     output graph cigar for alignments" << endl
-         << "    -j, --json            output alignments in JSON format (default)" << endl;
+         << "    -Q, --seq-name STR    name the sequence using this value" << endl
+         << "    -j, --json            output alignments in JSON format (default GAM)" << endl;
 }
 
 int main_align(int argc, char** argv) {
 
     string seq;
+    string seq_name;
 
     if (argc == 2) {
         help_align(argv);
@@ -2091,7 +2092,7 @@ int main_align(int argc, char** argv) {
     }
 
     bool print_cigar = false;
-    bool output_json = true;
+    bool output_json = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2101,11 +2102,13 @@ int main_align(int argc, char** argv) {
                 /* These options set a flag. */
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"sequence", required_argument, 0, 's'},
+                {"seq-name", no_argument, 0, 'Q'},
+                {"json", no_argument, 0, 'j'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhd:",
+        c = getopt_long (argc, argv, "s:jhQ:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2118,11 +2121,9 @@ int main_align(int argc, char** argv) {
             seq = optarg;
             break;
 
-            /*
-        case 'p':
-            print_cigar = true;
+        case 'Q':
+            seq_name = optarg;
             break;
-            */
 
         case 'j':
             output_json = true;
@@ -2152,7 +2153,18 @@ int main_align(int argc, char** argv) {
 
     Alignment alignment = graph->align(seq);
 
-    cout << pb2json(alignment) << endl;
+    if (output_json) {
+        cout << pb2json(alignment) << endl;
+    } else {
+        if (!seq_name.empty()) {
+            alignment.set_name(seq_name);
+        }
+        function<Alignment(uint64_t)> lambda =
+            [&alignment] (uint64_t n) {
+            return alignment;
+        };
+        stream::write(cout, 1, lambda);
+    }
 
     delete graph;
 

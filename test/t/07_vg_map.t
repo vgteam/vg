@@ -49,7 +49,7 @@ rm -rf giab.vg.index
 
 vg index -s -k 27 -e 7 graphs/199754000:199755000.vg
 
-is $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | jq '.path.mapping[0].position' -c) $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 500 -J | jq '.path.mapping[0].position' -c) "banded alignment works correctly even with varied band size"
+is $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | jq '.path.mapping[0].position' -c -S) $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 500 -J | jq '.path.mapping[0].position' -c -S) "banded alignment works correctly even with varied band size"
 
 is $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | jq '.path.mapping[0].position.offset' -c) 29 "unitig mapping position is as expected"
 
