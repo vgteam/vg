@@ -119,7 +119,7 @@ public:
     hash_map<int64_t, vector<pair<int64_t, bool>>> edges_on_end;
 
     // set the edge indexes through this function
-    void set_edge(int64_t from, int64_t to, Edge*);
+    void set_edge(int64_t id1, int64_t id2, Edge*);
     void print_edges(void);
 
     // access the edge indexes through these functions
@@ -373,6 +373,9 @@ public:
     // untraversable until the indexes are rebuilt.
     void unindex_edge_by_node_sides(int64_t node1, int64_t node2);
     void unindex_edge_by_node_sides(Edge* edge);
+    // add an edge to the node side indexes. Doesn't touch the index of edges by
+    // node pairs or the graph; those must be updated seperately.
+    void index_edge_by_node_sides(Edge* edge);
     // Get the edge between the given nodes. Sicne only one edge can connect a
     // pair of nodes (due to acyclicity), these nodes can be in either order.
     bool has_edge(int64_t node1, int64_t node2);
@@ -404,9 +407,17 @@ public:
     // topologically orders nodes
     void sort(void);
     // helper function, not really meant for external use
-    void topological_sort(deque<NodeTraversal>& l);
+    void topological_sort(deque<NodeTraversal>& l, bool die_on_cycles = true);
     void swap_nodes(Node* a, Node* b);
+    
+    // Use a topological sort to order and orient the nodes, and then flip some
+    // nodes around so that they are oriented the way they are in the sort.
+    // TODO: also remove edges creating cycles. Populates nodes_flipped with the
+    // ids of the nodes that have had their orientations changed.
+    // TODO: update the paths that touch nodes that flipped around
+    void orient_nodes_forward(set<int64_t>& nodes_flipped);
 
+    // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     Alignment& align(Alignment& alignment);
     Alignment align(string& sequence);
     //Alignment& align(Alignment& alignment);

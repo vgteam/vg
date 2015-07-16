@@ -1,0 +1,188 @@
+{"node": [{"sequence": "CAAATAAG", "id": 1}, {"sequence": "G", "id":
+2}, {"sequence": "A", "id": 3}, {"sequence": "C", "id": 4}, {"sequence": "T",
+"id": 5}, {"sequence": "TTG", "id": 6}, {"sequence": "G", "id": 7}, {"sequence":
+"A", "id": 8}, {"sequence": "AAATTTTCTGGAGTTCTAT", "id": 9}, {"sequence": "T",
+"id": 10}, {"sequence": "A", "id": 11}, {"sequence": "ATAT", "id": 12},
+{"sequence": "T", "id": 13}, {"sequence": "A", "id": 14}, {"sequence":
+"CCAACTCTCTGG", "id": 15}, {"sequence": "T", "id": 16}, {"sequence": "G", "id":
+17}, {"sequence": "TCCTGG", "id": 18}, {"sequence": "T", "id": 19}, {"sequence":
+"TGCTATGTGTAACTAGTAATGGTAATGGATATGTTGGGCTT", "id": 20}, {"sequence": "T", "id":
+21}, {"sequence": "C", "id": 22}, {"sequence": "TT", "id": 23}, {"sequence":
+"T", "id": 24}, {"sequence": "C", "id": 25}, {"sequence": "CTTTGATTTATTTGAAGT",
+"id": 26}, {"sequence": "G", "id": 27}, {"sequence": "A", "id": 28},
+{"sequence": "ACGTTTGACAATCTATCAC", "id": 29}, {"sequence": "T", "id": 30},
+{"sequence": "C", "id": 31}, {"sequence": "AGGGGTAATGTGGGGAA", "id": 32},
+{"sequence": "A", "id": 33}, {"sequence": "G", "id": 34}, {"sequence":
+"TGGAAAGAATAC", "id": 35}, {"sequence": "A", "id": 36}, {"sequence": "AAGAT",
+"id": 37}, {"sequence": "T", "id": 38}, {"sequence": "C", "id": 39},
+{"sequence": "TGGAGCCA", "id": 40}, {"sequence": "G", "id": 41}, {"sequence":
+"T", "id": 42}, {"sequence": "ACAAATCTGGGT", "id": 43}, {"sequence": "T", "id":
+44}, {"sequence": "C", "id": 45}, {"sequence": "CAA", "id": 46}, {"sequence":
+"A", "id": 47}, {"sequence": "G", "id": 48}, {"sequence": "TCCTCACTTTGCC", "id":
+49}, {"sequence": "A", "id": 50}, {"sequence": "G", "id": 51}, {"sequence":
+"CA", "id": 52}, {"sequence": "T", "id": 53}, {"sequence": "G", "id": 54},
+{"sequence": "AACTGAAGTTCAGAGAGATTAACTAACTTGTTCAAAGTCACATGGCTAAT", "id": 55},
+{"sequence": "T", "id": 56}, {"sequence": "C", "id": 57}, {"sequence": "A",
+"id": 58}, {"sequence": "G", "id": 59}, {"sequence": "ATT", "id": 60},
+{"sequence": "A", "id": 61}, {"sequence": "C", "id": 62}, {"sequence":
+"TCTCTAATA", "id": 63}, {"sequence": "T", "id": 64}, {"sequence": "C", "id":
+65}, {"sequence": "GGAGAT", "id": 66}, {"sequence": "G", "id": 67}, {"sequence":
+"C", "id": 68}, {"sequence": "AT", "id": 69}, {"sequence": "A", "id": 70},
+{"sequence": "G", "id": 71}, {"sequence": "CTACTGACAGCAGA", "id": 72},
+{"sequence": "G", "id": 73}, {"sequence": "A", "id": 74}, {"sequence": "G",
+"id": 75}, {"sequence": "A", "id": 76}, {"sequence":
+"TTTGCTGTGAAGATTAAATTAGGTGATGCTTG", "id": 77}, {"sequence": "TGA", "id": 78},
+{"sequence": "T", "id": 79}, {"sequence": "A", "id": 80}, {"sequence": "G",
+"id": 81}, {"sequence": "AAGCT", "id": 82}, {"sequence": "C", "id": 83},
+{"sequence": "G", "id": 84}, {"sequence": "AGGGAATAGTGCCTGGCAT", "id": 85},
+{"sequence": "A", "id": 86}, {"sequence": "C", "id": 87}, {"sequence":
+"GAGGAAAGCCTCTGACAACTGGT", "id": 88}, {"sequence": "A", "id": 89}, {"sequence":
+"G", "id": 90}, {"sequence": "G", "id": 91}, {"sequence": "A", "id": 92},
+{"sequence": "TTACTG", "id": 93}, {"sequence": "T", "id": 94}, {"sequence": "C",
+"id": 95}, {"sequence": "TA", "id": 96}, {"sequence": "T", "id": 97},
+{"sequence": "C", "id": 98}, {"sequence":
+"TTACTATGAATCCTCACCTTCCTTGACTTCTTGAAACATTTGGCTATTGACCTCTTTC", "id": 99},
+{"sequence": "C", "id": 100}, {"sequence": "TCCTTG", "id": 101}, {"sequence":
+"A", "id": 102}, {"sequence": "G", "id": 103}, {"sequence": "GGCTCTTCTGGCTT",
+"id": 104}, {"sequence": "T", "id": 105}, {"sequence": "C", "id": 106},
+{"sequence": "TCATTGTCAAC", "id": 107}, {"sequence": "A", "id": 108},
+{"sequence": "ACAGTCAACGCTCAATACAAGG", "id": 109}, {"sequence": "G", "id": 110},
+{"sequence": "A", "id": 111}, {"sequence": "ACATTAGGA", "id": 112}, {"sequence":
+"T", "id": 113}, {"sequence": "A", "id": 114}, {"sequence":
+"TGGCAGTAGCTCAGAGATCT", "id": 115}, {"sequence": "G", "id": 116}, {"sequence":
+"CTCTGCTCACCG", "id": 117}, {"sequence": "T", "id": 118}, {"sequence": "C",
+"id": 119}, {"sequence":
+"GATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAG", "id": 120},
+{"sequence": "G", "id": 121}, {"sequence": "T", "id": 122}, {"sequence":
+"CTCAAGGACAGCTCTCC", "id": 123}, {"sequence": "T", "id": 124}, {"sequence": "C",
+"id": 125}, {"sequence": "TTGTGT", "id": 126}, {"sequence": "C", "id": 127},
+{"sequence": "T", "id": 128}, {"sequence": "CAGAGTGTATACGA", "id": 129},
+{"sequence": "A", "id": 130}, {"sequence": "T", "id": 131}, {"sequence": "G",
+"id": 132}, {"sequence": "TAACTCTGTTC", "id": 133}, {"sequence": "T", "id":
+134}, {"sequence": "GGGCAC", "id": 135}, {"sequence": "T", "id": 136},
+{"sequence": "C", "id": 137}, {"sequence": "GGTGAAAGA", "id": 138}, {"sequence":
+"T", "id": 139}, {"sequence": "A", "id": 140}, {"sequence": "AACAGAGGAAATGCC",
+"id": 141}, {"sequence": "T", "id": 142}, {"sequence": "G", "id": 143},
+{"sequence": "GGCTTTTTATCAGAACATGTTTCCAAGCTTATCCCTTTTCCC", "id": 144},
+{"sequence": "A", "id": 145}, {"sequence": "T", "id": 146}, {"sequence":
+"GCTCTCCTTGTCCCTCC", "id": 147}, {"sequence": "C", "id": 148}, {"sequence": "T",
+"id": 149}, {"sequence": "A", "id": 150}, {"sequence": "A", "id": 151},
+{"sequence": "C", "id": 152}, {"sequence": "GATCTCTTCACT", "id": 153},
+{"sequence": "G", "id": 154}, {"sequence": "AGGC", "id": 155}, {"sequence": "C",
+"id": 156}, {"sequence": "T", "id": 157}, {"sequence": "TTATCTTTACTGTTACC",
+"id": 158}, {"sequence": "A", "id": 159}, {"sequence": "G", "id": 160},
+{"sequence": "AATCTTTCC", "id": 161}, {"sequence": "A", "id": 162}, {"sequence":
+"G", "id": 163}, {"sequence": "GAA", "id": 164}, {"sequence": "G", "id": 165},
+{"sequence": "C", "id": 166}, {"sequence": "CTGCTCTTTCCCTCAATTGTTCATTTGTCT",
+"id": 167}, {"sequence": "T", "id": 168}, {"sequence": "C", "id": 169},
+{"sequence": "C", "id": 170}, {"sequence": "A", "id": 171}, {"sequence": "T",
+"id": 172}, {"sequence": "A", "id": 173}, {"sequence": "TGTCCAGGAATGAACC", "id":
+174}, {"sequence": "A", "id": 175}, {"sequence": "G", "id": 176}, {"sequence":
+"CTGCTCTCTT", "id": 177}, {"sequence": "C", "id": 178}, {"sequence": "A", "id":
+179}, {"sequence": "TTGTCAGATC", "id": 180}, {"sequence": "A", "id": 181},
+{"sequence": "G", "id": 182}, {"sequence": "G", "id": 183}, {"sequence": "C",
+"id": 184}, {"sequence": "A", "id": 185}, {"sequence": "TTCTCATCCCTCCT", "id":
+186}, {"sequence": "C", "id": 187}, {"sequence": "T", "id": 188}, {"sequence":
+"A", "id": 189}, {"sequence": "G", "id": 190}, {"sequence": "AGGGC", "id": 191},
+{"sequence": "C", "id": 192}, {"sequence": "T", "id": 193}, {"sequence": "T",
+"id": 194}, {"sequence": "T", "id": 195}, {"sequence": "C", "id": 196},
+{"sequence": "TAA", "id": 197}, {"sequence": "C", "id": 198}, {"sequence": "G",
+"id": 199}, {"sequence": "TACTCCACAT", "id": 200}, {"sequence": "C", "id": 201},
+{"sequence": "CAAA", "id": 202}, {"sequence": "G", "id": 203}, {"sequence": "T",
+"id": 204}, {"sequence": "CTACCCAGGCCATTTTAAGTTTCCTGT", "id": 205}, {"sequence":
+"GG", "id": 206}, {"sequence": "ACTAAGGACAAAGGTGCGGGGAGAT", "id": 207},
+{"sequence": "G", "id": 208}, {"sequence": "A", "id": 209}, {"sequence": "A",
+"id": 210}], "edge": [{"from": 1, "to": 2}, {"from": 1, "to": 3}, {"from": 2,
+"to": 4}, {"from": 2, "to": 5}, {"from": 3, "to": 4}, {"from": 3, "to": 5},
+{"from": 4, "to": 6}, {"from": 5, "to": 6}, {"from": 6, "to": 7}, {"from": 6,
+"to": 8}, {"from": 7, "to": 9}, {"from": 8, "to": 9}, {"from": 9, "to": 10},
+{"from": 9, "to": 11}, {"from": 10, "to": 12}, {"from": 11, "to": 12}, {"from":
+12, "to": 13}, {"from": 12, "to": 14}, {"from": 13, "to": 15}, {"from": 14,
+"to": 15}, {"from": 15, "to": 16}, {"from": 15, "to": 17}, {"from": 16, "to":
+18}, {"from": 17, "to": 18}, {"from": 18, "to": 19}, {"from": 18, "to": 20},
+{"from": 19, "to": 20}, {"from": 20, "to": 21}, {"from": 20, "to": 22}, {"from":
+21, "to": 23}, {"from": 22, "to": 23}, {"from": 23, "to": 24}, {"from": 23,
+"to": 25}, {"from": 24, "to": 26}, {"from": 25, "to": 26}, {"from": 26, "to":
+27}, {"from": 26, "to": 28}, {"from": 27, "to": 29}, {"from": 28, "to": 29},
+{"from": 29, "to": 30}, {"from": 29, "to": 31}, {"from": 30, "to": 32}, {"from":
+31, "to": 32}, {"from": 32, "to": 33}, {"from": 32, "to": 34}, {"from": 33,
+"to": 35}, {"from": 34, "to": 35}, {"from": 35, "to": 36}, {"from": 35, "to":
+37}, {"from": 36, "to": 37}, {"from": 37, "to": 38}, {"from": 37, "to": 39},
+{"from": 38, "to": 40}, {"from": 39, "to": 40}, {"from": 40, "to": 41}, {"from":
+40, "to": 42}, {"from": 41, "to": 43}, {"from": 42, "to": 43}, {"from": 43,
+"to": 44}, {"from": 43, "to": 45}, {"from": 44, "to": 46}, {"from": 45, "to":
+46}, {"from": 46, "to": 47}, {"from": 46, "to": 48}, {"from": 47, "to": 49},
+{"from": 48, "to": 49}, {"from": 49, "to": 50}, {"from": 49, "to": 51}, {"from":
+50, "to": 52}, {"from": 51, "to": 52}, {"from": 52, "to": 53}, {"from": 52,
+"to": 54}, {"from": 53, "to": 55, "to_end": true}, {"from": 54, "to": 55, "to_end": true}, {"from": 55, "to":
+56, "from_start": true}, {"from": 55, "to": 57, "from_start": true}, {"from": 56, "to": 58}, {"from": 56, "to": 59},
+{"from": 57, "to": 58}, {"from": 57, "to": 59}, {"from": 58, "to": 60}, {"from":
+59, "to": 60}, {"from": 60, "to": 61}, {"from": 60, "to": 62}, {"from": 61,
+"to": 63}, {"from": 62, "to": 63}, {"from": 63, "to": 64}, {"from": 63, "to":
+65}, {"from": 64, "to": 66}, {"from": 65, "to": 66}, {"from": 66, "to": 67},
+{"from": 66, "to": 68}, {"from": 67, "to": 69}, {"from": 68, "to": 69}, {"from":
+69, "to": 70}, {"from": 69, "to": 71}, {"from": 70, "to": 72}, {"from": 71,
+"to": 72}, {"from": 72, "to": 73}, {"from": 72, "to": 74}, {"from": 73, "to":
+75}, {"from": 73, "to": 76}, {"from": 74, "to": 75}, {"from": 74, "to": 76},
+{"from": 75, "to": 77}, {"from": 76, "to": 77}, {"from": 77, "to": 78}, {"from":
+77, "to": 79}, {"from": 78, "to": 79}, {"from": 79, "to": 80}, {"from": 79,
+"to": 81}, {"from": 80, "to": 82}, {"from": 81, "to": 82}, {"from": 82, "to":
+83}, {"from": 82, "to": 84}, {"from": 83, "to": 85}, {"from": 84, "to": 85},
+{"from": 85, "to": 86}, {"from": 85, "to": 87}, {"from": 86, "to": 88}, {"from":
+87, "to": 88}, {"from": 88, "to": 89}, {"from": 88, "to": 90}, {"from": 89,
+"to": 91}, {"from": 89, "to": 92}, {"from": 90, "to": 91}, {"from": 90, "to":
+92}, {"from": 91, "to": 93}, {"from": 92, "to": 93}, {"from": 93, "to": 94},
+{"from": 93, "to": 95}, {"from": 94, "to": 96}, {"from": 95, "to": 96}, {"from":
+96, "to": 97}, {"from": 96, "to": 98}, {"from": 97, "to": 99}, {"from": 98,
+"to": 99}, {"from": 99, "to": 100}, {"from": 99, "to": 101}, {"from": 100, "to":
+101}, {"from": 101, "to": 102}, {"from": 101, "to": 103}, {"from": 102, "to":
+104}, {"from": 103, "to": 104}, {"from": 104, "to": 105}, {"from": 104, "to":
+106}, {"from": 105, "to": 107}, {"from": 106, "to": 107}, {"from": 107, "to":
+108}, {"from": 107, "to": 109}, {"from": 108, "to": 109}, {"from": 109, "to":
+110}, {"from": 109, "to": 111}, {"from": 110, "to": 112}, {"from": 111, "to":
+112}, {"from": 112, "to": 113}, {"from": 112, "to": 114}, {"from": 113, "to":
+115}, {"from": 114, "to": 115}, {"from": 115, "to": 116}, {"from": 115, "to":
+117}, {"from": 116, "to": 117}, {"from": 117, "to": 118}, {"from": 117, "to":
+119}, {"from": 120, "to": 118, "from_start": true, "to_end": true}, {"from": 119, "to": 120}, {"from": 120, "to":
+121}, {"from": 120, "to": 122}, {"from": 121, "to": 123}, {"from": 122, "to":
+123}, {"from": 123, "to": 124}, {"from": 123, "to": 125}, {"from": 124, "to":
+126}, {"from": 125, "to": 126}, {"from": 126, "to": 127}, {"from": 126, "to":
+128}, {"from": 127, "to": 129}, {"from": 128, "to": 129}, {"from": 129, "to":
+130}, {"from": 129, "to": 131}, {"from": 130, "to": 131}, {"from": 131, "to":
+132}, {"from": 131, "to": 133}, {"from": 132, "to": 133}, {"from": 133, "to":
+134}, {"from": 133, "to": 135}, {"from": 134, "to": 135}, {"from": 135, "to":
+136}, {"from": 135, "to": 137}, {"from": 136, "to": 138}, {"from": 137, "to":
+138}, {"from": 138, "to": 139}, {"from": 138, "to": 140}, {"from": 139, "to":
+141}, {"from": 140, "to": 141}, {"from": 141, "to": 142}, {"from": 141, "to":
+143}, {"from": 142, "to": 144}, {"from": 143, "to": 144}, {"from": 144, "to":
+145}, {"from": 144, "to": 146}, {"from": 145, "to": 147}, {"from": 146, "to":
+147}, {"from": 147, "to": 148}, {"from": 147, "to": 149}, {"from": 148, "to":
+150}, {"from": 149, "to": 150}, {"from": 150, "to": 151}, {"from": 150, "to":
+152}, {"from": 151, "to": 153}, {"from": 152, "to": 153}, {"from": 153, "to":
+154}, {"from": 153, "to": 155, "to_end": true}, {"from": 154, "to": 155, "to_end": true}, {"from": 155, "to":
+156, "from_start": true}, {"from": 155, "to": 157, "from_start": true}, {"from": 156, "to": 158}, {"from": 157, "to":
+158}, {"from": 158, "to": 159}, {"from": 158, "to": 160}, {"from": 159, "to":
+161}, {"from": 160, "to": 161}, {"from": 161, "to": 162}, {"from": 161, "to":
+163}, {"from": 162, "to": 164}, {"from": 163, "to": 164}, {"from": 164, "to":
+165}, {"from": 164, "to": 166}, {"from": 165, "to": 167}, {"from": 166, "to":
+167}, {"from": 167, "to": 168}, {"from": 167, "to": 169}, {"from": 168, "to":
+170}, {"from": 168, "to": 171}, {"from": 169, "to": 170}, {"from": 169, "to":
+171}, {"from": 170, "to": 172}, {"from": 171, "to": 172}, {"from": 172, "to":
+173}, {"from": 172, "to": 174}, {"from": 173, "to": 174}, {"from": 174, "to":
+175}, {"from": 174, "to": 176}, {"from": 175, "to": 177}, {"from": 176, "to":
+177}, {"from": 177, "to": 178}, {"from": 177, "to": 179}, {"from": 178, "to":
+180}, {"from": 180, "to": 179, "from_start": true, "to_end": true}, {"from": 180, "to": 181}, {"from": 180, "to":
+182}, {"from": 181, "to": 183}, {"from": 182, "to": 183}, {"from": 183, "to":
+184}, {"from": 183, "to": 185}, {"from": 184, "to": 186}, {"from": 185, "to":
+186}, {"from": 186, "to": 187}, {"from": 186, "to": 188}, {"from": 187, "to":
+189}, {"from": 187, "to": 190}, {"from": 188, "to": 189}, {"from": 188, "to":
+190}, {"from": 189, "to": 191}, {"from": 190, "to": 191}, {"from": 191, "to":
+192}, {"from": 191, "to": 193}, {"from": 192, "to": 194}, {"from": 193, "to":
+194}, {"from": 194, "to": 195}, {"from": 194, "to": 196}, {"from": 195, "to":
+197}, {"from": 196, "to": 197}, {"from": 197, "to": 198}, {"from": 197, "to":
+199}, {"from": 198, "to": 200}, {"from": 199, "to": 200}, {"from": 200, "to":
+201}, {"from": 200, "to": 202}, {"from": 201, "to": 202}, {"from": 202, "to":
+203}, {"from": 202, "to": 204}, {"from": 203, "to": 205}, {"from": 204, "to":
+205}, {"from": 205, "to": 206}, {"from": 205, "to": 207}, {"from": 206, "to":
+207}, {"from": 207, "to": 208}, {"from": 207, "to": 209}, {"from": 208, "to":
+210}, {"from": 209, "to": 210}]}

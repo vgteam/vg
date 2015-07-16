@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 12
+plan tests 13
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -25,17 +25,19 @@ is $edge_matches 5 "all expected edges found via kmer find"
 
 is $(vg find -n 2 -n 3 -c 1 x.vg | vg view -g - | wc -l) 15 "multiple nodes can be picked using vg find"
 
-is $(vg find -s AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT x.vg | vg view - | wc -l) 33 "vg find returns a correctly-sized graph when seeking a sequence"
+is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT x.vg | vg view - | wc -l) 33 "vg find returns a correctly-sized graph when seeking a sequence"
 
-is $(vg find -s AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -j 11 x.vg | vg view - | wc -l) 33 "vg find returns a correctly-sized graph when using jump-kmers"
+is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -j 11 x.vg | vg view - | wc -l) 33 "vg find returns a correctly-sized graph when using jump-kmers"
 
-is $(vg find -p x:0-100 x.vg | vg view -g - | wc -l) 58 "vg find returns a subgraph of corresponding to particular reference coordinates"
+is $(vg find -p x:0-100 x.vg | vg view -g - | wc -l) 58 "vg find returns a subgraph corresponding to particular reference coordinates"
+
+is $(vg find -p x:0-100 x.vg | vg view -j - | jq ".node[].sequence" | tr -d '"\n' | wc -c) 100 "vg find returns a path of the correct length"
 
 is $(vg find -p x -c 10 x.vg | vg view -g - | wc -l) $(vg view -g x.vg | wc -l) "entire graph is returned when the reference path is queried with context"
 
-is $(vg find -t 10 x.vg | wc -l) 1 "we can find edges to"
+is $(vg find -s 10 x.vg | wc -l) 1 "we can find edges on start"
 
-is $(vg find -f 10 x.vg | wc -l) 1 "we can find edges from"
+is $(vg find -e 10 x.vg | wc -l) 1 "we can find edges on end"
 
 rm -rf x.vg.index
 rm -f x.vg

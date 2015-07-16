@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 16
+plan tests 23
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -85,4 +85,26 @@ vg index -s -d q.idx x.vg y.vg
 is $(vg index -L -d q.idx | tail -1 | awk '{ print $3 }' ) 420 "end of the second path found correctly"
 
 rm -rf q.idx x.vg y.vg
+
+# Now test backward nodes
+vg index -s reversing/reversing_x.vg
+is $? 0 "can index backward nodes"
+ls reversing/reversing_x.vg.index/*.sst
+is $? 0 "backward node index contains data"
+
+vg index -k 16 reversing/reversing_x.vg
+is $? 0 "can index kmers for backward nodes"
+
+is $(vg index -D reversing/reversing_x.vg | grep "TATTAGCCATGTGACT" | wc -l) 1 "kmers crossing reversing edges are in index"
+
+is $(vg index -D reversing/reversing_x.vg | grep '"from": 55' | grep '"from_start": true' | wc -l) 2 "from_start edges in index"
+
+is $(vg index -D reversing/reversing_x.vg | grep '"to": 55' | grep '"to_end": true' | wc -l) 2 "to_end edges in index"
+
+vg map -r <(vg sim -s 1337 -n 100 reversing/reversing_x.vg) reversing/reversing_x.vg | vg index -a - -d reversing_x.vg.aln
+is $(vg index -D -d reversing_x.vg.aln | wc -l) 100 "index can store alignments to backward nodes"
+
+rm -rf reversing/reversing_x.vg.index reversing_x.vg.aln
+
+
 

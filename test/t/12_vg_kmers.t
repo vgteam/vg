@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 11
+plan tests 12
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     2133 \
