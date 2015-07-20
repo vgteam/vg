@@ -690,7 +690,7 @@ void help_kmers(char** argv) {
          << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
-         << "    -d, --allow-dups      don't filter out duplicated kmers" << endl
+         << "    -d, --ignore-dups     filter out duplicated kmers" << endl
          << "    -n, --allow-negs      don't filter out relative negative positions of kmers" << endl
          << "    -g, --gcsa-out        output a table suitable for input to GCSA2" << endl
          << "                          kmer, starting position, previous characters," << endl
@@ -710,8 +710,11 @@ int main_kmers(int argc, char** argv) {
     int kmer_stride = 1;
     bool show_progress = false;
     bool gcsa_out = false;
-    bool allow_dups = false;
+    bool allow_dups = true;
     bool allow_negs = false;
+    // for distributed GCSA2 kmer generation
+    int64_t head_id = 0;
+    int64_t tail_id = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -724,14 +727,16 @@ int main_kmers(int argc, char** argv) {
                 {"edge-max", required_argument, 0, 'e'},
                 {"threads", required_argument, 0, 't'},
                 {"gcsa-out", no_argument, 0, 'g'},
-                {"allow-dups", no_argument, 0, 'd'},
+                {"ignore-dups", no_argument, 0, 'd'},
                 {"allow-negs", no_argument, 0, 'n'},
                 {"progress",  no_argument, 0, 'p'},
+                {"head-id", required_argument, 0, 'H'},
+                {"tail-id", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:gdn",
+        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -762,7 +767,7 @@ int main_kmers(int argc, char** argv) {
             break;
 
         case 'd':
-            allow_dups = true;
+            allow_dups = false;
             break;
 
         case 'n':
@@ -771,6 +776,14 @@ int main_kmers(int argc, char** argv) {
 
         case 'p':
             show_progress = true;
+            break;
+
+        case 'H':
+            head_id = atoi(optarg);
+            break;
+
+        case 'T':
+            tail_id = atoi(optarg);
             break;
 
         case 'h':
@@ -797,8 +810,7 @@ int main_kmers(int argc, char** argv) {
     graphs.show_progress = show_progress;
 
     if (gcsa_out) {
-        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride);
-
+        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, allow_dups, head_id, tail_id);
     } else {
         function<void(string&, Node*, int, list<Node*>&, VG& graph)>
             lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
@@ -1887,7 +1899,7 @@ int main_index(int argc, char** argv) {
 
         // Go get the kmers of the correct size
         vector<gcsa::KMer> kmers;
-        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, kmers);
+        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, kmers, true, 0, 0);
         
         // Handle finding the sink node
         size_t sink_node_id = 0;

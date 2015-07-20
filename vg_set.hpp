@@ -46,13 +46,13 @@ public:
                                 bool allow_dups, bool allow_negatives);
     
     // Write out kmer lines to GCSA2
-    void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups = true,
-                        int64_t head_id = 0, int64_t tail_id = 0);
+    void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups = false,
+                        int64_t head_id=0, int64_t tail_id=0);
     
     // gets all the kmers in GCSA's internal format.
     void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
-                        vector<gcsa::KMer>& kmers_out, bool allow_dups = true,
-                        int64_t head_id = 0, int64_t tail_id = 0);
+                        vector<gcsa::KMer>& kmers_out, bool allow_dups = false,
+                        int64_t head_id=0, int64_t tail_id=0);
 
     bool show_progress;
     

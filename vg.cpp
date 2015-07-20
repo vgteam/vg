@@ -1649,11 +1649,12 @@ Node* VG::create_node(string seq, int64_t id) {
     Node* node = graph.add_node();
     node->set_sequence(seq);
     // ensure we properly update the current_id that's used to generate new ids
-    if (id) {
-        node->set_id(id);
-    } else { // id == 0 is default, and not in the proper id space, so allocate a new id
+    // unless we have a specified id
+    if (id == 0) {
         if (current_id == 1) current_id = max_node_id()+1;
         node->set_id(current_id++);
+    } else {
+        node->set_id(id);
     }
     // copy it into the graph
     // and drop into our id index

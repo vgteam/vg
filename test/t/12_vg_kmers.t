@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 9
+plan tests 10
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     2133 \
@@ -17,8 +17,8 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -n -k 11 - | sort |
     7141 \
     "correct numbers of kmers in the graph when including negative-offset entries"
 
-is  $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
-    $(vg construct -r small/x.fa -v small/x.vcf.gz -t 4 | vg kmers -k 11 - | wc -l) \
+is  $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 -d - | sort | uniq | wc -l) \
+    $(vg construct -r small/x.fa -v small/x.vcf.gz -t 4 | vg kmers -k 11 -d - | wc -l) \
     "only unique kmers are produced"
 
 vg construct -v small/x.vcf.gz -r small/x.fa >x.vg
@@ -40,6 +40,8 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 - | gr
 rm x.vg
 rm -rf x.vg.index
 
-is $(vg kmers -n -k 11 -e 7 jumble/j.vg | wc -l) \
+is $(vg kmers -n -k 11 -e 7 -d jumble/j.vg | wc -l) \
     9300 \
     "edge-max correctly bounds the number of kmers in a complex graph"
+
+is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 -H 1000 -T 1001 - | grep '1000\|1001' | wc -l) 37 "head and tail nodes can be specified in GCSA2 output"
