@@ -579,5 +579,30 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     return result;
 }
 
+Path simplify_deletions(const Path& p) {
+    Path s;
+    for (int i = 0; i < p.mapping_size(); ++i) {
+        auto& m = p.mapping(i);
+        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) {
+        } else {
+            *s.add_mapping() = m;
+        }
+    }
+    return s;
+}
+
+bool mapping_ends_in_deletion(const Mapping& m){
+    return edit_is_deletion(m.edit(m.edit_size()-1));
+}
+
+bool mapping_starts_in_deletion(const Mapping& m) {
+    return edit_is_deletion(m.edit(0));
+}
+
+bool mapping_is_total_deletion(const Mapping& m) {
+    return m.edit_size() == 1 && edit_is_deletion(m.edit(0));
+}
+
+
 
 }

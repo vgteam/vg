@@ -477,16 +477,13 @@ int main_mod(int argc, char** argv) {
     }
 
     if (!aln_file.empty()) {
-        map<int64_t, vector<Mapping> > mappings; // keyed by id
-        function<void(Alignment&)> lambda = [&graph, &mappings](Alignment& aln) {
-            const string& name = aln.name();
-            const Path& path = aln.path();
-            for (int i = 0; i < path.mapping_size(); ++i) {
-                Mapping mapping = path.mapping(i);
-                Info info; info.set_str(name);
-                (*mapping.mutable_info())["path_name"] = info;
-                mappings[mapping.position().node_id()].push_back(mapping);
-            }
+        //void edit(const map<int64_t, vector<tuple<Mapping, int64_t, int64_t> > >& mappings);
+        
+        vector<Path> paths;
+        function<void(Alignment&)> lambda = [&graph, &paths](Alignment& aln) {
+            Path path = simplify_deletions(aln.path());
+            path.set_name(aln.name());
+            paths.push_back(path);
         };
         if (aln_file == "-") {
             stream::for_each(std::cin, lambda);
@@ -496,7 +493,7 @@ int main_mod(int argc, char** argv) {
             stream::for_each(in, lambda);
         }
         // now that everything is sorted, execute the edits
-        graph->edit(mappings);
+        graph->edit(paths);
         // and optionally compact ids
         if (compact_ids) {
             graph->sort();

@@ -14,7 +14,7 @@ LIBGCSA2=gcsa2/libgcsa2.a
 SDSLLITE=sdsl-lite/Make.helper
 INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2
 LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lrt -lgcsa2 -lsdsl
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o sha1/sha1.o json2pb.o entropy.o
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o
 
 all: vg libvg.a
 
@@ -103,6 +103,9 @@ utility.o: utility.cpp utility.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 
 path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o path.o path.cpp $(INCLUDES)
+
+edit.o: edit.cpp edit.hpp $(LIBPROTOBUF)
+	$(CXX) $(CXXFLAGS) -c -o edit.o edit.cpp $(INCLUDES)
 
 alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)

@@ -8,6 +8,7 @@
 #include <list>
 #include "json2pb.h"
 #include "vg.pb.h"
+#include "edit.hpp"
 
 namespace vg {
 
@@ -103,6 +104,10 @@ Position first_path_position(const Path& path);
 Position last_path_position(const Path& path);
 int to_length(const Mapping& m);
 int from_length(const Mapping& m);
+bool mapping_ends_in_deletion(const Mapping& m);
+bool mapping_starts_in_deletion(const Mapping& m);
+bool mapping_is_total_deletion(const Mapping& m);
+Path simplify_deletions(const Path& p);
 
 }
 
