@@ -147,7 +147,8 @@ void VGset::for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*
     });
 }
 
-void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups) {
+void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups,
+                           int64_t head_id, int64_t tail_id) {
 
     // When we're sure we know what this kmer instance looks like, we'll write it out exactly once.
     auto write_kmer = [](KmerPosition& kp){
@@ -181,11 +182,13 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
     };
     
     // Run on each KmerPosition
-    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride, write_kmer, allow_dups);
+    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride, head_id, tail_id,
+                                         write_kmer, allow_dups);
     
 }
 
-void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride, 
+void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+                                                 int64_t head_id, int64_t tail_id,
                                                  function<void(KmerPosition&)> lambda, bool allow_dups) {
 
     // This maps from thread number to current node ID, and a map from kmer
@@ -274,13 +277,16 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
     Node* tail_node = nullptr;
 
     // For every graph in our set, visit all the kmers in parallel and make and process KmerPositions for them.
-    for_each([&visit_kmer, kmer_size, edge_max, stride, allow_dups, &head_node, &tail_node, this](VG* g) {
+    for_each([&visit_kmer, kmer_size, edge_max, stride, allow_dups,
+              &head_node, &tail_node, &head_id, &tail_id,
+              this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
         
         if(head_node == nullptr) {
             // This is the first graph. Add the head and tail nodes, but make our own copies before we destroy the graph.
-            g->add_start_and_end_markers(kmer_size, '#', '$', head_node, tail_node);
+            g->add_start_and_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
+            // if the ids are non-0, set them
             head_node = new Node(*head_node);
             tail_node = new Node(*tail_node);
         } else {
@@ -319,7 +325,9 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
     }    
 }
 
-void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride, vector<gcsa::KMer>& kmers_out, bool allow_dups) {
+void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+                           vector<gcsa::KMer>& kmers_out, bool allow_dups,
+                           int64_t head_id, int64_t tail_id) {
 
     // TODO: This function goes through an internal string format that should
     // really be replaced by making some API changes to gcsa2.
@@ -397,7 +405,8 @@ void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride, vector<gcsa:
     };
     
     // Run on each KmerPosition
-    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride, convert_kmer, allow_dups);
+    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
+                                         head_id, tail_id, convert_kmer, allow_dups);
     
     for(auto& thread_output : thread_outputs) {
         // Now throw everything into the output vector

@@ -1644,13 +1644,17 @@ Node* VG::get_node(int64_t id) {
     }
 }
 
-Node* VG::create_node(string seq) {
+Node* VG::create_node(string seq, int64_t id) {
     // create the node
     Node* node = graph.add_node();
     node->set_sequence(seq);
     // ensure we properly update the current_id that's used to generate new ids
-    if (current_id == 1) current_id = max_node_id()+1;
-    node->set_id(current_id++);
+    if (id) {
+        node->set_id(id);
+    } else { // id == 0 is default, and not in the proper id space, so allocate a new id
+        if (current_id == 1) current_id = max_node_id()+1;
+        node->set_id(current_id++);
+    }
     // copy it into the graph
     // and drop into our id index
     node_by_id[node->id()] = node;
@@ -2951,13 +2955,15 @@ void VG::join_tails(Node* node) {
 }
 
 void VG::add_start_and_end_markers(int length, char start_char, char end_char,
-                                   Node*& head_node, Node*& tail_node) {
+                                   Node*& head_node, Node*& tail_node,
+                                   int64_t head_id, int64_t tail_id) {
+
     // first do the head
 
     if(head_node == nullptr) {
         // We get to create the head node
         string start_string(length, start_char);
-        head_node = create_node(start_string);
+        head_node = create_node(start_string, head_id);
     } else {
         // We got a head node
         add_node(*head_node);
@@ -2968,7 +2974,7 @@ void VG::add_start_and_end_markers(int length, char start_char, char end_char,
     // then the tail
     if(tail_node == nullptr) {
         string end_string(length, end_char);
-        tail_node = create_node(end_string);
+        tail_node = create_node(end_string, tail_id);
     } else {
         add_node(*tail_node);
     }

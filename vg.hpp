@@ -261,7 +261,7 @@ public:
     void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
 
     // use the VG class to generate ids
-    Node* create_node(string seq);
+    Node* create_node(string seq, int64_t id = 0);
     Node* get_node(int64_t id);
     void node_context(Node* node, VG& g);
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
@@ -478,7 +478,8 @@ public:
     // created here are owned by the graph, and will be deleted when the VG
     // object is deleted.
     void add_start_and_end_markers(int length, char start_char, char end_char,
-                                   Node*& head_node, Node*& tail_node);
+                                   Node*& head_node, Node*& tail_node,
+                                   int64_t head_id = 0, int64_t tail_id = 0);
 
     bool show_progress;
     string progress_message;

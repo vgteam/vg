@@ -38,15 +38,21 @@ public:
     void store_paths_in_index(Index& index);
 
     // stores kmers of size kmer_size with stride over paths in graphs in the index
-    void index_kmers(Index& index, int kmer_size, int edge_max, int stride = 1, bool allow_negatives = false);
+    void index_kmers(Index& index, int kmer_size, int edge_max, int stride = 1,
+                     bool allow_negatives = false);
+    
     void for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*>&, VG&)>& lambda,
-                                int kmer_size, int edge_max, int stride, bool allow_dups, bool allow_negatives);
+                                int kmer_size, int edge_max, int stride,
+                                bool allow_dups, bool allow_negatives);
     
     // Write out kmer lines to GCSA2
-    void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups = true);
+    void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups = true,
+                        int64_t head_id = 0, int64_t tail_id = 0);
     
     // gets all the kmers in GCSA's internal format.
-    void get_gcsa_kmers(int kmer_size, int edge_max, int stride, vector<gcsa::KMer>& kmers_out, bool allow_dups = true);
+    void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+                        vector<gcsa::KMer>& kmers_out, bool allow_dups = true,
+                        int64_t head_id = 0, int64_t tail_id = 0);
 
     bool show_progress;
     
@@ -62,8 +68,10 @@ private:
     };
     
     // We can loop over these in order to implement the other gcsa-related functions above.
-    void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride, function<void(KmerPosition&)> lambda,
-                                              bool allow_dups = true);
+    void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+                                              int64_t head_id, int64_t tail_id,
+                                              function<void(KmerPosition&)> lambda,
+                                              bool allow_dups);
     
 };
 
