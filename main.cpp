@@ -354,7 +354,9 @@ void help_mod(char** argv) {
          << "                            cross more than --edge-max edges" << endl
          << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
          << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
-         << "    -e, --edge-max N        when pruning complex regions limit paths to this many edge crossings" << endl
+         << "    -e, --edge-max N        when pruning complex regions only consider paths which cross" << endl
+         << "                            this many potential alternate edges (e.g. if node out-degree is" << endl
+         << "                            2, we would count 1 toward --edge-max; for 3 we would count 2)" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
@@ -687,7 +689,9 @@ void help_kmers(char** argv) {
          << endl
          << "options:" << endl
          << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
-         << "    -e, --edge-max N     cross no more than N edges when determining k-paths" << endl
+         << "    -e, --edge-max N      only consider paths which cross this many potential alternate edges" << endl
+         << "                          (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
+         << "                          for 3 we would count 2)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -d, --ignore-dups     filter out duplicated kmers" << endl
@@ -1227,7 +1231,9 @@ void help_paths(char** argv) {
          << "options:" << endl
          << "    -n, --node ID         starting at node with ID" << endl
          << "    -l, --max-length N    generate paths of at most length N" << endl
-         << "    -e, --edge-max N      cross no more than N edges when determining k-paths" << endl
+         << "    -e, --edge-max N      only consider paths which cross this many potential alternate edges" << endl
+         << "                          (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
+         << "                          for 3 we would count 2)" << endl
          << "    -s, --as-seqs         write each path as a sequence" << endl;
 }
 
@@ -1670,7 +1676,9 @@ void help_index(char** argv) {
          << "general options:" << endl
          << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
-         << "    -e, --edge-max N       cross no more than N edges when determining k-paths" << endl
+         << "    -e, --edge-max N       only consider paths which cross this many potential alternate edges" << endl
+         << "                           (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
+         << "                           for 3 we would count 2)" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
          << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl

@@ -2042,7 +2042,10 @@ void VG::prev_kpaths_from_node(Node* node, int length, int edge_max,
     } // implicit else
     for (vector<Node*>::iterator p = prev_nodes.begin(); p != prev_nodes.end(); ++p) {
         if ((*p)->sequence().size() < length) {
-            prev_kpaths_from_node(*p, length - (*p)->sequence().size(), edge_max - 1, postfix, paths, maxed_nodes);
+            prev_kpaths_from_node(*p,
+                                  length - (*p)->sequence().size(),
+                                  edge_max - max(in_degree(node)-1, 0),
+                                  postfix, paths, maxed_nodes);
         } else {
             // create a path for this node
             list<Node*> new_path = postfix;
@@ -2071,7 +2074,10 @@ void VG::next_kpaths_from_node(Node* node, int length, int edge_max,
     } // implicit else
     for (vector<Node*>::iterator n = next_nodes.begin(); n != next_nodes.end(); ++n) {
         if ((*n)->sequence().size() < length) {
-            next_kpaths_from_node(*n, length - (*n)->sequence().size(), edge_max - 1, prefix, paths, maxed_nodes);
+            next_kpaths_from_node(*n,
+                                  length - (*n)->sequence().size(),
+                                  edge_max - max(out_degree(node)-1, 0),
+                                  prefix, paths, maxed_nodes);
         } else {
             // create a path for this node
             list<Node*> new_path = prefix;
@@ -2477,12 +2483,6 @@ void VG::edit_node(int64_t node_id,
                     } else {
                         // simpler case when we don't have a center node
                         // make the edge across the single cut
-                        cerr << lp->id() << "->" << rp->id() << endl;
-                        /*
-                        if (t < node_seq.size()) {
-                            create_edge(lp, rp);
-                        }
-                        */
                         // and record the translation
                         auto& p1 = cut_trans[make_pair(node_id, f)];
                         p1.first.insert(lp);
@@ -2490,11 +2490,6 @@ void VG::edit_node(int64_t node_id,
                         auto& p2 = cut_trans[make_pair(node_id, t)];
                         p2.first.insert(lp);
                         p2.second.insert(rp);
-                        /*
-                        if (f != 0) p.first.insert(lp);
-                        if (t != node_seq.size())
-                            p.second.insert(rp);
-                        */
                         //cerr << "cut trans " << *p.first.begin() << " " << *p.second.begin() << endl;
                         //cerr << node_id << ":" << f << endl;
                     }
