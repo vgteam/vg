@@ -123,7 +123,7 @@ vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAP
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
-	ar rs libvg.a gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o utility.o path.o alignment.o sha1/sha1.o json2pb.o
+	ar rs libvg.a $(LIBS)
 
 clean-vg:
 	rm -f vg
