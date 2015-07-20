@@ -19,7 +19,7 @@ namespace stream {
 
 // write objects
 // count should be equal to the number of objects to write
-// but if it is 0, it is not written
+// count is written before the objects, but if it is 0, it is not written
 // if not all objects are written, return false, otherwise true
 template <typename T>
 bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda) {
@@ -31,8 +31,10 @@ bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda
     ::google::protobuf::io::CodedOutputStream *coded_out =
           new ::google::protobuf::io::CodedOutputStream(gzip_out);
 
-    // prefix the chunk with the number of objects
-    coded_out->WriteVarint64(count);
+    // prefix the chunk with the number of objects, if any objects are to be written
+    if(count > 0) {
+        coded_out->WriteVarint64(count);
+    }
 
     std::string s;
     uint64_t written = 0;
@@ -63,11 +65,11 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_l
 }
 
 // deserialize the input stream into the objects
-// count containts the count read
-// takes a callback function to be called on the objects
+// skips over groups of objects with count 0
+// takes a callback function to be called on the objects, and another to be called per object group.
 
 template <typename T>
-bool for_each(std::istream& in,
+void for_each(std::istream& in,
               std::function<void(T&)>& lambda,
               std::function<void(uint64_t)>& handle_count) {
 
@@ -79,11 +81,9 @@ bool for_each(std::istream& in,
           new ::google::protobuf::io::CodedInputStream(gzip_in);
 
     uint64_t count;
-    coded_in->ReadVarint64(&count);
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    if (!count) return !count;
-    do {
+    while (coded_in->ReadVarint64(&count)) {
 
         handle_count(count);
 
@@ -101,24 +101,22 @@ bool for_each(std::istream& in,
                 lambda(object);
             }
         }
-    } while (coded_in->ReadVarint64(&count));
+    }
 
     delete coded_in;
     delete gzip_in;
     delete raw_in;
-
-    return !count;
 }
 
 template <typename T>
-bool for_each(std::istream& in,
+void for_each(std::istream& in,
               std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
     for_each(in, lambda, noop);
 }
 
 template <typename T>
-bool for_each_parallel(std::istream& in,
+void for_each_parallel(std::istream& in,
                        std::function<void(T&)>& lambda,
                        std::function<void(uint64_t)>& handle_count) {
 
@@ -137,9 +135,8 @@ bool for_each_parallel(std::istream& in,
     std::list<T> objects;
     int64_t object_count = 0;
     int64_t read_threshold = 5000;
-    if (!count) return !count;
 #pragma omp parallel shared(more_input, more_objects, objects, count, in, lambda, handle_count, raw_in, gzip_in, coded_in)
-    do {
+    while (more_input || more_objects) {
 
         bool has_object = false;
         T object;
@@ -180,21 +177,23 @@ bool for_each_parallel(std::istream& in,
                 }
                 more_input = coded_in->ReadVarint64(&count);
             }
+            
+            // TODO: Between when the master announces there is no more input,
+            // and when it says there are again more objects to process, the
+            // other threads can all quit out, leaving it alone to finish up.
+            
         }
 #pragma omp critical (objects)
         more_objects = (object_count > 0);
-
-    } while (more_input || more_objects);
+    }
 
     delete coded_in;
     delete gzip_in;
     delete raw_in;
-
-    return !count;
 }
 
 template <typename T>
-bool for_each_parallel(std::istream& in,
+void for_each_parallel(std::istream& in,
               std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
     for_each_parallel(in, lambda, noop);
