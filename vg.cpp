@@ -1925,7 +1925,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     }
 
     // make our right node
-    right = create_node(node->sequence().substr(pos,node->sequence().size()-1));
+    right = create_node(node->sequence().substr(pos));
 
     // replace node connections to next (right)
     e = edges_from_to.find(node->id());
@@ -2381,18 +2381,10 @@ void VG::edit_node(int64_t node_id,
     // make the cuts
     set<Node*> emptyset;
     for (auto cut : cut_at) {
-        //int last_off = offset;
-        //cerr << "cut " << cut << endl;
-        // handle cuts at start and end of node
-        if (cut-offset == 0) {
-            //set<Node*> right{n};
-            //cuts[cut] = make_tuple(emptyset, emptyset, right);
-        } else if (n->sequence().size() == cut-offset) {
-            //set<Node*> left{n};
-            //cuts[cut] = make_tuple(left, emptyset, emptyset);
-        } else {
+        // don't cut if it would be at the end of the sequence
+        if (n->sequence().size()) {
+            divide_node(n, cut-offset, l, r);
         }
-        divide_node(n, cut-offset, l, r);
         set<Node*> left{l};
         set<Node*> right{r};
         cuts[cut] = make_tuple(left, emptyset, right);
@@ -2558,7 +2550,7 @@ void VG::edit(const vector<Path>& paths) {
                     in_del = false;
                 }
                 // record the deletion
-                cerr << "del_start " << del_start.first << ":" << del_start.second << " -> " << del_end.first << ":" << del_end.second << endl;
+                //cerr << "del_start " << del_start.first << ":" << del_start.second << " -> " << del_end.first << ":" << del_end.second << endl;
                 del_f[del_start] = del_end;
                 del_t[del_end] = del_start;
             }
