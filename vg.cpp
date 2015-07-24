@@ -2027,7 +2027,7 @@ void VG::prev_kpaths_from_node(Node* node, int length, int edge_max,
                                list<Node*> postfix, set<list<Node*> >& paths,
                                function<void(Node*)>& maxed_nodes) {
     if (length == 0) return;
-    if (edge_max == 0) {
+    if (edge_max <= 0) {
         maxed_nodes(node);
         return;
     }
@@ -2059,7 +2059,7 @@ void VG::next_kpaths_from_node(Node* node, int length, int edge_max,
                                list<Node*> prefix, set<list<Node*> >& paths,
                                function<void(Node*)>& maxed_nodes) {
     if (length == 0) return;
-    if (edge_max == 0) {
+    if (edge_max <= 0) {
         maxed_nodes(node);
         return;
     }

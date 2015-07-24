@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 10
+plan tests 11
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     2133 \
@@ -41,7 +41,9 @@ rm x.vg
 rm -rf x.vg.index
 
 is $(vg kmers -n -k 11 -e 5 -d jumble/j.vg | wc -l) \
-    12354 \
+    6918 \
     "edge-max correctly bounds the number of kmers in a complex graph"
+
+is $(vg kmers -n -k 11 -e 1 -d jumble/j.vg | wc -l) 0 "edge-max doesn't go negative"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 -H 1000 -T 1001 - | grep '1000\|1001' | wc -l) 37 "head and tail nodes can be specified in GCSA2 output"
