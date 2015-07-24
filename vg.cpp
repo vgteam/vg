@@ -1006,6 +1006,8 @@ void VG::from_gfa(istream& in, bool showp) {
             Edge edge;
             edge.set_from(id1);
             edge.set_to(id2);
+            if (side1 == '-') edge.set_from_start(true);
+            if (side2 == '-') edge.set_to_end(true);
             add_edge(edge);
         } else if (type == 'P') {
             paths.append_mapping(path_name, id1, is_reverse);
@@ -3039,7 +3041,11 @@ void VG::to_gfa(ostream& out) {
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         stringstream s;
-        s << "L" << "\t" << e->from() << "\t" << "-" << "\t" << e->to() << "\t" << "+" << "\t" << "0M" << endl;
+        s << "L" << "\t" << e->from() << "\t"
+          << (e->from_start() ? "-" : "+") << "\t"
+          << e->to() << "\t"
+          << (e->to_end() ? "-" : "+") << "\t"
+          << "0M" << endl;
         sorted_output[e->from()].push_back(s.str());
     }
     for (auto& chunk : sorted_output) {
