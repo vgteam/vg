@@ -58,18 +58,26 @@ namespace vg {
   -=\xff is our 'end' separator --- this makes it easy to do range queries
 
   ids are stored as raw int64_t
+  
+  bools are stored a '0' or '1', not as sizeof(bool) bytes, since sizeof(bool) can vary.
+  
+  Note that all the graph keys have a node ID and then a "type" character.
+  
+  Also note that "pos" in path-related keys is the base-pair coordinate along the path, not the rank of the node.
+  
+  Note that we store the edge data for self loops twice.
 
-  // key                     // value
+  // key                                // value
   --------------------------------------------------------------
-  +m+metadata_key            value // various information about the table
-  +g+node_id                 node [vg::Node]
-  +g+from_id+f+to_id         edge [vg::Edge]
-  +g+to_id+t+from_id         null // already stored under from_id+to_id, but this provides reverse index
-  +g+node_id+p+path_id+pos   mapping [vg::Mapping]
-  +k+kmer+node_id            position of kmer in node [int32_t]
-  +p+path_id+pos+node_id     mapping [vg::Mapping]
-  +s+node_id+offset          mapping [vg::Mapping] // mapping-only "side" against one node
-  +a+node_id+offset          alignment [vg::Alignment]
+  +m+metadata_key                       value // various information about the table
+  +g+node_id+n                          node [vg::Node]
+  +g+node_id+s+other_id+backward        edge [vg::Edge] if node_id <= other_id, else null. edge is on start
+  +g+node_id+e+other_id+backward        edge [vg::Edge] if node_id <= other_id, else null. edge is on end
+  +g+node_id+p+path_id+pos+backward     mapping [vg::Mapping]
+  +k+kmer+node_id                       position of kmer in node [int32_t]
+  +p+path_id+pos+backward+node_id       mapping [vg::Mapping]
+  +s+node_id+offset                     mapping [vg::Mapping] // mapping-only "side" against one node
+  +a+node_id+offset                     alignment [vg::Alignment]
 
  */
 
@@ -118,6 +126,10 @@ public:
     void put_edge(const Edge* edge);
     void batch_node(const Node* node, rocksdb::WriteBatch& batch);
     void batch_edge(const Edge* edge, rocksdb::WriteBatch& batch);
+    // Put a kmer that starts at the given index in the given node in the index.
+    // The index only stores the kmers that are on the forward strand at their
+    // start positions. The aligner is responsible for searching both strands of
+    // any query string.
     void put_kmer(const string& kmer,
                   const int64_t id,
                   const int32_t pos);
@@ -126,29 +138,32 @@ public:
                     const int32_t pos,
                     rocksdb::WriteBatch& batch);
     void put_metadata(const string& tag, const string& data);
-    void put_node_path(int64_t node_id, int64_t path_id, int64_t path_pos, const Mapping& mapping);
-    void put_path_position(int64_t path_id, int64_t path_pos, int64_t node_id, const Mapping& mapping);
+    void put_node_path(int64_t node_id, int64_t path_id, int64_t path_pos, bool backward, const Mapping& mapping);
+    void put_path_position(int64_t path_id, int64_t path_pos, bool backward, int64_t node_id, const Mapping& mapping);
     void put_mapping(const Mapping& mapping);
     void put_alignment(const Alignment& alignment);
 
     rocksdb::Status get_node(int64_t id, Node& node);
-    rocksdb::Status get_edge(int64_t from, int64_t to, Edge& edge);
+    // Takes the nodes and orientations and gets the Edge object with any associated edge data.
+    rocksdb::Status get_edge(int64_t from, bool from_start, int64_t to, bool to_end, Edge& edge);
     rocksdb::Status get_metadata(const string& key, string& data);
-    int get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, Mapping& mapping);
+    // Gets information about the first time the given node appears in the given
+    // path, and returns the number of times it appears.
+    int get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
     void get_mappings(int64_t node_id, vector<Mapping>& mappings);
     void get_alignments(int64_t node_id, vector<Alignment>& alignments);
 
     // obtain the key corresponding to each entity
     const string key_for_node(int64_t id);
-    const string key_for_edge_from_to(int64_t from, int64_t to);
-    const string key_for_edge_to_from(int64_t to, int64_t from);
-    const string key_prefix_for_edges_from_node(int64_t from);
-    const string key_prefix_for_edges_to_node(int64_t to);
+    const string key_for_edge_on_start(int64_t node_id, int64_t other, bool backward);
+    const string key_for_edge_on_end(int64_t node_id, int64_t other, bool backward);
+    const string key_prefix_for_edges_on_node_start(int64_t node);
+    const string key_prefix_for_edges_on_node_end(int64_t node);
     const string key_for_kmer(const string& kmer, int64_t id);
     const string key_prefix_for_kmer(const string& kmer);
     const string key_for_metadata(const string& tag);
-    const string key_for_path_position(int64_t path_id, int64_t path_pos, int64_t node_id);
-    const string key_for_node_path_position(int64_t node_id, int64_t path_id, int64_t path_pos);
+    const string key_for_path_position(int64_t path_id, int64_t path_pos, bool backward, int64_t node_id);
+    const string key_for_node_path_position(int64_t node_id, int64_t path_id, int64_t path_pos, bool backward);
     const string key_prefix_for_node_path(int64_t node_id, int64_t path_id);
     const string key_for_mapping_prefix(int64_t node_id);
     const string key_for_mapping(const Mapping& mapping);
@@ -157,12 +172,18 @@ public:
 
     // deserialize a key/value pair
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);
+    // Parse an edge from any of the three kinds of edge keys. For the key types
+    // that don't actually store the Edge object, this really constructs a new
+    // Edge which won't have the data payload and which might have from and to
+    // swapped, but which is equivalent to the actual edge. Populates id1 and id2 with the from and to nodes, and Edge with the actual edge. Populates type with 's' for on-start keys, 'e' for on-end keys, or 'n' for "normal" two-ID edge keys.
     void parse_edge(const string& key, const string& value, char& type, int64_t& id1, int64_t& id2, Edge& edge);
+    // We have an overload that doesn't actually fill in an Edge and just looks at the key.
+    void parse_edge(const string& key, char& type, int64_t& node_id, int64_t& other_id, bool& backward);
     void parse_kmer(const string& key, const string& value, string& kmer, int64_t& id, int32_t& pos);
     void parse_node_path(const string& key, const string& value,
-                         int64_t& node_id, int64_t& path_id, int64_t& path_pos, Mapping& mapping);
+                         int64_t& node_id, int64_t& path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
     void parse_path_position(const string& key, const string& value,
-                             int64_t& path_id, int64_t& path_pos, int64_t& node_id, Mapping& mapping);
+                             int64_t& path_id, int64_t& path_pos, bool& backward, int64_t& node_id, Mapping& mapping);
     void parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping);
     void parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment);
 
@@ -180,32 +201,71 @@ public:
     // accessors, traversal, context
     void get_context(int64_t id, VG& graph);
     void expand_context(VG& graph, int steps);
+    // Add all the elements in the given range to the given graph, if they aren't in it already.
     void get_range(int64_t from_id, int64_t to_id, VG& graph);
     void for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda);
     void get_connected_nodes(VG& graph);
-    void get_edges_of(int64_t id, vector<Edge>& edges);
-    void get_edges_from(int64_t from, vector<Edge>& edges);
-    void get_edges_to(int64_t to, vector<Edge>& edges);
+    // Get the edges on the end of the given node
+    void get_edges_on_end(int64_t node, vector<Edge>& edges);
+    // Get the edges on the start of the given node
+    void get_edges_on_start(int64_t node, vector<Edge>& edges);
+    // Get the IDs and orientations of the nodes to the right of the given oriented node
+    void get_nodes_next(int64_t node, bool backward, vector<pair<int64_t, bool>>& destinations);
+    // Get the IDs and orientations of the nodes to the left of the given oriented node
+    void get_nodes_prev(int64_t node, bool backward, vector<pair<int64_t, bool>>& destinations);
+    // Get the specified region in bases (start inclusive, end exclusive) along
+    // the named path, and poipulate the given graph with it. Also gets dangling
+    // edges not on the path.
     void get_path(VG& graph, const string& name, int64_t start, int64_t end);
-    void node_path_position(int64_t id, string& path_name, int64_t& position, int64_t& offset);
-    pair<list<int64_t>, int64_t> get_nearest_node_prev_path_member(int64_t node_id, int64_t path_id, int64_t& path_pos, int max_steps = 4);
-    pair<list<int64_t>, int64_t> get_nearest_node_next_path_member(int64_t node_id, int64_t path_id, int64_t& path_pos, int max_steps = 4);
-    bool get_node_path_relative_position(int64_t node_id, int64_t path_id,
-                                         list<int64_t>& path_prev, int64_t& prev_pos,
-                                         list<int64_t>& path_next, int64_t& next_pos);
-    Mapping path_relative_mapping(int64_t node_id, int64_t path_id,
-                                  list<int64_t>& path_prev, int64_t& prev_pos,
-                                  list<int64_t>& path_next, int64_t& next_pos);
+    // TODO: unimplemented. Supposed to get the position of a node in a path, or
+    // relative to a path (using a BFS to find the nearest previous path node)
+    // if not actually in the path.
+    void node_path_position(int64_t id, string& path_name, int64_t& position, bool& backward, int64_t& offset);
+    
+    // Given a node ID and orientation, and the ID of a path, fill in path_pos
+    // with the position along the path of the nearest node left of the node
+    // specified that is on that path. Fill in relative_orientation with the
+    // orientation of the node on the path relative to the specified orientation
+    // of the starting node. Returns the path taken by the breadth-first search,
+    // and the ID and orientation of the node on the target path that was
+    // reached.
+    pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> 
+    get_nearest_node_prev_path_member(int64_t node_id, bool backward, int64_t path_id,
+                                      int64_t& path_pos, bool& relative_orientation,
+                                      int max_steps = 4);
+    // Given a node ID and orientation, and the ID of a path, fill in path_pos
+    // with the position along the path of the nearest node *right* of the node
+    // specified that is on that path. Fill in relative_orientation with the
+    // orientation of the node on the path relative to the specified orientation
+    // of the starting node. Returns the path taken by the breadth-first search,
+    // and the ID and orientation of the node on the target path that was
+    // reached.
+    pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> 
+    get_nearest_node_next_path_member(int64_t node_id, bool backward, int64_t path_id,
+                                      int64_t& path_pos, bool& relative_orientation,
+                                      int max_steps = 4);
+    // Get the relative position, in both directions, of the given orientation of the given node along the given path.
+    bool get_node_path_relative_position(int64_t node_id, bool backward, int64_t path_id,
+                                         list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
+                                         list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
+    // Get a Mapping for this node relative to the given path. The mapping will point to the given node in the given orientation.
+    Mapping path_relative_mapping(int64_t node_id, bool backward, int64_t path_id,
+                                  list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
+                                  list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
+                                  
     bool surject_alignment(const Alignment& source,
                            set<string>& path_names,
                            Alignment& surjection,
                            string& path_name,
                            int64_t& path_pos,
                            int window = 5);
-    void path_layout(map<string, pair<int64_t, int64_t> >& layout,
+    // Populates layout with path start and end nodes (and orientations),
+    // indexed by path names, and lengths with path lengths indexed by path
+    // names.
+    void path_layout(map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>> >& layout,
                      map<string, int64_t>& lengths);
-    int64_t path_first_node(int64_t path_id);
-    int64_t path_last_node(int64_t path_id, int64_t& path_length);
+    pair<int64_t, bool> path_first_node(int64_t path_id);
+    pair<int64_t, bool> path_last_node(int64_t path_id, int64_t& path_length);
 
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);
@@ -244,7 +304,7 @@ public:
     void for_each_alignment(function<void(const Alignment&)> lambda);
 
     // what table is the key in
-    char graph_key_type(string& key);
+    char graph_key_type(const string& key);
 
 };
 

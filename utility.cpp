@@ -2,6 +2,10 @@
 
 namespace vg {
 
+char reverse_complement(const char& seq) {
+    return reverse_complement(to_string(seq))[0];
+}
+
 string reverse_complement(const string& seq) {
     string rc;
     rc.assign(seq.rbegin(), seq.rend());

@@ -12,6 +12,7 @@ namespace vg {
 
 using namespace std;
 
+char reverse_complement(const char& seq);
 string reverse_complement(const string& seq);
 int get_thread_count(void);
 

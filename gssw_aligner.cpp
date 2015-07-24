@@ -39,8 +39,35 @@ GSSWAligner::GSSWAligner(
     }
 
     for (int i = 0; i < g.edge_size(); ++i) {
+        // Convert all the edges
         Edge* e = g.mutable_edge(i);
-        gssw_nodes_add_edge(nodes[e->from()], nodes[e->to()]);
+        if(!e->from_start() && !e->to_end()) {
+            // This is a normal end to start edge.
+            gssw_nodes_add_edge(nodes[e->from()], nodes[e->to()]);
+        } else if(e->from_start() && e->to_end()) {
+            // This is a start to end edge, but isn't reversing and can be converted to a normal end to start edge.
+            
+            // Flip the start and end
+            gssw_nodes_add_edge(nodes[e->to()], nodes[e->from()]);
+        } else {
+            // TODO: It's a reversing edge, which gssw doesn't support yet. What
+            // we should really do is do a topological sort to break cycles, and
+            // then flip everything at the lower-rank end of this edge around,
+            // so we don't have to deal with its reversing-ness. But for now we
+            // just die so we don't get nonsense into gssw.
+#pragma omp critical
+            {
+                // We need the critical section so we don't throw uncaught
+                // exceptions in multiple threads at once, leading to C++ trying
+                // to run termiante in parallel. This doesn't make it safe, just
+                // slightly safer.
+                cerr << "Can't gssw over reversing edge" << endl;
+                // TODO: there's no safe way to kill the program without a way
+                // to signal the master to do it, via a shared variable in the
+                // clause that made us parallel.
+            }
+            exit(1);
+        }
     }
 
 }
