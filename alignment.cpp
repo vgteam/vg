@@ -566,4 +566,25 @@ void merge_alignments(Alignment& a1, const Alignment& a2) {
     }
 }
 
+void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> node_length) {
+    Path* path = a.mutable_path();
+    for(size_t i = 0; i < path->mapping_size(); i++) {
+        // Grab each mapping
+        Mapping* mapping = path->mutable_mapping(i);
+        // Grab the position of each mapping
+        Position* pos = mapping->mutable_position();
+        
+        if(ids.count(pos->node_id())) {
+            // We need to flip this mapping
+            
+            // Flip its orientation
+            mapping->set_is_reverse(!mapping->is_reverse());
+            
+            // Update the offset to count from the other end of the node.
+            pos->set_offset(node_length(pos->node_id()) - pos->offset() - 1);
+        } 
+    }
+    
+}
+
 }

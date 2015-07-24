@@ -56,7 +56,19 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     graph->remove_orphan_edges();
     read2.clear_path();
     read2.set_score(0);
+    
+    // Make sure the graph we're aligning to is all oriented
+    set<int64_t> flipped_nodes;
+    graph->orient_nodes_forward(flipped_nodes);
+
     graph->align(read2);
+    
+    // Transform back into the unoriented graph wherre some nodes are backward
+    flip_nodes(read2, flipped_nodes, [&graph](int64_t node_id) {
+        // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
+        return graph->get_node(node_id)->sequence().size();
+    });
+    
     delete graph;
 }
 
@@ -471,6 +483,15 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             // by default, expand the graph a bit so we are likely to map
             //index->get_connected_nodes(*graph);
             graph->remove_orphan_edges();
+            
+            if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
+                            << graph->edge_count() << " edges" << endl;
+                            
+            // Topologically sort the graph, breaking cycles (TODO) and orienting all edges end to start.
+            // This flips some nodes around, so we need to translate alignments back.
+            set<int64_t> flipped_nodes;
+            graph->orient_nodes_forward(flipped_nodes);
+                            
             // align
             ta.clear_path();
             ta.set_score(0);
@@ -495,16 +516,37 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
                 int64_t f = max((int64_t)0, idf - (int64_t) max(thread_ex, 1) * 10);
                 int64_t l = idl + (int64_t) max(thread_ex, 1) * 10;
                 if (debug) cerr << "getting node range " << f << "-" << l << endl;
+                
+                if(flipped_nodes.size() > 0) {
+                    // Clear out the graph, since we changed nodes last time we
+                    // oriented the graph, and we don't want to attach to the
+                    // wrong ends now.
+                    delete graph;
+                    graph = new VG;
+                }
+                
                 index->get_range(f, l, *graph);
                 graph->remove_orphan_edges();
+                
+                // Re-orient the now expanded graph, getting a different set of
+                // flipped nodes. Note that this function clears the set
+                // internally.
+                graph->orient_nodes_forward(flipped_nodes);
+                
                 ta.clear_path();
                 ta.set_score(0);
                 graph->align(ta);
                 if (debug) cerr << "softclip after " << softclip_start(ta) << " " << softclip_end(ta) << endl;
             }
 
-            delete graph;
+            // Now flip all the mappings in ta that are on backward nodes.
+            flip_nodes(ta, flipped_nodes, [&graph](int64_t node_id) {
+                // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
+                return graph->get_node(node_id)->sequence().size();
+            });
 
+            delete graph;
+            
             if (debug) cerr << "score per bp is " << (float)ta.score() / (float)ta.sequence().size() << endl;
             if (greedy_accept && (float)ta.score() / (float)ta.sequence().size() >= target_score_per_bp) {
                 if (debug) cerr << "greedy accept" << endl;
@@ -626,7 +668,19 @@ Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride)
     f.close();
     */
 
+    // Make sure the graph we're aligning to is all oriented
+    set<int64_t> flipped_nodes;
+    graph->orient_nodes_forward(flipped_nodes);
+
     graph->align(alignment);
+    
+    // Transform back into the unoriented graph wherre some nodes are backward
+    flip_nodes(alignment, flipped_nodes, [&graph](int64_t node_id) {
+        // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
+        return graph->get_node(node_id)->sequence().size();
+    });
+    
+    delete graph;
 
     return alignment;
 

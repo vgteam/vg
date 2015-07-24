@@ -71,6 +71,10 @@ int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
 void merge_alignments(Alignment& a1, const Alignment& a2);
 
+// Invert the orientation in the alignment of all the nodes whose IDs are
+// listed. It needs a callback to ask the length of any given node.
+void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> node_length);
+
 }
 
 #endif

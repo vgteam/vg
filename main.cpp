@@ -215,7 +215,7 @@ int main_surject(int argc, char** argv) {
             */
             string header;
             map<string, int64_t> path_by_id = index.paths_by_id();
-            map<string, pair<int64_t, int64_t> > path_layout;
+            map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> path_layout;
             map<string, int64_t> path_length;
             index.path_layout(path_layout, path_length);
             int thread_count = get_thread_count();
@@ -816,10 +816,14 @@ int main_kmers(int argc, char** argv) {
     if (gcsa_out) {
         graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, allow_dups, head_id, tail_id);
     } else {
-        function<void(string&, Node*, int, list<Node*>&, VG& graph)>
-            lambda = [](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
+        function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG& graph)>
+            lambda = [](string& kmer, NodeTraversal n, int p, list<NodeTraversal>& path, VG& graph) {
+            // We encode orientation by negating the IDs for backward nodes.
+            // Their offsets are from the end of the node in its local forward
+            // orientation, and are negated in the output.
+            int sign = n.backward ? -1 : 1;            
 #pragma omp critical (cout)
-            cout << kmer << '\t' << n->id() << '\t' << p << '\n';
+            cout << kmer << '\t' << n.node->id() * sign << '\t' << p * sign << '\n';
         };
         graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride, allow_dups, allow_negs);
     }
@@ -1331,7 +1335,7 @@ int main_paths(int argc, char** argv) {
         callback = &paths_to_json;
     }
 
-    auto noop = [](Node*) { }; // don't handle the failed regions of the graph yetj
+    auto noop = [](NodeTraversal) { }; // don't handle the failed regions of the graph yet
 
     if (node_id) {
         graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, edge_max,
@@ -1353,12 +1357,12 @@ void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
          << "options:" << endl
          << "    -n, --node ID          find node, return 1-hop context as graph" << endl
-         << "    -f, --edges-from ID    return edges from node with ID" << endl
-         << "    -t, --edges-to ID      return edges from node with ID" << endl
+         << "    -e, --edges-end ID     return edges on end of node with ID" << endl
+         << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "    -c, --context STEPS    expand the context of the kmer hit subgraphs" << endl
-         << "    -s, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
+         << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
          << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
@@ -1383,7 +1387,7 @@ int main_find(int argc, char** argv) {
     int kmer_stride = 1;
     vector<string> kmers;
     string output_format;
-    int64_t from_id=0, to_id=0;
+    int64_t end_id=0, start_id=0;
     vector<int64_t> node_ids;
     int context_size=0;
     bool count_kmers = false;
@@ -1402,11 +1406,11 @@ int main_find(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"db-name", required_argument, 0, 'd'},
                 {"node", required_argument, 0, 'n'},
-                {"edges-from", required_argument, 0, 'f'},
-                {"edges-to", required_argument, 0, 't'},
+                {"edges-end", required_argument, 0, 'e'},
+                {"edges-start", required_argument, 0, 's'},
                 {"kmer", required_argument, 0, 'k'},
                 {"table", no_argument, 0, 'T'},
-                {"sequence", required_argument, 0, 's'},
+                {"sequence", required_argument, 0, 'S'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
@@ -1421,7 +1425,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:f:t:o:k:hc:s:z:j:CTp:P:r:am",
+        c = getopt_long (argc, argv, "d:n:e:s:o:k:hc:S:z:j:CTp:P:r:am",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1438,7 +1442,7 @@ int main_find(int argc, char** argv) {
             kmers.push_back(optarg);
             break;
 
-        case 's':
+        case 'S':
             sequence = optarg;
             break;
 
@@ -1470,12 +1474,12 @@ int main_find(int argc, char** argv) {
             node_ids.push_back(atoi(optarg));
             break;
 
-        case 'f':
-            from_id = atoi(optarg);
+        case 'e':
+            end_id = atoi(optarg);
             break;
 
-        case 't':
-            to_id = atoi(optarg);
+        case 's':
+            start_id = atoi(optarg);
             break;
 
         case 'T':
@@ -1549,35 +1553,37 @@ int main_find(int argc, char** argv) {
         result_graph.remove_orphan_edges();
         // return it
         result_graph.serialize_to_ostream(cout);
-    } else if (from_id != 0) {
+    } else if (end_id != 0) {
         vector<Edge> edges;
-        index.get_edges_from(from_id, edges);
+        index.get_edges_on_end(end_id, edges);
         for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
-            cout << e->from() << "\t" << e->to() << endl;
+            cout << (e->from_start() ? -1 : 1) * e->from() << "\t" <<  (e->to_end() ? -1 : 1) * e->to() << endl;
         }
-    } else if (to_id != 0) {
+    } else if (start_id != 0) {
         vector<Edge> edges;
-        index.get_edges_to(to_id, edges);
+        index.get_edges_on_start(start_id, edges);
         for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
-            cout << e->from() << "\t" << e->to() << endl;
+            cout << (e->from_start() ? -1 : 1) * e->from() << "\t" <<  (e->to_end() ? -1 : 1) * e->to() << endl;
         }
     }
 
     if (!node_ids.empty() && !path_name.empty()) {
         int64_t path_id = index.get_path_id(path_name);
         for (auto node_id : node_ids) {
-            list<int64_t> path_prev, path_next;
+            list<pair<int64_t, bool>> path_prev, path_next;
             int64_t prev_pos=0, next_pos=0;
-            if (index.get_node_path_relative_position(node_id, path_id,
-                                                      path_prev, prev_pos,
-                                                      path_next, next_pos)) {
+            bool prev_backward, next_backward;
+            if (index.get_node_path_relative_position(node_id, false, path_id,
+                                                      path_prev, prev_pos, prev_backward,
+                                                      path_next, next_pos, next_backward)) {
 
-                cout << node_id << "\t" << path_prev.front() << "\t" << prev_pos
-                     << "\t" << path_next.back() << "\t" << next_pos << "\t";
+                // Negate IDs for backward nodes
+                cout << node_id << "\t" << path_prev.front().first * (path_prev.front().second ? -1 : 1) << "\t" << prev_pos
+                     << "\t" << path_next.back().first * (path_next.back().second ? -1 : 1) << "\t" << next_pos << "\t";
 
-                Mapping m = index.path_relative_mapping(node_id, path_id,
-                                                        path_prev, prev_pos,
-                                                        path_next, next_pos);
+                Mapping m = index.path_relative_mapping(node_id, false, path_id,
+                                                        path_prev, prev_pos, prev_backward,
+                                                        path_next, next_pos, next_backward);
                 cout << pb2json(m) << endl;
             }
         }
@@ -2077,11 +2083,13 @@ int main_index(int argc, char** argv) {
         index.open_read_only(db_name);
         //index.path_layout();
         map<string, int64_t> path_by_id = index.paths_by_id();
-        map<string, pair<int64_t, int64_t> > layout;
+        map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> layout;
         map<string, int64_t> length;
         index.path_layout(layout, length);
         for (auto& p : layout) {
-            cout << p.first << " " << p.second.first << " " << p.second.second << " " << length[p.first] << endl;
+            // Negate IDs for backward nodes
+            cout << p.first << " " << p.second.first.first * (p.second.first.second ? -1 : 1) << " " 
+                 << p.second.second.first * (p.second.second.second ? -1 : 1) << " " << length[p.first] << endl;
         }
         index.close();
     }

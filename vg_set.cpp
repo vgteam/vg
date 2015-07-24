@@ -102,14 +102,14 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride, b
         };
 
         auto cache_kmer = [&buffer, &buffer_max_size, &write_buffer,
-                           this](string& kmer, Node* n, int p, list<Node*>& path, VG& graph) {
+                           this](string& kmer, NodeTraversal n, int p, list<NodeTraversal>& path, VG& graph) {
             if (allATGC(kmer)) {
                 int tid = omp_get_thread_num();
                 // note that we don't need to guard this
                 // each thread has its own buffer!
                 auto& buf = buffer[tid];
                 KmerMatch k;
-                k.set_sequence(kmer); k.set_node_id(n->id()); k.set_position(p);
+                k.set_sequence(kmer); k.set_node_id(n.node->id()); k.set_position(p); k.set_backward(n.backward);
                 buf.push_back(k);
                 if (buf.size() > buffer_max_size) {
                     write_buffer(tid, buf);
@@ -138,7 +138,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride, b
 
 }
 
-void VGset::for_each_kmer_parallel(function<void(string&, Node*, int, list<Node*>&, VG&)>& lambda,
+void VGset::for_each_kmer_parallel(function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG&)>& lambda,
                                    int kmer_size, int edge_max, int stride, bool allow_dups, bool allow_negatives) {
     for_each([&lambda, kmer_size, edge_max, stride, allow_dups, allow_negatives, this](VG* g) {
         g->show_progress = show_progress;
@@ -216,9 +216,9 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
     };
 
     // We're going to visit every kmer in each graph.
-    function<void(string&, Node*, int, list<Node*>&, VG&)>
+    function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG&)>
         visit_kmer = [&process_cache, &thread_caches, &kmer_size, &edge_max]
-                     (string& kmer, Node* node, int pos, list<Node*>& path, VG& graph) {
+                     (string& kmer, NodeTraversal node, int pos, list<NodeTraversal>& path, VG& graph) {
         if (pos >= 0) {
             //kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
             // todo, handle edge bounding
@@ -227,7 +227,7 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
             // if so, we should connect to the source or sink node
             set<char> prev_chars;
             set<char> next_chars;
-            set<pair<int64_t, int32_t> > next_positions;
+            set<pair<pair<int64_t, bool>, int32_t>> next_positions;
             // Fill in prev_chars, next_chars, and next_positions for the kmer by walking the path.
             graph.kmer_context(kmer,
                                kmer_size,
@@ -240,20 +240,26 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                                next_positions);
             // We should put the kmer in our cache
             auto& cache = thread_caches[omp_get_thread_num()];
-            if (cache.first != node->id()) {
+            if (cache.first != node.node->id()) {
                 // If the last thing we put in the cache was from a different
                 // node, process all those KmerPositions and start on the ones
                 // for this node.
                 process_cache(cache.second);
                 cache.second.clear();
-                cache.first = node->id();
+                cache.first = node.node->id();
             }
             // Is there something in the cache already for this kmer at this position?
             // If not we will get a default-constructed empty record and we can fill it in.
             auto& other = cache.second[make_pair(kmer, pos)];
             if (other.kmer.empty()) other.kmer = kmer;
             if (other.pos.empty()) {
-                stringstream ps; ps << node->id() << ":" << pos;
+                // Note: pos is relative to the left side of the NodeTraversal,
+                // which, if it is backward, is the *right* side of the Node. We
+                // spit it out negated when that happens so it's obvious it's
+                // not from the start of the node. We also represent backward
+                // nodes by negating their IDs. TODO: make GCSA understand this.
+                int sign = node.backward ? -1 : 1;
+                stringstream ps; ps << node.node->id() * sign << ":" << pos * sign;
                 other.pos = ps.str();
             }
             // Add more previous and next characters and positions to the kmer.
@@ -263,7 +269,11 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
             for (auto c : prev_chars) other.prev_chars.insert(c);
             for (auto c : next_chars) other.next_chars.insert(c);
             for (auto p : next_positions) {
-                stringstream ps; ps << p.first << ":" << p.second;
+                // If the destination node is backward, we also negate its ID
+                // and offset (which is from the end of the node in its local
+                // forward orientation).
+                int sign = p.first.second ? -1 : 1;
+                stringstream ps; ps << p.first.first * sign << ":" << p.second * sign;
                 other.next_positions.insert(ps.str());
             }
         }
