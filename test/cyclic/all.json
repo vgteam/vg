@@ -1,0 +1,25 @@
+{
+    "node": [
+        {"sequence": "AAAAA", "id": 1},
+        {"sequence": "GATTACA", "id": 2},
+        {"sequence": "CATTAG", "id": 3},
+        {"sequence": "CCCCC", "id": 4},   
+        {"sequence": "ATATATATATATATATATATATATATATATATATATATATA", "id": 5},
+        {"sequence": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "id": 6},
+        {"sequence": "TCTCTCTCTCTCTCTCTCTCTCTCTCTCTCTCTCTCTCTCT", "id": 7} 
+    ],
+    "edge": [
+        {"from": 1, "to": 2},
+        {"from": 2, "to": 3},
+        {"from": 3, "to": 2},
+        {"from": 3, "to": 4},
+        {"from": 1, "to": 1, "from_start": true},
+        {"from": 4, "to": 4, "to_end": true},
+        {"from": 4, "to": 1},
+        {"from": 5, "to": 6},
+        {"from": 5, "to": 6, "to_end": true},
+        {"from": 6, "to": 7},
+        {"from": 6, "to": 7, "from_start": true},
+        {"from": 7, "to": 5}
+    ]
+}

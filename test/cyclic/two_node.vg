@@ -1,0 +1,9 @@
+H	HVN:Z:1.0
+S	1	AAAAA
+L	1	+	2	+	0M
+S	2	GATTACA
+L	2	+	3	+	0M
+S	3	CATTAG
+L	3	+	2	+	0M
+L	3	+	4	+	0M
+S	4	CCCCC

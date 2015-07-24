@@ -9,6 +9,9 @@ char reverse_complement(const char& c) {
         case 'G': return 'C'; break;
         case 'C': return 'G'; break;
         case 'N': return 'N'; break;
+        // Handle the GCSA2 start/stop characters.
+        case '#': return '$'; break;
+        case '$': return '#'; break;
         default: return 'N';
     }
 }
@@ -23,6 +26,9 @@ string reverse_complement(const string& seq) {
         case 'G': c = 'C'; break;
         case 'C': c = 'G'; break;
         case 'N': c = 'N'; break;
+        // Handle the GCSA2 start/stop characters.
+        case '#': c = '$'; break;
+        case '$': c = '#'; break;
         default: break;
         }
     }

@@ -62,19 +62,87 @@ public:
     }
 };
 
+// Represents one side of a Node, identified by ID, for the purposes of
+// indexing edges.
+class NodeSide {
+public:
+    int64_t node;
+    bool is_end;
+    
+    // We need this to be a converting constructor so we can represent the empty and deleted item keys in a pair_hash_map.
+    inline NodeSide(int64_t node, bool is_end = false): node(node), is_end(is_end) {
+        // Nothing to do
+    }
+    
+    inline NodeSide(): NodeSide(0, false) {
+        // Nothing to do
+    }
+    
+    inline bool operator==(const NodeSide& other) const {
+        return node == other.node && is_end == other.is_end;
+    }
+    
+    inline bool operator<(const NodeSide& other) const {
+        return node < other.node || (node == other.node && is_end < other.is_end);
+    }
+    
+    // Make an edge into a canonically ordered pair of NodeSides
+    static inline pair<NodeSide, NodeSide> pair_from_edge(Edge* e) {
+        return minmax(NodeSide(e->from(), !e->from_start()), NodeSide(e->to(), e->to_end()));
+    }
+    
+    // Make an edge into a canonically ordered pair of NodeSides
+    static inline pair<NodeSide, NodeSide> pair_from_edge(Edge& e) {
+        return pair_from_edge(&e);
+    }
+    
+    // Make a canonically ordered pair of NodeSides from an edge off of the
+    // start of a node, to another node in the given relative orientation.
+    static inline pair<NodeSide, NodeSide> pair_from_start_edge(int64_t start_id, const pair<int64_t, bool>& oriented_other) {
+        // If it's in the same relative orientation, we go to its end.
+        return minmax(NodeSide(start_id, false), NodeSide(oriented_other.first, !oriented_other.second));
+    }
+    
+    // Make a canonically ordered pair of NodeSides from an edge off of the
+    // end of a node, to another node in the given relative orientation.
+    static inline pair<NodeSide, NodeSide> pair_from_end_edge(int64_t end_id, const pair<int64_t, bool>& oriented_other) {
+        // If it's in the same relative orientation, we go to its start.
+        return minmax(NodeSide(end_id, true), NodeSide(oriented_other.first, oriented_other.second));
+    }
+};
+
+}
+
+// Go up to std namespace for a moment
+namespace std {
+// We need to implement a hash function for these if we want to be able to use them in keys.
+template <> struct hash<vg::NodeSide>
+{
+    // Produce a hash of a NodeSide
+    size_t operator()(const vg::NodeSide& item) const
+    {
+        // Hash it just as we would a pair.
+        return hash<pair<int64_t, bool>>()(make_pair(item.node, item.is_end));
+    }
+};
+}
+
+namespace vg {
+
 // Represents a sequence graph. Graphs consist of nodes, connected by edges.
-// Cycles are not currently permitted. Nodes carry forward-oriented sequences.
-// Edges are directed, with a "from" and to" node, and are generally used to
-// connect the end of the "from" node to the start of the "to" node. However,
-// edges can connect to either the start or end of either node, in general, as
-// long as they do not allow the same node to be visited twice along a path.
-// Graphs have "head" and "tail" nodes, which are overall at the left/right of
-// the graph, with nothing before/after them. Because otherwise identifying
-// these nodes (i.e. classifying a terminal node as a head or a tail) would
-// require a topological sort, we require that all head and tail nodes be in the
-// same relative orientation. Head nodes must have edges only to their right
-// sides, and tail nodes must have edges only to their left sides. There must be
-// no possible path in the graph containing two head nodes or two tail nodes.
+// Graphs are bidirected and may be cyclic. Nodes carry forward-oriented
+// sequences. Edges are directed, with a "from" and to" node, and are generally
+// used to connect the end of the "from" node to the start of the "to" node.
+// However, edges can connect to either the start or end of either node, in
+// general, as long as they do not allow the same node to be visited twice along
+// a path. Graphs have "head" and "tail" nodes, which are overall at the
+// left/right of the graph, with nothing before/after them. Because otherwise
+// identifying these nodes (i.e. classifying a terminal node as a head or a
+// tail) would require a topological sort, we require that all head and tail
+// nodes be in the same relative orientation. Head nodes must have edges only to
+// their right sides, and tail nodes must have edges only to their left sides.
+// There must be no possible path in the graph containing two head nodes or two
+// tail nodes.
 class VG {
 
 public:
@@ -99,10 +167,10 @@ public:
     // nodes by id
     hash_map<int64_t, Node*> node_by_id;
 
-    // edges by nodes they connect
-    // Since cycles and duplicate edges are not permitted, two edges cannot connect the same pair of nodes.
-    // Each edge is indexed here with the smaller ID first. The actual node order is recorded in the Edge object.
-    pair_hash_map<pair<int64_t, int64_t>, Edge*> edge_by_id;
+    // edges by sides of nodes they connect
+    // Since duplicate edges are not permitted, two edges cannot connect the same pair of node sides.
+    // Each edge is indexed here with the smaller NodeSide first. The actual node order is recorded in the Edge object.
+    pair_hash_map<pair<NodeSide, NodeSide>, Edge*> edge_by_sides;
 
     // nodes by position in nodes repeated field
     // this is critical to allow fast deletion of nodes
@@ -118,8 +186,10 @@ public:
     // Stores the destinations and backward flags for edges attached to the ends of nodes (whether that node is "from" or "to").
     hash_map<int64_t, vector<pair<int64_t, bool>>> edges_on_end;
 
-    // set the edge indexes through this function
-    void set_edge(int64_t id1, int64_t id2, Edge*);
+    // Set the edge indexes through this function. Picks up the sides being
+    // connected by the edge automatically, and silently drops the edge if they
+    // are already connected.
+    void set_edge(Edge*);
     void print_edges(void);
 
     // access the edge indexes through these functions
@@ -323,6 +393,8 @@ public:
     bool has_node(Node& node);
     void for_each_node(function<void(Node*)> lambda);
     void for_each_node_parallel(function<void(Node*)> lambda);
+    // Go through all the nodes in the same connected component as the given node. Ignores relative orientation.
+    void for_each_connected_node(Node* node, function<void(Node*)> lambda);
 
     // is the graph empty?
     bool empty(void);
@@ -337,6 +409,9 @@ public:
 
     // remove edges for which one of the nodes is not present
     void remove_orphan_edges(void);
+    
+    // Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
+    // The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
     void keep_paths(set<string>& path_names, set<string>& kept_names);
     void keep_path(string& path_name);
 
@@ -354,31 +429,39 @@ public:
     int path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path_length);
 
     // edges
-    // If the given edge cannot be created (because it would create a cycle), returns null.
+    // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.
     Edge* create_edge(Node* from, Node* to, bool from_start = false, bool to_end = false);
     Edge* create_edge(int64_t from, int64_t to, bool from_start = false, bool to_end = false);
     // Makes a left-to-right edge from the left NodeTraversal to the right one, respecting orientations.
     Edge* create_edge(NodeTraversal left, NodeTraversal right);
-    // TODO: version that takes ID, bool pairs?
+    // Makes an edge connecting the given sides of nodes.
+    Edge* create_edge(NodeSide side1, NodeSide side2);
     
-    // This can take nodes in any order
-    Edge* get_edge(int64_t node1, int64_t node2);
+    // This can take sides in any order
+    Edge* get_edge(const NodeSide& side1, const NodeSide& side2);
+    // This can take sides in any order
+    Edge* get_edge(const pair<NodeSide, NodeSide>& sides);
+    // This gets the edge connecting the given oriented nodes in the given order.
+    Edge* get_edge(const NodeTraversal& left, const NodeTraversal& right);
     // destroy the edge at the given pointer. This pointer must point to an edge owned by the graph.
     void destroy_edge(Edge* edge);
-    // destroy the edge between the nodes with the given IDs. These IDs can be in either order.
-    void destroy_edge(int64_t node1, int64_t node2);
+    // destroy the edge between the given sides of nodes. These can be in either order.
+    void destroy_edge(const NodeSide& side1, const NodeSide& side2);
+    // This can take sides in any order
+    void destroy_edge(const pair<NodeSide, NodeSide>& sides);
     // remove an edge from the node side indexes, so it doesn't show up when you
     // ask for the edges connected to the side of a node. Makes the edge
     // untraversable until the indexes are rebuilt.
-    void unindex_edge_by_node_sides(int64_t node1, int64_t node2);
+    void unindex_edge_by_node_sides(const NodeSide& side1, const NodeSide& side2);
     void unindex_edge_by_node_sides(Edge* edge);
     // add an edge to the node side indexes. Doesn't touch the index of edges by
     // node pairs or the graph; those must be updated seperately.
     void index_edge_by_node_sides(Edge* edge);
-    // Get the edge between the given nodes. Sicne only one edge can connect a
-    // pair of nodes (due to acyclicity), these nodes can be in either order.
-    bool has_edge(int64_t node1, int64_t node2);
+    // Get the edge between the given node sides, which can be in either order.
+    bool has_edge(const NodeSide& side1, const NodeSide& side2);
+    // This can take sides in any order
+    bool has_edge(const pair<NodeSide, NodeSide>& sides);
     bool has_edge(Edge* edge);
     bool has_edge(Edge& edge);
     void for_each_edge(function<void(Edge*)> lambda);
@@ -387,11 +470,13 @@ public:
     // connect node -> nodes
     // Connects from the right side of the first to the left side of the second
     void connect_node_to_nodes(NodeTraversal node, vector<NodeTraversal>& nodes);
-    void connect_node_to_nodes(Node* node, vector<Node*>& nodes);
+    // You can optionally use the start of the first node instead of the end
+    void connect_node_to_nodes(Node* node, vector<Node*>& nodes, bool from_start = false);
     // connect nodes -> node
     // Connects from the right side of the first to the left side of the second
     void connect_nodes_to_node(vector<NodeTraversal>& nodes, NodeTraversal node);
-    void connect_nodes_to_node(vector<Node*>& nodes, Node* node);
+    // You can optionally use the end of the second node instead of the start
+    void connect_nodes_to_node(vector<Node*>& nodes, Node* node, bool to_end = false);
 
     // utilities
     // These only work on forward nodes.
@@ -405,19 +490,21 @@ public:
     bool is_valid(void);
 
     // topologically orders nodes
+    // Makes sure that Nodes appear in the Protobuf Graph object in their topological sort order.
     void sort(void);
     // helper function, not really meant for external use
-    void topological_sort(deque<NodeTraversal>& l, bool die_on_cycles = true);
+    void topological_sort(deque<NodeTraversal>& l);
     void swap_nodes(Node* a, Node* b);
     
     // Use a topological sort to order and orient the nodes, and then flip some
     // nodes around so that they are oriented the way they are in the sort.
-    // TODO: also remove edges creating cycles. Populates nodes_flipped with the
-    // ids of the nodes that have had their orientations changed.
-    // TODO: update the paths that touch nodes that flipped around
+    // Populates nodes_flipped with the ids of the nodes that have had their
+    // orientations changed. TODO: update the paths that touch nodes that
+    // flipped around
     void orient_nodes_forward(set<int64_t>& nodes_flipped);
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
+    // Will modify the graph by re-ordering the nodes.
     Alignment& align(Alignment& alignment);
     Alignment align(string& sequence);
     //Alignment& align(Alignment& alignment);
@@ -430,27 +517,27 @@ public:
     void for_each_kpath(int k, int edge_max,
                         function<void(NodeTraversal)> handle_prev_maxed,
                         function<void(NodeTraversal)> handle_next_maxed,
-                        function<void(NodeTraversal,list<NodeTraversal>&)> lambda);
+                        function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
     void for_each_kpath_parallel(int k, int edge_max,
                                  function<void(NodeTraversal)> handle_prev_maxed,
                                  function<void(NodeTraversal)> handle_next_maxed,
-                                 function<void(NodeTraversal,list<NodeTraversal>&)> lambda);
+                                 function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
     void for_each_kpath(int k, int edge_max,
                         function<void(NodeTraversal)> handle_prev_maxed,
                         function<void(NodeTraversal)> handle_next_maxed,
-                        function<void(Node*,Path&)> lambda);
+                        function<void(size_t,Path&)> lambda);
     void for_each_kpath_parallel(int k, int edge_max,
                                  function<void(NodeTraversal)> handle_prev_maxed,
                                  function<void(NodeTraversal)> handle_next_maxed,
-                                 function<void(Node*,Path&)> lambda);
+                                 function<void(size_t,Path&)> lambda);
     void for_each_kpath_of_node(Node* node, int k, int edge_max,
                                 function<void(NodeTraversal)> handle_prev_maxed,
                                 function<void(NodeTraversal)> handle_next_maxed,
-                                function<void(NodeTraversal,list<NodeTraversal>&)> lambda);
+                                function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
     void for_each_kpath_of_node(Node* n, int k, int edge_max,
                                 function<void(NodeTraversal)> handle_prev_maxed,
                                 function<void(NodeTraversal)> handle_next_maxed,
-                                function<void(Node*,Path&)> lambda);
+                                function<void(size_t,Path&)> lambda);
 
     void kpaths(set<list<NodeTraversal> >& paths, int length, int edge_max,
                 function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
@@ -507,36 +594,58 @@ public:
     // Caller is responsible for dealing with orientations.
     void node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start);
+                             
+    // These versions handle paths in which nodes can be traversed multiple
+    // times. Unfortunately since we're throwing non-const iterators around, we
+    // can't take the input path as const.
+    void expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iterator>& expanded);
+    // To get the starts out of the map this produces, you need to dereference
+    // the iterator and then get the address of the NodeTraversal (stored in the
+    // list) that you are talking about.
+    void node_starts_in_path(list<NodeTraversal>& path,
+                             map<NodeTraversal*, int>& node_start);
 
     // kmers
     void for_each_kmer_parallel(int kmer_size,
                                 int edge_max,
-                                function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG&)> lambda,
+                                function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                                 int stride = 1,
                                 bool allow_dups = false,
                                 bool allow_negatives = false);
     void for_each_kmer(int kmer_size,
                        int edge_max,
-                       function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG&)> lambda,
+                       function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                        int stride = 1,
                        bool allow_dups = false,
                        bool allow_negatives = false);
+    void for_each_kmer_of_node(Node* node,
+                               int kmer_size,
+                               int edge_max,
+                               function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
+                               int stride = 1,
+                               bool allow_dups = false,
+                               bool allow_negatives = false);
 
     // for gcsa2. For the given kmer of the given length starting at the given
-    // offset into the given Node along the given path, fill in prev_chars with
-    // the characters that preceed it, next_chars with the characters that
-    // follow it, and next_positions with the ((node ID, orientation), offset)
-    // pairs of the places you can go next (from the right end of the kmer).
+    // offset into the given Node along the given path, fill in end_node and
+    // end_offset with where the end of the kmer falls (counting from the right
+    // side of the NodeTraversal), prev_chars with the characters that preceed
+    // it, next_chars with the characters that follow it, prev_ and
+    // next_positions with the ((node ID, orientation), offset) pairs of the
+    // places you can come from/go next (from the right end of the kmer).
     // Refuses to follow more than edge_max edges. Offsets are in the path
     // orientation.
     void kmer_context(string& kmer,
                       int kmer_size,
                       int edge_max,
                       list<NodeTraversal>& path,
-                      NodeTraversal node,
-                      int32_t offset,
+                      list<NodeTraversal>::iterator start_node,
+                      int32_t start_offset,
+                      list<NodeTraversal>::iterator& end_node,
+                      int32_t& end_offset,
                       set<char>& prev_chars,
                       set<char>& next_chars,
+                      set<pair<pair<int64_t, bool>, int32_t> >& prev_positions,
                       set<pair<pair<int64_t, bool>, int32_t> >& next_positions);
     // for pruning graph prior to indexing with gcsa2
     // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to
@@ -544,13 +653,17 @@ public:
     void prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node);
 
 private:
+    // Call the given function on each kmer. If parallel is specified, goes
+    // through nodes one per thread. If node is not null, looks only at kmers of
+    // that specific node.
     void _for_each_kmer(int kmer_size,
                         int edge_max,
-                        function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG&)> lambda,
+                        function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                         bool parallel,
                         int stride,
                         bool allow_dups,
-                        bool allow_negatives);
+                        bool allow_negatives,
+                        Node* node = nullptr);
 
 
 public:
@@ -572,9 +685,9 @@ public:
 
     // join head nodes of graph to common null node, creating a new single head.
     Node* join_heads(void);
-    // or heads and tails to common new single head or tail.
-    void join_heads(Node* node);
-    void join_tails(Node* node);
+    // or heads and tails to common new single head or tail (optionally from the start/to the end).
+    void join_heads(Node* node, bool from_start = false);
+    void join_tails(Node* node, bool to_end = false);
 
     // add singular head and tail null nodes to graph
     void wrap_with_null_nodes(void);
@@ -585,10 +698,22 @@ public:
     // and the corresponding pointer is updated. Used to prepare for indexing
     // with GCSA; length must be at least the GCSA kmer length to be used. Nodes
     // created here are owned by the graph, and will be deleted when the VG
-    // object is deleted.
+    // object is deleted. If head_id or tail_id is 0, and the corresponding node
+    // is null, the next free ID will be chosen for the corresponding node.
     void add_start_and_end_markers(int length, char start_char, char end_char,
                                    Node*& head_node, Node*& tail_node,
                                    int64_t head_id = 0, int64_t tail_id = 0);
+         
+    // Add a single combination start/end node, where all existing heads in the
+    // graph are connected to it, and all existing tails in the graph are
+    // connected to its end. Any connected components in the graph which do not
+    // have a head or tail are connected to the node at an arbitrary point. If
+    // head_tail_node is null, a new node will be created. Otherwise, the passed
+    // node will be used. The graph ends up having the new node as its only
+    // head, and having no tails. If id is 0, and head_tail_node is null, the
+    // next free ID will be chosen for the node. Note that this visits every
+    // node, to make sure it is attached to all connected components.
+    void add_single_start_end_marker(int length, char start_char, Node*& head_tail_node, int64_t id = 0);
 
     bool show_progress;
     string progress_message;
