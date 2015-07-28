@@ -2,8 +2,15 @@
 
 namespace vg {
 
-char reverse_complement(const char& seq) {
-    return reverse_complement(to_string(seq))[0];
+char reverse_complement(const char& c) {
+    switch (c) {
+        case 'A': return 'T'; break;
+        case 'T': return 'A'; break;
+        case 'G': return 'C'; break;
+        case 'C': return 'G'; break;
+        case 'N': return 'N'; break;
+        default: return 'N';
+    }
 }
 
 string reverse_complement(const string& seq) {
