@@ -12,6 +12,7 @@ void VGset::transform(std::function<void(VG*)> lambda) {
             g = new VG(std::cin, show_progress);
         } else {
             ifstream in(name.c_str());
+            if (!in) throw ifstream::failure("failed to open " + name);
             g = new VG(in, show_progress);
             in.close();
         }
@@ -34,6 +35,7 @@ void VGset::for_each(std::function<void(VG*)> lambda) {
             g = new VG(std::cin, show_progress);
         } else {
             ifstream in(name.c_str());
+            if (!in) throw ifstream::failure("failed to open " + name);
             g = new VG(in, show_progress);
             in.close();
         }
