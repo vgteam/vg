@@ -801,8 +801,6 @@ int main_kmers(int argc, char** argv) {
         }
     }
 
-    if (edge_max == 0) edge_max = kmer_size + 1;
-
     vector<string> graph_file_names;
     while (optind < argc) {
         string file_name = argv[optind++];

@@ -472,11 +472,11 @@ public:
     // can't be visited due to the edge-crossing limit. Produces paths ending
     // with the specified node.
     // TODO: postfix should not be (potentially) copied on every call.
-    void prev_kpaths_from_node(NodeTraversal node, int length, int edge_max,
+    void prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
                                list<NodeTraversal> postfix, set<list<NodeTraversal> >& paths,
                                function<void(NodeTraversal)>& maxed_nodes);
     // Do the same as prec_kpaths_from_node, except going right, producing a path starting with the specified node.
-    void next_kpaths_from_node(NodeTraversal node, int length, int edge_max,
+    void next_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
                                list<NodeTraversal> prefix, set<list<NodeTraversal> >& paths,
                                function<void(NodeTraversal)>& maxed_nodes);
 

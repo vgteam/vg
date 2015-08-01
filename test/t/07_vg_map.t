@@ -49,10 +49,11 @@ rm -rf giab.vg.index
 
 vg index -s -k 27 -e 7 graphs/199754000:199755000.vg
 
-is $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | jq '.path.mapping[0].position.offset' -c -S) $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 500 -J | jq '.path.mapping[0].position.offset' -c -S) "banded alignment works correctly even with varied band size"
+a=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | jq '.path.mapping[0].position.offset' -c)
+b=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 500 -J | jq '.path.mapping[0].position.offset' -c)
+is $a $b "banded alignment works correctly even with varied band size"
 
-is $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | grep '"offset": 29' | wc -l) 1 \
-   "unitig mapping position is as expected"
+is $(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | grep '"offset": 29' | wc -l) 1 "unitig mapping position is as expected"
 
 is $(for i in $(seq 500 50 2000); do vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B $i -J | jq '.path.mapping[0].position.offset' -c; done | sort | uniq | wc -l) 1 "varying the bandwidth does not change the mapping start position"
 
