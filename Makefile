@@ -13,8 +13,22 @@ LIBHTS=htslib/libhts.a
 LIBGCSA2=gcsa2/libgcsa2.a
 SDSLLITE=sdsl-lite/Make.helper
 INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2
-LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lrt -lgcsa2 -lsdsl
+LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lsdsl
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o
+
+#Some little adjustments to build on OSX
+#(tested with gcc4.9 and jansson installed from MacPorts)
+SYS=$(shell uname -s)
+ifeq (${SYS},Darwin)
+	CXXFLAGS:=$(CXXFLAGS) -msse2 #needed to link against gssw
+	LDFLAGS:=$(LDFLAGS) -L/opt//local/lib/ # needed for macports jansson
+	ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler options
+	CLEAN_SNAPPY_AG=sed -i -e "s/[[:<:]]libtoolize[[:>:]]/glibtoolize/g" autogen.sh
+else
+	LDFLAGS:=$(LDFLAGS) -lrt
+	ROCKSDB_PORTABLE=
+	CLEAN_SNAPPY_AG=:
+endif
 
 all: vg libvg.a
 
@@ -35,11 +49,11 @@ $(LIBPROTOBUF): protobuf/src/google/protobuf/*cc  protobuf/src/google/protobuf/*
 	cp protobuf/build/lib/libprotobuf.a protobuf/
 
 $(LIBSNAPPY): snappy/*cc snappy/*h
-	cd snappy && mkdir -p build && ./autogen.sh && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
+	cd snappy && mkdir -p build && $(CLEAN_SNAPPY_AG) && ./autogen.sh && ./configure --prefix=`pwd`/build/ && $(MAKE) && $(MAKE) install
 	cp snappy/build/lib/libsnappy.a snappy/
 
 $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksdb/db/*.h
-	cd rocksdb && $(MAKE) static_lib
+	cd rocksdb && $(ROCKSDB_PORTABLE) $(MAKE) static_lib
 
 $(LIBGCSA2): gcsa2/*.cpp gcsa2/*.h $(SDSLLITE)
 	cd gcsa2 && $(MAKE) libgcsa2.a

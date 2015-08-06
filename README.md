@@ -36,6 +36,18 @@ Now, obtain the repo and its submodules:
 
 Then build with `make`, and run with `./vg`.
 
+#### building on Mac OS X
+
+VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
+
+    sudo port install gcc49 libtool jansson jq
+
+To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
+
+    sudo port select gcc mp-gcc49
+
+VG can now be cloned and built as described above.
+
 ### Variation graph construction
 
 The simplest thing to do with `vg` is to build a graph and align to it. At present, you'll want to use a reference and VCF file to do so. If you're working in the `test/` directory:
