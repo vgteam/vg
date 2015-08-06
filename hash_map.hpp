@@ -69,9 +69,9 @@ template<typename K, typename V>
 public:
     pair_hash_map() {
 #ifdef USE_DENSE_HASH
-        this->set_empty_key(make_pair(-1, -1));
+        this->set_empty_key(K(-1, -1));
 #endif
-        this->set_deleted_key(make_pair(-2, -2));
+        this->set_deleted_key(K(-2, -2));
     }
 };
 

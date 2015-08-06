@@ -1,0 +1,10 @@
+{
+    "node": [
+        {"sequence": "GATTACA", "id": 2},
+        {"sequence": "CATTAG", "id": 3}
+    ],
+    "edge": [
+        {"from": 2, "to": 3},
+        {"from": 3, "to": 2}
+    ]
+}

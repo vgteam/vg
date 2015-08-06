@@ -61,7 +61,8 @@ GSSWAligner::GSSWAligner(
                 // exceptions in multiple threads at once, leading to C++ trying
                 // to run termiante in parallel. This doesn't make it safe, just
                 // slightly safer.
-                cerr << "Can't gssw over reversing edge" << endl;
+                cerr << "Can't gssw over reversing edge " <<e->from() << (e->from_start() ? " start" : " end") << " -> " 
+                     << e->to() << (e->to_end() ? " end" : " start")  << endl;
                 // TODO: there's no safe way to kill the program without a way
                 // to signal the master to do it, via a shared variable in the
                 // clause that made us parallel.

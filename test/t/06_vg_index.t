@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 24
+plan tests 30
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -108,6 +108,29 @@ vg map -r <(vg sim -s 1337 -n 100 reversing/reversing_x.vg) reversing/reversing_
 is $(vg index -D -d reversing_x.vg.aln | wc -l) 100 "index can store alignments to backward nodes"
 
 rm -rf reversing/reversing_x.vg.index reversing_x.vg.aln
+
+vg index -k 16 -s cyclic/all.vg
+is $? 0 "index can store a cyclic graph"
+
+NUM_UNIQUE_READS=$(vg sim -s 1337 -n 100 cyclic/all.vg | sort | uniq | wc -l)
+vg map -r <(vg sim -s 1337 -n 100 cyclic/all.vg) cyclic/all.vg | vg index -a - -d all.vg.aln
+is $(vg index -D -d all.vg.aln | wc -l) ${NUM_UNIQUE_READS} "index can store alignments to cyclic graphs"
+
+rm -rf cyclic/all.vg.index all.vg.aln
+
+vg index -g -k 16 <(vg view -v cyclic/two_node.gfa)
+is $? 0 "GCSA2 index works on cyclic graphs with heads and tails"
+
+vg index -g -k 16 cyclic/no_heads.vg
+is $? 0 "GCSA2 index works on cyclic graphs with no heads or tails"
+
+vg index -g -k 16 cyclic/self_loops.vg
+is $? 0 "GCSA2 index works on cyclic graphs with self loops"
+
+vg index -g -k 16 cyclic/all.vg
+is $? 0 "GCSA2 index works on general cyclic graphs"
+
+rm -f cyclic/two_node.gfa.gcsa cyclic/no_heads.vg.gcsa cyclic/self_loops.vg.gcsa cyclic/all.vg.gcsa 
 
 
 

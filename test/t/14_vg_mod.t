@@ -31,6 +31,6 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG t.vg | vg mod 
 rm t.vg
 rm -rf t.vg.index
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 8 -e 3 - | vg kmers -g -k 8 - | sort | md5sum | awk '{ print $1 }') 78b8d37e9c1ed5ed6906831bf4603a55 "graph complexity reduction works as expected"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 8 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') 7c426b504a33ba7985372b978650c3dc "graph complexity reduction works as expected"
 
 is $( vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 8 -e 3 -t 16 - | vg mod -S -l 200 - | vg view - | grep ^S | wc -l) 152 "short subgraph pruning works"

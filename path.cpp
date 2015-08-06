@@ -246,6 +246,10 @@ size_t Paths::size(void) const {
     return _paths.size();
 }
 
+bool Paths::empty(void) const {
+    return _paths.size() == 0;
+}
+
 void Paths::clear(void) {
     _paths.clear();
     node_mapping.clear();
@@ -299,6 +303,49 @@ set<pair<string, Mapping*> >& Paths::get_node_mapping(int64_t id) {
 
 set<pair<string, Mapping*> >& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
+}
+
+Mapping* Paths::traverse_left(Mapping* mapping) {
+    // Get the iterator for this Mapping*
+    list<Mapping>::iterator place = mapping_itr.at(mapping);
+    
+    // Get the path name for this Mapping*
+    string path_name = mapping_path_name(mapping);
+    
+    // Get the list that the iterator is in
+    list<Mapping>& path_list = _paths.at(path_name);
+    
+    // If we're already the beginning, return null.
+    if(place == path_list.begin()) {
+        return nullptr;
+    }
+    
+    // Else walk left and return the address of the stored Mapping. std::list
+    // iterators are bidirectional, so we will be able to do it.
+    place--;
+    return &(*place);
+}
+
+Mapping* Paths::traverse_right(Mapping* mapping) {
+    // Get the iterator for this Mapping*
+    list<Mapping>::iterator place = mapping_itr.at(mapping);
+    
+    // Get the path name for this Mapping*
+    string path_name = mapping_path_name(mapping);
+    
+    // Get the list that the iterator is in
+    list<Mapping>& path_list = _paths.at(path_name);
+    
+    // Advance the iterator right.
+    place++;
+    
+    // If we're at the end, return null
+    if(place == path_list.end()) {
+        return nullptr;
+    }
+    
+    // Else return the address of the stored Mapping.
+    return &(*place);
 }
 
 string Paths::mapping_path_name(Mapping* m) {

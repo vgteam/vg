@@ -104,14 +104,14 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride, b
         };
 
         auto cache_kmer = [&buffer, &buffer_max_size, &write_buffer,
-                           this](string& kmer, NodeTraversal n, int p, list<NodeTraversal>& path, VG& graph) {
+                           this](string& kmer, list<NodeTraversal>::iterator n, int p, list<NodeTraversal>& path, VG& graph) {
             if (allATGC(kmer)) {
                 int tid = omp_get_thread_num();
                 // note that we don't need to guard this
                 // each thread has its own buffer!
                 auto& buf = buffer[tid];
                 KmerMatch k;
-                k.set_sequence(kmer); k.set_node_id(n.node->id()); k.set_position(p); k.set_backward(n.backward);
+                k.set_sequence(kmer); k.set_node_id((*n).node->id()); k.set_position(p); k.set_backward((*n).backward);
                 buf.push_back(k);
                 if (buf.size() > buffer_max_size) {
                     write_buffer(tid, buf);
@@ -140,7 +140,7 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride, b
 
 }
 
-void VGset::for_each_kmer_parallel(function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG&)>& lambda,
+void VGset::for_each_kmer_parallel(function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>& lambda,
                                    int kmer_size, int edge_max, int stride, bool allow_dups, bool allow_negatives) {
     for_each([&lambda, kmer_size, edge_max, stride, allow_dups, allow_negatives, this](VG* g) {
         g->show_progress = show_progress;
@@ -149,11 +149,14 @@ void VGset::for_each_kmer_parallel(function<void(string&, NodeTraversal, int, li
     });
 }
 
-void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool allow_dups,
-                           int64_t head_id, int64_t tail_id) {
+void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride,
+                           int64_t start_end_id) {
 
-    // When we're sure we know what this kmer instance looks like, we'll write it out exactly once.
-    auto write_kmer = [](KmerPosition& kp){
+    // When we're sure we know what this kmer instance looks like, we'll write
+    // it out exactly once. We need the start_end_id actually used in order to
+    // go to the correct place when we don't go anywhere (i.e. at the far end of
+    // the start/end node.
+    auto write_kmer = [&start_end_id](KmerPosition& kp){
         // We're going to write out every KmerPosition
         stringstream line;
         // Columns 1 and 2 are the kmer string and the node id:offset start position.
@@ -175,7 +178,8 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
         for (auto& p : kp.next_positions) line << p << ',';
         string rec = line.str();
         // handle origin marker
-        if (kp.next_positions.empty()) { line << "0:0"; rec = line.str(); }
+        // Go to the start/end node in forward orientation.
+        if (kp.next_positions.empty()) { line << start_end_id * 2 << ":0"; rec = line.str(); }
         else { rec.pop_back(); }
 #pragma omp critical (cout)
         {
@@ -184,163 +188,232 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
     };
 
     // Run on each KmerPosition
-    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride, head_id, tail_id,
-                                         write_kmer, allow_dups);
+    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride, start_end_id,
+                                         write_kmer);
     
 }
 
 void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
-                                                 int64_t head_id, int64_t tail_id,
-                                                 function<void(KmerPosition&)> lambda, bool allow_dups) {
+                                                 int64_t& start_end_id,
+                                                 function<void(KmerPosition&)> lambda) {
 
-    // This maps from thread number to current node ID, and a map from kmer
-    // string and offset in the node to the KmerPosition describing that kmer
-    // instance. Each node belongs to only one thread, and threads handle nodes
-    // one at a time, so threads don't care about each others' caches or
-    // information for other nodes.
-    map<int, pair<int64_t, map<pair<string, int32_t>, KmerPosition>>> thread_caches;
-#pragma omp parallel
-    {
-#pragma omp single
-        for (int i = 0; i < omp_get_num_threads(); ++i) {
-            // And we need to make sure that every thread has an empty set #0
-            thread_caches[i].first = 0;
-        }
-    }
+    auto handle_node_in_graph = [&kmer_size, &edge_max, &stride, &lambda, this]
+        (VG* graph, Node* node) {
+        // Go through all the kpaths of this node, and produce the GCSA2 kmers on both strands that start in this node.
+#ifdef debug
+        cerr << "Visiting node " << node->id() << endl;
+#endif
+        // This function runs in only one thread on a given node, so we can keep
+        // our cache here. We gradually fill in each KmerPosition with all the
+        // next positions and characters reachable with its string from its
+        // orientation and offset along that strand in this node.
+        map<tuple<string, bool, int32_t>, KmerPosition> cache; 
 
-    // When we're done filling in our caches, we will process them with this function.
-    auto process_cache = [&lambda](map<pair<string, int32_t>, KmerPosition >& cache){
-        for (auto& k : cache) {
-            // We're going to process every KmerPosition
-            auto& kp = k.second;
-            lambda(kp);
-        }
-    };
-
-    // We're going to visit every kmer in each graph.
-    function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG&)>
-        visit_kmer = [&process_cache, &thread_caches, &kmer_size, &edge_max]
-                     (string& kmer, NodeTraversal node, int pos, list<NodeTraversal>& path, VG& graph) {
-        if (pos >= 0) {
-            //kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
+        // We're going to visit every of the node and run this:
+        function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>
+            visit_kmer = [&cache, &kmer_size, &edge_max, &node, this]
+                         (string& kmer, list<NodeTraversal>::iterator start_node, int start_pos, 
+                          list<NodeTraversal>& path, VG& graph) {
+                         
+            // We should never see negative offset kmers; _for_each_kmer ought to
+            // have turned them around for positive offsets on the opposite strand.
+            assert(start_pos >= 0);
+                      
             // todo, handle edge bounding
             // we need to check if the previous or next kmer will be excluded based on
             // edge bounding
             // if so, we should connect to the source or sink node
+            
+            // Get the information from the graph about what's before and after
+            // this kmer, and where it ends.
+            list<NodeTraversal>::iterator end_node;
+            int32_t end_pos; // This counts in from the right of end_node.
             set<char> prev_chars;
             set<char> next_chars;
+            set<pair<pair<int64_t, bool>, int32_t>> prev_positions;
             set<pair<pair<int64_t, bool>, int32_t>> next_positions;
-            // Fill in prev_chars, next_chars, and next_positions for the kmer by walking the path.
+            // Fill in prev_chars, next_chars, prev_positions, and next_positions for the kmer by walking the path.
             graph.kmer_context(kmer,
                                kmer_size,
                                edge_max,
                                path,
-                               node,
-                               pos,
+                               start_node,
+                               start_pos,
+                               end_node,
+                               end_pos,
                                prev_chars,
                                next_chars,
+                               prev_positions,
                                next_positions);
-            // We should put the kmer in our cache
-            auto& cache = thread_caches[omp_get_thread_num()];
-            if (cache.first != node.node->id()) {
-                // If the last thing we put in the cache was from a different
-                // node, process all those KmerPositions and start on the ones
-                // for this node.
-                process_cache(cache.second);
-                cache.second.clear();
-                cache.first = node.node->id();
+                       
+            if((*start_node).node == node) {
+                // This kmer starts on the node we're currently processing.
+                // Store the information about it's forward orientation.
+                
+                // Get the KmerPosition to fill, creating it if it doesn't exist already.
+                auto cache_key = make_tuple(kmer, (*start_node).backward, start_pos);
+#ifdef debug
+                if(cache.count(cache_key)) {
+                    cerr << "F: Adding to " << kmer << " at " << (*start_node).node->id() << " " << (*start_node).backward
+                         << " offset " << start_pos << endl;
+                } else {
+                    cerr << "F: Creating " << kmer << " at " << (*start_node).node->id() << " " << (*start_node).backward
+                         << " offset " << start_pos << endl;
+                }
+#endif
+                KmerPosition& forward_kmer = cache[cache_key];
+                
+                // Add in the kmer string
+                if (forward_kmer.kmer.empty()) forward_kmer.kmer = kmer;
+                
+                // Add in the start position
+                if (forward_kmer.pos.empty()) {
+                    // Figure out if we should be talking about the forward or
+                    // reverse copy of the node to GCSA.
+                    int64_t gcsa_node_id = (*start_node).node->id() * 2 + (*start_node).backward;
+                    // Say we're at this offset on that node. The offset is always
+                    // from the start of the node (which, for the reverse copy,
+                    // corresponds to the end of the forward copy).
+                    stringstream ps; ps << gcsa_node_id << ":" << start_pos;
+                    forward_kmer.pos = ps.str();
+                }
+                
+                // Add in the prev and next characters.
+                for (auto c : prev_chars) {
+                    forward_kmer.prev_chars.insert(c);
+                }
+                for (auto c : next_chars) {
+                    forward_kmer.next_chars.insert(c);
+                }
+                
+                // Add in the next positions
+                for (auto p : next_positions) {
+                    // Figure out if the forward kmer should go next to the forward or reverse copy of the next node.
+                    int64_t target_node = p.first.first * 2 + p.first.second;
+                    
+                    // Say we go to it at the correct offset
+                    stringstream ps; ps << target_node << ":" << p.second;
+                    forward_kmer.next_positions.insert(ps.str());
+                }
             }
-            // Is there something in the cache already for this kmer at this position?
-            // If not we will get a default-constructed empty record and we can fill it in.
-            auto& other = cache.second[make_pair(kmer, pos)];
-            if (other.kmer.empty()) other.kmer = kmer;
-            if (other.pos.empty()) {
-                // Note: pos is relative to the left side of the NodeTraversal,
-                // which, if it is backward, is the *right* side of the Node. We
-                // spit it out negated when that happens so it's obvious it's
-                // not from the start of the node. We also represent backward
-                // nodes by negating their IDs. TODO: make GCSA understand this.
-                int sign = node.backward ? -1 : 1;
-                stringstream ps; ps << node.node->id() * sign << ":" << pos * sign;
-                other.pos = ps.str();
+            
+            if((*end_node).node == node) {
+                // This kmer ends on the node we're currently processing.
+                // Store the information about it's reverse orientation.
+                
+                // Get the KmerPosition to fill, creating it if it doesn't exist
+                // already. We flip the backwardness because we look at the kmer
+                // the other way, but since end_pos already counts from the end,
+                // we don't touch it.
+                auto cache_key = make_tuple(reverse_complement(kmer), !(*end_node).backward, end_pos);
+#ifdef debug
+                if(cache.count(cache_key)) {
+                    cerr << "R: Adding to " << reverse_complement(kmer) << " at " << (*end_node).node->id() 
+                         << " " << !(*end_node).backward << " offset " << end_pos << endl;
+                } else {
+                    cerr << "R: Creating " << reverse_complement(kmer) << " at " << (*end_node).node->id()
+                         << " " << !(*end_node).backward << " offset " << end_pos << endl;
+                }
+#endif
+                KmerPosition& reverse_kmer = cache[cache_key];
+                
+                // Add in the kmer string
+                if (reverse_kmer.kmer.empty()) reverse_kmer.kmer = reverse_complement(kmer);
+                
+                // Add in the start position
+                if (reverse_kmer.pos.empty()) {
+                    // Use the other node ID, facing the other way
+                    int64_t gcsa_node_id = (*end_node).node->id() * 2 + !(*end_node).backward;
+                    // And the distance from the edn of the kmer to the end of its ending node.
+                    stringstream ps; ps << gcsa_node_id << ":" << end_pos;
+                    reverse_kmer.pos = ps.str();
+                }
+                    
+                // Add in the prev and next characters.
+                for (auto c : prev_chars) {
+                    reverse_kmer.next_chars.insert(reverse_complement(c));
+                }
+                for (auto c : next_chars) {
+                    reverse_kmer.prev_chars.insert(reverse_complement(c));
+                }
+                
+                // Add in the next positions (using the prev positions since we're reversing)
+                for (auto p : prev_positions) {
+                    // Figure out if the reverse kmer should go next to the forward or reverse copy of the next node.
+                    int64_t target_node = p.first.first * 2 + !p.first.second;
+                    
+                    // Say we go to it at the correct offset
+                    stringstream ps; ps << target_node << ":" << graph.get_node(p.first.first)->sequence().size() - p.second - 1;
+                    reverse_kmer.next_positions.insert(ps.str());
+                }
             }
-            // Add more previous and next characters and positions to the kmer.
-            // This should actually find all of them the first time, no matter
-            // what path we come by, since we just ask the graph about its
-            // topology in kmer_context.
-            for (auto c : prev_chars) other.prev_chars.insert(c);
-            for (auto c : next_chars) other.next_chars.insert(c);
-            for (auto p : next_positions) {
-                // If the destination node is backward, we also negate its ID
-                // and offset (which is from the end of the node in its local
-                // forward orientation).
-                int sign = p.first.second ? -1 : 1;
-                stringstream ps; ps << p.first.first * sign << ":" << p.second * sign;
-                other.next_positions.insert(ps.str());
-            }
+        };
+        
+        // Now we visit every kmer of this node and fill in the cache. Don't
+        // allow negative offsets; force them to be converted to positive
+        // offsets on the reverse strand. But do allow different paths that
+        // produce the same kmer, since GCSA2 needs those.
+        graph->for_each_kmer_of_node(node, kmer_size, edge_max, visit_kmer, stride, true, false);
+        
+        // Now that the cache is full and correct, containing each kmer starting
+        // on either strand of this node, send out all its entries.
+        for(auto& kv : cache) {
+            lambda(kv.second);
         }
+        
     };
 
-    // We have pointers to our own head and tail nodes, and we will own them.
-    // None of the VG graphs can own them since they get destroyed during the
-    // for_each. TODO: the next free ID in the first graph (which creates these
-    // nodes) must be free in all the graphs.
-    Node* head_node = nullptr;
-    Node* tail_node = nullptr;
+    // We have pointers to our single start/end node, and we will own it.
+    // None of the VG graphs can own it since they get destroyed during the
+    // for_each. TODO: the next free ID in the first graph (which creates this
+    // node) must be free in all the graphs.
+    Node* start_end_node = nullptr;
 
-    // For every graph in our set, visit all the kmers in parallel and make and process KmerPositions for them.
-    for_each([&visit_kmer, kmer_size, edge_max, stride, allow_dups,
-              &head_node, &tail_node, head_id, tail_id,
-              this](VG* g) {
+    // For every graph in our set (in serial), visit all the nodes in parallel and handle them.
+    for_each([&handle_node_in_graph, kmer_size, edge_max, stride,
+              &start_end_node, &start_end_id, this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
         
-        if(head_node == nullptr) {
+        if(start_end_node == nullptr) {
             // This is the first graph.
-            // Add the head and tail nodes, but make our own copies before we destroy the graph.
-            g->add_start_and_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
-            // if the ids are non-0, set them
-            head_node = new Node(*head_node);
-            tail_node = new Node(*tail_node);
+            // Add the start/end node, but make our own copy before we destroy the graph.
+            g->add_single_start_end_marker(kmer_size, '#', start_end_node, start_end_id);
+            start_end_node = new Node(*start_end_node);
+            
+            // Save its ID
+            start_end_id = start_end_node->id();
         } else {
-            // Add the existing head and tail nodes
-            if(min(head_node->id(), tail_node->id()) <= g->max_node_id()) {
-                // If the IDs we got for these nodes when we made them in the
-                // first graph are too small, we have to complain. It would be
+            // Add the existing start/end node
+            if(start_end_node->id() <= g->max_node_id()) {
+                // If the ID we got for the node when we made it in the
+                // first graph is too small, we have to complain. It would be
                 // nice if we could make a path through all the graphs, get the
-                // max ID, and then use that to determine the head and tail node
-                // IDs, but we can't because we ahve to be able to stream the
-                // graphs.
-                cerr << "error:[for_each_gcsa_kmer_position_parallel] created a head or "
-                     << "tail node in first graph with id used by later graph " << g->name 
-                     << ". Put the graph with the largest ids first and try again." << endl;
+                // max ID, and then use that to determine the new node ID.
+                cerr << "error:[for_each_gcsa_kmer_position_parallel] created a start/end "
+                     << "node in first graph with id used by later graph " << g->name 
+                     << ". Put the graph with the largest node id first and try again." << endl;
                 exit(1);
             }
-            g->add_start_and_end_markers(kmer_size, '#', '$', head_node, tail_node);
+            g->add_single_start_end_marker(kmer_size, '#', start_end_node, start_end_id);
         }
-        // Process all the kmers in the graph
-        g->for_each_kmer_parallel(kmer_size, edge_max, visit_kmer, stride, allow_dups);
+        
+        // Process all the kmers in the graph on a node-by-node basis. Make sure
+        // to know about the graph when we do so (so we can get the kmers).
+        g->for_each_node_parallel([&](Node* node) {
+            handle_node_in_graph(g, node);
+        });
     });
     
-// clean up caches
-#pragma omp parallel
-    {
-        auto& cache = thread_caches[omp_get_thread_num()];
-        process_cache(cache.second);
-    }
-    
     // delete the head and tail nodes
-    if(head_node != nullptr) {
-        delete head_node;
+    if(start_end_node != nullptr) {
+        delete start_end_node;
     }
-    if(tail_node != nullptr) {
-        delete tail_node;
-    }    
 }
 
 void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
-                           vector<gcsa::KMer>& kmers_out, bool allow_dups,
-                           int64_t head_id, int64_t tail_id) {
+                           vector<gcsa::KMer>& kmers_out,
+                           int64_t start_end_id) {
 
     // TODO: This function goes through an internal string format that should
     // really be replaced by making some API changes to gcsa2.
@@ -360,7 +433,7 @@ void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
         }
     }
     
-    auto convert_kmer = [&thread_outputs, &alpha](KmerPosition& kp) {
+    auto convert_kmer = [&thread_outputs, &alpha, &start_end_id](KmerPosition& kp) {
         // Convert this KmerPosition to several gcsa::Kmers, and save them in thread_outputs
                                
         // We need to make this kmer into a series of tokens
@@ -394,8 +467,8 @@ void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
         tokens.insert(tokens.end(), kp.next_positions.begin(), kp.next_positions.end());
         
         if (kp.next_positions.empty()) {
-            // If we didn't have any successors, we have to say we go to 0:0.
-            tokens.push_back("0:0");
+            // If we didn't have any successors, we have to say we go to the start of the start node
+            tokens.push_back(to_string(start_end_id * 2) + ":0");
         }    
         
         for(size_t successor_index = 4; successor_index < tokens.size(); successor_index++) {
@@ -417,9 +490,10 @@ void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
         
     };
     
-    // Run on each KmerPosition
+    // Run on each KmerPosition. This populates start_end_id, if it was 0, before calling convert_kmer.
     for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
-                                         head_id, tail_id, convert_kmer, allow_dups);
+                                         start_end_id, convert_kmer);
+                                         
     
     for(auto& thread_output : thread_outputs) {
         // Now throw everything into the output vector

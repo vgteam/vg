@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 7
+plan tests 8
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "alignment traverses the correct path"
 
@@ -24,3 +24,6 @@ vg construct -r tiny/tiny.fa >t.vg
 is $(vg align -s CAAATAAGGCTTGGAAATGTTCTGGAGTTCTATTATATTCCAACTCTCTT -Q query t.vg | vg mod -i - t.vg | vg view - | grep query | wc -l) 1 "align can use query names and outputs GAM"
 
 rm t.vg
+
+
+is $(vg align -s TATATATATACCCCCCCCC -j cyclic/all.vg | jq ".path.mapping[].position.node_id" | tr '\n' ',' | grep "5,6" | wc -l) 1  "alignment to cyclic graphs works"

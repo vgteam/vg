@@ -29,7 +29,7 @@ void help_surject(char** argv) {
          << "    -d, --db-name DIR       use the graph in this database" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -p, --into-path NAME    surject into just this path" << endl
-         << "    -i, --into-paths FILE   surject into path names listed in FILE (one per line)" << endl
+         << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
          << "    -P, --into-prefix NAME  surject into all paths with NAME as their prefix" << endl
         //<< "    -H, --header-from FILE  use the header in the SAM/CRAM/BAM file for the output" << endl
         // todo, reenable
@@ -694,11 +694,13 @@ void help_kmers(char** argv) {
          << "                          for 3 we would count 2)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
-         << "    -d, --ignore-dups     filter out duplicated kmers" << endl
-         << "    -n, --allow-negs      don't filter out relative negative positions of kmers" << endl
-         << "    -g, --gcsa-out        output a table suitable for input to GCSA2" << endl
+         << "    -d, --ignore-dups     filter out duplicated kmers in normal output" << endl
+         << "    -n, --allow-negs      don't filter out relative negative positions of kmers in normal output" << endl
+         << "    -g, --gcsa-out        output a table suitable for input to GCSA2:" << endl
          << "                          kmer, starting position, previous characters," << endl
-         << "                          successive characters, successive positions" << endl
+         << "                          successive characters, successive positions." << endl
+         << "                          Forward and reverse strand kmers are reported." << endl
+         << "    -I, --start-end-id N  use the specified ID for the GCSA2 start/end node" << endl 
          << "    -p, --progress        show progress" << endl;
 }
 
@@ -717,8 +719,7 @@ int main_kmers(int argc, char** argv) {
     bool allow_dups = true;
     bool allow_negs = false;
     // for distributed GCSA2 kmer generation
-    int64_t head_id = 0;
-    int64_t tail_id = 0;
+    int64_t start_end_id = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -734,13 +735,12 @@ int main_kmers(int argc, char** argv) {
                 {"ignore-dups", no_argument, 0, 'd'},
                 {"allow-negs", no_argument, 0, 'n'},
                 {"progress",  no_argument, 0, 'p'},
-                {"head-id", required_argument, 0, 'H'},
-                {"tail-id", required_argument, 0, 'T'},
+                {"start-end-id", required_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:",
+        c = getopt_long (argc, argv, "hk:j:pt:e:gdnI:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -782,12 +782,8 @@ int main_kmers(int argc, char** argv) {
             show_progress = true;
             break;
 
-        case 'H':
-            head_id = atoi(optarg);
-            break;
-
-        case 'T':
-            tail_id = atoi(optarg);
+        case 'I':
+            start_end_id = atoi(optarg);
             break;
 
         case 'h':
@@ -812,16 +808,16 @@ int main_kmers(int argc, char** argv) {
     graphs.show_progress = show_progress;
 
     if (gcsa_out) {
-        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, allow_dups, head_id, tail_id);
+        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, start_end_id);
     } else {
-        function<void(string&, NodeTraversal, int, list<NodeTraversal>&, VG& graph)>
-            lambda = [](string& kmer, NodeTraversal n, int p, list<NodeTraversal>& path, VG& graph) {
+        function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG& graph)>
+            lambda = [](string& kmer, list<NodeTraversal>::iterator n, int p, list<NodeTraversal>& path, VG& graph) {
             // We encode orientation by negating the IDs for backward nodes.
             // Their offsets are from the end of the node in its local forward
             // orientation, and are negated in the output.
-            int sign = n.backward ? -1 : 1;            
+            int sign = (*n).backward ? -1 : 1;            
 #pragma omp critical (cout)
-            cout << kmer << '\t' << n.node->id() * sign << '\t' << p * sign << '\n';
+            cout << kmer << '\t' << (*n).node->id() * sign << '\t' << p * sign << '\n';
         };
         graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride, allow_dups, allow_negs);
     }
@@ -1316,19 +1312,19 @@ int main_paths(int argc, char** argv) {
         cerr << "error:[vg paths] a --max-length is required when generating paths" << endl;
     }
 
-    function<void(Node*,Path&)> paths_to_seqs = [graph](Node* n, Path& p) {
+    function<void(size_t,Path&)> paths_to_seqs = [graph](size_t mapping_index, Path& p) {
         string seq = graph->path_sequence(p);
 #pragma omp critical(cout)
         cout << seq << endl;
     };
 
-    function<void(Node*,Path&)> paths_to_json = [](Node* n, Path& p) {
+    function<void(size_t,Path&)> paths_to_json = [](size_t mapping_index, Path& p) {
         string json2 = pb2json(p);
 #pragma omp critical(cout)
         cout<<json2<<endl;
     };
 
-    function<void(Node*, Path&)>* callback = &paths_to_seqs;
+    function<void(size_t, Path&)>* callback = &paths_to_seqs;
     if (!as_seqs) {
         callback = &paths_to_json;
     }
@@ -1911,7 +1907,7 @@ int main_index(int argc, char** argv) {
 
         // Go get the kmers of the correct size
         vector<gcsa::KMer> kmers;
-        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, kmers, true, 0, 0);
+        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, kmers, 0);
         
         // Handle finding the sink node
         size_t sink_node_id = 0;
@@ -2174,7 +2170,17 @@ int main_align(int argc, char** argv) {
         graph = new VG(in);
     }
 
+    // Make sure we flip the nodes all forward and break cycles
+    set<int64_t> flipped_nodes;
+    graph->orient_nodes_forward(flipped_nodes);
+
     Alignment alignment = graph->align(seq);
+    
+    // Fix up the alignment with the flipped nodes
+    flip_nodes(alignment, flipped_nodes, [&graph](int64_t node_id) {
+        // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
+        return graph->get_node(node_id)->sequence().size();
+    });
 
     if (output_json) {
         cout << pb2json(alignment) << endl;

@@ -47,11 +47,21 @@ public:
         return *this;
     }
 
+    // This maps from path name to the list of Mappings for that path.
     map<string, list<Mapping> > _paths;
+    // This maps from Mapping* pointer to its iterator in its list of Mappings
+    // for its path. The list in question is stroed above in _paths. Recall that
+    // std::list iterators are bidirectional.
     map<Mapping*, list<Mapping>::iterator> mapping_itr;
+    // This maps from Mapping* pointer to the name of the path it belongs to
+    // (which can then be used to get the list its iterator belongs to).
     map<Mapping*, string> mapping_path;
     void rebuild_mapping_aux(void);
+    // This maps from node ID to a set of path name, mapping instance pairs.
+    // Note that we don't have a map for each node, because each node can appear
+    // along any given path multiple times, with multiple Mapping* pointers.
     map<int64_t, set<pair<string, Mapping*> > > node_mapping;
+    
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);
     list<Mapping>::iterator remove_mapping(Mapping* m);
@@ -69,10 +79,18 @@ public:
     bool has_node_mapping(Node* n);
     set<pair<string, Mapping*> >& get_node_mapping(Node* n);
     set<pair<string, Mapping*> >& get_node_mapping(int64_t id);
+    // Go left along the path that this Mapping* belongs to, and return the
+    // Mapping* there, or null if this Mapping* is the first in its path.
+    Mapping* traverse_left(Mapping* mapping);
+    // Go right along the path that this Mapping* belongs to, and return the
+    // Mapping* there, or null if this Mapping* is the last in its path.
+    Mapping* traverse_right(Mapping* mapping);
+    // TODO: should this be a reference?
     string mapping_path_name(Mapping* m);
     set<string> of_node(int64_t id);
     bool are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name);
     size_t size(void) const;
+    bool empty(void) const;
     void clear(void);
     //void add_node_mapping(Node* n);
     void load(istream& in);
