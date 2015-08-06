@@ -3074,6 +3074,8 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
+//    out << "    splines=line;" << endl;
+    out << "    smoothType=spring;" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());

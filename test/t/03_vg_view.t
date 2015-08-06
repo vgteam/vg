@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 plan tests 11
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 506 "view produces the expected number of lines of dot output"
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 641 "view produces the expected number of lines of GFA output"
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view - | head | vg view -v - | vg view - | wc -l) 10 "view converts back and forth between GFA and vg format"
 is $(vg construct -r small/x.fa -v small/x.vcf.gz >/dev/null -P x; vg view -p x | wc -l) 139 "view can dump paths in tabular format"
@@ -27,5 +27,5 @@ is $(vg view -Jv ./cyclic/two_node.json | vg view -j - | jq ".edge | length") 4 
 
 is $(vg view -g ./cyclic/all.vg | tr '\t' ' ' | grep "4 + 4 -" | wc -l) 1 "view outputs properly oriented GFA"
 
-is $(vg view -d ./cyclic/all.vg | wc -l) 23 "view produces the expected number of lines of dot output from a cyclic graph"
+is $(vg view -d ./cyclic/all.vg | wc -l) 24 "view produces the expected number of lines of dot output from a cyclic graph"
 
