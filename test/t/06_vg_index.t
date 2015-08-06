@@ -118,7 +118,7 @@ is $(vg index -D -d all.vg.aln | wc -l) ${NUM_UNIQUE_READS} "index can store ali
 
 rm -rf cyclic/all.vg.index all.vg.aln
 
-vg index -g -k 16 cyclic/two_node.vg
+vg index -g -k 16 <(vg view -v cyclic/two_node.gfa)
 is $? 0 "GCSA2 index works on cyclic graphs with heads and tails"
 
 vg index -g -k 16 cyclic/no_heads.vg
@@ -130,7 +130,7 @@ is $? 0 "GCSA2 index works on cyclic graphs with self loops"
 vg index -g -k 16 cyclic/all.vg
 is $? 0 "GCSA2 index works on general cyclic graphs"
 
-rm -f cyclic/two_node.vg.gcsa cyclic/no_heads.vg.gcsa cyclic/self_loops.vg.gcsa cyclic/all.vg.gcsa 
+rm -f cyclic/two_node.gfa.gcsa cyclic/no_heads.vg.gcsa cyclic/self_loops.vg.gcsa cyclic/all.vg.gcsa 
 
 
 

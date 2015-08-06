@@ -90,6 +90,7 @@ public:
     set<string> of_node(int64_t id);
     bool are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name);
     size_t size(void) const;
+    bool empty(void) const;
     void clear(void);
     //void add_node_mapping(Node* n);
     void load(istream& in);

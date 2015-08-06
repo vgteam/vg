@@ -246,6 +246,10 @@ size_t Paths::size(void) const {
     return _paths.size();
 }
 
+bool Paths::empty(void) const {
+    return _paths.size() == 0;
+}
+
 void Paths::clear(void) {
     _paths.clear();
     node_mapping.clear();

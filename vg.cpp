@@ -3071,13 +3071,13 @@ bool VG::is_valid(void) {
 }
 
 void VG::to_dot(ostream& out, vector<Alignment> alignments) {
-    out << "graph graphname {" << endl;
+    out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        if (node_paths.empty()) {
+        if (!paths.empty() && node_paths.empty()) {
             out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontcolor=red,color=red,shape=box];" << endl;
         } else {
             out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box];" << endl;
@@ -3092,13 +3092,32 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
                               to_paths.begin(), to_paths.end(),
                               std::inserter(both_paths, both_paths.begin()));
         // are both nodes in the same path?
-        if (both_paths.empty()
-            || !paths.are_consecutive_nodes_in_path(e->from(), e->to(), *both_paths.begin())) {
-            out << "    " << e->from() << " -- " << e->to() << "[color=red];" << endl;
-        } else {
-            // are the nodes consecutive in the path?
-            out << "    " << e->from() << " -- " << e->to() << ";" << endl;
+        bool in_path = !(!paths.empty()
+                        && (both_paths.empty()
+                            || !paths.are_consecutive_nodes_in_path(e->from(), e->to(),
+                                                                    *both_paths.begin())));
+        // display what kind of edge we have using different edge head and tail styles
+        // depending on if the edge comes from the start or not
+        out << "    " << e->from() << " -> " << e->to();
+        out << " [dir=both,";
+        if (!in_path) {
+            out << "color=red,";
         }
+        if (e->from_start()) {
+            out << "arrowtail=none,";
+            out << "tailport=sw,";
+        } else {
+            out << "arrowtail=none,";
+            out << "tailport=ne,";
+        }
+        if (e->to_end()) {
+            out << "arrowhead=normal,";
+            out << "headport=se";
+        } else {
+            out << "arrowhead=normal,";
+            out << "headport=nw";
+        }
+        out << "];" << endl;
     }
     // add nodes for the alignments and link them to the nodes they match
     int alnid = max_node_id()+1;
@@ -3106,10 +3125,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
         // check direction
         if (!aln.is_reverse()) {
             out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
-            out << "    " << alnid << " -- " << alnid+1 << " [color=green];" << endl;
+            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
         } else {
             out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
-            out << "    " << alnid << " -- " << alnid+1 << " [color=purple];" << endl;
+            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=purple];" << endl;
         }
         alnid++;
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
@@ -3139,19 +3158,19 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
             }
             out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontcolor=" << color << "];" << endl;
             if (i > 0) {
-                out << "    " << alnid-1 << " -- " << alnid << "[color=" << color << "];" << endl;
+                out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
             }
-            out << "    " << alnid << " -- " << m.position().node_id() << "[color=" << color << ", style=invis];" << endl;
+            out << "    " << alnid << " -> " << m.position().node_id() << "[dir=none,color=" << color << ", style=invis];" << endl;
             out << "    { rank = same; " << alnid << "; " << m.position().node_id() << "; };" << endl;
             //out << "    " << m.position().node_id() << " -- " << alnid << "[color=" << color << ", style=invis];" << endl;
             alnid++;
         }
         if (!aln.is_reverse()) {
             out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
-            out << "    " << alnid-1 << " -- " << alnid << " [color=purple];" << endl;
+            out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=purple];" << endl;
         } else {
             out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
-            out << "    " << alnid-1 << " -- " << alnid << " [color=green];" << endl;
+            out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=green];" << endl;
         }
         alnid++;
     }
