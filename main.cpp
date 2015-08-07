@@ -1073,7 +1073,8 @@ int main_join(int argc, char** argv) {
 
     VG joined;
     for (list<VG*>::iterator g = graphs.begin(); g != graphs.end(); ++g) {
-        joined.extend(**g);
+        // Stick all the graphs together, complaining if they use the same node IDs (since they probably shouldn't).
+        joined.extend(**g, true);
     }
 
     // combine all subgraphs
@@ -1542,6 +1543,7 @@ int main_find(int argc, char** argv) {
         }
         VG result_graph;
         for (auto& graph : graphs) {
+            // Allow duplicate nodes and edges (from e.g. multiple -n options); silently collapse them.
             result_graph.extend(graph);
         }
         result_graph.remove_orphan_edges();
@@ -1657,6 +1659,7 @@ int main_find(int argc, char** argv) {
 
             VG result_graph;
             for (auto& graph : graphs) {
+                // Allow duplicate nodes and edges (from multiple kmers); silently collapse them.
                 result_graph.extend(graph);
             }
             result_graph.remove_orphan_edges();
