@@ -3098,6 +3098,22 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
                         && (both_paths.empty()
                             || !paths.are_consecutive_nodes_in_path(e->from(), e->to(),
                                                                     *both_paths.begin())));
+
+        // Is the edge in the "wrong" direction for rank constraints?
+        bool is_backward = e->from_start() && e->to_end();
+
+        if(is_backward) {
+            // Flip the edge around and write it forward.
+            Edge* original = e;
+            e = new Edge();
+
+            e->set_from(original->to());
+            e->set_from_start(!original->to_end());
+
+            e->set_to(original->from());
+            e->set_to_end(!original->from_start());
+        }
+
         // display what kind of edge we have using different edge head and tail styles
         // depending on if the edge comes from the start or not
         out << "    " << e->from() << " -> " << e->to();
@@ -3120,6 +3136,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
             out << "headport=nw";
         }
         out << "];" << endl;
+
+        if(is_backward) {
+            // We don't need this duplicate edge
+            delete e;
+        }
     }
     // add nodes for the alignments and link them to the nodes they match
     int alnid = max_node_id()+1;
@@ -4249,7 +4270,7 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
         while(s.empty() && !seeds.empty()) {
             // Look at the first seed
             NodeTraversal first_seed = (*seeds.begin()).second;
-        
+
             if(unvisited.count(first_seed.node->id())) {
                 // We have an unvisited seed. Use it
 #ifdef debug
