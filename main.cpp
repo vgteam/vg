@@ -2600,7 +2600,8 @@ void help_map(char** argv) {
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
-         << "    -x, --thread-ex N     grab this many neighboring nodes around each thread for alignment (default: 2)" << endl
+         << "    -x, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 2)" << endl
+         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
          << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default: 100)" << endl
@@ -2634,6 +2635,7 @@ int main_map(int argc, char** argv) {
     int hit_max = 100;
     int thread_count = 1;
     int thread_ex = 2;
+    int context_depth = 1;
     bool output_json = false;
     bool debug = false;
     bool prefer_forward = false;
@@ -2674,6 +2676,7 @@ int main_map(int argc, char** argv) {
                 {"score-per-bp", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"thread-ex", required_argument, 0, 'x'},
+                {"context-depth", required_argument, 0, 'n'},
                 {"output-json", no_argument, 0, 'J'},
                 {"hts-input", no_argument, 0, 'b'},
                 {"fastq", no_argument, 0, 'f'},
@@ -2685,7 +2688,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:GC:A:E:Q:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:GC:A:E:Q:n:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2740,6 +2743,10 @@ int main_map(int argc, char** argv) {
 
         case 'x':
             thread_ex = atoi(optarg);
+            break;
+            
+        case 'n':
+            context_depth = atoi(optarg);
             break;
 
         case 'r':
@@ -2852,6 +2859,7 @@ int main_map(int argc, char** argv) {
         m->greedy_accept = greedy_accept;
         m->thread_extension = thread_ex;
         m->cluster_min = cluster_min;
+        m->context_depth = context_depth;
         m->max_attempts = max_attempts;
         m->min_kmer_entropy = min_kmer_entropy;
         mapper[i] = m;

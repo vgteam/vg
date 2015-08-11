@@ -15,6 +15,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g)
     , thread_extension(1)
     , thread_extension_max(80)
     , max_thread_gap(30)
+    , context_depth(1)
     , max_attempts(7)
     , softclip_threshold(0)
     , prefer_forward(false)
@@ -536,6 +537,8 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         auto& threads = tl->second;
         // by definition, our thread should construct a contiguous graph
         for (auto& thread : threads) {
+            // Do an alignment to the subgraph for each thread.
+        
             // thread extension should be determined during iteration
             // note that there is a problem and hits tend to be imbalanced
             int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
@@ -546,6 +549,11 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             if (debug) cerr << "getting node range " << first << "-" << last << endl;
             VG* graph = new VG;
             index->get_range(first, last, *graph);
+            
+            // We also want to get nodes connected to these nodes along edges, down to the specified depth.
+            // This is useful for graphs that have unhelpful node ID assignments.
+            index->expand_context(*graph, context_depth);
+            
             Alignment& ta = alignments[&thread];
             ta = alignment;
             // by default, expand the graph a bit so we are likely to map

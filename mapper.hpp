@@ -64,6 +64,7 @@ public:
     int kmer_sensitivity_step;
     int thread_extension;
     int thread_extension_max;
+    int context_depth;
     int max_attempts;
     int softclip_threshold;
     float target_score_per_bp;
