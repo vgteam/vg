@@ -1374,7 +1374,8 @@ void help_find(char** argv) {
          << "    -r, --node-range N:M   get nodes from N to M" << endl
         //<< "    -a, --alignments       write all stored alignments in sorted order (in GAM)" << endl
         //<< "    -m, --mappings         write stored mappings in sorted order (in json)" << endl
-         << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl;
+         << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
+         << "    -g, --gcsa FILE        use this GCSA2 index" << endl;
 }
 
 int main_find(int argc, char** argv) {
@@ -1400,6 +1401,7 @@ int main_find(int argc, char** argv) {
     string range;
     bool get_alignments = false;
     bool get_mappings = false;
+    string gcsa_in;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1408,6 +1410,7 @@ int main_find(int argc, char** argv) {
             {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"db-name", required_argument, 0, 'd'},
+                {"gcsa", required_argument, 0, 'g'},
                 {"node", required_argument, 0, 'n'},
                 {"edges-end", required_argument, 0, 'e'},
                 {"edges-start", required_argument, 0, 's'},
@@ -1428,7 +1431,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:e:s:o:k:hc:S:z:j:CTp:P:r:am",
+        c = getopt_long (argc, argv, "d:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1439,6 +1442,10 @@ int main_find(int argc, char** argv) {
         {
         case 'd':
             db_name = optarg;
+            break;
+
+        case 'g':
+            gcsa_in = optarg;
             break;
 
         case 'k':
@@ -1515,7 +1522,6 @@ int main_find(int argc, char** argv) {
             abort ();
         }
     }
-
     if (optind < argc) {
         string file_name = argv[optind];
         if (file_name == "-") {
@@ -1524,18 +1530,21 @@ int main_find(int argc, char** argv) {
                 return 1;
             }
         }
-        ifstream in;
         if (db_name.empty()) {
             db_name = file_name + ".index";
         }
-        in.open(file_name.c_str());
     }
 
     Index index;
     // open index
-    index.open_read_only(db_name);
+    if (db_name.empty()) {
+        assert(!gcsa_in.empty());
+    } else {
+        index.open_read_only(db_name);
+    }
 
     if (get_alignments) {
+        // todo
     }
 
     if (!node_ids.empty() && path_name.empty()) {
@@ -1625,16 +1634,36 @@ int main_find(int argc, char** argv) {
     // todo cleanup if/else logic to allow only one function
     
     if (!sequence.empty()) {
-        set<int> kmer_sizes = index.stored_kmer_sizes();
-        if (kmer_sizes.empty()) {
-            cerr << "error:[vg find] index does not include kmers, add with vg index -k" << endl;
-            return 1;
-        }
-        if (kmer_size == 0) {
-            kmer_size = *kmer_sizes.begin();
-        }
-        for (int i = 0; i <= sequence.size()-kmer_size; i+=kmer_stride) {
-            kmers.push_back(sequence.substr(i,kmer_size));
+        if (gcsa_in.empty()) {
+            set<int> kmer_sizes = index.stored_kmer_sizes();
+            if (kmer_sizes.empty()) {
+                cerr << "error:[vg find] index does not include kmers, add with vg index -k" << endl;
+                return 1;
+            }
+            if (kmer_size == 0) {
+                kmer_size = *kmer_sizes.begin();
+            }
+            for (int i = 0; i <= sequence.size()-kmer_size; i+=kmer_stride) {
+                kmers.push_back(sequence.substr(i,kmer_size));
+            }
+        } else {
+            // let's use the GCSA index
+            // first open it
+            ifstream in(gcsa_in.c_str());
+            gcsa::GCSA gcsa_index;
+            gcsa_index.load(in);
+            //range_type find(const char* pattern, size_type length) const;
+            //void locate(size_type path, std::vector<node_type>& results, bool append = false, bool sort = true) const;
+            //locate(i, results);
+            auto paths = gcsa_index.find(sequence.c_str(), sequence.length());
+            //cerr << paths.first << " - " << paths.second << endl;
+            for (gcsa::size_type i = paths.first; i <= paths.second; ++i) {
+                std::vector<gcsa::node_type> ids;
+                gcsa_index.locate(i, ids);
+                for (auto id : ids) {
+                    cerr << gcsa::Node::decode(id) << endl;
+                }
+            }
         }
     }
 
