@@ -2596,8 +2596,8 @@ void VG::edit_node(int64_t node_id,
         // check that we're really working on one node
         assert(mapping.position().node_id() == node_id);
         int offset = 0;
-        const auto& nitr = mapping.info().find("path_name");
-        assert(nitr != mapping.info().end());
+        const auto& nitr = mapping.metadata().info().find("path_name");
+        assert(nitr != mapping.metadata().info().end());
         const string& name = nitr->second.str();
         for (int i = 0; i < mapping.edit_size(); ++i) {
             const Edit& edit = mapping.edit(i);
@@ -2769,7 +2769,7 @@ void VG::edit(const vector<Path>& paths) {
         for (int i = 0; i < path.mapping_size(); ++i) {
             Mapping mapping = path.mapping(i);
             Info info; info.set_str(path.name());
-            (*mapping.mutable_info())["path_name"] = info;
+            (*mapping.mutable_metadata()->mutable_info())["path_name"] = info;
             mappings[mapping.position().node_id()].push_back(mapping);
 
             assert(!mapping_is_total_deletion(mapping)); // not handled

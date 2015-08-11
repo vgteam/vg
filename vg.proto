@@ -12,7 +12,7 @@ message Graph {
     repeated Node node = 1;
     repeated Edge edge = 2;
     repeated Path path = 3;
-    map<string, Info> info = 4;
+    Metadata metadata = 4;
 }
 
 // *Nodes* store sequence data and also links to other nodes.
@@ -23,7 +23,7 @@ message Node {
     string name = 2;  // a name provides an identifier
     int64 id = 3;     // ids are critical, and unique within a graph
     bytes data = 4;   // arbitrary data
-    map<string, Info> info = 5;
+    Metadata metadata = 5;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
@@ -34,7 +34,11 @@ message Edge {
     bool from_start = 3; // if the edge leaves from the 5' (start) of a node
     bool to_end = 4; // if the edge goes to the 3' (end) of a node
     bytes data = 5; // arbitrary data
-    map<string, Info> info = 6;
+    Metadata metadata = 6;
+}
+
+message Metadata {
+    map<string, Info> info = 1;
 }
 
 // info fields can be used to annotate objects in the graph
@@ -43,7 +47,7 @@ message Info {
     string str = 2;
     int64 int = 3;
     bytes data = 4;
-    map<string, Info> info = 5;
+    Metadata metadata = 5;
 }
 
 // *Edits* describe how to generate a new string from elements
@@ -61,7 +65,7 @@ message Edit {
     int32 from_length = 1; // length in target/ref
     int32 to_length = 2; // length in read/alt
     string sequence = 3;
-    map<string, Info> info = 4;
+    Metadata metadata = 4;
 }
 
 // A Mapping defines the relationship between a node in system and another entity.
@@ -71,7 +75,7 @@ message Mapping {
     Position position = 1;
     repeated Edit edit = 2; // series of edit to transform to region in read/alt
     bool is_reverse = 3; // does the mapping go from the end of the node to the start
-    map<string, Info> info = 4;
+    Metadata metadata = 4;
 }
 
 // A position in the graph is a pair of node and offset
@@ -79,7 +83,7 @@ message Mapping {
 message Position {
     int64 node_id = 1;
     int64 offset = 2;
-    map<string, Info> info = 3;
+    Metadata metadata = 3;
 }
 
 // Paths are walks through nodes defined by a series of edits.
@@ -93,7 +97,7 @@ message Position {
 message Path {
     string name = 1;
     repeated Mapping mapping = 2;
-    map<string, Info> info = 3;
+    Metadata metadata = 3;
 }
 
 // Alignments link query strings, such as other genomes or reads, to paths.
@@ -112,7 +116,7 @@ message Alignment {
     Alignment fragment_prev = 11; // e.g. contains an alignment with only a name, or only a graph mapping position
     Alignment fragment_next = 12; // same thing for next in fragment
     bytes data = 13;
-    map<string, Info> info = 14;
+    Metadata metadata = 14;
 }
 
 // Fragments represent the library fragments that yield pairs of alignments
