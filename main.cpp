@@ -1685,6 +1685,7 @@ void help_index(char** argv) {
          << "general options:" << endl
          << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
+         << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
          << "    -e, --edge-max N       only consider paths which cross this many potential alternate edges" << endl
          << "                           (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
          << "                           for 3 we would count 2)" << endl
@@ -1736,7 +1737,7 @@ int main_index(int argc, char** argv) {
     bool dump_alignments = false;
     bool use_snappy = false;
     bool gcsa_out = false;
-    int doubling_steps = gcsa::GCSA::DOUBLING_STEPS; // TODO: add an option for this?
+    int doubling_steps = gcsa::GCSA::DOUBLING_STEPS;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1767,7 +1768,7 @@ int main_index(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1850,6 +1851,10 @@ int main_index(int argc, char** argv) {
             
         case 'g':
             gcsa_out = true;
+            break;
+
+        case 'X':
+            doubling_steps = atoi(optarg);
             break;
  
         case 'h':
