@@ -2,8 +2,9 @@
 
 namespace vg {
 
-Mapper::Mapper(Index* idex)
+Mapper::Mapper(Index* idex, gcsa::GCSA* g)
     : index(idex)
+    , gcsa(g)
     , best_clusters(0)
     , cluster_min(2)
     , hit_max(100)
@@ -23,9 +24,10 @@ Mapper::Mapper(Index* idex)
     , debug(false)
 {
     kmer_sizes = index->stored_kmer_sizes();
-    if (kmer_sizes.empty()) {
+    if (kmer_sizes.empty() && gcsa == NULL) {
         cerr << "error:[vg::Mapper] the index (" 
-             << index->name << ") does not include kmers" << endl;
+             << index->name << ") does not include kmers"
+             << " and no GCSA index has been provided" << endl;
         exit(1);
     }
 }

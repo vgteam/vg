@@ -7,6 +7,7 @@
 #include <ctime>
 #include "vg.hpp"
 #include "index.hpp"
+#include "gcsa.h"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "json2pb.h"
@@ -20,10 +21,11 @@ class Mapper {
 
 public:
 
-    Mapper(Index* idex);
+    Mapper(Index* idex, gcsa::GCSA* g = NULL);
     Mapper(void) : index(NULL), best_clusters(0) { }
     ~Mapper(void);
     Index* index;
+    gcsa::GCSA* gcsa;
 
     Alignment align(string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
     Alignment align(Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
