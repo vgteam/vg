@@ -256,11 +256,14 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     }
 
     const string& sequence = alignment.sequence();
+    
+    // Generate all the kmers we want to look up, with the correct stride.
     auto kmers = balanced_kmers(sequence, kmer_size, stride);
 
     //vector<uint64_t> sizes;
     //index->approx_sizes_of_kmer_matches(kmers, sizes);
 
+    // Holds the map from node ID to collection of start offsets, one per kmer we're searching for.
     vector<map<int64_t, vector<int32_t> > > positions(kmers.size());
     int i = 0;
     for (auto& k : kmers) {
@@ -268,17 +271,23 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         //if (debug) cerr << "kmer " << k << " entropy = " << entropy(k) << endl;
         if (min_kmer_entropy > 0 && entropy(k) < min_kmer_entropy) continue;
         uint64_t approx_matches = index->approx_size_of_kmer_matches(k);
-        if (debug) cerr << k << "\t" << approx_matches << endl;
+        // Report the approximate match count
+        if (debug) cerr << k << "\t~" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
         // we can do multiple mapping by relaxing this
         if (approx_matches > hit_size_threshold) {
             continue;
         }
+        
+        // Grab the map from node ID to kmer start positions for this particular kmer.
         auto& kmer_positions = positions.at(i);
+        // Fill it in, since we know there won't be too many to work with.
         index->get_kmer_positions(k, kmer_positions);
         // ignore this kmer if it has too many hits
         // typically this will be filtered out by the approximate matches filter
         if (kmer_positions.size() > hit_max) kmer_positions.clear();
+        // Report the actual match count for the kmer
+        if (debug) cerr << "\t=" << kmer_positions.size() << endl;
         kmer_count += kmer_positions.size();
         // break when we get more than a threshold number of kmers to seed further alignment
         //if (kmer_count >= kmer_threshold) break;
@@ -291,39 +300,89 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     // these start whenever we have a kmer match which is outside of
     // one of the last positions (for the previous kmer) + the kmer stride % wobble (hmm)
 
+    // For each node ID, holds the numbers of the kmers that we find on it, in
+    // the order that they appear in the query. One would expect them to be
+    // monotonically increasing.
     map<int64_t, vector<int> > node_kmer_order;
+    
+    // Maps from node ID and offset to a thread ending with the kmer that starts
+    // there, if any such thread exists.
     map<pair<int64_t, int32_t>, vector<int64_t> > position_threads;
+    
+    // For each node, holds the last thread for that node. Because we only do
+    // position wobble, threads only touch a single node.
     map<int64_t, vector<int64_t> > node_threads;
+    
     //int node_wobble = 0; // turned off...
+    
+    // How far left or right from the "correct" position for the previous kmer
+    // are we willing to search when looking for a thread to extend?
     int position_wobble = 2;
 
     int max_iter = sequence.size();
     int iter = 0;
     int64_t max_subgraph_size = 0;
 
+    // This is basically the index on this loop over kmers and their position maps coming up
     i = 0;
     for (auto& p : positions) {
+        // For every map from node ID to collection of kmer starts, for kmer i...
+        
+        // Grab the kmer and advance i for next loop iteration
         auto& kmer = kmers.at(i++);
         for (auto& x : p) {
+            // For each node ID and the offsets on that node at which this kmer appears...        
             int64_t id = x.first;
             vector<int32_t>& pos = x.second;
+            
+            // Note that this kmer is the next kmer in the query to appear in that node.
             node_kmer_order[id].push_back(i-1);
             for (auto& y : pos) {
+                // For every offset along the node at which this kmer appears, in order...
+            
                 //cerr << kmer << "\t" << i << "\t" << id << "\t" << y << endl;
                 // thread rules
                 // if we find the previous position
-                int m = 0;
+                
+                // This holds the thread that this instance of this kmer on this node is involved in.
                 vector<int64_t> thread;
+
+                // If we can find a thread close enough to this kmer, we want to
+                // continue it with this kmer. If nothing changed between the
+                // query and the reference, we would expect to extend the thread
+                // that has its last kmer starting exactly stride bases before
+                // this kmer starts (i.e. at y - stride). However, due to indels
+                // existing, we search with a "wobble" of up to position_wobble
+                // in either direction, outwards from the center.
+                
+                // This holds the current wobble that we are searching (between
+                // -position_wobble and +position_wobble).
+                int m = 0;
                 for (int j = 0; j < 2*position_wobble + 1; ++j) {
+                    // For each of the 2 * position_wobble + 1 wobble values we
+                    // need to try, calculate the jth wobble value out from the
+                    // center.
                     if (j == 0) { // on point
+                        // First we use the zero wobble, which we started with
                     } else if (j % 2 == 0) { // subtract
+                        // Every even step except the first, we try the negative version of the positive wobble we just tried
                         m *= -1;
                     } else { // add
+                        // Every odd step, we try the positive version of the
+                        // negative (or 0) wobble we just tried, incremented by
+                        // 1.
                         m *= -1; ++m;
                     }
+                    
                     //cerr << "checking " << id << " " << y << " - " << kmer_size << " + " << m << endl;
+                    
+                    // See if we can find a thread at this wobbled position
                     auto previous = position_threads.find(make_pair(id, y - stride + m));
                     if (previous != position_threads.end()) {
+                        // If we did find one, use it as our thread, remove it
+                        // so it can't be extended by anything else, and stop
+                        // searching more extreme wobbles.
+                        
                         //length = position_threads[make_pair(id, y - stride + m)] + 1;
                         thread = previous->second;
                         position_threads.erase(previous);
@@ -332,13 +391,20 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
                     }
                 }
 
+                // Now we either have the thread we are extending in thread, or we are starting a new thread.
+                
+                // Extend the thread with another kmer on this node ID. 
                 thread.push_back(id);
+                // Save the thread as ending with a kmer at this offset on this node.
                 position_threads[make_pair(id, y)] = thread;
+                
+                // This is now the last thread for this node.
                 node_threads[id] = thread;
             }
         }
     }
 
+    // This maps from a thread length (in kmer instances) to all the threads of that length.
     map<int, vector<vector<int64_t> > > threads_by_length;
     for (auto& t : node_threads) {
         auto& thread = t.second;
@@ -365,7 +431,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         }
     }
 
-    // sort threads by ids
+    // sort threads by ids, taking advantage of vector comparison and how sets work
     set<vector<int64_t> > sorted_threads;
     auto tl = threads_by_length.rbegin();
     for (auto& t : node_threads) {
@@ -376,10 +442,15 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
 
     // go back through and combine closely-linked threads
     // ... but only if their kmer order is proper
+    
+    // This holds threads by the last node ID they touch.
     map<int64_t, vector<int64_t> > threads_by_last;
+    
     // go from threads that are longer to ones that are shorter
     for (auto& thread : sorted_threads) {
         //cerr << thread.front() << "-" << thread.back() << endl;
+        
+        // Find the earliest-ending thread that ends within max_thread_gap nodes of this thread's start
         auto prev = threads_by_last.upper_bound(thread.front()-max_thread_gap);
         //if (prev != threads_by_last.begin()) --prev;
         // now we should be at the highest thread within the bounds
@@ -388,6 +459,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         // what does this mean? it means that the previous 
         if (prev != threads_by_last.end()
             && prev->first > thread.front() - max_thread_gap) {
+            // If we found such a thread, and it also *starts* within
+            // max_thread_gap nodes of this thread's start, we want to add our
+            // thread onto the end of it and keep only the combined longer
+            // thread. TODO: this limits max thread length.
             vector<int64_t> new_thread;
             auto& prev_thread = prev->second;
             new_thread.reserve(prev_thread.size() + thread.size());
@@ -398,6 +473,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             // maybe overwrite only if longer?
             threads_by_last[new_thread.back()] = new_thread;
         } else {
+            // We want to keep this thread since it couldn't attach to any other thread.
             threads_by_last[thread.back()] = thread;
         }
     }
@@ -421,6 +497,7 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
     for (auto& t : threads_by_last) {
         auto& thread = t.second;
         if (thread.size() >= cluster_min) {
+            // Only keep threads if they have a sufficient number of kmer instances in them.
             auto& threads = threads_by_length[thread.size()];
             threads.push_back(thread);
         }
@@ -478,7 +555,10 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
                             << graph->edge_count() << " edges" << endl;
                             
-            // Topologically sort the graph, breaking cycles (TODO) and orienting all edges end to start.
+            // Topologically sort the graph, breaking cycles and orienting all edges end to start.
+            // This flips some nodes around, so we need to translate alignments back.
+            set<int64_t> flipped_nodes;
+            graph->orient_nodes_forward(flipped_nodes);
                             
             // align
             ta.clear_path();
@@ -666,7 +746,7 @@ const vector<string> balanced_kmers(const string& seq, const int kmer_size, cons
     vector<string> kmers;
     int b = balanced_stride(seq.size(), kmer_size, stride);
     if (!seq.empty()) {
-        for (int i = 0; i+kmer_size < seq.size(); i+=b) {
+        for (int i = 0; i+kmer_size <= seq.size(); i+=b) {
             kmers.push_back(seq.substr(i,kmer_size));
         }
     }

@@ -271,8 +271,11 @@ public:
     void get_kmer_subgraph(const string& kmer, VG& graph);
     uint64_t approx_size_of_kmer_matches(const string& kmer);
     void approx_sizes_of_kmer_matches(const vector<string>& kmers, vector<uint64_t>& sizes);
+    // Run the given function on all the keys and values in the database describing instances of the given kmer.
     void for_kmer_range(const string& kmer, function<void(string&, string&)> lambda);
+    // In the given map by node ID, fill in the vector with the offsets in that node at which the given kmer starts.
     void get_kmer_positions(const string& kmer, map<int64_t, vector<int32_t> >& positions);
+    // In the given map by kmer, fill in the vector with the node IDs and offsets at which the given kmer starts.
     void get_kmer_positions(const string& kmer, map<string, vector<pair<int64_t, int32_t> > >& positions);
     void prune_kmers(int max_kb_on_disk);
 
