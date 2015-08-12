@@ -3316,6 +3316,13 @@ void VG::add_single_start_end_marker(int length, char start_char, Node*& head_ta
         unattached.insert(node);
     });
 
+    // We handle the head and tail joining ourselves so we can do connected components.
+    // We collect these before we add the new head/tail node so we don't have to filter it out later.
+    vector<Node*> heads;
+    head_nodes(heads);
+    vector<Node*> tails;
+    tail_nodes(tails);
+
     if(head_tail_node == nullptr) {
         // We get to create the node. In its forward orientation it's the start node, so we use the start character.
         string start_string(length, start_char);
@@ -3324,12 +3331,6 @@ void VG::add_single_start_end_marker(int length, char start_char, Node*& head_ta
         // We got a node to use
         add_node(*head_tail_node);
     }
-
-    // We handle the head and tail joining ourselves so we can do connected components.
-    vector<Node*> heads;
-    head_nodes(heads);
-    vector<Node*> tails;
-    tail_nodes(tails);
 
     for(Node* head : heads) {
         if(unattached.count(head)) {
