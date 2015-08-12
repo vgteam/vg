@@ -3238,10 +3238,15 @@ void VG::connect_nodes_to_node(vector<NodeTraversal>& nodes, NodeTraversal node)
 
 // join all subgraphs together to a "null" head node
 Node* VG::join_heads(void) {
-    current_id = max_node_id()+1;
-    Node* root = create_node("N");
+    // Find the head nodes
     vector<Node*> heads;
     head_nodes(heads);
+
+    // Then create the new node (so it isn't picked up as a head)
+    current_id = max_node_id()+1;
+    Node* root = create_node("N");
+
+    // Wire it to all the heads and return
     connect_node_to_nodes(root, heads);
     return root;
 }
@@ -3249,12 +3254,30 @@ Node* VG::join_heads(void) {
 void VG::join_heads(Node* node, bool from_start) {
     vector<Node*> heads;
     head_nodes(heads);
+    
+    // If the node we have been given shows up as a head, remove it.
+    for(auto i = heads.begin(); i != heads.end(); ++i) {
+        if(*i == node) {
+            heads.erase(i);
+            break;
+        }
+    }
+    
     connect_node_to_nodes(node, heads, from_start);
 }
 
 void VG::join_tails(Node* node, bool to_end) {
     vector<Node*> tails;
     tail_nodes(tails);
+    
+    // If the node we have been given shows up as a tail, remove it.
+    for(auto i = tails.begin(); i != tails.end(); ++i) {
+        if(*i == node) {
+            tails.erase(i);
+            break;
+        }
+    }
+    
     connect_nodes_to_node(tails, node, to_end);
 }
 
@@ -4496,9 +4519,10 @@ void VG::orient_nodes_forward(set<int64_t>& nodes_flipped) {
     // edges that are reversing, or "from" earlier nodes and "to" later nodes
     // with both end flags set, will cause problems. So remove those.
     // This works out to just clearing any edges with from_start or to_end set.
+    // We also need to clear otherwise-normal-looking self loops here.
     vector<Edge*> to_remove;
     for_each_edge([&](Edge* e) {
-        if(e->from_start() || e->to_end()) {
+        if(e->from_start() || e->to_end() || e->from() == e->to()) {
             // gssw won't know how to read this. Get rid of it.
             to_remove.push_back(e);
         }
