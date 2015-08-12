@@ -9,6 +9,7 @@
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "edit.hpp"
+#include "hash_map.hpp"
 
 namespace vg {
 
@@ -105,6 +106,9 @@ public:
     void for_each(function<void(Path&)>& lambda);
     void for_each_stream(istream& in, function<void(Path&)>& lambda);
     void increment_node_ids(int64_t inc);
+    // Replace the node IDs used as keys with those used as values.
+    // This is only efficient to do in a batch.
+    void swap_node_ids(hash_map<int64_t, int64_t> id_mapping);
     void for_each_mapping(const function<void(Mapping*)>& lambda);
 };
 

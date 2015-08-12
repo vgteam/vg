@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 3
+plan tests 7
 
 num_nodes=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg ids -c - | vg view -g - | grep ^S | wc -l)
 
@@ -25,3 +25,15 @@ first=$(vg view -g z.vg | grep ^S | head -1 | cut -f 2)
 is $first $(echo "$last + 1" | bc) "correctly generated joint id space for several graphs"
 
 rm x.vg y.vg z.vg
+
+vg ids -s cyclic/self_loops.vg > sorted.vg
+is $? 0 "can sort and re-number a graph with self loops"
+
+vg ids -s cyclic/all.vg > sorted.vg
+is $? 0 "can sort and renumber a complex cyclic graph"
+
+is $(vg ids -s ids/mixed.json | vg view -j - | jq -c '.edge[] | select(.from > .to)' | wc -l) 0 "sorting removes back-edges in a DAG"
+
+rm sorted.vg
+
+is $(vg ids -s ids/unordered.vg | vg view -j - | jq -c '.node[1] == {"id":2,"sequence":"T"}') "true" "sorting assigns node IDs in topological order"

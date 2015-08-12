@@ -173,6 +173,23 @@ void Paths::increment_node_ids(int64_t inc) {
     rebuild_node_mapping();
 }
 
+void Paths::swap_node_ids(hash_map<int64_t, int64_t> id_mapping) {
+    for (auto& p : _paths) {
+        const string& name = p.first;
+        list<Mapping>& path = p.second;
+        for (auto& m : path) {
+            // Look up the replacement ID
+            auto replacement = id_mapping.find(m.position().node_id());
+        
+            if(replacement != id_mapping.end()) {
+                // If there is a replacement, use it.
+                m.mutable_position()->set_node_id((*replacement).second);
+            }
+        }
+    }
+    rebuild_node_mapping();
+}
+
 void Paths::rebuild_node_mapping(void) {
     // starts with paths and rebuilds the index
     node_mapping.clear();

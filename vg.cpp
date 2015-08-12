@@ -528,9 +528,7 @@ void VG::compact_ids(void) {
     for_each_edge([&new_id](Edge* e) {
             e->set_from(new_id[e->from()]);
             e->set_to(new_id[e->to()]); });
-    paths.for_each_mapping([&new_id](Mapping* m) {
-            m->mutable_position()->set_node_id(new_id[m->position().node_id()]);
-        });
+    paths.swap_node_ids(new_id);
     rebuild_indexes();
 }
 
@@ -623,8 +621,6 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
     //assert(is_valid());
 
 }
-
-
 
 // construct from VCF records
 // --------------------------
