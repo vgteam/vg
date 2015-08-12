@@ -567,24 +567,38 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
     // otherwise move to a new id
     node_by_id[new_id] = node;
 
+    // These are sets, so if we try to destroy and recreate the same edge from
+    // both ends (i.e. if they both go to this node) we will only do it once.
     set<pair<NodeSide, NodeSide>> edges_to_destroy;
     set<pair<NodeSide, NodeSide>> edges_to_create;
+
+    // Define a function that we will run on every edge this node is involved in
+    auto fix_edge = [&](Edge* edge) {
+    
+        // Destroy that edge
+        edges_to_destroy.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
+
+        // Make a new edge with our new ID as from or to (or both), depending on which it was before.
+        // TODO: Is there a cleaner way to do this?
+        if(edge->from() == old_id) {
+            if(edge->to() == old_id) {
+                edges_to_create.emplace(NodeSide(new_id, !edge->from_start()), NodeSide(new_id, edge->to_end()));
+            } else {
+                edges_to_create.emplace(NodeSide(new_id, !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
+            }
+        } else {
+            edges_to_create.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(new_id, edge->to_end()));
+        }
+    
+    };
 
     for(pair<int64_t, bool>& other : edges_start(old_id)) {
         // Get the actual Edge
         // We're at a start, so we go to the end of the other node normally, and the start if the other node is backward
         Edge* edge = edge_by_sides[minmax(NodeSide(old_id, false), NodeSide(other.first, !other.second))];
-
-        // Destroy that edge
-        edges_to_destroy.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
-
-        // Make a new edge with our new ID as from or to, depending on which it was before.
-        // TODO: Is there a cleaner way to do this?
-        if(edge->from() == old_id) {
-            edges_to_create.emplace(NodeSide(new_id, !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
-        } else {
-            edges_to_create.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(new_id, edge->to_end()));
-        }
+        
+        // Plan to fix up its IDs.
+        fix_edge(edge);
     }
 
     for(pair<int64_t, bool>& other : edges_end(old_id)) {
@@ -592,16 +606,8 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
         // We're at an end, so we go to the start of the other node normally, and the end if the other node is backward
         Edge* edge = edge_by_sides[minmax(NodeSide(old_id, true), NodeSide(other.first, other.second))];
 
-        // Destroy that edge
-        edges_to_destroy.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
-
-        // Make a new edge with our new ID as from or to, depending on which it was before.
-        // TODO: Is there a cleaner way to do this?
-        if(edge->from() == old_id) {
-            edges_to_create.emplace(NodeSide(new_id, !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
-        } else {
-            edges_to_create.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(new_id, edge->to_end()));
-        }
+        // Plan to fix up its IDs.
+        fix_edge(edge);
     }
 
     assert(edges_to_destroy.size() == edges_to_create.size());
