@@ -3022,16 +3022,6 @@ bool VG::is_valid(void) {
         }
     }
 
-    if (head_nodes().empty()) {
-        cerr << "graph invalid: no head nodes" << endl;
-        return false;
-    }
-
-    if (tail_nodes().empty()) {
-        cerr << "graph invalid: no tail nodes" << endl;
-        return false;
-    }
-
     return true;
 }
 
