@@ -1690,8 +1690,7 @@ Node* VG::get_node(int64_t id) {
     if (n != node_by_id.end()) {
         return n->second;
     } else {
-        // again... should this throw an error?
-        return NULL;
+        throw runtime_error("No node " + to_string(id) + " in graph");
     }
 }
 
@@ -2170,12 +2169,9 @@ void VG::nodes_prev(NodeTraversal node, vector<NodeTraversal>& nodes) {
     // attached relatively forward (false) or backward (true)
     vector<pair<int64_t, bool>>& left_nodes = node.backward ? edges_end(node.node) : edges_start(node.node);
     for (auto& prev : left_nodes) {
-        // Complain if we try to go to a nonexistent node
-        //assert(has_node(prev.first));
-
         // Make a NodeTraversal that is an oriented description of the node attached to our relative left.
         // If we're backward, and it's in the same relative orientation as us, it needs to be backward too.
-        nodes.emplace_back(node_by_id[prev.first], prev.second != node.backward);
+        nodes.emplace_back(get_node(prev.first), prev.second != node.backward);
     }
 }
 
@@ -2184,13 +2180,9 @@ void VG::nodes_next(NodeTraversal node, vector<NodeTraversal>& nodes) {
     // are attached relatively forward (false) or backward (true)
     vector<pair<int64_t, bool>>& right_nodes = node.backward ? edges_start(node.node) : edges_end(node.node);
     for (auto& next : right_nodes) {
-        //cerr << "Node " << node.node->id() << " wants to go to " << next.first << " orientation " << next.second << endl;
-        // Complain if we try to go to a nonexistent node
-        //assert(has_node(next.first));
-
         // Make a NodeTraversal that is an oriented description of the node attached to our relative right.
         // If we're backward, and it's in the same relative orientation as us, it needs to be backward too.
-        nodes.emplace_back(node_by_id[next.first], next.second != node.backward);
+        nodes.emplace_back(get_node(next.first), next.second != node.backward);
     }
 }
 
@@ -2354,6 +2346,7 @@ void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
     set<list<NodeTraversal> > prev_paths;
     set<list<NodeTraversal> > next_paths;
     list<NodeTraversal> empty_list;
+    
     prev_kpaths_from_node(NodeTraversal(node), k, edge_max, (edge_max != 0),
                           empty_list, prev_paths, prev_maxed);
     next_kpaths_from_node(NodeTraversal(node), k, edge_max, (edge_max != 0),
@@ -2962,8 +2955,12 @@ bool VG::is_valid(void) {
                      << edge_destination.first << endl;
                 return false;
             }
-            if((start_and_edges.first == e->to() && e->to_end()) || start_and_edges.first == e->from() && !e->from_start()) {
+            if(!((start_and_edges.first == e->to() && !e->to_end()) ||
+                 (start_and_edges.first == e->from() && e->from_start()))) {
+            
                 // The edge needs to actually attach to the start of the node we looked it up for.
+                // So at least one of its ends has to be to the start of the correct node.
+                // It may also be attached to the end.
                 cerr << "graph invalid: edge " << e->from() << "->" << e->to()
                      << " doesn't attach to start of " << start_and_edges.first << endl;
                 return false;
@@ -3000,8 +2997,12 @@ bool VG::is_valid(void) {
                      << edge_destination.first << endl;
                 return false;
             }
-            if((end_and_edges.first == e->to() && !e->to_end()) || end_and_edges.first == e->from() && e->from_start()) {
+            if(!((end_and_edges.first == e->to() && e->to_end()) ||
+                 (end_and_edges.first == e->from() && !e->from_start()))) {
+            
                 // The edge needs to actually attach to the end of the node we looked it up for.
+                // So at least one of its ends has to be to the end of the correct node.
+                // It may also be attached to the start.
                 cerr << "graph invalid: edge " << e->from() << "->" << e->to()
                      << " doesn't attach to end of " << end_and_edges.first << endl;
                 return false;
