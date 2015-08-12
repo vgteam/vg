@@ -63,6 +63,10 @@ public:
     }
 };
 
+inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
+    return out << nodetraversal.node->id() << " " << (nodetraversal.backward ? "rev" : "fwd");
+}
+
 // Represents one side of a Node, identified by ID, for the purposes of
 // indexing edges.
 class NodeSide {
@@ -111,6 +115,10 @@ public:
         return minmax(NodeSide(end_id, true), NodeSide(oriented_other.first, oriented_other.second));
     }
 };
+
+inline ostream& operator<<(ostream& out, const NodeSide& nodeside) {
+    return out << nodeside.node << " " << (nodeside.is_end ? "end" : "start");
+}
 
 }
 
