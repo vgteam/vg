@@ -1475,8 +1475,6 @@ Edge* VG::create_edge(Node* from, Node* to, bool from_start, bool to_end) {
 
 Edge* VG::create_edge(int64_t from, int64_t to, bool from_start, bool to_end) {
     //cerr << "creating edge " << from << "->" << to << endl;
-    // prevent self-linking (violates DAG/partial ordering property)
-    if (to == from) return nullptr;
     // ensure the edge (or another between the same sides) does not already exist
     Edge* edge = get_edge(NodeSide(from, !from_start), NodeSide(to, to_end));
     if (edge) {
