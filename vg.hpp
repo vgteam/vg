@@ -226,6 +226,7 @@ public:
     VG(vcflib::VariantCallFile& variantCallFile,
        FastaReference& reference,
        string& target,
+       bool target_is_chrom,
        int vars_per_region,
        int max_node_size = 0,
        bool showprog = false);

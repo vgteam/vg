@@ -3082,6 +3082,8 @@ void help_construct(char** argv) {
          << "    -r, --reference FILE  input FASTA reference" << endl
          << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
          << "    -R, --region REGION   specify a particular chromosome" << endl
+         << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
+         << "                          sequence name could be inadvertently parsed as a region)" << endl
          << "    -z, --region-size N   variants per region to parallelize" << endl
          << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
          << "                          nodes greater than this threshold will be divided" << endl
@@ -3098,6 +3100,7 @@ int main_construct(int argc, char** argv) {
 
     string fasta_file_name, vcf_file_name, json_filename;
     string region;
+    bool region_is_chrom = false;
     string output_type = "VG";
     bool progress = false;
     int vars_per_region = 25000;
@@ -3117,12 +3120,13 @@ int main_construct(int argc, char** argv) {
                 {"region-size", required_argument, 0, 'z'},
                 {"threads", required_argument, 0, 't'},
                 {"region", required_argument, 0, 'R'},
+                {"region-is-chrom", no_argument, 0, 'C'},
                 {"node-max", required_argument, 0, 'm'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:s:C",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3153,6 +3157,10 @@ int main_construct(int argc, char** argv) {
 
         case 'R':
             region = optarg;
+            break;
+
+        case 'C':
+            region_is_chrom = true;
             break;
 
         case 't':
@@ -3194,7 +3202,7 @@ int main_construct(int argc, char** argv) {
     // store our reference sequence paths
     Paths ref_paths;
 
-    VG graph(variant_file, reference, region, vars_per_region, max_node_size, progress);
+    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region, max_node_size, progress);
 
     if (!ref_paths_file.empty()) {
         ofstream paths_out(ref_paths_file);

@@ -1182,6 +1182,7 @@ void VG::destroy_progress(void) {
 VG::VG(vcflib::VariantCallFile& variantCallFile,
        FastaReference& reference,
        string& target_region,
+       bool target_is_chrom,
        int vars_per_region,
        int max_node_size,
        bool showprog) {
@@ -1223,19 +1224,30 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         string target = *t;
         int start_pos = 0, stop_pos = 0;
         // nasty hack for handling single regions
-        parse_region(target,
-                     seq_name,
-                     start_pos,
-                     stop_pos);
-        if (stop_pos > 0) {
-            if (variantCallFile.is_open()) {
-                variantCallFile.setRegion(seq_name, start_pos, stop_pos);
+        if (!target_is_chrom) {
+            parse_region(target,
+                         seq_name,
+                         start_pos, 
+                         stop_pos);
+            if (stop_pos > 0) {
+                if (variantCallFile.is_open()) {
+                    variantCallFile.setRegion(seq_name, start_pos, stop_pos);
+                }
+            } else {
+                if (variantCallFile.is_open()) {
+                    variantCallFile.setRegion(seq_name);
+                }
+                stop_pos = reference.sequenceLength(seq_name);
             }
         } else {
+            // the user said the target is just a sequence name
+            // and is unsafe to parse as it may contain ':' or '-'
+            // for example "gi|568815592:29791752-29792749"
             if (variantCallFile.is_open()) {
-                variantCallFile.setRegion(seq_name);
+                variantCallFile.setRegion(target);
             }
-            stop_pos = reference.sequenceLength(seq_name);
+            stop_pos = reference.sequenceLength(target);
+            seq_name = target;
         }
         vcflib::Variant var(variantCallFile);
 
