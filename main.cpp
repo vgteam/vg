@@ -21,6 +21,195 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
+void help_msga(char** argv) {
+    cerr << "usage: " << argv[0] << " msga [options] >graph.vg" << endl
+         << "Multiple sequence / graph aligner." << endl
+         << endl
+         << "options:" << endl
+         << "    -f, --from FILE       use sequneces in (fasta) FILE" << endl
+         << "    -n, --name NAME       include this sequence" << endl
+         << "                           (If any --name is specified, use only" << endl
+         << "                            specified sequences from FASTA files.)" << endl
+         << "    -b, --base NAME       use this sequence as the graph basis if graph is empty" << endl
+         << "    -s, --seq SEQUENCE    literally include this sequence" << endl
+         << "    -g, --graph FILE      include this graph" << endl
+         << endl
+         << "Otherwise, construct a multiple sequence alignment from all sequences in the" << endl
+         << "input fasta-format files, graphs, and sequences." << endl
+         << endl
+         << "Only single graph inputs are currently supported." << endl
+         << endl
+         << "Emits the resulting MSA as a (vg-format) graph." << endl;
+}
+
+int main_msga(int argc, char** argv) {
+
+    if (argc == 2) {
+        help_msga(argv);
+        return 1;
+    }
+
+    vector<string> fasta_files;
+    set<string> seq_names;
+    vector<string> sequences;
+    vector<string> graph_files;
+    // will inevitably add parameters for MSA
+    // but keep it simple for now
+    // ...
+    bool reverse_complement = false;
+    string base_seq_name;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"help", no_argument, 0, 'h'},
+                {"from", required_argument, 0, 'f'},
+                {"name", required_argument, 0, 'n'},
+                {"seq", required_argument, 0, 's'},
+                {"graph", required_argument, 0, 'g'},
+                {"base", required_argument, 0, 'b'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hf:n:s:g:b:",
+                         long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+
+        case 'f':
+            fasta_files.push_back(optarg);
+            break;
+
+        case 'n':
+            seq_names.insert(optarg);
+            break;
+
+        case 's':
+            sequences.push_back(optarg);
+            break;
+
+        case 'b':
+            base_seq_name = optarg;
+            break;
+
+        case 'g':
+            if (graph_files.size() != 0) {
+                cerr << "[vg msga] Error: graph-graph alignment is not yet implemented." << endl
+                     << "We can only use one input graph." << endl;
+                return 1;
+            }
+            graph_files.push_back(optarg);
+            break;
+
+        case 'h':
+        case '?':
+            help_msga(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    // build the graph or read it in from input
+    VG* graph;
+    if (graph_files.size() == 1) {
+        string file_name = graph_files.front();
+        if (file_name == "-") {
+            graph = new VG(std::cin);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            graph = new VG(in);
+        }
+    } else {
+        graph = new VG;
+    }
+
+
+    map<string, set<string> > strings;
+    // open the fasta files, read in the sequences
+    vector<string> names_in_order;
+
+    for (auto& fasta_file_name : fasta_files) {
+        FastaReference ref;
+        ref.open(fasta_file_name);
+        for (auto& seq : ref.index->sequenceNames) {
+            // only use the sequence if we have whitelisted it
+            if (seq_names.empty() || seq_names.count(seq)) {
+                strings[seq].insert(ref.getSequence(seq));
+            }
+        }
+    }
+
+    for (auto& s : sequences) {
+        strings[""].insert(s);
+    }
+
+    // align, include, repeat
+
+    // if our graph is empty, we need to take the first sequence and build a graph from it
+    if (graph->empty()) {
+        // what's the first sequence?
+        if (base_seq_name.empty()) {
+            graph->create_node(*strings.begin()->second.begin());
+        } else {
+            // we specified one we wanted to use as the first
+            graph->create_node(*strings[base_seq_name].begin());
+        }
+    }
+
+    // questions:
+    // should we preferentially use sequences from fasta files in the order they were given?
+    // reverse complement?
+    
+
+    for (auto& group : strings) {
+        for (auto& seq : group.second) {
+            // align to the graph
+            
+            // now take the alignment and modify the graph with it
+        }
+    }
+    
+
+    // todo....
+    //
+    // strategy for graph/graph alignment
+    // ---------------
+    // multiple graphs can be aligned by converting them into collections of named sequences
+    // e.g. using a strided sampling of a long kmer space
+    // of sufficient length to align to a second graph
+    //
+    // the multi-graph alignment is a graph which contains both of the
+    // with homologous sequences merged and the paths from the input graphs retained
+    //
+    // a progressive approach can be used, where we first attempt to construct a graph using a particular
+    // sequence size
+    // then, by labeling the first graph where it is shown to map to the new graph, we can retain only
+    // the portion which was not included, then attempt to include the remaining fragments using
+    // more compute-intensive parameters
+    //
+    // to limit path complexity, random walks should be used to sample the path space of the first graph
+    // we can erode the graph we are aligning as regions of it become completely aligned,
+    // so as to avoid over-sampling the graph
+    // we already have functionality for this in `vg sim`
+    //
+    // this is an elaborate but easily-written and flexible approach to aligning large graphs
+    // efficiently
+
+    return 0;
+}
+
 void help_surject(char** argv) {
     cerr << "usage: " << argv[0] << " surject [options] <aln.gam> >[proj.cram]" << endl
          << "Transforms alignments to be relative to particular paths." << endl
@@ -2218,7 +2407,7 @@ int main_align(int argc, char** argv) {
     graph->orient_nodes_forward(flipped_nodes);
 
     Alignment alignment = graph->align(seq);
-    
+
     // Fix up the alignment with the flipped nodes
     flip_nodes(alignment, flipped_nodes, [&graph](int64_t node_id) {
         // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
@@ -3236,7 +3425,8 @@ void vg_help(char** argv) {
          << "  -- kmers         enumerate kmers of the graph" << endl
          << "  -- sim           simulate reads from the graph" << endl
          << "  -- mod           filter, transform, and edit the graph" << endl
-         << "  -- surject       map alignments onto specific paths" << endl;
+         << "  -- surject       map alignments onto specific paths" << endl
+         << "  -- msga          multiple sequence graph alignment" << endl;
 }
 
 int main(int argc, char *argv[])
@@ -3280,6 +3470,8 @@ int main(int argc, char *argv[])
         return main_mod(argc, argv);
     } else if (command == "surject") {
         return main_surject(argc, argv);
+    } else if (command == "msga") {
+        return main_msga(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
