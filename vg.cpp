@@ -21,7 +21,8 @@ VG::VG(istream& in, bool showp) {
     uint64_t i = 0;
     function<void(Graph&)> lambda = [this, &i](Graph& g) {
         update_progress(++i);
-        extend(g);
+        // We expect these to not overlap in nodes or edges, so complain if they do.
+        extend(g, true);
     };
 
     stream::for_each(in, lambda, handle_count);
@@ -47,7 +48,8 @@ VG::VG(function<bool(Graph&)>& get_next_graph, bool showp) {
     bool got_subgraph = get_next_graph(subgraph);
     while(got_subgraph) {
         // If there is a valid subgraph, add it to ourselves.
-        extend(subgraph);
+        // We expect these to not overlap in nodes or edges, so complain if they do.
+        extend(subgraph, true);
         // Try and load the next subgraph, if it exists.
         got_subgraph = get_next_graph(subgraph);
     }
@@ -70,7 +72,9 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
              j < (i+1)*chunk_size && j < graph.node_size();
              ++j) {
             Node* node = graph.mutable_node(j);
-            node_context(node, g);
+            // Grab the node and only the edges where it has the lower ID.
+            // This prevents duplication of edges in the serialized output.
+            nonoverlapping_node_context(node, g);
         }
         // store paths
         g.paths.to_graph(g.graph);
@@ -387,33 +391,48 @@ void VG::merge(Graph& g) {
 }
 
 // iterates over nodes and edges, adding them in when they don't already exist
-void VG::extend(VG& g) {
+void VG::extend(VG& g, bool warn_on_duplicates) {
     for (int64_t i = 0; i < g.graph.node_size(); ++i) {
         Node* n = g.graph.mutable_node(i);
-        if (!has_node(n)) {
+        if(n->id() == 0) {
+            cerr << "[vg] warning: node ID 0 is not allowed. Skipping." << endl;
+        } else if (!has_node(n)) {
             add_node(*n);
+        } else if(warn_on_duplicates) {
+            cerr << "[vg] warning: node ID " << n->id() << " appears multiple times. Skipping." << endl;
         }
     }
     for (int64_t i = 0; i < g.graph.edge_size(); ++i) {
         Edge* e = g.graph.mutable_edge(i);
         if (!has_edge(e)) {
             add_edge(*e);
+        } else if(warn_on_duplicates) {
+            cerr << "[vg] warning: edge " << e->from() << (e->from_start() ? " start" : " end") << " <-> "
+                 << e->to() << (e->to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
         }
     }
     paths.append(g.paths);
 }
 
-void VG::extend(Graph& graph) {
+// TODO: unify with above. The only difference is what's done with the paths.
+void VG::extend(Graph& graph, bool warn_on_duplicates) {
     for (int64_t i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        if (!has_node(n)) {
+        if(n->id() == 0) {
+            cerr << "[vg] warning: node ID 0 is not allowed. Skipping." << endl;
+        } else if (!has_node(n)) {
             add_node(*n);
+        } else if(warn_on_duplicates) {
+            cerr << "[vg] warning: node ID " << n->id() << " appears multiple times. Skipping." << endl;
         }
     }
     for (int64_t i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         if (!has_edge(e)) {
             add_edge(*e);
+        } else if(warn_on_duplicates) {
+            cerr << "[vg] warning: edge " << e->from() << (e->from_start() ? " start" : " end") << " <-> "
+                 << e->to() << (e->to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
         }
     }
     paths.append(graph);
@@ -537,7 +556,6 @@ void VG::swap_node_id(int64_t node_id, int64_t new_id) {
 
 void VG::swap_node_id(Node* node, int64_t new_id) {
 
-    cerr << "swapping " << node->id() << " for new id " << new_id << endl;
     int edge_n = edge_count();
     int64_t old_id = node->id();
     node->set_id(new_id);
@@ -1872,6 +1890,39 @@ void VG::node_context(Node* node, VG& g) {
     }
 }
 
+// a graph composed of this node and the edges that can be uniquely assigned to it
+void VG::nonoverlapping_node_context(Node* node, VG& g) {
+    // add the node
+    g.add_node(*node);
+
+    auto grab_edge = [&](Edge* e) {
+        // What node owns the edge?
+        int64_t owner_id = min(e->from(), e->to());
+        if(node->id() == owner_id || !has_node(owner_id)) {
+            // Either we are the owner, or the owner isn't in the graph to get serialized.
+            g.add_edge(*e);
+        }
+    };
+
+    // Go through all its edges
+    vector<pair<int64_t, bool>>& start = edges_start(node->id());
+    for (auto& e : start) {
+        grab_edge(get_edge(NodeSide::pair_from_start_edge(node->id(), e)));
+    }
+    vector<pair<int64_t, bool>>& end = edges_end(node->id());
+    for (auto& e : end) {
+        grab_edge(get_edge(NodeSide::pair_from_end_edge(node->id(), e)));
+    }
+
+    // and its path members
+    if (paths.has_node_mapping(node)) {
+        auto& node_mappings = paths.get_node_mapping(node);
+        for (auto& i : node_mappings) {
+            g.paths.append_mapping(i.first, *i.second);
+        }
+    }
+}
+
 void VG::destroy_node(int64_t id) {
     destroy_node(get_node(id));
 }
@@ -3110,6 +3161,22 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
                         && (both_paths.empty()
                             || !paths.are_consecutive_nodes_in_path(e->from(), e->to(),
                                                                     *both_paths.begin())));
+
+        // Is the edge in the "wrong" direction for rank constraints?
+        bool is_backward = e->from_start() && e->to_end();
+
+        if(is_backward) {
+            // Flip the edge around and write it forward.
+            Edge* original = e;
+            e = new Edge();
+
+            e->set_from(original->to());
+            e->set_from_start(!original->to_end());
+
+            e->set_to(original->from());
+            e->set_to_end(!original->from_start());
+        }
+
         // display what kind of edge we have using different edge head and tail styles
         // depending on if the edge comes from the start or not
         out << "    " << e->from() << " -> " << e->to();
@@ -3132,6 +3199,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
             out << "headport=nw";
         }
         out << "];" << endl;
+
+        if(is_backward) {
+            // We don't need this duplicate edge
+            delete e;
+        }
     }
     // add nodes for the alignments and link them to the nodes they match
     int alnid = max_node_id()+1;
@@ -4261,7 +4333,7 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
         while(s.empty() && !seeds.empty()) {
             // Look at the first seed
             NodeTraversal first_seed = (*seeds.begin()).second;
-        
+
             if(unvisited.count(first_seed.node->id())) {
                 // We have an unvisited seed. Use it
 #ifdef debug
