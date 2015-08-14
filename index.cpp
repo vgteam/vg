@@ -1477,7 +1477,7 @@ void Index::get_range(int64_t from_id, int64_t to_id, VG& graph) {
             graph.add_edge(edge);
         } break;
         case 'e': {
-            // Key describes an edge on the start of a node
+            // Key describes an edge on the end of a node
             Edge edge;
             int64_t id1, id2;
             char type;
@@ -1543,8 +1543,12 @@ void Index::for_kmer_range(const string& kmer, function<void(string&, string&)> 
 }
 
 void Index::for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda) {
-    string start = key_for_node(from_id);
-    string end = key_for_node(to_id+1);
+    // We can't rely on edge keys coming after their node keys, so we need to
+    // trim off the trailing "+n" from the first key, so we get all the edges.
+    string start = key_for_node(from_id).substr(0,3+sizeof(int64_t));
+    // Similarly, we need to stop before the edges attached to this other node,
+    // if there are any.
+    string end = key_for_node(to_id+1).substr(0,3+sizeof(int64_t));
     // apply to the range matching the kmer in the db
     for_range(start, end, lambda);
 }
