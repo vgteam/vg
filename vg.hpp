@@ -17,6 +17,7 @@
 #include "region.hpp"
 #include "path.hpp"
 #include "utility.hpp"
+#include "alignment.hpp"
 
 #include "vg.pb.h"
 #include "hash_map.hpp"
@@ -515,7 +516,6 @@ public:
     // Will modify the graph by re-ordering the nodes.
     Alignment& align(Alignment& alignment);
     Alignment align(string& sequence);
-    //Alignment& align(Alignment& alignment);
     void destroy_alignable_graph(void);
 
     GSSWAligner* gssw_aligner;
@@ -758,14 +758,6 @@ private:
     vector<int64_t> empty_ids;
     vector<pair<int64_t, bool>> empty_edge_ends;
 };
-
-// utility functions
-
-bool allATGC(string& s);
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
-string cigar_string(vector<pair<int, char> >& cigar);
-string mapping_string(const string& source, const Mapping& mapping);
-void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* nl, Node* nr);
 
 } // end namespace vg
 

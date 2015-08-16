@@ -2405,17 +2405,7 @@ int main_align(int argc, char** argv) {
         graph = new VG(in);
     }
 
-    // Make sure we flip the nodes all forward and break cycles
-    set<int64_t> flipped_nodes;
-    graph->orient_nodes_forward(flipped_nodes);
-
     Alignment alignment = graph->align(seq);
-
-    // Fix up the alignment with the flipped nodes
-    flip_nodes(alignment, flipped_nodes, [&graph](int64_t node_id) {
-        // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
-        return graph->get_node(node_id)->sequence().size();
-    });
 
     if (output_json) {
         cout << pb2json(alignment) << endl;

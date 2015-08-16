@@ -4,9 +4,9 @@
 #include <iostream>
 #include <functional>
 #include <zlib.h>
-#include "vg.hpp"
-#include "index.hpp"
+#include "utility.hpp"
 #include "path.hpp"
+#include "vg.pb.h"
 
 #include "htslib/hfile.h"
 #include "htslib/hts.h"
