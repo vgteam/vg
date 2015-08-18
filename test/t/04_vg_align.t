@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 8
+plan tests 9
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "alignment traverses the correct path"
 
@@ -27,3 +27,6 @@ rm t.vg
 
 
 is $(vg align -s TATATATATACCCCCCCCC -j cyclic/all.vg | jq ".path.mapping[].position.node_id" | tr '\n' ',' | grep "5,6" | wc -l) 1  "alignment to cyclic graphs works"
+
+vg align -s ACGT -j cyclic/reverse_self.vg >/dev/null
+is $? 0  "graphs where duplicated nodes need flipping can be used for alignment"

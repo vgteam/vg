@@ -1,0 +1,510 @@
+{
+  "node": [
+    {
+      "id": 75730,
+      "sequence": "T",
+      "name": "ref_3343168"
+    },
+    {
+      "id": 75731,
+      "sequence": "AAATTTATTTTTTTATTGATAATTCTTGGGTGTTTCTCACAGAGGGGGATTTGGCAGGGTCATGGGACAATAGTGGAGGGAAGGTCAG"
+    },
+    {
+      "id": 75732,
+      "sequence": "CAGATAAACAAGTGAACAAAGGTCTCTGGTTTTCCTAGGCAGAGGACCCTGCGGCCTTCCGCAGTGTTTGTGTCCCTGATTACTTGAG"
+    },
+    {
+      "id": 75733,
+      "sequence": "ATTAGGGATTGGTGATGACTCCCAACGAGCACCCTGCCTTCAAGCATCTGTTTAACAAAGCACATCTTGCACCGCCCTTAATCCATTTAA"
+    },
+    {
+      "id": 75734,
+      "sequence": "C",
+      "name": "ref_3343435"
+    },
+    {
+      "id": 75735,
+      "sequence": "CCTGAGTGGACACAGCACATGTTTCAGAGAGCACAGGGTTGGGGGTAAGGTCACAGAT"
+    },
+    {
+      "id": 75736,
+      "sequence": "CAACAGGATCCCAAGGCAGAGGAATTTTTCTTAGTGCAGAACAAAATGAAAAGTCTCC"
+    },
+    {
+      "id": 75737,
+      "sequence": "CATGTCTA",
+      "name": "ref_3343552"
+    },
+    {
+      "id": 75738,
+      "sequence": "C",
+      "name": "ref_3343560"
+    },
+    {
+      "id": 75739,
+      "sequence": "TTCTTTCTACACAGACACGGCAACCATCCGATTTCTCAATCTTTTCCCCACCTTTCC",
+      "name": "ref_3343561"
+    },
+    {
+      "id": 75740,
+      "sequence": "TGCCTTTCTATTCCACAAAGCCGCCATTGTCATCCTGGCCCGTTCTCAATGAGCTGTTGGGCACACCTCCCAGA"
+    },
+    {
+      "id": 75742,
+      "sequence": "G",
+      "name": "ref_2734744"
+    }
+  ],
+  "edge": [
+    {
+      "from": 75730,
+      "to": 75730,
+      "from_start": true,
+      "to_end": true
+    },
+    {
+      "from": 75730,
+      "to": 75731
+    },
+    {
+      "from": 75731,
+      "to": 75732
+    },
+    {
+      "from": 75732,
+      "to": 75733
+    },
+    {
+      "from": 75733,
+      "to": 75734
+    },
+    {
+      "from": 75734,
+      "to": 75735
+    },
+    {
+      "from": 75735,
+      "to": 75736
+    },
+    {
+      "from": 75736,
+      "to": 75737
+    },
+    {
+      "from": 75737,
+      "to": 75738
+    },
+    {
+      "from": 75738,
+      "to": 75739
+    },
+    {
+      "from": 75739,
+      "to": 75740
+    },
+    {
+      "from": 75742,
+      "to": 75739,
+      "to_end": true
+    }
+  ],
+  "path": [
+    {
+      "name": "GI568335954",
+      "mapping": [
+        {
+          "position": {
+            "node_id": 75730
+          }
+        },
+        {
+          "position": {
+            "node_id": 75731
+          }
+        },
+        {
+          "position": {
+            "node_id": 75732
+          }
+        },
+        {
+          "position": {
+            "node_id": 75733
+          }
+        },
+        {
+          "position": {
+            "node_id": 75734
+          }
+        },
+        {
+          "position": {
+            "node_id": 75735
+          }
+        },
+        {
+          "position": {
+            "node_id": 75736
+          }
+        },
+        {
+          "position": {
+            "node_id": 75737
+          }
+        },
+        {
+          "position": {
+            "node_id": 75738
+          }
+        },
+        {
+          "position": {
+            "node_id": 75739
+          }
+        },
+        {
+          "position": {
+            "node_id": 75740
+          }
+        },
+        {
+          "position": {
+            "node_id": 75742
+          },
+          "is_reverse": true
+        }
+      ]
+    },
+    {
+      "name": "GI568335976",
+      "mapping": [
+        {
+          "position": {
+            "node_id": 75730
+          }
+        },
+        {
+          "position": {
+            "node_id": 75731
+          }
+        },
+        {
+          "position": {
+            "node_id": 75732
+          }
+        },
+        {
+          "position": {
+            "node_id": 75733
+          }
+        },
+        {
+          "position": {
+            "node_id": 75734
+          }
+        },
+        {
+          "position": {
+            "node_id": 75735
+          }
+        },
+        {
+          "position": {
+            "node_id": 75736
+          }
+        },
+        {
+          "position": {
+            "node_id": 75737
+          }
+        },
+        {
+          "position": {
+            "node_id": 75738
+          }
+        },
+        {
+          "position": {
+            "node_id": 75739
+          }
+        },
+        {
+          "position": {
+            "node_id": 75740
+          }
+        },
+        {
+          "position": {
+            "node_id": 75742
+          }
+        }
+      ]
+    },
+    {
+      "name": "GI568335986",
+      "mapping": [
+        {
+          "position": {
+            "node_id": 75730
+          }
+        },
+        {
+          "position": {
+            "node_id": 75731
+          }
+        },
+        {
+          "position": {
+            "node_id": 75732
+          }
+        },
+        {
+          "position": {
+            "node_id": 75733
+          }
+        },
+        {
+          "position": {
+            "node_id": 75734
+          }
+        },
+        {
+          "position": {
+            "node_id": 75735
+          }
+        },
+        {
+          "position": {
+            "node_id": 75736
+          }
+        },
+        {
+          "position": {
+            "node_id": 75737
+          }
+        },
+        {
+          "position": {
+            "node_id": 75738
+          }
+        },
+        {
+          "position": {
+            "node_id": 75739
+          }
+        },
+        {
+          "position": {
+            "node_id": 75740
+          }
+        },
+        {
+          "position": {
+            "node_id": 75742
+          }
+        }
+      ]
+    },
+    {
+      "name": "GI568335989",
+      "mapping": [
+        {
+          "position": {
+            "node_id": 75730
+          }
+        },
+        {
+          "position": {
+            "node_id": 75731
+          }
+        },
+        {
+          "position": {
+            "node_id": 75732
+          }
+        },
+        {
+          "position": {
+            "node_id": 75733
+          }
+        },
+        {
+          "position": {
+            "node_id": 75734
+          }
+        },
+        {
+          "position": {
+            "node_id": 75735
+          }
+        },
+        {
+          "position": {
+            "node_id": 75736
+          }
+        },
+        {
+          "position": {
+            "node_id": 75737
+          }
+        },
+        {
+          "position": {
+            "node_id": 75738
+          }
+        },
+        {
+          "position": {
+            "node_id": 75739
+          }
+        },
+        {
+          "position": {
+            "node_id": 75740
+          }
+        }
+      ]
+    },
+    {
+      "name": "GI568335992",
+      "mapping": [
+        {
+          "position": {
+            "node_id": 75730
+          }
+        },
+        {
+          "position": {
+            "node_id": 75731
+          }
+        },
+        {
+          "position": {
+            "node_id": 75732
+          }
+        },
+        {
+          "position": {
+            "node_id": 75733
+          }
+        },
+        {
+          "position": {
+            "node_id": 75734
+          }
+        },
+        {
+          "position": {
+            "node_id": 75735
+          }
+        },
+        {
+          "position": {
+            "node_id": 75736
+          }
+        },
+        {
+          "position": {
+            "node_id": 75737
+          }
+        },
+        {
+          "position": {
+            "node_id": 75738
+          }
+        },
+        {
+          "position": {
+            "node_id": 75739
+          }
+        },
+        {
+          "position": {
+            "node_id": 75740
+          }
+        },
+        {
+          "position": {
+            "node_id": 75742
+          },
+          "is_reverse": true
+        }
+      ]
+    },
+    {
+      "name": "GI568335997",
+      "mapping": [
+        {
+          "position": {
+            "node_id": 75734
+          }
+        }
+      ]
+    },
+    {
+      "name": "ref",
+      "mapping": [
+        {
+          "position": {
+            "node_id": 75730
+          }
+        },
+        {
+          "position": {
+            "node_id": 75731
+          }
+        },
+        {
+          "position": {
+            "node_id": 75732
+          }
+        },
+        {
+          "position": {
+            "node_id": 75733
+          }
+        },
+        {
+          "position": {
+            "node_id": 75734
+          }
+        },
+        {
+          "position": {
+            "node_id": 75735
+          }
+        },
+        {
+          "position": {
+            "node_id": 75736
+          }
+        },
+        {
+          "position": {
+            "node_id": 75737
+          }
+        },
+        {
+          "position": {
+            "node_id": 75738
+          }
+        },
+        {
+          "position": {
+            "node_id": 75739
+          }
+        },
+        {
+          "position": {
+            "node_id": 75740
+          }
+        },
+        {
+          "position": {
+            "node_id": 75742
+          }
+        }
+      ]
+    }
+  ]
+}
