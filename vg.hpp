@@ -398,7 +398,10 @@ public:
     int left_degree(NodeTraversal node);
     // Number of edges attached to the right side of a NodeTraversal
     int right_degree(NodeTraversal node);
+    // Get the edges of the specified node, and add them to the given vector.
+    // Guaranteed to add each edge only once per call.
     void edges_of_node(Node* node, vector<Edge*>& edges);
+    // Get the edges of the specified set of nodes, and add them to the given set of edge pointers.
     void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
 
     // use the VG class to generate ids
