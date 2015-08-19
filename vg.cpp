@@ -312,7 +312,7 @@ void VG::rebuild_indexes(void) {
 }
 
 bool VG::empty(void) {
-    return graph.node_size() == graph.edge_size() == 0;
+    return graph.node_size() == 0 && graph.edge_size() == 0;
 }
 
 bool VG::has_node(Node* node) {
@@ -2472,64 +2472,6 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
     }
 }
 
-void VG::include(const Path& path) {
-    // TODO we are failing in two basic ways
-    // 1) failing to account for the current node we should be on after edits
-    // 2) not maintaining the existing path architecture through edits
-    for (int i = 0; i < path.mapping_size(); ++i) {
-        const Mapping& m = path.mapping(i);
-        // TODO is it reversed?
-        Node* n = get_node(m.position().node_id());
-        int f = m.position().offset();
-        int t = 0;
-        for (int j = 0; j < m.edit_size(); ++j) {
-            const Edit& edit = m.edit(j);
-            if (edit.from_length() && edit.from_length() == edit.to_length()) {
-                f += edit.from_length();
-                t += edit.from_length();
-            } else {
-                // cut at f, and f + from_length
-                Node* l=NULL;
-                Node* r=NULL;
-                Node* m=NULL;
-                Node* c=NULL;
-                if (edit.from_length() > 0) {
-                    divide_node(n, f, l, m);
-                    divide_node(m, edit.from_length(), m, r);
-                    n = m; f = 0; t = 0;
-                    // TODO there is a quirk (for sanity, efficiency later)
-                    // if we "delete" over several nodes, we should join one path for the deletion
-                    if (edit.to_length() == 0) {
-                        // deletion
-                        assert(edit.from_length());
-                        create_edge(l, r);
-                        n = r;
-                    } else {
-                        // swap/ SNP
-                        c = create_node(edit.sequence());
-                        create_edge(l, c);
-                        create_edge(c, r);
-                        n = r;
-                    }
-                } else if (!edit.sequence().empty()) { // create a node
-                    divide_node(n, f, l, r);
-                    n = r; f = 0; t = 0;
-                    // insertion
-                    assert(edit.to_length());
-                    c = create_node(edit.sequence());
-                    create_edge(l, c);
-                    create_edge(c, r);
-                } else {
-                    // do nothing for soft clips, where we have to_length and unset from_length
-                    f += edit.from_length();
-                    t += edit.to_length();
-                }
-            }
-        }
-    }
-    remove_null_nodes_forwarding_edges();
-}
-
 void VG::edit_node(int64_t node_id,
                    const vector<Mapping>& mappings,
                    map<pair<size_t, int64_t>, pair<set<Node*>, set<Node*>>>& cut_trans) {
@@ -3400,7 +3342,7 @@ Alignment& VG::align(Alignment& alignment) {
     return alignment;
 }
 
-Alignment VG::align(string& sequence) {
+Alignment VG::align(const string& sequence) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment);

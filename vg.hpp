@@ -532,7 +532,7 @@ public:
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
     Alignment& align(Alignment& alignment);
-    Alignment align(string& sequence);
+    Alignment align(const string& sequence);
     void destroy_alignable_graph(void);
 
     GSSWAligner* gssw_aligner;

@@ -135,22 +135,25 @@ int main_msga(int argc, char** argv) {
         graph = new VG;
     }
 
-
+    // map from name to sequence, just a transformation of FASTA records
     map<string, set<string> > strings;
+
     // open the fasta files, read in the sequences
     vector<string> names_in_order;
 
     for (auto& fasta_file_name : fasta_files) {
         FastaReference ref;
         ref.open(fasta_file_name);
-        for (auto& seq : ref.index->sequenceNames) {
-            // only use the sequence if we have whitelisted it
+         for (auto& seq : ref.index->sequenceNames) {
+             // only use the sequence if we have whitelisted it
             if (seq_names.empty() || seq_names.count(seq)) {
-                strings[seq].insert(ref.getSequence(seq));
+                 strings[seq].insert(ref.getSequence(seq));
             }
         }
     }
 
+    // give a null label to sequences passed on the command line
+    // thus far there is no way to specify these (use fasta instead)
     for (auto& s : sequences) {
         strings[""].insert(s);
     }
@@ -170,17 +173,21 @@ int main_msga(int argc, char** argv) {
 
     // questions:
     // should we preferentially use sequences from fasta files in the order they were given?
+    // (considering this a todo)
     // reverse complement?
     
-
     for (auto& group : strings) {
+        auto& name = group.first;
         for (auto& seq : group.second) {
             // align to the graph
-            
+            Alignment aln = graph->align(seq);
             // now take the alignment and modify the graph with it
+            graph->edit({aln.path()});
         }
     }
-    
+
+    // return the graph
+    graph->serialize_to_ostream(std::cout);    
 
     // todo....
     //
@@ -673,8 +680,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (!aln_file.empty()) {
-        //void edit(const map<int64_t, vector<tuple<Mapping, int64_t, int64_t> > >& mappings);
-        
+        // read in the alignments and save their paths
         vector<Path> paths;
         function<void(Alignment&)> lambda = [&graph, &paths](Alignment& aln) {
             Path path = simplify_deletions(aln.path());
@@ -688,7 +694,7 @@ int main_mod(int argc, char** argv) {
             in.open(aln_file.c_str());
             stream::for_each(in, lambda);
         }
-        // now that everything is sorted, execute the edits
+        // execute the edits
         graph->edit(paths);
         // and optionally compact ids
         if (compact_ids) {
