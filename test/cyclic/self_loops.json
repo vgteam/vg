@@ -4,6 +4,7 @@
     ],
     "edge": [
         {"from": 1, "to": 1, "from_start": true},
-        {"from": 1, "to": 1, "to_end": true}
+        {"from": 1, "to": 1, "to_end": true},
+        {"from": 1, "to": 1}
     ]
 }

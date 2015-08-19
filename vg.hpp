@@ -337,10 +337,19 @@ public:
 
     int64_t max_node_id(void);
     int64_t min_node_id(void);
+    // Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
+    // Add the given value to all node IDs. Preserves the paths.
     void increment_node_ids(int64_t increment);
+    // Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.
     void decrement_node_ids(int64_t decrement);
+    // Change the ID of the node with the first id to the second, new ID not
+    // used by any node. Invalidates any paths containing the node, since they
+    // are not updated.
     void swap_node_id(int64_t node_id, int64_t new_id);
+    // Change the ID of the given node to the second, new ID not used by any
+    // node. Invalidates the paths. Invalidates any paths containing the node,
+    // since they are not updated.
     void swap_node_id(Node* node, int64_t new_id);
 
     // Iteratively add when nodes and edges are novel. Good when there are very

@@ -1102,7 +1102,8 @@ void help_ids(char** argv) {
          << "    -d, --decrement N    decrease ids by N" << endl
          << "    -j, --join           make a joint id space for all the graphs that are supplied" << endl
          << "                         by iterating through the supplied graphs and incrementing" << endl
-         << "                         their ids to be non-conflicting" << endl;
+         << "                         their ids to be non-conflicting" << endl
+         << "    -s, --sort           assign new node IDs in (generalized) topological sort order" << endl;
 }
 
 int main_ids(int argc, char** argv) {
@@ -1114,6 +1115,7 @@ int main_ids(int argc, char** argv) {
 
     bool join = false;
     bool compact = false;
+    bool sort = false;
     int64_t increment = 0;
     int64_t decrement = 0;
 
@@ -1126,12 +1128,13 @@ int main_ids(int argc, char** argv) {
                 {"increment", required_argument, 0, 'i'},
                 {"decrement", required_argument, 0, 'd'},
                 {"join", no_argument, 0, 'j'},
+                {"sort", no_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hci:d:j",
+        c = getopt_long (argc, argv, "hci:d:js",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1154,6 +1157,10 @@ int main_ids(int argc, char** argv) {
 
         case 'j':
             join = true;
+            break;
+            
+        case 's':
+            sort = true;
             break;
 
         case 'h':
@@ -1178,7 +1185,13 @@ int main_ids(int argc, char** argv) {
             graph = new VG(in);
         }
 
-        if (compact) {
+        if (sort) {
+            // Set up the nodes so we go through them in topological order
+            graph->sort();
+        }
+
+        if (compact || sort) {
+            // Compact only, or compact to re-assign IDs after sort
             graph->compact_ids();
         }
 
