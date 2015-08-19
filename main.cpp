@@ -3227,6 +3227,12 @@ int main_view(int argc, char** argv) {
         return 1;
     }
 
+    if(!graph->is_valid()) {
+        // If we're converting the graph, we might as well make sure it's valid.
+        // This is especially useful for JSON import.
+        cerr << "[vg view] warning: graph is invalid!" << endl;
+    }
+
     // Now we know graph was filled in from the input format. Spit it out in the
     // requested output format.
 

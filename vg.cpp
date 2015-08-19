@@ -567,24 +567,38 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
     // otherwise move to a new id
     node_by_id[new_id] = node;
 
+    // These are sets, so if we try to destroy and recreate the same edge from
+    // both ends (i.e. if they both go to this node) we will only do it once.
     set<pair<NodeSide, NodeSide>> edges_to_destroy;
     set<pair<NodeSide, NodeSide>> edges_to_create;
+
+    // Define a function that we will run on every edge this node is involved in
+    auto fix_edge = [&](Edge* edge) {
+    
+        // Destroy that edge
+        edges_to_destroy.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
+
+        // Make a new edge with our new ID as from or to (or both), depending on which it was before.
+        // TODO: Is there a cleaner way to do this?
+        if(edge->from() == old_id) {
+            if(edge->to() == old_id) {
+                edges_to_create.emplace(NodeSide(new_id, !edge->from_start()), NodeSide(new_id, edge->to_end()));
+            } else {
+                edges_to_create.emplace(NodeSide(new_id, !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
+            }
+        } else {
+            edges_to_create.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(new_id, edge->to_end()));
+        }
+    
+    };
 
     for(pair<int64_t, bool>& other : edges_start(old_id)) {
         // Get the actual Edge
         // We're at a start, so we go to the end of the other node normally, and the start if the other node is backward
         Edge* edge = edge_by_sides[minmax(NodeSide(old_id, false), NodeSide(other.first, !other.second))];
-
-        // Destroy that edge
-        edges_to_destroy.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
-
-        // Make a new edge with our new ID as from or to, depending on which it was before.
-        // TODO: Is there a cleaner way to do this?
-        if(edge->from() == old_id) {
-            edges_to_create.emplace(NodeSide(new_id, !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
-        } else {
-            edges_to_create.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(new_id, edge->to_end()));
-        }
+        
+        // Plan to fix up its IDs.
+        fix_edge(edge);
     }
 
     for(pair<int64_t, bool>& other : edges_end(old_id)) {
@@ -592,16 +606,8 @@ void VG::swap_node_id(Node* node, int64_t new_id) {
         // We're at an end, so we go to the start of the other node normally, and the end if the other node is backward
         Edge* edge = edge_by_sides[minmax(NodeSide(old_id, true), NodeSide(other.first, other.second))];
 
-        // Destroy that edge
-        edges_to_destroy.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
-
-        // Make a new edge with our new ID as from or to, depending on which it was before.
-        // TODO: Is there a cleaner way to do this?
-        if(edge->from() == old_id) {
-            edges_to_create.emplace(NodeSide(new_id, !edge->from_start()), NodeSide(edge->to(), edge->to_end()));
-        } else {
-            edges_to_create.emplace(NodeSide(edge->from(), !edge->from_start()), NodeSide(new_id, edge->to_end()));
-        }
+        // Plan to fix up its IDs.
+        fix_edge(edge);
     }
 
     assert(edges_to_destroy.size() == edges_to_create.size());
@@ -1469,8 +1475,6 @@ Edge* VG::create_edge(Node* from, Node* to, bool from_start, bool to_end) {
 
 Edge* VG::create_edge(int64_t from, int64_t to, bool from_start, bool to_end) {
     //cerr << "creating edge " << from << "->" << to << endl;
-    // prevent self-linking (violates DAG/partial ordering property)
-    if (to == from) return nullptr;
     // ensure the edge (or another between the same sides) does not already exist
     Edge* edge = get_edge(NodeSide(from, !from_start), NodeSide(to, to_end));
     if (edge) {
@@ -1690,8 +1694,7 @@ Node* VG::get_node(int64_t id) {
     if (n != node_by_id.end()) {
         return n->second;
     } else {
-        // again... should this throw an error?
-        return NULL;
+        throw runtime_error("No node " + to_string(id) + " in graph");
     }
 }
 
@@ -2170,12 +2173,9 @@ void VG::nodes_prev(NodeTraversal node, vector<NodeTraversal>& nodes) {
     // attached relatively forward (false) or backward (true)
     vector<pair<int64_t, bool>>& left_nodes = node.backward ? edges_end(node.node) : edges_start(node.node);
     for (auto& prev : left_nodes) {
-        // Complain if we try to go to a nonexistent node
-        //assert(has_node(prev.first));
-
         // Make a NodeTraversal that is an oriented description of the node attached to our relative left.
         // If we're backward, and it's in the same relative orientation as us, it needs to be backward too.
-        nodes.emplace_back(node_by_id[prev.first], prev.second != node.backward);
+        nodes.emplace_back(get_node(prev.first), prev.second != node.backward);
     }
 }
 
@@ -2184,13 +2184,9 @@ void VG::nodes_next(NodeTraversal node, vector<NodeTraversal>& nodes) {
     // are attached relatively forward (false) or backward (true)
     vector<pair<int64_t, bool>>& right_nodes = node.backward ? edges_start(node.node) : edges_end(node.node);
     for (auto& next : right_nodes) {
-        //cerr << "Node " << node.node->id() << " wants to go to " << next.first << " orientation " << next.second << endl;
-        // Complain if we try to go to a nonexistent node
-        //assert(has_node(next.first));
-
         // Make a NodeTraversal that is an oriented description of the node attached to our relative right.
         // If we're backward, and it's in the same relative orientation as us, it needs to be backward too.
-        nodes.emplace_back(node_by_id[next.first], next.second != node.backward);
+        nodes.emplace_back(get_node(next.first), next.second != node.backward);
     }
 }
 
@@ -2354,6 +2350,7 @@ void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
     set<list<NodeTraversal> > prev_paths;
     set<list<NodeTraversal> > next_paths;
     list<NodeTraversal> empty_list;
+    
     prev_kpaths_from_node(NodeTraversal(node), k, edge_max, (edge_max != 0),
                           empty_list, prev_paths, prev_maxed);
     next_kpaths_from_node(NodeTraversal(node), k, edge_max, (edge_max != 0),
@@ -2962,8 +2959,12 @@ bool VG::is_valid(void) {
                      << edge_destination.first << endl;
                 return false;
             }
-            if((start_and_edges.first == e->to() && e->to_end()) || start_and_edges.first == e->from() && !e->from_start()) {
+            if(!((start_and_edges.first == e->to() && !e->to_end()) ||
+                 (start_and_edges.first == e->from() && e->from_start()))) {
+            
                 // The edge needs to actually attach to the start of the node we looked it up for.
+                // So at least one of its ends has to be to the start of the correct node.
+                // It may also be attached to the end.
                 cerr << "graph invalid: edge " << e->from() << "->" << e->to()
                      << " doesn't attach to start of " << start_and_edges.first << endl;
                 return false;
@@ -3000,8 +3001,12 @@ bool VG::is_valid(void) {
                      << edge_destination.first << endl;
                 return false;
             }
-            if((end_and_edges.first == e->to() && !e->to_end()) || end_and_edges.first == e->from() && e->from_start()) {
+            if(!((end_and_edges.first == e->to() && e->to_end()) ||
+                 (end_and_edges.first == e->from() && !e->from_start()))) {
+            
                 // The edge needs to actually attach to the end of the node we looked it up for.
+                // So at least one of its ends has to be to the end of the correct node.
+                // It may also be attached to the start.
                 cerr << "graph invalid: edge " << e->from() << "->" << e->to()
                      << " doesn't attach to end of " << end_and_edges.first << endl;
                 return false;
@@ -3015,16 +3020,6 @@ bool VG::is_valid(void) {
                 return false;
             }
         }
-    }
-
-    if (head_nodes().empty()) {
-        cerr << "graph invalid: no head nodes" << endl;
-        return false;
-    }
-
-    if (tail_nodes().empty()) {
-        cerr << "graph invalid: no tail nodes" << endl;
-        return false;
     }
 
     return true;
@@ -3243,10 +3238,15 @@ void VG::connect_nodes_to_node(vector<NodeTraversal>& nodes, NodeTraversal node)
 
 // join all subgraphs together to a "null" head node
 Node* VG::join_heads(void) {
-    current_id = max_node_id()+1;
-    Node* root = create_node("N");
+    // Find the head nodes
     vector<Node*> heads;
     head_nodes(heads);
+
+    // Then create the new node (so it isn't picked up as a head)
+    current_id = max_node_id()+1;
+    Node* root = create_node("N");
+
+    // Wire it to all the heads and return
     connect_node_to_nodes(root, heads);
     return root;
 }
@@ -3254,12 +3254,30 @@ Node* VG::join_heads(void) {
 void VG::join_heads(Node* node, bool from_start) {
     vector<Node*> heads;
     head_nodes(heads);
+    
+    // If the node we have been given shows up as a head, remove it.
+    for(auto i = heads.begin(); i != heads.end(); ++i) {
+        if(*i == node) {
+            heads.erase(i);
+            break;
+        }
+    }
+    
     connect_node_to_nodes(node, heads, from_start);
 }
 
 void VG::join_tails(Node* node, bool to_end) {
     vector<Node*> tails;
     tail_nodes(tails);
+    
+    // If the node we have been given shows up as a tail, remove it.
+    for(auto i = tails.begin(); i != tails.end(); ++i) {
+        if(*i == node) {
+            tails.erase(i);
+            break;
+        }
+    }
+    
     connect_nodes_to_node(tails, node, to_end);
 }
 
@@ -3298,6 +3316,13 @@ void VG::add_single_start_end_marker(int length, char start_char, Node*& head_ta
         unattached.insert(node);
     });
 
+    // We handle the head and tail joining ourselves so we can do connected components.
+    // We collect these before we add the new head/tail node so we don't have to filter it out later.
+    vector<Node*> heads;
+    head_nodes(heads);
+    vector<Node*> tails;
+    tail_nodes(tails);
+
     if(head_tail_node == nullptr) {
         // We get to create the node. In its forward orientation it's the start node, so we use the start character.
         string start_string(length, start_char);
@@ -3306,12 +3331,6 @@ void VG::add_single_start_end_marker(int length, char start_char, Node*& head_ta
         // We got a node to use
         add_node(*head_tail_node);
     }
-
-    // We handle the head and tail joining ourselves so we can do connected components.
-    vector<Node*> heads;
-    head_nodes(heads);
-    vector<Node*> tails;
-    tail_nodes(tails);
 
     for(Node* head : heads) {
         if(unattached.count(head)) {
@@ -4501,9 +4520,10 @@ void VG::orient_nodes_forward(set<int64_t>& nodes_flipped) {
     // edges that are reversing, or "from" earlier nodes and "to" later nodes
     // with both end flags set, will cause problems. So remove those.
     // This works out to just clearing any edges with from_start or to_end set.
+    // We also need to clear otherwise-normal-looking self loops here.
     vector<Edge*> to_remove;
     for_each_edge([&](Edge* e) {
-        if(e->from_start() || e->to_end()) {
+        if(e->from_start() || e->to_end() || e->from() == e->to()) {
             // gssw won't know how to read this. Get rid of it.
             to_remove.push_back(e);
         }
