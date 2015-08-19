@@ -592,6 +592,9 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
                 index->get_range(f, l, *graph);
                 graph->remove_orphan_edges();
                 
+                if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
+                                << graph->edge_count() << " edges" << endl;
+                                
                 ta.clear_path();
                 ta.set_score(0);
                 graph->align(ta);

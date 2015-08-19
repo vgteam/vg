@@ -221,7 +221,7 @@ void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
         // Go through the edges on this node's start
         Edge* edge = edge_by_sides[NodeSide::pair_from_start_edge(node->id(), off_start)];
         if (!edge) {
-            cerr << "error:[VG::edges_of_node] nonexistent edge " << off_start.first << " start <-> "
+            cerr << "error:[VG::edges_of_node] nonexistent start edge " << off_start.first << " start <-> "
                  << node->id() << (off_start.second ? " start" : " end") << endl;
             exit(1);
         }
@@ -232,7 +232,7 @@ void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
         // And on its end
         Edge* edge = edge_by_sides[NodeSide::pair_from_end_edge(node->id(), off_end)];
         if (!edge) {
-            cerr << "error:[VG::edges_of_node] nonexistent edge " << off_end.first << " end <-> "
+            cerr << "error:[VG::edges_of_node] nonexistent end edge " << off_end.first << " end <-> "
                  << node->id() << (off_end.second ? " end" : " start") << endl;
             exit(1);
         }
@@ -4438,78 +4438,79 @@ void VG::orient_nodes_forward(set<int64_t>& nodes_flipped) {
         // Get all the edges
         vector<Edge*> node_edges;
         edges_of_node(traversal.node, node_edges);
+        
+        // We need to unindex all the edges we're going to change before any of
+        // them get re-indexed. Otherwise, we might have to try to hold two of
+        // the same edge in the index at the same time, if one edge is fixed up
+        // to be equal to another original edge before the other original edge
+        // is fixed.
+        
+        // Edges that go from unvisited things to here need to be flipped from/to.
+        vector<Edge*> edges_to_flip;
+        copy_if(node_edges.begin(), node_edges.end(), back_inserter(edges_to_flip), [&](Edge* edge) {
+            // We only need to flip the edges that are from things we haven't visited yet to here.
+            return edge->to() == traversal.node->id() && visited.count(edge->from()) == 0;
+        });
+        
+        for(Edge* edge : (traversal.backward ? node_edges : edges_to_flip)) {
+            // Unindex every edge if we flipped the node, or only the edges we are flipping otherwise
+            unindex_edge_by_node_sides(edge);
 
-        for(Edge* edge : node_edges) {
 #ifdef debug
 #pragma omp critical (cerr)
-            cerr << "Found edge " << edge->from() << "->" << edge->to() << endl;
+            cerr << "Unindexed edge " << edge->from() << (edge->from_start() ? " start" : " end") 
+                 << " -> " << edge->to() << (edge->to_end() ? " end" : " start") << endl;
 #endif
-            // This flag sets if we unindexed the edge. We leave it indexed unless we have to change it.
-            bool unindexed = false;
+        }
+        
+        for(Edge* edge : edges_to_flip) {
+            // Flip around all the edges that need flipping
+            // Flip the nodes
+            int64_t temp_id = edge->from();
+            edge->set_from(edge->to());
+            edge->set_to(temp_id);
 
-            if(edge->to() == traversal.node->id()) {
-                // If the other node in the edge is a node we haven't seen
-                // yet in our ordering, make sure this node is the edge
-                // from. It's the to now, so flip it.
-                if(visited.count(edge->from()) == 0) {
-                    // We need to change the edge
-                    unindexed = true;
-                    // Unindex it
-                    unindex_edge_by_node_sides(edge);
-
-                    // Flip the nodes
-                    int64_t temp_id = edge->from();
-                    edge->set_from(edge->to());
-                    edge->set_to(temp_id);
-
-                    // Move the directionality flags, but invert both.
-                    bool temp_orientation = !edge->from_start();
-                    edge->set_from_start(!edge->to_end());
-                    edge->set_to_end(temp_orientation);
+            // Move the directionality flags, but invert both.
+            bool temp_orientation = !edge->from_start();
+            edge->set_from_start(!edge->to_end());
+            edge->set_to_end(temp_orientation);
 #ifdef debug
 #pragma omp critical (cerr)
-                    cerr << "Reversed edge direction to " << edge->from() << "->" << edge->to() << endl;
+            cerr << "Reversed edge direction to " << edge->from() << (edge->from_start() ? " start" : " end") 
+                 << " -> " << edge->to() << (edge->to_end() ? " end" : " start") << endl;
 #endif
-                }
-            }
-
-            if(traversal.backward) {
-                // We flipped this node around, which means we need to rewire
-                // every edge. They already have the right to and from, but
-                // their from_start and to_end flags could be wrong.
-
-                // We need to change the edge
-                if(!unindexed) {
-                    unindexed = true;
-                    unindex_edge_by_node_sides(edge);
-                }
-
-                // Flip the backwardness flag for the end that this node is on.
+        }
+        
+        if(traversal.backward) {
+            for(Edge* edge : node_edges) {
+                // Now that all the edges have the correct to and from, flip the
+                // appropriate from_start and to_end flags for the end(s) on this
+                // node, since we flipped the node.
+                
                 if(edge->to() == traversal.node->id()) {
                     edge->set_to_end(!edge->to_end());
                 }
                 if(edge->from() == traversal.node->id()) {
                     edge->set_from_start(!edge->from_start());
                 }
+            }
+        }
+        
+        for(Edge* edge : (traversal.backward ? node_edges : edges_to_flip)) {
+            // Reindex exactly what was unindexed
+            index_edge_by_node_sides(edge);
+
 #ifdef debug
 #pragma omp critical (cerr)
-                cerr << "Rewired edge " << edge->from() << "->" << edge->to() << endl;
+            cerr << "Reindexed edge " << edge->from() << (edge->from_start() ? " start" : " end") 
+                 << " -> " << edge->to() << (edge->to_end() ? " end" : " start") << endl;
 #endif
-            }
-
-            if(unindexed) {
-                // Reindex the edge by the nodes it connects to. The order of nodes doesn't
-                // matter, so it's OK that unindexing doesn't remove edges from
-                // the index by pair of nodes (we won't put it in twice).
-                index_edge_by_node_sides(edge);
-            }
-
-            // It should always work out that the edges are from end to
-            // start when we are done, but right now they might not be,
-            // because the nodes at the other ends may still need to be
-            // flipped themselves.
-
         }
+        
+        // It should always work out that the edges are from end to
+        // start when we are done, but right now they might not be,
+        // because the nodes at the other ends may still need to be
+        // flipped themselves.
     }
 
     // We now know there are no edges from later nodes to earlier nodes. But
