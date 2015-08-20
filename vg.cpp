@@ -2510,6 +2510,7 @@ void VG::edit_node(int64_t node_id,
                 (i == 0 || i == mapping.edit_size() - 1) && edit.from_length() == 0) {
                 //cerr << "ignoring soft clip" << endl;
                 // soft clip, ignore
+                // TODO soft clips should be added
                 // match, ignore
             } else { //if (edit_is_deletion(edit)) {
                 //cerr << "o/e " << offset << " " << end << endl;

@@ -751,7 +751,8 @@ void help_sim(char** argv) {
          << "    -n, --num-reads N     simulate N reads" << endl
          << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
          << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
-         << "    -i, --indel-error N   indel error rate (default 0.0)" << endl;
+         << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
+         << "    -f, --forward-only    don't simulate from the reverse strand" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -766,6 +767,7 @@ int main_sim(int argc, char** argv) {
     int seed_val = time(NULL);
     double base_error = 0;
     double indel_error = 0;
+    bool forward_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -776,11 +778,12 @@ int main_sim(int argc, char** argv) {
                 {"read-length", required_argument, 0, 'l'},
                 {"num-reads", required_argument, 0, 'n'},
                 {"random-seed", required_argument, 0, 's'},
+                {"forward-only", no_argument, 0, 'f'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:f",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -808,6 +811,10 @@ int main_sim(int argc, char** argv) {
 
         case 'i':
             indel_error = atof(optarg);
+            break;
+
+        case 'f':
+            forward_only = true;
             break;
 
         case 'h':
@@ -871,7 +878,7 @@ int main_sim(int argc, char** argv) {
         // avoid short reads at the end of the graph by retrying
         int iter = 0;
         while (perfect_read.size() < read_length && ++iter < 1000) {
-            perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
+            perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
             // if we can't make a suitable read in 1000 tries, then maybe the graph is too small?
         }
         if (iter == 1000) {
