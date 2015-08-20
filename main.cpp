@@ -2589,6 +2589,7 @@ void help_map(char** argv) {
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
+         << "    -K, --keep-secondary  produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
          << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
          << "    -p, --pair-window N   align to a graph up to N ids away from the mapping location of one mate for the other" << endl
@@ -2605,6 +2606,7 @@ void help_map(char** argv) {
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
          << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default: 100)" << endl
+         << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
          << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
@@ -2632,7 +2634,9 @@ int main_map(int argc, char** argv) {
     int max_attempts = 7;
     string read_file;
     string hts_file;
+    bool keep_secondary = false;
     int hit_max = 100;
+    int max_multimaps = 1;
     int thread_count = 1;
     int thread_ex = 2;
     int context_depth = 1;
@@ -2670,6 +2674,7 @@ int main_map(int argc, char** argv) {
                 {"sample", required_argument, 0, 'N'},
                 {"read-group", required_argument, 0, 'R'},
                 {"hit-max", required_argument, 0, 'm'},
+                {"max-multimaps", required_argument, 0, 'N'},
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"greedy-accept", no_argument, 0, 'G'},
@@ -2678,7 +2683,8 @@ int main_map(int argc, char** argv) {
                 {"thread-ex", required_argument, 0, 'x'},
                 {"context-depth", required_argument, 0, 'n'},
                 {"output-json", no_argument, 0, 'J'},
-                {"hts-input", no_argument, 0, 'b'},
+                {"hts-input", required_argument, 0, 'b'},
+                {"keep-secondary", no_argument, 0, 'K'},
                 {"fastq", no_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
@@ -2688,7 +2694,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:t:DX:FS:Jb:R:N:if:p:B:x:GC:A:E:Q:n:",
+        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:x:GC:A:E:Q:n:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2740,6 +2746,10 @@ int main_map(int argc, char** argv) {
         case 'm':
             hit_max = atoi(optarg);
             break;
+            
+        case 'M':
+            max_multimaps = atoi(optarg);
+            break;
 
         case 'x':
             thread_ex = atoi(optarg);
@@ -2763,6 +2773,10 @@ int main_map(int argc, char** argv) {
 
         case 'b':
             hts_file = optarg;
+            break;
+
+        case 'K':
+            keep_secondary = true;
             break;
 
         case 'f':
@@ -2844,6 +2858,26 @@ int main_map(int argc, char** argv) {
     mapper.resize(thread_count);
     vector<vector<Alignment> > output_buffer;
     output_buffer.resize(thread_count);
+    
+    // We have one function to dump alignments into
+    // Make sure to flush the buffer at the end of the program!
+    auto output_alignments = [&output_buffer, &output_json](vector<Alignment>& alignments) {
+        if (output_json) {
+            // If we want to convert to JSON, convert them all to JSON and dump them to cout.
+            for(auto& alignment : alignments) {
+                string json = pb2json(alignment);
+#pragma omp critical (cout)
+                cout << json << "\n";
+            }
+        } else {
+            // Otherwise write them through the buffer for our thread
+            int tid = omp_get_thread_num();
+            auto& output_buf = output_buffer[tid];
+            // Copy all the alignments over to the output buffer
+            copy(alignments.begin(), alignments.end(), back_inserter(output_buf));
+            stream::write_buffered(cout, output_buf, 1000);
+        }
+    };
 
     Index idx;
     idx.open_read_only(db_name);
@@ -2852,6 +2886,7 @@ int main_map(int argc, char** argv) {
         Mapper* m = new Mapper(&idx);
         m->best_clusters = best_clusters;
         m->hit_max = hit_max;
+        m->max_multimaps = max_multimaps;
         m->debug = debug;
         if (score_per_bp) m->target_score_per_bp = score_per_bp;
         if (sens_step) m->kmer_sensitivity_step = sens_step;
@@ -2867,19 +2902,24 @@ int main_map(int argc, char** argv) {
 
     if (!seq.empty()) {
         int tid = omp_get_thread_num();
-        Alignment alignment = mapper[tid]->align(seq, kmer_size, kmer_stride, band_width);
-        if (!sample_name.empty()) alignment.set_sample_name(sample_name);
-        if (!read_group.empty()) alignment.set_read_group(read_group);
-        if (!seq_name.empty()) alignment.set_name(seq_name);
-        if (output_json) {
-            cout << pb2json(alignment) << endl;
-        } else {
-            function<Alignment(uint64_t)> lambda =
-                [&alignment] (uint64_t n) {
-                return alignment;
-            };
-            stream::write(cout, 1, lambda);
+        
+        Alignment unaligned;
+        unaligned.set_sequence(seq);
+        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
+        if(alignments.size() == 0) {
+            // If we didn't have any alignments, report the unaligned alignment
+            alignments.push_back(unaligned);
         }
+        
+        
+        for(auto& alignment : alignments) {
+            if (!sample_name.empty()) alignment.set_sample_name(sample_name);
+            if (!read_group.empty()) alignment.set_read_group(read_group);
+            if (!seq_name.empty()) alignment.set_name(seq_name);
+        }
+        
+        // Output the alignments in JSON or protobuf as appropriate.
+        output_alignments(alignments);
     }
 
     if (!read_file.empty()) {
@@ -2896,18 +2936,23 @@ int main_map(int argc, char** argv) {
                     more_data = std::getline(in,line);
                 }
                 if (!line.empty()) {
-                    Alignment alignment = mapper[tid]->align(line, kmer_size, kmer_stride, band_width);
-                    if (!sample_name.empty()) alignment.set_sample_name(sample_name);
-                    if (!read_group.empty()) alignment.set_read_group(read_group);
-                    if (output_json) {
-                        string json2 = pb2json(alignment);
-#pragma omp critical (cout)
-                        cout << json2 << "\n";
-                    } else {
-                        auto& output_buf = output_buffer[tid];
-                        output_buf.push_back(alignment);
-                        stream::write_buffered(cout, output_buf, 1000);
+                    // Make an alignment
+                    Alignment unaligned;
+                    unaligned.set_sequence(line);
+                
+                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
+                    if(alignments.empty()) {
+                        alignments.push_back(unaligned);
                     }
+                    
+                    for(auto& alignment : alignments) {
+                        // Set the alignment metadata
+                        if (!sample_name.empty()) alignment.set_sample_name(sample_name);
+                        if (!read_group.empty()) alignment.set_read_group(read_group);
+                    }
+                    
+                    // Output the alignments in JSON or protobuf as appropriate.
+                    output_alignments(alignments);
                 }
             }
         }
@@ -2916,23 +2961,26 @@ int main_map(int argc, char** argv) {
     if (!hts_file.empty()) {
         function<void(Alignment&)> lambda =
             [&mapper,
-             &output_buffer,
-             &output_json,
+             &output_alignments,
+             &keep_secondary,
              &kmer_size,
              &kmer_stride,
              &band_width]
             (Alignment& alignment) {
-            int tid = omp_get_thread_num();
-            alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride, band_width);
-            if (output_json) {
-                string json2 = pb2json(alignment);
-#pragma omp critical (cout)
-                cout << json2 << "\n";
-            } else {
-                auto& output_buf = output_buffer[tid];
-                output_buf.push_back(alignment);
-                stream::write_buffered(cout, output_buf, 1000);
+            
+            if(alignment.is_secondary() && !keep_secondary) {
+                // Skip over secondary alignments in the input; we don't want several output mappings for each input *mapping*.
+                return;
             }
+            
+            int tid = omp_get_thread_num();
+            vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+            if(alignments.empty()) {
+                alignments.push_back(alignment);
+            }
+            
+            // Output the alignments in JSON or protobuf as appropriate.
+            output_alignments(alignments);
         };
         // run
         hts_for_each_parallel(hts_file, lambda);
@@ -2943,75 +2991,74 @@ int main_map(int argc, char** argv) {
             // paired interleaved
             function<void(Alignment&, Alignment&)> lambda =
                 [&mapper,
-                 &output_buffer,
-                 &output_json,
+                 &output_alignments,
                  &kmer_size,
                  &kmer_stride,
                  &band_width,
                  &pair_window]
                 (Alignment& aln1, Alignment& aln2) {
+
                 int tid = omp_get_thread_num();
-                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
-                if (output_json) {
-                    string json1 = pb2json(alnp.first);
-                    string json2 = pb2json(alnp.second);
-#pragma omp critical (cout)
-                    cout << json1 << "\n" << json2 << "\n";
-                } else {
-                    auto& output_buf = output_buffer[tid];
-                    output_buf.push_back(alnp.first);
-                    output_buf.push_back(alnp.second);
-                    stream::write_buffered(cout, output_buf, 1000);
+                auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                
+                // Make sure we have unaligned "alignments" for things that don't align.
+                if(alnp.first.empty()) {
+                    alnp.first.push_back(aln1);
                 }
+                if(alnp.second.empty()) {
+                    alnp.second.push_back(aln2);
+                }
+                
+                // Output the alignments in JSON or protobuf as appropriate.
+                output_alignments(alnp.first);
+                output_alignments(alnp.second);
             };
             fastq_paired_interleaved_for_each_parallel(fastq1, lambda);
         } else if (fastq2.empty()) {
             // single
             function<void(Alignment&)> lambda =
                 [&mapper,
-                 &output_buffer,
-                 &output_json,
+                 &output_alignments,
                  &kmer_size,
                  &kmer_stride,
                  &band_width]
                 (Alignment& alignment) {
+
                 int tid = omp_get_thread_num();
-                alignment = mapper[tid]->align(alignment, kmer_size, kmer_stride, band_width);
-                if (output_json) {
-                    string json2 = pb2json(alignment);
-#pragma omp critical (cout)
-                    cout << json2 << "\n";
-                } else {
-                    auto& output_buf = output_buffer[tid];
-                    output_buf.push_back(alignment);
-                    stream::write_buffered(cout, output_buf, 1000);
+                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+                
+                if(alignments.empty()) {
+                    // Make sure we have a "no alignment" alignment
+                    alignments.push_back(alignment);
                 }
+                
+                output_alignments(alignments);
             };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
             // paired two-file
             function<void(Alignment&, Alignment&)> lambda =
                 [&mapper,
-                 &output_buffer,
-                 &output_json,
+                 &output_alignments,
                  &kmer_size,
                  &kmer_stride,
                  &band_width,
                  &pair_window]
                 (Alignment& aln1, Alignment& aln2) {
+
                 int tid = omp_get_thread_num();
-                auto alnp = mapper[tid]->align_paired(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
-                if (output_json) {
-                    string json1 = pb2json(alnp.first);
-                    string json2 = pb2json(alnp.second);
-#pragma omp critical (cout)
-                    cout << json1 << "\n" << json2 << "\n";
-                } else {
-                    auto& output_buf = output_buffer[tid];
-                    output_buf.push_back(alnp.first);
-                    output_buf.push_back(alnp.second);
-                    stream::write_buffered(cout, output_buf, 1000);
+                auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                
+                // Make sure we have unaligned "alignments" for things that don't align.
+                if(alnp.first.empty()) {
+                    alnp.first.push_back(aln1);
                 }
+                if(alnp.second.empty()) {
+                    alnp.second.push_back(aln2);
+                }
+                
+                output_alignments(alnp.first);
+                output_alignments(alnp.second);
             };
             fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
         }
