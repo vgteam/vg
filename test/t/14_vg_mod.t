@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 9
+plan tests 10
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -24,8 +24,6 @@ is $(vg map -s CAAATAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG t.vg | vg mo
 
 is $(vg map -s CAAAAAGGCTTGGAAAGGGTTTCTGGAGTTCTATTATATTCCAACTCTCTG t.vg | vg mod -i - t.vg | vg view - | wc -l) 24 "path inclusion works for deletions"
 
-is $(vg map -s CAAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG t.vg | vg mod -i - t.vg | vg view - | grep ^S | wc -l) 1 "soft clips in alignments don't affect the graph when we introduce the alignment paths into the graph"
-
 is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG t.vg | vg mod -i - t.vg | vg view - | grep ^S | wc -l) 4 "SNPs can be included in the graph"
 
 rm t.vg
@@ -34,3 +32,9 @@ rm -rf t.vg.index
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 8 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') 7c426b504a33ba7985372b978650c3dc "graph complexity reduction works as expected"
 
 is $( vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 8 -e 3 -t 16 - | vg mod -S -l 200 - | vg view - | grep ^S | wc -l) 152 "short subgraph pruning works"
+
+vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa >t.vg
+vg align -s GGGGGGGAAATTTTCTGGAGTTCTATTATATTCCAAAAAAAAAA t.vg >t.gam
+is $(vg mod -i t.gam t.vg | vg view - | grep ^S | grep $(vg mod -i t.gam t.vg | vg stats  -H - | awk '{ print $3}') | cut -f 3) GGGGG "a soft clip at read start becomes a new head of the graph"
+is $(vg mod -i t.gam t.vg | vg view - | grep ^S | grep $(vg mod -i t.gam t.vg | vg stats  -T - | awk '{ print $3}') | cut -f 3) AAAAAAAA "a soft clip at read end becomes a new tail of the graph"
+rm -rf t.vg t.gam

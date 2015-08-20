@@ -183,9 +183,13 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                 to_pos += length;
                 break;
             case 'S':
+                // note that soft clips and insertions are semantically equivalent
+                // and can only be differentiated by their position in the read
+                // with soft clips coming at the start or end
                 edit = mapping->add_edit();
                 edit->set_from_length(0);
                 edit->set_to_length(length);
+                edit->set_sequence(to_seq.substr(to_pos, length));
                 to_pos += length;
                 break;
             default:

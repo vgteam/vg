@@ -21,7 +21,7 @@ is $(vg align -js GGCTATGTCTGAACTAGGAGGGTAGAAAGAATATTCATTTTGGTTGCCACAAACCATCGAAA
 
 vg construct -r tiny/tiny.fa >t.vg
 
-is $(vg align -s CAAATAAGGCTTGGAAATGTTCTGGAGTTCTATTATATTCCAACTCTCTT -Q query t.vg | vg mod -i - t.vg | vg view - | grep query | wc -l) 1 "align can use query names and outputs GAM"
+is $(vg align -s CAAATAAGGCTTGGAAATGTTCTGGAGTTCTATTATATTCCAACTCTCTT -Q query t.vg | vg mod -i - t.vg | vg view - | grep query | wc -l) 2 "align can use query names and outputs GAM"
 
 rm t.vg
 
