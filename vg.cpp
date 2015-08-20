@@ -236,6 +236,11 @@ void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
                  << node->id() << (off_end.second ? " end" : " start") << endl;
             exit(1);
         }
+        if(edge->from() == edge->to() && edge->from_start() == edge->to_end()) {
+            // This edge touches both out start and our end, so we already
+            // handled it on our start. Don't produce it twice.
+            continue;
+        }
         edges.push_back(edge);
     }
 }
@@ -1610,16 +1615,18 @@ void VG::unindex_edge_by_node_sides(const NodeSide& side1, const NodeSide& side2
 
 void VG::unindex_edge_by_node_sides(Edge* edge) {
     // noop on NULL pointer or non-existent edge
-    if (!has_edge(edge)) { return; }
+    if (!has_edge(edge)) return;
     //if (!is_valid()) { cerr << "graph ain't valid" << endl; }
     // erase from indexes
 
+    auto edge_pair = NodeSide::pair_from_edge(edge);
+
     //cerr << "erasing from indexes" << endl;
 
-    //cerr << "Unindexing edge " << edge->from() << "<->" << edge->to() << endl;
+    //cerr << "Unindexing edge " << edge_pair.first << "<-> " << edge_pair.second << endl;
 
     // Remove from the edge by node side pair index
-    edge_by_sides.erase(NodeSide::pair_from_edge(edge));
+    edge_by_sides.erase(edge_pair);
 
     // Does this edge involve a change of relative orientation?
     bool relative_orientation = edge->from_start() != edge->to_end();
@@ -4126,7 +4133,6 @@ void VG::wrap_with_null_nodes(void) {
     }
 }
 
-
 /**
 Order and orient the nodes in the graph using a topological sort.
 
@@ -4155,6 +4161,11 @@ while N is nonempty do
 */
 void VG::topological_sort(deque<NodeTraversal>& l) {
     //assert(is_valid());
+
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << "=====================STARTING SORT==========================" << endl;
+#endif
 
     // using a map instead of a set ensures a stable sort across different systems
     map<int64_t, NodeTraversal> s;
@@ -4200,7 +4211,7 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
                 // We have an unvisited seed. Use it
 #ifdef debug
 #pragma omp critical (cerr)
-                cerr << "Starting from seed " << first_seed.node->id() << " orientation " << seeds.front().backward << endl;
+                cerr << "Starting from seed " << first_seed.node->id() << " orientation " << first_seed.backward << endl;
 #endif
 
                 s[first_seed.node->id()] = first_seed;
@@ -4249,6 +4260,10 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
 
                     // Unindex it
                     Edge* bad_edge = get_edge(prev_node, n);
+#ifdef debug
+#pragma omp critical (cerr)
+                    cerr << "\t\tEdge: " << bad_edge << endl;
+#endif
                     unindex_edge_by_node_sides(bad_edge);
                 }
             }
@@ -4272,6 +4287,11 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
 
                 // Grab the edge
                 Edge* edge = get_edge(n, next_node);
+
+#ifdef debug
+#pragma omp critical (cerr)
+                cerr << "\t\tEdge: " << edge << endl;
+#endif
 
                 // Unindex it
                 unindex_edge_by_node_sides(edge);
@@ -4327,7 +4347,28 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
     if(!edges_on_start.empty() || !edges_on_end.empty()) {
 #pragma omp critical (cerr)
         {
-            cerr << "Error: edges remainin after topological sort and cycle breaking" << endl;
+            cerr << "Error: edges remaining after topological sort and cycle breaking" << endl;
+            
+            // Dump the edges in question
+            for(auto& on_start : edges_on_start) {
+                cerr << "start: " << on_start.first << endl;
+                for(auto& other_end : on_start.second) {
+                    cerr << "\t" << other_end.first << " " << other_end.second << endl;
+                }
+            }
+            for(auto& on_end : edges_on_end) {
+                cerr << "end: " << on_end.first << endl;
+                for(auto& other_end : on_end.second) {
+                    cerr << "\t" << other_end.first << " " << other_end.second << endl;
+                }
+            }
+            cerr << "By Sides:" << endl;
+            for(auto& sides_and_edge : edge_by_sides) {
+                cerr << sides_and_edge.first.first << "<->" << sides_and_edge.first.second << endl;
+            }
+            
+            // Dump the whole graph if possible. May crash due to bad index.
+            cerr << "Dumping to fail.vg" << endl;
             std::ofstream out("fail.vg");
             serialize_to_ostream(out);
             out.close();
@@ -4349,6 +4390,11 @@ void VG::orient_nodes_forward(set<int64_t>& nodes_flipped) {
     // First do the topological sort to order and orient
     deque<NodeTraversal> order_and_orientation;
     topological_sort(order_and_orientation);
+
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << "+++++++++++++++++++++DOING REORIENTATION+++++++++++++++++++++++" << endl;
+#endif
 
     // These are the node IDs we've visited so far
     set<int64_t> visited;
