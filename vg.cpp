@@ -2685,7 +2685,10 @@ void VG::edit(const vector<Path>& paths) {
                                                                  i==0,
                                                                  i==path.mapping_size()-1
                                                                  ));
-            assert(!mapping_is_total_deletion(mapping)); // not handled
+            if (mapping_is_total_deletion(mapping)) {
+                //&& path.mapping_size() > 1 && i != 0 && i != path.mapping_size()-1) {
+                cerr << "[vg::VG] warning: mapping in " << path.name() << " is a total deletion" << endl;
+            }
             // ^^ these should be stripped out using simplify_deletions(path)
             int64_t node_id = mapping.position().node_id();
 
