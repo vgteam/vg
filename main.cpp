@@ -175,14 +175,31 @@ int main_msga(int argc, char** argv) {
     // should we preferentially use sequences from fasta files in the order they were given?
     // (considering this a todo)
     // reverse complement?
-    
+
     for (auto& group : strings) {
         auto& name = group.first;
         for (auto& seq : group.second) {
             // align to the graph
             Alignment aln = graph->align(seq);
+            // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
             graph->edit({aln.path()});
+        }
+    }
+    graph->paths.clear();
+
+    // compact the ID space
+    // isn't really necessary, but maybe it's nice
+    graph->sort();
+    graph->compact_ids();
+
+    // include the paths in the graph
+    for (auto& group : strings) {
+        auto& name = group.first;
+        for (auto& seq : group.second) {
+            Alignment aln = graph->align(seq);
+            aln.mutable_path()->set_name(name);
+            graph->include(aln.path());
         }
     }
 
@@ -2914,13 +2931,14 @@ void help_view(char** argv) {
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
          
          << "    -d, --dot            output dot format" << endl
+         << "    -p, --show-paths     show paths in dot output" << endl
+         << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
          
          << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
          
          << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
          << "                         positional file arguments if paired" << endl
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl;
-    //<< "    -p, --paths           extract paths from graph in VG format" << endl;
     // TODO: Can we regularize the option names for input and output types?
 }
 
@@ -2947,6 +2965,8 @@ int main_view(int argc, char** argv) {
     string alignments;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
+    bool show_paths_in_dot = false;
+    int seed_val = time(NULL);
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -2962,18 +2982,19 @@ int main_view(int argc, char** argv) {
                 {"json-in",  no_argument, 0, 'J'},
                 {"vg", no_argument, 0, 'v'},
                 {"vg-in", no_argument, 0, 'V'},
-                {"paths", no_argument, 0, 'p'},
                 {"align-in", no_argument, 0, 'a'},
                 {"gam", no_argument, 0, 'G'},
                 {"bam", no_argument, 0, 'b'},
                 {"fastq", no_argument, 0, 'f'},
                 {"interleaved", no_argument, 0, 'i'},
                 {"aln-graph", required_argument, 0, 'A'},
+                {"show-paths", no_argument, 0, 'p'},
+                {"random-seed", required_argument, 0, 's'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2984,6 +3005,14 @@ int main_view(int argc, char** argv) {
         {
         case 'd':
             output_type = "dot";
+            break;
+
+        case 'p':
+            show_paths_in_dot = true;
+            break;
+
+        case 's':
+            seed_val = atoi(optarg);
             break;
  
         case 'g':
@@ -3032,11 +3061,6 @@ int main_view(int argc, char** argv) {
                 // Default to BAM -> GAM, since BAM isn't convertable to our normal default.
                 output_type = "gam";
             }
-            break;
-
-        case 'p':
-            input_type = "paths";
-            output_type = "paths";
             break;
 
         case 'f':
@@ -3146,12 +3170,6 @@ int main_view(int argc, char** argv) {
         };
         graph = new VG(get_next_graph, false);
         
-    } else if (input_type == "paths") {
-        ifstream in;
-        in.open(file_name.c_str());
-        graph = new VG;
-        graph->paths.load(in);
-        // Paths in is always used with paths out.
     } else if (input_type == "gam") {
         if (output_type == "json") {
             // convert values to printable ones
@@ -3263,20 +3281,13 @@ int main_view(int argc, char** argv) {
     // requested output format.
 
     if (output_type == "dot") {
-        graph->to_dot(std::cout, alns);
+        graph->to_dot(std::cout, alns, show_paths_in_dot, seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
-    } else if (output_type == "paths") {
-        function<void(Path&)> dump_path = [](Path& p) {
-            for (int i = 0; i < p.mapping_size(); ++i) {
-                cout << p.name() << "\t" << p.mapping(i).position().node_id() << endl;
-            }
-        };
-        graph->paths.for_each(dump_path);
     } else {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;

@@ -115,7 +115,6 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
 
     //gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
 
-
     for (int i = 0; i < gc->length; ++i, ++nc) {
         if (i > 0) from_pos = 0; // reset for each node after the first
         // check that the current alignment has a non-zero length

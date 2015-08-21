@@ -78,7 +78,7 @@ void Paths::for_each_stream(istream& in, function<void(Path&)>& lambda) {
     stream::for_each(in, lambda, handle_count);
 }
 
-void Paths::extend(Path& p) {
+void Paths::extend(const Path& p) {
     list<Mapping>& path = get_create_path(p.name());
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
@@ -87,6 +87,7 @@ void Paths::extend(Path& p) {
     }
 }
 
+// one of these should go away
 void Paths::extend(Paths& p) {
     for (auto& l : p._paths) {
         const string& name = l.first;
@@ -136,15 +137,17 @@ bool Paths::has_mapping(const string& name, const Mapping& m) {
 }
 
 void Paths::append_mapping(const string& name, const Mapping& m) {
-    // TODO fix interface... this requires the path to be in this container
+    // get or create the path with this name
     list<Mapping>& pt = get_create_path(name);
-// TODO check if we have the mapping already ?
+    // now if we haven't already supplied a mapping
+    // add it
     if (!has_mapping(name, m)) {
         pt.push_back(m);
         Mapping* mp = &pt.back();
         // add it to the node mappings
         auto& ms = get_node_mapping(m.position().node_id());
         ms.insert(make_pair(name, mp));
+        // and record its position in this list
         list<Mapping>::iterator mi = pt.end(); --mi;
         mapping_itr[mp] = mi;
         mapping_path[mp] = name;
@@ -206,12 +209,15 @@ void Paths::rebuild_mapping_aux(void) {
 //    map<Mapping*, list<Mapping>::iterator> mapping_itr
     mapping_itr.clear();
     mapping_path.clear();
+    mapping_path_order.clear();
     for (auto& p : _paths) {
         const string& path_name = p.first;
         list<Mapping>& path = p.second;
+        size_t order_in_path = 0;
         for (list<Mapping>::iterator i = path.begin(); i != path.end(); ++i) {
             mapping_itr[&*i] = i;
             mapping_path[&*i] = path_name;
+            mapping_path_order[&*i] = order_in_path++;
         }
     }
 }
@@ -233,6 +239,7 @@ list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     }
     mapping_path.erase(m);
     mapping_itr.erase(m);
+    mapping_path_order.erase(m);
     return p;
 }
 

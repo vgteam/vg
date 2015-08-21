@@ -60,6 +60,10 @@ VG::VG(function<bool(Graph&)>& get_next_graph, bool showp) {
 
 void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
 
+    // ensure we can navigate paths correctly
+    // by building paths.mapping_path_order
+    paths.rebuild_mapping_aux();
+    
     // save the number of the messages to be serialized into the output file
     int64_t count = graph.node_size() / chunk_size + 1;
     create_progress("saving graph", count);
@@ -68,15 +72,35 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
     function<Graph(uint64_t)> lambda =
         [this, chunk_size](uint64_t i) -> Graph {
         VG g;
+        map<string, map<size_t, Mapping*> > sorted_paths;
         for (int64_t j = i * chunk_size;
              j < (i+1)*chunk_size && j < graph.node_size();
              ++j) {
             Node* node = graph.mutable_node(j);
             // Grab the node and only the edges where it has the lower ID.
             // This prevents duplication of edges in the serialized output.
-            nonoverlapping_node_context(node, g);
+            nonoverlapping_node_context_without_paths(node, g);
+            //set<pair<string, Mapping*> >& Paths::get_node_mapping(int64_t id);
+            auto& mappings = paths.get_node_mapping(node);
+            for (auto m : mappings) {
+                auto& name = m.first;
+                auto mapping = m.second;
+                sorted_paths[name][paths.mapping_path_order[mapping]] = mapping;
+            }
         }
-        // store paths
+        // now get the paths for this chunk so that they are ordered correctly
+        for (auto& p : sorted_paths) {
+            auto& name = p.first;
+            auto& path = p.second;
+            // now sorted in ascending order
+            // we could also assert that we have a contiguous path here
+            for (auto& m : path) {
+                g.paths.append_mapping(name, *m.second);
+            }
+        }
+        
+        // but this is broken as our paths have been reordered as
+        // the nodes they cross are stored in graph.nodes
         g.paths.to_graph(g.graph);
 
         update_progress(i);
@@ -497,6 +521,10 @@ void VG::combine(VG& g) {
     g.increment_node_ids(max_node_id());
     // now add it into the current graph, without connecting any nodes
     extend(g);
+}
+
+void VG::include(const Path& path) {
+    paths.extend(path);
 }
 
 int64_t VG::max_node_id(void) {
@@ -1771,30 +1799,8 @@ void VG::for_each_connected_node(Node* node, function<void(Node*)> lambda) {
     }
 }
 
-// a graph composed of this node and its edges
-void VG::node_context(Node* node, VG& g) {
-    // add the node
-    g.add_node(*node);
-    // and its edges
-    vector<pair<int64_t, bool>>& start = edges_start(node->id());
-    for (auto& e : start) {
-        g.add_edge(*get_edge(NodeSide::pair_from_start_edge(node->id(), e)));
-    }
-    vector<pair<int64_t, bool>>& end = edges_end(node->id());
-    for (auto& e : end) {
-        g.add_edge(*get_edge(NodeSide::pair_from_end_edge(node->id(), e)));
-    }
-    // and its path members
-    if (paths.has_node_mapping(node)) {
-        auto& node_mappings = paths.get_node_mapping(node);
-        for (auto& i : node_mappings) {
-            g.paths.append_mapping(i.first, *i.second);
-        }
-    }
-}
-
 // a graph composed of this node and the edges that can be uniquely assigned to it
-void VG::nonoverlapping_node_context(Node* node, VG& g) {
+void VG::nonoverlapping_node_context_without_paths(Node* node, VG& g) {
     // add the node
     g.add_node(*node);
 
@@ -1816,14 +1822,7 @@ void VG::nonoverlapping_node_context(Node* node, VG& g) {
     for (auto& e : end) {
         grab_edge(get_edge(NodeSide::pair_from_end_edge(node->id(), e)));
     }
-
-    // and its path members
-    if (paths.has_node_mapping(node)) {
-        auto& node_mappings = paths.get_node_mapping(node);
-        for (auto& i : node_mappings) {
-            g.paths.append_mapping(i.first, *i.second);
-        }
-    }
+    // paths must be added externally
 }
 
 void VG::destroy_node(int64_t id) {
@@ -2595,7 +2594,6 @@ void VG::edit_node(int64_t node_id,
         for (auto& p : cs.second) {
             auto& name = get<0>(p);
             auto& edit = get<0>(get<1>(p));
-            //cerr << "name " << name << " " << edit.sequence() << endl;
             if (!edit.sequence().empty()) {
                 Node* c = create_node(edit.sequence());
                 // add to path
@@ -2984,20 +2982,18 @@ bool VG::is_valid(void) {
     return true;
 }
 
-void VG::to_dot(ostream& out, vector<Alignment> alignments) {
+void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, int random_seed) {
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
+    //out << "    fontsize=24;" << endl;
+    //out << "    colorscheme=paired12;" << endl;
 //    out << "    splines=line;" << endl;
     out << "    smoothType=spring;" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        if (!paths.empty() && node_paths.empty()) {
-            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontcolor=red,color=red,shape=box];" << endl;
-        } else {
-            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box];" << endl;
-        }
+        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontsize=22,shape=box];" << endl;
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
@@ -3008,10 +3004,12 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
                               to_paths.begin(), to_paths.end(),
                               std::inserter(both_paths, both_paths.begin()));
         // are both nodes in the same path?
+        /*
         bool in_path = !(!paths.empty()
                         && (both_paths.empty()
                             || !paths.are_consecutive_nodes_in_path(e->from(), e->to(),
                                                                     *both_paths.begin())));
+                                                                    */
 
         // Is the edge in the "wrong" direction for rank constraints?
         bool is_backward = e->from_start() && e->to_end();
@@ -3032,9 +3030,6 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
         // depending on if the edge comes from the start or not
         out << "    " << e->from() << " -> " << e->to();
         out << " [dir=both,";
-        if (!in_path) {
-            out << "color=red,";
-        }
         if (e->from_start()) {
             out << "arrowtail=none,";
             out << "tailport=sw,";
@@ -3061,10 +3056,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
     for (auto& aln : alignments) {
         // check direction
         if (!aln.is_reverse()) {
-            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
+            out << "    " << alnid << " [label=\"+""\",fontsize=24,fontcolor=green];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
         } else {
-            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
+            out << "    " << alnid << " [label=\"-""\",fontsize=24,fontcolor=purple];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=purple];" << endl;
         }
         alnid++;
@@ -3093,7 +3088,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
             if (mstr != nstr) { // some mismatch, indicate with orange color
                 color = "orange";
             }
-            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontcolor=" << color << "];" << endl;
+            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontsize=24,fontcolor=" << color << "];" << endl;
             if (i > 0) {
                 out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
             }
@@ -3103,14 +3098,74 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments) {
             alnid++;
         }
         if (!aln.is_reverse()) {
-            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
+            out << "    " << alnid << " [label=\"-""\",fontsize=24,fontcolor=purple];" << endl;
             out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=purple];" << endl;
         } else {
-            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
+            out << "    " << alnid << " [label=\"+""\",fontsize=24,fontcolor=green];" << endl;
             out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=green];" << endl;
         }
         alnid++;
     }
+
+    // include paths
+    if (show_paths) {
+        int pathid = alnid;
+        Pictographs picts(random_seed);
+        Colors colors(random_seed);
+        set<string> used_colors; // cycle through these
+        function<void(Path&)> lambda = 
+            [this,&pathid,&out,&picts,&colors,&used_colors](Path& path) {
+            string path_label = picts.random();
+            if (used_colors.size() == colors.colors.size()) {
+                used_colors.clear();
+            }
+            string color = colors.random();
+            while (used_colors.count(color)) {
+                color = colors.random();
+            }
+            used_colors.insert(color);
+            //cerr << color << endl;
+            /*
+            if (!path.mapping(0).is_reverse()) {
+                out << "    " << pathid << " [label=\"+""\",fontcolor=green];" << endl;
+                out << "    " << pathid << " -> " << pathid+1 << " [dir=none,color=green];" << endl;
+            } else {
+                out << "    " << pathid << " [label=\"-""\",fontcolor=purple];" << endl;
+                out << "    " << pathid << " -> " << pathid+1 << " [dir=none,color=purple];" << endl;
+            }
+            */
+            //++pathid;
+            //
+            for (int i = 0; i < path.mapping_size(); ++i) {
+                const Mapping& m = path.mapping(i);
+                stringstream mapid;
+                mapid << path_label << " " << m.position().node_id();
+                if (i == 0) {
+                    out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\"fontsize=24,fontcolor=\"" << color << "\"];" << endl;      
+                } else {
+                    out << "    " << pathid << " [label=\"" << mapid.str() << "\"fontsize=24,fontcolor=\"" << color << "\"];" << endl;
+                }
+                if (i > 0) {
+                    out << "    " << pathid-1 << " -> " << pathid << "[dir=none,color=\"" << color << "\"];" << endl;
+                }
+                out << "    " << pathid << " -> " << m.position().node_id() << "[dir=none,color=\"" << color << "\", style=invis];" << endl;
+                out << "    { rank = same; " << pathid << "; " << m.position().node_id() << "; };" << endl;
+                pathid++;
+            }
+            /*
+            if (!path.mapping(path.mapping_size()-1).is_reverse()) {
+                out << "    " << pathid << " [label=\"-""\",fontcolor=purple];" << endl;
+                out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=purple];" << endl;
+            } else {
+                out << "    " << pathid << " [label=\"+""\",fontcolor=green];" << endl;
+                out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=green];" << endl;
+            }
+            */
+            //pathid++;
+        };
+        paths.for_each(lambda);
+    }
+
     out << "}" << endl;
 }
 

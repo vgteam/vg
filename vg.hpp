@@ -30,6 +30,9 @@
 
 #include "swap_remove.hpp"
 
+#include "pictographs.hpp"
+#include "colors.hpp"
+
 // uncomment to enable verbose debugging to stderr
 //#define debug
 
@@ -407,11 +410,9 @@ public:
     // use the VG class to generate ids
     Node* create_node(string seq, int64_t id = 0);
     Node* get_node(int64_t id);
-    // Get the subgraph for a node and all its edges, and add it into the given VG
-    void node_context(Node* node, VG& g);
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.
-    void nonoverlapping_node_context(Node* node, VG& g);
+    void nonoverlapping_node_context_without_paths(Node* node, VG& g);
     
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
@@ -514,7 +515,7 @@ public:
     //void node_replace_prev(Node* node, Node* before, Node* after);
     //void node_replace_next(Node* node, Node* before, Node* after);
 
-    void to_dot(ostream& out, vector<Alignment> alignments = {});
+    void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, int random_seed = 0);
     void to_gfa(ostream& out);
     bool is_valid(void);
 

@@ -53,11 +53,13 @@ public:
     // This maps from Mapping* pointer to its iterator in its list of Mappings
     // for its path. The list in question is stroed above in _paths. Recall that
     // std::list iterators are bidirectional.
-    map<Mapping*, list<Mapping>::iterator> mapping_itr;
+    map<Mapping*, list<Mapping>::iterator > mapping_itr;
     // This maps from Mapping* pointer to the name of the path it belongs to
     // (which can then be used to get the list its iterator belongs to).
     map<Mapping*, string> mapping_path;
     void rebuild_mapping_aux(void);
+    // ...we need this in order to get subsets of the paths in correct order
+    map<Mapping*, size_t> mapping_path_order;
     // This maps from node ID to a set of path name, mapping instance pairs.
     // Note that we don't have a map for each node, because each node can appear
     // along any given path multiple times, with multiple Mapping* pointers.
@@ -66,7 +68,8 @@ public:
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);
     list<Mapping>::iterator remove_mapping(Mapping* m);
-    list<Mapping>::iterator insert_mapping(list<Mapping>::iterator w, const string& path_name, const Mapping& m);
+    list<Mapping>::iterator insert_mapping(list<Mapping>::iterator w,
+                                           const string& path_name, const Mapping& m);
     void remove_paths(const set<string>& names);
     void keep_paths(const set<string>& name);
     void remove_node(int64_t id);
@@ -102,7 +105,7 @@ public:
     void append(Paths& p);
     void append(Graph& g);
     void extend(Paths& p);
-    void extend(Path& p);
+    void extend(const Path& p);
     void for_each(function<void(Path&)>& lambda);
     void for_each_stream(istream& in, function<void(Path&)>& lambda);
     void increment_node_ids(int64_t inc);
