@@ -1844,6 +1844,7 @@ int main_find(int argc, char** argv) {
         if (context_size > 0) {
             index.expand_context(graph, context_size);
         }
+        graph.remove_orphan_edges();
         graph.serialize_to_ostream(cout);
     }
 
