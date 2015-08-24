@@ -568,6 +568,7 @@ void help_mod(char** argv) {
          << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
          << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
          << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
+         << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
          << "    -e, --edge-max N        when pruning complex regions only consider paths which cross" << endl
          << "                            this many potential alternate edges (e.g. if node out-degree is" << endl
          << "                            2, we would count 1 toward --edge-max; for 3 we would count 2)" << endl
@@ -593,6 +594,7 @@ int main_mod(int argc, char** argv) {
     int chop_to = 0;
     bool add_start_and_end_markers = false;
     bool prune_subgraphs = false;
+    bool kill_labels = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -609,13 +611,14 @@ int main_mod(int argc, char** argv) {
                 {"length", required_argument, 0, 'l'},
                 {"edge-max", required_argument, 0, 'e'},
                 {"chop", required_argument, 0, 'X'},
+                {"kill-labels", no_argument, 0, 'K'},
                 {"markers", no_argument, 0, 'm'},
                 {"threads", no_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:K",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -655,6 +658,10 @@ int main_mod(int argc, char** argv) {
 
         case 'X':
             chop_to = atoi(optarg);
+            break;
+
+        case 'K':
+            kill_labels = true;
             break;
 
         case 'e':
@@ -742,6 +749,10 @@ int main_mod(int argc, char** argv) {
 
     if (chop_to) {
         graph->dice_nodes(chop_to);
+    }
+
+    if (kill_labels) {
+        graph->for_each_node([](Node* n) { n->clear_sequence(); });
     }
 
     if (add_start_and_end_markers) {
