@@ -2984,7 +2984,7 @@ bool VG::is_valid(void) {
     return true;
 }
 
-void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, int random_seed) {
+void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, bool walk_paths, int random_seed) {
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
@@ -2995,7 +2995,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, int
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontsize=22,shape=box];" << endl;
+        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontsize=22,shape=box,penwidth=2];" << endl;
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
@@ -3046,13 +3046,14 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, int
             out << "arrowhead=normal,";
             out << "headport=nw";
         }
-        out << "];" << endl;
+        out << ",penwidth=2];" << endl;
 
         if(is_backward) {
             // We don't need this duplicate edge
             delete e;
         }
     }
+
     // add nodes for the alignments and link them to the nodes they match
     int alnid = max_node_id()+1;
     for (auto& aln : alignments) {
@@ -3110,13 +3111,14 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, int
     }
 
     // include paths
-    if (show_paths) {
+    if (show_paths || walk_paths) {
         int pathid = alnid;
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         set<string> used_colors; // cycle through these
         function<void(Path&)> lambda = 
-            [this,&pathid,&out,&picts,&colors,&used_colors](Path& path) {
+            [this,&pathid,&out,&picts,&colors,&used_colors,show_paths,walk_paths]
+            (Path& path) {
             string path_label = picts.random();
             if (used_colors.size() == colors.colors.size()) {
                 used_colors.clear();
@@ -3126,44 +3128,34 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, int
                 color = colors.random();
             }
             used_colors.insert(color);
-            //cerr << color << endl;
-            /*
-            if (!path.mapping(0).is_reverse()) {
-                out << "    " << pathid << " [label=\"+""\",fontcolor=green];" << endl;
-                out << "    " << pathid << " -> " << pathid+1 << " [dir=none,color=green];" << endl;
-            } else {
-                out << "    " << pathid << " [label=\"-""\",fontcolor=purple];" << endl;
-                out << "    " << pathid << " -> " << pathid+1 << " [dir=none,color=purple];" << endl;
-            }
-            */
-            //++pathid;
-            //
-            for (int i = 0; i < path.mapping_size(); ++i) {
-                const Mapping& m = path.mapping(i);
-                stringstream mapid;
-                mapid << path_label << " " << m.position().node_id();
-                if (i == 0) {
-                    out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\"fontsize=24,fontcolor=\"" << color << "\"];" << endl;      
-                } else {
-                    out << "    " << pathid << " [label=\"" << mapid.str() << "\"fontsize=24,fontcolor=\"" << color << "\"];" << endl;
+            if (show_paths) {
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    const Mapping& m = path.mapping(i);
+                    stringstream mapid;
+                    mapid << path_label << " " << m.position().node_id();
+                    if (i == 0) {
+                        out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\",fontsize=24,fontcolor=\"" << color << "\"];" << endl;      
+                    } else {
+                        out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontsize=24,fontcolor=\"" << color << "\"];" << endl;
+                    }
+                    if (i > 0) {
+                        out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
+                    }
+                    out << "    " << pathid << " -> " << m.position().node_id() << " [dir=none,color=\"" << color << "\", style=invis];" << endl;
+                    //out << "    " << pathid << " -> " << m.position().node_id() << "[headport=n,tailport=s,color=\"" << color << "\"];" << endl;
+                    out << "    { rank = same; " << pathid << "; " << m.position().node_id() << "; };" << endl;
+                    pathid++;
                 }
-                if (i > 0) {
-                    out << "    " << pathid-1 << " -> " << pathid << "[dir=none,color=\"" << color << "\"];" << endl;
+            }
+            if (walk_paths) {
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    const Mapping& m1 = path.mapping(i);
+                    if (i < path.mapping_size()-1) {
+                        const Mapping& m2 = path.mapping(i+1);
+                        out << m1.position().node_id() << " -> " << m2.position().node_id() << " [dir=none,tailport=ne,headport=nw,color=\"" << color << "\",label=\"" << path_label << "\",fontsize=24,fontcolor=\"" << color << "\"];" << endl;
+                    }
                 }
-                out << "    " << pathid << " -> " << m.position().node_id() << "[dir=none,color=\"" << color << "\", style=invis];" << endl;
-                out << "    { rank = same; " << pathid << "; " << m.position().node_id() << "; };" << endl;
-                pathid++;
             }
-            /*
-            if (!path.mapping(path.mapping_size()-1).is_reverse()) {
-                out << "    " << pathid << " [label=\"-""\",fontcolor=purple];" << endl;
-                out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=purple];" << endl;
-            } else {
-                out << "    " << pathid << " [label=\"+""\",fontcolor=green];" << endl;
-                out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=green];" << endl;
-            }
-            */
-            //pathid++;
         };
         paths.for_each(lambda);
     }
