@@ -11,9 +11,10 @@ LIBROCKSDB=rocksdb/librocksdb.a
 SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
 LIBHTS=htslib/libhts.a
 LIBGCSA2=gcsa2/libgcsa2.a
+LIBXG=xg/libxg.a
 SDSLLITE=sdsl-lite/Make.helper
-INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2
-LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lsdsl
+INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2 -Ixg
+LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -Lxg -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o
 
 #Some little adjustments to build on OSX
@@ -58,6 +59,9 @@ $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksd
 $(LIBGCSA2): gcsa2/*.cpp gcsa2/*.h $(SDSLLITE)
 	cd gcsa2 && $(MAKE) libgcsa2.a
 	touch $(LIBGCSA2)
+
+$(LIBXG): xg/*.cpp xg/*.hpp $(SDSLLITE)
+	cd xg && $(MAKE) libxg.a
 
 $(SDSLLITE): sdsl-lite/lib/*.cpp sdsl-lite/include/sdsl/*.hpp
 	cd sdsl-lite && mkdir -p install && ./install.sh `pwd`/install
@@ -133,7 +137,7 @@ json2pb.o: json2pb.cpp json2pb.h bin2ascii.h $(LIBPROTOBUF)
 entropy.o: entropy.cpp entropy.hpp
 	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS) -static -static-libstdc++ -static-libgcc
 
 libvg.a: vg

@@ -7,6 +7,7 @@
 #include "vg.hpp"
 #include "index.hpp"
 #include "hash_map.hpp"
+#include "xg.hpp"
 
 
 namespace vg {
@@ -32,6 +33,9 @@ public:
     // merges the id space of a set of graphs on-disk
     // necessary when storing many graphs in the same index
     int64_t merge_id_space(void);
+
+    // saves as a succinct, queryable representation
+    void to_xg(const string& xg_db_name);
 
     // stores the nodes in the VGs identified by the filenames into the index
     void store_in_index(Index& index);

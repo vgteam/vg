@@ -57,6 +57,28 @@ int64_t VGset::merge_id_space(void) {
     return max_node_id;
 }
 
+void VGset::to_xg(const string& xg_db_name) {
+    // get a temporary graph
+    string tmp_graph = xg_db_name + ".tmp_vg";
+    ofstream os(tmp_graph);
+    // concatenate the graphs we've been passed
+    auto lambda = [&os](VG* g) {
+        g->serialize_to_ostream(os);
+    };
+    for_each(lambda);
+    os.close();
+    // and load them into xg
+    ifstream is(tmp_graph);
+    xg::XG index;
+    index.from_vg(is);
+    is.close();
+    remove(tmp_graph.c_str());
+    // save the xg version to the file name we've been given
+    ofstream db_out(xg_db_name.c_str());
+    index.serialize(db_out);
+    db_out.close();
+}
+
 void VGset::store_in_index(Index& index) {
     for_each([&index, this](VG* g) {
         g->show_progress = show_progress;

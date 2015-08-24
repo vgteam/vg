@@ -178,8 +178,10 @@ int main_msga(int argc, char** argv) {
 
     for (auto& group : strings) {
         auto& name = group.first;
+        cerr << "adding " << name << endl;
         for (auto& seq : group.second) {
             // align to the graph
+            cerr << name << " " << seq.size() << endl;
             Alignment aln = graph->align(seq);
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
@@ -1946,7 +1948,9 @@ void help_index(char** argv) {
          << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
          << "already be in a joint ID space, and the graph containing the highest-ID node " << endl 
          << "must come first." << endl
-         << "general options:" << endl
+         << "xg options:" << endl
+         << "    -x, --xg-name FILE     use this file to store the succinct graph" << endl
+         << "gcsa options:" << endl
          << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
@@ -1960,7 +1964,7 @@ void help_index(char** argv) {
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
          << "rocksdb options (ignored with -g):" << endl
-         << "    -s, --store-graph      store graph (do this first to build db!)" << endl
+         << "    -s, --store-graph      store graph as xg" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
          << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
          << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
@@ -1984,6 +1988,7 @@ int main_index(int argc, char** argv) {
     }
 
     string db_name;
+    string xg_name;
     int kmer_size = 0;
     int edge_max = 0;
     int kmer_stride = 1;
@@ -2028,11 +2033,12 @@ int main_index(int argc, char** argv) {
                 {"allow-negs", no_argument, 0, 'n'},
                 {"use-snappy", no_argument, 0, 'Q'},
                 {"gcsa-out", no_argument, 0, 'g'},
+                {"xg-name", no_argument, 0, 'x'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:x:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -2043,6 +2049,10 @@ int main_index(int argc, char** argv) {
         {
         case 'd':
             db_name = optarg;
+            break;
+
+        case 'x':
+            xg_name = optarg;
             break;
 
         case 'P':
@@ -2140,7 +2150,7 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (db_name.empty()) {
+    if (db_name.empty() && xg_name.empty()) {
         if (file_names.size() > 1) {
             cerr << "error:[vg index] working on multiple graphs and no db name (-d) given, exiting" << endl;
             return 1;
@@ -2157,7 +2167,7 @@ int main_index(int argc, char** argv) {
             return 1;
         }
     }
-    
+
     if(kmer_size == 0 && gcsa_out) {
         // gcsa doesn't do anything if we tell it a kmer size of 0.
         cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
@@ -2173,6 +2183,13 @@ int main_index(int argc, char** argv) {
         // kmer strides of 0 (or negative) are silly.
         cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
         return 1;
+    }
+
+    if (!xg_name.empty()) {
+        // store the graphs
+        VGset graphs(file_names);
+        graphs.to_xg(xg_name);
+        // should we stop here?
     }
 
     if(gcsa_out) {
