@@ -2990,12 +2990,12 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
     out << "    rankdir=LR;" << endl;
     //out << "    fontsize=24;" << endl;
     //out << "    colorscheme=paired12;" << endl;
-//    out << "    splines=line;" << endl;
-    out << "    smoothType=spring;" << endl;
+    //out << "    splines=line;" << endl;
+    //out << "    smoothType=spring;" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",fontsize=22,shape=box,penwidth=2];" << endl;
+        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2];" << endl;
     }
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
@@ -3136,7 +3136,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
                     if (i == 0) {
                         out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\",fontsize=24,fontcolor=\"" << color << "\"];" << endl;      
                     } else {
-                        out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontsize=24,fontcolor=\"" << color << "\"];" << endl;
+                        out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontsize=22,fontcolor=\"" << color << "\"];" << endl;
                     }
                     if (i > 0) {
                         out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
@@ -3152,7 +3152,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
                     const Mapping& m1 = path.mapping(i);
                     if (i < path.mapping_size()-1) {
                         const Mapping& m2 = path.mapping(i+1);
-                        out << m1.position().node_id() << " -> " << m2.position().node_id() << " [dir=none,tailport=ne,headport=nw,color=\"" << color << "\",label=\"" << path_label << "\",fontsize=24,fontcolor=\"" << color << "\"];" << endl;
+                        out << m1.position().node_id() << " -> " << m2.position().node_id() << " [dir=none,tailport=ne,headport=nw,color=\"" << color << "\",label=\"     " << path_label << "     \",fontsize=22,fontcolor=\"" << color << "\"];" << endl;
                     }
                 }
             }

@@ -171,7 +171,7 @@ string cigar_string(vector<pair<int, char> >& cigar) {
 // todo, make a version that works for non-invariants
 void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* nl, Node* nr) {
     // an invariant mapping is, by definition, without any edits
-    assert(orig.edit_size() == 0);
+    //assert(orig.edit_size() == 0);
     left.mutable_position()->set_node_id(nl->id());
     right.mutable_position()->set_node_id(nr->id());
 }
