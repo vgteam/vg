@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 15
+plan tests 16
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -29,9 +29,11 @@ is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT x.vg | v
 
 is $(vg find -S AGGGCTTTTAACTACTCCACATCCAAAGCTACCCAGGCCATTTTAAGTTTCCTGT -j 11 x.vg | vg view - | wc -l) 33 "vg find returns a correctly-sized graph when using jump-kmers"
 
-is $(vg find -p x:0-100 x.vg | vg view -g - | wc -l) 58 "vg find returns a subgraph corresponding to particular reference coordinates"
+is $(vg find -p x:0-100 x.vg | vg view -g - | wc -l) 42 "vg find returns a subgraph corresponding to particular reference coordinates"
 
 is $(vg find -p x:0-100 x.vg | vg view -j - | jq ".node[].sequence" | tr -d '"\n' | wc -c) 100 "vg find returns a path of the correct length"
+
+is $(vg find -p x:0-100 -c 1 x.vg | vg view -g - | wc -l) 70 "larger graph is returned when the reference path is queried with context"
 
 is $(vg find -p x -c 10 x.vg | vg view -g - | wc -l) $(vg view -g x.vg | wc -l) "entire graph is returned when the reference path is queried with context"
 
