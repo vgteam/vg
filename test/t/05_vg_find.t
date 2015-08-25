@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 13
+plan tests 15
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -40,5 +40,11 @@ is $(vg find -s 10 x.vg | wc -l) 1 "we can find edges on start"
 is $(vg find -e 10 x.vg | wc -l) 1 "we can find edges on end"
 
 rm -rf x.vg.index
+
+vg index -x x.idx x.vg 2>/dev/null
+is $(vg find -x x.idx -p x:200-300 -c 2 | vg view - | grep CTACTGACAGCAGA | cut -f 2) 72 "a path can be queried from the xg index"
+is $(vg find -x x.idx -n 203 -c 1 | vg view - | grep CTACCCAGGCCATTTTAAGTTTCCTGT | wc -l) 1 "a node near another can be obtained using context from the xg index"
+
+rm -f x.idx
 rm -f x.vg
 

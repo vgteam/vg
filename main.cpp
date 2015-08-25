@@ -1605,23 +1605,30 @@ int main_paths(int argc, char** argv) {
 void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
          << "options:" << endl
+         << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
+        // TODO, dump these from the index
+        //<< "    -a, --alignments       write all stored alignments in sorted order (in GAM)" << endl
+        //<< "    -m, --mappings         write stored mappings in sorted order (in json)" << endl
+         << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
+         << "graph features:" << endl
          << "    -n, --node ID          find node, return 1-hop context as graph" << endl
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
-         << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
-         << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "    -c, --context STEPS    expand the context of the kmer hit subgraphs" << endl
-         << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
-         << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
-         << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
-         << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
-        //<< "    -a, --alignments       write all stored alignments in sorted order (in GAM)" << endl
-        //<< "    -m, --mappings         write stored mappings in sorted order (in json)" << endl
-         << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
-         << "    -g, --gcsa FILE        use this GCSA2 index" << endl;
+         << "sequences:" << endl
+         << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
+         << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
+         << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
+         << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
+         << "    -T, --table            instead of a graph, return a table of kmers" << endl
+         << "                           (works only with kmers in the index)" << endl
+         << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl;
+
+
 }
 
 int main_find(int argc, char** argv) {
@@ -1648,6 +1655,7 @@ int main_find(int argc, char** argv) {
     bool get_alignments = false;
     bool get_mappings = false;
     string gcsa_in;
+    string xg_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1656,6 +1664,7 @@ int main_find(int argc, char** argv) {
             {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"db-name", required_argument, 0, 'd'},
+                {"xg-name", required_argument, 0, 'x'},
                 {"gcsa", required_argument, 0, 'g'},
                 {"node", required_argument, 0, 'n'},
                 {"edges-end", required_argument, 0, 'e'},
@@ -1677,7 +1686,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1688,6 +1697,10 @@ int main_find(int argc, char** argv) {
         {
         case 'd':
             db_name = optarg;
+            break;
+
+        case 'x':
+            xg_name = optarg;
             break;
 
         case 'g':
@@ -1781,108 +1794,169 @@ int main_find(int argc, char** argv) {
         }
     }
 
-    Index index;
+    Index vindex;
     // open index
     if (db_name.empty()) {
-        assert(!gcsa_in.empty());
+        assert(!gcsa_in.empty() || !xg_name.empty());
     } else {
-        index.open_read_only(db_name);
+        vindex.open_read_only(db_name);
+    }
+
+    xg::XG xindex;
+    if (!xg_name.empty()) {
+        ifstream in(xg_name.c_str());
+        xindex.load(in);
     }
 
     if (get_alignments) {
         // todo
     }
 
-    if (!node_ids.empty() && path_name.empty()) {
-        // get the context of the node
-        vector<VG> graphs;
-        for (auto node_id : node_ids) {
-            VG g;
-            index.get_context(node_id, g);
+    if (!xg_name.empty()) {
+        if (!node_ids.empty() && path_name.empty()) {
+            // get the context of the node
+            vector<Graph> graphs;
+            for (auto node_id : node_ids) {
+                Graph g;
+                xindex.neighborhood(node_id, context_size, g);
+                graphs.push_back(g);
+            }
+            VG result_graph;
+            for (auto& graph : graphs) {
+                // Allow duplicate nodes and edges (from e.g. multiple -n options); silently collapse them.
+                result_graph.extend(graph);
+            }
+            result_graph.remove_orphan_edges();
+            // return it
+            result_graph.serialize_to_ostream(cout);
+        } else if (end_id != 0) {
+            for (auto& e : xindex.edges_on_end(end_id)) {
+                cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
+            }
+        } else if (start_id != 0) {
+            for (auto& e : xindex.edges_on_start(start_id)) {
+                cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
+            }
+        }
+        if (!target.empty()) {
+            string name;
+            int64_t start, end;
+            Graph graph;
+            parse_region(target, name, start, end);
+            xindex.get_path_range(name, start, end, graph);
             if (context_size > 0) {
-                index.expand_context(g, context_size);
+                xindex.expand_context(graph, context_size);
             }
-            graphs.push_back(g);
+            VG vgg; vgg.extend(graph); // removes dupes
+            vgg.serialize_to_ostream(cout);
         }
-        VG result_graph;
-        for (auto& graph : graphs) {
-            // Allow duplicate nodes and edges (from e.g. multiple -n options); silently collapse them.
-            result_graph.extend(graph);
+        if (!range.empty()) {
+            Graph graph;
+            int64_t id_start=0, id_end=0;
+            vector<string> parts = split_delims(range, ":");
+            if (parts.size() == 1) {
+                cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
+                exit(1);
+            }
+            convert(parts.front(), id_start);
+            convert(parts.back(), id_end);
+            xindex.get_id_range(id_start, id_end, graph);
+            if (context_size > 0) {
+                xindex.expand_context(graph, context_size);
+            }
+            VG vgg; vgg.extend(graph); // removes dupes
+            vgg.remove_orphan_edges();
+            vgg.serialize_to_ostream(cout);
         }
-        result_graph.remove_orphan_edges();
-        // return it
-        result_graph.serialize_to_ostream(cout);
-    } else if (end_id != 0) {
-        vector<Edge> edges;
-        index.get_edges_on_end(end_id, edges);
-        for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
-            cout << (e->from_start() ? -1 : 1) * e->from() << "\t" <<  (e->to_end() ? -1 : 1) * e->to() << endl;
-        }
-    } else if (start_id != 0) {
-        vector<Edge> edges;
-        index.get_edges_on_start(start_id, edges);
-        for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
-            cout << (e->from_start() ? -1 : 1) * e->from() << "\t" <<  (e->to_end() ? -1 : 1) * e->to() << endl;
-        }
-    }
-
-    if (!node_ids.empty() && !path_name.empty()) {
-        int64_t path_id = index.get_path_id(path_name);
-        for (auto node_id : node_ids) {
-            list<pair<int64_t, bool>> path_prev, path_next;
-            int64_t prev_pos=0, next_pos=0;
-            bool prev_backward, next_backward;
-            if (index.get_node_path_relative_position(node_id, false, path_id,
-                                                      path_prev, prev_pos, prev_backward,
-                                                      path_next, next_pos, next_backward)) {
-
-                // Negate IDs for backward nodes
-                cout << node_id << "\t" << path_prev.front().first * (path_prev.front().second ? -1 : 1) << "\t" << prev_pos
-                     << "\t" << path_next.back().first * (path_next.back().second ? -1 : 1) << "\t" << next_pos << "\t";
-
-                Mapping m = index.path_relative_mapping(node_id, false, path_id,
-                                                        path_prev, prev_pos, prev_backward,
-                                                        path_next, next_pos, next_backward);
-                cout << pb2json(m) << endl;
+    } else if (!db_name.empty()) {
+        if (!node_ids.empty() && path_name.empty()) {
+            // get the context of the node
+            vector<VG> graphs;
+            for (auto node_id : node_ids) {
+                VG g;
+                vindex.get_context(node_id, g);
+                if (context_size > 0) {
+                    vindex.expand_context(g, context_size);
+                }
+                graphs.push_back(g);
+            }
+            VG result_graph;
+            for (auto& graph : graphs) {
+                // Allow duplicate nodes and edges (from e.g. multiple -n options); silently collapse them.
+                result_graph.extend(graph);
+            }
+            result_graph.remove_orphan_edges();
+            // return it
+            result_graph.serialize_to_ostream(cout);
+        } else if (end_id != 0) {
+            vector<Edge> edges;
+            vindex.get_edges_on_end(end_id, edges);
+            for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
+                cout << (e->from_start() ? -1 : 1) * e->from() << "\t" <<  (e->to_end() ? -1 : 1) * e->to() << endl;
+            }
+        } else if (start_id != 0) {
+            vector<Edge> edges;
+            vindex.get_edges_on_start(start_id, edges);
+            for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
+                cout << (e->from_start() ? -1 : 1) * e->from() << "\t" <<  (e->to_end() ? -1 : 1) * e->to() << endl;
             }
         }
-    }
-
-    if (!target.empty()) {
-        string name;
-        int64_t start, end;
-        VG graph;
-        parse_region(target, name, start, end);
-        index.get_path(graph, name, start, end);
-        if (context_size > 0) {
-            index.expand_context(graph, context_size);
+        if (!node_ids.empty() && !path_name.empty()) {
+            int64_t path_id = vindex.get_path_id(path_name);
+            for (auto node_id : node_ids) {
+                list<pair<int64_t, bool>> path_prev, path_next;
+                int64_t prev_pos=0, next_pos=0;
+                bool prev_backward, next_backward;
+                if (vindex.get_node_path_relative_position(node_id, false, path_id,
+                                                          path_prev, prev_pos, prev_backward,
+                                                          path_next, next_pos, next_backward)) {
+                    
+                    // Negate IDs for backward nodes
+                    cout << node_id << "\t" << path_prev.front().first * (path_prev.front().second ? -1 : 1) << "\t" << prev_pos
+                         << "\t" << path_next.back().first * (path_next.back().second ? -1 : 1) << "\t" << next_pos << "\t";
+                    
+                    Mapping m = vindex.path_relative_mapping(node_id, false, path_id,
+                                                            path_prev, prev_pos, prev_backward,
+                                                            path_next, next_pos, next_backward);
+                    cout << pb2json(m) << endl;
+                }
+            }
         }
-        graph.serialize_to_ostream(cout);
-    }
-
-    if (!range.empty()) {
-        VG graph;
-        int64_t id_start=0, id_end=0;
-        vector<string> parts = split_delims(range, ":");
-        if (parts.size() == 1) {
-            cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
-            exit(1);
+        if (!target.empty()) {
+            string name;
+            int64_t start, end;
+            VG graph;
+            parse_region(target, name, start, end);
+            vindex.get_path(graph, name, start, end);
+            if (context_size > 0) {
+                vindex.expand_context(graph, context_size);
+            }
+            graph.serialize_to_ostream(cout);
         }
-        convert(parts.front(), id_start);
-        convert(parts.back(), id_end);
-        index.get_range(id_start, id_end, graph);
-        if (context_size > 0) {
-            index.expand_context(graph, context_size);
+        if (!range.empty()) {
+            VG graph;
+            int64_t id_start=0, id_end=0;
+            vector<string> parts = split_delims(range, ":");
+            if (parts.size() == 1) {
+                cerr << "[vg find] error, format of range must be \"N:M\" where start id is N and end id is M, got " << range << endl;
+                exit(1);
+            }
+            convert(parts.front(), id_start);
+            convert(parts.back(), id_end);
+            vindex.get_range(id_start, id_end, graph);
+            if (context_size > 0) {
+                vindex.expand_context(graph, context_size);
+            }
+            graph.remove_orphan_edges();
+            graph.serialize_to_ostream(cout);
         }
-        graph.remove_orphan_edges();
-        graph.serialize_to_ostream(cout);
     }
 
     // todo cleanup if/else logic to allow only one function
     
     if (!sequence.empty()) {
         if (gcsa_in.empty()) {
-            set<int> kmer_sizes = index.stored_kmer_sizes();
+            set<int> kmer_sizes = vindex.stored_kmer_sizes();
             if (kmer_sizes.empty()) {
                 cerr << "error:[vg find] index does not include kmers, add with vg index -k" << endl;
                 return 1;
@@ -1917,12 +1991,12 @@ int main_find(int argc, char** argv) {
     if (!kmers.empty()) {
         if (count_kmers) {
             for (auto& kmer : kmers) {
-                cout << kmer << "\t" << index.approx_size_of_kmer_matches(kmer) << endl;
+                cout << kmer << "\t" << vindex.approx_size_of_kmer_matches(kmer) << endl;
             }
         } else if (kmer_table) {
             for (auto& kmer : kmers) {
                 map<string, vector<pair<int64_t, int32_t> > > positions;
-                index.get_kmer_positions(kmer, positions);
+                vindex.get_kmer_positions(kmer, positions);
                 for (auto& k : positions) {
                     for (auto& p : k.second) {
                         cout << k.first << "\t" << p.first << "\t" << p.second << endl;
@@ -1933,9 +2007,9 @@ int main_find(int argc, char** argv) {
             vector<VG> graphs;
             for (auto& kmer : kmers) {
                 VG g;
-                index.get_kmer_subgraph(kmer, g);
+                vindex.get_kmer_subgraph(kmer, g);
                 if (context_size > 0) {
-                    index.expand_context(g, context_size);
+                    vindex.expand_context(g, context_size);
                 }
                 graphs.push_back(g);
             }
@@ -1960,7 +2034,8 @@ void help_index(char** argv) {
          << "already be in a joint ID space, and the graph containing the highest-ID node " << endl 
          << "must come first." << endl
          << "xg options:" << endl
-         << "    -x, --xg-name FILE     use this file to store the succinct graph" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
+         << "                           the graph(s) (effectively replaces rocksdb)" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
