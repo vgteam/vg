@@ -2988,7 +2988,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
-    //out << "    fontsize=24;" << endl;
+    //out << "    fontsize=22;" << endl;
     //out << "    colorscheme=paired12;" << endl;
     //out << "    splines=line;" << endl;
     //out << "    smoothType=spring;" << endl;
@@ -3059,10 +3059,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
     for (auto& aln : alignments) {
         // check direction
         if (!aln.is_reverse()) {
-            out << "    " << alnid << " [label=\"+""\",fontsize=24,fontcolor=green];" << endl;
+            out << "    " << alnid << " [label=\"+""\",fontsize=22,fontcolor=green];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
         } else {
-            out << "    " << alnid << " [label=\"-""\",fontsize=24,fontcolor=purple];" << endl;
+            out << "    " << alnid << " [label=\"-""\",fontsize=22,fontcolor=purple];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=purple];" << endl;
         }
         alnid++;
@@ -3091,7 +3091,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
             if (mstr != nstr) { // some mismatch, indicate with orange color
                 color = "orange";
             }
-            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontsize=24,fontcolor=" << color << "];" << endl;
+            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontsize=22,fontcolor=" << color << "];" << endl;
             if (i > 0) {
                 out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
             }
@@ -3101,10 +3101,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
             alnid++;
         }
         if (!aln.is_reverse()) {
-            out << "    " << alnid << " [label=\"-""\",fontsize=24,fontcolor=purple];" << endl;
+            out << "    " << alnid << " [label=\"-""\",fontsize=22,fontcolor=purple];" << endl;
             out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=purple];" << endl;
         } else {
-            out << "    " << alnid << " [label=\"+""\",fontsize=24,fontcolor=green];" << endl;
+            out << "    " << alnid << " [label=\"+""\",fontsize=22,fontcolor=green];" << endl;
             out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=green];" << endl;
         }
         alnid++;
@@ -3134,7 +3134,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
                     stringstream mapid;
                     mapid << path_label << " " << m.position().node_id();
                     if (i == 0) {
-                        out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\",fontsize=24,fontcolor=\"" << color << "\"];" << endl;      
+                        out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\",fontsize=22,fontcolor=\"" << color << "\"];" << endl;      
                     } else {
                         out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontsize=22,fontcolor=\"" << color << "\"];" << endl;
                     }
