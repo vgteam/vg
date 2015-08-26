@@ -201,7 +201,7 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
         string rec = line.str();
         // handle origin marker
         // Go to the start/end node in forward orientation.
-        if (kp.next_positions.empty()) { line << start_end_id * 2 << ":0"; rec = line.str(); }
+        if (kp.next_positions.empty()) { line << start_end_id << ":0"; rec = line.str(); }
         else { rec.pop_back(); }
 #pragma omp critical (cout)
         {
@@ -261,8 +261,10 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                                path,
                                start_node,
                                start_pos,
+                               start_reversed,
                                end_node,
                                end_pos,
+                               end_reversed,
                                prev_chars,
                                next_chars,
                                prev_positions,
@@ -292,11 +294,11 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                 if (forward_kmer.pos.empty()) {
                     // Figure out if we should be talking about the forward or
                     // reverse copy of the node to GCSA.
-                    int64_t gcsa_node_id = (*start_node).node->id() * 2 + (*start_node).backward;
+                    int64_t gcsa_node_id = (*start_node).node->id();
                     // Say we're at this offset on that node. The offset is always
                     // from the start of the node (which, for the reverse copy,
                     // corresponds to the end of the forward copy).
-                    stringstream ps; ps << gcsa_node_id << ":" << start_pos;
+                    stringstream ps; ps << gcsa_node_id << ":" <<  ((*start_node).backward ? "-":"") << start_pos;
                     forward_kmer.pos = ps.str();
                 }
                 
@@ -311,10 +313,10 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                 // Add in the next positions
                 for (auto p : next_positions) {
                     // Figure out if the forward kmer should go next to the forward or reverse copy of the next node.
-                    int64_t target_node = p.first.first * 2 + p.first.second;
+                    int64_t target_node = p.first.first;
                     
                     // Say we go to it at the correct offset
-                    stringstream ps; ps << target_node << ":" << p.second;
+                    stringstream ps; ps << target_node << ":" << (p.first.second?"-":"") << p.second;
                     forward_kmer.next_positions.insert(ps.str());
                 }
             }
@@ -345,9 +347,9 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                 // Add in the start position
                 if (reverse_kmer.pos.empty()) {
                     // Use the other node ID, facing the other way
-                    int64_t gcsa_node_id = (*end_node).node->id() * 2 + !(*end_node).backward;
+                    int64_t gcsa_node_id = (*end_node).node->id();
                     // And the distance from the edn of the kmer to the end of its ending node.
-                    stringstream ps; ps << gcsa_node_id << ":" << end_pos;
+                    stringstream ps; ps << gcsa_node_id << ":" << ((*end_node).backward?"-":"") << end_pos;
                     reverse_kmer.pos = ps.str();
                 }
                     
@@ -362,10 +364,12 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                 // Add in the next positions (using the prev positions since we're reversing)
                 for (auto p : prev_positions) {
                     // Figure out if the reverse kmer should go next to the forward or reverse copy of the next node.
-                    int64_t target_node = p.first.first * 2 + !p.first.second;
+                    int64_t target_node = p.first.first;
                     
                     // Say we go to it at the correct offset
-                    stringstream ps; ps << target_node << ":" << graph.get_node(p.first.first)->sequence().size() - p.second - 1;
+                    stringstream ps;
+                    ps << target_node << ":" << (p.first.second?"-":"")
+                       << graph.get_node(p.first.first)->sequence().size() - p.second - 1;
                     reverse_kmer.next_positions.insert(ps.str());
                 }
             }
