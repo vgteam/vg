@@ -33,11 +33,11 @@ void help_msga(char** argv) {
          << "    -b, --base NAME       use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE    literally include this sequence" << endl
          << "    -g, --graph FILE      include this graph" << endl
+         << "    -X, --fragment N      break apart input sequences and sample sequences from input graphs of" << endl
+         << "                          no more than this length" << endl
          << endl
-         << "Otherwise, construct a multiple sequence alignment from all sequences in the" << endl
+         << "Construct a multiple sequence alignment from all sequences in the" << endl
          << "input fasta-format files, graphs, and sequences." << endl
-         << endl
-         << "Only single graph inputs are currently supported." << endl
          << endl
          << "Emits the resulting MSA as a (vg-format) graph." << endl;
 }
@@ -58,6 +58,7 @@ int main_msga(int argc, char** argv) {
     // ...
     bool reverse_complement = false;
     string base_seq_name;
+    size_t max_fragment_length = 100000; // 100kb
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -135,6 +136,11 @@ int main_msga(int argc, char** argv) {
         graph = new VG;
     }
 
+    // we should chop up the inputs into bits
+    // then run a kind of alignment/overlap assembly on them
+    // to generate the new graph/msa
+    // TODO refactor into class
+
     // map from name to sequence, just a transformation of FASTA records
     map<string, set<string> > strings;
 
@@ -145,7 +151,7 @@ int main_msga(int argc, char** argv) {
         FastaReference ref;
         ref.open(fasta_file_name);
          for (auto& seq : ref.index->sequenceNames) {
-             // only use the sequence if we have whitelisted it
+            // only use the sequence if we have whitelisted it
             if (seq_names.empty() || seq_names.count(seq)) {
                  strings[seq].insert(ref.getSequence(seq));
             }
@@ -188,6 +194,7 @@ int main_msga(int argc, char** argv) {
             graph->edit({aln.path()});
         }
     }
+    // clear paths added by graph->edit
     graph->paths.clear();
 
     // compact the ID space
