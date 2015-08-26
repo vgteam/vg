@@ -2984,7 +2984,8 @@ bool VG::is_valid(void) {
     return true;
 }
 
-void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, bool walk_paths, int random_seed) {
+void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, bool walk_paths, bool annotate_paths,
+                int random_seed) {
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
@@ -2997,6 +2998,50 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
         auto node_paths = paths.of_node(n->id());
         out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2];" << endl;
     }
+    
+    
+    // We're going to fill this in with all the path (symbol, color) label
+    // pairs that each edge should get, by edge pointer. If a path takes an
+    // edge multiple times, it will appear only once.
+    map<Edge*, set<pair<string, string>>> symbols_for_edge;
+    
+    if(annotate_paths) {
+        // We're going to annotate the paths, so we need to give them symbols and colors.
+        Pictographs picts(random_seed);
+        Colors colors(random_seed);
+        set<string> used_colors; // cycle through these
+    
+        // Work out what path symbols belong on what edges
+        function<void(Path&)> lambda = [this, &picts, &colors, &symbols_for_edge, &used_colors](Path& path) {
+            // Make up the path's label
+            string path_label = picts.random();
+            if (used_colors.size() == colors.colors.size()) {
+                used_colors.clear();
+            }
+            string color = colors.random();
+            while (used_colors.count(color)) {
+                color = colors.random();
+            }
+            used_colors.insert(color);
+            
+            
+            for (int i = 0; i < path.mapping_size(); ++i) {
+                const Mapping& m1 = path.mapping(i);
+                if (i < path.mapping_size()-1) {
+                    const Mapping& m2 = path.mapping(i+1);
+                    
+                    // Find the Edge connecting the mappings in the order they occur in the path.
+                    Edge* edge_used = get_edge(NodeTraversal(get_node(m1.position().node_id()), m1.is_reverse()),
+                                               NodeTraversal(get_node(m2.position().node_id()), m2.is_reverse()));
+                    
+                    // Say that edge should have this symbol                       
+                    symbols_for_edge[edge_used].insert(make_pair(path_label, color));
+                }
+            }
+        };
+        paths.for_each(lambda);
+    }
+    
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         auto from_paths = paths.of_node(e->from());
@@ -3012,6 +3057,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
                             || !paths.are_consecutive_nodes_in_path(e->from(), e->to(),
                                                                     *both_paths.begin())));
                                                                     */
+
+        // Grab the annotation symbols for this edge.
+        auto annotations = symbols_for_edge.find(e);
 
         // Is the edge in the "wrong" direction for rank constraints?
         bool is_backward = e->from_start() && e->to_end();
@@ -3046,7 +3094,22 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
             out << "arrowhead=normal,";
             out << "headport=nw";
         }
-        out << ",penwidth=2];" << endl;
+        out << ",penwidth=2";
+        
+        if(annotations != symbols_for_edge.end()) {
+            // We need to put a label on the edge with all the colored
+            // characters for paths using it.
+            out << ",label=<";
+            
+            for(auto& string_and_color : (*annotations).second) {
+                // Put every symbol in its font tag.
+                out << "<FONT COLOR=\"" << string_and_color.second << "\">" << string_and_color.first << "</FONT>";
+            }
+            
+            out << ">";
+        }   
+        
+        out << "];" << endl;
 
         if(is_backward) {
             // We don't need this duplicate edge
@@ -3116,6 +3179,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         set<string> used_colors; // cycle through these
+        
         function<void(Path&)> lambda = 
             [this,&pathid,&out,&picts,&colors,&used_colors,show_paths,walk_paths]
             (Path& path) {

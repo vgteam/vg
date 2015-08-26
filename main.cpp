@@ -3037,6 +3037,7 @@ void help_view(char** argv) {
          << "    -d, --dot            output dot format" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
+         << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
          << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
          
          << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
@@ -3072,6 +3073,7 @@ int main_view(int argc, char** argv) {
     bool interleaved_fastq = false;
     bool show_paths_in_dot = false;
     bool walk_paths_in_dot = false;
+    bool annotate_paths_in_dot = false;
     int seed_val = time(NULL);
 
     int c;
@@ -3096,12 +3098,13 @@ int main_view(int argc, char** argv) {
                 {"aln-graph", required_argument, 0, 'A'},
                 {"show-paths", no_argument, 0, 'p'},
                 {"walk-paths", no_argument, 0, 'w'},
+                {"annotate-paths", no_argument, 0, 'n'},
                 {"random-seed", required_argument, 0, 's'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:w",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wn",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3120,6 +3123,10 @@ int main_view(int argc, char** argv) {
 
         case 'w':
             walk_paths_in_dot = true;
+            break;
+            
+        case 'n':
+            annotate_paths_in_dot = true;
             break;
 
         case 's':
@@ -3392,7 +3399,7 @@ int main_view(int argc, char** argv) {
     // requested output format.
 
     if (output_type == "dot") {
-        graph->to_dot(std::cout, alns, show_paths_in_dot, walk_paths_in_dot, seed_val);
+        graph->to_dot(std::cout, alns, show_paths_in_dot, walk_paths_in_dot, annotate_paths_in_dot, seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
