@@ -3122,10 +3122,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
     for (auto& aln : alignments) {
         // check direction
         if (!aln.is_reverse()) {
-            out << "    " << alnid << " [label=\"+""\",fontsize=22,fontcolor=green];" << endl;
+            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
         } else {
-            out << "    " << alnid << " [label=\"-""\",fontsize=22,fontcolor=purple];" << endl;
+            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=purple];" << endl;
         }
         alnid++;
@@ -3154,7 +3154,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
             if (mstr != nstr) { // some mismatch, indicate with orange color
                 color = "orange";
             }
-            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontsize=22,fontcolor=" << color << "];" << endl;
+            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontcolor=" << color << "];" << endl;
             if (i > 0) {
                 out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
             }
@@ -3164,10 +3164,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
             alnid++;
         }
         if (!aln.is_reverse()) {
-            out << "    " << alnid << " [label=\"-""\",fontsize=22,fontcolor=purple];" << endl;
+            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
             out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=purple];" << endl;
         } else {
-            out << "    " << alnid << " [label=\"+""\",fontsize=22,fontcolor=green];" << endl;
+            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
             out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=green];" << endl;
         }
         alnid++;
@@ -3198,9 +3198,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
                     stringstream mapid;
                     mapid << path_label << " " << m.position().node_id();
                     if (i == 0) {
-                        out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\",fontsize=22,fontcolor=\"" << color << "\"];" << endl;      
+                        out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\",fontcolor=\"" << color << "\"];" << endl;      
                     } else {
-                        out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontsize=22,fontcolor=\"" << color << "\"];" << endl;
+                        out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontcolor=\"" << color << "\"];" << endl;
                     }
                     if (i > 0) {
                         out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
@@ -3216,7 +3216,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
                     const Mapping& m1 = path.mapping(i);
                     if (i < path.mapping_size()-1) {
                         const Mapping& m2 = path.mapping(i+1);
-                        out << m1.position().node_id() << " -> " << m2.position().node_id() << " [dir=none,tailport=ne,headport=nw,color=\"" << color << "\",label=\"     " << path_label << "     \",fontsize=22,fontcolor=\"" << color << "\"];" << endl;
+                        out << m1.position().node_id() << " -> " << m2.position().node_id() << " [dir=none,tailport=ne,headport=nw,color=\"" << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\"];" << endl;
                     }
                 }
             }
