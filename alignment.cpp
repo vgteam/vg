@@ -102,7 +102,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
         buffer[strlen(buffer)-1] = '\0';
         string name = buffer;
         name = name.substr(1); // trim off leading @
-        // XXX todo trim trailing /1 /2
+        // keep trailing /1 /2
         alignment.set_name(name);
     } else { return false; }
     // handle sequence
@@ -481,6 +481,9 @@ int32_t sam_flag(const Alignment& alignment) {
     if (alignment.is_reverse()) {
         flag |= BAM_FREVERSE;
     }
+    if (alignment.is_secondary()) {
+        flag |= BAM_FSECONDARY;
+    }
     return flag;
 }
 
@@ -511,11 +514,28 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
         sname = rg_sample[string(rg)];
     }
 
+    // Now name the read after the scaffold
+    string read_name = bam_get_qname(b);
+
+    // Decide if we are a first read (/1) or second (last) read (/2)
+    if(b->core.flag & BAM_FREAD1) {
+        read_name += "/1";
+    }
+    if(b->core.flag & BAM_FREAD2) {
+        read_name += "/2";
+    }
+    
+    // If we are marked as both first and last we get /1/2, and if we are marked
+    // as neither the scaffold name comes through unchanged as the read name.
+    // TODO: produce correct names for intermediate reads on >2 read scaffolds.
+
     // add features to the alignment
-    alignment.set_name(bam_get_qname(b));
+    alignment.set_name(read_name);
     alignment.set_sequence(sequence);
     alignment.set_quality(quality);
     alignment.set_is_reverse(bam_is_rev(b));
+    // TODO: htslib doesn't wrap this flag for some reason.
+    alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
     if (sname.size()) {
         alignment.set_sample_name(sname);
         alignment.set_read_group(rg);

@@ -200,6 +200,8 @@ public:
 
     // accessors, traversal, context
     void get_context(int64_t id, VG& graph);
+    // Augment the given graph with the nodes referenced by orphan edges, and
+    // all the edges of those nodes, repeatedly for the given number of steps.
     void expand_context(VG& graph, int steps);
     // Add all the elements in the given range to the given graph, if they aren't in it already.
     void get_range(int64_t from_id, int64_t to_id, VG& graph);

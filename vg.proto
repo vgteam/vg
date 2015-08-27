@@ -117,6 +117,7 @@ message Alignment {
     Alignment fragment_next = 12; // same thing for next in fragment
     bytes data = 13;
     Metadata metadata = 14;
+    bool is_secondary = 15; // All but one maximal-scoring alignment of a given read in a GAM file must be secondary.
 }
 
 // Fragments represent the library fragments that yield pairs of alignments

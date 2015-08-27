@@ -15,6 +15,8 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g)
     , thread_extension(1)
     , thread_extension_max(80)
     , max_thread_gap(30)
+    , context_depth(1)
+    , max_multimaps(1)
     , max_attempts(7)
     , softclip_threshold(0)
     , prefer_forward(false)
@@ -55,6 +57,11 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     int64_t last = idl + (int64_t) pair_window;
     VG* graph = new VG;
     index->get_range(first, last, *graph);
+    
+    // We also want to get nodes connected to these nodes along edges, down to the specified depth.
+    // This is useful for graphs that have unhelpful node ID assignments.
+    index->expand_context(*graph, context_depth);
+    
     graph->remove_orphan_edges();
     read2.clear_path();
     read2.set_score(0);
@@ -63,46 +70,167 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     delete graph;
 }
 
-pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& read2, int kmer_size, int stride, int band_width, int pair_window) {
+pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
+    Alignment& read1, Alignment& read2, int kmer_size, int stride, int band_width, int pair_window) {
 
     // use paired-end resolution techniques
     //
-    // attempt mapping of first mate
-    // if it works, expand the search space for the second (try to avoid new kmer lookups)
-    //     (alternatively, do the whole kmer lookup thing but then restrict the constructed
-    //      graph to a range near the first alignment)
-    // if it doesn't work, try the second, then expand the range to align the first
-    //
+    // map both reads independently
+    // if both map, return the pair of all the mappings
+    // if one maps but not the other, attempt to rescue by mapping the other nearby in both orientations
+    //     for each mapping of the mapped read, pick the best mapping of the unmapped read near it
+    
     // problem: need to develop model of pair orientations
     // solution: collect a buffer of alignments and then align them using unpaired approach
     //           detect read orientation and mean (and sd) of pair distance
 
-    //if (try_both_first) {
-    Alignment aln1 = align(read1, kmer_size, stride, band_width);
-    Alignment aln2 = align(read2, kmer_size, stride, band_width);
+    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width);
+    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width);
+    
+    // We have some logic around align_mate_in_window to handle orientation
+    // Since we now support reversing edges, we have to at least try opposing orientations for the reads.
+    auto align_mate = [&](Alignment& read, Alignment& mate) {
+        // Make an alignment to align in the same local orientation as the read
+        Alignment aln_same = mate;
+        // And one to align in the opposite local orientation
+        Alignment aln_opposite = mate;
+        
+        // Is reverse going to be preferable in a tie?
+        if (read.is_reverse()) {
+            // If so, reverse the "same direction" Alignment sequence
+            aln_same.set_sequence(reverse_complement(aln_same.sequence()));
+            aln_same.set_is_reverse(true);
+        } else {
+            // Otherwise reverse the opposite direction sequence
+            aln_opposite.set_sequence(reverse_complement(aln_opposite.sequence()));
+            aln_opposite.set_is_reverse(true);
+        }
+        
+        // Do both the alignments
+        align_mate_in_window(read, aln_same, pair_window);
+        align_mate_in_window(read, aln_opposite, pair_window);
+        
+        if(aln_same.score() >= aln_opposite.score()) {
+            // The alignment in the same direction is best
+            mate = aln_same;
+        } else {
+            // We have to say this pair has opposing local orientations
+            mate = aln_opposite;
+        }
+    };
+    
+    // Try to rescue the unmapped end with each of the mapped end's  alignments.
+    if(alignments1.empty() && !alignments2.empty()) {
+        // We need to try aligning the mate near each of the places we aligned
+        // the read. But we need to deduplicate those alignments. So we
+        // serialize them into this set.
+        set<string> serializedAlignmentsUsed;
+    
+        for(auto& aln2 : alignments2) {
+            // Align the mate the best way for each alignment of read 2
+            Alignment mate = read1;
+            align_mate(aln2, mate);
+            
+            // Work out what it is as a string
+            string serialized;
+            mate.SerializeToString(&serialized);
+            
+            if(!serializedAlignmentsUsed.count(serialized)) {
+                // It's not a duplicate
+                alignments1.push_back(mate);
+                serializedAlignmentsUsed.insert(serialized);
+            }
+        }
+        
+        // Sort these alignments by score, descending
+        sort(alignments1.begin(), alignments1.end(), [](Alignment& a, Alignment& b) {
+            return a.score() > b.score();
+        });
+        
+        // Set the secondary bits
+        for(size_t i = 0; i < alignments1.size(); i++) {
+            alignments1[i].set_is_secondary(true);
+        }
+    } else if(alignments2.empty() && !alignments1.empty()) {
+        // We need to try aligning the mate near each of the places we aligned
+        // the read. But we need to deduplicate those alignments. So we
+        // serialize them into this set.
+        set<string> serializedAlignmentsUsed;
+    
+        for(auto& aln1 : alignments1) {
+            // Align the mate the best way for each alignment of read 1
+            Alignment mate = read2;
+            align_mate(aln1, mate);
+            
+            // Work out what it is as a string
+            string serialized;
+            mate.SerializeToString(&serialized);
+            
+            if(!serializedAlignmentsUsed.count(serialized)) {
+                // It's not a duplicate
+                alignments2.push_back(mate);
+                serializedAlignmentsUsed.insert(serialized);
+            }
+        }
+        
+        // Sort these alignments by score, descending
+        sort(alignments2.begin(), alignments2.end(), [](Alignment& a, Alignment& b) {
+            return a.score() > b.score();
+        });
+        
+        // Set the secondary bits
+        for(size_t i = 0; i < alignments2.size(); i++) {
+            alignments2[i].set_is_secondary(true);
+        }
+    } 
+    
     // link the fragments
-    aln1.mutable_fragment_next()->set_name(aln2.name());
-    aln2.mutable_fragment_prev()->set_name(aln1.name());
-    // and then try to rescue unmapped mates
-    if (aln1.score() == 0 && aln2.score()) {
-        // should we reverse the read??
-        if (aln2.is_reverse()) {
-            aln1.set_sequence(reverse_complement(aln1.sequence()));
-            aln1.set_is_reverse(true);
-        }
-        align_mate_in_window(aln2, aln1, pair_window);
-    } else if (aln2.score() == 0 && aln1.score()) {
-        if (aln1.is_reverse()) {
-            aln2.set_sequence(reverse_complement(aln2.sequence()));
-            aln2.set_is_reverse(true);
-        }
-        align_mate_in_window(aln1, aln2, pair_window);
+    for(size_t i = 0; i < alignments1.size(); i++) {
+        alignments1[i].mutable_fragment_next()->set_name(read2.name());
     }
+    for(size_t i = 0; i < alignments2.size(); i++) {
+        alignments2[i].mutable_fragment_prev()->set_name(read1.name());
+    }
+    
+    // TODO: sort in order of best overall score, if the alignments happen to actually correspond?
+    // TODO: pathfind between alignments?
+    
     // TODO
     // mark them as discordant if there is an issue?
     // this needs to be detected with care using statistics built up from a bunch of reads
-    return make_pair(aln1, aln2);
+    return make_pair(alignments1, alignments2);
 
+}
+
+pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& read2, int kmer_size, int stride, 
+    int band_width, int pair_window) {
+ 
+    pair<vector<Alignment>, vector<Alignment>> multimappings = align_paired_multi(read1, read2, 
+        kmer_size, stride, band_width, pair_window);
+        
+    // Grab the input reads as alignments if nothing was found, and the found alignments otherwise
+    Alignment aln1;
+    if(multimappings.first.empty()) {
+        aln1 = read1;
+        aln1.clear_path();
+        aln1.set_score(0);
+        // Make sure to link up alignments even if they aren't mapped.
+        aln1.mutable_fragment_next()->set_name(read2.name());
+    } else {
+        aln1 = multimappings.first[0];
+    }
+    Alignment aln2;
+    if(multimappings.second.empty()) {
+        aln2 = read2;
+        aln2.clear_path();
+        aln2.set_score(0);
+        aln2.mutable_fragment_prev()->set_name(read1.name());
+    } else {
+        aln2 = multimappings.second[0];
+    }
+    
+    // Stick the alignments together
+    return make_pair(aln1, aln2);
 }
 
 Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int band_width) {
@@ -141,10 +269,10 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     return merged;
 }
 
-Alignment Mapper::align(Alignment& aln, int kmer_size, int stride, int band_width) {
+vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {
 
     if (aln.sequence().size() > band_width) {
-        return align_banded(aln, kmer_size, stride, band_width);
+        return vector<Alignment>{align_banded(aln, kmer_size, stride, band_width)};
     }
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
@@ -164,20 +292,25 @@ Alignment Mapper::align(Alignment& aln, int kmer_size, int stride, int band_widt
 
     if (debug) cerr << "aligning " << aln.sequence() << endl;
 
-    // forward
-    Alignment alignment_f = aln;
+    // This will hold the best forward alignment (or an alignment with no apth and 0 score if no alignment is found).
+    Alignment best_f = aln;
+    // This will hold all of the forward alignments up to max_multimaps
+    vector<Alignment> alignments_f;
 
-    // reverse
-    Alignment alignment_r = aln;
-    alignment_r.set_sequence(reverse_complement(aln.sequence()));
-    alignment_r.set_is_reverse(true);
+    // This will similarly hold all the reverse alignments.
+    // Right now we set it up to provide input to the actual alignment algorithm.
+    Alignment best_r = aln;
+    best_r.set_sequence(reverse_complement(aln.sequence()));
+    best_r.set_is_reverse(true);
+    // This will hold all of the reverse alignments up to max_multimaps
+    vector<Alignment> alignments_r;
 
     auto increase_sensitivity = [this,
                                  &kmer_size,
                                  &stride,
                                  &sequence,
-                                 &alignment_f,
-                                 &alignment_r]() {
+                                 &best_f,
+                                 &best_r]() {
         kmer_size -= kmer_sensitivity_step;
         stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
         if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
@@ -197,36 +330,40 @@ Alignment Mapper::align(Alignment& aln, int kmer_size, int stride, int band_widt
     int kmer_count_f = 0;
     int kmer_count_r = 0;
 
-    while (alignment_f.score() == 0 && alignment_r.score() == 0 && attempt < max_attempts) {
+    while (best_f.score() == 0 && best_r.score() == 0 && attempt < max_attempts) {
 
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             if (debug) start = std::chrono::system_clock::now();
-            align_threaded(alignment_f, kmer_count_f, kmer_size, stride, attempt);
+            // Go get all the forward alignments, putting the best one in best_f.
+            alignments_f = align_threaded(best_f, kmer_count_f, kmer_size, stride, attempt);
             if (debug) {
                 end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
-                cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << alignment_f.sequence() << endl;
+                cerr << elapsed_seconds.count() << "\t" << "+" << "\t" << best_f.sequence() << endl;
             }
         }
 
-        if (!(prefer_forward && (float)alignment_f.score() / (float)sequence.size() >= target_score_per_bp))
+        if (!(prefer_forward && (float)best_f.score() / (float)sequence.size() >= target_score_per_bp))
         {
+            // If we need to look on the reverse strand, do that too.
             std::chrono::time_point<std::chrono::system_clock> start, end;
             if (debug) start = std::chrono::system_clock::now();
-            align_threaded(alignment_r, kmer_count_r, kmer_size, stride, attempt);
+            alignments_r = align_threaded(best_r, kmer_count_r, kmer_size, stride, attempt);
             if (debug) {
                 end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
-                cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << alignment_r.sequence() << endl;
+                cerr << elapsed_seconds.count() << "\t" << "-" << "\t" << best_r.sequence() << endl;
             }
         }
 
         ++attempt;
 
-        if (alignment_f.score() == 0 && alignment_r.score() == 0) {
+        if (best_f.score() == 0 && best_r.score() == 0) {
+            // We couldn't find anything. Try harder.
             increase_sensitivity();
         } else {
+            // We found at least one alignment
             break;
         }
 
@@ -238,14 +375,69 @@ Alignment Mapper::align(Alignment& aln, int kmer_size, int stride, int band_widt
         cerr << elapsed_seconds.count() << "\t" << "b" << "\t" << sequence << endl;
     }
 
-    if (alignment_r.score() > alignment_f.score()) {
-        return alignment_r;
-    } else {
-        return alignment_f;
+    // Do a merge of the alignments up to the max limit
+    vector<Alignment> merged;
+    // What alignments are we looking at next in out in-order merge?
+    size_t next_f = 0;
+    size_t next_r = 0;
+    
+    // TODO: Apply a minimum score threshold?
+    while(merged.size() < max_multimaps) {
+        if(next_f < alignments_f.size()) {
+            // We have an available forward alignment
+            if(next_r < alignments_r.size()) {
+                // We also have an available reverse alignment
+                if(alignments_f[next_f].score() >= alignments_r[next_r].score()) {
+                    // Take the forward alignment if it has a greater or equal score.
+                    // TODO: this introduces a slight strand bias
+                    merged.push_back(alignments_f[next_f]);
+                    next_f++;
+                } else {
+                    // The reverse alignment is better
+                    merged.push_back(alignments_r[next_r]);
+                    next_r++;
+                }
+            } else {
+                // Just take the forward alignments, since they are the only ones left
+                merged.push_back(alignments_f[next_f]);
+                next_f++;
+            }
+        } else if(next_r < alignments_r.size()) {
+            // Just take the reverse alignments, since they are the only ones left
+            merged.push_back(alignments_r[next_r]);
+            next_r++;
+        } else {
+            // No alignments left, oh no!
+            break;
+        }
     }
+    
+    // Set all but the first alignment secondary.
+    for(size_t i = 1; i < merged.size(); i++) {
+        merged[i].set_is_secondary(true);
+    }
+
+    // Return the merged list of good alignments. Does not bother updating the input alignment.
+    return merged;
 }
 
-Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kmer_size, int stride, int attempt) {
+Alignment Mapper::align(Alignment& aln, int kmer_size, int stride, int band_width) {
+    // Do the multi-mapping
+    vector<Alignment> best = align_multi(aln, kmer_size, stride, band_width);
+    
+    if(best.size() == 0) {
+        // Spit back an alignment that says we failed, but make sure it has the right sequence in it.
+        Alignment failed = aln;
+        failed.clear_path();
+        failed.set_score(0);
+        return failed;
+    }
+    
+    // Otherwise, just repoirt the best alignment, since we know one exists
+    return best[0];
+}
+
+vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kmer_size, int stride, int attempt) {
 
     // parameters, some of which should probably be modifiable
     // TODO -- move to Mapper object
@@ -536,6 +728,8 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         auto& threads = tl->second;
         // by definition, our thread should construct a contiguous graph
         for (auto& thread : threads) {
+            // Do an alignment to the subgraph for each thread.
+        
             // thread extension should be determined during iteration
             // note that there is a problem and hits tend to be imbalanced
             int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
@@ -546,6 +740,11 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
             if (debug) cerr << "getting node range " << first << "-" << last << endl;
             VG* graph = new VG;
             index->get_range(first, last, *graph);
+            
+            // We also want to get nodes connected to these nodes along edges, down to the specified depth.
+            // This is useful for graphs that have unhelpful node ID assignments.
+            index->expand_context(*graph, context_depth);
+            
             Alignment& ta = alignments[&thread];
             ta = alignment;
             // by default, expand the graph a bit so we are likely to map
@@ -621,23 +820,61 @@ Alignment& Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kme
         alignment_by_score[aln->score()].insert(aln);
     }
 
+    // Collect all the good alignments
+    // TODO: Filter down subject to a minimum score per base or something?
+    vector<Alignment> good;
+    for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
+        // Copy over all the alignments in descending score order (following the pointers into the "alignments" vector)
+        // Iterating through a set keyed on ints backward is in descending order.
+
+        // This is going to let us deduplicate our alignments with this score, by storing them serialized to strings in this set.
+        set<string> serializedAlignmentsUsed;
+        
+        for(Alignment* pointer : (*it).second) {
+            // We serialize the alignment to a string
+            string serialized;
+            pointer->SerializeToString(&serialized);
+        
+            if(!serializedAlignmentsUsed.count(serialized)) {
+                // This alignment hasn't been produced yet. Produce it. The
+                // order in the alignment vector doesn't matter for things with
+                // the same score.
+                good.push_back(*pointer);
+                
+                // Save it so we can avoid putting it in the vector again
+                serializedAlignmentsUsed.insert(serialized);
+            }
+            
+            if(good.size() >= max_multimaps) {
+                // Don't report too many mappings
+                break;
+            }
+        }
+        
+        if(good.size() >= max_multimaps) {
+            // Don't report too many mappings
+            break;
+        }
+    }
+
     // get the best alignment
-    set<Alignment*>& best = alignment_by_score.rbegin()->second;
-    //cerr << alignment_by_score.size() << endl;
-    if (!alignment_by_score.empty()) {
-        alignment = **best.begin();
+    if (!good.empty()) {
+        alignment = good[0];
         if (debug) {
             cerr << "best alignment score " << alignment.score() << endl;
         }
     } else {
         alignment.clear_path();
         alignment.set_score(0);
+        
+        // We return an empty vector, and give an Alignment with no path and 0
+        // score through our output parameter.
     }
 
     if (debug && alignment.score() == 0) cerr << "failed alignment" << endl;
 
-    return alignment;
-
+    // Return all the multimappings
+    return good;
 }
 
 int softclip_start(Alignment& alignment) {

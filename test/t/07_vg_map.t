@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 15
+plan tests 17
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -k 11 x.vg
@@ -30,12 +30,14 @@ is $(vg map -b small/x.bam x.vg -J | jq .quality | grep null | wc -l) 0 "alignme
 
 is $(vg map -s $seq -B 30 x.vg | vg surject -d x.vg.index -s - | wc -l) 4 "banded alignment produces a correct alignment"
 
+is $(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG x.vg -J -M 2 | jq -r '.score' | tr '\n' ',') "62,54," "multiple alignments are returned in descending score order"
+
 rm x.vg
 rm -rf x.vg.index
 
 vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz >giab.vg
 vg index -s -k 27 -e 7 giab.vg                                                   
-is $(vg map -b minigiab/NA12878.chr22.tiny.bam giab.vg | vg view -a - | wc -l) $(samtools view minigiab/NA12878.chr22.tiny.bam | wc -l) "mapping of BAM file produces expected number of alignments"
+is $(vg map -K -b minigiab/NA12878.chr22.tiny.bam giab.vg | vg view -a - | wc -l) $(samtools view minigiab/NA12878.chr22.tiny.bam | wc -l) "mapping of BAM file produces expected number of alignments"
 
 is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - giab.vg | vg view -a - | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | grep ^@ | wc -l) "mapping from a fastq produces the expected number of alignments"
 
@@ -67,3 +69,8 @@ vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" cyclic/orient_must_swap_edges.vg >/de
 is $? 0 "mapping to graphs that can't be oriented without swapping edges works correctly"
 
 rm -Rf cyclic/orient_must_swap_edges.vg.index
+
+vg index -s -k10 graphs/multimap.vg
+is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCGG" graphs/multimap.vg -J | jq -c 'select(.is_secondary == true)' | wc -l) 1 "reads multi-map to multiple possible locations"
+
+rm -Rf graphs/multimap.vg.index

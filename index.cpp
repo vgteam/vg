@@ -1383,6 +1383,7 @@ void Index::expand_context(VG& graph, int steps = 1) {
         for (auto id : ids) {
             get_context(id, graph);
         }
+        // TODO: optimize this to only look at newly added edges on subsequent steps.
     }
 }
 
