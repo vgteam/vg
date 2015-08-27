@@ -50,10 +50,12 @@ public:
     
     // Write out kmer lines to GCSA2
     void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride,
+                        bool forward_only,
                         int64_t head_id=0, int64_t tail_id=0);
     
     // gets all the kmers in GCSA's internal format.
     void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+                        bool forward_only,
                         vector<gcsa::KMer>& kmers_out,
                         int64_t head_id=0, int64_t tail_id=0);
 
@@ -84,6 +86,7 @@ private:
     // start_tail_id, if zero, will be replaced with the ID actually used for the
     // start/end node before lambda is ever called.
     void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+                                              bool forward_only,
                                               int64_t& head_id, int64_t& tail_id,
                                               function<void(KmerPosition&)> lambda);
     

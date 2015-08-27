@@ -171,7 +171,7 @@ void VGset::for_each_kmer_parallel(function<void(string&, list<NodeTraversal>::i
     });
 }
 
-void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride,
+void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool forward_only,
                            int64_t start_id, int64_t end_id) {
 
     // When we're sure we know what this kmer instance looks like, we'll write
@@ -210,12 +210,15 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
     };
 
     // Run on each KmerPosition
-    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride, start_id, end_id,
+    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
+                                         forward_only,
+                                         start_id, end_id,
                                          write_kmer);
     
 }
 
 void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+                                                 bool forward_only,
                                                  int64_t& head_id, int64_t& tail_id,
                                                  function<void(KmerPosition&)> lambda) {
 
@@ -226,7 +229,7 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
     Node* head_node = nullptr;
     Node* tail_node = nullptr;
 
-    auto handle_node_in_graph = [&kmer_size, &edge_max, &stride, &head_node, &tail_node, &lambda, this]
+    auto handle_node_in_graph = [&kmer_size, &edge_max, &stride, &forward_only, &head_node, &tail_node, &lambda, this]
         (VG* graph, Node* node) {
         // Go through all the kpaths of this node, and produce the GCSA2 kmers on both strands that start in this node.
 #ifdef debug
@@ -240,7 +243,7 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
 
         // We're going to visit every kmer of the node and run this:
         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>
-            visit_kmer = [&cache, &kmer_size, &edge_max, &node, &head_node, &tail_node, this]
+            visit_kmer = [&cache, &kmer_size, &edge_max, &node, &forward_only, &head_node, &tail_node, this]
                          (string& kmer, list<NodeTraversal>::iterator start_node, int start_pos, 
                           list<NodeTraversal>& path, VG& graph) {
                          
@@ -265,6 +268,7 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
             graph.kmer_context(kmer,
                                kmer_size,
                                edge_max,
+                               forward_only,
                                path,
                                start_node,
                                start_pos,
@@ -274,19 +278,20 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                                next_chars,
                                prev_positions,
                                next_positions);
-                       
-            if((*start_node).node == node) {
+
+            if(start_node->node == node) {
+                if (forward_only && start_node->backward) return;
                 // This kmer starts on the node we're currently processing.
                 // Store the information about it's forward orientation.
                 
                 // Get the KmerPosition to fill, creating it if it doesn't exist already.
-                auto cache_key = make_tuple(kmer, (*start_node).backward, start_pos);
+                auto cache_key = make_tuple(kmer, start_node->backward, start_pos);
 #ifdef debug
                 if(cache.count(cache_key)) {
-                    cerr << "F: Adding to " << kmer << " at " << (*start_node).node->id() << " " << (*start_node).backward
+                    cerr << "F: Adding to " << kmer << " at " << start_node->node->id() << " " << start_node->backward
                          << " offset " << start_pos << endl;
                 } else {
-                    cerr << "F: Creating " << kmer << " at " << (*start_node).node->id() << " " << (*start_node).backward
+                    cerr << "F: Creating " << kmer << " at " << start_node->node->id() << " " << start_node->backward
                          << " offset " << start_pos << endl;
                 }
 #endif
@@ -338,7 +343,7 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                 }
             }
 
-            if((*end_node).node == node) {
+            if(end_node->node == node && !forward_only) {
                 // This kmer ends on the node we're currently processing.
                 // *OR* this kmer starts on the head node (in which case, we'd never see it from the other end)
                 // Store the information about it's reverse orientation.
@@ -347,13 +352,13 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                 // already. We flip the backwardness because we look at the kmer
                 // the other way, but since end_pos already counts from the end,
                 // we don't touch it.
-                auto cache_key = make_tuple(reverse_complement(kmer), !(*end_node).backward, end_pos);
+                auto cache_key = make_tuple(reverse_complement(kmer), !end_node->backward, end_pos);
 #ifdef debug
                 if(cache.count(cache_key)) {
-                    cerr << "R: Adding to " << reverse_complement(kmer) << " at " << (*end_node).node->id() 
+                    cerr << "R: Adding to " << reverse_complement(kmer) << " at " << end_node->node->id() 
                          << " " << !(*end_node).backward << " offset " << end_pos << endl;
                 } else {
-                    cerr << "R: Creating " << reverse_complement(kmer) << " at " << (*end_node).node->id()
+                    cerr << "R: Creating " << reverse_complement(kmer) << " at " << end_node->node->id()
                          << " " << !(*end_node).backward << " offset " << end_pos << endl;
                 }
 #endif
@@ -371,7 +376,7 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                     } else if (end_node->node->id() == head_node->id() && !end_node->backward) {
                         ps << tail_node->id() << ":" << end_pos;
                     } else {
-                        ps << (*end_node).node->id() << ":" << (!(*end_node).backward?"-":"") << end_pos;
+                        ps << (*end_node).node->id() << ":" << (!end_node->backward?"-":"") << end_pos;
                     }
                     // And the distance from the end of the kmer to the end of its ending node.
                     reverse_kmer.pos = ps.str();
@@ -476,6 +481,7 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
 }
 
 void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+                           bool forward_only,
                            vector<gcsa::KMer>& kmers_out,
                            int64_t head_id, int64_t tail_id) {
 
@@ -556,6 +562,7 @@ void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
     
     // Run on each KmerPosition. This populates start_end_id, if it was 0, before calling convert_kmer.
     for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
+                                         forward_only,
                                          head_id, tail_id, convert_kmer);
                                          
     

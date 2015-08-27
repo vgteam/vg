@@ -3894,6 +3894,7 @@ int VG::path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path
 void VG::kmer_context(string& kmer,
                       int kmer_size,
                       int edge_max,
+                      bool forward_only,
                       list<NodeTraversal>& path,
                       list<NodeTraversal>::iterator start_node,
                       int32_t start_offset,
