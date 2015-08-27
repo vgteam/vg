@@ -3380,7 +3380,10 @@ void VG::add_start_and_end_markers(int length, char start_char, char end_char,
     join_tails(tail_node);
 }
 
-void VG::add_single_start_end_marker(int length, char start_char, Node*& head_tail_node, int64_t id) {
+void VG::add_start_end_markers(int length,
+                               char start_char, char end_char,
+                               Node*& start_node, Node*& end_node,
+                               int64_t start_id, int64_t end_id) {
     // This set will hold all the nodes we haven't attached yet. But we don't
     // want it to hold the head_tail_node, so we fill it in now.
     set<Node*> unattached;
@@ -3395,13 +3398,22 @@ void VG::add_single_start_end_marker(int length, char start_char, Node*& head_ta
     vector<Node*> tails;
     tail_nodes(tails);
 
-    if(head_tail_node == nullptr) {
+    if(start_node == nullptr) {
         // We get to create the node. In its forward orientation it's the start node, so we use the start character.
         string start_string(length, start_char);
-        head_tail_node = create_node(start_string, id);
+        start_node = create_node(start_string, start_id);
     } else {
         // We got a node to use
-        add_node(*head_tail_node);
+        add_node(*start_node);
+    }
+
+    if(end_node == nullptr) {
+        // We get to create the node. In its forward orientation it's the start node, so we use the start character.
+        string end_string(length, end_char);
+        end_node = create_node(end_string, end_id);
+    } else {
+        // We got a node to use
+        add_node(*end_node);
     }
 
     for(Node* head : heads) {
@@ -3414,8 +3426,8 @@ void VG::add_single_start_end_marker(int length, char start_char, Node*& head_ta
             });
         }
 
-        // Tie it to the start/stop node
-        create_edge(head_tail_node, head);
+        // Tie it to the start node
+        create_edge(start_node, head);
     }
 
     for(Node* tail : tails) {
@@ -3428,9 +3440,8 @@ void VG::add_single_start_end_marker(int length, char start_char, Node*& head_ta
             });
         }
 
-        // Tie it to the start/stop node, going from the end of the tail to the
-        // end of the start/stop node.
-        create_edge(tail, head_tail_node, false, true);
+        // Tie it to the end node
+        create_edge(tail, end_node);
     }
 
     // Find the connected components that aren't attached, if any.
@@ -3444,7 +3455,8 @@ void VG::add_single_start_end_marker(int length, char start_char, Node*& head_ta
         });
 
         // Add the edge
-        create_edge(head_tail_node, to_attach);
+        create_edge(start_node, to_attach);
+        create_edge(to_attach, end_node);
 #ifdef debug
         cerr << "Broke into disconnected component at " << to_attach->id() << endl;
 #endif
@@ -3767,6 +3779,7 @@ void VG::_for_each_kmer(int kmer_size,
 
 #ifdef debug
                         cerr << "Checking for duplicates of " << (*start_node).node->id() << "." << start_node_offset
+                             << (reversed?"🞀":"🞂")
                              << "-" << forward_kmer  << "-" << (past_end == path.end() ? 0 : (*past_end).node->id()) << "."
                              << node_past_end_position << " viewed from "
                              << (*forward_node).node->id() << " offset " << kmer_forward_relative_start << endl;

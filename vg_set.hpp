@@ -50,12 +50,12 @@ public:
     
     // Write out kmer lines to GCSA2
     void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride,
-                        int64_t start_end_id=0);
+                        int64_t head_id=0, int64_t tail_id=0);
     
     // gets all the kmers in GCSA's internal format.
     void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                         vector<gcsa::KMer>& kmers_out,
-                        int64_t start_end_id=0);
+                        int64_t head_id=0, int64_t tail_id=0);
 
     bool show_progress;
     
@@ -81,10 +81,10 @@ private:
     // copy of the to node, and visa versa. This allows us to index both the
     // forward and reverse strands of every node, and to deal with GCSA's lack
     // of support for reversing edges, with the same trick. Note that
-    // start_end_id, if zero, will be replaced with the ID actually used for the
+    // start_tail_id, if zero, will be replaced with the ID actually used for the
     // start/end node before lambda is ever called.
     void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
-                                              int64_t& start_end_id,
+                                              int64_t& head_id, int64_t& tail_id,
                                               function<void(KmerPosition&)> lambda);
     
 };

@@ -743,7 +743,10 @@ public:
     // head, and having no tails. If id is 0, and head_tail_node is null, the
     // next free ID will be chosen for the node. Note that this visits every
     // node, to make sure it is attached to all connected components.
-    void add_single_start_end_marker(int length, char start_char, Node*& head_tail_node, int64_t id = 0);
+    void add_start_end_markers(int length,
+                               char start_char, char end_char,
+                               Node*& start_node, Node*& end_node,
+                               int64_t start_id = 0, int64_t end_id = 0);
 
     bool show_progress;
     string progress_message;
