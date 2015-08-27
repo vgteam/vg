@@ -2065,6 +2065,7 @@ void help_index(char** argv) {
          << "                           (this is required if you are using multiple graphs files)" << endl
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
+         << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "rocksdb options (ignored with -g):" << endl
          << "    -s, --store-graph      store graph as xg" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
@@ -2109,7 +2110,7 @@ int main_index(int argc, char** argv) {
     bool use_snappy = false;
     bool gcsa_out = false;
     int doubling_steps = gcsa::GCSA::DOUBLING_STEPS;
-    bool verify_index = true;
+    bool verify_index = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2137,11 +2138,12 @@ int main_index(int argc, char** argv) {
                 {"use-snappy", no_argument, 0, 'Q'},
                 {"gcsa-out", no_argument, 0, 'g'},
                 {"xg-name", no_argument, 0, 'x'},
+                {"verify-index", no_argument, 0, 'V'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:x:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:x:V",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -2228,6 +2230,10 @@ int main_index(int argc, char** argv) {
             
         case 'g':
             gcsa_out = true;
+            break;
+
+        case 'V':
+            verify_index = true;
             break;
 
         case 'X':
