@@ -2921,7 +2921,7 @@ int main_map(int argc, char** argv) {
     }
     
     if (gcsa_name.empty() && !file_name.empty()) {
-            xg_name = file_name + gcsa::GCSA::EXTENSION;
+            gcsa_name = file_name + gcsa::GCSA::EXTENSION;
     }
 
     // Load up our indexes.
@@ -2958,6 +2958,12 @@ int main_map(int argc, char** argv) {
         }
         idx = new Index();
         idx->open_read_only(db_name);
+    }
+    
+    if(gcsa && ! idx && kmer_size <= 0) {
+        // The user needs to give us a kmer size since we aren't loading it from the RocksDB kmers.
+        cerr << "error:[vg map] positive kmer size required when not loading from RocksDB" << endl;
+        exit(1); 
     }
     
     thread_count = get_thread_count();
