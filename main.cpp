@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <getopt.h>
 #include "gcsa.h"
+#include "files.cpp"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
@@ -948,7 +949,9 @@ void help_kmers(char** argv) {
          << "                          kmer, starting position, previous characters," << endl
          << "                          successive characters, successive positions." << endl
          << "                          Forward and reverse strand kmers are reported." << endl
-         << "    -I, --start-end-id N  use the specified ID for the GCSA2 start/end node" << endl 
+         << "    -F, --forward-only    When producing GCSA2 output, don't describe the reverse strand" << endl
+         << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
+         << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
          << "    -p, --progress        show progress" << endl;
 }
 
@@ -967,7 +970,9 @@ int main_kmers(int argc, char** argv) {
     bool allow_dups = true;
     bool allow_negs = false;
     // for distributed GCSA2 kmer generation
-    int64_t start_end_id = 0;
+    int64_t head_id = 0;
+    int64_t tail_id = 0;
+    bool forward_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -983,12 +988,14 @@ int main_kmers(int argc, char** argv) {
                 {"ignore-dups", no_argument, 0, 'd'},
                 {"allow-negs", no_argument, 0, 'n'},
                 {"progress",  no_argument, 0, 'p'},
-                {"start-end-id", required_argument, 0, 'I'},
+                {"head-id", required_argument, 0, 'H'},
+                {"tail-id", required_argument, 0, 'T'},
+                {"forward-only", no_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:gdnI:",
+        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:F",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1018,6 +1025,10 @@ int main_kmers(int argc, char** argv) {
             gcsa_out = true;
             break;
 
+        case 'F':
+            forward_only = true;
+            break;
+
         case 'd':
             allow_dups = false;
             break;
@@ -1030,8 +1041,12 @@ int main_kmers(int argc, char** argv) {
             show_progress = true;
             break;
 
-        case 'I':
-            start_end_id = atoi(optarg);
+        case 'H':
+            head_id = atoi(optarg);
+            break;
+
+        case 'T':
+            tail_id = atoi(optarg);
             break;
 
         case 'h':
@@ -1056,7 +1071,7 @@ int main_kmers(int argc, char** argv) {
     graphs.show_progress = show_progress;
 
     if (gcsa_out) {
-        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, start_end_id);
+        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, forward_only, head_id, tail_id);
     } else {
         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG& graph)>
             lambda = [](string& kmer, list<NodeTraversal>::iterator n, int p, list<NodeTraversal>& path, VG& graph) {
@@ -1990,7 +2005,7 @@ int main_find(int argc, char** argv) {
                 std::vector<gcsa::node_type> ids;
                 gcsa_index.locate(i, ids);
                 for (auto id : ids) {
-                    cerr << gcsa::Node::decode(id) << endl;
+                    cout << gcsa::Node::decode(id) << endl;
                 }
             }
         }
@@ -2048,6 +2063,7 @@ void help_index(char** argv) {
          << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
+         << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
          << "    -e, --edge-max N       only consider paths which cross this many potential alternate edges" << endl
          << "                           (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
          << "                           for 3 we would count 2)" << endl
@@ -2057,6 +2073,7 @@ void help_index(char** argv) {
          << "                           (this is required if you are using multiple graphs files)" << endl
          << "    -t, --threads N        number of threads to use" << endl
          << "    -p, --progress         show progress" << endl
+         << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
          << "rocksdb options (ignored with -g):" << endl
          << "    -s, --store-graph      store graph as xg" << endl
          << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
@@ -2101,6 +2118,8 @@ int main_index(int argc, char** argv) {
     bool use_snappy = false;
     bool gcsa_out = false;
     int doubling_steps = gcsa::GCSA::DOUBLING_STEPS;
+    bool verify_index = false;
+    bool forward_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2128,11 +2147,13 @@ int main_index(int argc, char** argv) {
                 {"use-snappy", no_argument, 0, 'Q'},
                 {"gcsa-out", no_argument, 0, 'g'},
                 {"xg-name", no_argument, 0, 'x'},
+                {"verify-index", no_argument, 0, 'V'},
+                {"forward-only", no_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:x:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:x:VF",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -2221,6 +2242,14 @@ int main_index(int argc, char** argv) {
             gcsa_out = true;
             break;
 
+        case 'V':
+            verify_index = true;
+            break;
+
+        case 'F':
+            forward_only = true;
+            break;
+
         case 'X':
             doubling_steps = atoi(optarg);
             break;
@@ -2296,7 +2325,7 @@ int main_index(int argc, char** argv) {
 
         // Go get the kmers of the correct size
         vector<gcsa::KMer> kmers;
-        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, kmers, 0);
+        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, forward_only, kmers, 0);
         
         // Handle finding the sink node
         size_t sink_node_id = 0;
@@ -2322,9 +2351,26 @@ int main_index(int argc, char** argv) {
         if(show_progress) {
             cerr << "Found " << kmers.size() << " kmer instances" << endl;
         }
+
+        // stash the output
+        ofstream out("x.graph");
+        gcsa::writeBinary(out, kmers, kmer_size);
+        out.close();
+
+        // copy the kmers if we are verifying the index
+        // as these are destructively modified
+        vector<gcsa::KMer> kmers_copy;
+        if (verify_index) {
+            kmers_copy = kmers;
+        }
         
         // Make the index with the kmers
         gcsa::GCSA gcsa_index(kmers, kmer_size, doubling_steps);
+
+        if (verify_index) {
+            //cerr << "verifying index" << endl;
+            gcsa_index.verifyIndex(kmers_copy, kmer_size);
+        }
         
         // Save it to the index filename
         sdsl::store_to_file(gcsa_index, db_name);
