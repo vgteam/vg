@@ -497,10 +497,6 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
         g->for_each_node_parallel([&](Node* node) {
             handle_node_in_graph(g, node);
         });
-
-        ofstream out("pre-gcsa.vg");
-        g->serialize_to_ostream(out);
-        out.close();
     });
     
     // delete the head and tail nodes

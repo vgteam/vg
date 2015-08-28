@@ -2352,10 +2352,12 @@ int main_index(int argc, char** argv) {
             cerr << "Found " << kmers.size() << " kmer instances" << endl;
         }
 
-        // stash the output
+        /*
+        // if we'd like to stash the output to GCSA2
         ofstream out("x.graph");
         gcsa::writeBinary(out, kmers, kmer_size);
         out.close();
+        */
 
         // copy the kmers if we are verifying the index
         // as these are destructively modified
