@@ -9,7 +9,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , best_clusters(0)
     , cluster_min(2)
     , hit_max(100)
-    , hit_size_threshold(0)
+    , hit_size_threshold(512)
     , kmer_min(11)
     , kmer_threshold(1)
     , kmer_sensitivity_step(3)
@@ -507,12 +507,13 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
         // We fill this in only once if we're using GCSA indexing
         gcsa::range_type gcsa_range;
         
-        // Work out the number of matches for this kmer with the appropriate index.
+        // Work out the number of *bytes* of matches for this kmer with the appropriate index.
         uint64_t approx_matches;
         if(gcsa) {
             // A little more complicated. We run the search and count the range size
             gcsa_range = gcsa->find(k);
-            approx_matches = gcsa::Range::length(gcsa_range);
+            // Measure count and convert to bytes
+            approx_matches = gcsa::Range::length(gcsa_range) * sizeof(gcsa::node_type);
         } else if(index) {
            approx_matches = index->approx_size_of_kmer_matches(k);
         } else {
@@ -520,7 +521,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             exit(1);
         }
         
-        // Report the approximate match count
+        // Report the approximate match byte size
         if (debug) cerr << k << "\t~" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
         // we can do multiple mapping by relaxing this
@@ -537,7 +538,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             std::vector<gcsa::node_type> gcsa_nodes;
             gcsa->locate(gcsa_range, gcsa_nodes);
             
-            for(auto& gcsa_node : gcsa_nodes) {
+            for(gcsa::node_type gcsa_node : gcsa_nodes) {
                 if(gcsa::Node::rc(gcsa_node)) {
                     // We found a kmer on the reverse strand. The old index
                     // didn't handle these, so we ignore them. TODO: figure out

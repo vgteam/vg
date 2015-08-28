@@ -100,6 +100,7 @@ public:
     int best_clusters;
     int cluster_min;
     int hit_max;
+    // This is in bytes. TODO: Make it not in bytes, guessing at rocksdb records per byte.
     int hit_size_threshold;
     int kmer_min;
     int kmer_threshold;
