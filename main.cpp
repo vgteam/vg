@@ -2005,7 +2005,7 @@ int main_find(int argc, char** argv) {
                 std::vector<gcsa::node_type> ids;
                 gcsa_index.locate(i, ids);
                 for (auto id : ids) {
-                    cerr << gcsa::Node::decode(id) << endl;
+                    cout << gcsa::Node::decode(id) << endl;
                 }
             }
         }

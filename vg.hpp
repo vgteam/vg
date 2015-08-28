@@ -674,10 +674,8 @@ public:
                       int32_t start_offset,
                       list<NodeTraversal>::iterator& end_node,
                       int32_t& end_offset,
-                      set<char>& prev_chars,
-                      set<char>& next_chars,
-                      set<pair<pair<int64_t, bool>, int32_t> >& prev_positions,
-                      set<pair<pair<int64_t, bool>, int32_t> >& next_positions);
+                      set<tuple<char, int64_t, bool, int32_t>>& prev_positions,
+                      set<tuple<char, int64_t, bool, int32_t>>& next_positions);
     // for pruning graph prior to indexing with gcsa2
     // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to
     // head_node or tail_node depending on which direction the path extension was stopped

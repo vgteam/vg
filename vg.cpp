@@ -3456,7 +3456,15 @@ void VG::add_start_end_markers(int length,
 
         // Add the edge
         create_edge(start_node, to_attach);
-        create_edge(to_attach, end_node);
+        vector<Edge*> edges;
+        edges_of_node(to_attach, edges);
+        for (auto edge : edges) {
+            //cerr << "edge of " << to_attach->id() << " " << edge->from() << " " << edge->to() << endl;
+            if (edge->to() == to_attach->id() && edge->from() != start_node->id()) {
+                //cerr << "creating edge" << endl;
+                create_edge(edge->from(), end_node->id(), edge->from_start(), false);
+            }
+        }
 #ifdef debug
         cerr << "Broke into disconnected component at " << to_attach->id() << endl;
 #endif
@@ -3900,10 +3908,8 @@ void VG::kmer_context(string& kmer,
                       int32_t start_offset,
                       list<NodeTraversal>::iterator& end_node,
                       int32_t& end_offset,
-                      set<char>& prev_chars,
-                      set<char>& next_chars,
-                      set<pair<pair<int64_t, bool>, int32_t> >& prev_positions,
-                      set<pair<pair<int64_t, bool>, int32_t> >& next_positions) {
+                      set<tuple<char, int64_t, bool, int32_t>>& prev_positions,
+                      set<tuple<char, int64_t, bool, int32_t>>& next_positions) {
 
     // Say we couldn't find an and node. We'll replace this when we do.
     end_node = path.end();
@@ -3923,9 +3929,13 @@ void VG::kmer_context(string& kmer,
         for (auto n : prev_nodes) {
             const string& seq = n.node->sequence();
             // We have to find the last chartacter in either orientation.
-            prev_chars.insert(n.backward ? reverse_complement(seq[0]) : seq[seq.size()-1]);
+            char c = n.backward ? reverse_complement(seq[0]) : seq[seq.size()-1];
             // Also note the previous position (which was always the last character in the orientation we'll be looking at it in)
-            prev_positions.insert(make_pair(make_pair(n.node->id(), n.backward), n.node->sequence().size() - 1));
+            prev_positions.insert(
+                make_tuple(c,
+                           n.node->id(),
+                           n.backward,
+                           n.node->sequence().size() - 1));
         }
     } else {
         // Grab and point to the previous character in this orientation of this node.
@@ -3934,8 +3944,12 @@ void VG::kmer_context(string& kmer,
         // string than start_offset from its end. Otherwise we go one character
         // earlier than start_offset from its beginning.
         // TODO: Add some methods to get characters at offsets in NodeTraversals
-        prev_chars.insert((*start_node).backward ? reverse_complement(seq[seq.size() - start_offset]) : seq[start_offset - 1]);
-        prev_positions.insert(make_pair(make_pair((*start_node).node->id(), (*start_node).backward), start_offset - 1));
+        char c = (*start_node).backward ? reverse_complement(seq[seq.size() - start_offset]) : seq[start_offset - 1];
+        prev_positions.insert(
+            make_tuple(c,
+                       (*start_node).node->id(),
+                       (*start_node).backward,
+                       start_offset - 1));
     }
 
     // find the kmer end
@@ -3986,9 +4000,14 @@ void VG::kmer_context(string& kmer,
                 // How long is this next node?
                 size_t node_length = m.node->sequence().size();
                 // If the next node is backward, get the rc of its last character. Else get its first.
-                next_chars.insert(m.backward ? reverse_complement(m.node->sequence()[node_length - 1]) : m.node->sequence()[0]);
+                char c = m.backward ? reverse_complement(m.node->sequence()[node_length - 1]) : m.node->sequence()[0];
                 // We're going to the 0 offset on this node, no matter what orientation that actually is.
-                next_positions.insert(make_pair(make_pair(m.node->id(), m.backward), 0));
+                next_positions.insert(
+                    make_tuple(
+                        c,
+                        m.node->id(),
+                        m.backward,
+                        0));
             }
             break;
         } else if (newpos > kmer.size()) {
@@ -4010,10 +4029,14 @@ void VG::kmer_context(string& kmer,
 
             // Fill in the next characters and positions. Remember that off
             // points to the first character after the end of the kmer.
-            next_chars.insert(n.backward ?
+            char c = n.backward ?
                 reverse_complement(n.node->sequence()[node_length - off - 1]) :
-                n.node->sequence()[off]);
-            next_positions.insert(make_pair(make_pair(n.node->id(), n.backward), off));
+                n.node->sequence()[off];
+            next_positions.insert(
+                make_tuple(c,
+                           n.node->id(),
+                           n.backward,
+                           off));
             break;
         } else {
             pos = newpos;
