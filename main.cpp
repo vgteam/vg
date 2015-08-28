@@ -2063,6 +2063,7 @@ void help_index(char** argv) {
          << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
+         << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
          << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
          << "    -e, --edge-max N       only consider paths which cross this many potential alternate edges" << endl
          << "                           (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
@@ -2120,6 +2121,7 @@ int main_index(int argc, char** argv) {
     int doubling_steps = gcsa::GCSA::DOUBLING_STEPS;
     bool verify_index = false;
     bool forward_only = false;
+    size_t size_limit = 200; // in gigabytes
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2149,11 +2151,12 @@ int main_index(int argc, char** argv) {
                 {"xg-name", no_argument, 0, 'x'},
                 {"verify-index", no_argument, 0, 'V'},
                 {"forward-only", no_argument, 0, 'F'},
+                {"size-limit", no_argument, 0, 'Z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:x:VF",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:x:VFZ:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -2252,6 +2255,10 @@ int main_index(int argc, char** argv) {
 
         case 'X':
             doubling_steps = atoi(optarg);
+            break;
+
+        case 'Z':
+            size_limit = atoi(optarg);
             break;
  
         case 'h':
@@ -2367,7 +2374,7 @@ int main_index(int argc, char** argv) {
         }
         
         // Make the index with the kmers
-        gcsa::GCSA gcsa_index(kmers, kmer_size, doubling_steps);
+        gcsa::GCSA gcsa_index(kmers, kmer_size, doubling_steps, size_limit);
 
         if (verify_index) {
             //cerr << "verifying index" << endl;
