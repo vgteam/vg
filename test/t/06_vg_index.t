@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 31
+plan tests 36
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -122,19 +122,28 @@ is $(vg index -D -d all.vg.aln | wc -l) ${NUM_UNIQUE_READS} "index can store ali
 
 rm -rf cyclic/all.vg.index all.vg.aln
 
-vg index -g -k 16 <(vg view -v cyclic/two_node.gfa)
-is $? 0 "GCSA2 index works on cyclic graphs with heads and tails"
+is $(vg index -g -k 16 -V <(vg view -v cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with heads and tails"
 
-vg index -g -k 16 cyclic/no_heads.vg
-is $? 0 "GCSA2 index works on cyclic graphs with no heads or tails"
+is $(vg index -g -k 16 -V cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with no heads or tails"
 
-vg index -g -k 16 cyclic/self_loops.vg
-is $? 0 "GCSA2 index works on cyclic graphs with self loops"
+is $(vg index -g -k 16 -V cyclic/self_loops.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with self loops"
 
-vg index -g -k 16 cyclic/all.vg
-is $? 0 "GCSA2 index works on general cyclic graphs"
+is $(vg index -g -k 16 -V cyclic/all.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on general cyclic graphs"
+
+is $(vg index -g -k 16 -V -F cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing works on cyclic graphs with no heads or tails"
+
+#is $(vg index -g -k 16 -V -F cyclic/self_loops.vg | 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing works on cyclic graphs with self loops"
+
+#is $(vg index -g -k 16 -V -F cyclic/all.vg 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing works on general cyclic graphs"
 
 rm -f cyclic/two_node.gfa.gcsa cyclic/no_heads.vg.gcsa cyclic/self_loops.vg.gcsa cyclic/all.vg.gcsa 
 
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g -d t.idx -k 16 -V - 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing of a tiny graph works"
 
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g -d t.idx -k 16 -V - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing of a tiny graph works"
 
+is $(vg construct -r tiny/tiny.fa | vg index -g -d t.idx -k 16 -V - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing succeeds on a single-node graph"
+
+is $(vg construct -r tiny/tiny.fa | vg index -g -d t.idx -k 16 -V -F - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing succeeds on a single-node graph"
+
+rm t.idx
