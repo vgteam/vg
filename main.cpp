@@ -2639,7 +2639,9 @@ void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
          << "options:" << endl
          << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl
-         << "                          a graph is not required" << endl
+         << "                          A graph is not required. But GCSA/xg take precedence if available." << endl
+         << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.xg)" << endl
+         << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
@@ -2656,7 +2658,7 @@ void help_map(char** argv) {
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
-         << "    -x, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 2)" << endl
+         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 2)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
@@ -2681,6 +2683,8 @@ int main_map(int argc, char** argv) {
     string seq;
     string seq_name;
     string db_name;
+    string xg_name;
+    string gcsa_name;
     int kmer_size = 0;
     int kmer_stride = 0;
     int sens_step = 0;
@@ -2719,6 +2723,8 @@ int main_map(int argc, char** argv) {
                 {"sequence", required_argument, 0, 's'},
                 {"seq-name", required_argument, 0, 'Q'},
                 {"db-name", required_argument, 0, 'd'},
+                {"xg-name", required_argument, 0, 'x'},
+                {"gcsa-name", required_argument, 0, 'g'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'k'},
                 {"min-kmer-entropy", required_argument, 0, 'E'},
@@ -2735,7 +2741,7 @@ int main_map(int argc, char** argv) {
                 {"greedy-accept", no_argument, 0, 'G'},
                 {"score-per-bp", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
-                {"thread-ex", required_argument, 0, 'x'},
+                {"thread-ex", required_argument, 0, 'e'},
                 {"context-depth", required_argument, 0, 'n'},
                 {"output-json", no_argument, 0, 'J'},
                 {"hts-input", required_argument, 0, 'b'},
@@ -2749,7 +2755,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:x:GC:A:E:Q:n:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -2768,6 +2774,14 @@ int main_map(int argc, char** argv) {
 
         case 'd':
             db_name = optarg;
+            break;
+            
+        case 'x':
+            xg_name = optarg;
+            break;
+            
+        case 'g':
+            gcsa_name = optarg;
             break;
 
         case 'j':
@@ -2806,7 +2820,7 @@ int main_map(int argc, char** argv) {
             max_multimaps = atoi(optarg);
             break;
 
-        case 'x':
+        case 'e':
             thread_ex = atoi(optarg);
             break;
             
@@ -2898,15 +2912,54 @@ int main_map(int argc, char** argv) {
         file_name = argv[optind];
     }
 
-    if (db_name.empty()) {
-        if (file_name.empty()) {
-            cerr << "error:[vg map] no graph or db given, exiting" << endl;
-            return 1;
-        } else {
+    if (db_name.empty() && !file_name.empty()) {
             db_name = file_name + ".index";
-        }
+    }
+    
+    if (xg_name.empty() && !file_name.empty()) {
+            xg_name = file_name + ".xg";
+    }
+    
+    if (gcsa_name.empty() && !file_name.empty()) {
+            xg_name = file_name + gcsa::GCSA::EXTENSION;
     }
 
+    // Load up our indexes.
+    xg::XG* xindex = nullptr;
+    
+    // We try opening the file, and then see if it worked
+    ifstream xg_stream(xg_name);
+    
+    if(xg_stream) {
+        // We have an xg index!
+        if(debug) {
+            cerr << "Loading xg index " << xg_name << "..." << endl;
+        }
+        xindex = new xg::XG(xg_stream);
+    }
+    
+    gcsa::GCSA* gcsa = nullptr;
+    ifstream gcsa_stream(gcsa_name);
+    if(gcsa_stream) {
+        // We have a GCSA index too!
+        if(debug) {
+            cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
+        }
+        gcsa = new gcsa::GCSA();
+        gcsa->load(gcsa_stream);
+    }
+    
+    Index* idx = nullptr;
+    
+    if(!xindex || !gcsa) {
+        // We only need a Rocksdb index if we don't have the others.
+        if(debug) {
+            cerr << "Loading RocksDB index " << db_name << "..." << endl;
+        }
+        idx = new Index();
+        idx->open_read_only(db_name);
+    }
+    
     thread_count = get_thread_count();
 
     vector<Mapper*> mapper;
@@ -2934,11 +2987,15 @@ int main_map(int argc, char** argv) {
         }
     };
 
-    Index idx;
-    idx.open_read_only(db_name);
-
     for (int i = 0; i < thread_count; ++i) {
-        Mapper* m = new Mapper(&idx);
+        Mapper* m;
+        if(xindex && gcsa) {
+            // We have the xg and GCSA indexes, so use them
+            m = new Mapper(xindex, gcsa);
+        } else {
+            // Use the Rocksdb index and maybe the GCSA one
+            m = new Mapper(idx, gcsa);
+        }
         m->best_clusters = best_clusters;
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
@@ -3126,6 +3183,19 @@ int main_map(int argc, char** argv) {
         if (!output_json) {
             stream::write_buffered(cout, output_buf, 0);
         }
+    }
+    
+    if(idx)  {
+        delete idx;
+        idx = nullptr;
+    }
+    if(gcsa) {
+        delete gcsa;
+        gcsa = nullptr;
+    }
+    if(xindex) {
+        delete xindex;
+        xindex = nullptr;
     }
 
     cout.flush();
