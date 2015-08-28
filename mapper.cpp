@@ -2,9 +2,10 @@
 
 namespace vg {
 
-Mapper::Mapper(Index* idex, gcsa::GCSA* g)
+Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     : index(idex)
     , gcsa(g)
+    , xindex(xidex)
     , best_clusters(0)
     , cluster_min(2)
     , hit_max(100)
@@ -25,6 +26,17 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g)
     , min_kmer_entropy(0)
     , debug(false)
 {
+    // Nothing to do. We just hold the default parameter values.
+}
+
+Mapper::Mapper(Index* idex, gcsa::GCSA* g) : Mapper(idex, g, nullptr)
+{
+    if(idex == nullptr) {
+        // With this constructor we need an index.
+        cerr << "error:[vg::Mapper] cannot create a RocksDB-based Mapper with null index" << endl;
+        exit(1);
+    }
+    
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty() && gcsa == NULL) {
         cerr << "error:[vg::Mapper] the index (" 
@@ -32,6 +44,24 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g)
              << " and no GCSA index has been provided" << endl;
         exit(1);
     }
+}
+
+Mapper::Mapper(xg::XG* xidex, gcsa::GCSA* g) : Mapper(nullptr, g, xidex) {
+    if(xidex == nullptr) {
+        // With this constructor we need an XG graph.
+        cerr << "error:[vg::Mapper] cannot create an xg-based Mapper with null xg index" << endl;
+        exit(1);
+    }
+    
+    if(g == nullptr) {
+        // With this constructor we need a GCSA2 index too.
+        cerr << "error:[vg::Mapper] cannot create an xg-based Mapper with null GCSA2 index" << endl;
+        exit(1);
+    }
+}
+
+Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr) {
+    // Nothing to do. Default constructed and can't really do anything.
 }
 
 Mapper::~Mapper(void) {
@@ -56,11 +86,22 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     int64_t first = max((int64_t)0, idf - pair_window);
     int64_t last = idl + (int64_t) pair_window;
     VG* graph = new VG;
-    index->get_range(first, last, *graph);
     
-    // We also want to get nodes connected to these nodes along edges, down to the specified depth.
-    // This is useful for graphs that have unhelpful node ID assignments.
-    index->expand_context(*graph, context_depth);
+    // Now we need to get the neighborhood by ID and expand outward by actual
+    // edges. How we do this depends on what indexing structures we have.
+    if(xindex) {
+        Graph new_stuff;
+        xindex->get_id_range(first, last, new_stuff);
+        xindex->expand_context(new_stuff, context_depth);
+        graph->merge(new_stuff);
+    } else if(index) {
+        index->get_range(first, last, *graph);
+        index->expand_context(*graph, context_depth);
+    } else {
+        cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
+        exit(1);
+    }
+    
     
     graph->remove_orphan_edges();
     read2.clear_path();
@@ -442,8 +483,8 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
     // parameters, some of which should probably be modifiable
     // TODO -- move to Mapper object
 
-    if (index == NULL) {
-        cerr << "error:[vg::Mapper] no index loaded, cannot map alignment!" << endl;
+    if (index == nullptr && (xindex == nullptr || gcsa == nullptr)) {
+        cerr << "error:[vg::Mapper] index(es) missing, cannot map alignment!" << endl;
         exit(1);
     }
 
@@ -462,7 +503,23 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
         if (!allATGC(k)) continue; // we can't handle Ns in this scheme
         //if (debug) cerr << "kmer " << k << " entropy = " << entropy(k) << endl;
         if (min_kmer_entropy > 0 && entropy(k) < min_kmer_entropy) continue;
-        uint64_t approx_matches = index->approx_size_of_kmer_matches(k);
+        
+        // We fill this in only once if we're using GCSA indexing
+        gcsa::range_type gcsa_range;
+        
+        // Work out the number of matches for this kmer with the appropriate index.
+        uint64_t approx_matches;
+        if(gcsa) {
+            // A little more complicated. We run the search and count the range size
+            gcsa_range = gcsa->find(k);
+            approx_matches = gcsa::Range::length(gcsa_range);
+        } else if(index) {
+           approx_matches = index->approx_size_of_kmer_matches(k);
+        } else {
+            cerr << "error:[vg::Mapper] no search index present" << endl;
+            exit(1);
+        }
+        
         // Report the approximate match count
         if (debug) cerr << k << "\t~" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
@@ -474,7 +531,31 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
         // Grab the map from node ID to kmer start positions for this particular kmer.
         auto& kmer_positions = positions.at(i);
         // Fill it in, since we know there won't be too many to work with.
-        index->get_kmer_positions(k, kmer_positions);
+        
+        if(gcsa) {
+            // We need to fill in this vector with the GCSA nodes and then convert.
+            std::vector<gcsa::node_type> gcsa_nodes;
+            gcsa->locate(gcsa_range, gcsa_nodes);
+            
+            for(auto& gcsa_node : gcsa_nodes) {
+                if(gcsa::Node::rc(gcsa_node)) {
+                    // We found a kmer on the reverse strand. The old index
+                    // didn't handle these, so we ignore them. TODO: figure out
+                    // how to account for them.
+                    continue;
+                }
+                // Decode the result's ID and offset and record it
+                kmer_positions[gcsa::Node::id(gcsa_node)].push_back(gcsa::Node::offset(gcsa_node));
+            }
+            
+        } else if(index) {
+           index->get_kmer_positions(k, kmer_positions);
+        } else {
+            cerr << "error:[vg::Mapper] no search index present" << endl;
+            exit(1);
+        }
+        
+        
         // ignore this kmer if it has too many hits
         // typically this will be filtered out by the approximate matches filter
         if (kmer_positions.size() > hit_max) kmer_positions.clear();
@@ -739,11 +820,22 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             // so we can pick it up efficiently from the index by pulling the range from first to last
             if (debug) cerr << "getting node range " << first << "-" << last << endl;
             VG* graph = new VG;
-            index->get_range(first, last, *graph);
             
-            // We also want to get nodes connected to these nodes along edges, down to the specified depth.
-            // This is useful for graphs that have unhelpful node ID assignments.
-            index->expand_context(*graph, context_depth);
+            // Now we need to get the neighborhood by ID and expand outward by actual
+            // edges. How we do this depends on what indexing structures we have.
+            // TODO: We're repeating this code. Break it out into a function or something.
+            if(xindex) {
+                Graph new_stuff;
+                xindex->get_id_range(first, last, new_stuff);
+                xindex->expand_context(new_stuff, context_depth);
+                graph->merge(new_stuff);
+            } else if(index) {
+                index->get_range(first, last, *graph);
+                index->expand_context(*graph, context_depth);
+            } else {
+                cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
+                exit(1);
+            }
             
             Alignment& ta = alignments[&thread];
             ta = alignment;
@@ -788,7 +880,21 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                     delete graph;
                     graph = new VG;
                 }
-                index->get_range(f, l, *graph);
+                
+                // Get the bigger range, but still go out to context depth afterwards.
+                if(xindex) {
+                    Graph new_stuff;
+                    xindex->get_id_range(f, l, new_stuff);
+                    xindex->expand_context(new_stuff, context_depth);
+                    graph->merge(new_stuff);
+                } else if(index) {
+                    index->get_range(f, l, *graph);
+                    index->expand_context(*graph, context_depth);
+                } else {
+                    cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
+                    exit(1);
+                }
+                
                 graph->remove_orphan_edges();
                 
                 if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 

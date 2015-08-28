@@ -6,6 +6,7 @@
 #include <chrono>
 #include <ctime>
 #include "vg.hpp"
+#include "xg.hpp"
 #include "index.hpp"
 #include "gcsa.h"
 #include "alignment.hpp"
@@ -19,12 +20,24 @@ using namespace std;
 
 class Mapper {
 
+
+private:
+
+    // Private constructor to delegate everything to. It might have all these
+    // indexing structures null, for example if being called from the default
+    // constructor.
+    Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex);
+
 public:
-    Mapper(Index* idex, gcsa::GCSA* g = NULL);
-    Mapper(void) : index(NULL), best_clusters(0) { }
+    // Make a Mapper that pulls from a RocksDB index and optionally a GCSA2 kmer index.
+    Mapper(Index* idex, gcsa::GCSA* g = nullptr);
+    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index.
+    Mapper(xg::XG* xidex, gcsa::GCSA* g);
+    Mapper(void);
     ~Mapper(void);
     Index* index;
     gcsa::GCSA* gcsa;
+    xg::XG* xindex;
 
     // Align the given string and return an Alignment.
     Alignment align(string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
