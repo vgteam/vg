@@ -271,7 +271,9 @@ public:
 
     // kmers
     void get_kmer_subgraph(const string& kmer, VG& graph);
+    // This is in bytes, and is often 0 for things that occur only once.
     uint64_t approx_size_of_kmer_matches(const string& kmer);
+    // This is in bytes, and is often 0 for things that occur only once.
     void approx_sizes_of_kmer_matches(const vector<string>& kmers, vector<uint64_t>& sizes);
     // Run the given function on all the keys and values in the database describing instances of the given kmer.
     void for_kmer_range(const string& kmer, function<void(string&, string&)> lambda);
