@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 36
+plan tests 37
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -18,6 +18,12 @@ is $? 0 "indexing nodes and edges of graph"
 vg index -x x.vg.idx x.vg
 is $? 0 "building an xg index of the graph"
 rm -rf x.vg.idx
+
+cp x.vg y.vg
+vg ids -j x.vg y.vg
+vg index -x x.vg.idx x.vg y.vg
+is $? 0 "building an xg index using multiple input files"
+rm -rf x.vg.idx y.vg
 
 vg index -s -d x.vg.index x.vg bogus123.vg
 is $? 134 "fail with nonexistent file"

@@ -60,13 +60,18 @@ int64_t VGset::merge_id_space(void) {
 void VGset::to_xg(const string& xg_db_name) {
     // get a temporary graph
     string tmp_graph = xg_db_name + ".tmp_vg";
-    ofstream os(tmp_graph);
-    // concatenate the graphs we've been passed
-    auto lambda = [&os](VG* g) {
-        g->serialize_to_ostream(os);
-    };
-    for_each(lambda);
-    os.close();
+    {
+        stringstream cmd;
+        cmd << "cat ";
+        for (auto& name : filenames) {
+            cmd << name << " ";
+        }
+        cmd << ">" << tmp_graph;
+        if (system(cmd.str().c_str())) {
+            cerr << "[vg::map] could not concatenate graphs" << endl;
+            exit(1);
+        }
+    }
     // and load them into xg
     ifstream is(tmp_graph);
     xg::XG index;
