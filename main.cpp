@@ -5,7 +5,7 @@
 #include <getopt.h>
 #include "gcsa.h"
 // From gcsa2
-#include "files.cpp"
+#include "files.h"
 #include "json2pb.h"
 #include "vg.hpp"
 #include "vg.pb.h"
