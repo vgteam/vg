@@ -2907,6 +2907,7 @@ int main_map(int argc, char** argv) {
         return 1;
     }
 
+    // should probably disable this
     string file_name;
     if (optind < argc) {
         file_name = argv[optind];

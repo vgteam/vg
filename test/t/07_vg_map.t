@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 17
+plan tests 15
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -k 11 x.vg
@@ -49,18 +49,18 @@ is $count_prev $count_next "vg connects paired-end reads in gam output"
 rm giab.vg
 rm -rf giab.vg.index
 
-vg index -s -k 27 -e 7 graphs/199754000:199755000.vg
+#vg index -s -k 27 -e 7 graphs/199754000:199755000.vg
 
 #a=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | jq '.path.mapping[0].position.offset' -c)
 #b=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 500 -J | jq '.path.mapping[0].position.offset' -c)
 #is $a $b "banded alignment works correctly even with varied band size"
 
-c=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | jq -c '.path.mapping[0].position.offset')
-is $c 29 "unitig mapping produces the correct position"
+#c=$(vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B 1000 -J | jq -c '.path.mapping[0].position.offset')
+#is $c 29 "unitig mapping produces the correct position"
 
-is $(for i in $(seq 500 50 2000); do vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B $i -J | jq '.path.mapping[0].position.offset' -c; done | sort | uniq | wc -l) 1 "varying the bandwidth does not change the mapping start position"
+#is $(for i in $(seq 500 50 2000); do vg map -f graphs/2086553952_1469228759.mag -d graphs/199754000:199755000.vg.index -B $i -J | jq '.path.mapping[0].position.offset' -c; done | sort | uniq | wc -l) 1 "varying the bandwidth does not change the mapping start position"
 
-rm -rf graphs/199754000:199755000.vg.index
+#rm -rf graphs/199754000:199755000.vg.index
 
 # I was having a problem when updating an edge due to a flipped end node made it
 # identical to an already existing edge that hadn't yet been updated. This makes

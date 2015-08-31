@@ -90,10 +90,10 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     // Now we need to get the neighborhood by ID and expand outward by actual
     // edges. How we do this depends on what indexing structures we have.
     if(xindex) {
-        Graph new_stuff;
-        xindex->get_id_range(first, last, new_stuff);
-        xindex->expand_context(new_stuff, context_depth);
-        graph->merge(new_stuff);
+        // should have callback here
+        xindex->get_id_range(first, last, graph->graph);
+        xindex->expand_context(graph->graph, context_depth);
+        graph->rebuild_indexes();
     } else if(index) {
         index->get_range(first, last, *graph);
         index->expand_context(*graph, context_depth);
@@ -826,10 +826,9 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             // edges. How we do this depends on what indexing structures we have.
             // TODO: We're repeating this code. Break it out into a function or something.
             if(xindex) {
-                Graph new_stuff;
-                xindex->get_id_range(first, last, new_stuff);
-                xindex->expand_context(new_stuff, context_depth);
-                graph->merge(new_stuff);
+                xindex->get_id_range(first, last, graph->graph);
+                xindex->expand_context(graph->graph, context_depth);
+                graph->rebuild_indexes();
             } else if(index) {
                 index->get_range(first, last, *graph);
                 index->expand_context(*graph, context_depth);
@@ -843,7 +842,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             // by default, expand the graph a bit so we are likely to map
             //index->get_connected_nodes(*graph);
             graph->remove_orphan_edges();
-            
+
             if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
                             << graph->edge_count() << " edges" << endl;
                             
@@ -884,10 +883,9 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                 
                 // Get the bigger range, but still go out to context depth afterwards.
                 if(xindex) {
-                    Graph new_stuff;
-                    xindex->get_id_range(f, l, new_stuff);
-                    xindex->expand_context(new_stuff, context_depth);
-                    graph->merge(new_stuff);
+                    xindex->get_id_range(f, l, graph->graph);
+                    xindex->expand_context(graph->graph, context_depth);
+                    graph->rebuild_indexes();
                 } else if(index) {
                     index->get_range(f, l, *graph);
                     index->expand_context(*graph, context_depth);
