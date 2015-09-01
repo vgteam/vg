@@ -23,10 +23,12 @@ SYS=$(shell uname -s)
 ifeq (${SYS},Darwin)
 	CXXFLAGS:=$(CXXFLAGS) -msse2 #needed to link against gssw
 	LDFLAGS:=$(LDFLAGS) -L/opt//local/lib/ # needed for macports jansson
+	STATICFLAGS= # -static doesn't work on OSX unless libgcc compiled as static. 
 	ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler options
 	CLEAN_SNAPPY_AG=sed -i -e "s/[[:<:]]libtoolize[[:>:]]/glibtoolize/g" autogen.sh
 else
 	LDFLAGS:=$(LDFLAGS) -lrt
+	STATICFLAGS=-static -static-libstdc++ -static-libgcc
 	ROCKSDB_PORTABLE=
 	CLEAN_SNAPPY_AG=:
 endif
@@ -138,7 +140,7 @@ entropy.o: entropy.cpp entropy.hpp
 	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
 
 vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG)
-	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS) -static -static-libstdc++ -static-libgcc
+	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
 
 libvg.a: vg
 	ar rs libvg.a $(LIBS)
