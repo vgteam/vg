@@ -949,6 +949,7 @@ void help_kmers(char** argv) {
          << "                          kmer, starting position, previous characters," << endl
          << "                          successive characters, successive positions." << endl
          << "                          Forward and reverse strand kmers are reported." << endl
+         << "    -B, --gcsa-binary     Write the GCSA graph in binary format." << endl
          << "    -F, --forward-only    When producing GCSA2 output, don't describe the reverse strand" << endl
          << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
          << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
@@ -973,6 +974,7 @@ int main_kmers(int argc, char** argv) {
     int64_t head_id = 0;
     int64_t tail_id = 0;
     bool forward_only = false;
+    bool gcsa_binary = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -991,11 +993,12 @@ int main_kmers(int argc, char** argv) {
                 {"head-id", required_argument, 0, 'H'},
                 {"tail-id", required_argument, 0, 'T'},
                 {"forward-only", no_argument, 0, 'F'},
+                {"gcsa-binary", no_argument, 0, 'B'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:F",
+        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:FB",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -1049,6 +1052,10 @@ int main_kmers(int argc, char** argv) {
             tail_id = atoi(optarg);
             break;
 
+        case 'B':
+            gcsa_binary = true;
+            break;
+
         case 'h':
         case '?':
             help_kmers(argv);
@@ -1071,7 +1078,24 @@ int main_kmers(int argc, char** argv) {
     graphs.show_progress = show_progress;
 
     if (gcsa_out) {
-        graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, forward_only, head_id, tail_id);
+        if (!gcsa_binary) {
+            graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, forward_only, head_id, tail_id);
+        } else {
+            // Go get the kmers of the correct size
+            vector<gcsa::KMer> kmers;
+            graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, forward_only, kmers, head_id, tail_id);
+            for(auto& kmer : kmers) {
+                // Mark kmers that go to the sink node as "sorted", since they have stop
+                // characters in them and can't be extended.
+                if(gcsa::Node::id(kmer.to) == tail_id && gcsa::Node::offset(kmer.to) > 0) {
+                    kmer.makeSorted();
+                }
+            }
+            if(show_progress) {
+                cerr << "Found " << kmers.size() << " kmer instances" << endl;
+            }
+            gcsa::writeBinary(cout, kmers, kmer_size);
+        }
     } else {
         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG& graph)>
             lambda = [](string& kmer, list<NodeTraversal>::iterator n, int p, list<NodeTraversal>& path, VG& graph) {
