@@ -16,12 +16,146 @@
 #include "stream.hpp"
 #include "alignment.hpp"
 #include "convert.hpp"
+#include "pileup.hpp"
 #include "google/protobuf/stubs/common.h"
 
 using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
+void help_pileup(char** argv) {
+    cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.pileup" << endl
+         << "Calculate pileup for each position in graph." << endl
+         << endl
+         << "options:" << endl
+         << "    -j, --json           output in JSON" << endl
+         << "    -p, --progress       show progress" << endl
+         << "    -t, --threads N      number of threads to use" << endl;
+}
+
+int main_pileup(int argc, char** argv) {
+
+    if (argc <= 3) {
+        help_pileup(argv);
+        return 1;
+    }
+
+    bool output_json = false;
+    bool show_progress = false;
+
+    int c;
+    optind = 2; // force optind past command positional arguments
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"json", required_argument, 0, 'j'},
+                {"progress", required_argument, 0, 'p'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "jpt:",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'j':
+            output_json = true;
+            break;
+        case 'p':
+            show_progress = true;
+            break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_pileup(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    int thread_count = get_thread_count();
+
+    // read the graph
+    if (show_progress) {
+        cerr << "Reading input graph" << endl;
+    }
+    VG* graph;
+    string graph_file_name = argv[optind++];
+    if (graph_file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(graph_file_name.c_str());
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        graph = new VG(in);
+    }
+
+    // setup alignment stream
+    string alignments_file_name = argv[optind++];
+    istream* alignment_stream = NULL;
+    ifstream in;
+    if (alignments_file_name == "-") {
+        if (alignments_file_name == "-") {
+            cerr << "error: graph and alignments can't both be from stdin." << endl;
+            exit(1);
+        }
+        alignment_stream = &std::cin;
+    } else {
+        in.open(alignments_file_name);
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        alignment_stream = &in;
+    }
+
+    // compute the pileups.
+    if (show_progress) {
+        cerr << "Computing pileups" << endl;
+    }
+    vector<Pileups> pileups(thread_count);
+    function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
+        int tid = omp_get_thread_num();
+        pileups[tid].compute_from_alignment(*graph, aln);
+    };
+    stream::for_each_parallel(*alignment_stream, lambda);
+
+    // single-threaded (!) merge
+    if (show_progress && pileups.size() > 1) {
+        cerr << "Merging pileups" << endl;
+    }
+    for (int i = 1; i < pileups.size(); ++i) {
+        pileups[0].merge(pileups[i]);
+    }
+    // spit out the pileup
+    if (show_progress) {
+        cerr << "Writing pileups" << endl;
+    }
+    if (output_json == false) {
+      pileups[0].write(std::cout);
+    } else {
+      pileups[0].to_json(std::cout);
+    }
+
+    delete graph;
+    return 0;
+}
+  
 void help_msga(char** argv) {
     cerr << "usage: " << argv[0] << " msga [options] >graph.vg" << endl
          << "Multiple sequence / graph aligner." << endl
@@ -3736,6 +3870,8 @@ int main(int argc, char *argv[])
         return main_surject(argc, argv);
     } else if (command == "msga") {
         return main_msga(argc, argv);
+    } else if (command == "pileup") {
+        return main_pileup(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
