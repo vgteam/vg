@@ -3312,6 +3312,7 @@ int main_view(int argc, char** argv) {
 
     string output_type;
     string input_type;
+    bool input_json = false;
     string alignments;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
@@ -3390,7 +3391,7 @@ int main_view(int argc, char** argv) {
             break;
             
         case 'J':
-            input_type = "json";
+            input_json = true;
             break;
 
         case 'v':
@@ -3411,10 +3412,6 @@ int main_view(int argc, char** argv) {
             
         case 'a':
             input_type = "gam";
-            if(output_type.empty()) {
-                // Default to GAM -> JSON
-                output_type = "json";
-            }
             break;
 
         case 'b':
@@ -3452,15 +3449,18 @@ int main_view(int argc, char** argv) {
             abort ();
         }
     }
-
+    // Default to GAM -> JSON
+    if(input_type == "gam" && output_type.empty()) {
+        output_type = "json";
+    }
     // If the user specified nothing else, we default to VG in and GFA out.
     if (input_type.empty()) {
-        input_type = "vg";
+        input_type = !input_json ? "vg" : "json";
     }
     if (output_type.empty()) {
         output_type = "gfa";
     }
-    
+
     vector<Alignment> alns;
     if (!alignments.empty()) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
@@ -3496,64 +3496,36 @@ int main_view(int argc, char** argv) {
         }
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
-        // We need to load a JSON graph, which means we need to mess about with FILE pointers, since jansson is a C API.
-        
-        FILE* json_file;
-        
-        if (file_name == "-") {
-            // Read standard input
-            json_file = stdin;
-        } else {
-            // Open the file for reading
-            json_file = fopen(file_name.c_str(), "r");
-        }
-        
-        // Make a new VG that calls this function over and over to read Graphs.
-        function<bool(Graph&)> get_next_graph = [&](Graph& subgraph) -> bool {
-            // Check if the file ends now, and skip whitespace between records.
-            char peeked;
-            do {
-                peeked = fgetc(json_file);
-                if(peeked == EOF) {
-                    // File ended or otherwise errored. TODO: check for other
-                    // errors and complain.
-                    return false;
-                }
-            } while(isspace(peeked));
-            // Put it back
-            ungetc(peeked, json_file);
-            
-            // Now we know we have non-whitespace between here and EOF.
-            // If it's not JSON, we want to die. So read it as JSON.
-            json2pb(subgraph, json_file);
-            
-            // We read it successfully!
-            return true;
-        };
+        assert(input_json == true);
+        JSONStreamHelper<Graph> json_helper(file_name);
+        function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false);
         
     } else if (input_type == "gam") {
-        if (output_type == "json") {
-            // convert values to printable ones
-            function<void(Alignment&)> lambda = [](Alignment& a) {
-                //alignment_quality_short_to_char(a);
-                cout << pb2json(a) << "\n";
-            };
-            if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Alignment&)> lambda = [](Alignment& a) {
+                    //alignment_quality_short_to_char(a);
+                    cout << pb2json(a) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
             } else {
-                ifstream in;
-                in.open(file_name.c_str());
-                stream::for_each(in, lambda);
+                // todo
+                cerr << "[vg view] error: (binary) GAM can only be converted to JSON" << endl;
+                return 1;
             }
-            
-            cout.flush();
-            return 0;
         } else {
-            // todo
-            cerr << "[vg view] error: GAM can only be converted to JSON" << endl;
-            return 1;
+            JSONStreamHelper<Alignment> json_helper(file_name);
+            json_helper.write(cout, output_type == "json");
         }
+        return 0;
     } else if (input_type == "bam") {
         if (output_type == "gam") {
 //function<void(const Alignment&)>& lambda) {
