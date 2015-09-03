@@ -3288,7 +3288,10 @@ void help_view(char** argv) {
          
          << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
          << "                         positional file arguments if paired" << endl
-         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl;
+         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
+
+         << "    -l, --pileup         ouput VG Pileup format" << endl
+         << "    -L, --pileup-in      input VG Pileup format" << endl;
     // TODO: Can we regularize the option names for input and output types?
 }
 
@@ -3309,6 +3312,9 @@ int main_view(int argc, char** argv) {
     // bam      N   N       N   Y   N   N       N
     // fastq    N   N       N   Y   N   N       N
     // dot      N   N       N   N   N   N       N
+    //
+    // and json-gam -> gam
+    //     json-pileup -> pileup
 
     string output_type;
     string input_type;
@@ -3345,11 +3351,13 @@ int main_view(int argc, char** argv) {
                 {"walk-paths", no_argument, 0, 'w'},
                 {"annotate-paths", no_argument, 0, 'n'},
                 {"random-seed", required_argument, 0, 's'},
+                {"pileup", no_argument, 0, 'l'},
+                {"pileup-in", no_argument, 0, 'L'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wn",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlL",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3438,6 +3446,14 @@ int main_view(int argc, char** argv) {
             alignments = optarg;
             break;
 
+        case 'L':
+            output_type = "pileup";
+            break;
+
+        case 'l':
+            input_type = "pileup";
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -3449,8 +3465,8 @@ int main_view(int argc, char** argv) {
             abort ();
         }
     }
-    // Default to GAM -> JSON
-    if(input_type == "gam" && output_type.empty()) {
+    if (output_type.empty() && (input_type == "gam" || input_type == "pileup")) {
+        // Default to GAM,Pileup -> JSON
         output_type = "json";
     }
     // If the user specified nothing else, we default to VG in and GFA out.
@@ -3522,9 +3538,15 @@ int main_view(int argc, char** argv) {
                 return 1;
             }
         } else {
-            JSONStreamHelper<Alignment> json_helper(file_name);
-            json_helper.write(cout, output_type == "json");
+            if (output_type == "json" || output_type == "gam") {
+                JSONStreamHelper<Alignment> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON GAM can only be converted to GAM or JSON" << endl;
+                return 1;
+            }
         }
+        cout.flush();
         return 0;
     } else if (input_type == "bam") {
         if (output_type == "gam") {
@@ -3594,6 +3616,36 @@ int main_view(int argc, char** argv) {
             // We can't convert fastq to the other graph formats
             cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;
             return 1;
+        }
+        cout.flush();
+        return 0;
+    } else if (input_type == "pileup") {
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Pileup&)> lambda = [](Pileup& p) {
+                    cout << pb2json(p) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
+            } else {
+                // todo
+                cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
+                return 1;
+            }
+        } else {
+            if (output_type == "json" || output_type == "pileup") {
+                JSONStreamHelper<Pileup> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
+                return 1;
+            }
         }
         cout.flush();
         return 0;
