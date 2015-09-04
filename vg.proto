@@ -137,15 +137,20 @@ message KmerMatch {
 }
 
 // Summarizes reads that map to single position in the graph.
-// This structure matches a line in Samtools pileup format and is used to perform variant calling,
-// but an important difference is that offset in Position is 0-based.
-// Storing the bases in a single string this way, as opposed to an array of Edits, helps keep
-// memory usage down.
-// Note, the ref_base field is a single DNA character, and the qualities string can be empty. 
-message Pileup {
-    Position position = 1;
-    int32 ref_base = 2;
-    int32 num_bases = 3;
-    string bases = 4;
-    string qualities = 5;
+// This structure is pretty much identical to a line in Samtools pileup format
+// if qualities set, it must have size = num_bases
+message BasePileup {
+    int32 ref_base = 1;
+    int32 num_bases = 2;
+    string bases = 3;
+    bytes qualities = 4;
 }
+
+// Collect pileup records by node.  Saves some space and hashing over
+// storing individually, assuming not too sparse and avg. node length more than couple bases
+// the ith BasePileup in the array corresponds to the position at offset i. 
+message NodePileup {
+    int64 node_id = 1;
+	 repeated BasePileup base_pileup = 2;
+}
+

@@ -24,8 +24,8 @@ using namespace google::protobuf;
 using namespace vg;
 
 void help_pileup(char** argv) {
-    cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.pileup" << endl
-         << "Calculate pileup for each position in graph." << endl
+    cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.vgpu" << endl
+         << "Calculate pileup for each position in graph and output in VG Pileup format (list of protobuf NodePileups)." << endl
          << endl
          << "options:" << endl
          << "    -j, --json           output in JSON" << endl
@@ -42,6 +42,7 @@ int main_pileup(int argc, char** argv) {
 
     bool output_json = false;
     bool show_progress = false;
+    int thread_count = 1;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -71,7 +72,7 @@ int main_pileup(int argc, char** argv) {
             show_progress = true;
             break;
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            thread_count = atoi(optarg);
             break;
         case 'h':
         case '?':
@@ -84,8 +85,8 @@ int main_pileup(int argc, char** argv) {
             abort ();
         }
     }
-
-    int thread_count = get_thread_count();
+    omp_set_num_threads(thread_count);
+    thread_count = get_thread_count();
 
     // read the graph
     if (show_progress) {
@@ -3623,7 +3624,7 @@ int main_view(int argc, char** argv) {
         if (input_json == false) {
             if (output_type == "json") {
                 // convert values to printable ones
-                function<void(Pileup&)> lambda = [](Pileup& p) {
+                function<void(NodePileup&)> lambda = [](NodePileup& p) {
                     cout << pb2json(p) << "\n";
                 };
                 if (file_name == "-") {
@@ -3640,7 +3641,7 @@ int main_view(int argc, char** argv) {
             }
         } else {
             if (output_type == "json" || output_type == "pileup") {
-                JSONStreamHelper<Pileup> json_helper(file_name);
+                JSONStreamHelper<NodePileup> json_helper(file_name);
                 json_helper.write(cout, output_type == "json");
             } else {
                 cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
