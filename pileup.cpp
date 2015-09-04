@@ -1,5 +1,4 @@
 #include <cstdlib>
-#include <algorithm>
 #include <stdexcept>
 #include "json2pb.h"
 #include "pileup.hpp"
@@ -68,6 +67,11 @@ bool Pileups::insert(NodePileup* pileup) {
 }
 
 void Pileups::compute_from_alignment(VG& graph, Alignment& alignment) {
+    if (alignment.is_reverse()) {
+        throw runtime_error("pileup doesn\'t currently support reverse flag "
+                            "in Alignment.  Reverse mappings must be specified "
+                            "using the is_reverse falg in Mapping for now.");
+    }
     const Path& path = alignment.path();
     int64_t read_offset = 0;
     for (int i = 0; i < path.mapping_size(); ++i) {
@@ -94,20 +98,12 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                                 int64_t& read_offset,
                                 const Node& node, const Alignment& alignment,
                                 const Mapping& mapping, const Edit& edit) {
-    
     string seq = edit.sequence();
-    if (mapping.is_reverse()) {
-        transform(seq.begin(), seq.end(), seq.begin(), ::tolower);
-    } else {
-        transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
-    }
     
     // ***** MATCH *****
     if (edit.from_length() == edit.to_length()) {
         assert (edit.from_length() > 0);
-        if (seq.length() == 0) {
-            seq = string(edit.from_length(), mapping.is_reverse() ? ',' : '.');
-        }
+        make_match(seq, edit.from_length(), mapping.is_reverse());
         assert(seq.length() == edit.from_length());            
         int64_t delta = mapping.is_reverse() ? -1 : 1;
         for (int64_t i = 0; i < edit.from_length(); ++i) {
@@ -128,48 +124,53 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
     }
     // ***** INSERT *****
     else if (edit.from_length() < edit.to_length()) {
+        make_insert(seq, mapping.is_reverse());
         assert(edit.from_length() == 0);
-        // clamp to endpoint, as query's position always set to the next
-        // from_position (which may not exist). todo need to find if there's
-        // some kind of convention that needs to be applied here!
-        if (mapping.is_reverse() && node_offset == -1) {
-            node_offset = 0;
-        } else if (!mapping.is_reverse() && node_offset ==
-                   node.sequence().length()) {
-            node_offset = node.sequence().length() - 1;
-        }        
-        BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
-        if (base_pileup->num_bases() == 0) {
-            base_pileup->set_ref_base(node.sequence()[node_offset]);
-        } else {
-            assert(base_pileup->ref_base() == node.sequence()[node_offset]);
+        // we define insert (like sam) as insertion between current and next
+        // position (on forward node coordinates). this means an insertion before
+        // offset 0 is invalid! 
+        int64_t insert_offset =  mapping.is_reverse() ? node_offset : node_offset - 1;
+        if (insert_offset < 0) {
+            stringstream ss;
+            ss << "Error: pileup does not support insertions before 0th base in node."
+               << " Offending edit: " << pb2json(edit) << "\nin alignment "
+               << pb2json(alignment) << endl;
+            throw runtime_error(ss.str());
         }
-        base_pileup->mutable_bases()->append("+" + seq);
+        BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
+        if (base_pileup->num_bases() == 0) {
+            base_pileup->set_ref_base(node.sequence()[insert_offset]);
+        } else {
+            assert(base_pileup->ref_base() == node.sequence()[insert_offset]);
+        }
+        base_pileup->mutable_bases()->append(seq);
         if (!alignment.quality().empty()) {
             *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
         }
         base_pileup->set_num_bases(base_pileup->num_bases() + 1);
-        read_offset += seq.length();
+        read_offset += edit.to_length();
     }
     // ***** DELETE *****
     else {
+        int64_t del_start = !mapping.is_reverse() ? node_offset :
+            node_offset - edit.from_length();
+        seq = node.sequence().substr(del_start, edit.from_length());
+        make_delete(seq, mapping.is_reverse());        
         assert(edit.to_length() == 0);
-        // todo : edge cases, clipping ?
         BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
         if (base_pileup->num_bases() == 0) {
             base_pileup->set_ref_base(node.sequence()[node_offset]);
         } else {
             assert(base_pileup->ref_base() == node.sequence()[node_offset]);
         }
-
-        base_pileup->mutable_bases()->append("-" + seq);
+        base_pileup->mutable_bases()->append(seq);
         if (!alignment.quality().empty()) {
             *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
         }
         base_pileup->set_num_bases(base_pileup->num_bases() + 1);
         int64_t delta = mapping.is_reverse() ? -edit.from_length() : edit.from_length();
         node_offset += delta;
-        read_offset += seq.length();
+        read_offset += edit.to_length();
     }
 }
 

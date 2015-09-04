@@ -128,6 +128,37 @@ public:
         }
         return get_base_pileup(np, offset);
     }
+    
+    // transform case of every character in string
+    static void casify(string& seq, bool is_reverse) {
+        if (is_reverse) {
+            transform(seq.begin(), seq.end(), seq.begin(), ::tolower);
+        } else {
+            transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
+        }
+    }
+
+    // make the sam pileup style token
+    static void make_match(string& seq, int64_t from_length, bool is_reverse) {
+        if (seq.length() == 0) {
+            seq = string(from_length, is_reverse ? ',' : '.');
+        } else {
+            casify(seq, is_reverse);
+        }
+    }
+    static void make_insert(string& seq, bool is_reverse) {
+        casify(seq, is_reverse);
+        stringstream ss;
+        ss << "+" << seq.length() << seq; 
+        seq = ss.str();
+    }
+    static void make_delete(string& seq, bool is_reverse) {
+        casify(seq, is_reverse);
+        stringstream ss;
+        ss << "-" << seq.length() << seq;
+        seq = ss.str();
+    }
+
 };
 
 
