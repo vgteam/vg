@@ -3290,8 +3290,8 @@ void help_view(char** argv) {
          << "                         positional file arguments if paired" << endl
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
 
-         << "    -l, --pileup         ouput VG Pileup format" << endl
-         << "    -L, --pileup-in      input VG Pileup format" << endl;
+         << "    -L, --pileup         ouput VG Pileup format" << endl
+         << "    -l, --pileup-in      input VG Pileup format" << endl;
     // TODO: Can we regularize the option names for input and output types?
 }
 
@@ -3351,8 +3351,8 @@ int main_view(int argc, char** argv) {
                 {"walk-paths", no_argument, 0, 'w'},
                 {"annotate-paths", no_argument, 0, 'n'},
                 {"random-seed", required_argument, 0, 's'},
-                {"pileup", no_argument, 0, 'l'},
-                {"pileup-in", no_argument, 0, 'L'},
+                {"pileup", no_argument, 0, 'L'},
+                {"pileup-in", no_argument, 0, 'l'},
                 {0, 0, 0, 0}
             };
 
