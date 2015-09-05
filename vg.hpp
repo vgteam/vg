@@ -13,6 +13,7 @@
 #include <random>
 
 #include "gssw.h"
+#include "gcsa.h"
 #include "gssw_aligner.hpp"
 #include "region.hpp"
 #include "path.hpp"
@@ -705,9 +706,15 @@ public:
     // start/end node before lambda is ever called.
     void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
-                                              Node* head_node, Node* tail_node,
+                                              Node*& head_node, Node*& tail_node,
                                               int64_t& head_id, int64_t& tail_id,
                                               function<void(KmerPosition&)> lambda);
+
+    void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+                        bool forward_only,
+                        vector<gcsa::KMer>& kmers_out,
+                        Node*& head_node, Node*& tail_node,
+                        int64_t& head_id, int64_t& tail_id);
 
     // for pruning graph prior to indexing with gcsa2
     // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to

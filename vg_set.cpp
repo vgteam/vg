@@ -236,7 +236,7 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
 
     // For every graph in our set (in serial), visit all the nodes in parallel and handle them.
     for_each([kmer_size, edge_max,stride, forward_only,
-              &head_id, &tail_id, &head_node, tail_node, lambda](VG* g) {
+              &head_id, &tail_id, &head_node, &tail_node, lambda](VG* g) {
                  g->for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
                                                          forward_only,
                                                          head_node, tail_node,
@@ -257,93 +257,22 @@ void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                            bool forward_only,
                            vector<gcsa::KMer>& kmers_out,
                            int64_t head_id, int64_t tail_id) {
-
-    // TODO: This function goes through an internal string format that should
-    // really be replaced by making some API changes to gcsa2.
-
-    // We need an alphabet to parse the internal string format
-    const gcsa::Alphabet alpha;
-    
-    // Each thread is going to make its own KMers, then we'll concatenate these all together at the end.
-    vector<vector<gcsa::KMer>> thread_outputs;
-    
-#pragma omp parallel
-    {
-#pragma omp single
-        {
-            // Become parallel, get our number of threads, and make one of them make the per-thread outputs big enough.
-            thread_outputs.resize(omp_get_num_threads());
-        }
+    Node* head_node = nullptr;
+    Node* tail_node = nullptr;
+    for_each([kmer_size, edge_max,stride, forward_only, &kmers_out,
+              &head_id, &tail_id, &head_node, &tail_node](VG* g) {
+                 g->get_gcsa_kmers(kmer_size, edge_max, stride,
+                                   forward_only,
+                                   kmers_out,
+                                   head_node, tail_node,
+                                   head_id, tail_id);
+             });
+    if(head_node != nullptr) {
+        delete head_node;
     }
-    
-    auto convert_kmer = [&thread_outputs, &alpha, &head_id, &tail_id](KmerPosition& kp) {
-        // Convert this KmerPosition to several gcsa::Kmers, and save them in thread_outputs
-                               
-        // We need to make this kmer into a series of tokens
-        vector<string> tokens;
-        
-        // First the kmer
-        tokens.push_back(kp.kmer);
-        
-        // Then the node id:offset
-        tokens.push_back(kp.pos);
-        
-        // Then the comma-separated preceeding characters. See <http://stackoverflow.com/a/18427254/402891>
-        stringstream preceeding;
-        copy(kp.prev_chars.begin(), kp.prev_chars.end(), ostream_iterator<char>(preceeding, ","));
-        if(kp.prev_chars.empty()) {
-            // If we don't have any previous characters, we come from "$"
-            preceeding << "$";
-        }
-        tokens.push_back(preceeding.str());
-        
-        // And the comma-separated subsequent characters.
-        stringstream subsequent;
-        copy(kp.next_chars.begin(), kp.next_chars.end(), ostream_iterator<char>(subsequent, ","));
-        if(kp.next_chars.empty()) {
-            // If we don't have any next characters, we go to "#"
-            subsequent << "#";
-        }
-        tokens.push_back(subsequent.str());
-        
-        // Finally, each of the node id:offset positions you can go to next (the successors).
-        tokens.insert(tokens.end(), kp.next_positions.begin(), kp.next_positions.end());
-        
-        if (kp.next_positions.empty()) {
-            // If we didn't have any successors, we have to say we go to the start of the start node
-            tokens.push_back(to_string(tail_id) + ":0");
-        }    
-        
-        for(size_t successor_index = 4; successor_index < tokens.size(); successor_index++) {
-            // Now make a GCSA KMer for each of those successors, by passing the
-            // tokens, the alphabet, and the index in the tokens of the
-            // successor.
-            
-            thread_outputs[omp_get_thread_num()].emplace_back(tokens, alpha, successor_index);
-            
-            // Kmers that go to the sink/have stop characters still need to be marked as sorted.
-            if(kp.kmer.rfind('$') != string::npos) {
-                //(*(thread_outputs[omp_get_thread_num()].rbegin())).makeSorted();
-#pragma omp critical
-                {
-                   // cout << "Marked " << *(thread_outputs[omp_get_thread_num()].rbegin()) << " as sorted early" << endl;
-                }
-            }
-        }
-        
-    };
-    
-    // Run on each KmerPosition. This populates start_end_id, if it was 0, before calling convert_kmer.
-    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
-                                         forward_only,
-                                         head_id, tail_id, convert_kmer);
-                                         
-    
-    for(auto& thread_output : thread_outputs) {
-        // Now throw everything into the output vector
-        kmers_out.insert(kmers_out.end(), make_move_iterator(thread_output.begin()), make_move_iterator(thread_output.end()));
+    if(tail_node != nullptr) {
+        delete tail_node;
     }
-    
 }
 
 }
