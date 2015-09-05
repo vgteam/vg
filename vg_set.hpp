@@ -60,22 +60,9 @@ public:
                         int64_t head_id=0, int64_t tail_id=0);
 
     bool show_progress;
-    
+
 private:
-    
-    // We can loop over these in order to implement the other gcsa-related
-    // functions above. GCSA kmers are the kmers in the graph with each node
-    // existing in both its forward and reverse-complement orientation. Node IDs
-    // in the GCSA graph are 2 * original node ID, +1 if the GCSA node
-    // represents the reverse complement, and +0 if it does not. Non-reversing
-    // edges link the forward copy of the from node to the forward copy of the
-    // to node, and similarly for the reverse complement copies, while reversing
-    // edges link the forward copy of the from node to the *reverse complement*
-    // copy of the to node, and visa versa. This allows us to index both the
-    // forward and reverse strands of every node, and to deal with GCSA's lack
-    // of support for reversing edges, with the same trick. Note that
-    // start_tail_id, if zero, will be replaced with the ID actually used for the
-    // start/end node before lambda is ever called.
+
     void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
                                               int64_t& head_id, int64_t& tail_id,

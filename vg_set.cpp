@@ -234,58 +234,15 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
     Node* head_node = nullptr;
     Node* tail_node = nullptr;
 
-    auto handle_node_in_graph = [&kmer_size, &edge_max, &stride, &forward_only,
-                                 &head_node, &tail_node, &lambda, this]
-        (VG* graph, Node* node) {
-        graph->gcsa_handle_node_in_graph(node,
-                                         kmer_size,
-                                         edge_max,
-                                         stride,
-                                         forward_only,
-                                         head_node,
-                                         tail_node,
-                                         lambda);
-    };
-
     // For every graph in our set (in serial), visit all the nodes in parallel and handle them.
-    for_each([&handle_node_in_graph, kmer_size, edge_max, stride,
-              &head_node, &tail_node, &head_id, &tail_id, this](VG* g) {
-        g->show_progress = show_progress;
-        g->progress_message = "processing kmers of " + g->name;
-        
-        if(head_node == nullptr) {
-            assert(tail_node == nullptr); // they should be only set together
-            // This is the first graph.
-            // Add the start/end node, but make our own copy before we destroy the graph.
-            g->add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
-            head_node = new Node(*head_node);
-            tail_node = new Node(*tail_node);
-            
-            // Save its ID
-            head_id = head_node->id();
-            tail_id = tail_node->id();
-        } else {
-            // Add the existing start/end node
-            int64_t maxid = g->max_node_id();
-            if(head_node->id() <= maxid || tail_node->id() <= maxid) {
-                // If the ID we got for the node when we made it in the
-                // first graph is too small, we have to complain. It would be
-                // nice if we could make a path through all the graphs, get the
-                // max ID, and then use that to determine the new node ID.
-                cerr << "error:[for_each_gcsa_kmer_position_parallel] created a start/end "
-                     << "node in first graph with id used by later graph " << g->name 
-                     << ". Put the graph with the largest node id first and try again." << endl;
-                exit(1);
-            }
-            g->add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
-        }
-        
-        // Process all the kmers in the graph on a node-by-node basis. Make sure
-        // to know about the graph when we do so (so we can get the kmers).
-        g->for_each_node_parallel([&](Node* node) {
-            handle_node_in_graph(g, node);
-        });
-    });
+    for_each([kmer_size, edge_max,stride, forward_only,
+              &head_id, &tail_id, &head_node, tail_node, lambda](VG* g) {
+                 g->for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
+                                                         forward_only,
+                                                         head_node, tail_node,
+                                                         head_id, tail_id,
+                                                         lambda);
+             });
     
     // delete the head and tail nodes
     if(head_node != nullptr) {
