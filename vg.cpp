@@ -4054,6 +4054,241 @@ void VG::kmer_context(string& kmer,
     }
 }
 
+void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int stride,
+                                   bool forward_only,
+                                   Node* head_node, Node* tail_node,
+                                   function<void(KmerPosition&)> lambda) {
+
+    // Go through all the kpaths of this node, and produce the GCSA2 kmers on both strands that start in this node.
+#ifdef debug
+    cerr << "Visiting node " << node->id() << endl;
+#endif
+    // This function runs in only one thread on a given node, so we can keep
+    // our cache here. We gradually fill in each KmerPosition with all the
+    // next positions and characters reachable with its string from its
+    // orientation and offset along that strand in this node.
+    map<tuple<string, bool, int32_t>, KmerPosition> cache;
+
+    // We're going to visit every kmer of the node and run this:
+    function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>
+        visit_kmer = [&cache, &kmer_size, &edge_max, &node, &forward_only, &head_node, &tail_node, this]
+        (string& kmer, list<NodeTraversal>::iterator start_node, int start_pos, 
+         list<NodeTraversal>& path, VG& graph) {
+                         
+        // We should never see negative offset kmers; _for_each_kmer ought to
+        // have turned them around for positive offsets on the opposite strand.
+        assert(start_pos >= 0);
+
+        // todo, handle edge bounding
+        // we need to check if the previous or next kmer will be excluded based on
+        // edge bounding
+        // if so, we should connect to the source or sink node
+            
+        // Get the information from the graph about what's before and after
+        // this kmer, and where it ends.
+        list<NodeTraversal>::iterator end_node;
+        int32_t end_pos; // This counts in from the right of end_node.
+
+        set<tuple<char, int64_t, bool, int32_t>> prev_positions;
+        set<tuple<char, int64_t, bool, int32_t>> next_positions;
+
+        // Fill in prev_chars, next_chars, prev_positions, and next_positions for the kmer by walking the path.
+        graph.kmer_context(kmer,
+                           kmer_size,
+                           edge_max,
+                           forward_only,
+                           path,
+                           start_node,
+                           start_pos,
+                           end_node,
+                           end_pos,
+                           prev_positions,
+                           next_positions);
+
+        if(start_node->node == node) {
+            if (forward_only && start_node->backward) return;
+            // This kmer starts on the node we're currently processing.
+            // Store the information about it's forward orientation.
+                
+            // Get the KmerPosition to fill, creating it if it doesn't exist already.
+            auto cache_key = make_tuple(kmer, start_node->backward, start_pos);
+#ifdef debug
+            if(cache.count(cache_key)) {
+                cerr << "F: Adding to " << kmer << " at " << start_node->node->id() << " " << start_node->backward
+                     << " offset " << start_pos << endl;
+            } else {
+                cerr << "F: Creating " << kmer << " at " << start_node->node->id() << " " << start_node->backward
+                     << " offset " << start_pos << endl;
+            }
+#endif
+            KmerPosition& forward_kmer = cache[cache_key];
+
+            // fix up the context by swapping reverse-complements of the head and tail node
+            // with their forward versions
+            auto next_positions_copy = next_positions;
+            next_positions.clear();
+            for (auto p : next_positions_copy) {
+                char c = get<0>(p);
+                int64_t node_id = get<1>(p);
+                bool is_backward = get<2>(p);
+                int32_t pos = get<3>(p);
+                if (node_id == tail_node->id() && is_backward) {
+                    // fixe the char as well...
+                    c = head_node->sequence()[0]; // let's hope it has sequence
+                    node_id = head_node->id();
+                    is_backward = false;
+                } else if (node_id == head_node->id() && is_backward) {
+                    c = tail_node->sequence()[0]; // let's hope it has sequence
+                    node_id = tail_node->id();
+                    is_backward = false;
+                }
+                next_positions.insert(make_tuple(c, node_id, is_backward, pos));
+            }
+
+            // Add in the kmer string
+            if (forward_kmer.kmer.empty()) forward_kmer.kmer = kmer;
+                
+            // Add in the start position
+            if (forward_kmer.pos.empty()) {
+                // And the distance from the end of the kmer to the end of its ending node.
+                stringstream ps;
+                if (start_node->node->id() == tail_node->id() && start_node->backward) {
+                    ps << head_node->id() << ":" << start_pos;
+                } else if (start_node->node->id() == head_node->id() && start_node->backward) {
+                    ps << tail_node->id() << ":" << start_pos;
+                } else {
+                    ps << start_node->node->id() << ":" << (start_node->backward?"-":"") << start_pos;
+                }
+                forward_kmer.pos = ps.str();
+            }
+                
+            // Add in the prev and next characters.
+            for (auto& t : prev_positions) {
+                char c = get<0>(t);
+                forward_kmer.prev_chars.insert(c);
+            }
+            for (auto& t : next_positions) {
+                char c = get<0>(t);
+                forward_kmer.next_chars.insert(c);
+            }
+                
+            // Add in the next positions
+            for (auto& p : next_positions) {
+                // Figure out if the forward kmer should go next to the forward or reverse copy of the next node.
+                int64_t target_node = get<1>(p);
+                bool target_node_backward = get<2>(p);
+                int32_t target_off = get<3>(p);
+                // Say we go to it at the correct offset
+                stringstream ps;
+                ps << target_node << ":" << (target_node_backward?"-":"") << target_off;
+                forward_kmer.next_positions.insert(ps.str());
+            }
+        }
+
+        if(end_node->node == node && !forward_only) {
+            // This kmer ends on the node we're currently processing.
+            // *OR* this kmer starts on the head node (in which case, we'd never see it from the other end)
+            // Store the information about it's reverse orientation.
+
+            // Get the KmerPosition to fill, creating it if it doesn't exist
+            // already. We flip the backwardness because we look at the kmer
+            // the other way, but since end_pos already counts from the end,
+            // we don't touch it.
+            auto cache_key = make_tuple(reverse_complement(kmer), !end_node->backward, end_pos);
+#ifdef debug
+            if(cache.count(cache_key)) {
+                cerr << "R: Adding to " << reverse_complement(kmer) << " at " << end_node->node->id() 
+                     << " " << !(*end_node).backward << " offset " << end_pos << endl;
+            } else {
+                cerr << "R: Creating " << reverse_complement(kmer) << " at " << end_node->node->id()
+                << " " << !(*end_node).backward << " offset " << end_pos << endl;
+            }
+#endif
+            KmerPosition& reverse_kmer = cache[cache_key];
+
+            // fix up the context by swapping reverse-complements of the head and tail node
+            // with their forward versions
+            auto prev_positions_copy = prev_positions;
+            prev_positions.clear();
+            for (auto p : prev_positions_copy) {
+                char c = get<0>(p);
+                int64_t node_id = get<1>(p);
+                bool is_backward = get<2>(p);
+                int32_t pos = get<3>(p);
+                if (node_id == tail_node->id() && !is_backward) {
+                    node_id = head_node->id();
+                    is_backward = true;
+                    pos = graph.get_node(node_id)->sequence().size() - pos - 1;
+                } else if (node_id == head_node->id() && !is_backward) {
+                    node_id = tail_node->id();
+                    is_backward = true;
+                    pos = tail_node->sequence().size() - pos - 1;
+                } else {
+                    pos = graph.get_node(node_id)->sequence().size() - pos - 1;
+                }
+                prev_positions.insert(make_tuple(c, node_id, is_backward, pos));
+            }
+
+            // Add in the kmer string
+            if (reverse_kmer.kmer.empty()) reverse_kmer.kmer = reverse_complement(kmer);
+                
+            // Add in the start position
+            if (reverse_kmer.pos.empty()) {
+                // Use the other node ID, facing the other way
+                stringstream ps;
+                if (end_node->node->id() == tail_node->id() && !end_node->backward) {
+                    ps << head_node->id() << ":" << end_pos;
+                } else if (end_node->node->id() == head_node->id() && !end_node->backward) {
+                    ps << tail_node->id() << ":" << end_pos;
+                } else {
+                    ps << (*end_node).node->id() << ":" << (!end_node->backward?"-":"") << end_pos;
+                }
+                // And the distance from the end of the kmer to the end of its ending node.
+                reverse_kmer.pos = ps.str();
+            }
+                    
+            // Add in the prev and next characters.
+            // fixme ... reverse complements things that should be translated to the head or tail node
+            for (auto& t : prev_positions) {
+                char c = get<0>(t);
+                reverse_kmer.next_chars.insert(reverse_complement(c));
+            }
+            for (auto& t : next_positions) {
+                char c = get<0>(t);
+                reverse_kmer.prev_chars.insert(reverse_complement(c));
+            }
+                
+            // Add in the next positions (using the prev positions since we're reversing)
+            for (auto& p : prev_positions) {
+                // Figure out if the reverse kmer should go next to the forward or reverse copy of the next node.
+                int64_t target_node = get<1>(p);
+                bool target_node_backward = get<2>(p);
+                int32_t off = get<3>(p);
+
+                // Say we go to it at the correct offset
+                stringstream ps;
+                ps << target_node << ":" << (!target_node_backward?"-":"") << off;
+                reverse_kmer.next_positions.insert(ps.str());
+            }
+        }
+    };
+        
+    // Now we visit every kmer of this node and fill in the cache. Don't
+    // allow negative offsets; force them to be converted to positive
+    // offsets on the reverse strand. But do allow different paths that
+    // produce the same kmer, since GCSA2 needs those.
+    for_each_kmer_of_node(node, kmer_size, edge_max, visit_kmer, stride, true, false);
+        
+    // Now that the cache is full and correct, containing each kmer starting
+    // on either strand of this node, send out all its entries.
+    for(auto& kv : cache) {
+        lambda(kv.second);
+    }
+        
+}
+
+
+
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
     vector<set<NodeTraversal> > prev_maxed_nodes;
     vector<set<NodeTraversal> > next_maxed_nodes;

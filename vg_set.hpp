@@ -63,15 +63,6 @@ public:
     
 private:
     
-    // We create a struct that represents each kmer record we want to send to gcsa2
-    struct KmerPosition {
-        string kmer;
-        string pos;
-        set<char> prev_chars;
-        set<char> next_chars;
-        set<string> next_positions;
-    };
-    
     // We can loop over these in order to implement the other gcsa-related
     // functions above. GCSA kmers are the kmers in the graph with each node
     // existing in both its forward and reverse-complement orientation. Node IDs

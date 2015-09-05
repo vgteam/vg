@@ -182,6 +182,9 @@ int main_msga(int argc, char** argv) {
     // should we preferentially use sequences from fasta files in the order they were given?
     // (considering this a todo)
     // reverse complement?
+    //Mapper* mapper;
+    //GCSA* gcsa;
+    //XG* xgidx;
 
     for (auto& group : strings) {
         auto& name = group.first;
@@ -193,6 +196,11 @@ int main_msga(int argc, char** argv) {
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
             graph->edit({aln.path()});
+            // TODO
+            //delete mapper;
+            //delete xgidx;
+            //xgidx = new xg::XG(graph->graph);
+            
         }
     }
     // clear paths added by graph->edit

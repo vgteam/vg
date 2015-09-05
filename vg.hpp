@@ -119,6 +119,15 @@ public:
     }
 };
 
+// We create a struct that represents each kmer record we want to send to gcsa2
+struct KmerPosition {
+    string kmer;
+    string pos;
+    set<char> prev_chars;
+    set<char> next_chars;
+    set<string> next_positions;
+};
+
 inline ostream& operator<<(ostream& out, const NodeSide& nodeside) {
     return out << nodeside.node << " " << (nodeside.is_end ? "end" : "start");
 }
@@ -676,6 +685,11 @@ public:
                       int32_t& end_offset,
                       set<tuple<char, int64_t, bool, int32_t>>& prev_positions,
                       set<tuple<char, int64_t, bool, int32_t>>& next_positions);
+
+    void gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int stride,
+                                   bool forward_only,
+                                   Node* head_node, Node* tail_node,
+                                   function<void(KmerPosition&)> lambda);
     // for pruning graph prior to indexing with gcsa2
     // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to
     // head_node or tail_node depending on which direction the path extension was stopped
