@@ -37,9 +37,6 @@
 [submodule "gcsa2"]
 	path = gcsa2
 	url = https://github.com/jltsiren/gcsa2.git
-[submodule "sdsl-lite"]
-	path = sdsl-lite.ekg
-	url = https://github.com/ekg/sdsl-lite.git
 [submodule "xg"]
 	path = xg
 	url = https://github.com/ekg/xg.git
