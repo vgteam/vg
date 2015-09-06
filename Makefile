@@ -97,7 +97,7 @@ fastahack/Fasta.o: fastahack/Fasta.h fastahack/Fasta.cpp
 cpp/vg.pb.o: cpp/vg.pb.h cpp/vg.pb.cc
 	$(CXX) $(CXXFLAGS) -c -o cpp/vg.pb.o cpp/vg.pb.cc $(INCLUDES)
 
-vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(SPARSEHASH) lru_cache/lru_cache.h stream.hpp $(LIBPROTOBUF)
+vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(SPARSEHASH) lru_cache/lru_cache.h stream.hpp $(LIBPROTOBUF) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(INCLUDES)
 
 gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH)
@@ -106,7 +106,7 @@ gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPR
 vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -c -o vg_set.o vg_set.cpp $(INCLUDES)
 
-mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF) $(SPARSEHASH)
+mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
 
 main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
