@@ -32,7 +32,7 @@
 	path = sha1
 	url = https://github.com/vog/sha1.git
 [submodule "protobuf"]
-	path = protobuf
+	path = protobuf.ekg
 	url = https://github.com/ekg/protobuf.git
 [submodule "gcsa2"]
 	path = gcsa2

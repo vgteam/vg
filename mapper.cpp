@@ -827,8 +827,12 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             // TODO: We're repeating this code. Break it out into a function or something.
             if(xindex) {
                 xindex->get_id_range(first, last, graph->graph);
+                cerr << "graph is " << graph->length() << " big before" << endl;
                 xindex->expand_context(graph->graph, context_depth);
+                cerr << "graph is " << graph->length() << " big after expand context" << endl;
                 graph->rebuild_indexes();
+                cerr << "graph is " << graph->length() << " big after rebuild indexes" << endl;
+                graph->serialize_to_file("graph.vg");
             } else if(index) {
                 index->get_range(first, last, *graph);
                 index->expand_context(*graph, context_depth);
