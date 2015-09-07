@@ -151,6 +151,6 @@ message BasePileup {
 // the ith BasePileup in the array corresponds to the position at offset i. 
 message NodePileup {
     int64 node_id = 1;
-	 repeated BasePileup base_pileup = 2;
+    repeated BasePileup base_pileup = 2;
 }
 
