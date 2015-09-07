@@ -3400,6 +3400,10 @@ int main_view(int argc, char** argv) {
             break;
             
         case 'J':
+            // -J can complement input GAM/Pileup, hence the extra logic here. 
+            if (input_type.empty()) {
+                input_type = "json";
+            }
             input_json = true;
             break;
 
@@ -3421,6 +3425,10 @@ int main_view(int argc, char** argv) {
             
         case 'a':
             input_type = "gam";
+            if(output_type.empty()) {
+                // Default to GAM -> JSON
+                output_type = "json";
+            }
             break;
 
         case 'b':
@@ -3453,6 +3461,10 @@ int main_view(int argc, char** argv) {
 
         case 'l':
             input_type = "pileup";
+            if (output_type.empty()) {
+                // Default to Pileup -> JSON
+                output_type = "json";
+            }
             break;
 
         case 'h':
@@ -3466,18 +3478,14 @@ int main_view(int argc, char** argv) {
             abort ();
         }
     }
-    if (output_type.empty() && (input_type == "gam" || input_type == "pileup")) {
-        // Default to GAM,Pileup -> JSON
-        output_type = "json";
-    }
+    
     // If the user specified nothing else, we default to VG in and GFA out.
     if (input_type.empty()) {
-        input_type = !input_json ? "vg" : "json";
+        input_type = "vg";
     }
     if (output_type.empty()) {
         output_type = "gfa";
     }
-
     vector<Alignment> alns;
     if (!alignments.empty()) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
