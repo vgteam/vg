@@ -7,6 +7,7 @@
 #include "vg.pb.h"
 #include "vg.hpp"
 #include "hash_map.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
@@ -159,6 +160,11 @@ public:
         seq = ss.str();
     }
 
+    static bool base_equal(char c1, char c2, bool is_reverse) {
+        char t1 = ::toupper(c1);
+        char t2 = ::toupper(c2);
+        return is_reverse ? t1 == reverse_complement(t2) : t1 == t2;
+    }
 };
 
 

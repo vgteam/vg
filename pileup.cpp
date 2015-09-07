@@ -99,37 +99,48 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                                 const Node& node, const Alignment& alignment,
                                 const Mapping& mapping, const Edit& edit) {
     string seq = edit.sequence();
+    bool is_reverse = mapping.is_reverse();
     
     // ***** MATCH *****
     if (edit.from_length() == edit.to_length()) {
         assert (edit.from_length() > 0);
-        make_match(seq, edit.from_length(), mapping.is_reverse());
+        make_match(seq, edit.from_length(), is_reverse);
         assert(seq.length() == edit.from_length());            
-        int64_t delta = mapping.is_reverse() ? -1 : 1;
+        int64_t delta = is_reverse ? -1 : 1;
         for (int64_t i = 0; i < edit.from_length(); ++i) {
             BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
+            // reference_base if empty
             if (base_pileup->num_bases() == 0) {
                 base_pileup->set_ref_base(node.sequence()[node_offset]);
             } else {
                 assert(base_pileup->ref_base() == node.sequence()[node_offset]);
             }
-            *base_pileup->mutable_bases() += seq[i];
+            // add base to bases field (converting to ,. if match)
+            char base = seq[i];
+            if (!edit.sequence().empty() &&
+                base_equal(seq[i], node.sequence()[node_offset], is_reverse)) {
+                base = is_reverse ? ',' : '.';
+            }
+            *base_pileup->mutable_bases() += base;
+            // add quality if there
             if (!alignment.quality().empty()) {
                 *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
             }
+            // pileup size increases by 1
             base_pileup->set_num_bases(base_pileup->num_bases() + 1);
+            // move right along read, and left/right depending on strand on reference
             node_offset += delta;
             ++read_offset;
         }
     }
     // ***** INSERT *****
     else if (edit.from_length() < edit.to_length()) {
-        make_insert(seq, mapping.is_reverse());
+        make_insert(seq, is_reverse);
         assert(edit.from_length() == 0);
         // we define insert (like sam) as insertion between current and next
         // position (on forward node coordinates). this means an insertion before
         // offset 0 is invalid! 
-        int64_t insert_offset =  mapping.is_reverse() ? node_offset : node_offset - 1;
+        int64_t insert_offset =  is_reverse ? node_offset : node_offset - 1;
         if (insert_offset < 0) {
             stringstream ss;
             ss << "Error: pileup does not support insertions before 0th base in node."
@@ -138,39 +149,49 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
             throw runtime_error(ss.str());
         }
         BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
+        // reference_base if empty
         if (base_pileup->num_bases() == 0) {
             base_pileup->set_ref_base(node.sequence()[insert_offset]);
         } else {
             assert(base_pileup->ref_base() == node.sequence()[insert_offset]);
         }
+        // add insertion string to bases field
+        // todo: should we reverse complement this if mapping is reversed ??? 
         base_pileup->mutable_bases()->append(seq);
         if (!alignment.quality().empty()) {
             *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
         }
+        // pileup size increases by 1
         base_pileup->set_num_bases(base_pileup->num_bases() + 1);
+        // move right along read (and stay put on reference)
         read_offset += edit.to_length();
     }
     // ***** DELETE *****
     else {
-        int64_t del_start = !mapping.is_reverse() ? node_offset :
-            node_offset - edit.from_length();
-        seq = node.sequence().substr(del_start, edit.from_length());
-        make_delete(seq, mapping.is_reverse());        
         assert(edit.to_length() == 0);
+        assert(edit.sequence().empty());
+        int64_t del_start = !is_reverse ? node_offset :
+            node_offset - edit.from_length() + 1;
+        seq = node.sequence().substr(del_start, edit.from_length());
+        make_delete(seq, is_reverse);
         BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
+        // reference_base if empty
         if (base_pileup->num_bases() == 0) {
             base_pileup->set_ref_base(node.sequence()[node_offset]);
         } else {
             assert(base_pileup->ref_base() == node.sequence()[node_offset]);
         }
+        // add deletion string to bases field
+        // todo: should we reverse complement this if mapping is reversed ??? 
         base_pileup->mutable_bases()->append(seq);
         if (!alignment.quality().empty()) {
             *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
         }
+        // pileup size increases by 1
         base_pileup->set_num_bases(base_pileup->num_bases() + 1);
-        int64_t delta = mapping.is_reverse() ? -edit.from_length() : edit.from_length();
+        int64_t delta = is_reverse ? -edit.from_length() : edit.from_length();
+        // stay put on read, move left/right depending on strand on reference
         node_offset += delta;
-        read_offset += edit.to_length();
     }
 }
 
