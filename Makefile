@@ -140,7 +140,7 @@ entropy.o: entropy.cpp entropy.hpp
 	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
 
 vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG)
-	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS) $(STATICFLAGS)
 
 libvg.a: vg
 	ar rs libvg.a $(LIBS)
