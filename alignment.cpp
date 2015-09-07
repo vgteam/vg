@@ -561,6 +561,9 @@ int alignment_from_length(const Alignment& a) {
 }
 
 void merge_alignments(Alignment& a1, const Alignment& a2) {
+    // bail out when second is empty, merge would be a no-op
+    if (!a1.has_path() || a1.path().mapping_size() == 0 ||
+        !a2.has_path() || a2.path().mapping_size() == 0) return;
     int kept1, kept2;
     // determine likely order
     int64_t a1_start = a1.path().mapping(0).position().node_id();

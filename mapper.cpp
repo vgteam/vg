@@ -68,7 +68,7 @@ Mapper::~Mapper(void) {
     // noop
 }
 
-Alignment Mapper::align(string& seq, int kmer_size, int stride, int band_width) {
+Alignment Mapper::align(const string& seq, int kmer_size, int stride, int band_width) {
     Alignment aln;
     aln.set_sequence(seq);
     return align(aln, kmer_size, stride, band_width);
@@ -852,6 +852,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             graph->orient_nodes_forward(flipped_nodes);
                             
             // align
+            //graph->serialize_to_file("align2.vg");
             ta.clear_path();
             ta.set_score(0);
             graph->align(ta);
@@ -898,7 +899,8 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                 
                 if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
                                 << graph->edge_count() << " edges" << endl;
-                                
+
+                //graph->serialize_to_file("align1.vg");
                 ta.clear_path();
                 ta.set_score(0);
                 graph->align(ta);
@@ -1079,11 +1081,8 @@ const int balanced_stride(int read_length, int kmer_size, int stride) {
     double r = read_length;
     double k = kmer_size;
     double j = stride;
-    if (r > j) {
-        return round((r-k)/round((r-k)/j));
-    } else {
-        return j;
-    }
+    int i = (r > j) ? round((r-k)/round((r-k)/j)) : j;
+    return max(1, i);
 }
 
 const vector<string> balanced_kmers(const string& seq, const int kmer_size, const int stride) {

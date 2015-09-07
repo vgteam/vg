@@ -1743,7 +1743,7 @@ Node* VG::create_node(string seq, int64_t id) {
     } else {
         node->set_id(id);
     }
-    // copy it into the graph
+    // copy it into the graphnn
     // and drop into our id index
     node_by_id[node->id()] = node;
     node_index[node] = graph.node_size()-1;
@@ -3353,33 +3353,6 @@ void VG::join_tails(Node* node, bool to_end) {
     connect_nodes_to_node(tails, node, to_end);
 }
 
-void VG::add_start_and_end_markers(int length, char start_char, char end_char,
-                                   Node*& head_node, Node*& tail_node,
-                                   int64_t head_id, int64_t tail_id) {
-
-    // first do the head
-
-    if(head_node == nullptr) {
-        // We get to create the head node
-        string start_string(length, start_char);
-        head_node = create_node(start_string, head_id);
-    } else {
-        // We got a head node
-        add_node(*head_node);
-    }
-    // Attach the new head node to all the existing heads
-    join_heads(head_node);
-
-    // then the tail
-    if(tail_node == nullptr) {
-        string end_string(length, end_char);
-        tail_node = create_node(end_string, tail_id);
-    } else {
-        add_node(*tail_node);
-    }
-    join_tails(tail_node);
-}
-
 void VG::add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
@@ -4302,8 +4275,6 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
         // This is the first graph.
         // Add the start/end node, but make our own copy before we destroy the graph.
         add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
-        head_node = new Node(*head_node);
-        tail_node = new Node(*tail_node);
         // Save its ID
         head_id = head_node->id();
         tail_id = tail_node->id();
@@ -4426,6 +4397,22 @@ void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
     }
     
 }
+
+gcsa::GCSA* VG::build_gcsa_index(int kmer_size, bool forward_only,
+                                 size_t doubling_steps,
+                                 size_t size_limit) {
+    vector<gcsa::KMer> kmers;
+    Node* head_node = nullptr; Node* tail_node = nullptr;
+    int64_t head_id=0, tail_id=0;
+    get_gcsa_kmers(kmer_size, 0, 1, forward_only,
+                   kmers, head_node, tail_node, head_id, tail_id);
+    gcsa::GCSA* result = new gcsa::GCSA(kmers, kmer_size, doubling_steps, size_limit);
+    // clean up, these were created in get_gcsa_kmers
+    destroy_node(head_node);
+    destroy_node(tail_node);
+    return result;
+}
+
 
 
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
