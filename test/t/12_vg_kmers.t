@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 14
+plan tests 15
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     2133 \
@@ -32,6 +32,8 @@ is $(vg find -n 10 -c 1 x.vg | vg kmers -n -k 11 - | sort -n -k 2 -k 3 | tail -1
     "kmers correctly generated from all nodes"
 
 is $(vg kmers -g -k 11 -t 1 x.vg | wc -l) 4342 "GCSA2 output produces the expected number of lines"
+
+is $(vg kmers -gB -k 11 -t 1 x.vg | wc -c) 111528 "GCSA2 binary output produces the expected number bytes"
 
 #is $(vg kmers -g -k 11 -t 1 x.vg | cut -f 1 | sort | uniq | wc -l) $(vg kmers -k 11 x.vg | cut -f 1 | sort | uniq | wc -l) "GCSA2 produces output for all kmers"
 

@@ -12,7 +12,7 @@ SPARSEHASH=sparsehash/build/include/sparsehash/sparse_hash_map
 LIBHTS=htslib/libhts.a
 LIBGCSA2=gcsa2/libgcsa2.a
 LIBXG=xg/libxg.a
-SDSLLITE=sdsl-lite/Make.helper
+SDSLLITE=sdsl-lite/build/include/sdsl
 INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2 -Ixg
 LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -Lxg -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64
 LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o pileup.o
@@ -97,7 +97,7 @@ fastahack/Fasta.o: fastahack/Fasta.h fastahack/Fasta.cpp
 cpp/vg.pb.o: cpp/vg.pb.h cpp/vg.pb.cc
 	$(CXX) $(CXXFLAGS) -c -o cpp/vg.pb.o cpp/vg.pb.cc $(INCLUDES)
 
-vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(SPARSEHASH) lru_cache/lru_cache.h stream.hpp $(LIBPROTOBUF)
+vg.o: vg.cpp vg.hpp cpp/vg.pb.h $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(SPARSEHASH) lru_cache/lru_cache.h stream.hpp $(LIBPROTOBUF) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(INCLUDES)
 
 gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH)
@@ -106,7 +106,7 @@ gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPR
 vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -c -o vg_set.o vg_set.cpp $(INCLUDES)
 
-mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF) $(SPARSEHASH)
+mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
 	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
 
 main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
