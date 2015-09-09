@@ -15,7 +15,7 @@ LIBXG=xg/libxg.a
 SDSLLITE=sdsl-lite/build/include/sdsl
 INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2 -Ixg
 LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -Lxg -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o pileup.o
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o pileup.o caller.o
 
 #Some little adjustments to build on OSX
 #(tested with gcc4.9 and jansson installed from MacPorts)
@@ -141,6 +141,9 @@ entropy.o: entropy.cpp entropy.hpp
 
 pileup.o: pileup.cpp pileup.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o pileup.o pileup.cpp $(INCLUDES)
+
+caller.o: caller.cpp caller.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h pileup.hpp $(LIBPROTOBUF) $(SPARSEHASH)
+	$(CXX) $(CXXFLAGS) -c -o caller.o caller.cpp $(INCLUDES)
 
 vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG)
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
