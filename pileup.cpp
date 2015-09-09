@@ -68,9 +68,7 @@ bool Pileups::insert(NodePileup* pileup) {
 
 void Pileups::compute_from_alignment(VG& graph, Alignment& alignment) {
     if (alignment.is_reverse()) {
-        throw runtime_error("pileup doesn\'t currently support reverse flag "
-                            "in Alignment.  Reverse mappings must be specified "
-                            "using the is_reverse falg in Mapping for now.");
+        flip_alignment(alignment);
     }
     const Path& path = alignment.path();
     int64_t read_offset = 0;
@@ -229,5 +227,26 @@ NodePileup& Pileups::merge_node_pileups(NodePileup& p1, NodePileup& p2) {
     return p1;
 }
 
+void Pileups::flip_alignment(Alignment& alignment) {
+    string rev_seq = reverse_complement(alignment.sequence());
+    int to_pos = 0;
+    Path* path = alignment.mutable_path();
+    for (int i = 0; i < path->mapping_size(); ++i) {
+        Mapping* mapping = path->mutable_mapping(i);
+        for (int j = 0; j < mapping->edit_size(); ++j) {
+            Edit* edit = mapping->mutable_edit(j);
+            if (edit->to_length() > 0) {
+                if (edit->sequence().length() > 0) {
+                    int start_offset = rev_seq.length() - to_pos - edit->to_length();
+                    assert (start_offset >=0 && start_offset < rev_seq.length());
+                    edit->set_sequence(rev_seq.substr(start_offset, edit->to_length()));
+                }
+                to_pos += edit->to_length();
+            }
+        }
+    }
+    alignment.set_sequence(reverse_complement(rev_seq));
+    alignment.set_is_reverse(!alignment.is_reverse());
+}
 
 }

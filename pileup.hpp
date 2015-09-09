@@ -129,7 +129,11 @@ public:
         }
         return get_base_pileup(np, offset);
     }
-    
+
+    // flip the is_reverse flag of an alignment, along with its sequence string
+    // and those in its edits. 
+    static void flip_alignment(Alignment& alignment);
+
     // transform case of every character in string
     static void casify(string& seq, bool is_reverse) {
         if (is_reverse) {
