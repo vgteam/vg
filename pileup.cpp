@@ -139,28 +139,34 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         // position (on forward node coordinates). this means an insertion before
         // offset 0 is invalid! 
         int64_t insert_offset =  is_reverse ? node_offset : node_offset - 1;
-        if (insert_offset < 0) {
+        if (insert_offset >= 0) {        
+            BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
+            // reference_base if empty
+            if (base_pileup->num_bases() == 0) {
+                base_pileup->set_ref_base(node.sequence()[insert_offset]);
+            } else {
+                assert(base_pileup->ref_base() == node.sequence()[insert_offset]);
+            }
+            // add insertion string to bases field
+            // todo: should we reverse complement this if mapping is reversed ??? 
+            base_pileup->mutable_bases()->append(seq);
+            if (!alignment.quality().empty()) {
+                *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+            }
+            // pileup size increases by 1
+            base_pileup->set_num_bases(base_pileup->num_bases() + 1);
+        }
+        else {
+            // todo: need to either forget about these, or extend pileup format.
+            // easy solution: change insert to come before position, and just add
+            // optional pileup at n+1st base of node.  would like to figure out
+            // how samtools does it first... 
             stringstream ss;
-            ss << "Error: pileup does not support insertions before 0th base in node."
-               << " Offending edit: " << pb2json(edit) << "\nin alignment "
-               << pb2json(alignment) << endl;
-            throw runtime_error(ss.str());
+            ss << "Warning: pileup does not support insertions before 0th base in node."
+               << " Offending edit: " << pb2json(edit) << endl;
+#pragma omp critical(cerr)
+            cerr << ss.str();
         }
-        BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
-        // reference_base if empty
-        if (base_pileup->num_bases() == 0) {
-            base_pileup->set_ref_base(node.sequence()[insert_offset]);
-        } else {
-            assert(base_pileup->ref_base() == node.sequence()[insert_offset]);
-        }
-        // add insertion string to bases field
-        // todo: should we reverse complement this if mapping is reversed ??? 
-        base_pileup->mutable_bases()->append(seq);
-        if (!alignment.quality().empty()) {
-            *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
-        }
-        // pileup size increases by 1
-        base_pileup->set_num_bases(base_pileup->num_bases() + 1);
         // move right along read (and stay put on reference)
         read_offset += edit.to_length();
     }
