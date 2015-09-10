@@ -17,107 +17,11 @@
 #include "alignment.hpp"
 #include "convert.hpp"
 #include "pileup.hpp"
-#include "caller.hpp"
 #include "google/protobuf/stubs/common.h"
 
 using namespace std;
 using namespace google::protobuf;
 using namespace vg;
-
-void help_call(char** argv) {
-    cerr << "usage: " << argv[0] << " call [options] <pileup.vgpu> > out.gam" << endl
-         << "Compute variants from pilupe data (prototype!). " << endl
-         << endl
-         << "options:" << endl
-         << "    -j, --json           output in JSON" << endl
-         << "    -p, --progress       show progress" << endl
-         << "    -t, --threads N      number of threads to use" << endl;
-}
-
-int main_call(int argc, char** argv) {
-
-    if (argc <= 2) {
-        help_call(argv);
-        return 1;
-    }
-
-    bool output_json = false;
-    bool show_progress = false;
-    int thread_count = 1;
-
-    int c;
-    optind = 2; // force optind past command positional arguments
-    while (true) {
-        static struct option long_options[] =
-            {
-                {"json", required_argument, 0, 'j'},
-                {"progress", required_argument, 0, 'p'},
-                {"threads", required_argument, 0, 't'},
-                {0, 0, 0, 0}
-            };
-
-        int option_index = 0;
-        c = getopt_long (argc, argv, "jpt:",
-                         long_options, &option_index);
-
-        /* Detect the end of the options. */
-        if (c == -1)
-            break;
-
-        switch (c)
-        {
-        case 'j':
-            output_json = true;
-            break;
-        case 'p':
-            show_progress = true;
-            break;
-        case 't':
-            thread_count = atoi(optarg);
-            break;
-        case 'h':
-        case '?':
-            /* getopt_long already printed an error message. */
-            help_call(argv);
-            exit(1);
-            break;
-
-        default:
-            abort ();
-        }
-    }
-    omp_set_num_threads(thread_count);
-    thread_count = get_thread_count();
-
-    // setup pileup stream
-    string pileup_file_name = argv[optind];
-    istream* pileup_stream = NULL;
-    ifstream in;
-    if (pileup_file_name == "-") {
-        pileup_stream = &std::cin;
-    } else {
-        in.open(pileup_file_name);
-        if (!in) {
-            cerr << "error: input file " << pileup_file_name << " not found." << endl;
-            exit(1);
-        }
-        pileup_stream = &in;
-    }
-
-    // compute the pileups.
-    if (show_progress) {
-        cerr << "Computing variants" << endl;
-    }
-    vector<Caller> callers(thread_count);
-    function<void(NodePileup&)> lambda = [&callers, &output_json](NodePileup& pileup) {
-        int tid = omp_get_thread_num();
-        callers[tid].call_node_pileup(pileup, cout, output_json);
-    };
-    stream::for_each_parallel(*pileup_stream, lambda);
-
-    return 0;
-}
-
 
 void help_pileup(char** argv) {
     cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.vgpu" << endl
@@ -4117,8 +4021,6 @@ int main(int argc, char *argv[])
         return main_msga(argc, argv);
     } else if (command == "pileup") {
         return main_pileup(argc, argv);
-    } else if (command == "call") {
-        return main_call(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
