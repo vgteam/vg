@@ -77,6 +77,7 @@ triple=$(vg index -D -d q.vg.index | wc -l)
 # subtract two for metadata lines about paths that aren't duplicated in the merged
 is $triple $(echo "$single * 3 - 2" | bc) "storage of multiple graphs in an index succeeds"
 
+vg ids -j x.vg q.vg
 vg index -g -k 2 -d qx.vg.gcsa q.vg x.vg
 is $? 0 "building a GCSA2 index of two graphs"
 

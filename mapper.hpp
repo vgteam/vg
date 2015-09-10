@@ -40,7 +40,7 @@ public:
     xg::XG* xindex;
 
     // Align the given string and return an Alignment.
-    Alignment align(string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
     Alignment align(Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Align the given read with multi-mapping. Returns the alignments in score

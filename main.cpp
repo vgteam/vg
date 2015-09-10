@@ -171,6 +171,10 @@ void help_msga(char** argv) {
          << "    -g, --graph FILE      include this graph" << endl
          << "    -X, --fragment N      break apart input sequences and sample sequences from input graphs of" << endl
          << "                          no more than this length" << endl
+         << "    -k, --kmer-size N     use kmers of size N when mapping" << endl
+         << "    -B, --band-width N    use this bandwidth when mapping" << endl
+         << "    -D, --debug           print debugging information about construction to stderr" << endl
+         << "    -A, --debug-align     print debugging information about alignment to stderr" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
          << "input fasta-format files, graphs, and sequences." << endl
@@ -195,6 +199,14 @@ int main_msga(int argc, char** argv) {
     bool reverse_complement = false;
     string base_seq_name;
     size_t max_fragment_length = 100000; // 100kb
+    int kmer_size = 0;
+    int edge_max = 0;
+    int kmer_stride = 1;
+    int band_width = 1000;
+    size_t doubling_steps = 2;
+    bool debug = false;
+    bool debug_align = false;
+    size_t fragment_size = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -207,11 +219,16 @@ int main_msga(int argc, char** argv) {
                 {"seq", required_argument, 0, 's'},
                 {"graph", required_argument, 0, 'g'},
                 {"base", required_argument, 0, 'b'},
+                {"kmer-size", required_argument, 0, 'k'},
+                {"band-width", required_argument, 0, 'B'},
+                {"debug", no_argument, 0, 'D'},
+                {"debug-align", no_argument, 0, 'A'},
+                {"fragment", required_argument, 0, 'X'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAX:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -244,6 +261,26 @@ int main_msga(int argc, char** argv) {
                 return 1;
             }
             graph_files.push_back(optarg);
+            break;
+
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
+
+        case 'B':
+            band_width = atoi(optarg);
+            break;
+
+        case 'D':
+            debug = true;
+            break;
+
+        case 'A':
+            debug_align = true;
+            break;
+
+        case 'X':
+            fragment_size = atoi(optarg);
             break;
 
         case 'h':
@@ -286,7 +323,8 @@ int main_msga(int argc, char** argv) {
     for (auto& fasta_file_name : fasta_files) {
         FastaReference ref;
         ref.open(fasta_file_name);
-         for (auto& seq : ref.index->sequenceNames) {
+        if (debug) cerr << "loading " << fasta_file_name << endl;
+        for (auto& seq : ref.index->sequenceNames) {
             // only use the sequence if we have whitelisted it
             if (seq_names.empty() || seq_names.count(seq)) {
                  strings[seq].insert(ref.getSequence(seq));
@@ -313,29 +351,50 @@ int main_msga(int argc, char** argv) {
         }
     }
 
+    assert(kmer_size > 0);
+    size_t max_query_size = pow(2, doubling_steps) * kmer_size;
+    // limit max node size
+    graph->dice_nodes(fragment_size ? fragment_size : 2*kmer_size);
+    graph->sort();
+    graph->compact_ids();
+
     // questions:
     // should we preferentially use sequences from fasta files in the order they were given?
     // (considering this a todo)
     // reverse complement?
-    //Mapper* mapper;
-    //GCSA* gcsa;
-    //XG* xgidx;
+    Mapper* mapper = nullptr;
+    gcsa::GCSA* gcsaidx = nullptr;
+    xg::XG* xgidx = nullptr;
 
+    // todo restructure so that we are trying to map everything
+    // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
         auto& name = group.first;
-        cerr << "adding " << name << endl;
+        if (debug) cerr << "adding " << name << endl;
         for (auto& seq : group.second) {
+            //graph->serialize_to_file("pre-indexes.vg");
+            if (debug) cerr << "building xg index" << endl;
+            if (xgidx) delete xgidx;
+            xgidx = new xg::XG(graph->graph);
+            if (debug) cerr << "building GCSA2 index" << endl;
+            if (gcsaidx) delete gcsaidx;
+            gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
+            if (mapper) delete mapper;
+            mapper = new Mapper(xgidx, gcsaidx);
+            mapper->debug = debug_align;
+            //graph->serialize_to_file("pre-align.vg");
+
             // align to the graph
-            cerr << name << " " << seq.size() << endl;
-            Alignment aln = graph->align(seq);
+            //Alignment aln = graph->align(seq);
+            if (debug) cerr << "aligning " << name << endl;
+            Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
             graph->edit({aln.path()});
-            // TODO
-            //delete mapper;
-            //delete xgidx;
-            //xgidx = new xg::XG(graph->graph);
-            
+            graph->sort();
+            graph->compact_ids();
+            //if (graph->is_valid()) cerr << "graph is valid" << endl;
+            //else assert(false);
         }
     }
     // clear paths added by graph->edit
@@ -887,7 +946,7 @@ int main_mod(int argc, char** argv) {
         }
         Node* head_node = NULL;
         Node* tail_node = NULL;
-        graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
+        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
         graph->prune_complex(path_length, edge_max, head_node, tail_node);
         // These nodes were created in the graph, so we can destroy them by pointer.
         graph->destroy_node(head_node);
@@ -913,7 +972,7 @@ int main_mod(int argc, char** argv) {
         }
         Node* head_node = NULL;
         Node* tail_node = NULL;
-        graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
+        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
     }
 
     graph->serialize_to_ostream(std::cout);

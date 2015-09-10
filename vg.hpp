@@ -706,15 +706,17 @@ public:
     // start/end node before lambda is ever called.
     void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
-                                              Node*& head_node, Node*& tail_node,
                                               int64_t& head_id, int64_t& tail_id,
                                               function<void(KmerPosition&)> lambda);
 
     void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                         bool forward_only,
                         vector<gcsa::KMer>& kmers_out,
-                        Node*& head_node, Node*& tail_node,
                         int64_t& head_id, int64_t& tail_id);
+
+    gcsa::GCSA* build_gcsa_index(int kmer_size, bool forward_only,
+                                 size_t doubling_steps = 2,
+                                 size_t size_limit = 200);
 
     // for pruning graph prior to indexing with gcsa2
     // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to
@@ -761,18 +763,6 @@ public:
     // add singular head and tail null nodes to graph
     void wrap_with_null_nodes(void);
     
-    // Connect all existing head nodes to the given head node, and all existing
-    // tail nodes to the given tail node. If either is null, it is created with
-    // the specified length from the appropriate specified start/stop character,
-    // and the corresponding pointer is updated. Used to prepare for indexing
-    // with GCSA; length must be at least the GCSA kmer length to be used. Nodes
-    // created here are owned by the graph, and will be deleted when the VG
-    // object is deleted. If head_id or tail_id is 0, and the corresponding node
-    // is null, the next free ID will be chosen for the corresponding node.
-    void add_start_and_end_markers(int length, char start_char, char end_char,
-                                   Node*& head_node, Node*& tail_node,
-                                   int64_t head_id = 0, int64_t tail_id = 0);
-         
     // Add a single combination start/end node, where all existing heads in the
     // graph are connected to it, and all existing tails in the graph are
     // connected to its end. Any connected components in the graph which do not
