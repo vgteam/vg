@@ -59,7 +59,7 @@ $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksd
 	cd rocksdb && $(ROCKSDB_PORTABLE) $(MAKE) static_lib
 
 $(LIBGCSA2): gcsa2/*.cpp gcsa2/*.h $(SDSLLITE)
-	cd gcsa2 && $(MAKE) libgcsa2.a
+	cd gcsa2 && cat Makefile | grep -v VERBOSE_STATUS_INFO >Makefile.quiet && $(MAKE) -f Makefile.quiet libgcsa2.a
 	touch $(LIBGCSA2)
 
 $(LIBXG): xg/*.cpp xg/*.hpp $(SDSLLITE)
