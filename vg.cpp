@@ -763,10 +763,10 @@ void VG::dice_nodes(int max_node_size) {
                 }
                 int segment_size = node_size/div;
                 int i = 0;
-                for(int i = 0; i < div - 1; i++) {
-                    // For each division between the div new pieces, break off a piece of the determined size at the left
+                while (n->sequence().size() > segment_size) {
+                    // For each division between the div new pieces,
+                    // break off a piece of the determined size at the left
                     divide_node(n, segment_size, l, r);
-                    
                     // Keep dividing the right node
                     n = r;
                 }

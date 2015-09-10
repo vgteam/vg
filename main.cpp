@@ -188,7 +188,8 @@ int main_msga(int argc, char** argv) {
     for (auto& fasta_file_name : fasta_files) {
         FastaReference ref;
         ref.open(fasta_file_name);
-         for (auto& seq : ref.index->sequenceNames) {
+        if (debug) cerr << "loading " << fasta_file_name << endl;
+        for (auto& seq : ref.index->sequenceNames) {
             // only use the sequence if we have whitelisted it
             if (seq_names.empty() || seq_names.count(seq)) {
                  strings[seq].insert(ref.getSequence(seq));
