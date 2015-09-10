@@ -173,7 +173,6 @@ void VG::add_node(Node& node) {
         *new_node = node; // overwrite it with the value of the given node
         node_by_id[new_node->id()] = new_node; // and insert into our id lookup table
         node_index[new_node] = graph.node_size()-1;
-        //cerr << "Added node " << new_node->id() << endl;
     }
 }
 
@@ -1477,7 +1476,7 @@ size_t VG::size(void) {
 }
 
 size_t VG::length(void) {
-    size_t l;
+    size_t l = 0;
     for_each_node([&l](Node* n) { l+=n->sequence().size(); });
     return l;
 }

@@ -267,12 +267,8 @@ void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                                    head_node, tail_node,
                                    head_id, tail_id);
              });
-    if(head_node != nullptr) {
-        delete head_node;
-    }
-    if(tail_node != nullptr) {
-        delete tail_node;
-    }
+    // we were cleaning up the head and tail node here
+    // however, these should be cleaned up properly when each graph is destroyed
 }
 
 }

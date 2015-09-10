@@ -223,7 +223,6 @@ int main_msga(int argc, char** argv) {
         auto& name = group.first;
         cerr << "adding " << name << endl;
         for (auto& seq : group.second) {
-            cerr << "building indexes" << endl;
             //graph->serialize_to_file("pre-indexes.vg");
             if (xgidx) delete xgidx;
             xgidx = new xg::XG(graph->graph);
@@ -232,14 +231,11 @@ int main_msga(int argc, char** argv) {
             if (mapper) delete mapper;
             mapper = new Mapper(xgidx, gcsaidx);
             mapper->debug = debug;
-            cerr << "built indexes" << endl;
             //graph->serialize_to_file("pre-align.vg");
 
             // align to the graph
-            cerr << name << " " << seq.size() << endl;
             //Alignment aln = graph->align(seq);
             Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
-            cerr << pb2json(aln) << endl;
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
             graph->edit({aln.path()});
