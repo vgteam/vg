@@ -59,7 +59,7 @@ $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksd
 	cd rocksdb && $(ROCKSDB_PORTABLE) $(MAKE) static_lib
 
 $(LIBGCSA2): gcsa2/*.cpp gcsa2/*.h $(SDSLLITE)
-	cd gcsa2 && $(MAKE) libgcsa2.a
+	cd gcsa2 && cat Makefile | grep -v VERBOSE_STATUS_INFO >Makefile.quiet && $(MAKE) -f Makefile.quiet libgcsa2.a
 	touch $(LIBGCSA2)
 
 $(LIBXG): xg/*.cpp xg/*.hpp $(SDSLLITE)
@@ -143,7 +143,7 @@ pileup.o: pileup.cpp pileup.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h $(LIBPRO
 	$(CXX) $(CXXFLAGS) -c -o pileup.o pileup.cpp $(INCLUDES)
 
 vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG)
-	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS) $(STATICFLAGS)
 
 libvg.a: vg
 	ar rs libvg.a $(LIBS)
