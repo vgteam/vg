@@ -38,7 +38,8 @@ void help_msga(char** argv) {
          << "                          no more than this length" << endl
          << "    -k, --kmer-size N     use kmers of size N when mapping" << endl
          << "    -B, --band-width N    use this bandwidth when mapping" << endl
-         << "    -D, --debug           print debugging information about process to stderr" << endl
+         << "    -D, --debug           print debugging information about construction to stderr" << endl
+         << "    -A, --debug-align     print debugging information about alignment to stderr" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
          << "input fasta-format files, graphs, and sequences." << endl
@@ -69,6 +70,7 @@ int main_msga(int argc, char** argv) {
     int band_width = 1000;
     size_t doubling_steps = 2;
     bool debug = false;
+    bool debug_align = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -84,11 +86,12 @@ int main_msga(int argc, char** argv) {
                 {"kmer-size", required_argument, 0, 'k'},
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
+                {"debug-align", no_argument, 0, 'A'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:D",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DA",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -133,6 +136,10 @@ int main_msga(int argc, char** argv) {
 
         case 'D':
             debug = true;
+            break;
+
+        case 'A':
+            debug_align = true;
             break;
 
         case 'h':
@@ -221,20 +228,23 @@ int main_msga(int argc, char** argv) {
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
         auto& name = group.first;
-        cerr << "adding " << name << endl;
+        if (debug) cerr << "adding " << name << endl;
         for (auto& seq : group.second) {
             //graph->serialize_to_file("pre-indexes.vg");
+            if (debug) cerr << "building xg index" << endl;
             if (xgidx) delete xgidx;
             xgidx = new xg::XG(graph->graph);
+            if (debug) cerr << "building GCSA2 index" << endl;
             if (gcsaidx) delete gcsaidx;
             gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
             if (mapper) delete mapper;
             mapper = new Mapper(xgidx, gcsaidx);
-            mapper->debug = debug;
+            mapper->debug = debug_align;
             //graph->serialize_to_file("pre-align.vg");
 
             // align to the graph
             //Alignment aln = graph->align(seq);
+            if (debug) cerr << "aligning " << name << endl;
             Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
