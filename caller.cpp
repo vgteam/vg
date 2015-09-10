@@ -25,20 +25,24 @@ void Caller::write(ostream& out) {
     stream::write(out, _alignments.size(), lambda);
 }
 
+void Caller::flush_buffer(ostream& out, bool json) {    
+#pragma omp critical (out)
+    {
+        if (json) {
+            to_json(out);
+        } else {
+            write(out);
+        }
+    }
+    _alignments.clear();
+}
+
 void Caller::call_node_pileup(const NodePileup& pileup, ostream& out, bool json) {
     for (int i = 0; i < pileup.base_pileup_size(); ++i) {
         call_base_pileup(pileup, i);
     }
     if (_alignments.size() >= _buffer_size) {
-#pragma omp critical (out)
-        {
-            if (json) {
-                to_json(out);
-            } else {
-                write(out);
-            }
-        }
-        _alignments.clear();
+        flush_buffer(out, json);
     }
 }
 
@@ -55,7 +59,7 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset) {
             // match
             if (bp.bases()[base_offset] == ',' ||
                 bp.bases()[base_offset] == '.') {
-                ++hist[bp.ref_base()];
+                ++hist[nidx(bp.ref_base())];
                 ++base_offset;
             }
             // snp
@@ -68,7 +72,7 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset) {
                      bp.bases()[base_offset] == '-') {
                 // todo
                 int lf = base_offset + 1;
-                int rf = bp.bases().find_first_not_of("0123456789", lf);
+                int rf = bp.bases().find_last_of("0123456789", lf);
                 stringstream ss(bp.bases().substr(lf, rf - lf + 1));
                 int indel_len;
                 ss >> indel_len;

@@ -115,6 +115,11 @@ int main_call(int argc, char** argv) {
     };
     stream::for_each_parallel(*pileup_stream, lambda);
 
+    // empty out any remaining buffers
+    for (int i = 0; i < callers.size(); ++i) {
+      callers[i].flush_buffer(cout, output_json);
+    }
+
     return 0;
 }
 

@@ -77,6 +77,8 @@ public:
     void to_json(ostream& out);
     // write GAM to protobuf
     void write(ostream& out);
+    // write out the _alignments buffer
+    void flush_buffer(ostream& out, bool json);
 
     // call every position in the node pileup
     void call_node_pileup(const NodePileup& pileup, ostream& out, bool json);
