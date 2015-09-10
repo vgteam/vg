@@ -227,48 +227,27 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
                                                  int64_t& head_id, int64_t& tail_id,
                                                  function<void(KmerPosition&)> lambda) {
 
-    // We have pointers to our single start/end node, and we will own it.
-    // None of the VG graphs can own it since they get destroyed during the
-    // for_each. TODO: the next free ID in the first graph (which creates this
-    // node) must be free in all the graphs.
-    Node* head_node = nullptr;
-    Node* tail_node = nullptr;
-
     // For every graph in our set (in serial), visit all the nodes in parallel and handle them.
     for_each([kmer_size, edge_max,stride, forward_only,
-              &head_id, &tail_id, &head_node, &tail_node, lambda](VG* g) {
+              &head_id, &tail_id, lambda](VG* g) {
                  g->for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
                                                          forward_only,
-                                                         head_node, tail_node,
                                                          head_id, tail_id,
                                                          lambda);
              });
-    
-    // delete the head and tail nodes
-    if(head_node != nullptr) {
-        delete head_node;
-    }
-    if(tail_node != nullptr) {
-        delete tail_node;
-    }
 }
 
 void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                            bool forward_only,
                            vector<gcsa::KMer>& kmers_out,
                            int64_t head_id, int64_t tail_id) {
-    Node* head_node = nullptr;
-    Node* tail_node = nullptr;
     for_each([kmer_size, edge_max,stride, forward_only, &kmers_out,
-              &head_id, &tail_id, &head_node, &tail_node](VG* g) {
+              &head_id, &tail_id](VG* g) {
                  g->get_gcsa_kmers(kmer_size, edge_max, stride,
                                    forward_only,
                                    kmers_out,
-                                   head_node, tail_node,
                                    head_id, tail_id);
              });
-    // we were cleaning up the head and tail node here
-    // however, these should be cleaned up properly when each graph is destroyed
 }
 
 }

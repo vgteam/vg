@@ -8,4 +8,4 @@ PATH=..:$PATH # for vg
 
 plan tests 1
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -k 16 | md5sum | awk '{print $1}') 4aced985f916e96cd9279ff9b1d90d97 "MSGA produces the expected graph for GRCh38 HLA-V"
+is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -k 16 | md5sum | awk '{print $1}') 1d28f1d2003ded0b3983dd989fdd5fe3 "MSGA produces the expected graph for GRCh38 HLA-V"

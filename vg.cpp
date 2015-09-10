@@ -4262,15 +4262,14 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
 
 void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
-                                              Node*& head_node, Node*& tail_node,
                                               int64_t& head_id, int64_t& tail_id,
                                               function<void(KmerPosition&)> lambda) {
     
     show_progress = show_progress;
     progress_message = "processing kmers of " + name;
-        
-    if(head_node == nullptr) {
-        assert(tail_node == nullptr); // they should be only set together
+    Node* head_node = nullptr, *tail_node = nullptr;
+    if(head_id == 0) {
+        assert(tail_id == 0); // they should be only set together
         // This is the first graph.
         // Add the start/end node, but make our own copy before we destroy the graph.
         add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
@@ -4280,7 +4279,7 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
     } else {
         // Add the existing start/end node
         int64_t maxid = max_node_id();
-        if(head_node->id() <= maxid || tail_node->id() <= maxid) {
+        if(head_id <= maxid || tail_id <= maxid) {
             // If the ID we got for the node when we made it in the
             // first graph is too small, we have to complain. It would be
             // nice if we could make a path through all the graphs, get the
@@ -4299,12 +4298,15 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
             gcsa_handle_node_in_graph(node, kmer_size, edge_max, stride, forward_only,
                                       head_node, tail_node, lambda);
         });
+
+    // cleanup
+    destroy_node(head_node);
+    destroy_node(tail_node);
 }
 
 void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                         bool forward_only,
                         vector<gcsa::KMer>& kmers_out,
-                        Node*& head_node, Node*& tail_node,
                         int64_t& head_id, int64_t& tail_id) {
 
     // TODO: This function goes through an internal string format that should
@@ -4385,7 +4387,6 @@ void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
     // Run on each KmerPosition. This populates start_end_id, if it was 0, before calling convert_kmer.
     for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
                                          forward_only,
-                                         head_node, tail_node,
                                          head_id, tail_id,
                                          convert_kmer);
                                          
@@ -4401,14 +4402,10 @@ gcsa::GCSA* VG::build_gcsa_index(int kmer_size, bool forward_only,
                                  size_t doubling_steps,
                                  size_t size_limit) {
     vector<gcsa::KMer> kmers;
-    Node* head_node = nullptr; Node* tail_node = nullptr;
     int64_t head_id=0, tail_id=0;
     get_gcsa_kmers(kmer_size, 0, 1, forward_only,
-                   kmers, head_node, tail_node, head_id, tail_id);
+                   kmers, head_id, tail_id);
     gcsa::GCSA* result = new gcsa::GCSA(kmers, kmer_size, doubling_steps, size_limit);
-    // clean up, these were created in get_gcsa_kmers
-    destroy_node(head_node);
-    destroy_node(tail_node);
     return result;
 }
 
