@@ -71,6 +71,7 @@ int main_msga(int argc, char** argv) {
     size_t doubling_steps = 2;
     bool debug = false;
     bool debug_align = false;
+    size_t fragment_size = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -87,11 +88,12 @@ int main_msga(int argc, char** argv) {
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
+                {"fragment", required_argument, 0, 'X'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DA",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAX:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -140,6 +142,10 @@ int main_msga(int argc, char** argv) {
 
         case 'A':
             debug_align = true;
+            break;
+
+        case 'X':
+            fragment_size = atoi(optarg);
             break;
 
         case 'h':
@@ -212,7 +218,7 @@ int main_msga(int argc, char** argv) {
     assert(kmer_size > 0);
     size_t max_query_size = pow(2, doubling_steps) * kmer_size;
     // limit max node size
-    graph->dice_nodes(2*kmer_size);
+    graph->dice_nodes(fragment_size ? fragment_size : 2*kmer_size);
     graph->sort();
     graph->compact_ids();
 
