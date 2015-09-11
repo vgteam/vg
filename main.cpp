@@ -189,10 +189,17 @@ int main_msga(int argc, char** argv) {
         FastaReference ref;
         ref.open(fasta_file_name);
         if (debug) cerr << "loading " << fasta_file_name << endl;
-        for (auto& seq : ref.index->sequenceNames) {
+        for (auto& name : ref.index->sequenceNames) {
             // only use the sequence if we have whitelisted it
-            if (seq_names.empty() || seq_names.count(seq)) {
-                 strings[seq].insert(ref.getSequence(seq));
+            string seq = ref.getSequence(name);
+            if (!fragment_size) {
+                if (seq_names.empty() || seq_names.count(name)) {
+                    strings[name].insert(seq);
+                }
+            } else {
+                for (size_t i = 0; i < seq.size(); i += fragment_size/2) {
+                    strings[name].insert(seq.substr(i, fragment_size));
+                }
             }
         }
     }
@@ -219,7 +226,7 @@ int main_msga(int argc, char** argv) {
     assert(kmer_size > 0);
     size_t max_query_size = pow(2, doubling_steps) * kmer_size;
     // limit max node size
-    graph->dice_nodes(fragment_size ? fragment_size : 2*kmer_size);
+    graph->dice_nodes(2*kmer_size);
     graph->sort();
     graph->compact_ids();
 
@@ -236,52 +243,64 @@ int main_msga(int argc, char** argv) {
     for (auto& group : strings) {
         auto& name = group.first;
         if (debug) cerr << "adding " << name << endl;
+        if (debug) cerr << "building xg index" << endl;
+        if (xgidx) delete xgidx;
+        xgidx = new xg::XG(graph->graph);
+        if (debug) cerr << "building GCSA2 index" << endl;
+        if (gcsaidx) delete gcsaidx;
+        gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
+        if (mapper) delete mapper;
+        mapper = new Mapper(xgidx, gcsaidx);
+        mapper->debug = debug_align;
+        vector<Path> paths;
         for (auto& seq : group.second) {
-            //graph->serialize_to_file("pre-indexes.vg");
-            if (debug) cerr << "building xg index" << endl;
-            if (xgidx) delete xgidx;
-            xgidx = new xg::XG(graph->graph);
-            if (debug) cerr << "building GCSA2 index" << endl;
-            if (gcsaidx) delete gcsaidx;
-            gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
-            if (mapper) delete mapper;
-            mapper = new Mapper(xgidx, gcsaidx);
-            mapper->debug = debug_align;
-            //graph->serialize_to_file("pre-align.vg");
-
             // align to the graph
-            //Alignment aln = graph->align(seq);
             if (debug) cerr << "aligning " << name << endl;
             Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
+            paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
-            graph->edit({aln.path()});
-            graph->sort();
-            graph->compact_ids();
-            //if (graph->is_valid()) cerr << "graph is valid" << endl;
-            //else assert(false);
         }
+        graph->edit(paths);
+        graph->paths.clear();
+        graph->dice_nodes(2*kmer_size);
+        graph->sort();
+        graph->compact_ids();
+        //if (!graph->is_valid()) cerr << "graph is invalid" << endl;
     }
-    // clear paths added by graph->edit
-    graph->paths.clear();
 
-    // compact the ID space
-    // isn't really necessary, but maybe it's nice
+    // re-compact the ID space
     graph->sort();
     graph->compact_ids();
 
+    // todo at least make this a lambda
+    { // reset indexes
+        if (xgidx) delete xgidx;
+        if (debug) cerr << "building xg index" << endl;
+        xgidx = new xg::XG(graph->graph);
+        if (debug) cerr << "building GCSA2 index" << endl;
+        if (gcsaidx) delete gcsaidx;
+        gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
+        if (mapper) delete mapper;
+        mapper = new Mapper(xgidx, gcsaidx);
+        mapper->debug = debug_align;
+    }
     // include the paths in the graph
     for (auto& group : strings) {
         auto& name = group.first;
+        if (debug) cerr << "adding path " << name << endl;
         for (auto& seq : group.second) {
-            Alignment aln = graph->align(seq);
+            if (debug) cerr << "seq.size() = " << seq.size() << endl;
+            Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
+            if (debug) cerr << "alignment score: " << aln.score() << endl;
             aln.mutable_path()->set_name(name);
             graph->include(aln.path());
         }
     }
 
     // return the graph
-    graph->serialize_to_ostream(std::cout);    
+    graph->serialize_to_ostream(std::cout);
+    delete graph;
 
     // todo....
     //
