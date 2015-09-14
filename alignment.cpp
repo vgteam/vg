@@ -560,6 +560,105 @@ int alignment_from_length(const Alignment& a) {
     return l;
 }
 
+Alignment strip_from_start(const Alignment& aln, size_t drop) {
+    if (!drop) return aln;
+    Alignment res;
+    cerr << "before strip " << pb2json(aln) << endl;
+    res.set_sequence(aln.sequence().substr(drop));
+    if (!aln.has_path()) return res;
+    size_t seen = 0;
+    size_t i = 0;
+    while (seen < drop) {
+        cerr << "seen " << seen << " drop " << drop << endl;
+        Mapping m = aln.path().mapping(i++);
+        size_t to = to_length(m);
+        cerr << "to length of next mapping " << to << endl;
+        //size_t offset = 0;
+        if (to + seen > drop) {
+            // split the mapping
+            size_t keep = to + seen - drop;
+            cerr << "keeping " << keep << " of last mapping" << endl;
+            Mapping n;
+            size_t offset = mapping_from_length(m);
+            // go from the back of the old mapping to the front, adding edits to the new mapping
+            vector<Edit> edits;
+            for (size_t j = m.edit_size()-1; j >= 0; --j) {
+                Edit e = m.edit(j);
+                cerr << "on edit " << pb2json(e) << endl;
+                if (e.to_length() + seen > drop) {
+                    // split the edit if it's over our drop
+                    Edit f;
+                    f.set_to_length((e.to_length() + seen)-drop);
+                    if (!e.sequence().empty()) {
+                        f.set_sequence(e.sequence().substr(e.to_length() - f.to_length()));
+                    }
+                    if (edit_is_match(e) || edit_is_sub(e)) {
+                        f.set_from_length(f.to_length());
+                    } else if (edit_is_insertion(e) || edit_is_softclip(e)) {
+                        f.set_to_length(0);
+                    } else if (edit_is_deletion(e)) {
+                        f.set_from_length(e.from_length());
+                    }
+                    edits.push_back(f);
+                    seen += f.to_length();
+                    offset -= f.from_length();
+                    break;
+                } else {
+                    // add it into the mapping
+                    edits.push_back(e);
+                    seen += e.to_length();
+                    offset -= e.from_length();
+                }
+            }
+            // and save the edits, which we collected in reverse order
+            reverse(edits.begin(), edits.end());
+            for (auto edit : edits) {
+                *n.add_edit() = edit;
+            }
+            n.mutable_position()->set_offset(offset);
+            n.mutable_position()->set_node_id(m.position().node_id());
+            *res.mutable_path()->add_mapping() = n;
+            seen = drop;
+        } else {
+            // skip this mapping, we're dropping it
+            seen += to;
+        }
+    }
+    // now add in the rest
+    while (i < aln.path().mapping_size()) {
+        *res.mutable_path()->add_mapping() = aln.path().mapping(i++);
+    }
+    cerr << "after strip " << pb2json(res) << endl;
+    assert(res.has_path());
+    return res;
+}
+
+Alignment strip_from_end(const Alignment& aln, size_t drop) {
+    // todo
+    Alignment res;
+    return res;
+}
+
+// merge that properly handles long indels
+// assumes that alignments should line up end-to-end
+Alignment merge_alignments(const vector<Alignment>& alns) {
+    if (alns.size() == 0) {
+        Alignment aln;
+        return aln;
+    } else if (alns.size() == 1) {
+        return alns.front();
+    }
+    Alignment aln = alns.front(); // keep the whole first alignment
+    for (size_t i = 1; i < alns.size(); ++i) {
+        merge_alignments(aln, alns[i]);
+        cerr << "merging " << (aln.has_path() ? "path" : "no_path") << endl;
+        if (aln.has_path())
+            cerr << "merging " << aln.path().mapping_size() << " in path" << endl;
+    }
+    cerr << "done merge" << endl;
+    return aln;
+}
+
 void merge_alignments(Alignment& a1, const Alignment& a2) {
     // bail out when second is empty, merge would be a no-op
     if (!a1.has_path() || a1.path().mapping_size() == 0 ||

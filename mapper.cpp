@@ -284,7 +284,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     }
     int segment_size = read.sequence().size()/div;
     // and overlap them too
-    Alignment merged;
+    vector<Alignment> alns;
     for (int i = 0; i < div; ++i) {
         {
             Alignment aln = read;
@@ -294,20 +294,21 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             } else {
                 aln.set_sequence(read.sequence().substr(i*segment_size, segment_size));
             }
-            if (i == 0) {
-                merged = align(aln, kmer_size, stride);
-            } else {
-                merge_alignments(merged, align(aln, kmer_size, stride));
-            }
+            size_t overlap = (i == 0? 0 : segment_size/2);
+            cerr << "mapper " << pb2json(strip_from_start(align(aln, kmer_size, stride), overlap)) << endl;
+            alns.push_back(strip_from_start(align(aln, kmer_size, stride), overlap));
         }
         // and the overlapped bit --- here we're using 50% overlap
         if (i != div-1) { // if we're not at the last sequence
             Alignment aln = read;
-            aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2, segment_size));
-            merge_alignments(merged, align(aln, kmer_size, stride));
+            aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2,
+                                                    segment_size));
+            size_t overlap = segment_size/2;
+            cerr << "mapper " << pb2json(strip_from_start(align(aln, kmer_size, stride), overlap)) << endl;
+            alns.push_back(strip_from_start(align(aln, kmer_size, stride), overlap));
         }
     }
-    return merged;
+    return merge_alignments(alns);
 }
 
 vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {
