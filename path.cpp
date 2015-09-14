@@ -550,6 +550,10 @@ int from_length(const Mapping& m) {
 // designed for merging longer paths with substantial overlap into one long path
 Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2) {
 
+    cerr << "---------------------------------------- merging -------------------------------------------" << endl;
+    cerr << pb2json(path1) << endl;
+    cerr << pb2json(path2) << endl;
+
     // how much of each path do we keep?
     // used when manipulating path sequences elsewhere
     kept_path1 = 0;
@@ -581,8 +585,10 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     const Mapping& p1m = *p1mp;
     const Mapping& p2m = *p2mp;
 
-    //cerr << p1m.position().node_id() << " vs " << p2m.position().node_id() << endl;
-    assert(p1mp->position().node_id() == p2mp->position().node_id());
+    cerr << p1m.position().node_id() << " vs " << p2m.position().node_id() << endl;
+    //assert(p1mp->position().node_id() == p2mp->position().node_id());
+    bool is_split = (p1mp->position().node_id() != p2mp->position().node_id());
+    if (is_split) cerr << "we have a split read deletion or jump" << endl;
 
     Path result;
 
@@ -593,21 +599,8 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     }
 
     // we are now pointing at the same node
-    // however, the alignment may not completely overlap the node
-    // so we need to ensure that we have overlap
-    //if (p1 == path1.mapping_size()-1 || p2 == 0) {
-        // we could be partially mapping to a node
-        // add up the total sequence length across the two
-        //to_length(
-    if (p2m.position().offset()) {
-        if (from_length(p1m) < p2m.position().offset()) {
-            cerr << "[vg::Path] cannot merge paths as their ends do not overlap" << endl
-                 << pb2json(p1m) << endl << pb2json(p2m) <<endl;
-            exit(1);
-        }
-        // we have overlap or match
-        kept_path1 += p2m.position().offset();
-        kept_path2 += to_length(p2m);
+    if (!is_split && p2m.position().offset()) {
+        // the mappings are against the same node
         // make a new mapping that combines the two
         Mapping* m = result.add_mapping();
         *m->mutable_position() = p1m.position();
@@ -615,22 +608,71 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
         for (int i = 0; i < p1m.edit_size(); ++i) {
             Edit* e = m->add_edit();
             *e = p1m.edit(i);
+            cerr << "prev " << pb2json(*e) << endl;
+            kept_path1 += e->to_length();
+        }
+        cerr << "kept_path1 " << kept_path1 << endl;
+        // local deletion on this node
+        if ((from_length(p1m) < p2m.position().offset())) {
+            // add a deletion
+            Edit* e = m->add_edit();
+            e->set_from_length(p2m.position().offset() - from_length(p1m));
+            cerr << "del " << pb2json(*e) << endl;
         }
         // and skip this length in the next mapping
-        int to_skip = mapping_to_length(*m) - p2m.position().offset();
+        // caution, this is based on graph, not alignment coordinates
+        int to_skip = max((int)0, (int)mapping_from_length(*m) - (int)p2m.position().offset());
+        cerr << to_skip << " to skip" << endl;
+        size_t skipped = 0;
+        size_t j = 0;
+        for ( ; j < p2m.edit_size(); ++j) {
+            auto& f = p2m.edit(j);
+            if (f.from_length() + skipped > to_skip) {
+                break;
+            }
+            skipped += f.from_length();
+        }
+        cerr << "pointing at " << j << endl;
+        // now we're pointing at the edit to divide
+        {
+            auto& f = p2m.edit(j++);
+            size_t skip_here = to_skip - skipped;
+            Edit* e = m->add_edit();
+            cerr << "inner old " << pb2json(f) << endl;
+            *e = f;
+            e->set_to_length(e->to_length() - skip_here);
+            e->set_from_length(e->from_length() - skip_here);
+            if (!e->sequence().empty()) {
+                e->set_sequence(e->sequence().substr(skip_here));
+            }
+            cerr << "inner new " << pb2json(*e) << endl;
+            kept_path2 += e->to_length();
+        }
+        // now let's add in the rest of the edits
+        for (size_t i = j; i < p2m.edit_size(); ++i) {
+            auto& e = p2m.edit(i);
+            *m->add_edit() = e;
+            kept_path2 += e.to_length();
+        }
+        
+        /*
         for (int i = 0; i < p2m.edit_size(); ++i) {
-            if (to_skip > p2m.edit(i).to_length()) {
+            if (to_skip > skipped + p2m.edit(i).to_length()) {
             } else {
                 // divide the edit
                 Edit* e = m->add_edit();
+                cerr << "inner old " << pb2json(p2m.edit(i)) << endl;
                 *e = p2m.edit(i);
                 e->set_to_length(e->to_length() - to_skip);
                 e->set_from_length(e->from_length() - to_skip);
                 if (!e->sequence().empty()) {
                     e->set_sequence(e->sequence().substr(to_skip));
                 }
+                cerr << "inner new " << pb2json(*e) << endl;
+                kept_path2 += e->to_length();
             }
         }
+        */
         // offset is 0
         m->mutable_position()->set_offset(0);
     } else {
@@ -647,6 +689,11 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
         }
     }
 
+    //result = combine_consecutive_matches(result);
+
+    cerr << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << endl;
+    cerr << pb2json(result) << endl;
+
     return result;
 }
 
@@ -662,6 +709,34 @@ Path simplify_deletions(const Path& p) {
     return s;
 }
 
+Path combine_consecutive_matches(const Path& p) {
+    Path s;
+    for (int i = 0; i < p.mapping_size(); ++i) {
+        auto& m = p.mapping(i);
+        Mapping n;
+        *n.mutable_position() = m.position();
+        Edit e = m.edit(0);
+        if (m.edit_size() == 1) {
+            *n.add_edit() = e;
+        } else {
+            for (int j = 1; j < m.edit_size(); ++j) {
+                // if the next edit is a match, just add it in
+                auto& f = m.edit(j);
+                if (edit_is_match(e) && edit_is_match(f)) {
+                    e.set_from_length(e.from_length()+f.from_length());
+                    e.set_to_length(e.to_length()+f.to_length());
+                    *n.add_edit() = e;
+                } else {
+                    *n.add_edit() = e;
+                    e = f;
+                }
+            }
+        }
+        *s.add_mapping() = n;
+    }
+    return s;
+}
+
 bool mapping_ends_in_deletion(const Mapping& m){
     return edit_is_deletion(m.edit(m.edit_size()-1));
 }
@@ -673,7 +748,5 @@ bool mapping_starts_in_deletion(const Mapping& m) {
 bool mapping_is_total_deletion(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_deletion(m.edit(0));
 }
-
-
 
 }

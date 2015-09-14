@@ -294,8 +294,9 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             } else {
                 aln.set_sequence(read.sequence().substr(i*segment_size, segment_size));
             }
+            cerr << "seq_start " << aln.sequence() << endl;
             size_t overlap = (i == 0? 0 : segment_size/2);
-            cerr << "mapper " << pb2json(strip_from_start(align(aln, kmer_size, stride), overlap)) << endl;
+            cerr << "seq_cuttd " << strip_from_start(align(aln, kmer_size, stride), overlap).sequence() << endl;
             alns.push_back(strip_from_start(align(aln, kmer_size, stride), overlap));
         }
         // and the overlapped bit --- here we're using 50% overlap
@@ -304,7 +305,8 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2,
                                                     segment_size));
             size_t overlap = segment_size/2;
-            cerr << "mapper " << pb2json(strip_from_start(align(aln, kmer_size, stride), overlap)) << endl;
+            cerr << "seq_start " << aln.sequence() << endl;
+            cerr << "seq_cuttd " << strip_from_start(align(aln, kmer_size, stride), overlap).sequence() << endl;
             alns.push_back(strip_from_start(align(aln, kmer_size, stride), overlap));
         }
     }

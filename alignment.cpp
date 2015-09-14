@@ -575,18 +575,21 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
         cerr << "to length of next mapping " << to << endl;
         //size_t offset = 0;
         if (to + seen > drop) {
-            // split the mapping
+            // we have reached our target, so split the mapping
             size_t keep = to + seen - drop;
             cerr << "keeping " << keep << " of last mapping" << endl;
             Mapping n;
             size_t offset = mapping_from_length(m);
+            cerr << "offset is " << offset << endl;
             // go from the back of the old mapping to the front, adding edits to the new mapping
             vector<Edit> edits;
+            size_t kept = 0;
             for (size_t j = m.edit_size()-1; j >= 0; --j) {
                 Edit e = m.edit(j);
                 cerr << "on edit " << pb2json(e) << endl;
-                if (e.to_length() + seen > drop) {
+                if (e.to_length() + kept > keep) {
                     // split the edit if it's over our drop
+                    cerr << "we're over the drop 'cuz " << e.to_length() << " " << seen << " " << drop << endl;
                     Edit f;
                     f.set_to_length((e.to_length() + seen)-drop);
                     if (!e.sequence().empty()) {
@@ -600,14 +603,18 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
                         f.set_from_length(e.from_length());
                     }
                     edits.push_back(f);
-                    seen += f.to_length();
+                    kept += f.to_length();
                     offset -= f.from_length();
                     break;
                 } else {
                     // add it into the mapping
                     edits.push_back(e);
-                    seen += e.to_length();
+                    kept += e.to_length();
                     offset -= e.from_length();
+                    // we are breaking on mapping boundaries so we should only be able to see
+                    // kept == keep
+                    if (kept == keep) break;
+                    assert(!(kept > keep)); // to be sure during testing
                 }
             }
             // and save the edits, which we collected in reverse order
