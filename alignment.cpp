@@ -167,7 +167,7 @@ size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignmen
         }
     }
     for (auto& buf : bufs) {
-        delete buf;
+        delete[] buf;
     }
     gzclose(fp);
     return nLines;
