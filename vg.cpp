@@ -3008,22 +3008,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
         // We're going to annotate the paths, so we need to give them symbols and colors.
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        set<string> used_colors; // cycle through these
-    
         // Work out what path symbols belong on what edges
-        function<void(Path&)> lambda = [this, &picts, &colors, &symbols_for_edge, &used_colors](Path& path) {
+        function<void(Path&)> lambda = [this, &picts, &colors, &symbols_for_edge](Path& path) {
             // Make up the path's label
-            string path_label = picts.random();
-            if (used_colors.size() == colors.colors.size()) {
-                used_colors.clear();
-            }
-            string color = colors.random();
-            while (used_colors.count(color)) {
-                color = colors.random();
-            }
-            used_colors.insert(color);
-            
-            
+            string path_label = picts.hashed(path.name());
+            string color = colors.hashed(path.name());
             for (int i = 0; i < path.mapping_size(); ++i) {
                 const Mapping& m1 = path.mapping(i);
                 if (i < path.mapping_size()-1) {
@@ -3177,20 +3166,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
         int pathid = alnid;
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        set<string> used_colors; // cycle through these
-        
         function<void(Path&)> lambda = 
-            [this,&pathid,&out,&picts,&colors,&used_colors,show_paths,walk_paths]
+            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths]
             (Path& path) {
-            string path_label = picts.random();
-            if (used_colors.size() == colors.colors.size()) {
-                used_colors.clear();
-            }
-            string color = colors.random();
-            while (used_colors.count(color)) {
-                color = colors.random();
-            }
-            used_colors.insert(color);
+            string path_label = picts.hashed(path.name());
+            string color = colors.hashed(path.name());
             if (show_paths) {
                 for (int i = 0; i < path.mapping_size(); ++i) {
                     const Mapping& m = path.mapping(i);
