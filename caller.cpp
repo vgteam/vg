@@ -95,29 +95,67 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset) {
         // make up to two snps
         if (idxn(first) != bp.ref_base() &&
             (double)hist[first] / (double)bp.num_bases() >= _min_frac) {
-            create_snp(np.node_id(), offset, idxn(first));
+            create_snp(np, offset, idxn(first));
         }
         if (second != first &&
             idxn(second) != bp.ref_base() &&
             (double)hist[second] / (double)bp.num_bases() >= _min_frac) {
-            create_snp(np.node_id(), offset, idxn(second));
+            create_snp(np, offset, idxn(second));
         }
     }   
 }
 
-void Caller::create_snp(int64_t node_id, int64_t offset, char base) {
+void Caller::create_snp(const NodePileup& np, int64_t offset, char base) {
     _alignments.push_back(Alignment());
     Alignment& alignment = _alignments.back();
-    alignment.set_sequence(string(1, base));
+    string sequence;
+    // note on context: since we don't have access to the Node object,
+    // need to get sequence out of the pileups...
+    // left context (run right-to-left so we can cut at empty base more easily
+    for (int64_t i = offset - 1; i >= std::max((int64_t)0, offset - _context); --i) {
+        const BasePileup* bp = Pileups::get_base_pileup(np, i);
+        if (!bp || bp->num_bases() == 0) {
+            break;
+        } else {
+            sequence.insert(0, 1, (char)bp->ref_base());
+        }
+    }
+    // snp base
+    int seq_offset = sequence.length();
+    sequence += base;
+    // right context
+    for (int64_t i = offset + 1;
+         i < std::min((int64_t)np.base_pileup_size(), offset + 1 + _context); ++i) {
+        const BasePileup* bp = Pileups::get_base_pileup(np, i);
+        if (!bp || bp->num_bases() == 0) {
+            break;
+        } else {
+            sequence += (char)bp->ref_base();
+        }
+    }
+    alignment.set_sequence(sequence);
     Path* path = alignment.mutable_path();
     Mapping* mapping = path->add_mapping();
-    mapping->mutable_position()->set_node_id(node_id);
-    mapping->mutable_position()->set_offset(offset);
+    mapping->mutable_position()->set_node_id(np.node_id());
+    mapping->mutable_position()->set_offset(offset - seq_offset);
     mapping->set_is_reverse(false);
+    // create match edit from left context
+    if (seq_offset > 0) {
+        Edit* edit = mapping->add_edit();
+        edit->set_to_length(seq_offset);
+        edit->set_from_length(seq_offset);
+    }
+    // create edit from snp
     Edit* edit = mapping->add_edit();
     edit->set_to_length(1);
     edit->set_from_length(1);
     edit->set_sequence(string(1, base));
+    // create edit from right context
+    if (seq_offset < sequence.length() - 1) {
+        Edit* edit = mapping->add_edit();
+        edit->set_to_length(sequence.length() - 1 - seq_offset);
+        edit->set_from_length(sequence.length() - 1 - seq_offset);
+    }
 }
 
 

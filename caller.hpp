@@ -20,24 +20,28 @@ using namespace std;
 class Caller {
 public:
 
-    Caller(int buffer_size = 1000, int min_depth = 5, double min_frac = 0.3) :
+    Caller(int buffer_size = 1000, int min_depth = 5, double min_frac = 0.3,
+           int context = 5) :
         _buffer_size(buffer_size),
         _min_depth(min_depth),
-        _min_frac(min_frac){
+        _min_frac(min_frac),
+        _context(context) {
     }
         
     // copy constructor
     Caller(const Caller& other) : _alignments(other._alignments),
                                   _buffer_size(other._buffer_size),
                                   _min_depth(other._min_depth),
-                                  _min_frac(other._min_frac){
+                                  _min_frac(other._min_frac),
+                                  _context(other._context) {
     }
 
     // move constructor
     Caller(Caller&& other) : _alignments(other._alignments),
                              _buffer_size(other._buffer_size),
                              _min_depth(other._min_depth),
-                             _min_frac(other._min_frac){
+                             _min_frac(other._min_frac),
+                             _context(other._context) {
         other._alignments.clear();
     }
 
@@ -52,7 +56,8 @@ public:
     Caller& operator=(Caller&& other) {
         _buffer_size = other._buffer_size;
         _min_depth = other._min_depth;
-        _min_frac = other._min_frac; 
+        _min_frac = other._min_frac;
+        _context = other._context;
         swap(_alignments, other._alignments);
         other._alignments.clear();
         return *this;
@@ -72,6 +77,11 @@ public:
     int _min_depth;
     // minimum fraction of bases in pileup that nucleotide must have to be snp
     double _min_frac;
+    // vg surject doesn't work when alignments conly contain snps.  try adding
+    // some matching context on each side to see if it helps.  this specifies
+    // context length (on each side)
+    int _context;
+    
 
     // write GAM to JSON
     void to_json(ostream& out);
@@ -85,7 +95,7 @@ public:
     // call position at given base
     void call_base_pileup(const NodePileup& np, int64_t offset);
     // create a snp from a pileup.
-    void create_snp(int64_t node_id, int64_t offset, char base);
+    void create_snp(const NodePileup& np, int64_t offset, char base);
 
     // convert nucleotide base into integer
     static int nidx(char c) {

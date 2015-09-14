@@ -121,6 +121,10 @@ public:
         assert(offset < np.base_pileup_size());
         return np.mutable_base_pileup(offset);
     }
+    static const BasePileup* get_base_pileup(const NodePileup& np, int64_t offset) {
+        assert(offset < np.base_pileup_size());
+        return &np.base_pileup(offset);
+    }
 
     // get ith BasePileup record, create if doesn't exist
     static BasePileup* get_create_base_pileup(NodePileup& np, int64_t offset) {
