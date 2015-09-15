@@ -585,10 +585,9 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     const Mapping& p1m = *p1mp;
     const Mapping& p2m = *p2mp;
 
-    cerr << p1m.position().node_id() << " vs " << p2m.position().node_id() << endl;
     //assert(p1mp->position().node_id() == p2mp->position().node_id());
     bool is_split = (p1mp->position().node_id() != p2mp->position().node_id());
-    if (is_split) cerr << "we have a split read deletion or jump" << endl;
+    //if (is_split) cerr << "we have a split read deletion or jump" << endl;
 
     Path result;
 
@@ -608,23 +607,21 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
         for (int i = 0; i < p1m.edit_size(); ++i) {
             Edit* e = m->add_edit();
             *e = p1m.edit(i);
-            cerr << "prev " << pb2json(*e) << endl;
             kept_path1 += e->to_length();
         }
-        cerr << "kept_path1 " << kept_path1 << endl;
         // local deletion on this node
         if ((from_length(p1m) < p2m.position().offset())) {
             // add a deletion
             Edit* e = m->add_edit();
             e->set_from_length(p2m.position().offset() - from_length(p1m));
-            cerr << "del " << pb2json(*e) << endl;
         }
         // and skip this length in the next mapping
         // caution, this is based on graph, not alignment coordinates
+        /*
         int to_skip = max((int)0, (int)mapping_from_length(*m) - (int)p2m.position().offset());
-        cerr << to_skip << " to skip" << endl;
+        cerr << "to_skip = " << to_skip << endl;
         size_t skipped = 0;
-        size_t j = 0;
+
         for ( ; j < p2m.edit_size(); ++j) {
             auto& f = p2m.edit(j);
             if (f.from_length() + skipped > to_skip) {
@@ -632,8 +629,8 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
             }
             skipped += f.from_length();
         }
-        cerr << "pointing at " << j << endl;
         // now we're pointing at the edit to divide
+        size_t j = 0;
         {
             auto& f = p2m.edit(j++);
             size_t skip_here = to_skip - skipped;
@@ -648,8 +645,9 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
             cerr << "inner new " << pb2json(*e) << endl;
             kept_path2 += e->to_length();
         }
+        */
         // now let's add in the rest of the edits
-        for (size_t i = j; i < p2m.edit_size(); ++i) {
+        for (size_t i = 0; i < p2m.edit_size(); ++i) {
             auto& e = p2m.edit(i);
             *m->add_edit() = e;
             kept_path2 += e.to_length();
@@ -688,11 +686,6 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
             kept_path2 += to_length(*m);
         }
     }
-
-    //result = combine_consecutive_matches(result);
-
-    cerr << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << endl;
-    cerr << pb2json(result) << endl;
 
     return result;
 }

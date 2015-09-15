@@ -27,19 +27,26 @@ void help_msga(char** argv) {
          << "Multiple sequence / graph aligner." << endl
          << endl
          << "options:" << endl
-         << "    -f, --from FILE       use sequneces in (fasta) FILE" << endl
-         << "    -n, --name NAME       include this sequence" << endl
-         << "                           (If any --name is specified, use only" << endl
-         << "                            specified sequences from FASTA files.)" << endl
-         << "    -b, --base NAME       use this sequence as the graph basis if graph is empty" << endl
-         << "    -s, --seq SEQUENCE    literally include this sequence" << endl
-         << "    -g, --graph FILE      include this graph" << endl
-         << "    -X, --fragment N      break apart input sequences and sample sequences from input graphs of" << endl
-         << "                          no more than this length" << endl
-         << "    -k, --kmer-size N     use kmers of size N when mapping" << endl
-         << "    -B, --band-width N    use this bandwidth when mapping" << endl
-         << "    -D, --debug           print debugging information about construction to stderr" << endl
-         << "    -A, --debug-align     print debugging information about alignment to stderr" << endl
+         << "    -f, --from FILE         use sequneces in (fasta) FILE" << endl
+         << "    -n, --name NAME         include this sequence" << endl
+         << "                             (If any --name is specified, use only" << endl
+         << "                              specified sequences from FASTA files.)" << endl
+         << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
+         << "    -s, --seq SEQUENCE      literally include this sequence" << endl
+         << "    -g, --graph FILE        include this graph" << endl
+         << "    -F, --fragment N        break apart input sequences and sample sequences from input graphs of" << endl
+         << "                            no more than this length" << endl
+         << "    -k, --map-kmer-size N   use kmers of size N when mapping" << endl
+         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default 16)" << endl
+         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default 2)" << endl
+         << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
+         << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
+         << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
+         << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 1)" << endl
+         << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
+         << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -D, --debug             print debugging information about construction to stderr" << endl
+         << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
          << "input fasta-format files, graphs, and sequences." << endl
@@ -50,7 +57,7 @@ void help_msga(char** argv) {
 int main_msga(int argc, char** argv) {
 
     if (argc == 2) {
-        help_msga(argv);
+         help_msga(argv);
         return 1;
     }
 
@@ -64,9 +71,17 @@ int main_msga(int argc, char** argv) {
     bool reverse_complement = false;
     string base_seq_name;
     size_t max_fragment_length = 100000; // 100kb
-    int kmer_size = 0;
     int edge_max = 0;
-    int kmer_stride = 1;
+    int idx_kmer_size = 16;
+    int idx_doublings = 2;
+    int kmer_size = 0;
+    int kmer_stride = 0;
+    int sens_step = 0;
+    int best_clusters = 0;
+    int cluster_min = 1;
+    int max_attempts = 10;
+    int context_depth = 1;
+    float min_kmer_entropy = 0;
     int band_width = 1000;
     size_t doubling_steps = 2;
     bool debug = false;
@@ -84,16 +99,23 @@ int main_msga(int argc, char** argv) {
                 {"seq", required_argument, 0, 's'},
                 {"graph", required_argument, 0, 'g'},
                 {"base", required_argument, 0, 'b'},
-                {"kmer-size", required_argument, 0, 'k'},
+                {"idx-kmer-size", required_argument, 0, 'K'},
+                {"idx-doublings", required_argument, 0, 'X'},
+                {"map-kmer-size", required_argument, 0, 'k'},
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
-                {"fragment", required_argument, 0, 'X'},
+                {"fragment", required_argument, 0, 'F'},
+                {"sens-step", required_argument, 0, 'S'},
+                {"kmer-stride", required_argument, 0, 'j'},
+                {"max-attempts", required_argument, 0, 'M'},
+                {"context-depth", required_argument, 0, 'd'},
+                {"cluster-min", required_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAX:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -103,6 +125,26 @@ int main_msga(int argc, char** argv) {
         switch (c)
         {
 
+        case 'S':
+            sens_step = atoi(optarg);
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
+
+        case 'M':
+            max_attempts = atoi(optarg);
+            break;
+
+        case 'd':
+            context_depth = atoi(optarg);
+            break;
+
+        case 'C':
+            cluster_min = atoi(optarg);
+            break;
+            
         case 'f':
             fasta_files.push_back(optarg);
             break;
@@ -144,8 +186,16 @@ int main_msga(int argc, char** argv) {
             debug_align = true;
             break;
 
-        case 'X':
+        case 'F':
             fragment_size = atoi(optarg);
+            break;
+
+        case 'X':
+            doubling_steps = atoi(optarg);
+            break;
+
+        case 'K':
+            idx_kmer_size = atoi(optarg);
             break;
 
         case 'h':
@@ -224,9 +274,9 @@ int main_msga(int argc, char** argv) {
     }
 
     assert(kmer_size > 0);
-    size_t max_query_size = pow(2, doubling_steps) * kmer_size;
+    size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
     // limit max node size
-    graph->dice_nodes(2*kmer_size);
+    graph->dice_nodes(2*idx_kmer_size);
     graph->sort();
     graph->compact_ids();
 
@@ -248,22 +298,33 @@ int main_msga(int argc, char** argv) {
         xgidx = new xg::XG(graph->graph);
         if (debug) cerr << "building GCSA2 index" << endl;
         if (gcsaidx) delete gcsaidx;
-        gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
+        gcsaidx = graph->build_gcsa_index(idx_kmer_size, true, doubling_steps);
         if (mapper) delete mapper;
         mapper = new Mapper(xgidx, gcsaidx);
-        mapper->debug = debug_align;
+        { // set mapper variables
+            mapper->debug = debug_align;
+            //if (score_per_bp) mapper->target_score_per_bp = score_per_bp;
+            if (sens_step) mapper->kmer_sensitivity_step = sens_step;
+            //mapper->prefer_forward = prefer_forward;
+            //mapper->greedy_accept = greedy_accept;
+            //mapper->thread_extension = thread_ex;
+            mapper->cluster_min = cluster_min;
+            mapper->context_depth = context_depth;
+            mapper->max_attempts = max_attempts;
+            //mapper->min_kmer_entropy = min_kmer_entropy;
+        }
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
             if (debug) cerr << "aligning " << name << endl;
-            Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
         }
         graph->edit(paths);
         graph->paths.clear();
-        graph->dice_nodes(2*kmer_size);
+        graph->dice_nodes(2*idx_kmer_size);
         graph->sort();
         graph->compact_ids();
         //if (!graph->is_valid()) cerr << "graph is invalid" << endl;

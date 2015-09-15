@@ -563,33 +563,26 @@ int alignment_from_length(const Alignment& a) {
 Alignment strip_from_start(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
-    cerr << "before strip " << pb2json(aln) << endl;
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
     size_t seen = 0;
     size_t i = 0;
     while (seen < drop) {
-        cerr << "seen " << seen << " drop " << drop << endl;
         Mapping m = aln.path().mapping(i++);
         size_t to = to_length(m);
-        cerr << "to length of next mapping " << to << endl;
         //size_t offset = 0;
         if (to + seen > drop) {
             // we have reached our target, so split the mapping
             size_t keep = to + seen - drop;
-            cerr << "keeping " << keep << " of last mapping" << endl;
             Mapping n;
             size_t offset = mapping_from_length(m);
-            cerr << "offset is " << offset << endl;
             // go from the back of the old mapping to the front, adding edits to the new mapping
             vector<Edit> edits;
             size_t kept = 0;
             for (size_t j = m.edit_size()-1; j >= 0; --j) {
                 Edit e = m.edit(j);
-                cerr << "on edit " << pb2json(e) << endl;
                 if (e.to_length() + kept > keep) {
                     // split the edit if it's over our drop
-                    cerr << "we're over the drop 'cuz " << e.to_length() << " " << seen << " " << drop << endl;
                     Edit f;
                     f.set_to_length((e.to_length() + seen)-drop);
                     if (!e.sequence().empty()) {
@@ -635,7 +628,6 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
     while (i < aln.path().mapping_size()) {
         *res.mutable_path()->add_mapping() = aln.path().mapping(i++);
     }
-    cerr << "after strip " << pb2json(res) << endl;
     assert(res.has_path());
     return res;
 }
@@ -643,33 +635,26 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
 Alignment strip_from_end(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
-    cerr << "before strip " << pb2json(aln) << endl;
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
     size_t seen = 0;
     size_t i = aln.path().mapping_size()-1;
     while (seen < drop && i >= 0) {
-        cerr << "seen " << seen << " drop " << drop << endl;
         Mapping m = aln.path().mapping(i--);
         size_t to = to_length(m);
-        cerr << "to length of next mapping " << to << endl;
         //size_t offset = 0;
         if (to + seen > drop) {
             // we have reached our target, so split the mapping
             size_t keep = to + seen - drop;
-            cerr << "keeping " << keep << " of last mapping" << endl;
             Mapping n;
             size_t offset = mapping_from_length(m);
-            cerr << "offset is " << offset << endl;
             // go from the back of the old mapping to the front, adding edits to the new mapping
             vector<Edit> edits;
             size_t kept = 0;
             for (size_t j = 0; j < m.edit_size(); ++j) {
                 Edit e = m.edit(j);
-                cerr << "on edit " << pb2json(e) << endl;
                 if (e.to_length() + kept > keep) {
                     // split the edit if it's over our drop
-                    cerr << "we're over the drop 'cuz " << e.to_length() << " " << seen << " " << drop << endl;
                     Edit f;
                     f.set_to_length((e.to_length() + seen)-drop);
                     if (!e.sequence().empty()) {
@@ -714,7 +699,6 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
     while (i > 0) {
         *res.mutable_path()->add_mapping() = aln.path().mapping(i--);
     }
-    cerr << "after strip " << pb2json(res) << endl;
     assert(res.has_path());
     return res;
 }
@@ -737,7 +721,7 @@ Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& 
 
 // note only handles alignments against the forward strand
 Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
-    cerr << "overlap is " << overlap << endl;
+    //cerr << "overlap is " << overlap << endl;
     // if either doesn't have a path, then treat it like a massive softclip
     if (!a1.has_path()) {
         Mapping m;
@@ -758,7 +742,7 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
         // if so, add a2 on as a soft clip
         // gaaaaa
     }
-    cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
+    //cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
     // keep things simple and assume that a1 is aligned "left" of a2
     // determine likely order
     auto& a1_first_mapping = a1.path().mapping(0);
@@ -787,13 +771,12 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
         // if we're in a match, at the start of a node, and == to the other mapping
         size_t a1_after = to_length_after_pos(a1, m.position());
         size_t a2_before = to_length_before_pos(a2, m.position());
-        cerr << "a1_after " << a1_after << " a2_before " << a2_before << endl;
+        //cerr << "a1_after " << a1_after << " a2_before " << a2_before << endl;
         if (a2_before >= overlap/4 &&
             m.position().offset() == 0
             && edit_is_match(m.edit(0))) {
             common_pos = m.position();
             found_common_pos = true;
-            cerr << "found a common position" << endl;
             break;
         }
     }
@@ -801,32 +784,17 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
     // remove the overlap from the alignments
     // so that we could concatenate them to get a new valid alignment
     if (!found_common_pos) {
-        cerr << "could not find common position!" << endl;
-        cerr << "must be a big gap" << endl;
+        //cerr << "could not find common position!" << endl;
+        //cerr << "must be a big gap" << endl;
         strip_from_end(a1, overlap/2);
         strip_from_start(a2, overlap-(overlap/2));
     } else {
         int a1_drop_to_common = to_length_after_pos(a1, common_pos);
         int a2_drop_to_common = to_length_before_pos(a2, common_pos);
-        cerr << "common pos " << pb2json(common_pos) << endl;
-        cerr << "trim from left " << a1_drop_to_common
-             << " trim from right " << a2_drop_to_common << endl;
         // count bp before our common position in each alignment
-
         strip_from_end(a1, a1_drop_to_common);
         strip_from_start(a2, a2_drop_to_common);
-        cerr << "after strip ------------" << endl;
-        cerr << pb2json(a1) << endl;
-        cerr << pb2json(a2) << endl;
-        cerr << "<_<_<_<<_<_<_<_<_<__<_<__<" << endl;
     }
-
-
-    //size_t j = 0;
-    //cerr << "before " << a1_drop_to_common << " after " << a2_drop_to_common << endl;
-
-    // prefer trimming soft clips from one read over non-soft clips from the other
-    // unless it looks like a big insertion...
 
     // how many bp of soft clips do we have on each side of our merge
     int left_softclip = softclip_end(a1);
@@ -850,31 +818,11 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
     // ---- this one is strange; it suggests some kind of deletion event or mismapping
     //      we should send a warning to the console, trim the overlap and be on our way
     
-    /*
-    Path merged_path = a1_start <= a2_start ?
-                                  merge_paths(a1.path(), a2.path(), kept1, kept2)
-                                  : merge_paths(a2.path(), a1.path(), kept2, kept1);
-    if (a1_start <= a2_start) {
-        string seq = a1.sequence().substr(0, kept1) + a2.sequence().substr(a2.sequence().size()-kept2);
-        a1.set_sequence(seq);
-        *a1.mutable_path() = merged_path;
-    } else {
-        string seq = a2.sequence().substr(0, kept2) + a1.sequence().substr(a1.sequence().size()-kept1);
-        a1.set_sequence(seq);
-        *a1.mutable_path() = merged_path;
-    }
-    if (path_to_length(a1.path()) != a1.sequence().size()) {
-        cerr << path_to_length(a1.path()) << " (to_length) != " << a1.sequence().size() << " (sequence size)" << endl;
-        cerr << pb2json(a1) << endl;
-        exit(1);
-    }
-    */
     Path merged_path = merge_paths(a1.path(), a2.path(), kept1, kept2);
     string seq = a1.sequence().substr(0, kept1) + a2.sequence().substr(a2.sequence().size()-kept2);
     Alignment a3;
     a3.set_sequence(seq);
     *a3.mutable_path() = merged_path;
-    cerr << "post-mergeded " << pb2json(a3) << endl << endl;
     return a3;
 }
 

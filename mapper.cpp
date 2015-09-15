@@ -313,7 +313,6 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
         }
     }
     // by telling our merge the expected overlaps, it will correctly combine the alignments
-    cerr << "going to merge alignments" << endl;
     return merge_alignments(alns, overlaps);
 }
 
