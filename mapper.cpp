@@ -285,6 +285,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     int segment_size = read.sequence().size()/div;
     // and overlap them too
     vector<Alignment> alns;
+    vector<size_t> overlaps;
     for (int i = 0; i < div; ++i) {
         {
             Alignment aln = read;
@@ -294,23 +295,26 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             } else {
                 aln.set_sequence(read.sequence().substr(i*segment_size, segment_size));
             }
-            cerr << "seq_start " << aln.sequence() << endl;
+            // todo, possible problem
+            // overlap can possibly go to 100% of the "last" read
+            // if we aren't careful about this it might cause a problem in the merge
             size_t overlap = (i == 0? 0 : segment_size/2);
-            cerr << "seq_cuttd " << strip_from_start(align(aln, kmer_size, stride), overlap).sequence() << endl;
-            alns.push_back(strip_from_start(align(aln, kmer_size, stride), overlap));
+            overlaps.push_back(overlap);
+            alns.push_back(align(aln, kmer_size, stride));
         }
-        // and the overlapped bit --- here we're using 50% overlap
+        // and the overlapped bit --- here we're using a hard-coded 50% overlap
         if (i != div-1) { // if we're not at the last sequence
             Alignment aln = read;
             aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2,
                                                     segment_size));
             size_t overlap = segment_size/2;
-            cerr << "seq_start " << aln.sequence() << endl;
-            cerr << "seq_cuttd " << strip_from_start(align(aln, kmer_size, stride), overlap).sequence() << endl;
-            alns.push_back(strip_from_start(align(aln, kmer_size, stride), overlap));
+            overlaps.push_back(overlap);
+            alns.push_back(align(aln, kmer_size, stride));
         }
     }
-    return merge_alignments(alns);
+    // by telling our merge the expected overlaps, it will correctly combine the alignments
+    cerr << "going to merge alignments" << endl;
+    return merge_alignments(alns, overlaps);
 }
 
 vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {
@@ -984,30 +988,6 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
 
     // Return all the multimappings
     return good;
-}
-
-int softclip_start(Alignment& alignment) {
-    if (alignment.mutable_path()->mapping_size() > 0) {
-        Path* path = alignment.mutable_path();
-        Mapping* first_mapping = path->mutable_mapping(0);
-        Edit* first_edit = first_mapping->mutable_edit(0);
-        if (first_edit->from_length() == 0 && first_edit->to_length() > 0) {
-            return first_edit->to_length();
-        }
-    }
-    return 0;
-}
-
-int softclip_end(Alignment& alignment) {
-    if (alignment.mutable_path()->mapping_size() > 0) {
-        Path* path = alignment.mutable_path();
-        Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
-        Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size()-1);
-        if (last_edit->from_length() == 0 && last_edit->to_length() > 0) {
-            return last_edit->to_length();
-        }
-    }
-    return 0;
 }
 
 Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride) {

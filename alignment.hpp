@@ -69,10 +69,17 @@ void alignment_quality_short_to_char(Alignment& alignment);
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
 int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
-Alignment merge_alignments(const vector<Alignment>& alns);
-void merge_alignments(Alignment& a1, const Alignment& a2);
+Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlap);
+// merge is destructive so we copy
+Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap);
 Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
+int softclip_start(Alignment& alignment);
+int softclip_end(Alignment& alignment);
+size_t to_length_after_pos(const Alignment& aln, const Position& pos);
+size_t from_length_after_pos(const Alignment& aln, const Position& pos);
+size_t to_length_before_pos(const Alignment& aln, const Position& pos);
+size_t from_length_before_pos(const Alignment& aln, const Position& pos);
 
 // Invert the orientation in the alignment of all the nodes whose IDs are
 // listed. It needs a callback to ask the length of any given node.

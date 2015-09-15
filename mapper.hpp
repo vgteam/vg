@@ -120,8 +120,6 @@ public:
 };
 
 // utility
-int softclip_start(Alignment& alignment);
-int softclip_end(Alignment& alignment);
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
 
 

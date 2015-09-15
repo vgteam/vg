@@ -550,7 +550,7 @@ int from_length(const Mapping& m) {
 // designed for merging longer paths with substantial overlap into one long path
 Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2) {
 
-    cerr << "---------------------------------------- merging -------------------------------------------" << endl;
+    cerr << "---------------------------------------- merging paths -------------------------------------------" << endl;
     cerr << pb2json(path1) << endl;
     cerr << pb2json(path2) << endl;
 
