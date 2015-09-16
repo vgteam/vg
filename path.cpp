@@ -547,12 +547,43 @@ int from_length(const Mapping& m) {
     return l;
 }
 
-// designed for merging longer paths with substantial overlap into one long path
-Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2) {
+// concatenates paths
+Path concat_paths(const Path& path1, const Path& path2) {
+    Path res = path1;
+    /*
+    cerr << "-------------------- concat thing ------------------" << endl;
+    cerr << pb2json(path1) << endl << pb2json(path2) << endl;
+    */
+    // tack on the edits from the last
+    auto& path1_back = path1.mapping(path1.mapping_size()-1);
+    auto& path2_front = path2.mapping(0);
+    // check if we have to splice the last mapping together
+    if (path1_back.position().node_id() == path2_front.position().node_id()) {
+        // merge the edits from the second onto the last mapping
+        auto* mapping = res.mutable_mapping(res.mapping_size()-1);
+        for (size_t i = 0; i < path2_front.edit_size(); ++i) {
+            *mapping->add_edit() = path2_front.edit(i);
+        }
+    } else {
+        // just tack it on, it's on the next node
+        *res.add_mapping() = path2_front;
+    }
+    // simply add the rest of the mappings
+    for (size_t i = 1; i < path2.mapping_size(); ++i) {
+        *res.add_mapping() = path2.mapping(i);
+    }
+    /*
+    cerr << ">>>>" << endl;
+    cerr << pb2json(res) << endl;
+    cerr << "<<<<<<<<<<<<<<<<<<<<<<<<<<<< end " << endl;
+    */
+    return res;
+}
 
-    cerr << "---------------------------------------- merging paths -------------------------------------------" << endl;
-    cerr << pb2json(path1) << endl;
-    cerr << pb2json(path2) << endl;
+// merge paths that overlap at a suitable position
+// TODO probably buggy, moved to concatenate paths above for banded alignment
+// this remains a useful method as it is Alignment-object independent and could work on graph paths
+Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2) {
 
     // how much of each path do we keep?
     // used when manipulating path sequences elsewhere
@@ -567,7 +598,6 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     int64_t p1_end = path1.mapping(path1.mapping_size()-1).position().node_id();
     int64_t p2_start = path2.mapping(0).position().node_id();
     int64_t p2_end = path2.mapping(path2.mapping_size()-1).position().node_id();
-    //cerr << p1_start << "-" << p1_end << " should overlap " << p2_start << "-" << p2_end << endl;
 
     // scan through the second until we match the tail of the first
     int p1 = path1.mapping_size()-1;
@@ -617,11 +647,10 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
         }
         // and skip this length in the next mapping
         // caution, this is based on graph, not alignment coordinates
-        /*
         int to_skip = max((int)0, (int)mapping_from_length(*m) - (int)p2m.position().offset());
-        cerr << "to_skip = " << to_skip << endl;
+        //cerr << "to_skip = " << to_skip << endl;
         size_t skipped = 0;
-
+        size_t j = 0;
         for ( ; j < p2m.edit_size(); ++j) {
             auto& f = p2m.edit(j);
             if (f.from_length() + skipped > to_skip) {
@@ -630,7 +659,6 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
             skipped += f.from_length();
         }
         // now we're pointing at the edit to divide
-        size_t j = 0;
         {
             auto& f = p2m.edit(j++);
             size_t skip_here = to_skip - skipped;
@@ -642,10 +670,9 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
             if (!e->sequence().empty()) {
                 e->set_sequence(e->sequence().substr(skip_here));
             }
-            cerr << "inner new " << pb2json(*e) << endl;
+            //cerr << "inner new " << pb2json(*e) << endl;
             kept_path2 += e->to_length();
         }
-        */
         // now let's add in the rest of the edits
         for (size_t i = 0; i < p2m.edit_size(); ++i) {
             auto& e = p2m.edit(i);
@@ -653,7 +680,6 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
             kept_path2 += e.to_length();
         }
         
-        /*
         for (int i = 0; i < p2m.edit_size(); ++i) {
             if (to_skip > skipped + p2m.edit(i).to_length()) {
             } else {
@@ -666,11 +692,10 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
                 if (!e->sequence().empty()) {
                     e->set_sequence(e->sequence().substr(to_skip));
                 }
-                cerr << "inner new " << pb2json(*e) << endl;
+                //cerr << "inner new " << pb2json(*e) << endl;
                 kept_path2 += e->to_length();
             }
         }
-        */
         // offset is 0
         m->mutable_position()->set_offset(0);
     } else {

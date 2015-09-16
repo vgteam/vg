@@ -629,6 +629,7 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
         *res.mutable_path()->add_mapping() = aln.path().mapping(i++);
     }
     assert(res.has_path());
+    assert(alignment_to_length(res) == res.sequence().size());
     return res;
 }
 
@@ -638,6 +639,7 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
     size_t seen = 0;
+    list<Mapping> end_mappings;
     size_t i = aln.path().mapping_size()-1;
     while (seen < drop && i >= 0) {
         Mapping m = aln.path().mapping(i--);
@@ -647,8 +649,7 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
             // we have reached our target, so split the mapping
             size_t keep = to + seen - drop;
             Mapping n;
-            size_t offset = mapping_from_length(m);
-            // go from the back of the old mapping to the front, adding edits to the new mapping
+            // go from the front of the old mapping to the back, adding edits to the new mapping
             vector<Edit> edits;
             size_t kept = 0;
             for (size_t j = 0; j < m.edit_size(); ++j) {
@@ -669,13 +670,11 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
                     }
                     edits.push_back(f);
                     kept += f.to_length();
-                    offset -= f.from_length();
                     break;
                 } else {
                     // add it into the mapping
                     edits.push_back(e);
                     kept += e.to_length();
-                    offset -= e.from_length();
                     // we are breaking on mapping boundaries so we should only be able to see
                     // kept == keep
                     if (kept == keep) break;
@@ -686,9 +685,11 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
             for (auto edit : edits) {
                 *n.add_edit() = edit;
             }
-            n.mutable_position()->set_offset(offset);
+            // note that offset should always be 0
+            //n.mutable_position()->set_offset(offset);
             n.mutable_position()->set_node_id(m.position().node_id());
-            *res.mutable_path()->add_mapping() = n;
+            //  save the mapping to put at the end
+            end_mappings.push_back(n); // back or front...?
             seen = drop;
         } else {
             // skip this mapping, we're dropping it
@@ -696,10 +697,15 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
         }
     }
     // now add in the rest
-    while (i > 0) {
-        *res.mutable_path()->add_mapping() = aln.path().mapping(i--);
+    for (size_t j = 0; j < i+1; ++j) {
+        *res.mutable_path()->add_mapping() = aln.path().mapping(j);
+    }
+    // and drop on the end nodes
+    for (auto& m : end_mappings) {
+        *res.mutable_path()->add_mapping() = m;
     }
     assert(res.has_path());
+    assert(alignment_to_length(res) == res.sequence().size());
     return res;
 }
 
@@ -786,21 +792,19 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
     if (!found_common_pos) {
         //cerr << "could not find common position!" << endl;
         //cerr << "must be a big gap" << endl;
-        strip_from_end(a1, overlap/2);
-        strip_from_start(a2, overlap-(overlap/2));
+        a1 = strip_from_end(a1, overlap/2);
+        a2 = strip_from_start(a2, overlap-(overlap/2));
     } else {
         int a1_drop_to_common = to_length_after_pos(a1, common_pos);
         int a2_drop_to_common = to_length_before_pos(a2, common_pos);
         // count bp before our common position in each alignment
-        strip_from_end(a1, a1_drop_to_common);
-        strip_from_start(a2, a2_drop_to_common);
+        a1 = strip_from_end(a1, a1_drop_to_common);
+        a2 = strip_from_start(a2, a2_drop_to_common);
     }
 
     // how many bp of soft clips do we have on each side of our merge
     int left_softclip = softclip_end(a1);
     int right_softclip = softclip_start(a2);
-
-    int kept1, kept2;
 
     // possibilities
     
@@ -818,11 +822,9 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
     // ---- this one is strange; it suggests some kind of deletion event or mismapping
     //      we should send a warning to the console, trim the overlap and be on our way
     
-    Path merged_path = merge_paths(a1.path(), a2.path(), kept1, kept2);
-    string seq = a1.sequence().substr(0, kept1) + a2.sequence().substr(a2.sequence().size()-kept2);
     Alignment a3;
-    a3.set_sequence(seq);
-    *a3.mutable_path() = merged_path;
+    a3.set_sequence(a1.sequence() + a2.sequence());
+    *a3.mutable_path() = concat_paths(a1.path(), a2.path());
     return a3;
 }
 
