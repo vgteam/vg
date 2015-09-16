@@ -38,6 +38,7 @@ void help_msga(char** argv) {
          << "                            no more than this length" << endl
          << "    -k, --map-kmer-size N   use kmers of size N when mapping" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default 16)" << endl
+         << "    -m, --node-max N        chop nodes to be shorter than this length (default 2* --idx-kmer-size)" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default 2)" << endl
          << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
@@ -87,6 +88,7 @@ int main_msga(int argc, char** argv) {
     bool debug = false;
     bool debug_align = false;
     size_t fragment_size = 0;
+    size_t node_max = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -115,7 +117,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -198,6 +200,10 @@ int main_msga(int argc, char** argv) {
             idx_kmer_size = atoi(optarg);
             break;
 
+        case 'm':
+            node_max = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             help_msga(argv);
@@ -276,7 +282,8 @@ int main_msga(int argc, char** argv) {
     assert(kmer_size > 0);
     size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
     // limit max node size
-    graph->dice_nodes(2*idx_kmer_size);
+    if (!node_max) node_max = 2*idx_kmer_size;
+    graph->dice_nodes(node_max);
     graph->sort();
     graph->compact_ids();
 
@@ -318,16 +325,18 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << "aligning " << name << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            if (debug) cerr << pb2json(aln) << endl;
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
         }
         graph->edit(paths);
         graph->paths.clear();
-        graph->dice_nodes(2*idx_kmer_size);
+        graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
-        //if (!graph->is_valid()) cerr << "graph is invalid" << endl;
+        //if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
+        //graph->serialize_to_file("out.vg");
     }
 
     // re-compact the ID space
@@ -352,7 +361,7 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "adding path " << name << endl;
         for (auto& seq : group.second) {
             if (debug) cerr << "seq.size() = " << seq.size() << endl;
-            Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
             if (debug) cerr << "alignment score: " << aln.score() << endl;
             aln.mutable_path()->set_name(name);
             graph->include(aln.path());

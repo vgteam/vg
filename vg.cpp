@@ -2665,15 +2665,71 @@ void VG::edit_node(int64_t node_id,
     // deletions spanning multiple nodes must be handled externally using cut_trans
 }
 
+// node for @adamnovak: this doesn't appear to work on the reverse strand
 void VG::edit(const vector<Path>& paths) {
+    // deletions from this node position/offset on the forward strand to the second position/offset
     map<pair<int64_t, size_t>, pair<int64_t, size_t> > del_f;
+    // reverse index of the above
     map<pair<int64_t, size_t>, pair<int64_t, size_t> > del_t;
+    // mappings by node, each is stored as a tuple of <mapping, is_at_start, is_at_end>
     map<int64_t, vector<tuple<Mapping, bool, bool>>> mappings; // by node
     bool in_del = false;
     pair<int64_t, size_t> del_start;
     for (auto& path : paths) {
         for (int i = 0; i < path.mapping_size(); ++i) {
             Mapping mapping = path.mapping(i);
+            if (i > 0) {
+                auto& last = path.mapping(i-1);
+                // let's check if we go from one node to another when stepping between these two mappings
+                // and there isn't a corresponding edge
+                if (!has_edge(
+                        NodeSide(last.position().node_id(), true),
+                        NodeSide(mapping.position().node_id(), false))) {
+                    int64_t lid = last.position().node_id();
+                    int64_t nid = mapping.position().node_id();
+                    //cerr << "there is possibly a big del" << lid << " -> " << nid << endl;
+                    // now it's possible that we are cutting the two nodes as well with the jump
+                    // to make the cut, we have to find the mapping end offset on the first node
+                    size_t loff = last.position().offset() + mapping_from_length(last);
+                    // and the mapping start offset on the second
+                    size_t noff = mapping.position().offset();
+                    // drop these into del_f and del_t, they will be included at the end of this function
+                    auto dstart = make_pair(lid, loff);
+                    auto dend =   make_pair(nid, noff);
+                    del_f[dstart] = dend;
+                    del_t[dend] = dstart;
+                    // trigger the appropriate node-level edits by making two new mappings
+                    // against the nodes which include 0-length insertion edits at the right position
+                    Info info; info.set_str(path.name());
+                    Mapping lmap;
+                    {
+                        lmap.mutable_position()->set_node_id(lid);
+                        (*lmap.mutable_metadata()->mutable_info())["path_name"] = info;
+                        Edit* edit = lmap.add_edit();
+                        edit->set_to_length(loff);
+                        edit->set_from_length(loff);
+                        edit = lmap.add_edit();
+                        edit->set_from_length(0);
+                        edit->set_to_length(1);
+                    }
+                    // sequence remains empty
+                    Mapping nmap;
+                    {
+                        nmap.mutable_position()->set_node_id(nid);
+                        (*nmap.mutable_metadata()->mutable_info())["path_name"] = info;
+                        Edit* edit = nmap.add_edit();
+                        edit->set_to_length(noff);
+                        edit->set_from_length(noff);
+                        edit = nmap.add_edit();
+                        edit->set_from_length(0);
+                        edit->set_to_length(1);
+                    }
+                    // and save them
+                    // note that we store them as being "from the start" only
+                    mappings[last.position().node_id()].push_back(make_tuple(lmap, true, false));
+                    mappings[mapping.position().node_id()].push_back(make_tuple(nmap, true, false));
+                }
+            }
             Info info; info.set_str(path.name());
             (*mapping.mutable_metadata()->mutable_info())["path_name"] = info;
             // -1 if we are at the start, 1 if at the end, 0 otherwise

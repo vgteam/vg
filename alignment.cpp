@@ -711,7 +711,7 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
 
 // merge that properly handles long indels
 // assumes that alignments should line up end-to-end
-Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlaps) {
+Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlaps, bool debug) {
     if (alns.size() == 0) {
         Alignment aln;
         return aln;
@@ -720,13 +720,13 @@ Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& 
     }
     Alignment aln = alns.front(); // keep the whole first alignment
     for (size_t i = 1; i < alns.size(); ++i) {
-        aln = merge_alignments(aln, alns[i], overlaps[i]);
+        aln = merge_alignments(aln, alns[i], overlaps[i], debug);
     }
     return aln;
 }
 
 // note only handles alignments against the forward strand
-Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
+Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debug) {
     //cerr << "overlap is " << overlap << endl;
     // if either doesn't have a path, then treat it like a massive softclip
     if (!a1.has_path()) {
@@ -748,7 +748,7 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
         // if so, add a2 on as a soft clip
         // gaaaaa
     }
-    //cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
+    if (debug) cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
     // keep things simple and assume that a1 is aligned "left" of a2
     // determine likely order
     auto& a1_first_mapping = a1.path().mapping(0);
@@ -825,6 +825,7 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap) {
     Alignment a3;
     a3.set_sequence(a1.sequence() + a2.sequence());
     *a3.mutable_path() = concat_paths(a1.path(), a2.path());
+    if (debug) cerr << "merged alignments " << pb2json(a3) << endl;
     return a3;
 }
 

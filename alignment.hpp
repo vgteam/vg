@@ -69,9 +69,9 @@ void alignment_quality_short_to_char(Alignment& alignment);
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
 int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
-Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlap);
+Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlap, bool debug);
 // merge is destructive so we copy
-Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap);
+Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debug);
 Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
 int softclip_start(Alignment& alignment);

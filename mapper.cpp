@@ -313,7 +313,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
         }
     }
     // by telling our merge the expected overlaps, it will correctly combine the alignments
-    return merge_alignments(alns, overlaps);
+    return merge_alignments(alns, overlaps, debug);
 }
 
 vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {
