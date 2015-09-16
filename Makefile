@@ -1,7 +1,7 @@
 .PHONY: all clean test get-deps
 
 CXX=g++
-CXXFLAGS=-O3 -std=c++11 -fopenmp -g # -ffast-math -funroll-loops
+CXXFLAGS=-O3 -std=c++11 -fopenmp -g -msse4.1 # -ffast-math -funroll-loops
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
