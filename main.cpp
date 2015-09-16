@@ -117,7 +117,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:",
                          long_options, &option_index);
 
         // Detect the end of the options.
