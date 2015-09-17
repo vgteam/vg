@@ -36,7 +36,7 @@ endif
 all: vg libvg.a
 
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip cmake pkg-config wget bc
 
 test: vg libvg.a test/build_graph
 	cd test && $(MAKE)
