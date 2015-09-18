@@ -8,6 +8,14 @@ using namespace std;
 
 namespace vg {
 
+// these values pretty arbitrary at this point
+const int Caller::Default_buffer_size = 1000;
+const int Caller::Default_min_depth = 5;
+const double Caller::Default_min_frac = 0.75;
+const double Caller::Default_min_likelihood = 0.01;
+const int Caller::Default_context = 5;
+const char Caller::Default_default_quality = 40;
+
 void Caller::clear() {
     _alignments.clear();
 }
@@ -47,63 +55,141 @@ void Caller::call_node_pileup(const NodePileup& pileup, ostream& out, bool json)
 }
 
 void Caller::call_base_pileup(const NodePileup& np, int64_t offset) {
-    // todo: replace with something a little smarter that
-    // takes into account mapping quality / error probability.
     const BasePileup& bp = np.base_pileup(offset);
-    if (bp.num_bases() >= _min_depth) {
-        // acgtn
-        int hist[5] = {0};
-        ++hist[nidx(bp.ref_base())];
-        int base_offset = 0;
-        for (int i = 0; i < bp.num_bases(); ++i) {
-            // match
-            if (bp.bases()[base_offset] == ',' ||
-                bp.bases()[base_offset] == '.') {
-                ++hist[nidx(bp.ref_base())];
-                ++base_offset;
-            }
-            // snp
-            else if (nidx(bp.bases()[base_offset]) < 4) {
-                ++hist[nidx(bp.bases()[base_offset])];
-                ++base_offset;
-            }
-            // indel
-            else if (bp.bases()[base_offset] == '+' ||
-                     bp.bases()[base_offset] == '-') {
-                // todo
-                int lf = base_offset + 1;
-                int rf = bp.bases().find_last_of("0123456789", lf);
-                stringstream ss(bp.bases().substr(lf, rf - lf + 1));
-                int indel_len;
-                ss >> indel_len;
-                // ex: +5aaaaa.  rf = lf = 1. indel_len = 5 -> increment 2+0+5=7
-                base_offset += 2 + rf - lf + indel_len;
-            }
-        }
+    
+    // parse the pilueup structure
+    vector<pair<int, int> > base_offsets;
+    vector<pair<int, int> > indel_offsets;
+    Pileups::parse_base_offsets(bp, base_offsets, indel_offsets, indel_offsets);
 
-        // find top two bases in pileup
-        int first = -1;
-        int second = -1;
-        for (int i = 0; i < 4; ++i) {
-            if (first < 0 || hist[i] > hist[first]) {
-                first = i;
-            } else if (second < 0 || hist[i] > hist[second]) {
-                second = i;
-            }
-        }
+    // compute top two most frequent bases and their counts
+    char top_base;
+    int top_count;
+    char second_base;
+    int second_count;
+    compute_top_frequencies(bp, base_offsets, top_base, top_count, second_base, second_count);
 
-        // make up to two snps
-        if (idxn(first) != bp.ref_base() &&
-            (double)hist[first] / (double)bp.num_bases() >= _min_frac) {
-            create_snp(np, offset, idxn(first));
+    // note first and second base will be upper case too
+    char ref_base = ::toupper(bp.ref_base());
+
+    // test against thresholding heuristics
+    if (top_count + second_count >= _min_depth &&
+        (double)(top_count + second_count) / (double)base_offsets.size() >= _min_frac) {
+
+        // compute max likelihood snp genotype.  it will be one of the three combinations
+        // of the top two bases (we don't care about case here)
+        pair<char, char> g = ml_snp_genotype(bp, base_offsets, top_base, second_base);
+
+        // if any of these bases are different than the reference, add them as snps
+        if (g.first != ref_base) {
+            create_snp(np, offset, g.first);
         }
-        if (second != first &&
-            idxn(second) != bp.ref_base() &&
-            (double)hist[second] / (double)bp.num_bases() >= _min_frac) {
-            create_snp(np, offset, idxn(second));
+        if (g.second != ref_base && g.second != g.first) {
+            create_snp(np, offset, g.second);
         }
-    }   
+    }
 }
+
+void Caller::compute_top_frequencies(const BasePileup& bp,
+                                     const vector<pair<int, int> >& base_offsets,
+                                     char& top_base, int& top_count,
+                                     char& second_base, int& second_count) {
+
+    const string& bases = bp.bases();
+    // frequency of each base (nidx / idxn converts to from / int)
+    int hist[5] = {0};
+    for (auto i : base_offsets) {
+        ++hist[nidx(bases[i.first])];
+    }
+    
+    int first = max_element(hist, hist + 4) - hist;
+    int second = first == 0 ? 1 : 0;
+    for (int i = 0; i < 4; ++i) {
+        if (i != first && hist[i] > hist[second]) {
+            second = i;
+        }
+    }
+
+    // break ties with reference
+    int refidx = nidx(bp.ref_base());
+    if (hist[first] == hist[refidx]) {
+        first = refidx;
+    } else if (hist[second] == hist[refidx]) {
+        second = refidx;
+    }
+
+    top_base = idxn(first);
+    top_count = hist[first];
+    second_base = idxn(second);
+    second_count = hist[second];
+}
+
+// For the time being, we forget about a prior and just pick a genotype
+// directly from the likelihood. 
+pair<char, char> Caller::ml_snp_genotype(const BasePileup& bp,
+                                         const vector<pair<int, int> >& base_offsets,
+                                         char top_base, char second_base) {
+    char ref_base = ::toupper(bp.ref_base());
+
+    // gotta do better than this:
+    pair<char, char> ml_genotype(ref_base, ref_base);
+    double ml = _min_log_likelihood;
+
+    // genotype with 0 top_bases
+    double gl = genotype_log_likelihood(bp, base_offsets, 0, top_base, second_base);
+    if (gl > ml) {
+        ml = gl;
+        ml_genotype = make_pair(second_base, second_base);
+    }
+
+    // genotype with 1 top_base
+    gl = genotype_log_likelihood(bp, base_offsets, 1, top_base, second_base);
+    if (gl > ml) {
+        ml = gl;
+        ml_genotype = make_pair(top_base, second_base);
+    }
+
+    // genotype with 2 top_bases
+    gl = genotype_log_likelihood(bp, base_offsets, 2, top_base, second_base);
+    if (gl > ml) {
+        ml = gl;
+        ml_genotype = make_pair(top_base, top_base);
+    }
+    
+    // note, we're throwing away the likelihood value (ml) here.
+    // should figure out where to stick it in the output. 
+    return ml_genotype;
+}
+
+// This is Equation 2 (tranformed to log) from
+// A statistical framework for SNP calling ... , Heng Li, Bioinformatics, 2011
+// http://bioinformatics.oxfordjournals.org/content/27/21/2987.full
+double Caller::genotype_log_likelihood(const BasePileup& bp,
+                                       const vector<pair<int, int> >& base_offsets,
+                                       double g, char first, char second) {
+    double m = 2.; // always assume two alleles
+
+    double log_likelihood = log(0.25); // 1 / m^2, where m = ploidy = 2;
+
+    const string& bases = bp.bases();
+    const string& quals = bp.qualities();
+    double perr;
+
+    for (int i = 0; i < base_offsets.size(); ++i) {
+        char base = ::toupper(bases[base_offsets[i].first]);
+        char qual = quals[base_offsets[i].second] >= 0 ? quals[base_offsets[i].second] : _default_quality;
+        if (base == first) {
+            perr = phred2prob(qual);
+            log_likelihood += safe_log((m - g) * perr + g * (1. - perr));
+        } else if (base == second) {
+            perr = phred2prob(qual);
+            log_likelihood += safe_log((m - g) * (1. - perr) + g * perr);
+        }
+    }
+
+    return log_likelihood;
+}
+
 
 void Caller::create_snp(const NodePileup& np, int64_t offset, char base) {
     _alignments.push_back(Alignment());

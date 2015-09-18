@@ -29,6 +29,7 @@ void help_call(char** argv) {
          << "Compute variants from pilupe data (prototype!). " << endl
          << endl
          << "options:" << endl
+         << "    -d, --min_depth      minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
          << "    -j, --json           output in JSON" << endl
          << "    -p, --progress       show progress" << endl
          << "    -t, --threads N      number of threads to use" << endl;
@@ -41,6 +42,7 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
+    int min_depth = Caller::Default_min_depth;
     bool output_json = false;
     bool show_progress = false;
     int thread_count = 1;
@@ -50,14 +52,15 @@ int main_call(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
-                {"json", required_argument, 0, 'j'},
-                {"progress", required_argument, 0, 'p'},
+                {"min_depth", required_argument, 0, 'd'},
+                {"json", no_argument, 0, 'j'},
+                {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "jpt:",
+        c = getopt_long (argc, argv, "d:jpt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -66,6 +69,9 @@ int main_call(int argc, char** argv) {
 
         switch (c)
         {
+        case 'd':
+            min_depth = atoi(optarg);
+            break;
         case 'j':
             output_json = true;
             break;
@@ -108,7 +114,10 @@ int main_call(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing variants" << endl;
     }
-    vector<Caller> callers(thread_count);
+    vector<Caller> callers;
+    for (int i = 0; i < thread_count; ++i) {
+        callers.push_back(Caller(Caller::Default_buffer_size, min_depth));
+    }
     function<void(NodePileup&)> lambda = [&callers, &output_json](NodePileup& pileup) {
         int tid = omp_get_thread_num();
         callers[tid].call_node_pileup(pileup, cout, output_json);
