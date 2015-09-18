@@ -37,6 +37,7 @@ void help_msga(char** argv) {
          << "    -F, --fragment N        break apart input sequences and sample sequences from input graphs of" << endl
          << "                            no more than this length" << endl
          << "    -k, --map-kmer-size N   use kmers of size N when mapping" << endl
+         << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default 16)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default 2* --idx-kmer-size)" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default 2)" << endl
@@ -45,6 +46,7 @@ void help_msga(char** argv) {
          << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
          << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 1)" << endl
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
+         << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
@@ -82,6 +84,7 @@ int main_msga(int argc, char** argv) {
     int cluster_min = 1;
     int max_attempts = 10;
     int context_depth = 1;
+    float min_score_per_bp = 0;
     float min_kmer_entropy = 0;
     int band_width = 1000;
     size_t doubling_steps = 2;
@@ -89,6 +92,7 @@ int main_msga(int argc, char** argv) {
     bool debug_align = false;
     size_t fragment_size = 0;
     size_t node_max = 0;
+    size_t kmer_min = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -113,11 +117,13 @@ int main_msga(int argc, char** argv) {
                 {"max-attempts", required_argument, 0, 'M'},
                 {"context-depth", required_argument, 0, 'd'},
                 {"cluster-min", required_argument, 0, 'C'},
+                {"score-per-bp", required_argument, 0, 'P'},
+                {"kmer-min", required_argument, 0, 'l'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -176,6 +182,10 @@ int main_msga(int argc, char** argv) {
             kmer_size = atoi(optarg);
             break;
 
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
+
         case 'B':
             band_width = atoi(optarg);
             break;
@@ -202,6 +212,10 @@ int main_msga(int argc, char** argv) {
 
         case 'm':
             node_max = atoi(optarg);
+            break;
+
+        case 'P':
+            min_score_per_bp = atof(optarg);
             break;
 
         case 'h':
@@ -295,11 +309,19 @@ int main_msga(int argc, char** argv) {
     gcsa::GCSA* gcsaidx = nullptr;
     xg::XG* xgidx = nullptr;
 
-    // todo restructure so that we are trying to map everything
-    // add alignment score/bp bounds to catch when we get a good alignment
-    for (auto& group : strings) {
-        auto& name = group.first;
-        if (debug) cerr << "adding " << name << endl;
+    auto rebuild = [&mapper,
+                    &gcsaidx,
+                    &xgidx,
+                    debug,
+                    debug_align,
+                    idx_kmer_size,
+                    doubling_steps,
+                    kmer_min,
+                    sens_step,
+                    cluster_min,
+                    context_depth,
+                    max_attempts,
+                    min_score_per_bp](VG* graph) {
         if (debug) cerr << "building xg index" << endl;
         if (xgidx) delete xgidx;
         xgidx = new xg::XG(graph->graph);
@@ -319,7 +341,18 @@ int main_msga(int argc, char** argv) {
             mapper->context_depth = context_depth;
             mapper->max_attempts = max_attempts;
             //mapper->min_kmer_entropy = min_kmer_entropy;
+            mapper->min_score_per_bp = min_score_per_bp;
+            mapper->kmer_min = kmer_min;
         }
+    };
+
+    // todo restructure so that we are trying to map everything
+    // add alignment score/bp bounds to catch when we get a good alignment
+    for (auto& group : strings) {
+        auto& name = group.first;
+        if (debug) cerr << "adding " << name << endl;
+        rebuild(graph);
+        graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
@@ -342,19 +375,8 @@ int main_msga(int argc, char** argv) {
     // re-compact the ID space
     graph->sort();
     graph->compact_ids();
+    rebuild(graph);
 
-    // todo at least make this a lambda
-    { // reset indexes
-        if (xgidx) delete xgidx;
-        if (debug) cerr << "building xg index" << endl;
-        xgidx = new xg::XG(graph->graph);
-        if (debug) cerr << "building GCSA2 index" << endl;
-        if (gcsaidx) delete gcsaidx;
-        gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
-        if (mapper) delete mapper;
-        mapper = new Mapper(xgidx, gcsaidx);
-        mapper->debug = debug_align;
-    }
     // include the paths in the graph
     for (auto& group : strings) {
         auto& name = group.first;
@@ -364,7 +386,11 @@ int main_msga(int argc, char** argv) {
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
             if (debug) cerr << "alignment score: " << aln.score() << endl;
             aln.mutable_path()->set_name(name);
-            graph->include(aln.path());
+            // todo simplify in the mapper itself when merging the banded bits
+            // ... note to self, the problem with the paths looks to be in paths.cpp
+            //cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
+            graph->include(simplify(aln.path()));
+            // now repeat back the path
         }
     }
 
@@ -873,7 +899,7 @@ int main_mod(int argc, char** argv) {
         // read in the alignments and save their paths
         vector<Path> paths;
         function<void(Alignment&)> lambda = [&graph, &paths](Alignment& aln) {
-            Path path = simplify_deletions(aln.path());
+            Path path = simplify(aln.path());
             path.set_name(aln.name());
             paths.push_back(path);
         };

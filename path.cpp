@@ -79,11 +79,11 @@ void Paths::for_each_stream(istream& in, function<void(Path&)>& lambda) {
 }
 
 void Paths::extend(const Path& p) {
-    list<Mapping>& path = get_create_path(p.name());
+    const string& name = p.name();
+    list<Mapping>& path = get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
-        path.push_back(m);
-        get_node_mapping(m.position().node_id()).insert(make_pair(p.name(), &path.back()));
+        append_mapping(name, m);
     }
 }
 
@@ -550,17 +550,23 @@ int from_length(const Mapping& m) {
 // concatenates paths
 Path concat_paths(const Path& path1, const Path& path2) {
     Path res = path1;
-    /*
-    cerr << "-------------------- concat thing ------------------" << endl;
-    cerr << pb2json(path1) << endl << pb2json(path2) << endl;
-    */
+    //cerr << "-------------------- concat thing ------------------" << endl;
+    //cerr << pb2json(path1) << endl << pb2json(path2) << endl;
     // tack on the edits from the last
     auto& path1_back = path1.mapping(path1.mapping_size()-1);
     auto& path2_front = path2.mapping(0);
+
     // check if we have to splice the last mapping together
-    if (path1_back.position().node_id() == path2_front.position().node_id()) {
-        // merge the edits from the second onto the last mapping
+    if (!path2_front.has_position() || !path1_back.has_position() ||
+        path1_back.position().node_id() == path2_front.position().node_id()) {
         auto* mapping = res.mutable_mapping(res.mapping_size()-1);
+        // adapt unmapped paths (which look like insertions here)
+        if (!path2_front.has_position() && path1_back.has_position()) {
+            *mapping->mutable_position() = path1_back.position();
+        } else if (!path1_back.has_position() && path2_front.has_position()) {
+            *mapping->mutable_position() = path2_front.position();
+        }
+        // merge the edits from the second onto the last mapping
         for (size_t i = 0; i < path2_front.edit_size(); ++i) {
             *mapping->add_edit() = path2_front.edit(i);
         }
@@ -572,11 +578,9 @@ Path concat_paths(const Path& path1, const Path& path2) {
     for (size_t i = 1; i < path2.mapping_size(); ++i) {
         *res.add_mapping() = path2.mapping(i);
     }
-    /*
-    cerr << ">>>>" << endl;
-    cerr << pb2json(res) << endl;
-    cerr << "<<<<<<<<<<<<<<<<<<<<<<<<<<<< end " << endl;
-    */
+    //cerr << ">>>>" << endl;
+    //cerr << pb2json(res) << endl;
+    //cerr << "<<<<<<<<<<<<<<<<<<<<<<<<<<<< end " << endl;
     return res;
 }
 
@@ -715,44 +719,41 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     return result;
 }
 
-Path simplify_deletions(const Path& p) {
+Path simplify(const Path& p) {
     Path s;
+    s.set_name(p.name());
     for (int i = 0; i < p.mapping_size(); ++i) {
         auto& m = p.mapping(i);
-        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) {
-        } else {
-            *s.add_mapping() = m;
-        }
-    }
-    return s;
-}
-
-Path combine_consecutive_matches(const Path& p) {
-    Path s;
-    for (int i = 0; i < p.mapping_size(); ++i) {
-        auto& m = p.mapping(i);
-        Mapping n;
+        // remove wholly-deleted mappings as these are redundant
+        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) continue;
+        Mapping n; // our new mapping for this node
+        // always take the old position
         *n.mutable_position() = m.position();
         Edit e = m.edit(0);
-        if (m.edit_size() == 1) {
-            *n.add_edit() = e;
-        } else {
-            for (int j = 1; j < m.edit_size(); ++j) {
-                // if the next edit is a match, just add it in
-                auto& f = m.edit(j);
-                if (edit_is_match(e) && edit_is_match(f)) {
-                    e.set_from_length(e.from_length()+f.from_length());
-                    e.set_to_length(e.to_length()+f.to_length());
-                    *n.add_edit() = e;
-                } else {
-                    *n.add_edit() = e;
-                    e = f;
-                }
+        for (int j = 1; j < m.edit_size(); ++j) {
+            auto& f = m.edit(j);
+            // if the edit types are the same, merge them
+            if (edit_is_match(e) && edit_is_match(f)
+                || edit_is_sub(e) && edit_is_sub(f)
+                || edit_is_deletion(e) && edit_is_deletion(f)
+                || edit_is_insertion(e) && edit_is_insertion(f)) {
+                // will be 0 for insertions, and + for the rest
+                e.set_from_length(e.from_length()+f.from_length());
+                // will be 0 for deletions, and + for the rest
+                e.set_to_length(e.to_length()+f.to_length());
+                // will be empty for both or have sequence for both
+                e.set_sequence(e.sequence() + f.sequence());
+            } else {
+                // mismatched types are just put on
+                *n.add_edit() = e;
+                e = f;
             }
         }
+        // and keep the last edit
+        *n.add_edit() = e;
         *s.add_mapping() = n;
     }
-    return s;
+    return s;    
 }
 
 bool mapping_ends_in_deletion(const Mapping& m){

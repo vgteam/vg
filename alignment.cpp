@@ -583,15 +583,16 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
                 Edit e = m.edit(j);
                 if (e.to_length() + kept > keep) {
                     // split the edit if it's over our drop
+                    size_t over = (e.to_length() + kept)-keep;
                     Edit f;
-                    f.set_to_length((e.to_length() + seen)-drop);
+                    f.set_to_length(e.to_length() - over);
                     if (!e.sequence().empty()) {
                         f.set_sequence(e.sequence().substr(e.to_length() - f.to_length()));
                     }
                     if (edit_is_match(e) || edit_is_sub(e)) {
                         f.set_from_length(f.to_length());
-                    } else if (edit_is_insertion(e) || edit_is_softclip(e)) {
-                        f.set_to_length(0);
+                    } else if (edit_is_insertion(e)) {
+                        f.set_to_length(f.sequence().size());
                     } else if (edit_is_deletion(e)) {
                         f.set_from_length(e.from_length());
                     }
@@ -615,8 +616,10 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
             for (auto edit : edits) {
                 *n.add_edit() = edit;
             }
-            n.mutable_position()->set_offset(offset);
-            n.mutable_position()->set_node_id(m.position().node_id());
+            if (m.has_position()) { // if we are mapped at all, set the position
+                n.mutable_position()->set_offset(offset);
+                n.mutable_position()->set_node_id(m.position().node_id());
+            }
             *res.mutable_path()->add_mapping() = n;
             seen = drop;
         } else {
@@ -629,7 +632,12 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
         *res.mutable_path()->add_mapping() = aln.path().mapping(i++);
     }
     assert(res.has_path());
-    assert(alignment_to_length(res) == res.sequence().size());
+    //assert(alignment_to_length(res) == res.sequence().size());
+    if (alignment_to_length(res) != res.sequence().size()) {
+        cerr << "failed!!! drop from start 轰" << endl;
+        cerr << pb2json(res) << endl << endl;
+        assert(false);
+    }
     return res;
 }
 
@@ -657,14 +665,15 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
                 if (e.to_length() + kept > keep) {
                     // split the edit if it's over our drop
                     Edit f;
-                    f.set_to_length((e.to_length() + seen)-drop);
+                    size_t over = (e.to_length() + kept)-keep;
+                    f.set_to_length(e.to_length() - over);
                     if (!e.sequence().empty()) {
                         f.set_sequence(e.sequence().substr(0, e.sequence().size() - (e.to_length() - f.to_length())));
                     }
                     if (edit_is_match(e) || edit_is_sub(e)) {
                         f.set_from_length(f.to_length());
-                    } else if (edit_is_insertion(e) || edit_is_softclip(e)) {
-                        f.set_to_length(0);
+                    } else if (edit_is_insertion(e)) {
+                        f.set_to_length(f.sequence().size());
                     } else if (edit_is_deletion(e)) {
                         f.set_from_length(e.from_length());
                     }
@@ -687,7 +696,9 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
             }
             // note that offset should always be 0
             //n.mutable_position()->set_offset(offset);
-            n.mutable_position()->set_node_id(m.position().node_id());
+            if (m.has_position()) {
+                n.mutable_position()->set_node_id(m.position().node_id());
+            }
             //  save the mapping to put at the end
             end_mappings.push_back(n); // back or front...?
             seen = drop;
@@ -705,7 +716,11 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
         *res.mutable_path()->add_mapping() = m;
     }
     assert(res.has_path());
-    assert(alignment_to_length(res) == res.sequence().size());
+    if (alignment_to_length(res) != res.sequence().size()) {
+        cerr << "failed!!! drop from end 轰" << endl;
+        cerr << pb2json(res) << endl << endl;
+        assert(false);
+    }
     return res;
 }
 

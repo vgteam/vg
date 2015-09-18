@@ -132,8 +132,7 @@ int from_length(const Mapping& m);
 bool mapping_ends_in_deletion(const Mapping& m);
 bool mapping_starts_in_deletion(const Mapping& m);
 bool mapping_is_total_deletion(const Mapping& m);
-Path simplify_deletions(const Path& p);
-Path combine_consecutive_matches(const Path& p);
+Path simplify(const Path& p);
 Path concat_paths(const Path& path1, const Path& path2);
 
 }

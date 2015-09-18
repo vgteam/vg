@@ -10,7 +10,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , cluster_min(2)
     , hit_max(100)
     , hit_size_threshold(512)
-    , kmer_min(11)
+    , kmer_min(0)
     , kmer_threshold(1)
     , kmer_sensitivity_step(3)
     , thread_extension(1)
@@ -23,6 +23,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , prefer_forward(false)
     , greedy_accept(false)
     , target_score_per_bp(1.5)
+    , min_score_per_bp(0)
     , min_kmer_entropy(0)
     , debug(false)
 {
@@ -300,7 +301,13 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             // if we aren't careful about this it might cause a problem in the merge
             size_t overlap = (i == 0? 0 : segment_size/2);
             overlaps.push_back(overlap);
-            alns.push_back(align(aln, kmer_size, stride));
+            Alignment mapped_aln = align(aln, kmer_size, stride);
+            if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
+                >= min_score_per_bp) {
+                alns.push_back(mapped_aln);
+            } else {
+                alns.push_back(aln); // unmapped
+            }
         }
         // and the overlapped bit --- here we're using a hard-coded 50% overlap
         if (i != div-1) { // if we're not at the last sequence
@@ -309,7 +316,13 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
                                                     segment_size));
             size_t overlap = segment_size/2;
             overlaps.push_back(overlap);
-            alns.push_back(align(aln, kmer_size, stride));
+            Alignment mapped_aln = align(aln, kmer_size, stride);
+            if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
+                >= min_score_per_bp) {
+                alns.push_back(mapped_aln);
+            } else {
+                alns.push_back(aln); // unmapped
+            }
         }
     }
     // by telling our merge the expected overlaps, it will correctly combine the alignments
@@ -406,7 +419,8 @@ vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride,
 
         ++attempt;
 
-        if (best_f.score() == 0 && best_r.score() == 0) {
+        if (best_f.score() == 0 && best_r.score() == 0
+            && kmer_size - kmer_sensitivity_step >= kmer_min) {
             // We couldn't find anything. Try harder.
             increase_sensitivity();
         } else {

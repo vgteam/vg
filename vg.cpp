@@ -2506,6 +2506,7 @@ void VG::edit_node(int64_t node_id,
         auto& mapping = get<0>(m);
         bool at_start = get<1>(m);
         bool at_end = get<2>(m);
+        //cerr << "editing on node " << node_id << " with mapping " << pb2json(mapping) << endl;
         // check that we're really working on one node
         assert(mapping.position().node_id() == node_id);
         size_t offset = mapping.position().offset();
@@ -2519,10 +2520,18 @@ void VG::edit_node(int64_t node_id,
             //if (edit_is_match(edit) || edit_is_softclip(edit)) {
             if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
                 // match, ignore
+                // to handle soft clips
             } else if ((i == 0 || i == mapping.edit_size() - 1) && edit.from_length() == 0) {
                 // end == offset by definition
                 cut_at.insert(offset);
                 cut_seqs[make_pair(offset, end)][name]
+                    = make_tuple(edit,
+                                 at_start && i == 0,
+                                 at_end && i == mapping.edit_size()-1);
+            } else if (edit_is_insertion(edit)) {
+                //cerr << "found an insertion " << pb2json(edit) << endl;
+                cut_at.insert(offset);
+                cut_seqs[make_pair(offset, offset)][name]
                     = make_tuple(edit,
                                  at_start && i == 0,
                                  at_end && i == mapping.edit_size()-1);
@@ -2675,9 +2684,12 @@ void VG::edit(const vector<Path>& paths) {
     map<int64_t, vector<tuple<Mapping, bool, bool>>> mappings; // by node
     bool in_del = false;
     pair<int64_t, size_t> del_start;
-    for (auto& path : paths) {
+    for (auto& p : paths) {
+        auto path = simplify(p);
+        //cerr << "editing with path " << pb2json(path) << endl;
         for (int i = 0; i < path.mapping_size(); ++i) {
             Mapping mapping = path.mapping(i);
+            if (!mapping.has_position()) cerr << "woah mapping got no position " << pb2json(mapping) << endl;
             if (i > 0) {
                 auto& last = path.mapping(i-1);
                 // let's check if we go from one node to another when stepping between these two mappings

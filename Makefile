@@ -127,7 +127,7 @@ path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 edit.o: edit.cpp edit.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o edit.o edit.cpp $(INCLUDES)
 
-alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH)
+alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH) edit.hpp edit.cpp
 	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
 
 sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp

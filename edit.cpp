@@ -14,10 +14,6 @@ bool edit_is_insertion(const Edit& e) {
     return e.from_length() == 0 && e.to_length() > 0 && !e.sequence().empty();
 }
 
-bool edit_is_softclip(const Edit& e) {
-    return e.from_length() == 0 && e.to_length() > 0 && e.sequence().empty();
-}
-
 bool edit_is_deletion(const Edit& e) {
     return e.from_length() > 0 && e.to_length() == 0;
 }

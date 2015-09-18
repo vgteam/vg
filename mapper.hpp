@@ -113,6 +113,7 @@ public:
     int max_attempts;
     int softclip_threshold;
     float target_score_per_bp;
+    float min_score_per_bp;
     bool prefer_forward;
     bool greedy_accept;
     float min_kmer_entropy;
