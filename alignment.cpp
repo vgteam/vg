@@ -563,76 +563,11 @@ int alignment_from_length(const Alignment& a) {
 Alignment strip_from_start(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
+    cerr << "drop " << drop << " from start" << endl;
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
-    size_t seen = 0;
-    size_t i = 0;
-    while (seen < drop) {
-        Mapping m = aln.path().mapping(i++);
-        size_t to = to_length(m);
-        //size_t offset = 0;
-        if (to + seen > drop) {
-            // we have reached our target, so split the mapping
-            size_t keep = to + seen - drop;
-            Mapping n;
-            size_t offset = mapping_from_length(m);
-            // go from the back of the old mapping to the front, adding edits to the new mapping
-            vector<Edit> edits;
-            size_t kept = 0;
-            for (size_t j = m.edit_size()-1; j >= 0; --j) {
-                Edit e = m.edit(j);
-                if (e.to_length() + kept > keep) {
-                    // split the edit if it's over our drop
-                    size_t over = (e.to_length() + kept)-keep;
-                    Edit f;
-                    f.set_to_length(e.to_length() - over);
-                    if (!e.sequence().empty()) {
-                        f.set_sequence(e.sequence().substr(e.to_length() - f.to_length()));
-                    }
-                    if (edit_is_match(e) || edit_is_sub(e)) {
-                        f.set_from_length(f.to_length());
-                    } else if (edit_is_insertion(e)) {
-                        f.set_to_length(f.sequence().size());
-                    } else if (edit_is_deletion(e)) {
-                        f.set_from_length(e.from_length());
-                    }
-                    edits.push_back(f);
-                    kept += f.to_length();
-                    offset -= f.from_length();
-                    break;
-                } else {
-                    // add it into the mapping
-                    edits.push_back(e);
-                    kept += e.to_length();
-                    offset -= e.from_length();
-                    // we are breaking on mapping boundaries so we should only be able to see
-                    // kept == keep
-                    if (kept == keep) break;
-                    assert(!(kept > keep)); // to be sure during testing
-                }
-            }
-            // and save the edits, which we collected in reverse order
-            reverse(edits.begin(), edits.end());
-            for (auto edit : edits) {
-                *n.add_edit() = edit;
-            }
-            if (m.has_position()) { // if we are mapped at all, set the position
-                n.mutable_position()->set_offset(offset);
-                n.mutable_position()->set_node_id(m.position().node_id());
-            }
-            *res.mutable_path()->add_mapping() = n;
-            seen = drop;
-        } else {
-            // skip this mapping, we're dropping it
-            seen += to;
-        }
-    }
-    // now add in the rest
-    while (i < aln.path().mapping_size()) {
-        *res.mutable_path()->add_mapping() = aln.path().mapping(i++);
-    }
+    *res.mutable_path() = cut_path(aln.path(), drop).second;
     assert(res.has_path());
-    //assert(alignment_to_length(res) == res.sequence().size());
     if (alignment_to_length(res) != res.sequence().size()) {
         cerr << "failed!!! drop from start 轰" << endl;
         cerr << pb2json(res) << endl << endl;
@@ -644,77 +579,12 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
 Alignment strip_from_end(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
-    res.set_sequence(aln.sequence().substr(drop));
+    cerr << "drop " << drop << " from end" << endl;
+    size_t cut_at = aln.sequence().size()-drop;
+    cerr << "Cut at " << cut_at << endl;
+    res.set_sequence(aln.sequence().substr(0, cut_at));
     if (!aln.has_path()) return res;
-    size_t seen = 0;
-    list<Mapping> end_mappings;
-    size_t i = aln.path().mapping_size()-1;
-    while (seen < drop && i >= 0) {
-        Mapping m = aln.path().mapping(i--);
-        size_t to = to_length(m);
-        //size_t offset = 0;
-        if (to + seen > drop) {
-            // we have reached our target, so split the mapping
-            size_t keep = to + seen - drop;
-            Mapping n;
-            // go from the front of the old mapping to the back, adding edits to the new mapping
-            vector<Edit> edits;
-            size_t kept = 0;
-            for (size_t j = 0; j < m.edit_size(); ++j) {
-                Edit e = m.edit(j);
-                if (e.to_length() + kept > keep) {
-                    // split the edit if it's over our drop
-                    Edit f;
-                    size_t over = (e.to_length() + kept)-keep;
-                    f.set_to_length(e.to_length() - over);
-                    if (!e.sequence().empty()) {
-                        f.set_sequence(e.sequence().substr(0, e.sequence().size() - (e.to_length() - f.to_length())));
-                    }
-                    if (edit_is_match(e) || edit_is_sub(e)) {
-                        f.set_from_length(f.to_length());
-                    } else if (edit_is_insertion(e)) {
-                        f.set_to_length(f.sequence().size());
-                    } else if (edit_is_deletion(e)) {
-                        f.set_from_length(e.from_length());
-                    }
-                    edits.push_back(f);
-                    kept += f.to_length();
-                    break;
-                } else {
-                    // add it into the mapping
-                    edits.push_back(e);
-                    kept += e.to_length();
-                    // we are breaking on mapping boundaries so we should only be able to see
-                    // kept == keep
-                    if (kept == keep) break;
-                    assert(!(kept > keep)); // to be sure during testing
-                }
-            }
-            // and save the edits, which we collected in forward order
-            for (auto edit : edits) {
-                *n.add_edit() = edit;
-            }
-            // note that offset should always be 0
-            //n.mutable_position()->set_offset(offset);
-            if (m.has_position()) {
-                n.mutable_position()->set_node_id(m.position().node_id());
-            }
-            //  save the mapping to put at the end
-            end_mappings.push_back(n); // back or front...?
-            seen = drop;
-        } else {
-            // skip this mapping, we're dropping it
-            seen += to;
-        }
-    }
-    // now add in the rest
-    for (size_t j = 0; j < i+1; ++j) {
-        *res.mutable_path()->add_mapping() = aln.path().mapping(j);
-    }
-    // and drop on the end nodes
-    for (auto& m : end_mappings) {
-        *res.mutable_path()->add_mapping() = m;
-    }
+    *res.mutable_path() = cut_path(aln.path(), cut_at).first;
     assert(res.has_path());
     if (alignment_to_length(res) != res.sequence().size()) {
         cerr << "failed!!! drop from end 轰" << endl;
@@ -740,8 +610,38 @@ Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& 
     return aln;
 }
 
-// note only handles alignments against the forward strand
 Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debug) {
+    //cerr << "overlap is " << overlap << endl;
+    // if either doesn't have a path, then treat it like a massive softclip
+    if (!a1.has_path()) {
+        Mapping m;
+        Edit* e = m.add_edit();
+        e->set_to_length(a1.sequence().size());
+        e->set_sequence(a1.sequence());
+        *a1.mutable_path()->add_mapping() = m;
+    }
+    if (!a2.has_path()) {
+        Mapping m;
+        Edit* e = m.add_edit();
+        e->set_to_length(a2.sequence().size());
+        e->set_sequence(a2.sequence());
+        *a2.mutable_path()->add_mapping() = m;
+    }
+    if (debug) cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
+    // splice em up in the middle
+    a1 = strip_from_end(a1, overlap/2);
+    a2 = strip_from_start(a2, overlap-(overlap/2));
+    // and concatenate them
+    Alignment a3;
+    a3.set_sequence(a1.sequence() + a2.sequence());
+    *a3.mutable_path() = concat_paths(a1.path(), a2.path());
+    if (debug) cerr << "merged alignments " << pb2json(a3) << endl;
+    return a3;    
+}
+
+// note only handles alignments against the forward strand
+/*
+Alignment wild_merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debug) {
     //cerr << "overlap is " << overlap << endl;
     // if either doesn't have a path, then treat it like a massive softclip
     if (!a1.has_path()) {
@@ -779,22 +679,63 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debu
     // set position to point to 1-past end
     a2_end_pos.set_offset(from_length(a2_last_mapping));
 
-    // find a common non-softclip position
+    // find a common  position
     Position common_pos;
     bool found_common_pos = false;
+    
     // iterate forwards from start of a2 looking for a place that approximately
     // balances the overlap between both and is not in a soft clip or indel
-    // as a simple heuristic, accept anything that's at least 25% of the overlap
-    // into the second mapping
-    // ...
+    // ....
     for (size_t i = 0; i < a2.path().mapping_size(); ++i) {
         const Mapping& m = a2.path().mapping(i);
+        Position p = m.position();
+        // we can be more efficient by checking if we actually have mappings
+        // for both paths against this node
+        if (!maps_to_node(a1.path(), p.node_id())
+            || !maps_to_position(a2.path(), p.node_id())) {
+            continue;
+        }
+        // if they do, let's see if we can find an overlap between them
+        for (size_t j = 0; j < mapping_from_length(m); ++j) {
+            auto a1_splits = cut_path(a1.path(), m.position());
+            auto& a1l = a1_splits.first;
+            auto& a1r = a1_splits.second;
+            auto a2_splits = cut_path(a2.path(), m.position());
+            auto& a2l = a2_splits.first;
+            auto& a2r = a2_splits.second;
+            // check if the left path ends before this position
+            // and break if so -- this suggests a gap and we can't merge
+            auto& a1l_last = a1l.mapping(a1l.mapping_size()-1);
+            if (a1l_last.position().offset() + from_length(a1l_last) < j) break;
+            // check if the right path starts after this position
+            // and continue if so
+            auto& a2r_first = a2r.mapping(0);
+            if (a2r_first.position().offset() > j) continue;
+            // if we make it here it means we're overlapping or abutting at this point
+            // although we may not meet other requirements, so verify before calling
+            // this position + j our merge point
+
+            // does the left side of the last path end in a softclip here?
+            // does the right side of the next path start in a softclip?
+
+            // do we meet our objectives for the overlap of the two alignments?
+            
+            
+            // not before
+            //size_t a1_after = to_length_after_pos(a1, m.position());
+            //size_t a2_before = to_length_before_pos(a2, m.position());
+        }
         // if we're in a match, at the start of a node, and == to the other mapping
-        size_t a1_after = to_length_after_pos(a1, m.position());
-        size_t a2_before = to_length_before_pos(a2, m.position());
-        //cerr << "a1_after " << a1_after << " a2_before " << a2_before << endl;
-        if (a2_before >= overlap/4 &&
-            m.position().offset() == 0
+        //cerr << "mapping " << pb2json(m) << endl;
+        cerr << "evaluating possible cut position " << pb2json(m.position()) << endl;;
+        // show the cuts
+        // this shit ain't working
+
+        
+        cerr << "a1_after " << a1_after << " a2_before " << a2_before << endl;
+        if (a1_after > 0 && a2_before > 0
+            && a2_before >= overlap/4
+            //&& m.position().offset() == 0
             && edit_is_match(m.edit(0))) {
             common_pos = m.position();
             found_common_pos = true;
@@ -805,11 +746,15 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debu
     // remove the overlap from the alignments
     // so that we could concatenate them to get a new valid alignment
     if (!found_common_pos) {
-        //cerr << "could not find common position!" << endl;
-        //cerr << "must be a big gap" << endl;
+        cerr << "could not find common position!" << endl;
+        cerr << "must be a big gap" << endl;
+        cerr << "to strip " << overlap/2 << " from end of first and " << overlap-(overlap/2) << " from second" << endl;
         a1 = strip_from_end(a1, overlap/2);
         a2 = strip_from_start(a2, overlap-(overlap/2));
+        cerr << "first after strip " << pb2json(a1) << endl;
+        cerr << "second after strip " << pb2json(a2) << endl;
     } else {
+        cerr << "found a common position " << pb2json(common_pos) << endl;
         int a1_drop_to_common = to_length_after_pos(a1, common_pos);
         int a2_drop_to_common = to_length_before_pos(a2, common_pos);
         // count bp before our common position in each alignment
@@ -843,6 +788,7 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debu
     if (debug) cerr << "merged alignments " << pb2json(a3) << endl;
     return a3;
 }
+*/
 
 void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> node_length) {
     Path* path = a.mutable_path();
@@ -889,156 +835,21 @@ int softclip_end(Alignment& alignment) {
     return 0;
 }
 
-// todo!
-// refactor into
-// Path path_after_pos(const Alignment& aln, const Position& pos) {
-// this will allow cleaner path manipulation
 size_t to_length_after_pos(const Alignment& aln, const Position& pos) {
-    size_t count = 0;
-    size_t i = 0;
-    for ( ; i < aln.path().mapping_size(); ++i) {
-        auto& m = aln.path().mapping(i);
-        if (m.position().node_id() == pos.node_id()) {
-            if (pos.offset() == 0) break;
-            // do a little dance to get the to_length after the offset
-            size_t seen = 0;
-            size_t j = 0;
-            for ( ; j < m.edit_size(); ++j) {
-                auto& e = m.edit(j);
-                seen += e.from_length();
-                if (seen == pos.offset()) break;
-                if (seen > pos.offset()) {
-                    // add in the portion of the edit before the offset
-                    if (edit_is_match(e) || edit_is_sub(e)) {
-                        count += seen - e.from_length() - pos.offset();
-                    } else {
-                        cerr << "not able to handle non-match at position boundary" << endl;
-                    }
-                    ++j; // escape double-counting this edit
-                    break;
-                }
-            }
-            // get the rest of the edits after on this node
-            for ( ; j < m.edit_size(); ++j) {
-                auto& e = m.edit(j);
-                count += e.to_length();
-            }
-            break;
-        }
-    }
-    for ( ; i < aln.path().mapping_size(); ++i) {
-        count += mapping_to_length(aln.path().mapping(i));
-    }
-    return count;
+    cerr << "Getting to length after " << pb2json(pos) << endl;
+    return path_to_length(cut_path(aln.path(), pos).second);
 }
 
 size_t from_length_after_pos(const Alignment& aln, const Position& pos) {
-    size_t count = 0;
-    size_t i = 0;
-    for ( ; i < aln.path().mapping_size(); ++i) {
-        auto& m = aln.path().mapping(i);
-        if (m.position().node_id() == pos.node_id()) {
-            if (pos.offset() == 0) break;
-            // do a little dance to get the to_length after the offset
-            size_t seen = 0;
-            size_t j = 0;
-            for ( ; j < m.edit_size(); ++j) {
-                auto& e = m.edit(j);
-                seen += e.from_length();
-                if (seen == pos.offset()) break;
-                if (seen > pos.offset()) {
-                    // add in the portion of the edit before the offset
-                    if (edit_is_match(e) || edit_is_sub(e)) {
-                        count += seen - e.from_length() - pos.offset();
-                    } else {
-                        cerr << "not able to handle non-match at position boundary" << endl;
-                    }
-                    ++j; // escape double-counting this edit
-                    break;
-                }
-            }
-            // get the rest of the edits after on this node
-            for ( ; j < m.edit_size(); ++j) {
-                auto& e = m.edit(j);
-                count += e.from_length();
-            }
-            break;
-        }
-    }
-    for ( ; i < aln.path().mapping_size(); ++i) {
-        count += mapping_from_length(aln.path().mapping(i));
-    }
-    return count;
+    return path_from_length(cut_path(aln.path(), pos).second);
 }
 
 size_t to_length_before_pos(const Alignment& aln, const Position& pos) {
-    size_t count = 0;
-    for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
-        auto& m = aln.path().mapping(i);
-        // the position is in this node
-        if (m.position().node_id() == pos.node_id()) {
-            if (pos.offset() == 0) break;
-            // else add up the to_length of the mapping on this node before the position
-            // what is the to_length before we reach the offset
-            size_t seen = 0;
-            for (size_t j = 0; j < m.edit_size(); ++j) {
-                auto& e = m.edit(j);
-                seen += e.from_length();
-                if (seen >= pos.offset()) {
-                    // gotta divide the edit
-                    if (edit_is_match(e) || edit_is_sub(e)) {
-                        count += seen - e.from_length() + pos.offset();
-                    } else if (edit_is_deletion(e)) {
-                        // no to_length here
-                    } else if (edit_is_insertion(e)) {
-                        assert(false);
-                    } else {
-                        assert(false);
-                    }
-                    break;
-                }
-            }
-            break;
-        } else {
-            count += mapping_to_length(m);
-        }
-    }
-    return count;
+    return path_to_length(cut_path(aln.path(), pos).first);
 }
 
 size_t from_length_before_pos(const Alignment& aln, const Position& pos) {
-    size_t count = 0;
-    for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
-        auto& m = aln.path().mapping(i);
-        // the position is in this node
-        if (m.position().node_id() == pos.node_id()) {
-            if (pos.offset() == 0) break;
-            // else add up the to_length of the mapping on this node before the position
-            // what is the to_length before we reach the offset
-            size_t seen = 0;
-            for (size_t j = 0; j < m.edit_size(); ++j) {
-                auto& e = m.edit(j);
-                seen += e.from_length();
-                if (seen >= pos.offset()) {
-                    // gotta divide the edit
-                    if (edit_is_match(e) || edit_is_sub(e)) {
-                        count += seen - e.from_length() + pos.offset();
-                    } else if (edit_is_deletion(e)) {
-                        // no to_length here
-                    } else if (edit_is_insertion(e)) {
-                        assert(false);
-                    } else {
-                        assert(false);
-                    }
-                    break;
-                }
-            }
-            break;
-        } else {
-            count += mapping_from_length(m);
-        }
-    }
-    return count;
+    return path_from_length(cut_path(aln.path(), pos).first);
 }
 
 

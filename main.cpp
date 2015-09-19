@@ -388,7 +388,7 @@ int main_msga(int argc, char** argv) {
             aln.mutable_path()->set_name(name);
             // todo simplify in the mapper itself when merging the banded bits
             // ... note to self, the problem with the paths looks to be in paths.cpp
-            //cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
+            cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
             graph->include(simplify(aln.path()));
             // now repeat back the path
         }
@@ -2864,6 +2864,8 @@ void help_map(char** argv) {
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
+         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold" << endl
+         << "    -P, --score-per-bp N  accept alignment only if the alignment score per base is > N" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 2)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
@@ -2918,6 +2920,8 @@ int main_map(int argc, char** argv) {
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
     float min_kmer_entropy = 0;
+    float min_score_per_bp = 0;
+    size_t kmer_min = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2956,12 +2960,14 @@ int main_map(int argc, char** argv) {
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},
+                {"score-per-bp", required_argument, 0, 'P'},
+                {"kmer-min", required_argument, 0, 'l'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3095,7 +3101,15 @@ int main_map(int argc, char** argv) {
         case 'B':
             band_width = atoi(optarg);
             break;
- 
+
+        case 'P':
+            min_score_per_bp = atof(optarg);
+            break;
+
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -3222,6 +3236,8 @@ int main_map(int argc, char** argv) {
         m->context_depth = context_depth;
         m->max_attempts = max_attempts;
         m->min_kmer_entropy = min_kmer_entropy;
+        m->kmer_min = kmer_min;
+        m->min_score_per_bp = min_score_per_bp;
         mapper[i] = m;
     }
 

@@ -82,9 +82,11 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
             nonoverlapping_node_context_without_paths(node, g);
             //set<pair<string, Mapping*> >& Paths::get_node_mapping(int64_t id);
             auto& mappings = paths.get_node_mapping(node);
+            cerr << "getting node mappings for " << node->id() << endl;
             for (auto m : mappings) {
                 auto& name = m.first;
                 auto mapping = m.second;
+                cerr << "mapping " << name << pb2json(*mapping) << endl;
                 sorted_paths[name][paths.mapping_path_order[mapping]] = mapping;
             }
         }
