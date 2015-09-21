@@ -36,17 +36,17 @@ void help_msga(char** argv) {
          << "    -g, --graph FILE        include this graph" << endl
          << "    -F, --fragment N        break apart input sequences and sample sequences from input graphs of" << endl
          << "                            no more than this length" << endl
-         << "    -k, --map-kmer-size N   use kmers of size N when mapping" << endl
-         << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold" << endl
-         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default 16)" << endl
-         << "    -m, --node-max N        chop nodes to be shorter than this length (default 2* --idx-kmer-size)" << endl
-         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default 2)" << endl
+         << "    -k, --map-kmer-size N   use kmers of size N when mapping (default: 16)" << endl
+         << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold (default: 5)" << endl
+         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
+         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
          << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
          << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
-         << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N" << endl
+         << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
@@ -78,7 +78,7 @@ int main_msga(int argc, char** argv) {
     int edge_max = 0;
     int idx_kmer_size = 16;
     int idx_doublings = 2;
-    int kmer_size = 0;
+    int kmer_size = 16;
     int kmer_stride = 0;
     int sens_step = 0;
     int best_clusters = 0;
@@ -86,7 +86,7 @@ int main_msga(int argc, char** argv) {
     int max_attempts = 10;
     // if this is set too low, we may miss optimal alignments
     int context_depth = 3;
-    float min_score_per_bp = 0;
+    float min_score_per_bp = 1.5;
     float min_kmer_entropy = 0;
     int band_width = 1000;
     size_t doubling_steps = 2;
@@ -94,7 +94,7 @@ int main_msga(int argc, char** argv) {
     bool debug_align = false;
     size_t fragment_size = 0;
     size_t node_max = 0;
-    size_t kmer_min = 0;
+    size_t kmer_min = 5;
 
     int c;
     optind = 2; // force optind past command positional argument
