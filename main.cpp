@@ -398,7 +398,7 @@ int main_msga(int argc, char** argv) {
             aln.mutable_path()->set_name(name);
             // todo simplify in the mapper itself when merging the banded bits
             // ... note to self, the problem with the paths looks to be in paths.cpp
-            cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
+            if (debug) cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
             graph->include(simplify(aln.path()));
             // now repeat back the path
         }
@@ -759,7 +759,8 @@ void help_mod(char** argv) {
          << "Modifies graph, outputs modified on stdout." << endl
          << endl
          << "options:" << endl
-         << "    -i, --include-aln FILE  include the paths implied by alignments in the graph" << endl
+         << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
+         << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -787,6 +788,7 @@ int main_mod(int argc, char** argv) {
     string path_name;
     bool remove_orphans = false;
     string aln_file;
+    bool label_paths = false;
     bool compact_ids = false;
     bool prune_complex = false;
     int path_length = 0;
@@ -814,11 +816,12 @@ int main_mod(int argc, char** argv) {
                 {"kill-labels", no_argument, 0, 'K'},
                 {"markers", no_argument, 0, 'm'},
                 {"threads", no_argument, 0, 't'},
+                {"label-paths", no_argument, 0, 'P'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:K",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KP",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -876,6 +879,10 @@ int main_mod(int argc, char** argv) {
             omp_set_num_threads(atoi(optarg));
             break;
 
+        case 'P':
+            label_paths = true;
+            break;
+
         case 'h':
         case '?':
             help_mod(argv);
@@ -920,12 +927,19 @@ int main_mod(int argc, char** argv) {
             in.open(aln_file.c_str());
             stream::for_each(in, lambda);
         }
-        // execute the edits
-        graph->edit(paths);
-        // and optionally compact ids
-        if (compact_ids) {
-            graph->sort();
-            graph->compact_ids();
+        if (!label_paths) {
+            // execute the edits
+            graph->edit(paths);
+            // and optionally compact ids
+            if (compact_ids) {
+                graph->sort();
+                graph->compact_ids();
+            }
+        } else {
+            // just add the path labels to the graph
+            for (auto& path : paths) {
+                graph->paths.extend(path);
+            }
         }
     }
 

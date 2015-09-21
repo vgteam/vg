@@ -53,7 +53,6 @@ pair<Edit, Edit> cut_edit_at_to(const Edit& e, size_t to_off) {
 }
 
 pair<Edit, Edit> cut_edit_at_from(const Edit& e, size_t from_off) {
-    cerr << "Cutting edit " << pb2json(e) << " at " << from_off << endl;
     Edit left, right;
     if (from_off > e.from_length()) {
         return make_pair(e, right);

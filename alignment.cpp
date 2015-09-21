@@ -563,7 +563,7 @@ int alignment_from_length(const Alignment& a) {
 Alignment strip_from_start(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
-    cerr << "drop " << drop << " from start" << endl;
+    //cerr << "drop " << drop << " from start" << endl;
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
     *res.mutable_path() = cut_path(aln.path(), drop).second;
@@ -579,9 +579,9 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
 Alignment strip_from_end(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
-    cerr << "drop " << drop << " from end" << endl;
+    //cerr << "drop " << drop << " from end" << endl;
     size_t cut_at = aln.sequence().size()-drop;
-    cerr << "Cut at " << cut_at << endl;
+    //cerr << "Cut at " << cut_at << endl;
     res.set_sequence(aln.sequence().substr(0, cut_at));
     if (!aln.has_path()) return res;
     *res.mutable_path() = cut_path(aln.path(), cut_at).first;
@@ -638,157 +638,6 @@ Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debu
     if (debug) cerr << "merged alignments " << pb2json(a3) << endl;
     return a3;    
 }
-
-// note only handles alignments against the forward strand
-/*
-Alignment wild_merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debug) {
-    //cerr << "overlap is " << overlap << endl;
-    // if either doesn't have a path, then treat it like a massive softclip
-    if (!a1.has_path()) {
-        Mapping m;
-        Edit* e = m.add_edit();
-        e->set_to_length(a1.sequence().size());
-        e->set_sequence(a1.sequence());
-        *a1.mutable_path()->add_mapping() = m;
-        // todo we should check if a2 has a position
-        // if so we'll add a1 on as a big soft clip
-    }
-    if (!a2.has_path()) {
-        Mapping m;
-        Edit* e = m.add_edit();
-        e->set_to_length(a2.sequence().size());
-        e->set_sequence(a2.sequence());
-        *a2.mutable_path()->add_mapping() = m;
-        // todo, check if a1 has a position
-        // if so, add a2 on as a soft clip
-        // gaaaaa
-    }
-    if (debug) cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
-    // keep things simple and assume that a1 is aligned "left" of a2
-    // determine likely order
-    auto& a1_first_mapping = a1.path().mapping(0);
-    auto& a1_last_mapping =  a1.path().mapping(a1.path().mapping_size()-1);
-    auto& a2_first_mapping = a2.path().mapping(0);
-    auto& a2_last_mapping =  a2.path().mapping(a2.path().mapping_size()-1);
-    Position a1_start_pos =  a1_first_mapping.position();
-    Position a1_end_pos =    a1_last_mapping.position();
-    // set position to point to 1-past end
-    a1_end_pos.set_offset(from_length(a1_last_mapping));
-    Position a2_start_pos =  a2_first_mapping.position();
-    Position a2_end_pos =    a2_last_mapping.position();
-    // set position to point to 1-past end
-    a2_end_pos.set_offset(from_length(a2_last_mapping));
-
-    // find a common  position
-    Position common_pos;
-    bool found_common_pos = false;
-    
-    // iterate forwards from start of a2 looking for a place that approximately
-    // balances the overlap between both and is not in a soft clip or indel
-    // ....
-    for (size_t i = 0; i < a2.path().mapping_size(); ++i) {
-        const Mapping& m = a2.path().mapping(i);
-        Position p = m.position();
-        // we can be more efficient by checking if we actually have mappings
-        // for both paths against this node
-        if (!maps_to_node(a1.path(), p.node_id())
-            || !maps_to_position(a2.path(), p.node_id())) {
-            continue;
-        }
-        // if they do, let's see if we can find an overlap between them
-        for (size_t j = 0; j < mapping_from_length(m); ++j) {
-            auto a1_splits = cut_path(a1.path(), m.position());
-            auto& a1l = a1_splits.first;
-            auto& a1r = a1_splits.second;
-            auto a2_splits = cut_path(a2.path(), m.position());
-            auto& a2l = a2_splits.first;
-            auto& a2r = a2_splits.second;
-            // check if the left path ends before this position
-            // and break if so -- this suggests a gap and we can't merge
-            auto& a1l_last = a1l.mapping(a1l.mapping_size()-1);
-            if (a1l_last.position().offset() + from_length(a1l_last) < j) break;
-            // check if the right path starts after this position
-            // and continue if so
-            auto& a2r_first = a2r.mapping(0);
-            if (a2r_first.position().offset() > j) continue;
-            // if we make it here it means we're overlapping or abutting at this point
-            // although we may not meet other requirements, so verify before calling
-            // this position + j our merge point
-
-            // does the left side of the last path end in a softclip here?
-            // does the right side of the next path start in a softclip?
-
-            // do we meet our objectives for the overlap of the two alignments?
-            
-            
-            // not before
-            //size_t a1_after = to_length_after_pos(a1, m.position());
-            //size_t a2_before = to_length_before_pos(a2, m.position());
-        }
-        // if we're in a match, at the start of a node, and == to the other mapping
-        //cerr << "mapping " << pb2json(m) << endl;
-        cerr << "evaluating possible cut position " << pb2json(m.position()) << endl;;
-        // show the cuts
-        // this shit ain't working
-
-        
-        cerr << "a1_after " << a1_after << " a2_before " << a2_before << endl;
-        if (a1_after > 0 && a2_before > 0
-            && a2_before >= overlap/4
-            //&& m.position().offset() == 0
-            && edit_is_match(m.edit(0))) {
-            common_pos = m.position();
-            found_common_pos = true;
-            break;
-        }
-    }
-
-    // remove the overlap from the alignments
-    // so that we could concatenate them to get a new valid alignment
-    if (!found_common_pos) {
-        cerr << "could not find common position!" << endl;
-        cerr << "must be a big gap" << endl;
-        cerr << "to strip " << overlap/2 << " from end of first and " << overlap-(overlap/2) << " from second" << endl;
-        a1 = strip_from_end(a1, overlap/2);
-        a2 = strip_from_start(a2, overlap-(overlap/2));
-        cerr << "first after strip " << pb2json(a1) << endl;
-        cerr << "second after strip " << pb2json(a2) << endl;
-    } else {
-        cerr << "found a common position " << pb2json(common_pos) << endl;
-        int a1_drop_to_common = to_length_after_pos(a1, common_pos);
-        int a2_drop_to_common = to_length_before_pos(a2, common_pos);
-        // count bp before our common position in each alignment
-        a1 = strip_from_end(a1, a1_drop_to_common);
-        a2 = strip_from_start(a2, a2_drop_to_common);
-    }
-
-    // how many bp of soft clips do we have on each side of our merge
-    int left_softclip = softclip_end(a1);
-    int right_softclip = softclip_start(a2);
-
-    // possibilities
-    
-    // we are overlapping and there are no soft clips
-    // ---- suggests clean mapping, easy to merge, remove overlap/2 from each bit
-    
-    // we are overlapping but there are soft clips
-    // ---- prefer removal of soft clipping bits, then trim down evenly
-    //      gap after this may indicate a smaller del
-    
-    // we are not overlapping and there are soft clips
-    // ---- sounds like a big deletion. trim off the overlap and merge.
-    
-    // we are not overlapping and there are not soft clips (weird)
-    // ---- this one is strange; it suggests some kind of deletion event or mismapping
-    //      we should send a warning to the console, trim the overlap and be on our way
-    
-    Alignment a3;
-    a3.set_sequence(a1.sequence() + a2.sequence());
-    *a3.mutable_path() = concat_paths(a1.path(), a2.path());
-    if (debug) cerr << "merged alignments " << pb2json(a3) << endl;
-    return a3;
-}
-*/
 
 void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> node_length) {
     Path* path = a.mutable_path();

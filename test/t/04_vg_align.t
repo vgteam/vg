@@ -20,10 +20,10 @@ is $(vg align -js $(cat mapsoftclip/280136066-280136088.seq) mapsoftclip/2801360
 is $(vg align -js GGCTATGTCTGAACTAGGAGGGTAGAAAGAATATTCATTTTGGTTGCCACAAACCATCGAAACAAAGATGCAGGTCATTGATGTAAAACTACAGTTAGTTCCTACTGACTCCTTTTCAGCTTCTCTTCATTGCTATGAGCCAGCGTCTCCT graphs/59867692-59867698.vg | jq '.path.mapping[0].position.node_id') 59867694 "nodes are only referenced if they have mappings"
 
 vg construct -r tiny/tiny.fa >t.vg
-
-is $(vg align -s CAAATAAGGCTTGGAAATGTTCTGGAGTTCTATTATATTCCAACTCTCTT -Q query t.vg | vg mod -i - t.vg | vg view - | grep query | wc -l) 2 "align can use query names and outputs GAM"
-
-rm t.vg
+seq=CAAATAAGGCTTGGAAATGTTCTGGAGTTCTATTATATTCCAACTCTCTT
+vg align -s $seq t.vg | vg mod -i - t.vg >t2.vg
+is $(vg align -s $seq -Q query t2.vg | vg mod -i - -P t2.vg | vg view - | grep query | wc -l) 4 "align can use query names and outputs GAM"
+rm t.vg t2.vg
 
 
 is $(vg align -s TATATATATACCCCCCCCC -j cyclic/all.vg | jq ".path.mapping[].position.node_id" | tr '\n' ',' | grep "5,6" | wc -l) 1  "alignment to cyclic graphs works"

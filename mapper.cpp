@@ -284,6 +284,8 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
         ++div;
     }
     int segment_size = read.sequence().size()/div;
+    // prevent odd segment sizes, as they complicate math in the merge
+    segment_size += segment_size % 2;
     // and overlap them too
     vector<Alignment> alns;
     vector<size_t> overlaps;
