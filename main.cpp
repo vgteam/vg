@@ -491,7 +491,7 @@ int main_msga(int argc, char** argv) {
             //mapper->min_kmer_entropy = min_kmer_entropy;
             mapper->min_score_per_bp = min_score_per_bp;
             mapper->kmer_min = kmer_min;
-            mapper->threads = alignment_threads;
+            mapper->alignment_threads = alignment_threads;
         }
     };
 

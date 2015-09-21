@@ -97,7 +97,7 @@ public:
 
     set<int> kmer_sizes;
     bool debug;
-    int threads; // how many threads will *this* mapper use when running banded alignmentsx
+    int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
     int best_clusters;
     int cluster_min;
     int hit_max;

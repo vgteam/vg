@@ -26,7 +26,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , min_score_per_bp(0)
     , min_kmer_entropy(0)
     , debug(false)
-    , threads(1)
+    , alignment_threads(1)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -291,7 +291,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     size_t to_align = div * 2 - 1; // number of alignments we'll do
     vector<Alignment> alns; alns.resize(to_align);
     vector<size_t> overlaps; overlaps.resize(to_align);
-#pragma omp parallel for schedule(dynamic) num_threads(threads)
+#pragma omp parallel for
     for (int i = 0; i < div; ++i) {
         {
             Alignment aln = read;
