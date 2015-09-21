@@ -26,6 +26,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , min_score_per_bp(0)
     , min_kmer_entropy(0)
     , debug(false)
+    , threads(1)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -287,8 +288,10 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     // prevent odd segment sizes, as they complicate math in the merge
     segment_size += segment_size % 2;
     // and overlap them too
-    vector<Alignment> alns;
-    vector<size_t> overlaps;
+    size_t to_align = div * 2 - 1; // number of alignments we'll do
+    vector<Alignment> alns; alns.resize(to_align);
+    vector<size_t> overlaps; overlaps.resize(to_align);
+#pragma omp parallel for schedule(dynamic) num_threads(threads)
     for (int i = 0; i < div; ++i) {
         {
             Alignment aln = read;
@@ -302,13 +305,14 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             // overlap can possibly go to 100% of the "last" read
             // if we aren't careful about this it might cause a problem in the merge
             size_t overlap = (i == 0? 0 : segment_size/2);
-            overlaps.push_back(overlap);
+            size_t idx = 2*i;
+            overlaps[idx] = overlap;
             Alignment mapped_aln = align(aln, kmer_size, stride);
             if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
                 >= min_score_per_bp) {
-                alns.push_back(mapped_aln);
+                alns[idx] = mapped_aln;
             } else {
-                alns.push_back(aln); // unmapped
+                alns[idx] = aln; // unmapped
             }
         }
         // and the overlapped bit --- here we're using a hard-coded 50% overlap
@@ -317,13 +321,14 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2,
                                                     segment_size));
             size_t overlap = segment_size/2;
-            overlaps.push_back(overlap);
+            size_t idx = 2*i+1;
+            overlaps[idx] = overlap;
             Alignment mapped_aln = align(aln, kmer_size, stride);
             if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
                 >= min_score_per_bp) {
-                alns.push_back(mapped_aln);
+                alns[idx] = mapped_aln;
             } else {
-                alns.push_back(aln); // unmapped
+                alns[idx] = aln; // unmapped
             }
         }
     }

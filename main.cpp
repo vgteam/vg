@@ -230,6 +230,7 @@ int main_msga(int argc, char** argv) {
     size_t fragment_size = 0;
     size_t node_max = 0;
     size_t kmer_min = 5;
+    int alignment_threads = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -356,7 +357,8 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 't':
-            omp_set_num_threads(atoi(optarg));
+            //omp_set_num_threads(atoi(optarg));
+            alignment_threads = atoi(optarg);
             break;
 
         case 'h':
@@ -464,7 +466,8 @@ int main_msga(int argc, char** argv) {
                     cluster_min,
                     context_depth,
                     max_attempts,
-                    min_score_per_bp](VG* graph) {
+                    min_score_per_bp,
+                    alignment_threads](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
         //graph->serialize_to_file(s.str());
         if (debug) cerr << "building xg index" << endl;
@@ -488,6 +491,7 @@ int main_msga(int argc, char** argv) {
             //mapper->min_kmer_entropy = min_kmer_entropy;
             mapper->min_score_per_bp = min_score_per_bp;
             mapper->kmer_min = kmer_min;
+            mapper->threads = alignment_threads;
         }
     };
 
@@ -503,7 +507,7 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << "aligning " << name << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            if (debug) cerr << pb2json(aln) << endl;
+            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
@@ -533,7 +537,7 @@ int main_msga(int argc, char** argv) {
             aln.mutable_path()->set_name(name);
             // todo simplify in the mapper itself when merging the banded bits
             // ... note to self, the problem with the paths looks to be in paths.cpp
-            if (debug) cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
+            //if (debug) cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
             graph->include(simplify(aln.path()));
             // now repeat back the path
         }
