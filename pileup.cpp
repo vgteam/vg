@@ -160,12 +160,14 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
             // todo: need to either forget about these, or extend pileup format.
             // easy solution: change insert to come before position, and just add
             // optional pileup at n+1st base of node.  would like to figure out
-            // how samtools does it first... 
+            // how samtools does it first...
+            /*
             stringstream ss;
             ss << "Warning: pileup does not support insertions before 0th base in node."
                << " Offending edit: " << pb2json(edit) << endl;
 #pragma omp critical(cerr)
             cerr << ss.str();
+            */
         }
         // move right along read (and stay put on reference)
         read_offset += edit.to_length();

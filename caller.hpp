@@ -22,23 +22,36 @@ using namespace std;
 class Caller {
 public:
 
+    // log of zero
+    static const double Log_zero;
+    // number of alignmetns to buffer before writing
     static const int Default_buffer_size;
+    // heterzygous prior (from r MAQ paper)
+    static const double Default_het_prior;
+    // minimum size of pileup to call a snp
     static const int Default_min_depth;
+    // minimum pct of pileup that's not indels to call snp
     static const double Default_min_frac;
+    // minimum likelihood to call a snp
     static const double Default_min_likelihood;
+    // number of bases to pad snp on each side in output alignment
     static const int Default_context;
+    // use this score when pileup is missing quality
     static const char Default_default_quality;
     
     Caller(int buffer_size = Default_buffer_size,
+           double het_prior = Default_het_prior,
            int min_depth = Default_min_depth,
            double min_frac = Default_min_frac,
-           double _min_likelihood = Default_min_likelihood, 
+           double min_likelihood = Default_min_likelihood, 
            int context = Default_context,
-           int default_quality = Default_default_quality) :
+           int default_quality = Default_default_quality):
         _buffer_size(buffer_size),
+        _het_log_prior(safe_log(het_prior)),
+        _hom_log_prior(safe_log(.5 * (1. - het_prior))),
         _min_depth(min_depth),
         _min_frac(min_frac),
-        _min_log_likelihood(safe_log(_min_likelihood)),
+        _min_log_likelihood(safe_log(min_likelihood)),
         _context(context),
         _default_quality(default_quality) {
     }
@@ -46,6 +59,8 @@ public:
     // copy constructor
     Caller(const Caller& other) : _alignments(other._alignments),
                                   _buffer_size(other._buffer_size),
+                                  _het_log_prior(other._het_log_prior),
+                                  _hom_log_prior(other._hom_log_prior),
                                   _min_depth(other._min_depth),
                                   _min_frac(other._min_frac),
                                   _min_log_likelihood(other._min_log_likelihood),
@@ -56,6 +71,8 @@ public:
     // move constructor
     Caller(Caller&& other) : _alignments(other._alignments),
                              _buffer_size(other._buffer_size),
+                             _het_log_prior(other._het_log_prior),
+                             _hom_log_prior(other._hom_log_prior),
                              _min_depth(other._min_depth),
                              _min_frac(other._min_frac),
                              _min_log_likelihood(other._min_log_likelihood),
@@ -74,6 +91,8 @@ public:
     // move assignment operator
     Caller& operator=(Caller&& other) {
         _buffer_size = other._buffer_size;
+        _het_log_prior = other._het_log_prior;
+        _hom_log_prior = other._hom_log_prior;
         _min_depth = other._min_depth;
         _min_frac = other._min_frac;
         _min_log_likelihood = other._min_log_likelihood;
@@ -92,6 +111,9 @@ public:
 
     // buffer of output alignments (how we're storing variation for now)
     vector<Alignment> _alignments;
+    // used to favour homozygous genotype (r from MAQ paper)
+    double _het_log_prior;
+    double _hom_log_prior;
     // maximum size _alignments can get to before writing out output stream
     int _buffer_size;
     // minimum depth of pileup to call variants on
@@ -125,8 +147,8 @@ public:
                                  char& top_base, int& top_count,
                                  char& second_base, int& second_count);
     
-    // compute genotype for a position with maximum likelihood
-    pair<char, char> ml_snp_genotype(const BasePileup& bp,
+    // compute genotype for a position with maximum prob
+    pair<char, char> mp_snp_genotype(const BasePileup& bp,
                                      const vector<pair<int, int> >& base_offsets,
                                      char top_base, char second_base);
     // compute likelihood of a genotype samtools-style
@@ -158,7 +180,7 @@ public:
 
     // log function that tries to avoid 0s
     static double safe_log(double v) {
-        return ::log(std::max(v, numeric_limits<double>::epsilon()));
+        return v == 0. ? Log_zero : ::log(v);
     }
 
     // tranform ascii phred into probability of error

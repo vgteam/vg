@@ -26,10 +26,12 @@ using namespace vg;
 
 void help_call(char** argv) {
     cerr << "usage: " << argv[0] << " call [options] <pileup.vgpu> > out.gam" << endl
-         << "Compute variants from pilupe data (prototype!). " << endl
+         << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
+         << "Output can be merged back into the graph using vg mod -i." << endl
          << endl
          << "options:" << endl
          << "    -d, --min_depth      minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
+         << "    -h, --het_prior      prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
          << "    -j, --json           output in JSON" << endl
          << "    -p, --progress       show progress" << endl
          << "    -t, --threads N      number of threads to use" << endl;
@@ -42,6 +44,7 @@ int main_call(int argc, char** argv) {
         return 1;
     }
 
+    double het_prior = Caller::Default_het_prior;
     int min_depth = Caller::Default_min_depth;
     bool output_json = false;
     bool show_progress = false;
@@ -55,12 +58,13 @@ int main_call(int argc, char** argv) {
                 {"min_depth", required_argument, 0, 'd'},
                 {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
+                {"het_prior", required_argument, 0, 'r'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:jpt:",
+        c = getopt_long (argc, argv, "d:jpr:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -77,6 +81,9 @@ int main_call(int argc, char** argv) {
             break;
         case 'p':
             show_progress = true;
+            break;
+        case 'r':
+            het_prior = atoi(optarg);
             break;
         case 't':
             thread_count = atoi(optarg);
@@ -116,7 +123,7 @@ int main_call(int argc, char** argv) {
     }
     vector<Caller> callers;
     for (int i = 0; i < thread_count; ++i) {
-        callers.push_back(Caller(Caller::Default_buffer_size, min_depth));
+        callers.push_back(Caller(Caller::Default_buffer_size, het_prior, min_depth));
     }
     function<void(NodePileup&)> lambda = [&callers, &output_json](NodePileup& pileup) {
         int tid = omp_get_thread_num();

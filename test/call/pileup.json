@@ -1,0 +1,31 @@
+{
+	 "node_id": 1,
+	 "base_pileup": [
+		  {
+				"num_bases": 43,
+				"ref_base": 71,
+				"bases": ".......C......-2GT....+2AA.........A...C..t......"
+		  },
+		  
+		  {
+				"num_bases": 43,
+				"ref_base": 71,
+				"bases": "...AAAAAAA....-2GT....TTTTTTTTTTTTTTT........."
+		  },
+		  
+		  {},
+		  
+		  {
+				"num_bases": 7,
+				"ref_base": 71,
+				"bases": "....AAA"
+		  },
+		  
+		  {
+				"num_bases": 43,
+				"ref_base": 84,
+				"bases": "cccccccccc....-2GT...GGGGG...AAAAAAAAAAAAAAAAA"
+		  }
+	 ]
+}
+

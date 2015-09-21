@@ -8,13 +8,16 @@ using namespace std;
 
 namespace vg {
 
+const double Caller::Log_zero = (double)-1e100;
+
 // these values pretty arbitrary at this point
 const int Caller::Default_buffer_size = 1000;
+const double Caller::Default_het_prior = 0.001; // from MAQ
 const int Caller::Default_min_depth = 5;
 const double Caller::Default_min_frac = 0.75;
-const double Caller::Default_min_likelihood = 0.01;
+const double Caller::Default_min_likelihood = 1e-50;
 const int Caller::Default_context = 5;
-const char Caller::Default_default_quality = 40;
+const char Caller::Default_default_quality = 10;
 
 void Caller::clear() {
     _alignments.clear();
@@ -47,7 +50,9 @@ void Caller::flush_buffer(ostream& out, bool json) {
 
 void Caller::call_node_pileup(const NodePileup& pileup, ostream& out, bool json) {
     for (int i = 0; i < pileup.base_pileup_size(); ++i) {
-        call_base_pileup(pileup, i);
+        if (pileup.base_pileup(i).num_bases() >= _min_depth) {
+            call_base_pileup(pileup, i);
+        }
     }
     if (_alignments.size() >= _buffer_size) {
         flush_buffer(out, json);
@@ -78,8 +83,8 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset) {
 
         // compute max likelihood snp genotype.  it will be one of the three combinations
         // of the top two bases (we don't care about case here)
-        pair<char, char> g = ml_snp_genotype(bp, base_offsets, top_base, second_base);
-
+        pair<char, char> g = mp_snp_genotype(bp, base_offsets, top_base, second_base);
+        
         // if any of these bases are different than the reference, add them as snps
         if (g.first != ref_base) {
             create_snp(np, offset, g.first);
@@ -99,7 +104,8 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     // frequency of each base (nidx / idxn converts to from / int)
     int hist[5] = {0};
     for (auto i : base_offsets) {
-        ++hist[nidx(bases[i.first])];
+        char base = Pileups::extract_match(bp, i.first);
+        ++hist[nidx(base)];
     }
     
     int first = max_element(hist, hist + 4) - hist;
@@ -124,41 +130,43 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     second_count = hist[second];
 }
 
-// For the time being, we forget about a prior and just pick a genotype
-// directly from the likelihood. 
-pair<char, char> Caller::ml_snp_genotype(const BasePileup& bp,
+// Estimate the most probable snp genotype
+pair<char, char> Caller::mp_snp_genotype(const BasePileup& bp,
                                          const vector<pair<int, int> >& base_offsets,
                                          char top_base, char second_base) {
     char ref_base = ::toupper(bp.ref_base());
 
     // gotta do better than this:
-    pair<char, char> ml_genotype(ref_base, ref_base);
-    double ml = _min_log_likelihood;
+    pair<char, char> mp_genotype(ref_base, ref_base);
+    double mp = _min_log_likelihood + _hom_log_prior;
 
     // genotype with 0 top_bases
     double gl = genotype_log_likelihood(bp, base_offsets, 0, top_base, second_base);
-    if (gl > ml) {
-        ml = gl;
-        ml_genotype = make_pair(second_base, second_base);
+    double p = _hom_log_prior + gl;
+    if (p > mp) {
+        mp = p;
+        mp_genotype = make_pair(second_base, second_base);
     }
 
     // genotype with 1 top_base
     gl = genotype_log_likelihood(bp, base_offsets, 1, top_base, second_base);
-    if (gl > ml) {
-        ml = gl;
-        ml_genotype = make_pair(top_base, second_base);
+    p = _het_log_prior + gl;
+    if (p > mp) {
+        mp = p;
+        mp_genotype = make_pair(top_base, second_base);
     }
 
     // genotype with 2 top_bases
     gl = genotype_log_likelihood(bp, base_offsets, 2, top_base, second_base);
-    if (gl > ml) {
-        ml = gl;
-        ml_genotype = make_pair(top_base, top_base);
+    p = _hom_log_prior + gl;
+    if (p > mp) {
+        mp = p;
+        mp_genotype = make_pair(top_base, top_base);
     }
     
-    // note, we're throwing away the likelihood value (ml) here.
+    // note, we're throwing away the probabilty value (mp) here.
     // should figure out where to stick it in the output. 
-    return ml_genotype;
+    return mp_genotype;
 }
 
 // This is Equation 2 (tranformed to log) from
@@ -176,14 +184,15 @@ double Caller::genotype_log_likelihood(const BasePileup& bp,
     double perr;
 
     for (int i = 0; i < base_offsets.size(); ++i) {
-        char base = ::toupper(bases[base_offsets[i].first]);
-        char qual = quals[base_offsets[i].second] >= 0 ? quals[base_offsets[i].second] : _default_quality;
+        char base = Pileups::extract_match(bp, base_offsets[i].first);
+        char qual = base_offsets[i].second >= 0 ? quals[base_offsets[i].second] : _default_quality;
+        perr = phred2prob(qual);
         if (base == first) {
-            perr = phred2prob(qual);
             log_likelihood += safe_log((m - g) * perr + g * (1. - perr));
         } else if (base == second) {
-            perr = phred2prob(qual);
             log_likelihood += safe_log((m - g) * (1. - perr) + g * perr);
+        } else {
+            log_likelihood += safe_log(perr * perr);
         }
     }
 

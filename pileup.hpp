@@ -181,6 +181,18 @@ public:
         char t2 = ::toupper(c2);
         return is_reverse ? t1 == reverse_complement(t2) : t1 == t2;
     }
+
+    // get a match base value from a pileup value
+    static char extract_match(const BasePileup& bp, int offset) {
+        char v = bp.bases()[offset];
+        assert(v != '+' && v != '-');
+        if (v == ',' || v == '.') {
+            return ::toupper(bp.ref_base());
+        } else if (::islower(v)) {
+            return reverse_complement(::toupper(v));
+        }
+        return v;
+    }
 };
 
 
