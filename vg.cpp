@@ -780,6 +780,30 @@ void VG::dice_nodes(int max_node_size) {
     }
 }
 
+/*
+void VG::normalize(size_t node_max_size) {
+    // remove nodes that repeat something another node says at the same location in the graph
+    remove_redundancy();
+    // where a single edge lies between two nodes, combine them
+    simplify_nodes();
+    // cut up the nodes to a target size
+    dice_nodes(max_node_size);
+    // sort the graph in a stable way
+    sort();
+    // and give ids based on the sort
+    compact_ids();
+}
+
+void VG::remove_redundancy(void) {
+    // for each node
+    // do we share our incoming edges with another node?
+    // does that node have the same start sequence as us?
+    // if so, pick a node to keep, step through until we're to the end of the identical sequence
+    // or we have exhausted sequence in the other node(s)
+    // cut, and forward edges from the end of the redundant node
+}
+*/
+
 
 void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,

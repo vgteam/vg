@@ -465,8 +465,8 @@ int main_msga(int argc, char** argv) {
                     context_depth,
                     max_attempts,
                     min_score_per_bp](VG* graph) {
-        stringstream s; s << iter++ << ".vg";
-        graph->serialize_to_file(s.str());
+        //stringstream s; s << iter++ << ".vg";
+        //graph->serialize_to_file(s.str());
         if (debug) cerr << "building xg index" << endl;
         if (xgidx) delete xgidx;
         xgidx = new xg::XG(graph->graph);
@@ -497,7 +497,7 @@ int main_msga(int argc, char** argv) {
         auto& name = group.first;
         if (debug) cerr << "adding " << name << endl;
         rebuild(graph);
-        graph->serialize_to_file("pre-" + name + ".vg");
+        //graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
