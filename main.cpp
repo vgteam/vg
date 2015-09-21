@@ -16,12 +16,147 @@
 #include "stream.hpp"
 #include "alignment.hpp"
 #include "convert.hpp"
+#include "pileup.hpp"
 #include "google/protobuf/stubs/common.h"
 
 using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
+void help_pileup(char** argv) {
+    cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.vgpu" << endl
+         << "Calculate pileup for each position in graph and output in VG Pileup format (list of protobuf NodePileups)." << endl
+         << endl
+         << "options:" << endl
+         << "    -j, --json           output in JSON" << endl
+         << "    -p, --progress       show progress" << endl
+         << "    -t, --threads N      number of threads to use" << endl;
+}
+
+int main_pileup(int argc, char** argv) {
+
+    if (argc <= 3) {
+        help_pileup(argv);
+        return 1;
+    }
+
+    bool output_json = false;
+    bool show_progress = false;
+    int thread_count = 1;
+
+    int c;
+    optind = 2; // force optind past command positional arguments
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"json", required_argument, 0, 'j'},
+                {"progress", required_argument, 0, 'p'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "jpt:",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'j':
+            output_json = true;
+            break;
+        case 'p':
+            show_progress = true;
+            break;
+        case 't':
+            thread_count = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_pileup(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+    omp_set_num_threads(thread_count);
+    thread_count = get_thread_count();
+
+    // read the graph
+    if (show_progress) {
+        cerr << "Reading input graph" << endl;
+    }
+    VG* graph;
+    string graph_file_name = argv[optind++];
+    if (graph_file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(graph_file_name.c_str());
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        graph = new VG(in);
+    }
+
+    // setup alignment stream
+    string alignments_file_name = argv[optind++];
+    istream* alignment_stream = NULL;
+    ifstream in;
+    if (alignments_file_name == "-") {
+        if (alignments_file_name == "-") {
+            cerr << "error: graph and alignments can't both be from stdin." << endl;
+            exit(1);
+        }
+        alignment_stream = &std::cin;
+    } else {
+        in.open(alignments_file_name);
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        alignment_stream = &in;
+    }
+
+    // compute the pileups.
+    if (show_progress) {
+        cerr << "Computing pileups" << endl;
+    }
+    vector<Pileups> pileups(thread_count);
+    function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
+        int tid = omp_get_thread_num();
+        pileups[tid].compute_from_alignment(*graph, aln);
+    };
+    stream::for_each_parallel(*alignment_stream, lambda);
+
+    // single-threaded (!) merge
+    if (show_progress && pileups.size() > 1) {
+        cerr << "Merging pileups" << endl;
+    }
+    for (int i = 1; i < pileups.size(); ++i) {
+        pileups[0].merge(pileups[i]);
+    }
+    // spit out the pileup
+    if (show_progress) {
+        cerr << "Writing pileups" << endl;
+    }
+    if (output_json == false) {
+      pileups[0].write(std::cout);
+    } else {
+      pileups[0].to_json(std::cout);
+    }
+
+    delete graph;
+    return 0;
+}
+  
 void help_msga(char** argv) {
     cerr << "usage: " << argv[0] << " msga [options] >graph.vg" << endl
          << "Multiple sequence / graph aligner." << endl
@@ -3484,7 +3619,10 @@ void help_view(char** argv) {
          
          << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
          << "                         positional file arguments if paired" << endl
-         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl;
+         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
+
+         << "    -L, --pileup         ouput VG Pileup format" << endl
+         << "    -l, --pileup-in      input VG Pileup format" << endl;
     // TODO: Can we regularize the option names for input and output types?
 }
 
@@ -3505,9 +3643,13 @@ int main_view(int argc, char** argv) {
     // bam      N   N       N   Y   N   N       N
     // fastq    N   N       N   Y   N   N       N
     // dot      N   N       N   N   N   N       N
+    //
+    // and json-gam -> gam
+    //     json-pileup -> pileup
 
     string output_type;
     string input_type;
+    bool input_json = false;
     string alignments;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
@@ -3540,11 +3682,13 @@ int main_view(int argc, char** argv) {
                 {"walk-paths", no_argument, 0, 'w'},
                 {"annotate-paths", no_argument, 0, 'n'},
                 {"random-seed", required_argument, 0, 's'},
+                {"pileup", no_argument, 0, 'L'},
+                {"pileup-in", no_argument, 0, 'l'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wn",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlL",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3586,7 +3730,11 @@ int main_view(int argc, char** argv) {
             break;
             
         case 'J':
-            input_type = "json";
+            // -J can complement input GAM/Pileup, hence the extra logic here. 
+            if (input_type.empty()) {
+                input_type = "json";
+            }
+            input_json = true;
             break;
 
         case 'v':
@@ -3637,6 +3785,18 @@ int main_view(int argc, char** argv) {
             alignments = optarg;
             break;
 
+        case 'L':
+            output_type = "pileup";
+            break;
+
+        case 'l':
+            input_type = "pileup";
+            if (output_type.empty()) {
+                // Default to Pileup -> JSON
+                output_type = "json";
+            }
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -3648,7 +3808,7 @@ int main_view(int argc, char** argv) {
             abort ();
         }
     }
-
+    
     // If the user specified nothing else, we default to VG in and GFA out.
     if (input_type.empty()) {
         input_type = "vg";
@@ -3656,7 +3816,6 @@ int main_view(int argc, char** argv) {
     if (output_type.empty()) {
         output_type = "gfa";
     }
-    
     vector<Alignment> alns;
     if (!alignments.empty()) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
@@ -3692,64 +3851,42 @@ int main_view(int argc, char** argv) {
         }
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
-        // We need to load a JSON graph, which means we need to mess about with FILE pointers, since jansson is a C API.
-        
-        FILE* json_file;
-        
-        if (file_name == "-") {
-            // Read standard input
-            json_file = stdin;
-        } else {
-            // Open the file for reading
-            json_file = fopen(file_name.c_str(), "r");
-        }
-        
-        // Make a new VG that calls this function over and over to read Graphs.
-        function<bool(Graph&)> get_next_graph = [&](Graph& subgraph) -> bool {
-            // Check if the file ends now, and skip whitespace between records.
-            char peeked;
-            do {
-                peeked = fgetc(json_file);
-                if(peeked == EOF) {
-                    // File ended or otherwise errored. TODO: check for other
-                    // errors and complain.
-                    return false;
-                }
-            } while(isspace(peeked));
-            // Put it back
-            ungetc(peeked, json_file);
-            
-            // Now we know we have non-whitespace between here and EOF.
-            // If it's not JSON, we want to die. So read it as JSON.
-            json2pb(subgraph, json_file);
-            
-            // We read it successfully!
-            return true;
-        };
+        assert(input_json == true);
+        JSONStreamHelper<Graph> json_helper(file_name);
+        function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false);
         
     } else if (input_type == "gam") {
-        if (output_type == "json") {
-            // convert values to printable ones
-            function<void(Alignment&)> lambda = [](Alignment& a) {
-                //alignment_quality_short_to_char(a);
-                cout << pb2json(a) << "\n";
-            };
-            if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Alignment&)> lambda = [](Alignment& a) {
+                    //alignment_quality_short_to_char(a);
+                    cout << pb2json(a) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
             } else {
-                ifstream in;
-                in.open(file_name.c_str());
-                stream::for_each(in, lambda);
+                // todo
+                cerr << "[vg view] error: (binary) GAM can only be converted to JSON" << endl;
+                return 1;
             }
-            
-            cout.flush();
-            return 0;
         } else {
-            // todo
-            cerr << "[vg view] error: GAM can only be converted to JSON" << endl;
-            return 1;
+            if (output_type == "json" || output_type == "gam") {
+                JSONStreamHelper<Alignment> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON GAM can only be converted to GAM or JSON" << endl;
+                return 1;
+            }
         }
+        cout.flush();
+        return 0;
     } else if (input_type == "bam") {
         if (output_type == "gam") {
 //function<void(const Alignment&)>& lambda) {
@@ -3818,6 +3955,36 @@ int main_view(int argc, char** argv) {
             // We can't convert fastq to the other graph formats
             cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;
             return 1;
+        }
+        cout.flush();
+        return 0;
+    } else if (input_type == "pileup") {
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(NodePileup&)> lambda = [](NodePileup& p) {
+                    cout << pb2json(p) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
+            } else {
+                // todo
+                cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
+                return 1;
+            }
+        } else {
+            if (output_type == "json" || output_type == "pileup") {
+                JSONStreamHelper<NodePileup> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
+                return 1;
+            }
         }
         cout.flush();
         return 0;
@@ -4066,6 +4233,8 @@ int main(int argc, char *argv[])
         return main_surject(argc, argv);
     } else if (command == "msga") {
         return main_msga(argc, argv);
+    } else if (command == "pileup") {
+        return main_pileup(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

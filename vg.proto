@@ -135,3 +135,22 @@ message KmerMatch {
     // If true, this kmer is backwards relative to its node, and position counts from the end of the node.
     bool backward = 4; 
 }
+
+// Summarizes reads that map to single position in the graph.
+// This structure is pretty much identical to a line in Samtools pileup format
+// if qualities set, it must have size = num_bases
+message BasePileup {
+    int32 ref_base = 1;
+    int32 num_bases = 2;
+    string bases = 3;
+    bytes qualities = 4;
+}
+
+// Collect pileup records by node.  Saves some space and hashing over
+// storing individually, assuming not too sparse and avg. node length more than couple bases
+// the ith BasePileup in the array corresponds to the position at offset i. 
+message NodePileup {
+    int64 node_id = 1;
+    repeated BasePileup base_pileup = 2;
+}
+

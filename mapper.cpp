@@ -185,7 +185,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         
         // Sort these alignments by score, descending
-        sort(alignments1.begin(), alignments1.end(), [](Alignment& a, Alignment& b) {
+        sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
             return a.score() > b.score();
         });
         
@@ -216,7 +216,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         
         // Sort these alignments by score, descending
-        sort(alignments2.begin(), alignments2.end(), [](Alignment& a, Alignment& b) {
+        sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
             return a.score() > b.score();
         });
         
