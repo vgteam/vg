@@ -2070,7 +2070,7 @@ void VG::keep_path(string& path_name) {
 // utilities
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
-    //cerr << "dividing node " << node->id() << " at " << pos << endl;
+    cerr << "dividing node " << node->id() << " at " << pos << endl;
 
     if (pos < 0 || pos > node->sequence().size()) {
 #pragma omp critical (cerr)
@@ -2578,17 +2578,18 @@ void VG::edit_node(int64_t node_id,
     // make the cuts
     set<Node*> emptyset;
     for (auto cut : cut_at) {
-        // don't cut if it would be at the end of the sequence
-        if (n->sequence().size()) {
-            divide_node(n, cut-offset, l, r);
+        // don't cut if it we already have the cut as the node end
+        if (cut-offset == 0 || cut-offset == n->sequence().size()) {
+            continue;
         }
+        divide_node(n, cut-offset, l, r);
         set<Node*> left{l};
         set<Node*> right{r};
         cuts[cut] = make_tuple(left, emptyset, right);
         // now that we've made the cuts record the mapping between the old node id and the new
         // start and ends
 
-        // adjust last cut (we just cut up the second node in the pair)
+        // fishy
         if (offset > 0) {
             get<2>(cuts[offset]) = left;
         }
@@ -2605,12 +2606,14 @@ void VG::edit_node(int64_t node_id,
         auto& left = get<0>(cuts[f]);
         auto& center = get<1>(cuts[f]);
         auto& right = get<2>(cuts[t]);
-        //cerr << f << "," << t << " " << left.size() << "," << center.size() << "," << right.size() << endl;
+        cerr << f << "," << t << " " << left.size() << "," << center.size() << "," << right.size() << endl;
         for (auto& p : cs.second) {
             auto& name = get<0>(p);
             auto& edit = get<0>(get<1>(p));
             if (!edit.sequence().empty()) {
+                cerr << "creating node with " << edit.sequence() << endl;
                 Node* c = create_node(edit.sequence());
+                cerr << "got new node " << c->id() << endl;
                 // add to path
                 //paths.append_mapping(name, c->id(), false);
                 center.insert(c);
@@ -2710,11 +2713,14 @@ void VG::edit(const vector<Path>& paths) {
             if (!mapping.has_position()) cerr << "woah mapping got no position " << pb2json(mapping) << endl;
             if (i > 0) {
                 auto& last = path.mapping(i-1);
-                // let's check if we go from one node to another when stepping between these two mappings
-                // and there isn't a corresponding edge
+                // do we go from in-node to off-node between this mapping and the next
+                // without reaching the end of the node we're on?
+                // this would indicate a jump!
+                /*
                 if (!has_edge(
                         NodeSide(last.position().node_id(), true),
                         NodeSide(mapping.position().node_id(), false))) {
+                */
                     int64_t lid = last.position().node_id();
                     int64_t nid = mapping.position().node_id();
                     cerr << "there is a big jump " << lid << " -> " << nid << endl;
@@ -2802,7 +2808,7 @@ void VG::edit(const vector<Path>& paths) {
                     // note that we store them as being "from the start" only
                     mappings[last.position().node_id()].push_back(make_tuple(lmap, true, false));
                     mappings[mapping.position().node_id()].push_back(make_tuple(nmap, true, false));
-                }
+                    //}
             }
             Info info; info.set_str(path.name());
             (*mapping.mutable_metadata()->mutable_info())["path_name"] = info;

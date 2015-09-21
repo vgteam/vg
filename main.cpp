@@ -44,7 +44,7 @@ void help_msga(char** argv) {
          << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
-         << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 1)" << endl
+         << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
@@ -84,7 +84,8 @@ int main_msga(int argc, char** argv) {
     int best_clusters = 0;
     int cluster_min = 1;
     int max_attempts = 10;
-    int context_depth = 1;
+    // if this is set too low, we may miss optimal alignments
+    int context_depth = 3;
     float min_score_per_bp = 0;
     float min_kmer_entropy = 0;
     int band_width = 1000;
