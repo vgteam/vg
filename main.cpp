@@ -357,7 +357,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 't':
-            //omp_set_num_threads(atoi(optarg));
+            omp_set_num_threads(atoi(optarg));
             alignment_threads = atoi(optarg);
             break;
 
