@@ -50,6 +50,7 @@ void help_msga(char** argv) {
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
+         << "    -t, --threads N         number of threads to use" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
          << "input fasta-format files, graphs, and sequences." << endl
@@ -123,7 +124,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -218,6 +219,10 @@ int main_msga(int argc, char** argv) {
             min_score_per_bp = atof(optarg);
             break;
 
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
+
         case 'h':
         case '?':
             help_msga(argv);
@@ -308,12 +313,14 @@ int main_msga(int argc, char** argv) {
     Mapper* mapper = nullptr;
     gcsa::GCSA* gcsaidx = nullptr;
     xg::XG* xgidx = nullptr;
+    size_t iter = 0;
 
     auto rebuild = [&mapper,
                     &gcsaidx,
                     &xgidx,
                     debug,
                     debug_align,
+                    &iter,
                     idx_kmer_size,
                     doubling_steps,
                     kmer_min,
@@ -322,6 +329,8 @@ int main_msga(int argc, char** argv) {
                     context_depth,
                     max_attempts,
                     min_score_per_bp](VG* graph) {
+        stringstream s; s << iter++ << ".vg";
+        graph->serialize_to_file(s.str());
         if (debug) cerr << "building xg index" << endl;
         if (xgidx) delete xgidx;
         xgidx = new xg::XG(graph->graph);

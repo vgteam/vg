@@ -385,9 +385,10 @@ public:
     // or a set of mappings against one node
     void edit_node(int64_t node_id,
                    const vector<tuple<Mapping, bool, bool> >& mappings,
-                   map<pair<size_t, int64_t>, pair<set<Node*>, set<Node*>>>& cut_trans);
+                   map<pair<int64_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans);
     // for each node, modify it with the associated mappings
     void edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings,
+              map<pair<int64_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans,
               map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_f,
               map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_t);
     void edit(const vector<Path>& paths);

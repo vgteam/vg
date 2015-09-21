@@ -28,10 +28,11 @@ ifeq (${SYS},Darwin)
 	CLEAN_SNAPPY_AG=sed -i -e "s/[[:<:]]libtoolize[[:>:]]/glibtoolize/g" autogen.sh
 else
 	LDFLAGS:=$(LDFLAGS) -lrt
-	STATICFLAGS=-static -static-libstdc++ -static-libgcc
 	ROCKSDB_PORTABLE=
+	STATICFLAGS=-static -static-libstdc++ -static-libgcc
 	CLEAN_SNAPPY_AG=:
 endif
+
 
 all: vg libvg.a
 
@@ -139,7 +140,7 @@ json2pb.o: json2pb.cpp json2pb.h bin2ascii.h $(LIBPROTOBUF)
 entropy.o: entropy.cpp entropy.hpp
 	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG) Makefile
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS) $(STATICFLAGS)
 
 libvg.a: vg
