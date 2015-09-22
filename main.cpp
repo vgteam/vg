@@ -4355,7 +4355,10 @@ int main(int argc, char *argv[])
         return main_msga(argc, argv);
     } else if (command == "pileup") {
         return main_pileup(argc, argv);
+    } else if (command == "call") {
+        return main_call(argc, argv);
     } else {
+
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
         return 1;
