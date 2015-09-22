@@ -2605,27 +2605,38 @@ void VG::edit_node(int64_t node_id,
     for (auto cut : cut_at) {
         //cerr << "cuttin at " << cut-offset << endl;
         // don't cut if it we already have the cut as the node end
-        if (cut-offset == 0) {
-            // record the node start
-            auto& p = cut_trans[make_pair(node_id, 0)];
-            p.second.insert(n);
-        } else if (cut-offset == n->sequence().size()) {
-            // record the node end
-            auto& p = cut_trans[make_pair(node_id, n->sequence().size())];
-            p.first.insert(n);
-        } else {
+        if (cut != 0 && cut != node_seq.size()) {
             divide_node(n, cut-offset, l, r);
             set<Node*> left{l};
             set<Node*> right{r};
+            //cerr << "recording " << node_id << ":" << cut << " left " << pb2json(*l) << endl;
+            //cerr << "recording " << node_id << ":" << cut << " right " << pb2json(*r) << endl;
             cuts[cut] = make_tuple(left, emptyset, right);
             // now that we've made the cuts record the mapping between the old node id and the new
-            // start and ends
             if (offset > 0) {
+                // sets the last right to the current left
                 get<2>(cuts[offset]) = left;
             }
             offset = cut;
             n = r;
         }
+    }
+
+    // now that we've made the cuts, store the translations for the node ends
+    // we don't handle them below
+    if (!cuts.empty()) {
+        //cerr << "recording cut trans of " << node_id << ":" << 0 << " " << pb2json(*n) << " " << n << endl;
+        auto& p1 = cut_trans[make_pair(node_id, 0)];
+        Node* start = *get<0>(cuts.begin()->second).begin();
+        p1.second.insert(start);
+        auto& p2 = cut_trans[make_pair(node_id, node_seq.size())];
+        Node* end = *get<2>(cuts.rbegin()->second).begin();
+        p2.first.insert(end);
+    } else {
+        auto& p1 = cut_trans[make_pair(node_id, 0)];
+        p1.second.insert(n);
+        auto& p2 = cut_trans[make_pair(node_id, node_seq.size())];
+        p2.first.insert(n);
     }
 
     // add the novel seqs
@@ -2905,6 +2916,7 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
     }
 
     // now resolve the node jumps (trans-insertions and deletions)
+    //cerr << "resolving trans events" << endl;
     for (auto& d : del_f) {
         auto& f = d.first;
         auto& t = d.second;
@@ -2914,9 +2926,9 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
         //cerr << t.first << ":" << t.second << " " << r.first.size() << " " << r.second.size() << endl;
         // connect all left to right
         for (auto& ln : l.first) {
-            //cerr << "left node is " << pb2json(*ln) << endl;
+            //cerr << "left node is " << pb2json(*ln) << " " << ln << endl;
             for (auto& rn : r.second) {
-                //cerr << "right node is " << pb2json(*rn) << endl;
+                //cerr << "right node is " << pb2json(*rn) << " " << rn << endl;
                 create_edge(ln, rn);
             }
         }

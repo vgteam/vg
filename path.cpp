@@ -771,8 +771,15 @@ Path simplify(const Path& p) {
             // take the old position
             *n->mutable_position() = m.position();
         }
-        Edit e = m.edit(0);
-        for (size_t j = 1; j < m.edit_size(); ++j) {
+        size_t j = 0;
+        // to simplify, we skip deletions
+        // these are implied by jumps in the path
+        while (edit_is_deletion(m.edit(j))) {
+            n->mutable_position()->set_offset(n->position().offset()+m.edit(j).from_length());
+            ++j;
+        }
+        Edit e = m.edit(j++);
+        for ( ; j < m.edit_size(); ++j) {
             auto& f = m.edit(j);
             // if the edit types are the same, merge them
             if (edit_is_match(e) && edit_is_match(f)
@@ -792,7 +799,9 @@ Path simplify(const Path& p) {
             }
         }
         // and keep the last edit
-        *n->add_edit() = e;
+        // if it isn't a deletion
+        if (!edit_is_deletion(e)) *n->add_edit() = e;
+        // and store the mapping
         *s.add_mapping() = *n;
     }
     return s;    

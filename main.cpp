@@ -501,7 +501,7 @@ int main_msga(int argc, char** argv) {
         auto& name = group.first;
         if (debug) cerr << "adding " << name << endl;
         rebuild(graph);
-        graph->serialize_to_file("pre-" + name + ".vg");
+        //graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
@@ -537,7 +537,8 @@ int main_msga(int argc, char** argv) {
             aln.mutable_path()->set_name(name);
             // todo simplify in the mapper itself when merging the banded bits
             // ... note to self, the problem with the paths looks to be in paths.cpp
-            //if (debug) cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
+            //if (debug) cerr << "final path for " << name << " pre-simplify " << pb2json(aln.path()) << endl;
+            //if (debug) cerr << "final path for " << name << " post-simplify " << pb2json(simplify(aln.path())) << endl;
             if (debug) cerr << "including path for " << name << endl;
             graph->include(simplify(aln.path()));
             // now repeat back the path

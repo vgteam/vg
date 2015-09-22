@@ -279,8 +279,12 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
 Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int band_width) {
     // split the alignment up into overlapping chunks of band_width size
     list<Alignment> alignments;
-    // force bandwidth to be divisible by 4
-    band_width += band_width % 4;
+    // force used bandwidth to be divisible by 4
+    // round up so we have > band_width
+    //cerr << "trying band width " << band_width << endl;
+    if (band_width % 4) {
+        band_width -= band_width % 4; band_width += 4;
+    }
     assert(read.sequence().size() > band_width);
     int div = 2;
     while (read.sequence().size()/div > band_width) {
@@ -288,9 +292,12 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     }
     int segment_size = read.sequence().size()/div;
     // use segment sizes divisible by 4, as this simplifies math
+    // round up as well
     // we'll divide the overlap by 2 and 2 and again when stripping from the start
     // and end of sub-reads
-    segment_size += segment_size % 4;
+    if (segment_size % 4) {
+        segment_size -= segment_size % 4; segment_size += 4;
+    }
     //cerr << "Segment size be " << segment_size << endl;
     // and overlap them too
     size_t to_align = div * 2 - 1; // number of alignments we'll do
