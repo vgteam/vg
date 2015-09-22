@@ -82,9 +82,11 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
             nonoverlapping_node_context_without_paths(node, g);
             //set<pair<string, Mapping*> >& Paths::get_node_mapping(int64_t id);
             auto& mappings = paths.get_node_mapping(node);
+            //cerr << "getting node mappings for " << node->id() << endl;
             for (auto m : mappings) {
                 auto& name = m.first;
                 auto mapping = m.second;
+                //cerr << "mapping " << name << pb2json(*mapping) << endl;
                 sorted_paths[name][paths.mapping_path_order[mapping]] = mapping;
             }
         }
@@ -777,6 +779,30 @@ void VG::dice_nodes(int max_node_size) {
         }
     }
 }
+
+/*
+void VG::normalize(size_t node_max_size) {
+    // remove nodes that repeat something another node says at the same location in the graph
+    remove_redundancy();
+    // where a single edge lies between two nodes, combine them
+    simplify_nodes();
+    // cut up the nodes to a target size
+    dice_nodes(max_node_size);
+    // sort the graph in a stable way
+    sort();
+    // and give ids based on the sort
+    compact_ids();
+}
+
+void VG::remove_redundancy(void) {
+    // for each node
+    // do we share our incoming edges with another node?
+    // does that node have the same start sequence as us?
+    // if so, pick a node to keep, step through until we're to the end of the identical sequence
+    // or we have exhausted sequence in the other node(s)
+    // cut, and forward edges from the end of the redundant node
+}
+*/
 
 
 void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
@@ -2481,14 +2507,15 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 
 // VG::edit_node takes a node and a set of mappings (consecutive sequences of edits starting at some
 // offset in a node), modifies the node, and records its translation of the node space in cut_trans.
-// We use cut_trans in VG::edit to handle multi-node events, such as deletions.
+// We use cut_trans in VG::edit to handle multi-node events, such as deletions and jumps that
+// traverse more than one node.
 // Mappings are provided as a tuple of <offset, mapping, start/end indicator>, where the
 // start/end indicator lets us know if the mapping may contain a soft clip from the start (-1) or
 // end (1) of a path. (0) indicates full containment of the mapping in the path we are including.
 
 void VG::edit_node(int64_t node_id,
                    const vector<tuple<Mapping, bool, bool> >& mappings,
-                   map<pair<size_t, int64_t>, pair<set<Node*>, set<Node*>>>& cut_trans) {
+                   map<pair<int64_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans) {
 
     //cerr << "editing node " << node_id << endl;
 
@@ -2506,6 +2533,7 @@ void VG::edit_node(int64_t node_id,
         auto& mapping = get<0>(m);
         bool at_start = get<1>(m);
         bool at_end = get<2>(m);
+        //cerr << "editing on node " << node_id << " with mapping " << pb2json(mapping) << endl;
         // check that we're really working on one node
         assert(mapping.position().node_id() == node_id);
         size_t offset = mapping.position().offset();
@@ -2519,10 +2547,18 @@ void VG::edit_node(int64_t node_id,
             //if (edit_is_match(edit) || edit_is_softclip(edit)) {
             if (edit.sequence().empty() && edit.from_length() == edit.to_length()) {
                 // match, ignore
+                // to handle soft clips
             } else if ((i == 0 || i == mapping.edit_size() - 1) && edit.from_length() == 0) {
                 // end == offset by definition
                 cut_at.insert(offset);
                 cut_seqs[make_pair(offset, end)][name]
+                    = make_tuple(edit,
+                                 at_start && i == 0,
+                                 at_end && i == mapping.edit_size()-1);
+            } else if (edit_is_insertion(edit)) {
+                //cerr << "found an insertion " << pb2json(edit) << endl;
+                cut_at.insert(offset);
+                cut_seqs[make_pair(offset, offset)][name]
                     = make_tuple(edit,
                                  at_start && i == 0,
                                  at_end && i == mapping.edit_size()-1);
@@ -2536,19 +2572,22 @@ void VG::edit_node(int64_t node_id,
             offset = end;
         }
     }
+
+    // here come the cuts
+    // boom, dis is for debugging
     /*
     for (auto cut : cut_at) {
         cerr << "cut_at: " << cut << endl;
     }
+    //     map<pair<int, int>, map<string, tuple<Edit, bool, bool>>> cut_seqs;
     for (auto cut : cut_seqs) {
         cerr << "cut_seq: " << cut.first.first << "," << cut.first.second << " ";
         for (auto s : cut.second) {
-            cerr << " " << s.first << "," << s.second << " ";
+            cerr << " " << s.first << "," << pb2json(get<0>(s.second)) << " ";
         }
         cerr << endl;
     }
     */
-
 
     // tricky bit
     // we need to put the node pointers into structures to track the sides of each cut
@@ -2564,22 +2603,40 @@ void VG::edit_node(int64_t node_id,
     // make the cuts
     set<Node*> emptyset;
     for (auto cut : cut_at) {
-        // don't cut if it would be at the end of the sequence
-        if (n->sequence().size()) {
+        //cerr << "cuttin at " << cut-offset << endl;
+        // don't cut if it we already have the cut as the node end
+        if (cut != 0 && cut != node_seq.size()) {
             divide_node(n, cut-offset, l, r);
+            set<Node*> left{l};
+            set<Node*> right{r};
+            //cerr << "recording " << node_id << ":" << cut << " left " << pb2json(*l) << endl;
+            //cerr << "recording " << node_id << ":" << cut << " right " << pb2json(*r) << endl;
+            cuts[cut] = make_tuple(left, emptyset, right);
+            // now that we've made the cuts record the mapping between the old node id and the new
+            if (offset > 0) {
+                // sets the last right to the current left
+                get<2>(cuts[offset]) = left;
+            }
+            offset = cut;
+            n = r;
         }
-        set<Node*> left{l};
-        set<Node*> right{r};
-        cuts[cut] = make_tuple(left, emptyset, right);
-        // now that we've made the cuts record the mapping between the old node id and the new
-        // start and ends
+    }
 
-        // adjust last cut (we just cut up the second node in the pair)
-        if (offset > 0) {
-            get<2>(cuts[offset]) = left;
-        }
-        offset = cut;
-        n = r;
+    // now that we've made the cuts, store the translations for the node ends
+    // we don't handle them below
+    if (!cuts.empty()) {
+        //cerr << "recording cut trans of " << node_id << ":" << 0 << " " << pb2json(*n) << " " << n << endl;
+        auto& p1 = cut_trans[make_pair(node_id, 0)];
+        Node* start = *get<0>(cuts.begin()->second).begin();
+        p1.second.insert(start);
+        auto& p2 = cut_trans[make_pair(node_id, node_seq.size())];
+        Node* end = *get<2>(cuts.rbegin()->second).begin();
+        p2.first.insert(end);
+    } else {
+        auto& p1 = cut_trans[make_pair(node_id, 0)];
+        p1.second.insert(n);
+        auto& p2 = cut_trans[make_pair(node_id, node_seq.size())];
+        p2.first.insert(n);
     }
 
     // add the novel seqs
@@ -2598,14 +2655,13 @@ void VG::edit_node(int64_t node_id,
             if (!edit.sequence().empty()) {
                 Node* c = create_node(edit.sequence());
                 // add to path
-                paths.append_mapping(name, c->id(), false);
+                //paths.append_mapping(name, c->id(), false);
                 center.insert(c);
             }
         }
     }
 
     // join in the novel seqs
-    // remember: map<pair<int, int>, vector<string> > cut_seqs;
     for (auto& cs : cut_seqs) {
         // get the left and right
         int f = cs.first.first; // we go from after the left node at this cut
@@ -2614,12 +2670,13 @@ void VG::edit_node(int64_t node_id,
         auto& center = get<1>(cuts[f]);
         auto& right = get<2>(cuts[t]);
         //cerr << "cut seq " << f << ":" << t << " "
-        //<< left.size() << "," << center.size() << "," << right.size() << endl;
+        //     << left.size() << "," << center.size() << "," << right.size() << endl;
         for (auto& e : cs.second) {
             const string& name = e.first;
             const Edit& edit = get<0>(e.second);
             bool at_start = get<1>(e.second);
             bool at_end = get<2>(e.second);
+            //cerr << "in cs " << name << " " << pb2json(edit) << endl;
             for (auto& lp : left) {
                 for (auto& rp : right) {
                     if (!center.empty()) {
@@ -2648,13 +2705,18 @@ void VG::edit_node(int64_t node_id,
                         // make the edge across the single cut
                         // and record the translation
                         auto& p1 = cut_trans[make_pair(node_id, f)];
+                        //cerr << "cut trans " << node_id << ":" << f << endl;
+                        //cerr << pb2json(*lp) << " -> " << pb2json(*rp) << endl;
                         p1.first.insert(lp);
                         p1.second.insert(rp);
-                        auto& p2 = cut_trans[make_pair(node_id, t)];
-                        p2.first.insert(lp);
-                        p2.second.insert(rp);
-                        //cerr << "cut trans " << *p.first.begin() << " " << *p.second.begin() << endl;
-                        //cerr << node_id << ":" << f << endl;
+                        if (f != t) {
+                            //cerr << "f != t" << endl;
+                            //cerr << "cut trans " << node_id << ":" << t << endl;
+                            auto& p2 = cut_trans[make_pair(node_id, t)];
+                            //cerr << pb2json(*lp) << " -> " << pb2json(*rp) << endl;
+                            p2.first.insert(lp);
+                            p2.second.insert(rp);
+                        }
                     }
                 }
             }
@@ -2665,15 +2727,118 @@ void VG::edit_node(int64_t node_id,
     // deletions spanning multiple nodes must be handled externally using cut_trans
 }
 
+// edit the graph, so that the graph will include the paths which are provided
+// beware:
+// this doesn't work on the reverse strand
+// to get this to work, we should be using NodeSides rather than pair<int64_t, size_t>
+// to track cuts and positions in the system
 void VG::edit(const vector<Path>& paths) {
+    //cerr << "editing graph" << endl;
+    // deletions from this node position/offset on the forward strand to the second position/offset
     map<pair<int64_t, size_t>, pair<int64_t, size_t> > del_f;
+    // reverse index of the above
     map<pair<int64_t, size_t>, pair<int64_t, size_t> > del_t;
+    // mappings by node, each is stored as a tuple of <mapping, is_at_start, is_at_end>
     map<int64_t, vector<tuple<Mapping, bool, bool>>> mappings; // by node
+    // the cut_trans(lation) maps from positions in the old graph (pair<size_t, int64_t>)
+    // to tuples of nodes that sets of nodes that now lie on either side of these
+    // to handle long jumps with sequence on the path
+    map<pair<int64_t, size_t>, pair<set<Node*>, set<Node*> > > cut_trans;
     bool in_del = false;
     pair<int64_t, size_t> del_start;
-    for (auto& path : paths) {
+    for (auto& p : paths) { 
+        auto path = simplify(p);
         for (int i = 0; i < path.mapping_size(); ++i) {
             Mapping mapping = path.mapping(i);
+            //if (!mapping.has_position()) cerr << "woah mapping got no position " << pb2json(mapping) << endl;
+            if (i > 0) {
+                auto& last = path.mapping(i-1);
+                // do we go from in-node to off-node between this mapping and the next
+                // without reaching the end of the node we're on?
+                // this would indicate a jump!
+                int64_t lid = last.position().node_id();
+                int64_t nid = mapping.position().node_id();
+                //cerr << "there is a possible jump " << lid << " -> " << nid << endl;
+                    
+                // now it's possible that we are cutting the two nodes as well with the jump
+                // to make the cut, we have to find the mapping end offset on the first node
+                size_t loff = last.position().offset() + mapping_from_length(last);
+                // and the mapping start offset on the second
+                size_t noff = mapping.position().offset();
+                // should there be sequence on the path?
+                // get the sequence after the loff and before the noff
+                auto lafter = cut_mapping(last, loff).second;
+                auto nbefore = cut_mapping(mapping, noff).first;
+                string ins_seq;
+                if (mapping_to_length(lafter) + mapping_to_length(nbefore)) {
+                    //cerr << "there be an insertion!" << endl;
+                    // path has been simplified, each insertion will be == 1 edit
+                    ins_seq = (lafter.edit_size()?lafter.edit(lafter.edit_size()-1).sequence():"")
+                        + (nbefore.edit_size()?nbefore.edit(0).sequence():"");
+                }
+                // record the jumps and cut trans in del_f and del_t
+                // these they will be included at the end of this function
+                if (ins_seq.empty()) {
+                    auto dstart = make_pair(lid, loff);
+                    auto dend =   make_pair(nid, noff);
+                    del_f[dstart] = dend;
+                    del_t[dend] = dstart;
+                } else {
+                    //cerr << "creating insertion node" << endl;
+                    //cerr << "we'll also need to record it in our cut translation" << endl;
+                    Node* ins = create_node(ins_seq);
+                    auto dstart1 = make_pair(lid, loff);
+                    auto dend1 = make_pair(ins->id(), 0);
+                    del_f[dstart1] = dend1;
+                    del_t[dend1] = dstart1;
+                    auto& p1 = cut_trans[make_pair(lid, loff)];
+                    p1.second.insert(ins);
+                        
+                    // record the middle of the insertion in the trans
+                    auto& p1m = cut_trans[make_pair(ins->id(), 0)];
+                    p1m.second.insert(ins);
+                    auto& p2m = cut_trans[make_pair(ins->id(), ins->sequence().size())];
+                    p2m.first.insert(ins);
+
+                    auto dstart2 = make_pair(ins->id(), ins_seq.size());
+                    auto dend2 = make_pair(nid, noff);
+                    del_f[dstart2] = dend2;
+                    del_t[dend2] = dstart2;
+                    auto& p2 = cut_trans[make_pair(nid, noff)];
+                    p2.first.insert(ins);
+                }
+                // trigger the appropriate node-level edits by making two new mappings
+                // against the nodes which include 1-bp no-seq insertions at the correct position
+                // these won't be included but trigger the node cut
+                Info info; info.set_str(path.name());
+                Mapping lmap;
+                {
+                    lmap.mutable_position()->set_node_id(lid);
+                    (*lmap.mutable_metadata()->mutable_info())["path_name"] = info;
+                    Edit* edit = lmap.add_edit();
+                    edit->set_to_length(loff);
+                    edit->set_from_length(loff);
+                    edit = lmap.add_edit();
+                    edit->set_from_length(0);
+                    edit->set_to_length(1);
+                }
+                Mapping nmap;
+                {
+                    nmap.mutable_position()->set_node_id(nid);
+                    (*nmap.mutable_metadata()->mutable_info())["path_name"] = info;
+                    Edit* edit = nmap.add_edit();
+                    edit->set_to_length(noff);
+                    edit->set_from_length(noff);
+                    edit = nmap.add_edit();
+                    edit->set_from_length(0);
+                    edit->set_to_length(1);
+                }
+                //cerr << "lmap is " << pb2json(lmap) << " and nmap is " << pb2json(nmap) << endl;
+                // and save them
+                // note that we store them as being "from the start" only
+                mappings[last.position().node_id()].push_back(make_tuple(lmap, true, false));
+                mappings[mapping.position().node_id()].push_back(make_tuple(nmap, true, false));
+            }
             Info info; info.set_str(path.name());
             (*mapping.mutable_metadata()->mutable_info())["path_name"] = info;
             // -1 if we are at the start, 1 if at the end, 0 otherwise
@@ -2706,7 +2871,6 @@ void VG::edit(const vector<Path>& paths) {
             }
 
             // not just ones that jump nodes
-
             if (!in_del) {
                 if (mapping_starts_in_deletion(mapping) && i > 0) {
                     // this deletion should extend from the end of the last node to this one
@@ -2736,44 +2900,35 @@ void VG::edit(const vector<Path>& paths) {
             }
         }
     }
-    edit(mappings, del_f, del_t);
+    edit(mappings, cut_trans, del_f, del_t);
 }
 
 // mappings sorted by node id
 void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings,
+              map<pair<int64_t, size_t>, pair<set<Node*>, set<Node*> > >& cut_trans,
               map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_f,
               map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_t) {
-    // we are adding the edits to the graph
-    // doing this correctly requires us to keep track of where the other end of
-    // deletions of the starts and ends (or whole) nodes would land
-    // in this way we can produce edges that jump between the
 
-    // deletions are not node local
-    // so how do we deal with them?
-    //  - we will need to process the graph in a partially-ordered way
-    //  - or at least the region where they happen
-    //  maybe the easiest thing to do is to try to store them in the graph
-    // we can try to convert them into a node local event
-    // this would be easy using node
     map<int64_t, pair<Node*, Node*> > node_end_map;
-    map<pair<size_t, int64_t>, pair<set<Node*>, set<Node*> > > cut_trans;
     for (auto& node : mappings) {
         //cerr << "edit: " << node.first << endl;
         edit_node(node.first, node.second, cut_trans);
     }
 
-    // now resolve the deletions
+    // now resolve the node jumps (trans-insertions and deletions)
+    //cerr << "resolving trans events" << endl;
     for (auto& d : del_f) {
         auto& f = d.first;
-        //cerr << "del" << endl;
-        //cerr << f.first << ":" << f.second << endl;
         auto& t = d.second;
-        //cerr << t.first << ":" << t.second << endl;
         auto& l = cut_trans[f];
         auto& r = cut_trans[t];
-        // connect the left side of the from to the to-side of the to
+        //cerr << f.first << ":" << f.second << " " << l.first.size() << " " << l.second.size() << endl;
+        //cerr << t.first << ":" << t.second << " " << r.first.size() << " " << r.second.size() << endl;
+        // connect all left to right
         for (auto& ln : l.first) {
+            //cerr << "left node is " << pb2json(*ln) << " " << ln << endl;
             for (auto& rn : r.second) {
+                //cerr << "right node is " << pb2json(*rn) << " " << rn << endl;
                 create_edge(ln, rn);
             }
         }
@@ -2819,6 +2974,7 @@ string VG::path_sequence(const Path& path) {
     return sequence;
 }
 
+// todo record as an alignment rather than a string
 string VG::random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id, bool either_strand) {
     uniform_int_distribution<int64_t> int64_dist(min_id, max_id);
     int64_t id = int64_dist(rng);
@@ -3008,22 +3164,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
         // We're going to annotate the paths, so we need to give them symbols and colors.
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        set<string> used_colors; // cycle through these
-    
         // Work out what path symbols belong on what edges
-        function<void(Path&)> lambda = [this, &picts, &colors, &symbols_for_edge, &used_colors](Path& path) {
+        function<void(Path&)> lambda = [this, &picts, &colors, &symbols_for_edge](Path& path) {
             // Make up the path's label
-            string path_label = picts.random();
-            if (used_colors.size() == colors.colors.size()) {
-                used_colors.clear();
-            }
-            string color = colors.random();
-            while (used_colors.count(color)) {
-                color = colors.random();
-            }
-            used_colors.insert(color);
-            
-            
+            string path_label = picts.hashed(path.name());
+            string color = colors.hashed(path.name());
             for (int i = 0; i < path.mapping_size(); ++i) {
                 const Mapping& m1 = path.mapping(i);
                 if (i < path.mapping_size()-1) {
@@ -3177,20 +3322,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
         int pathid = alnid;
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        set<string> used_colors; // cycle through these
-        
         function<void(Path&)> lambda = 
-            [this,&pathid,&out,&picts,&colors,&used_colors,show_paths,walk_paths]
+            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths]
             (Path& path) {
-            string path_label = picts.random();
-            if (used_colors.size() == colors.colors.size()) {
-                used_colors.clear();
-            }
-            string color = colors.random();
-            while (used_colors.count(color)) {
-                color = colors.random();
-            }
-            used_colors.insert(color);
+            string path_label = picts.hashed(path.name());
+            string color = colors.hashed(path.name());
             if (show_paths) {
                 for (int i = 0; i < path.mapping_size(); ++i) {
                     const Mapping& m = path.mapping(i);
@@ -4383,17 +4519,27 @@ void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
         }
         
     };
-    
+
     // Run on each KmerPosition. This populates start_end_id, if it was 0, before calling convert_kmer.
     for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
                                          forward_only,
                                          head_id, tail_id,
                                          convert_kmer);
-                                         
-    
+
     for(auto& thread_output : thread_outputs) {
         // Now throw everything into the output vector
-        kmers_out.insert(kmers_out.end(), make_move_iterator(thread_output.begin()), make_move_iterator(thread_output.end()));
+        kmers_out.insert(kmers_out.end(),
+                         make_move_iterator(thread_output.begin()),
+                         make_move_iterator(thread_output.end()));
+    }
+
+    for(auto& kmer : kmers_out) {
+        // Mark kmers that go to the sink node as "sorted", since they have stop
+        // characters in them and can't be extended.
+        // If we don't do this GCSA will get unhappy and we'll see random segfalts and stack smashing errors
+        if(gcsa::Node::id(kmer.to) == tail_id && gcsa::Node::offset(kmer.to) > 0) {
+            kmer.makeSorted();
+        }
     }
     
 }

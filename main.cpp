@@ -16,6 +16,8 @@
 #include "stream.hpp"
 #include "alignment.hpp"
 #include "convert.hpp"
+#include "pileup.hpp"
+#include "caller.hpp"
 #include "google/protobuf/stubs/common.h"
 
 using namespace std;
@@ -149,24 +151,284 @@ int main_compare(int argc, char** argv) {
 return 0;
 }
 
+void help_call(char** argv) {
+    cerr << "usage: " << argv[0] << " call [options] <pileup.vgpu> > out.gam" << endl
+         << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
+         << "Output can be merged back into the graph using vg mod -i." << endl
+         << endl
+         << "options:" << endl
+         << "    -d, --min_depth      minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
+         << "    -h, --het_prior      prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
+         << "    -j, --json           output in JSON" << endl
+         << "    -p, --progress       show progress" << endl
+         << "    -t, --threads N      number of threads to use" << endl;
+}
+
+int main_call(int argc, char** argv) {
+
+    if (argc <= 2) {
+        help_call(argv);
+        return 1;
+    }
+
+    double het_prior = Caller::Default_het_prior;
+    int min_depth = Caller::Default_min_depth;
+    bool output_json = false;
+    bool show_progress = false;
+    int thread_count = 1;
+
+    int c;
+    optind = 2; // force optind past command positional arguments
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"min_depth", required_argument, 0, 'd'},
+                {"json", no_argument, 0, 'j'},
+                {"progress", no_argument, 0, 'p'},
+                {"het_prior", required_argument, 0, 'r'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "d:jpr:t:",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'd':
+            min_depth = atoi(optarg);
+            break;
+        case 'j':
+            output_json = true;
+            break;
+        case 'p':
+            show_progress = true;
+            break;
+        case 'r':
+            het_prior = atoi(optarg);
+            break;
+        case 't':
+            thread_count = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_call(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+    omp_set_num_threads(thread_count);
+    thread_count = get_thread_count();
+
+    // setup pileup stream
+    string pileup_file_name = argv[optind];
+    istream* pileup_stream = NULL;
+    ifstream in;
+    if (pileup_file_name == "-") {
+        pileup_stream = &std::cin;
+    } else {
+        in.open(pileup_file_name);
+        if (!in) {
+            cerr << "error: input file " << pileup_file_name << " not found." << endl;
+            exit(1);
+        }
+        pileup_stream = &in;
+    }
+
+    // compute the pileups.
+    if (show_progress) {
+        cerr << "Computing variants" << endl;
+    }
+    vector<Caller> callers;
+    for (int i = 0; i < thread_count; ++i) {
+        callers.push_back(Caller(Caller::Default_buffer_size, het_prior, min_depth));
+    }
+    function<void(NodePileup&)> lambda = [&callers, &output_json](NodePileup& pileup) {
+        int tid = omp_get_thread_num();
+        callers[tid].call_node_pileup(pileup, cout, output_json);
+    };
+    stream::for_each_parallel(*pileup_stream, lambda);
+
+    // empty out any remaining buffers
+    for (int i = 0; i < callers.size(); ++i) {
+      callers[i].flush_buffer(cout, output_json);
+    }
+
+    return 0;
+}
+
+void help_pileup(char** argv) {
+    cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.vgpu" << endl
+         << "Calculate pileup for each position in graph and output in VG Pileup format (list of protobuf NodePileups)." << endl
+         << endl
+         << "options:" << endl
+         << "    -j, --json           output in JSON" << endl
+         << "    -p, --progress       show progress" << endl
+         << "    -t, --threads N      number of threads to use" << endl;
+}
+
+int main_pileup(int argc, char** argv) {
+
+    if (argc <= 3) {
+        help_pileup(argv);
+        return 1;
+    }
+
+    bool output_json = false;
+    bool show_progress = false;
+    int thread_count = 1;
+
+    int c;
+    optind = 2; // force optind past command positional arguments
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"json", required_argument, 0, 'j'},
+                {"progress", required_argument, 0, 'p'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "jpt:",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'j':
+            output_json = true;
+            break;
+        case 'p':
+            show_progress = true;
+            break;
+        case 't':
+            thread_count = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_pileup(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+    omp_set_num_threads(thread_count);
+    thread_count = get_thread_count();
+
+    // read the graph
+    if (show_progress) {
+        cerr << "Reading input graph" << endl;
+    }
+    VG* graph;
+    string graph_file_name = argv[optind++];
+    if (graph_file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(graph_file_name.c_str());
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        graph = new VG(in);
+    }
+
+    // setup alignment stream
+    string alignments_file_name = argv[optind++];
+    istream* alignment_stream = NULL;
+    ifstream in;
+    if (alignments_file_name == "-") {
+        if (alignments_file_name == "-") {
+            cerr << "error: graph and alignments can't both be from stdin." << endl;
+            exit(1);
+        }
+        alignment_stream = &std::cin;
+    } else {
+        in.open(alignments_file_name);
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        alignment_stream = &in;
+    }
+
+    // compute the pileups.
+    if (show_progress) {
+        cerr << "Computing pileups" << endl;
+    }
+    vector<Pileups> pileups(thread_count);
+    function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
+        int tid = omp_get_thread_num();
+        pileups[tid].compute_from_alignment(*graph, aln);
+    };
+    stream::for_each_parallel(*alignment_stream, lambda);
+
+    // single-threaded (!) merge
+    if (show_progress && pileups.size() > 1) {
+        cerr << "Merging pileups" << endl;
+    }
+    for (int i = 1; i < pileups.size(); ++i) {
+        pileups[0].merge(pileups[i]);
+    }
+    // spit out the pileup
+    if (show_progress) {
+        cerr << "Writing pileups" << endl;
+    }
+    if (output_json == false) {
+      pileups[0].write(std::cout);
+    } else {
+      pileups[0].to_json(std::cout);
+    }
+
+    delete graph;
+    return 0;
+}
+  
 void help_msga(char** argv) {
     cerr << "usage: " << argv[0] << " msga [options] >graph.vg" << endl
          << "Multiple sequence / graph aligner." << endl
          << endl
          << "options:" << endl
-         << "    -f, --from FILE       use sequneces in (fasta) FILE" << endl
-         << "    -n, --name NAME       include this sequence" << endl
-         << "                           (If any --name is specified, use only" << endl
-         << "                            specified sequences from FASTA files.)" << endl
-         << "    -b, --base NAME       use this sequence as the graph basis if graph is empty" << endl
-         << "    -s, --seq SEQUENCE    literally include this sequence" << endl
-         << "    -g, --graph FILE      include this graph" << endl
-         << "    -X, --fragment N      break apart input sequences and sample sequences from input graphs of" << endl
-         << "                          no more than this length" << endl
-         << "    -k, --kmer-size N     use kmers of size N when mapping" << endl
-         << "    -B, --band-width N    use this bandwidth when mapping" << endl
-         << "    -D, --debug           print debugging information about construction to stderr" << endl
-         << "    -A, --debug-align     print debugging information about alignment to stderr" << endl
+         << "    -f, --from FILE         use sequneces in (fasta) FILE" << endl
+         << "    -n, --name NAME         include this sequence" << endl
+         << "                             (If any --name is specified, use only" << endl
+         << "                              specified sequences from FASTA files.)" << endl
+         << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
+         << "    -s, --seq SEQUENCE      literally include this sequence" << endl
+         << "    -g, --graph FILE        include this graph" << endl
+         << "    -F, --fragment N        break apart input sequences and sample sequences from input graphs of" << endl
+         << "                            no more than this length" << endl
+         << "    -k, --map-kmer-size N   use kmers of size N when mapping (default: 16)" << endl
+         << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold (default: 5)" << endl
+         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
+         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
+         << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
+         << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
+         << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
+         << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
+         << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
+         << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
+         << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -D, --debug             print debugging information about construction to stderr" << endl
+         << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
+         << "    -t, --threads N         number of threads to use" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
          << "input fasta-format files, graphs, and sequences." << endl
@@ -177,7 +439,7 @@ void help_msga(char** argv) {
 int main_msga(int argc, char** argv) {
 
     if (argc == 2) {
-        help_msga(argv);
+         help_msga(argv);
         return 1;
     }
 
@@ -191,14 +453,27 @@ int main_msga(int argc, char** argv) {
     bool reverse_complement = false;
     string base_seq_name;
     size_t max_fragment_length = 100000; // 100kb
-    int kmer_size = 0;
     int edge_max = 0;
-    int kmer_stride = 1;
+    int idx_kmer_size = 16;
+    int idx_doublings = 2;
+    int kmer_size = 16;
+    int kmer_stride = 0;
+    int sens_step = 0;
+    int best_clusters = 0;
+    int cluster_min = 1;
+    int max_attempts = 10;
+    // if this is set too low, we may miss optimal alignments
+    int context_depth = 3;
+    float min_score_per_bp = 1.5;
+    float min_kmer_entropy = 0;
     int band_width = 1000;
     size_t doubling_steps = 2;
     bool debug = false;
     bool debug_align = false;
     size_t fragment_size = 0;
+    size_t node_max = 0;
+    size_t kmer_min = 5;
+    int alignment_threads = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -211,16 +486,25 @@ int main_msga(int argc, char** argv) {
                 {"seq", required_argument, 0, 's'},
                 {"graph", required_argument, 0, 'g'},
                 {"base", required_argument, 0, 'b'},
-                {"kmer-size", required_argument, 0, 'k'},
+                {"idx-kmer-size", required_argument, 0, 'K'},
+                {"idx-doublings", required_argument, 0, 'X'},
+                {"map-kmer-size", required_argument, 0, 'k'},
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
-                {"fragment", required_argument, 0, 'X'},
+                {"fragment", required_argument, 0, 'F'},
+                {"sens-step", required_argument, 0, 'S'},
+                {"kmer-stride", required_argument, 0, 'j'},
+                {"max-attempts", required_argument, 0, 'M'},
+                {"context-depth", required_argument, 0, 'd'},
+                {"cluster-min", required_argument, 0, 'C'},
+                {"score-per-bp", required_argument, 0, 'P'},
+                {"kmer-min", required_argument, 0, 'l'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAX:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -230,6 +514,26 @@ int main_msga(int argc, char** argv) {
         switch (c)
         {
 
+        case 'S':
+            sens_step = atoi(optarg);
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
+
+        case 'M':
+            max_attempts = atoi(optarg);
+            break;
+
+        case 'd':
+            context_depth = atoi(optarg);
+            break;
+
+        case 'C':
+            cluster_min = atoi(optarg);
+            break;
+            
         case 'f':
             fasta_files.push_back(optarg);
             break;
@@ -259,6 +563,10 @@ int main_msga(int argc, char** argv) {
             kmer_size = atoi(optarg);
             break;
 
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
+
         case 'B':
             band_width = atoi(optarg);
             break;
@@ -271,8 +579,29 @@ int main_msga(int argc, char** argv) {
             debug_align = true;
             break;
 
-        case 'X':
+        case 'F':
             fragment_size = atoi(optarg);
+            break;
+
+        case 'X':
+            doubling_steps = atoi(optarg);
+            break;
+
+        case 'K':
+            idx_kmer_size = atoi(optarg);
+            break;
+
+        case 'm':
+            node_max = atoi(optarg);
+            break;
+
+        case 'P':
+            min_score_per_bp = atof(optarg);
+            break;
+
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            alignment_threads = atoi(optarg);
             break;
 
         case 'h':
@@ -351,9 +680,10 @@ int main_msga(int argc, char** argv) {
     }
 
     assert(kmer_size > 0);
-    size_t max_query_size = pow(2, doubling_steps) * kmer_size;
+    size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
     // limit max node size
-    graph->dice_nodes(2*kmer_size);
+    if (!node_max) node_max = 2*idx_kmer_size;
+    graph->dice_nodes(node_max);
     graph->sort();
     graph->compact_ids();
 
@@ -364,64 +694,95 @@ int main_msga(int argc, char** argv) {
     Mapper* mapper = nullptr;
     gcsa::GCSA* gcsaidx = nullptr;
     xg::XG* xgidx = nullptr;
+    size_t iter = 0;
+
+    auto rebuild = [&mapper,
+                    &gcsaidx,
+                    &xgidx,
+                    debug,
+                    debug_align,
+                    &iter,
+                    idx_kmer_size,
+                    doubling_steps,
+                    kmer_min,
+                    sens_step,
+                    cluster_min,
+                    context_depth,
+                    max_attempts,
+                    min_score_per_bp,
+                    alignment_threads](VG* graph) {
+        //stringstream s; s << iter++ << ".vg";
+        //graph->serialize_to_file(s.str());
+        if (debug) cerr << "building xg index" << endl;
+        if (xgidx) delete xgidx;
+        xgidx = new xg::XG(graph->graph);
+        if (debug) cerr << "building GCSA2 index" << endl;
+        if (gcsaidx) delete gcsaidx;
+        gcsaidx = graph->build_gcsa_index(idx_kmer_size, true, doubling_steps);
+        if (mapper) delete mapper;
+        mapper = new Mapper(xgidx, gcsaidx);
+        { // set mapper variables
+            mapper->debug = debug_align;
+            //if (score_per_bp) mapper->target_score_per_bp = score_per_bp;
+            if (sens_step) mapper->kmer_sensitivity_step = sens_step;
+            //mapper->prefer_forward = prefer_forward;
+            //mapper->greedy_accept = greedy_accept;
+            //mapper->thread_extension = thread_ex;
+            mapper->cluster_min = cluster_min;
+            mapper->context_depth = context_depth;
+            mapper->max_attempts = max_attempts;
+            //mapper->min_kmer_entropy = min_kmer_entropy;
+            mapper->min_score_per_bp = min_score_per_bp;
+            mapper->kmer_min = kmer_min;
+            mapper->alignment_threads = alignment_threads;
+        }
+    };
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
         auto& name = group.first;
-        if (debug) cerr << "adding " << name << endl;
-        if (debug) cerr << "building xg index" << endl;
-        if (xgidx) delete xgidx;
-        xgidx = new xg::XG(graph->graph);
-        if (debug) cerr << "building GCSA2 index" << endl;
-        if (gcsaidx) delete gcsaidx;
-        gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
-        if (mapper) delete mapper;
-        mapper = new Mapper(xgidx, gcsaidx);
-        mapper->debug = debug_align;
+        if (debug) cerr << name << ": adding to graph" << endl;
+        rebuild(graph);
+        //graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
-            if (debug) cerr << "aligning " << name << endl;
-            Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
         }
+        if (debug) cerr << name << ": editing graph" << endl;
         graph->edit(paths);
         graph->paths.clear();
-        graph->dice_nodes(2*kmer_size);
+        if (debug) cerr << name << ": normalizing node size" << endl;
+        graph->dice_nodes(node_max);
+        if (debug) cerr << name << ": sorting and compacting ids" << endl;
         graph->sort();
         graph->compact_ids();
-        //if (!graph->is_valid()) cerr << "graph is invalid" << endl;
+        //if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
+        //graph->serialize_to_file("out.vg");
     }
 
-    // re-compact the ID space
-    graph->sort();
-    graph->compact_ids();
+    rebuild(graph);
 
-    // todo at least make this a lambda
-    { // reset indexes
-        if (xgidx) delete xgidx;
-        if (debug) cerr << "building xg index" << endl;
-        xgidx = new xg::XG(graph->graph);
-        if (debug) cerr << "building GCSA2 index" << endl;
-        if (gcsaidx) delete gcsaidx;
-        gcsaidx = graph->build_gcsa_index(kmer_size, true, doubling_steps);
-        if (mapper) delete mapper;
-        mapper = new Mapper(xgidx, gcsaidx);
-        mapper->debug = debug_align;
-    }
     // include the paths in the graph
+    if (debug) cerr << "including paths" << endl;
     for (auto& group : strings) {
         auto& name = group.first;
-        if (debug) cerr << "adding path " << name << endl;
+        if (debug) cerr << name << ": tracing path through graph" << endl;
         for (auto& seq : group.second) {
-            if (debug) cerr << "seq.size() = " << seq.size() << endl;
-            Alignment aln = mapper->align(seq, max_query_size, max_query_size, band_width);
-            if (debug) cerr << "alignment score: " << aln.score() << endl;
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            //if (debug) cerr << "alignment score: " << aln.score() << endl;
             aln.mutable_path()->set_name(name);
+            // todo simplify in the mapper itself when merging the banded bits
+            if (debug) cerr << name << ": labeling" << endl;
             graph->include(aln.path());
+            // now repeat back the path
         }
     }
 
@@ -780,7 +1141,8 @@ void help_mod(char** argv) {
          << "Modifies graph, outputs modified on stdout." << endl
          << endl
          << "options:" << endl
-         << "    -i, --include-aln FILE  include the paths implied by alignments in the graph" << endl
+         << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
+         << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -808,6 +1170,7 @@ int main_mod(int argc, char** argv) {
     string path_name;
     bool remove_orphans = false;
     string aln_file;
+    bool label_paths = false;
     bool compact_ids = false;
     bool prune_complex = false;
     int path_length = 0;
@@ -835,11 +1198,12 @@ int main_mod(int argc, char** argv) {
                 {"kill-labels", no_argument, 0, 'K'},
                 {"markers", no_argument, 0, 'm'},
                 {"threads", no_argument, 0, 't'},
+                {"label-paths", no_argument, 0, 'P'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:K",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KP",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -897,6 +1261,10 @@ int main_mod(int argc, char** argv) {
             omp_set_num_threads(atoi(optarg));
             break;
 
+        case 'P':
+            label_paths = true;
+            break;
+
         case 'h':
         case '?':
             help_mod(argv);
@@ -930,7 +1298,7 @@ int main_mod(int argc, char** argv) {
         // read in the alignments and save their paths
         vector<Path> paths;
         function<void(Alignment&)> lambda = [&graph, &paths](Alignment& aln) {
-            Path path = simplify_deletions(aln.path());
+            Path path = simplify(aln.path());
             path.set_name(aln.name());
             paths.push_back(path);
         };
@@ -941,12 +1309,19 @@ int main_mod(int argc, char** argv) {
             in.open(aln_file.c_str());
             stream::for_each(in, lambda);
         }
-        // execute the edits
-        graph->edit(paths);
-        // and optionally compact ids
-        if (compact_ids) {
-            graph->sort();
-            graph->compact_ids();
+        if (!label_paths) {
+            // execute the edits
+            graph->edit(paths);
+            // and optionally compact ids
+            if (compact_ids) {
+                graph->sort();
+                graph->compact_ids();
+            }
+        } else {
+            // just add the path labels to the graph
+            for (auto& path : paths) {
+                graph->paths.extend(path);
+            }
         }
     }
 
@@ -2895,6 +3270,8 @@ void help_map(char** argv) {
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
+         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold" << endl
+         << "    -P, --score-per-bp N  accept alignment only if the alignment score per base is > N" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 2)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
@@ -2949,6 +3326,8 @@ int main_map(int argc, char** argv) {
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
     float min_kmer_entropy = 0;
+    float min_score_per_bp = 0;
+    size_t kmer_min = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2987,12 +3366,14 @@ int main_map(int argc, char** argv) {
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},
+                {"score-per-bp", required_argument, 0, 'P'},
+                {"kmer-min", required_argument, 0, 'l'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3126,7 +3507,15 @@ int main_map(int argc, char** argv) {
         case 'B':
             band_width = atoi(optarg);
             break;
- 
+
+        case 'P':
+            min_score_per_bp = atof(optarg);
+            break;
+
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -3253,6 +3642,8 @@ int main_map(int argc, char** argv) {
         m->context_depth = context_depth;
         m->max_attempts = max_attempts;
         m->min_kmer_entropy = min_kmer_entropy;
+        m->kmer_min = kmer_min;
+        m->min_score_per_bp = min_score_per_bp;
         mapper[i] = m;
     }
 
@@ -3475,7 +3866,10 @@ void help_view(char** argv) {
          
          << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
          << "                         positional file arguments if paired" << endl
-         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl;
+         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
+
+         << "    -L, --pileup         ouput VG Pileup format" << endl
+         << "    -l, --pileup-in      input VG Pileup format" << endl;
     // TODO: Can we regularize the option names for input and output types?
 }
 
@@ -3496,9 +3890,13 @@ int main_view(int argc, char** argv) {
     // bam      N   N       N   Y   N   N       N
     // fastq    N   N       N   Y   N   N       N
     // dot      N   N       N   N   N   N       N
+    //
+    // and json-gam -> gam
+    //     json-pileup -> pileup
 
     string output_type;
     string input_type;
+    bool input_json = false;
     string alignments;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
@@ -3531,11 +3929,13 @@ int main_view(int argc, char** argv) {
                 {"walk-paths", no_argument, 0, 'w'},
                 {"annotate-paths", no_argument, 0, 'n'},
                 {"random-seed", required_argument, 0, 's'},
+                {"pileup", no_argument, 0, 'L'},
+                {"pileup-in", no_argument, 0, 'l'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wn",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlL",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3577,7 +3977,11 @@ int main_view(int argc, char** argv) {
             break;
             
         case 'J':
-            input_type = "json";
+            // -J can complement input GAM/Pileup, hence the extra logic here. 
+            if (input_type.empty()) {
+                input_type = "json";
+            }
+            input_json = true;
             break;
 
         case 'v':
@@ -3628,6 +4032,18 @@ int main_view(int argc, char** argv) {
             alignments = optarg;
             break;
 
+        case 'L':
+            output_type = "pileup";
+            break;
+
+        case 'l':
+            input_type = "pileup";
+            if (output_type.empty()) {
+                // Default to Pileup -> JSON
+                output_type = "json";
+            }
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -3639,7 +4055,7 @@ int main_view(int argc, char** argv) {
             abort ();
         }
     }
-
+    
     // If the user specified nothing else, we default to VG in and GFA out.
     if (input_type.empty()) {
         input_type = "vg";
@@ -3647,7 +4063,6 @@ int main_view(int argc, char** argv) {
     if (output_type.empty()) {
         output_type = "gfa";
     }
-    
     vector<Alignment> alns;
     if (!alignments.empty()) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
@@ -3683,64 +4098,42 @@ int main_view(int argc, char** argv) {
         }
         // GFA can convert to any of the graph formats, so keep going
     } else if(input_type == "json") {
-        // We need to load a JSON graph, which means we need to mess about with FILE pointers, since jansson is a C API.
-        
-        FILE* json_file;
-        
-        if (file_name == "-") {
-            // Read standard input
-            json_file = stdin;
-        } else {
-            // Open the file for reading
-            json_file = fopen(file_name.c_str(), "r");
-        }
-        
-        // Make a new VG that calls this function over and over to read Graphs.
-        function<bool(Graph&)> get_next_graph = [&](Graph& subgraph) -> bool {
-            // Check if the file ends now, and skip whitespace between records.
-            char peeked;
-            do {
-                peeked = fgetc(json_file);
-                if(peeked == EOF) {
-                    // File ended or otherwise errored. TODO: check for other
-                    // errors and complain.
-                    return false;
-                }
-            } while(isspace(peeked));
-            // Put it back
-            ungetc(peeked, json_file);
-            
-            // Now we know we have non-whitespace between here and EOF.
-            // If it's not JSON, we want to die. So read it as JSON.
-            json2pb(subgraph, json_file);
-            
-            // We read it successfully!
-            return true;
-        };
+        assert(input_json == true);
+        JSONStreamHelper<Graph> json_helper(file_name);
+        function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false);
         
     } else if (input_type == "gam") {
-        if (output_type == "json") {
-            // convert values to printable ones
-            function<void(Alignment&)> lambda = [](Alignment& a) {
-                //alignment_quality_short_to_char(a);
-                cout << pb2json(a) << "\n";
-            };
-            if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Alignment&)> lambda = [](Alignment& a) {
+                    //alignment_quality_short_to_char(a);
+                    cout << pb2json(a) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
             } else {
-                ifstream in;
-                in.open(file_name.c_str());
-                stream::for_each(in, lambda);
+                // todo
+                cerr << "[vg view] error: (binary) GAM can only be converted to JSON" << endl;
+                return 1;
             }
-            
-            cout.flush();
-            return 0;
         } else {
-            // todo
-            cerr << "[vg view] error: GAM can only be converted to JSON" << endl;
-            return 1;
+            if (output_type == "json" || output_type == "gam") {
+                JSONStreamHelper<Alignment> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON GAM can only be converted to GAM or JSON" << endl;
+                return 1;
+            }
         }
+        cout.flush();
+        return 0;
     } else if (input_type == "bam") {
         if (output_type == "gam") {
 //function<void(const Alignment&)>& lambda) {
@@ -3809,6 +4202,36 @@ int main_view(int argc, char** argv) {
             // We can't convert fastq to the other graph formats
             cerr << "[vg view] error: FASTQ can only be converted to GAM" << endl;
             return 1;
+        }
+        cout.flush();
+        return 0;
+    } else if (input_type == "pileup") {
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(NodePileup&)> lambda = [](NodePileup& p) {
+                    cout << pb2json(p) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
+            } else {
+                // todo
+                cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
+                return 1;
+            }
+        } else {
+            if (output_type == "json" || output_type == "pileup") {
+                JSONStreamHelper<NodePileup> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
+                return 1;
+            }
         }
         cout.flush();
         return 0;
@@ -4057,6 +4480,10 @@ int main(int argc, char *argv[])
         return main_surject(argc, argv);
     } else if (command == "msga") {
         return main_msga(argc, argv);
+    } else if (command == "pileup") {
+        return main_pileup(argc, argv);
+    } else if (command == "call") {
+        return main_call(argc, argv);
     } else if (command == "compare") {
         return main_compare(argc, argv);
     } else {

@@ -1,7 +1,7 @@
 .PHONY: all clean test get-deps
 
 CXX=g++
-CXXFLAGS=-O3 -std=c++11 -fopenmp -g # -ffast-math -funroll-loops
+CXXFLAGS=-O3 -std=c++11 -fopenmp -g -msse4.1 # -ffast-math -funroll-loops
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
@@ -15,7 +15,7 @@ LIBXG=xg/libxg.a
 SDSLLITE=sdsl-lite/build/include/sdsl
 INCLUDES=-I./ -Icpp -I$(VCFLIB)/src -I$(VCFLIB) -Ifastahack -Igssw/src -Iprotobuf/build/include -Irocksdb/include -Iprogress_bar -Isparsehash/build/include -Ilru_cache -Ihtslib -Isha1 -Isdsl-lite/install/include -Igcsa2 -Ixg
 LDFLAGS=-L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -Lxg -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64
-LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o
+LIBS=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o pileup.o caller.o
 
 #Some little adjustments to build on OSX
 #(tested with gcc4.9 and jansson installed from MacPorts)
@@ -28,10 +28,11 @@ ifeq (${SYS},Darwin)
 	CLEAN_SNAPPY_AG=sed -i -e "s/[[:<:]]libtoolize[[:>:]]/glibtoolize/g" autogen.sh
 else
 	LDFLAGS:=$(LDFLAGS) -lrt
-	STATICFLAGS=-static -static-libstdc++ -static-libgcc
 	ROCKSDB_PORTABLE=
+	STATICFLAGS=-static -static-libstdc++ -static-libgcc
 	CLEAN_SNAPPY_AG=:
 endif
+
 
 all: vg libvg.a
 
@@ -127,7 +128,7 @@ path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 edit.o: edit.cpp edit.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o edit.o edit.cpp $(INCLUDES)
 
-alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH)
+alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH) edit.hpp edit.cpp
 	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
 
 sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
@@ -139,7 +140,13 @@ json2pb.o: json2pb.cpp json2pb.h bin2ascii.h $(LIBPROTOBUF)
 entropy.o: entropy.cpp entropy.hpp
 	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG)
+pileup.o: pileup.cpp pileup.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h $(LIBPROTOBUF) $(SPARSEHASH)
+	$(CXX) $(CXXFLAGS) -c -o pileup.o pileup.cpp $(INCLUDES)
+
+caller.o: caller.cpp caller.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h pileup.hpp $(LIBPROTOBUF) $(SPARSEHASH)
+	$(CXX) $(CXXFLAGS) -c -o caller.o caller.cpp $(INCLUDES)
+
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG) Makefile
 	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS) $(STATICFLAGS)
 
 libvg.a: vg

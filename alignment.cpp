@@ -560,33 +560,118 @@ int alignment_from_length(const Alignment& a) {
     return l;
 }
 
-void merge_alignments(Alignment& a1, const Alignment& a2) {
-    // bail out when second is empty, merge would be a no-op
-    if (!a1.has_path() || a1.path().mapping_size() == 0 ||
-        !a2.has_path() || a2.path().mapping_size() == 0) return;
-    int kept1, kept2;
-    // determine likely order
-    int64_t a1_start = a1.path().mapping(0).position().node_id();
-    int64_t a2_start = a2.path().mapping(0).position().node_id();
-    // and use this to change the direction of the merge
-    // reverse?
-    Path merged_path = a1_start <= a2_start ?
-                                  merge_paths(a1.path(), a2.path(), kept1, kept2)
-                                  : merge_paths(a2.path(), a1.path(), kept2, kept1);
-    if (a1_start <= a2_start) {
-        string seq = a1.sequence().substr(0, kept1) + a2.sequence().substr(a2.sequence().size()-kept2);
-        a1.set_sequence(seq);
-        *a1.mutable_path() = merged_path;
-    } else {
-        string seq = a2.sequence().substr(0, kept2) + a1.sequence().substr(a1.sequence().size()-kept1);
-        a1.set_sequence(seq);
-        *a1.mutable_path() = merged_path;
+Alignment strip_from_start(const Alignment& aln, size_t drop) {
+    if (!drop) return aln;
+    Alignment res;
+    //cerr << "drop " << drop << " from start" << endl;
+    res.set_sequence(aln.sequence().substr(drop));
+    if (!aln.has_path()) return res;
+    *res.mutable_path() = cut_path(aln.path(), drop).second;
+    assert(res.has_path());
+    if (alignment_to_length(res) != res.sequence().size()) {
+        cerr << "failed!!! drop from start 轰" << endl;
+        cerr << pb2json(res) << endl << endl;
+        assert(false);
     }
-    if (path_to_length(a1.path()) != a1.sequence().size()) {
-        cerr << path_to_length(a1.path()) << " (to_length) != " << a1.sequence().size() << " (sequence size)" << endl;
-        cerr << pb2json(a1) << endl;
-        exit(1);
+    return res;
+}
+
+Alignment strip_from_end(const Alignment& aln, size_t drop) {
+    if (!drop) return aln;
+    Alignment res;
+    //cerr << "drop " << drop << " from end" << endl;
+    size_t cut_at = aln.sequence().size()-drop;
+    //cerr << "Cut at " << cut_at << endl;
+    res.set_sequence(aln.sequence().substr(0, cut_at));
+    if (!aln.has_path()) return res;
+    *res.mutable_path() = cut_path(aln.path(), cut_at).first;
+    assert(res.has_path());
+    if (alignment_to_length(res) != res.sequence().size()) {
+        cerr << "failed!!! drop from end 轰" << endl;
+        cerr << pb2json(res) << endl << endl;
+        assert(false);
     }
+    return res;
+}
+
+// merge that properly handles long indels
+// assumes that alignments should line up end-to-end
+Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlaps, bool debug) {
+    /*
+    cerr << "overlaps: ";
+    for (auto i : overlaps) cerr << i << " ";
+    cerr << endl;
+    */
+    if (alns.size() == 0) {
+        Alignment aln;
+        return aln;
+    } else if (alns.size() == 1) {
+        return alns.front();
+    }
+    // parallel merge algorithm
+    // for each generation
+    // merge 0<-0+1, 1<-2+3, ...
+    // until there is only one alignment
+    vector<Alignment> last = alns;
+
+    // get the alignments ready for merge
+    for (size_t i = 0; i < last.size(); ++i) {
+        Alignment& aln = last[i];
+        //cerr << "on " << i << "th aln" << endl;
+        if (!aln.has_path()) {
+            Mapping m;
+            Edit* e = m.add_edit();
+            e->set_to_length(aln.sequence().size());
+            e->set_sequence(aln.sequence());
+            *aln.mutable_path()->add_mapping() = m;
+        }
+        // strip
+        if (i > 0) {
+            //cerr << "dropping " << overlaps[i]/2 << " from start " << endl;
+            aln = strip_from_start(aln, overlaps[i]/2);
+        }
+        if (i < last.size()-1) {
+            //cerr << "dropping " << overlaps[i+1]/2 << " from end " << endl;
+            aln = strip_from_end(aln, overlaps[i+1]/2);
+        }
+    }
+
+    while (last.size() > 1) {
+        //cerr << "last size " << last.size() << endl;
+        size_t new_count = last.size()/2;
+        //cerr << "new count b4 " << new_count << endl;
+        new_count += last.size() % 2; // force binary
+        //cerr << "New count = " << new_count << endl;
+        vector<Alignment> curr; curr.resize(new_count);
+#pragma omp parallel for
+        for (size_t i = 0; i < curr.size(); ++i) {
+            //cerr << "merging " << 2*i << " and " << 2*i+1 << endl;
+            // take a pair from the old alignments
+            // merge them into this one
+            if (2*i+1 < last.size()) {
+                curr[i] = merge_alignments(last[2*i], last[2*i+1], debug);
+            } else {
+                //cerr << "no need to merge" << endl;
+                curr[i] = last[2*i];
+            }
+        }
+        last = curr;
+    }
+    Alignment res = last.front();
+    *res.mutable_path() = simplify(res.path());
+    return res;
+}
+
+Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug) {
+    //cerr << "overlap is " << overlap << endl;
+    // if either doesn't have a path, then treat it like a massive softclip
+    if (debug) cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
+    // concatenate them
+    Alignment a3;
+    a3.set_sequence(a1.sequence() + a2.sequence());
+    *a3.mutable_path() = concat_paths(a1.path(), a2.path());
+    if (debug) cerr << "merged alignments, result is " << endl << pb2json(a3) << endl;
+    return a3;
 }
 
 void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> node_length) {
@@ -609,5 +694,46 @@ void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> n
     }
     
 }
+
+int softclip_start(Alignment& alignment) {
+    if (alignment.mutable_path()->mapping_size() > 0) {
+        Path* path = alignment.mutable_path();
+        Mapping* first_mapping = path->mutable_mapping(0);
+        Edit* first_edit = first_mapping->mutable_edit(0);
+        if (first_edit->from_length() == 0 && first_edit->to_length() > 0) {
+            return first_edit->to_length();
+        }
+    }
+    return 0;
+}
+
+int softclip_end(Alignment& alignment) {
+    if (alignment.mutable_path()->mapping_size() > 0) {
+        Path* path = alignment.mutable_path();
+        Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
+        Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size()-1);
+        if (last_edit->from_length() == 0 && last_edit->to_length() > 0) {
+            return last_edit->to_length();
+        }
+    }
+    return 0;
+}
+
+size_t to_length_after_pos(const Alignment& aln, const Position& pos) {
+    return path_to_length(cut_path(aln.path(), pos).second);
+}
+
+size_t from_length_after_pos(const Alignment& aln, const Position& pos) {
+    return path_from_length(cut_path(aln.path(), pos).second);
+}
+
+size_t to_length_before_pos(const Alignment& aln, const Position& pos) {
+    return path_to_length(cut_path(aln.path(), pos).first);
+}
+
+size_t from_length_before_pos(const Alignment& aln, const Position& pos) {
+    return path_from_length(cut_path(aln.path(), pos).first);
+}
+
 
 }

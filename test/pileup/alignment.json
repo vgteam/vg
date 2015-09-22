@@ -1,0 +1,53 @@
+{"sequence": "TAAGTACGAAG", "path": {
+	 "mapping": [
+		  {"position": {"node_id": 1, "offset": 1}, "edit":[
+				{"sequence": "T", "from_length":1, "to_length": 1},
+				{"from_length": 2, "to_length": 2},
+				{"from_length": 0, "sequence": "G", "to_length": 1},
+				{"from_length": 2, "to_length": 2},
+				{"from_length": 1, "to_length": 1, "sequence": "C"},
+				{"from_length": 1, "to_length": 1}
+		  ]
+		  },
+		  {"position": {"node_id": 2, "offset": 0}, "edit":[
+				{"from_length": 1, "to_length": 1},
+				{"sequence": "AA", "from_length":0, "to_length": 2}
+		  ]
+		  },
+		  {"position": {"node_id": 4, "offset": 0}, "edit":[
+				{"from_length": 1, "to_length": 0}
+		  ]
+		  }
+	 ]
+}, "score": 12}
+{"sequence": "CCGAGCCT", "path": {
+	 "mapping": [
+		  { "is_reverse": true,
+			 "position": {"node_id": 6, "offset": 2}, "edit":[
+				  {"from_length": 1, "to_length": 1, "sequence": "C"},
+				  {"from_length": 1, "to_length": 1, "sequence": "C"},
+				  {"from_length": 0, "to_length": 1, "sequence": "G"},
+				  {"from_length": 1, "to_length": 1}
+			 ]
+		  },
+		  { "is_reverse": true,
+			 "position": {"node_id": 4, "offset": 0}, "edit":[
+				  {"from_length": 1, "to_length": 1}
+		  ]
+		  },
+		  { "is_reverse": true,
+			"position": {"node_id": 3, "offset": 0}, "edit":[
+				{"from_length": 1, "to_length": 0}
+		  ]
+		  },
+		  { "is_reverse": true,
+			 "position": {"node_id": 1, "offset": 7}, "edit":[
+				{"from_length": 1, "to_length": 1},
+				{"from_length": 4, "to_length": 0},
+				{"from_length": 0, "to_length": 1, "sequence": "C"},
+				{"from_length": 1, "to_length": 1}
+		  ]
+		  }
+	 ]
+}, "score": 13}
+
