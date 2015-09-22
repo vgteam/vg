@@ -40,7 +40,7 @@ public:
     xg::XG* xindex;
 
     // Align the given string and return an Alignment.
-    Alignment align(string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
     Alignment align(Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Align the given read with multi-mapping. Returns the alignments in score
@@ -97,6 +97,7 @@ public:
 
     set<int> kmer_sizes;
     bool debug;
+    int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
     int best_clusters;
     int cluster_min;
     int hit_max;
@@ -113,6 +114,7 @@ public:
     int max_attempts;
     int softclip_threshold;
     float target_score_per_bp;
+    float min_score_per_bp;
     bool prefer_forward;
     bool greedy_accept;
     float min_kmer_entropy;
@@ -120,8 +122,6 @@ public:
 };
 
 // utility
-int softclip_start(Alignment& alignment);
-int softclip_end(Alignment& alignment);
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
 
 

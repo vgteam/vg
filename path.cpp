@@ -79,11 +79,11 @@ void Paths::for_each_stream(istream& in, function<void(Path&)>& lambda) {
 }
 
 void Paths::extend(const Path& p) {
-    list<Mapping>& path = get_create_path(p.name());
+    const string& name = p.name();
+    list<Mapping>& path = get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
-        path.push_back(m);
-        get_node_mapping(m.position().node_id()).insert(make_pair(p.name(), &path.back()));
+        append_mapping(name, m);
     }
 }
 
@@ -547,7 +547,48 @@ int from_length(const Mapping& m) {
     return l;
 }
 
-// designed for merging longer paths with substantial overlap into one long path
+// concatenates paths
+Path concat_paths(const Path& path1, const Path& path2) {
+    Path res = path1;
+    //cerr << "-------------------- concat thing ------------------" << endl;
+    //cerr << pb2json(path1) << endl << pb2json(path2) << endl;
+    // tack on the edits from the last
+    auto& path1_back = path1.mapping(path1.mapping_size()-1);
+    auto& path2_front = path2.mapping(0);
+    // move insertions from the front of the second path onto the back of the first
+    // this does not change positions or anything else
+
+    // check if we have to splice the last mapping together
+    if (!path2_front.has_position() || !path1_back.has_position() ||
+        path1_back.position().node_id() == path2_front.position().node_id()) {
+        auto* mapping = res.mutable_mapping(res.mapping_size()-1);
+        // adapt unmapped paths (which look like insertions here)
+        if (!path2_front.has_position() && path1_back.has_position()) {
+            *mapping->mutable_position() = path1_back.position();
+        } else if (!path1_back.has_position() && path2_front.has_position()) {
+            *mapping->mutable_position() = path2_front.position();
+        }
+        // merge the edits from the second onto the last mapping
+        for (size_t i = 0; i < path2_front.edit_size(); ++i) {
+            *mapping->add_edit() = path2_front.edit(i);
+        }
+    } else {
+        // just tack it on, it's on the next node
+        *res.add_mapping() = path2_front;
+    }
+    // add the rest of the mappings
+    for (size_t i = 1; i < path2.mapping_size(); ++i) {
+        *res.add_mapping() = path2.mapping(i);
+    }
+    //cerr << ">>>>" << endl;
+    //cerr << pb2json(res) << endl;
+    //cerr << "<<<<<<<<<<<<<<<<<<<<<<<<<<<< end " << endl;
+    return res;
+}
+
+// merge paths that overlap at a suitable position
+// TODO probably buggy, moved to concatenate paths above for banded alignment
+// this remains a useful method as it is Alignment-object independent and could work on graph paths
 Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2) {
 
     // how much of each path do we keep?
@@ -563,7 +604,6 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     int64_t p1_end = path1.mapping(path1.mapping_size()-1).position().node_id();
     int64_t p2_start = path2.mapping(0).position().node_id();
     int64_t p2_end = path2.mapping(path2.mapping_size()-1).position().node_id();
-    //cerr << p1_start << "-" << p1_end << " should overlap " << p2_start << "-" << p2_end << endl;
 
     // scan through the second until we match the tail of the first
     int p1 = path1.mapping_size()-1;
@@ -581,8 +621,9 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     const Mapping& p1m = *p1mp;
     const Mapping& p2m = *p2mp;
 
-    //cerr << p1m.position().node_id() << " vs " << p2m.position().node_id() << endl;
-    assert(p1mp->position().node_id() == p2mp->position().node_id());
+    //assert(p1mp->position().node_id() == p2mp->position().node_id());
+    bool is_split = (p1mp->position().node_id() != p2mp->position().node_id());
+    //if (is_split) cerr << "we have a split read deletion or jump" << endl;
 
     Path result;
 
@@ -593,21 +634,8 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     }
 
     // we are now pointing at the same node
-    // however, the alignment may not completely overlap the node
-    // so we need to ensure that we have overlap
-    //if (p1 == path1.mapping_size()-1 || p2 == 0) {
-        // we could be partially mapping to a node
-        // add up the total sequence length across the two
-        //to_length(
-    if (p2m.position().offset()) {
-        if (from_length(p1m) < p2m.position().offset()) {
-            cerr << "[vg::Path] cannot merge paths as their ends do not overlap" << endl
-                 << pb2json(p1m) << endl << pb2json(p2m) <<endl;
-            exit(1);
-        }
-        // we have overlap or match
-        kept_path1 += p2m.position().offset();
-        kept_path2 += to_length(p2m);
+    if (!is_split && p2m.position().offset()) {
+        // the mappings are against the same node
         // make a new mapping that combines the two
         Mapping* m = result.add_mapping();
         *m->mutable_position() = p1m.position();
@@ -615,20 +643,63 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
         for (int i = 0; i < p1m.edit_size(); ++i) {
             Edit* e = m->add_edit();
             *e = p1m.edit(i);
+            kept_path1 += e->to_length();
+        }
+        // local deletion on this node
+        if ((from_length(p1m) < p2m.position().offset())) {
+            // add a deletion
+            Edit* e = m->add_edit();
+            e->set_from_length(p2m.position().offset() - from_length(p1m));
         }
         // and skip this length in the next mapping
-        int to_skip = mapping_to_length(*m) - p2m.position().offset();
+        // caution, this is based on graph, not alignment coordinates
+        int to_skip = max((int)0, (int)mapping_from_length(*m) - (int)p2m.position().offset());
+        //cerr << "to_skip = " << to_skip << endl;
+        size_t skipped = 0;
+        size_t j = 0;
+        for ( ; j < p2m.edit_size(); ++j) {
+            auto& f = p2m.edit(j);
+            if (f.from_length() + skipped > to_skip) {
+                break;
+            }
+            skipped += f.from_length();
+        }
+        // now we're pointing at the edit to divide
+        {
+            auto& f = p2m.edit(j++);
+            size_t skip_here = to_skip - skipped;
+            Edit* e = m->add_edit();
+            //cerr << "inner old " << pb2json(f) << endl;
+            *e = f;
+            e->set_to_length(e->to_length() - skip_here);
+            e->set_from_length(e->from_length() - skip_here);
+            if (!e->sequence().empty()) {
+                e->set_sequence(e->sequence().substr(skip_here));
+            }
+            //cerr << "inner new " << pb2json(*e) << endl;
+            kept_path2 += e->to_length();
+        }
+        // now let's add in the rest of the edits
+        for (size_t i = 0; i < p2m.edit_size(); ++i) {
+            auto& e = p2m.edit(i);
+            *m->add_edit() = e;
+            kept_path2 += e.to_length();
+        }
+        
         for (int i = 0; i < p2m.edit_size(); ++i) {
-            if (to_skip > p2m.edit(i).to_length()) {
+            if (to_skip > skipped + p2m.edit(i).to_length()) {
             } else {
                 // divide the edit
                 Edit* e = m->add_edit();
+                //cerr << "inner old " << pb2json(p2m.edit(i)) << endl;
                 *e = p2m.edit(i);
                 e->set_to_length(e->to_length() - to_skip);
                 e->set_from_length(e->from_length() - to_skip);
                 if (!e->sequence().empty()) {
                     e->set_sequence(e->sequence().substr(to_skip));
                 }
+                //cerr << "inner new " << pb2json(*e) << endl;
+                kept_path2 += e->to_length();
             }
         }
         // offset is 0
@@ -650,16 +721,90 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
     return result;
 }
 
-Path simplify_deletions(const Path& p) {
+Path simplify(const Path& p) {
     Path s;
-    for (int i = 0; i < p.mapping_size(); ++i) {
-        auto& m = p.mapping(i);
-        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) {
-        } else {
-            *s.add_mapping() = m;
+    s.set_name(p.name());
+    for (size_t i = 0; i < p.mapping_size(); ++i) {
+        auto m = p.mapping(i);
+        
+        // remove wholly-deleted mappings as these are redundant
+        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) continue;
+        
+        // if this isn't the first mapping
+        // split off any insertions from the start
+        // and push them to the last mapping
+        if (i > 0) {
+            size_t ins_at_start = 0;
+            for (size_t j = 0; j < m.edit_size(); ++j) {
+                auto& e = m.edit(j);
+                if (!edit_is_insertion(e)) break;
+                ins_at_start += e.to_length();
+            }
+            // if there are insertions at the start, move them left
+            if (ins_at_start) {
+                auto p = cut_mapping(m, ins_at_start);
+                auto& ins = p.first;
+                //cerr << "insertion " << pb2json(ins) << endl;
+                // take the position from the original mapping
+                m = p.second;
+                *m.mutable_position() = ins.position();
+                //cerr << "before and after " << pb2json(ins) << " and " << pb2json(m) << endl;
+                Mapping* l = s.mutable_mapping(s.mapping_size()-1);
+                for (size_t j = 0; j < ins.edit_size(); ++j) {
+                    auto& e = ins.edit(j);
+                    *l->add_edit() = e;
+                }
+            }
         }
+
+        // handle the rest of path
+        Mapping n_base; // our new mapping for this node
+        Mapping* n = &n_base;
+        // if we don't have a position, try to use the last mapping
+        if (!m.has_position() || m.position().node_id()==0) {
+            if (i > 0) {
+                n = s.mutable_mapping(s.mapping_size()-1);
+            } else {
+                cerr << "warning: path has no position in first mapping" << endl;
+            }
+        } else {
+            // take the old position
+            *n->mutable_position() = m.position();
+        }
+        size_t j = 0;
+        // to simplify, we skip deletions
+        // these are implied by jumps in the path
+        while (edit_is_deletion(m.edit(j))) {
+            n->mutable_position()->set_offset(n->position().offset()+m.edit(j).from_length());
+            ++j;
+        }
+        Edit e = m.edit(j++);
+        for ( ; j < m.edit_size(); ++j) {
+            auto& f = m.edit(j);
+            // if the edit types are the same, merge them
+            if (edit_is_match(e) && edit_is_match(f)
+                || edit_is_sub(e) && edit_is_sub(f)
+                || edit_is_deletion(e) && edit_is_deletion(f)
+                || edit_is_insertion(e) && edit_is_insertion(f)) {
+                // will be 0 for insertions, and + for the rest
+                e.set_from_length(e.from_length()+f.from_length());
+                // will be 0 for deletions, and + for the rest
+                e.set_to_length(e.to_length()+f.to_length());
+                // will be empty for both or have sequence for both
+                e.set_sequence(e.sequence() + f.sequence());
+            } else {
+                // mismatched types are just put on
+                *n->add_edit() = e;
+                e = f;
+            }
+        }
+        // and keep the last edit
+        // if it isn't a deletion
+        if (!edit_is_deletion(e)) *n->add_edit() = e;
+        // and store the mapping
+        *s.add_mapping() = *n;
     }
-    return s;
+    return s;    
 }
 
 bool mapping_ends_in_deletion(const Mapping& m){
@@ -674,6 +819,180 @@ bool mapping_is_total_deletion(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_deletion(m.edit(0));
 }
 
+// ref-relative
+pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
+    Mapping left, right;
+    //cerr << "cutting mapping " << pb2json(m) << " at pos " << pb2json(pos) << endl;
+    // left always has the position of the input mapping
+    *left.mutable_position() = m.position();
+    if (m.position().node_id() != pos.node_id()) {
+        left = m;
+    } else { // we're on the node
+        if (pos.offset() == m.position().offset()) {
+            // we will get a 0-length left
+            //cerr << "should get a 0-length left" << endl;
+            right = m;
+        } else if (pos.offset() >= mapping_from_length(m)) {
+            //cerr << "should get a 0-length right" << endl;
+            // or a 0-length right
+            left = m;
+        } else {
+            //cerr << "we need to cut the mapping" << endl;
+            // we need to cut the mapping
+            // find the cut point and build the two mappings
+            size_t seen = 0;
+            size_t j = 0;
+            // loop over those before our position
+            for ( ; j < m.edit_size() && seen < pos.offset(); ++j) {
+                auto& e = m.edit(j);
+                if (seen + e.from_length() == pos.offset()) {
+                    // this would be the last edit before the target position
+                    // so we just drop it onto the last mapping of p1
+                    //cerr << "at last edit before the target position" << endl;
+                    *left.add_edit() = e;
+                } else if (seen + e.from_length() > pos.offset()) {
+                    //cerr << "we need to divide the edit" << endl;
+                    // we need to divide this edit
+                    auto edits = cut_edit_at_from(e, seen + e.from_length() - pos.offset());
+                    //cerr << "got edits " << pb2json(edits.first) << " and " << pb2json(edits.second) << endl;
+                    *left.add_edit() = edits.first;
+                    *right.mutable_position() = pos;
+                    *right.add_edit() = edits.second;
+                }
+                seen += e.from_length();
+            }
+            // now we add to the second path
+            assert(seen >= pos.offset());
+            for ( ; j < m.edit_size(); ++j) {
+                *right.add_edit() = m.edit(j);
+            }
+        }
+    }
+    return make_pair(left, right);
+}
 
+// mapping-relative
+pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
+    Mapping left, right;
+    // left always has the position of the input mapping
+    if (m.has_position()) *left.mutable_position() = m.position();
+    // nothing to cut
+    if (offset == 0) {
+        // we will get a 0-length left
+        right = m;
+    } else if (offset >= mapping_to_length(m)) {
+        // or a 0-length right
+        left = m;
+    } else {
+        // we need to cut the mapping
+        // find the cut point and build the two mappings
+        size_t seen = 0;
+        size_t j = 0;
+        // loop over those before our position
+        for ( ; j < m.edit_size() && seen < offset; ++j) {
+            auto& e = m.edit(j);
+            //cerr << "at edit " << pb2json(e) << endl;
+            if (seen + e.to_length() > offset) {
+                // we need to divide this edit
+                auto edits = cut_edit_at_to(e, seen + e.to_length() - offset);
+                *left.add_edit() = edits.first;
+                if (m.has_position()) {
+                    right.mutable_position()->set_node_id(m.position().node_id());
+                    right.mutable_position()->set_offset(left.position().offset()
+                                                         + mapping_from_length(left));
+                }
+                *right.add_edit() = edits.second;
+            } else {
+                // this would be the last edit before the target position
+                // so we just drop it onto the last mapping of p1
+                *left.add_edit() = e;
+            }
+            seen += e.to_length();
+        }
+        // now we add to the second path
+        assert(seen >= offset);
+        for ( ; j < m.edit_size(); ++j) {
+            *right.add_edit() = m.edit(j);
+        }
+    }
+    //cerr << "cut mappings " << endl
+    //     << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+    return make_pair(left, right);
+}
+
+// divide path at reference-relative position
+pair<Path, Path> cut_path(const Path& path, const Position& pos) {
+    Path p1, p2;
+    size_t i = 0;
+    // seek forward to the cut point
+    for ( ; i < path.mapping_size(); ++i) {
+        auto& m = path.mapping(i);
+        //cerr << "seeking cut pos " << pb2json(pos) << " at mapping " << pb2json(m) << endl;
+        // the position is in this node, so make the cut
+        if (m.position().node_id() == pos.node_id()) {
+            //cerr << "making cuts" << endl;
+            auto mappings = cut_mapping(m, pos);
+            //cerr << "left cut " << pb2json(mappings.first) << " and right " << pb2json(mappings.second) << endl;
+            // and save the cuts
+            *p1.add_mapping() = mappings.first;
+            *p2.add_mapping() = mappings.second;
+            ++i; // we don't increment our mapping index when we break here
+            break;
+        } else {
+            // otherwise keep adding the mappings onto our first path
+            *p1.add_mapping() = m;
+        }
+    }
+    // add in the rest of the edits
+    for ( ; i < path.mapping_size(); ++i) {
+        auto& m = path.mapping(i);
+        *p2.add_mapping() = m;
+    }
+    //cerr << "---cut_path left " << pb2json(p1) << endl << "---and right " << pb2json(p2) << endl;
+    return make_pair(p1, p2);
+}
+
+// divide the path at a path-relative offset as measured in to_length from start
+pair<Path, Path> cut_path(const Path& path, size_t offset) {
+    Path p1, p2;
+    size_t seen = 0;
+    size_t i = 0;
+    // seek forward to the cut point
+    for ( ; i < path.mapping_size() && seen < offset; ++i) {
+        auto& m = path.mapping(i);
+        // the position is in this node, so make the cut
+        if (seen + mapping_to_length(m) == offset) {
+            *p1.add_mapping() = m;
+        } else if (seen + mapping_to_length(m) > offset) {
+            auto mappings = cut_mapping(m, offset - seen);
+            // and save the cuts
+            *p1.add_mapping() = mappings.first;
+            *p2.add_mapping() = mappings.second;
+            ++i; // we don't increment our mapping index when we break here
+            seen += mapping_to_length(m); // same problem
+            break;
+        } else {
+            // otherwise keep adding the mappings onto our first path
+            *p1.add_mapping() = m;
+        }
+        seen += mapping_to_length(m);
+    }
+    //cerr << "seen " << seen << " offset " << offset << endl;
+    assert(seen >= offset);
+    // add in the rest of the edits
+    for ( ; i < path.mapping_size(); ++i) {
+        auto& m = path.mapping(i);
+        *p2.add_mapping() = m;
+    }
+    //cerr << "---cut_path left " << pb2json(p1) << endl << "---and right " << pb2json(p2) << endl;
+    return make_pair(p1, p2);
+}
+
+bool maps_to_node(const Path& p, int64_t id) {
+    for (size_t i = 0; i < p.mapping_size(); ++i) {
+        if (p.mapping(i).position().node_id() == id) return true;
+    }
+    return false;
+}
 
 }

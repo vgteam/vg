@@ -10,7 +10,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , cluster_min(2)
     , hit_max(100)
     , hit_size_threshold(512)
-    , kmer_min(11)
+    , kmer_min(0)
     , kmer_threshold(1)
     , kmer_sensitivity_step(3)
     , thread_extension(1)
@@ -23,8 +23,10 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , prefer_forward(false)
     , greedy_accept(false)
     , target_score_per_bp(1.5)
+    , min_score_per_bp(0)
     , min_kmer_entropy(0)
     , debug(false)
+    , alignment_threads(1)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -68,7 +70,7 @@ Mapper::~Mapper(void) {
     // noop
 }
 
-Alignment Mapper::align(string& seq, int kmer_size, int stride, int band_width) {
+Alignment Mapper::align(const string& seq, int kmer_size, int stride, int band_width) {
     Alignment aln;
     aln.set_sequence(seq);
     return align(aln, kmer_size, stride, band_width);
@@ -184,7 +186,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         
         // Sort these alignments by score, descending
-        sort(alignments1.begin(), alignments1.end(), [](Alignment& a, Alignment& b) {
+        sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
             return a.score() > b.score();
         });
         
@@ -215,7 +217,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
         
         // Sort these alignments by score, descending
-        sort(alignments2.begin(), alignments2.end(), [](Alignment& a, Alignment& b) {
+        sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
             return a.score() > b.score();
         });
         
@@ -277,14 +279,31 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
 Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int band_width) {
     // split the alignment up into overlapping chunks of band_width size
     list<Alignment> alignments;
+    // force used bandwidth to be divisible by 4
+    // round up so we have > band_width
+    //cerr << "trying band width " << band_width << endl;
+    if (band_width % 4) {
+        band_width -= band_width % 4; band_width += 4;
+    }
     assert(read.sequence().size() > band_width);
     int div = 2;
     while (read.sequence().size()/div > band_width) {
         ++div;
     }
     int segment_size = read.sequence().size()/div;
+    // use segment sizes divisible by 4, as this simplifies math
+    // round up as well
+    // we'll divide the overlap by 2 and 2 and again when stripping from the start
+    // and end of sub-reads
+    if (segment_size % 4) {
+        segment_size -= segment_size % 4; segment_size += 4;
+    }
+    //cerr << "Segment size be " << segment_size << endl;
     // and overlap them too
-    Alignment merged;
+    size_t to_align = div * 2 - 1; // number of alignments we'll do
+    vector<Alignment> alns; alns.resize(to_align);
+    vector<size_t> overlaps; overlaps.resize(to_align);
+#pragma omp parallel for
     for (int i = 0; i < div; ++i) {
         {
             Alignment aln = read;
@@ -294,20 +313,41 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             } else {
                 aln.set_sequence(read.sequence().substr(i*segment_size, segment_size));
             }
-            if (i == 0) {
-                merged = align(aln, kmer_size, stride);
+            // todo, possible problem
+            // overlap can possibly go to 100% of the "last" read
+            // if we aren't careful about this it might cause a problem in the merge
+            size_t overlap = (i == 0? 0 : segment_size/2);
+            //cerr << "overlap is " << overlap << endl;
+            size_t idx = 2*i;
+            overlaps[idx] = overlap;
+            Alignment mapped_aln = align(aln, kmer_size, stride);
+            if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
+                >= min_score_per_bp) {
+                alns[idx] = mapped_aln;
             } else {
-                merge_alignments(merged, align(aln, kmer_size, stride));
+                alns[idx] = aln; // unmapped
             }
         }
-        // and the overlapped bit --- here we're using 50% overlap
+        // step to next position
+        // and the overlapped bit --- here we're using a hard-coded 50% overlap
         if (i != div-1) { // if we're not at the last sequence
             Alignment aln = read;
-            aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2, segment_size));
-            merge_alignments(merged, align(aln, kmer_size, stride));
+            aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2,
+                                                    segment_size));
+            size_t overlap = segment_size/2;
+            size_t idx = 2*i+1;
+            overlaps[idx] = overlap;
+            Alignment mapped_aln = align(aln, kmer_size, stride);
+            if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
+                >= min_score_per_bp) {
+                alns[idx] = mapped_aln;
+            } else {
+                alns[idx] = aln; // unmapped
+            }
         }
     }
-    return merged;
+    // by telling our merge the expected overlaps, it will correctly combine the alignments
+    return merge_alignments(alns, overlaps, debug);
 }
 
 vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {
@@ -400,7 +440,8 @@ vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride,
 
         ++attempt;
 
-        if (best_f.score() == 0 && best_r.score() == 0) {
+        if (best_f.score() == 0 && best_r.score() == 0
+            && kmer_size - kmer_sensitivity_step >= kmer_min) {
             // We couldn't find anything. Try harder.
             increase_sensitivity();
         } else {
@@ -828,7 +869,6 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             if(xindex) {
                 xindex->get_id_range(first, last, graph->graph);
                 xindex->expand_context(graph->graph, context_depth);
-                graph->rebuild_indexes();
             } else if(index) {
                 index->get_range(first, last, *graph);
                 index->expand_context(*graph, context_depth);
@@ -852,6 +892,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             graph->orient_nodes_forward(flipped_nodes);
                             
             // align
+            //graph->serialize_to_file("align2.vg");
             ta.clear_path();
             ta.set_score(0);
             graph->align(ta);
@@ -898,7 +939,8 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                 
                 if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
                                 << graph->edge_count() << " edges" << endl;
-                                
+
+                //graph->serialize_to_file("align1.vg");
                 ta.clear_path();
                 ta.set_score(0);
                 graph->align(ta);
@@ -982,30 +1024,6 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
     return good;
 }
 
-int softclip_start(Alignment& alignment) {
-    if (alignment.mutable_path()->mapping_size() > 0) {
-        Path* path = alignment.mutable_path();
-        Mapping* first_mapping = path->mutable_mapping(0);
-        Edit* first_edit = first_mapping->mutable_edit(0);
-        if (first_edit->from_length() == 0 && first_edit->to_length() > 0) {
-            return first_edit->to_length();
-        }
-    }
-    return 0;
-}
-
-int softclip_end(Alignment& alignment) {
-    if (alignment.mutable_path()->mapping_size() > 0) {
-        Path* path = alignment.mutable_path();
-        Mapping* last_mapping = path->mutable_mapping(path->mapping_size()-1);
-        Edit* last_edit = last_mapping->mutable_edit(last_mapping->edit_size()-1);
-        if (last_edit->from_length() == 0 && last_edit->to_length() > 0) {
-            return last_edit->to_length();
-        }
-    }
-    return 0;
-}
-
 Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride) {
 
     if (index == NULL) {
@@ -1079,11 +1097,8 @@ const int balanced_stride(int read_length, int kmer_size, int stride) {
     double r = read_length;
     double k = kmer_size;
     double j = stride;
-    if (r > j) {
-        return round((r-k)/round((r-k)/j));
-    } else {
-        return j;
-    }
+    int i = (r > j) ? round((r-k)/round((r-k)/j)) : j;
+    return max(1, i);
 }
 
 const vector<string> balanced_kmers(const string& seq, const int kmer_size, const int stride) {

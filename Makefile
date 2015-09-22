@@ -1,7 +1,7 @@
 .PHONY: all clean test get-deps
 
 CXX=g++
-CXXFLAGS=-O3 -std=c++11 -fopenmp -g # -ffast-math -funroll-loops
+CXXFLAGS=-O3 -std=c++11 -fopenmp -g -msse4.1 # -ffast-math -funroll-loops
 VCFLIB=vcflib
 LIBVCFLIB=$(VCFLIB)/libvcflib.a
 LIBGSSW=gssw/src/libgssw.a
@@ -28,10 +28,11 @@ ifeq (${SYS},Darwin)
 	CLEAN_SNAPPY_AG=sed -i -e "s/[[:<:]]libtoolize[[:>:]]/glibtoolize/g" autogen.sh
 else
 	LDFLAGS:=$(LDFLAGS) -lrt
-	STATICFLAGS=-static -static-libstdc++ -static-libgcc
 	ROCKSDB_PORTABLE=
+	STATICFLAGS=-static -static-libstdc++ -static-libgcc
 	CLEAN_SNAPPY_AG=:
 endif
+
 
 all: vg libvg.a
 
@@ -59,7 +60,7 @@ $(LIBROCKSDB): rocksdb/include/rocksdb/*.h rocksdb/db/*.c rocksdb/db/*.cc rocksd
 	cd rocksdb && $(ROCKSDB_PORTABLE) $(MAKE) static_lib
 
 $(LIBGCSA2): gcsa2/*.cpp gcsa2/*.h $(SDSLLITE)
-	cd gcsa2 && $(MAKE) libgcsa2.a
+	cd gcsa2 && cat Makefile | grep -v VERBOSE_STATUS_INFO >Makefile.quiet && $(MAKE) -f Makefile.quiet libgcsa2.a
 	touch $(LIBGCSA2)
 
 $(LIBXG): xg/*.cpp xg/*.hpp $(SDSLLITE)
@@ -127,7 +128,7 @@ path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 edit.o: edit.cpp edit.hpp $(LIBPROTOBUF)
 	$(CXX) $(CXXFLAGS) -c -o edit.o edit.cpp $(INCLUDES)
 
-alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH)
+alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH) edit.hpp edit.cpp
 	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
 
 sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
@@ -145,8 +146,8 @@ pileup.o: pileup.cpp pileup.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h $(LIBPRO
 caller.o: caller.cpp caller.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h pileup.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 	$(CXX) $(CXXFLAGS) -c -o caller.o caller.cpp $(INCLUDES)
 
-vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG)
-	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS)
+vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG) Makefile
+	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS) $(STATICFLAGS)
 
 libvg.a: vg
 	ar rs libvg.a $(LIBS)

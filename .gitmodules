@@ -33,7 +33,7 @@
 	url = https://github.com/vog/sha1.git
 [submodule "protobuf"]
 	path = protobuf
-	url = https://github.com/ekg/protobuf.git
+	url = https://github.com/google/protobuf.git
 [submodule "gcsa2"]
 	path = gcsa2
 	url = https://github.com/jltsiren/gcsa2.git

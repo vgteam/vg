@@ -139,7 +139,6 @@ int main_call(int argc, char** argv) {
     return 0;
 }
 
-
 void help_pileup(char** argv) {
     cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.vgpu" << endl
          << "Calculate pileup for each position in graph and output in VG Pileup format (list of protobuf NodePileups)." << endl
@@ -279,15 +278,30 @@ void help_msga(char** argv) {
          << "Multiple sequence / graph aligner." << endl
          << endl
          << "options:" << endl
-         << "    -f, --from FILE       use sequneces in (fasta) FILE" << endl
-         << "    -n, --name NAME       include this sequence" << endl
-         << "                           (If any --name is specified, use only" << endl
-         << "                            specified sequences from FASTA files.)" << endl
-         << "    -b, --base NAME       use this sequence as the graph basis if graph is empty" << endl
-         << "    -s, --seq SEQUENCE    literally include this sequence" << endl
-         << "    -g, --graph FILE      include this graph" << endl
-         << "    -X, --fragment N      break apart input sequences and sample sequences from input graphs of" << endl
-         << "                          no more than this length" << endl
+         << "    -f, --from FILE         use sequneces in (fasta) FILE" << endl
+         << "    -n, --name NAME         include this sequence" << endl
+         << "                             (If any --name is specified, use only" << endl
+         << "                              specified sequences from FASTA files.)" << endl
+         << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
+         << "    -s, --seq SEQUENCE      literally include this sequence" << endl
+         << "    -g, --graph FILE        include this graph" << endl
+         << "    -F, --fragment N        break apart input sequences and sample sequences from input graphs of" << endl
+         << "                            no more than this length" << endl
+         << "    -k, --map-kmer-size N   use kmers of size N when mapping (default: 16)" << endl
+         << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold (default: 5)" << endl
+         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
+         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
+         << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
+         << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
+         << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
+         << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
+         << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
+         << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
+         << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -D, --debug             print debugging information about construction to stderr" << endl
+         << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
+         << "    -t, --threads N         number of threads to use" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
          << "input fasta-format files, graphs, and sequences." << endl
@@ -298,7 +312,7 @@ void help_msga(char** argv) {
 int main_msga(int argc, char** argv) {
 
     if (argc == 2) {
-        help_msga(argv);
+         help_msga(argv);
         return 1;
     }
 
@@ -312,6 +326,27 @@ int main_msga(int argc, char** argv) {
     bool reverse_complement = false;
     string base_seq_name;
     size_t max_fragment_length = 100000; // 100kb
+    int edge_max = 0;
+    int idx_kmer_size = 16;
+    int idx_doublings = 2;
+    int kmer_size = 16;
+    int kmer_stride = 0;
+    int sens_step = 0;
+    int best_clusters = 0;
+    int cluster_min = 1;
+    int max_attempts = 10;
+    // if this is set too low, we may miss optimal alignments
+    int context_depth = 3;
+    float min_score_per_bp = 1.5;
+    float min_kmer_entropy = 0;
+    int band_width = 1000;
+    size_t doubling_steps = 2;
+    bool debug = false;
+    bool debug_align = false;
+    size_t fragment_size = 0;
+    size_t node_max = 0;
+    size_t kmer_min = 5;
+    int alignment_threads = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -324,11 +359,25 @@ int main_msga(int argc, char** argv) {
                 {"seq", required_argument, 0, 's'},
                 {"graph", required_argument, 0, 'g'},
                 {"base", required_argument, 0, 'b'},
+                {"idx-kmer-size", required_argument, 0, 'K'},
+                {"idx-doublings", required_argument, 0, 'X'},
+                {"map-kmer-size", required_argument, 0, 'k'},
+                {"band-width", required_argument, 0, 'B'},
+                {"debug", no_argument, 0, 'D'},
+                {"debug-align", no_argument, 0, 'A'},
+                {"fragment", required_argument, 0, 'F'},
+                {"sens-step", required_argument, 0, 'S'},
+                {"kmer-stride", required_argument, 0, 'j'},
+                {"max-attempts", required_argument, 0, 'M'},
+                {"context-depth", required_argument, 0, 'd'},
+                {"cluster-min", required_argument, 0, 'C'},
+                {"score-per-bp", required_argument, 0, 'P'},
+                {"kmer-min", required_argument, 0, 'l'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -338,6 +387,26 @@ int main_msga(int argc, char** argv) {
         switch (c)
         {
 
+        case 'S':
+            sens_step = atoi(optarg);
+            break;
+
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
+
+        case 'M':
+            max_attempts = atoi(optarg);
+            break;
+
+        case 'd':
+            context_depth = atoi(optarg);
+            break;
+
+        case 'C':
+            cluster_min = atoi(optarg);
+            break;
+            
         case 'f':
             fasta_files.push_back(optarg);
             break;
@@ -361,6 +430,51 @@ int main_msga(int argc, char** argv) {
                 return 1;
             }
             graph_files.push_back(optarg);
+            break;
+
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
+
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
+
+        case 'B':
+            band_width = atoi(optarg);
+            break;
+
+        case 'D':
+            debug = true;
+            break;
+
+        case 'A':
+            debug_align = true;
+            break;
+
+        case 'F':
+            fragment_size = atoi(optarg);
+            break;
+
+        case 'X':
+            doubling_steps = atoi(optarg);
+            break;
+
+        case 'K':
+            idx_kmer_size = atoi(optarg);
+            break;
+
+        case 'm':
+            node_max = atoi(optarg);
+            break;
+
+        case 'P':
+            min_score_per_bp = atof(optarg);
+            break;
+
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            alignment_threads = atoi(optarg);
             break;
 
         case 'h':
@@ -403,10 +517,18 @@ int main_msga(int argc, char** argv) {
     for (auto& fasta_file_name : fasta_files) {
         FastaReference ref;
         ref.open(fasta_file_name);
-         for (auto& seq : ref.index->sequenceNames) {
+        if (debug) cerr << "loading " << fasta_file_name << endl;
+        for (auto& name : ref.index->sequenceNames) {
             // only use the sequence if we have whitelisted it
-            if (seq_names.empty() || seq_names.count(seq)) {
-                 strings[seq].insert(ref.getSequence(seq));
+            string seq = ref.getSequence(name);
+            if (!fragment_size) {
+                if (seq_names.empty() || seq_names.count(name)) {
+                    strings[name].insert(seq);
+                }
+            } else {
+                for (size_t i = 0; i < seq.size(); i += fragment_size/2) {
+                    strings[name].insert(seq.substr(i, fragment_size));
+                }
             }
         }
     }
@@ -430,51 +552,116 @@ int main_msga(int argc, char** argv) {
         }
     }
 
+    assert(kmer_size > 0);
+    size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
+    // limit max node size
+    if (!node_max) node_max = 2*idx_kmer_size;
+    graph->dice_nodes(node_max);
+    graph->sort();
+    graph->compact_ids();
+
     // questions:
     // should we preferentially use sequences from fasta files in the order they were given?
     // (considering this a todo)
     // reverse complement?
-    //Mapper* mapper;
-    //GCSA* gcsa;
-    //XG* xgidx;
+    Mapper* mapper = nullptr;
+    gcsa::GCSA* gcsaidx = nullptr;
+    xg::XG* xgidx = nullptr;
+    size_t iter = 0;
 
+    auto rebuild = [&mapper,
+                    &gcsaidx,
+                    &xgidx,
+                    debug,
+                    debug_align,
+                    &iter,
+                    idx_kmer_size,
+                    doubling_steps,
+                    kmer_min,
+                    sens_step,
+                    cluster_min,
+                    context_depth,
+                    max_attempts,
+                    min_score_per_bp,
+                    alignment_threads](VG* graph) {
+        //stringstream s; s << iter++ << ".vg";
+        //graph->serialize_to_file(s.str());
+        if (debug) cerr << "building xg index" << endl;
+        if (xgidx) delete xgidx;
+        xgidx = new xg::XG(graph->graph);
+        if (debug) cerr << "building GCSA2 index" << endl;
+        if (gcsaidx) delete gcsaidx;
+        gcsaidx = graph->build_gcsa_index(idx_kmer_size, true, doubling_steps);
+        if (mapper) delete mapper;
+        mapper = new Mapper(xgidx, gcsaidx);
+        { // set mapper variables
+            mapper->debug = debug_align;
+            //if (score_per_bp) mapper->target_score_per_bp = score_per_bp;
+            if (sens_step) mapper->kmer_sensitivity_step = sens_step;
+            //mapper->prefer_forward = prefer_forward;
+            //mapper->greedy_accept = greedy_accept;
+            //mapper->thread_extension = thread_ex;
+            mapper->cluster_min = cluster_min;
+            mapper->context_depth = context_depth;
+            mapper->max_attempts = max_attempts;
+            //mapper->min_kmer_entropy = min_kmer_entropy;
+            mapper->min_score_per_bp = min_score_per_bp;
+            mapper->kmer_min = kmer_min;
+            mapper->alignment_threads = alignment_threads;
+        }
+    };
+
+    // todo restructure so that we are trying to map everything
+    // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
         auto& name = group.first;
-        cerr << "adding " << name << endl;
+        if (debug) cerr << name << ": adding to graph" << endl;
+        rebuild(graph);
+        //graph->serialize_to_file("pre-" + name + ".vg");
+        vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
-            cerr << name << " " << seq.size() << endl;
-            Alignment aln = graph->align(seq);
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+            paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
-            graph->edit({aln.path()});
-            // TODO
-            //delete mapper;
-            //delete xgidx;
-            //xgidx = new xg::XG(graph->graph);
-            
         }
+        if (debug) cerr << name << ": editing graph" << endl;
+        graph->edit(paths);
+        graph->paths.clear();
+        if (debug) cerr << name << ": normalizing node size" << endl;
+        graph->dice_nodes(node_max);
+        if (debug) cerr << name << ": sorting and compacting ids" << endl;
+        graph->sort();
+        graph->compact_ids();
+        //if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
+        //graph->serialize_to_file("out.vg");
     }
-    // clear paths added by graph->edit
-    graph->paths.clear();
 
-    // compact the ID space
-    // isn't really necessary, but maybe it's nice
-    graph->sort();
-    graph->compact_ids();
+    rebuild(graph);
 
     // include the paths in the graph
+    if (debug) cerr << "including paths" << endl;
     for (auto& group : strings) {
         auto& name = group.first;
+        if (debug) cerr << name << ": tracing path through graph" << endl;
         for (auto& seq : group.second) {
-            Alignment aln = graph->align(seq);
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            //if (debug) cerr << "alignment score: " << aln.score() << endl;
             aln.mutable_path()->set_name(name);
+            // todo simplify in the mapper itself when merging the banded bits
+            if (debug) cerr << name << ": labeling" << endl;
             graph->include(aln.path());
+            // now repeat back the path
         }
     }
 
     // return the graph
-    graph->serialize_to_ostream(std::cout);    
+    graph->serialize_to_ostream(std::cout);
+    delete graph;
 
     // todo....
     //
@@ -827,7 +1014,8 @@ void help_mod(char** argv) {
          << "Modifies graph, outputs modified on stdout." << endl
          << endl
          << "options:" << endl
-         << "    -i, --include-aln FILE  include the paths implied by alignments in the graph" << endl
+         << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
+         << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -855,6 +1043,7 @@ int main_mod(int argc, char** argv) {
     string path_name;
     bool remove_orphans = false;
     string aln_file;
+    bool label_paths = false;
     bool compact_ids = false;
     bool prune_complex = false;
     int path_length = 0;
@@ -882,11 +1071,12 @@ int main_mod(int argc, char** argv) {
                 {"kill-labels", no_argument, 0, 'K'},
                 {"markers", no_argument, 0, 'm'},
                 {"threads", no_argument, 0, 't'},
+                {"label-paths", no_argument, 0, 'P'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:K",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KP",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -944,6 +1134,10 @@ int main_mod(int argc, char** argv) {
             omp_set_num_threads(atoi(optarg));
             break;
 
+        case 'P':
+            label_paths = true;
+            break;
+
         case 'h':
         case '?':
             help_mod(argv);
@@ -977,7 +1171,7 @@ int main_mod(int argc, char** argv) {
         // read in the alignments and save their paths
         vector<Path> paths;
         function<void(Alignment&)> lambda = [&graph, &paths](Alignment& aln) {
-            Path path = simplify_deletions(aln.path());
+            Path path = simplify(aln.path());
             path.set_name(aln.name());
             paths.push_back(path);
         };
@@ -988,12 +1182,19 @@ int main_mod(int argc, char** argv) {
             in.open(aln_file.c_str());
             stream::for_each(in, lambda);
         }
-        // execute the edits
-        graph->edit(paths);
-        // and optionally compact ids
-        if (compact_ids) {
-            graph->sort();
-            graph->compact_ids();
+        if (!label_paths) {
+            // execute the edits
+            graph->edit(paths);
+            // and optionally compact ids
+            if (compact_ids) {
+                graph->sort();
+                graph->compact_ids();
+            }
+        } else {
+            // just add the path labels to the graph
+            for (auto& path : paths) {
+                graph->paths.extend(path);
+            }
         }
     }
 
@@ -1004,7 +1205,7 @@ int main_mod(int argc, char** argv) {
         }
         Node* head_node = NULL;
         Node* tail_node = NULL;
-        graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
+        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
         graph->prune_complex(path_length, edge_max, head_node, tail_node);
         // These nodes were created in the graph, so we can destroy them by pointer.
         graph->destroy_node(head_node);
@@ -1030,7 +1231,7 @@ int main_mod(int argc, char** argv) {
         }
         Node* head_node = NULL;
         Node* tail_node = NULL;
-        graph->add_start_and_end_markers(path_length, '#', '$', head_node, tail_node);
+        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
     }
 
     graph->serialize_to_ostream(std::cout);
@@ -2942,6 +3143,8 @@ void help_map(char** argv) {
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
+         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold" << endl
+         << "    -P, --score-per-bp N  accept alignment only if the alignment score per base is > N" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 2)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
@@ -2996,6 +3199,8 @@ int main_map(int argc, char** argv) {
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
     float min_kmer_entropy = 0;
+    float min_score_per_bp = 0;
+    size_t kmer_min = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3034,12 +3239,14 @@ int main_map(int argc, char** argv) {
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},
+                {"score-per-bp", required_argument, 0, 'P'},
+                {"kmer-min", required_argument, 0, 'l'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3173,7 +3380,15 @@ int main_map(int argc, char** argv) {
         case 'B':
             band_width = atoi(optarg);
             break;
- 
+
+        case 'P':
+            min_score_per_bp = atof(optarg);
+            break;
+
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -3300,6 +3515,8 @@ int main_map(int argc, char** argv) {
         m->context_depth = context_depth;
         m->max_attempts = max_attempts;
         m->min_kmer_entropy = min_kmer_entropy;
+        m->kmer_min = kmer_min;
+        m->min_score_per_bp = min_score_per_bp;
         mapper[i] = m;
     }
 
@@ -4138,8 +4355,6 @@ int main(int argc, char *argv[])
         return main_msga(argc, argv);
     } else if (command == "pileup") {
         return main_pileup(argc, argv);
-    } else if (command == "call") {
-        return main_call(argc, argv);
     } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

@@ -132,7 +132,17 @@ int from_length(const Mapping& m);
 bool mapping_ends_in_deletion(const Mapping& m);
 bool mapping_starts_in_deletion(const Mapping& m);
 bool mapping_is_total_deletion(const Mapping& m);
-Path simplify_deletions(const Path& p);
+Path simplify(const Path& p);
+Path concat_paths(const Path& path1, const Path& path2);
+// divide mapping at reference-relative position
+pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos);
+// divide mapping at target-relative offset (as measured in to_length)
+pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset);
+// divide path at reference-relative position
+pair<Path, Path> cut_path(const Path& path, const Position& pos);
+// divide the path at a path-relative offset as measured in to_length from start
+pair<Path, Path> cut_path(const Path& path, size_t offset);
+bool maps_to_node(const Path& p, int64_t id);
 
 }
 
