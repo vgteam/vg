@@ -499,25 +499,25 @@ int main_msga(int argc, char** argv) {
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
         auto& name = group.first;
-        if (debug) cerr << "adding " << name << endl;
+        if (debug) cerr << name << ": adding to graph" << endl;
         rebuild(graph);
         //graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
-            if (debug) cerr << "aligning " << name << endl;
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
         }
-        if (debug) cerr << "editing graph" << endl;
+        if (debug) cerr << name << ": editing graph" << endl;
         graph->edit(paths);
         graph->paths.clear();
-        if (debug) cerr << "normalizing node size" << endl;
+        if (debug) cerr << name << ": normalizing node size" << endl;
         graph->dice_nodes(node_max);
-        if (debug) cerr << "sorting and compacting ids" << endl;
+        if (debug) cerr << name << ": sorting and compacting ids" << endl;
         graph->sort();
         graph->compact_ids();
         //if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
@@ -527,20 +527,18 @@ int main_msga(int argc, char** argv) {
     rebuild(graph);
 
     // include the paths in the graph
+    if (debug) cerr << "including paths" << endl;
     for (auto& group : strings) {
         auto& name = group.first;
-        if (debug) cerr << "labeling path " << name << endl;
+        if (debug) cerr << name << ": tracing path through graph" << endl;
         for (auto& seq : group.second) {
-            if (debug) cerr << "seq.size() = " << seq.size() << endl;
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
             //if (debug) cerr << "alignment score: " << aln.score() << endl;
             aln.mutable_path()->set_name(name);
             // todo simplify in the mapper itself when merging the banded bits
-            // ... note to self, the problem with the paths looks to be in paths.cpp
-            //if (debug) cerr << "final path for " << name << " pre-simplify " << pb2json(aln.path()) << endl;
-            //if (debug) cerr << "final path for " << name << " post-simplify " << pb2json(simplify(aln.path())) << endl;
-            if (debug) cerr << "including path for " << name << endl;
-            graph->include(simplify(aln.path()));
+            if (debug) cerr << name << ": labeling" << endl;
+            graph->include(aln.path());
             // now repeat back the path
         }
     }
