@@ -279,14 +279,19 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
 Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int band_width) {
     // split the alignment up into overlapping chunks of band_width size
     list<Alignment> alignments;
+    // force bandwidth to be divisible by 4
+    band_width += band_width % 4;
     assert(read.sequence().size() > band_width);
     int div = 2;
     while (read.sequence().size()/div > band_width) {
         ++div;
     }
     int segment_size = read.sequence().size()/div;
-    // prevent odd segment sizes, as they complicate math in the merge
-    segment_size += segment_size % 2;
+    // use segment sizes divisible by 4, as this simplifies math
+    // we'll divide the overlap by 2 and 2 and again when stripping from the start
+    // and end of sub-reads
+    segment_size += segment_size % 4;
+    //cerr << "Segment size be " << segment_size << endl;
     // and overlap them too
     size_t to_align = div * 2 - 1; // number of alignments we'll do
     vector<Alignment> alns; alns.resize(to_align);
@@ -305,6 +310,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             // overlap can possibly go to 100% of the "last" read
             // if we aren't careful about this it might cause a problem in the merge
             size_t overlap = (i == 0? 0 : segment_size/2);
+            //cerr << "overlap is " << overlap << endl;
             size_t idx = 2*i;
             overlaps[idx] = overlap;
             Alignment mapped_aln = align(aln, kmer_size, stride);
@@ -315,6 +321,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
                 alns[idx] = aln; // unmapped
             }
         }
+        // step to next position
         // and the overlapped bit --- here we're using a hard-coded 50% overlap
         if (i != div-1) { // if we're not at the last sequence
             Alignment aln = read;

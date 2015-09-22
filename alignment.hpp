@@ -71,7 +71,7 @@ int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
 Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlap, bool debug);
 // merge is destructive so we copy
-Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debug);
+Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug);
 Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
 int softclip_start(Alignment& alignment);

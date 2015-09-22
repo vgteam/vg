@@ -555,6 +555,8 @@ Path concat_paths(const Path& path1, const Path& path2) {
     // tack on the edits from the last
     auto& path1_back = path1.mapping(path1.mapping_size()-1);
     auto& path2_front = path2.mapping(0);
+    // move insertions from the front of the second path onto the back of the first
+    // this does not change positions or anything else
 
     // check if we have to splice the last mapping together
     if (!path2_front.has_position() || !path1_back.has_position() ||
@@ -574,7 +576,7 @@ Path concat_paths(const Path& path1, const Path& path2) {
         // just tack it on, it's on the next node
         *res.add_mapping() = path2_front;
     }
-    // simply add the rest of the mappings
+    // add the rest of the mappings
     for (size_t i = 1; i < path2.mapping_size(); ++i) {
         *res.add_mapping() = path2.mapping(i);
     }
@@ -722,15 +724,55 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
 Path simplify(const Path& p) {
     Path s;
     s.set_name(p.name());
-    for (int i = 0; i < p.mapping_size(); ++i) {
-        auto& m = p.mapping(i);
+    for (size_t i = 0; i < p.mapping_size(); ++i) {
+        auto m = p.mapping(i);
+        
         // remove wholly-deleted mappings as these are redundant
         if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) continue;
-        Mapping n; // our new mapping for this node
-        // always take the old position
-        *n.mutable_position() = m.position();
+        
+        // if this isn't the first mapping
+        // split off any insertions from the start
+        // and push them to the last mapping
+        if (i > 0) {
+            size_t ins_at_start = 0;
+            for (size_t j = 0; j < m.edit_size(); ++j) {
+                auto& e = m.edit(j);
+                if (!edit_is_insertion(e)) break;
+                ins_at_start += e.to_length();
+            }
+            // if there are insertions at the start, move them left
+            if (ins_at_start) {
+                auto p = cut_mapping(m, ins_at_start);
+                auto& ins = p.first;
+                //cerr << "insertion " << pb2json(ins) << endl;
+                // take the position from the original mapping
+                m = p.second;
+                *m.mutable_position() = ins.position();
+                //cerr << "before and after " << pb2json(ins) << " and " << pb2json(m) << endl;
+                Mapping* l = s.mutable_mapping(s.mapping_size()-1);
+                for (size_t j = 0; j < ins.edit_size(); ++j) {
+                    auto& e = ins.edit(j);
+                    *l->add_edit() = e;
+                }
+            }
+        }
+
+        // handle the rest of path
+        Mapping n_base; // our new mapping for this node
+        Mapping* n = &n_base;
+        // if we don't have a position, try to use the last mapping
+        if (!m.has_position() || m.position().node_id()==0) {
+            if (i > 0) {
+                n = s.mutable_mapping(s.mapping_size()-1);
+            } else {
+                cerr << "warning: path has no position in first mapping" << endl;
+            }
+        } else {
+            // take the old position
+            *n->mutable_position() = m.position();
+        }
         Edit e = m.edit(0);
-        for (int j = 1; j < m.edit_size(); ++j) {
+        for (size_t j = 1; j < m.edit_size(); ++j) {
             auto& f = m.edit(j);
             // if the edit types are the same, merge them
             if (edit_is_match(e) && edit_is_match(f)
@@ -745,13 +787,13 @@ Path simplify(const Path& p) {
                 e.set_sequence(e.sequence() + f.sequence());
             } else {
                 // mismatched types are just put on
-                *n.add_edit() = e;
+                *n->add_edit() = e;
                 e = f;
             }
         }
         // and keep the last edit
-        *n.add_edit() = e;
-        *s.add_mapping() = n;
+        *n->add_edit() = e;
+        *s.add_mapping() = *n;
     }
     return s;    
 }
@@ -824,7 +866,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     Mapping left, right;
     // left always has the position of the input mapping
-    *left.mutable_position() = m.position();
+    if (m.has_position()) *left.mutable_position() = m.position();
     // nothing to cut
     if (offset == 0) {
         // we will get a 0-length left

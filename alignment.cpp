@@ -597,46 +597,81 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
 // merge that properly handles long indels
 // assumes that alignments should line up end-to-end
 Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlaps, bool debug) {
+    /*
+    cerr << "overlaps: ";
+    for (auto i : overlaps) cerr << i << " ";
+    cerr << endl;
+    */
     if (alns.size() == 0) {
         Alignment aln;
         return aln;
     } else if (alns.size() == 1) {
         return alns.front();
     }
-    Alignment aln = alns.front(); // keep the whole first alignment
-    for (size_t i = 1; i < alns.size(); ++i) {
-        aln = merge_alignments(aln, alns[i], overlaps[i], debug);
+    // parallel merge algorithm
+    // for each generation
+    // merge 0<-0+1, 1<-2+3, ...
+    // until there is only one alignment
+    vector<Alignment> last = alns;
+
+    // get the alignments ready for merge
+    for (size_t i = 0; i < last.size(); ++i) {
+        Alignment& aln = last[i];
+        //cerr << "on " << i << "th aln" << endl;
+        if (!aln.has_path()) {
+            Mapping m;
+            Edit* e = m.add_edit();
+            e->set_to_length(aln.sequence().size());
+            e->set_sequence(aln.sequence());
+            *aln.mutable_path()->add_mapping() = m;
+        }
+        // strip
+        if (i > 0) {
+            //cerr << "dropping " << overlaps[i]/2 << " from start " << endl;
+            aln = strip_from_start(aln, overlaps[i]/2);
+        }
+        if (i < last.size()-1) {
+            //cerr << "dropping " << overlaps[i+1]/2 << " from end " << endl;
+            aln = strip_from_end(aln, overlaps[i+1]/2);
+        }
     }
-    return aln;
+
+    while (last.size() > 1) {
+        //cerr << "last size " << last.size() << endl;
+        size_t new_count = last.size()/2;
+        //cerr << "new count b4 " << new_count << endl;
+        new_count += last.size() % 2; // force binary
+        //cerr << "New count = " << new_count << endl;
+        vector<Alignment> curr; curr.resize(new_count);
+#pragma omp parallel for
+        for (size_t i = 0; i < curr.size(); ++i) {
+            //cerr << "merging " << 2*i << " and " << 2*i+1 << endl;
+            // take a pair from the old alignments
+            // merge them into this one
+            if (2*i+1 < last.size()) {
+                curr[i] = merge_alignments(last[2*i], last[2*i+1], debug);
+            } else {
+                //cerr << "no need to merge" << endl;
+                curr[i] = last[2*i];
+            }
+        }
+        last = curr;
+    }
+    Alignment res = last.front();
+    *res.mutable_path() = simplify(res.path());
+    return res;
 }
 
-Alignment merge_alignments(Alignment a1, Alignment a2, size_t overlap, bool debug) {
+Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug) {
     //cerr << "overlap is " << overlap << endl;
     // if either doesn't have a path, then treat it like a massive softclip
-    if (!a1.has_path()) {
-        Mapping m;
-        Edit* e = m.add_edit();
-        e->set_to_length(a1.sequence().size());
-        e->set_sequence(a1.sequence());
-        *a1.mutable_path()->add_mapping() = m;
-    }
-    if (!a2.has_path()) {
-        Mapping m;
-        Edit* e = m.add_edit();
-        e->set_to_length(a2.sequence().size());
-        e->set_sequence(a2.sequence());
-        *a2.mutable_path()->add_mapping() = m;
-    }
     if (debug) cerr << "merging alignments " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
-    // splice em up in the middle
-    a1 = strip_from_end(a1, overlap/2);
-    a2 = strip_from_start(a2, overlap-(overlap/2));
-    // and concatenate them
+    // concatenate them
     Alignment a3;
     a3.set_sequence(a1.sequence() + a2.sequence());
     *a3.mutable_path() = concat_paths(a1.path(), a2.path());
-    if (debug) cerr << "merged alignments " << pb2json(a3) << endl;
-    return a3;    
+    if (debug) cerr << "merged alignments, result is " << endl << pb2json(a3) << endl;
+    return a3;
 }
 
 void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> node_length) {
@@ -685,7 +720,6 @@ int softclip_end(Alignment& alignment) {
 }
 
 size_t to_length_after_pos(const Alignment& aln, const Position& pos) {
-    cerr << "Getting to length after " << pb2json(pos) << endl;
     return path_to_length(cut_path(aln.path(), pos).second);
 }
 

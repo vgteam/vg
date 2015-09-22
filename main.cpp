@@ -501,43 +501,44 @@ int main_msga(int argc, char** argv) {
         auto& name = group.first;
         if (debug) cerr << "adding " << name << endl;
         rebuild(graph);
-        //graph->serialize_to_file("pre-" + name + ".vg");
+        graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
             if (debug) cerr << "aligning " << name << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+            if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
         }
+        if (debug) cerr << "editing graph" << endl;
         graph->edit(paths);
         graph->paths.clear();
+        if (debug) cerr << "normalizing node size" << endl;
         graph->dice_nodes(node_max);
+        if (debug) cerr << "sorting and compacting ids" << endl;
         graph->sort();
         graph->compact_ids();
         //if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
         //graph->serialize_to_file("out.vg");
     }
 
-    // re-compact the ID space
-    graph->sort();
-    graph->compact_ids();
     rebuild(graph);
 
     // include the paths in the graph
     for (auto& group : strings) {
         auto& name = group.first;
-        if (debug) cerr << "adding path " << name << endl;
+        if (debug) cerr << "labeling path " << name << endl;
         for (auto& seq : group.second) {
             if (debug) cerr << "seq.size() = " << seq.size() << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            if (debug) cerr << "alignment score: " << aln.score() << endl;
+            //if (debug) cerr << "alignment score: " << aln.score() << endl;
             aln.mutable_path()->set_name(name);
             // todo simplify in the mapper itself when merging the banded bits
             // ... note to self, the problem with the paths looks to be in paths.cpp
             //if (debug) cerr << "final path for " << name << " is " << pb2json(simplify(aln.path())) << endl;
+            if (debug) cerr << "including path for " << name << endl;
             graph->include(simplify(aln.path()));
             // now repeat back the path
         }

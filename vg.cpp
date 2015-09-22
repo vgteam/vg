@@ -2603,23 +2603,29 @@ void VG::edit_node(int64_t node_id,
     // make the cuts
     set<Node*> emptyset;
     for (auto cut : cut_at) {
+        //cerr << "cuttin at " << cut-offset << endl;
         // don't cut if it we already have the cut as the node end
-        if (cut-offset == 0 || cut-offset == n->sequence().size()) {
-            continue;
+        if (cut-offset == 0) {
+            // record the node start
+            auto& p = cut_trans[make_pair(node_id, 0)];
+            p.second.insert(n);
+        } else if (cut-offset == n->sequence().size()) {
+            // record the node end
+            auto& p = cut_trans[make_pair(node_id, n->sequence().size())];
+            p.first.insert(n);
+        } else {
+            divide_node(n, cut-offset, l, r);
+            set<Node*> left{l};
+            set<Node*> right{r};
+            cuts[cut] = make_tuple(left, emptyset, right);
+            // now that we've made the cuts record the mapping between the old node id and the new
+            // start and ends
+            if (offset > 0) {
+                get<2>(cuts[offset]) = left;
+            }
+            offset = cut;
+            n = r;
         }
-        divide_node(n, cut-offset, l, r);
-        set<Node*> left{l};
-        set<Node*> right{r};
-        cuts[cut] = make_tuple(left, emptyset, right);
-        // now that we've made the cuts record the mapping between the old node id and the new
-        // start and ends
-
-        // fishy
-        if (offset > 0) {
-            get<2>(cuts[offset]) = left;
-        }
-        offset = cut;
-        n = r;
     }
 
     // add the novel seqs
@@ -2659,6 +2665,7 @@ void VG::edit_node(int64_t node_id,
             const Edit& edit = get<0>(e.second);
             bool at_start = get<1>(e.second);
             bool at_end = get<2>(e.second);
+            //cerr << "in cs " << name << " " << pb2json(edit) << endl;
             for (auto& lp : left) {
                 for (auto& rp : right) {
                     if (!center.empty()) {
@@ -2754,7 +2761,6 @@ void VG::edit(const vector<Path>& paths) {
                 string ins_seq;
                 if (mapping_to_length(lafter) + mapping_to_length(nbefore)) {
                     //cerr << "there be an insertion!" << endl;
-                    //cerr << pb2json(lafter) << " + " < pb2json(nbefore) << endl;
                     // path has been simplified, each insertion will be == 1 edit
                     ins_seq = (lafter.edit_size()?lafter.edit(lafter.edit_size()-1).sequence():"")
                         + (nbefore.edit_size()?nbefore.edit(0).sequence():"");
@@ -2782,7 +2788,7 @@ void VG::edit(const vector<Path>& paths) {
                     p1m.second.insert(ins);
                     auto& p2m = cut_trans[make_pair(ins->id(), ins->sequence().size())];
                     p2m.first.insert(ins);
-                        
+
                     auto dstart2 = make_pair(ins->id(), ins_seq.size());
                     auto dend2 = make_pair(nid, noff);
                     del_f[dstart2] = dend2;
