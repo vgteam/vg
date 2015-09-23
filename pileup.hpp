@@ -121,6 +121,10 @@ public:
         assert(offset < np.base_pileup_size());
         return np.mutable_base_pileup(offset);
     }
+    static const BasePileup* get_base_pileup(const NodePileup& np, int64_t offset) {
+        assert(offset < np.base_pileup_size());
+        return &np.base_pileup(offset);
+    }
 
     // get ith BasePileup record, create if doesn't exist
     static BasePileup* get_create_base_pileup(NodePileup& np, int64_t offset) {
@@ -129,6 +133,14 @@ public:
         }
         return get_base_pileup(np, offset);
     }
+
+    // the bases string in BasePileup doesn't allow random access.  This function
+    // will parse out all the offsets of snps, insertions, and deletions
+    // into separate arrays, each offset is a pair of indexes in the bases and qualities arrays
+    static void parse_base_offsets(const BasePileup& bp,
+                                   vector<pair<int, int> >& matchOffsets,
+                                   vector<pair<int, int> >& insOffsets,
+                                   vector<pair<int, int> >& delOffests);
 
     // flip the is_reverse flag of an alignment, along with its sequence string
     // and those in its edits. 
@@ -168,6 +180,18 @@ public:
         char t1 = ::toupper(c1);
         char t2 = ::toupper(c2);
         return is_reverse ? t1 == reverse_complement(t2) : t1 == t2;
+    }
+
+    // get a match base value from a pileup value
+    static char extract_match(const BasePileup& bp, int offset) {
+        char v = bp.bases()[offset];
+        assert(v != '+' && v != '-');
+        if (v == ',' || v == '.') {
+            return ::toupper(bp.ref_base());
+        } else if (::islower(v)) {
+            return reverse_complement(::toupper(v));
+        }
+        return v;
     }
 };
 

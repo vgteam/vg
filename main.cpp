@@ -17,11 +17,127 @@
 #include "alignment.hpp"
 #include "convert.hpp"
 #include "pileup.hpp"
+#include "caller.hpp"
 #include "google/protobuf/stubs/common.h"
 
 using namespace std;
 using namespace google::protobuf;
 using namespace vg;
+
+void help_call(char** argv) {
+    cerr << "usage: " << argv[0] << " call [options] <pileup.vgpu> > out.gam" << endl
+         << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
+         << "Output can be merged back into the graph using vg mod -i." << endl
+         << endl
+         << "options:" << endl
+         << "    -d, --min_depth      minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
+         << "    -h, --het_prior      prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
+         << "    -j, --json           output in JSON" << endl
+         << "    -p, --progress       show progress" << endl
+         << "    -t, --threads N      number of threads to use" << endl;
+}
+
+int main_call(int argc, char** argv) {
+
+    if (argc <= 2) {
+        help_call(argv);
+        return 1;
+    }
+
+    double het_prior = Caller::Default_het_prior;
+    int min_depth = Caller::Default_min_depth;
+    bool output_json = false;
+    bool show_progress = false;
+    int thread_count = 1;
+
+    int c;
+    optind = 2; // force optind past command positional arguments
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"min_depth", required_argument, 0, 'd'},
+                {"json", no_argument, 0, 'j'},
+                {"progress", no_argument, 0, 'p'},
+                {"het_prior", required_argument, 0, 'r'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "d:jpr:t:",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'd':
+            min_depth = atoi(optarg);
+            break;
+        case 'j':
+            output_json = true;
+            break;
+        case 'p':
+            show_progress = true;
+            break;
+        case 'r':
+            het_prior = atoi(optarg);
+            break;
+        case 't':
+            thread_count = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_call(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+    omp_set_num_threads(thread_count);
+    thread_count = get_thread_count();
+
+    // setup pileup stream
+    string pileup_file_name = argv[optind];
+    istream* pileup_stream = NULL;
+    ifstream in;
+    if (pileup_file_name == "-") {
+        pileup_stream = &std::cin;
+    } else {
+        in.open(pileup_file_name);
+        if (!in) {
+            cerr << "error: input file " << pileup_file_name << " not found." << endl;
+            exit(1);
+        }
+        pileup_stream = &in;
+    }
+
+    // compute the pileups.
+    if (show_progress) {
+        cerr << "Computing variants" << endl;
+    }
+    vector<Caller> callers;
+    for (int i = 0; i < thread_count; ++i) {
+        callers.push_back(Caller(Caller::Default_buffer_size, het_prior, min_depth));
+    }
+    function<void(NodePileup&)> lambda = [&callers, &output_json](NodePileup& pileup) {
+        int tid = omp_get_thread_num();
+        callers[tid].call_node_pileup(pileup, cout, output_json);
+    };
+    stream::for_each_parallel(*pileup_stream, lambda);
+
+    // empty out any remaining buffers
+    for (int i = 0; i < callers.size(); ++i) {
+      callers[i].flush_buffer(cout, output_json);
+    }
+
+    return 0;
+}
 
 void help_pileup(char** argv) {
     cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.vgpu" << endl
@@ -4239,7 +4355,10 @@ int main(int argc, char *argv[])
         return main_msga(argc, argv);
     } else if (command == "pileup") {
         return main_pileup(argc, argv);
+    } else if (command == "call") {
+        return main_call(argc, argv);
     } else {
+
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
         return 1;
