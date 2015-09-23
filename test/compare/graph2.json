@@ -1,0 +1,9 @@
+{"node": [{"sequence": "GGGTTT", "id": 1},
+			 {"sequence": "TTTTGG", "id": 2},
+			 {"sequence": "TGTGTG", "id": 3},
+			 {"sequence": "TATTGG", "id": 4},
+			 {"sequence": "ACTTAC", "id": 5},
+			 {"sequence": "TTTTTA", "id": 6},
+			 {"sequence": "GGTTTA", "id": 7}
+			]
+}

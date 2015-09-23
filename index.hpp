@@ -291,6 +291,13 @@ public:
     // once we have indexed the kmers, we can get the nodes and edges matching
     void kmer_matches(std::string& kmer, std::set<int64_t>& node_ids, std::set<int64_t>& edge_ids);
 
+    // find lowest key with given kmer string (empty string returned if not found)
+    // does not check reverse_complement
+    string first_kmer_key(const string& kmer);
+    // compare kmers with other index: count the number of unique kmers (taking into account strand)
+    // in this index that are found in other, and the number not found.  return <#found, #not found> pair
+    pair<int64_t, int64_t> compare_kmers(Index& other);
+
     // paths
     int64_t get_max_path_id(void);
     void put_max_path_id(int64_t id);
