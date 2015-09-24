@@ -501,7 +501,7 @@ int main_msga(int argc, char** argv) {
         auto& name = group.first;
         if (debug) cerr << name << ": adding to graph" << endl;
         rebuild(graph);
-        //graph->serialize_to_file("pre-" + name + ".vg");
+        graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph

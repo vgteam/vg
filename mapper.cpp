@@ -327,6 +327,10 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             } else {
                 alns[idx] = aln; // unmapped
             }
+            if (debug) {
+#pragma omp critical (cerr)
+                cerr << pb2json(alns[idx]) << endl;
+            }
         }
         // step to next position
         // and the overlapped bit --- here we're using a hard-coded 50% overlap
@@ -343,6 +347,10 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
                 alns[idx] = mapped_aln;
             } else {
                 alns[idx] = aln; // unmapped
+            }
+            if (debug) {
+#pragma omp critical (cerr)
+                cerr << pb2json(alns[idx]) << endl;
             }
         }
     }

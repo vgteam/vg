@@ -608,6 +608,50 @@ Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& 
     } else if (alns.size() == 1) {
         return alns.front();
     }
+
+    // where possible get node and target lengths
+    // to validate after merge
+    /*
+    map<int64_t, map<size_t, set<const Alignment*> > > node_lengths;
+    map<int64_t, map<size_t, set<const Alignment*> > > to_lengths;
+    for (auto& aln : alns) {
+        auto& path = aln.path();
+        // find a mapping that overlaps the whole node
+        // note that edits aren't simplified
+        // so deletions are intact
+        for (size_t i = 0; i < path.mapping_size(); ++i) {
+            auto& m = path.mapping(i);
+            if (m.position().offset() == 0) {
+                // can we see if the next mapping is on the following node
+                if (i < path.mapping_size()-1 && path.mapping(i+1).position().offset() == 0
+                    && mapping_from_length(path.mapping(i+1)) && mapping_from_length(m)) {
+                    // we cover the node, record the to_length and from_length
+                    set<const Alignment*>& n = node_lengths[m.position().node_id()][from_length(m)];
+                    n.insert(&aln);
+                    set<const Alignment*>& t = to_lengths[m.position().node_id()][to_length(m)];
+                    t.insert(&aln);
+                }
+            }
+        }
+    }
+    // verify our input by checking for disagreements
+    for (auto& n : node_lengths) {
+        auto& node_id = n.first;
+        if (n.second.size() > 1) {
+            cerr << "disagreement in node lengths for " << node_id << endl;
+            for (auto& l : n.second) {
+                cerr << "alignments that report length of " << l.first << endl;
+                for (auto& a : l.second) {
+                    cerr << pb2json(*a) << endl;
+                }
+            }
+        } else {
+            //cerr << n.second.begin()->second.size() << " alignments support "
+            //     << n.second.begin()->first << " as length for " << node_id << endl;
+        }
+    }
+    */
+    
     // parallel merge algorithm
     // for each generation
     // merge 0<-0+1, 1<-2+3, ...
@@ -615,9 +659,11 @@ Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& 
     vector<Alignment> last = alns;
 
     // get the alignments ready for merge
+#pragma omp parallel for
     for (size_t i = 0; i < last.size(); ++i) {
         Alignment& aln = last[i];
-        //cerr << "on " << i << "th aln" << endl;
+        //cerr << "on " << i << "th aln" << endl
+        //     << pb2json(aln) << endl;
         if (!aln.has_path()) {
             Mapping m;
             Edit* e = m.add_edit();
@@ -649,10 +695,46 @@ Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& 
             // take a pair from the old alignments
             // merge them into this one
             if (2*i+1 < last.size()) {
-                curr[i] = merge_alignments(last[2*i], last[2*i+1], debug);
+                auto& a1 = last[2*i];
+                auto& a2 = last[2*i+1];
+                if (a1.is_reverse() != a2.is_reverse()) {
+                    cerr << "warning: orientation of alignments to be merged is not consistent" << endl;
+                    cerr << "first is " << (a1.is_reverse()?"reversed":"forward")
+                         << " and second is " << (a2.is_reverse()?"reversed":"forward") << endl;
+                    cerr << pb2json(a1) << endl << pb2json(a2) << endl;
+                }
+                curr[i] = merge_alignments(a1, a2, debug);
+                // check that the merge did the right thing
+                /*
+                auto& a3 = curr[i];
+                for (size_t j = 0; j < a3.path().mapping_size()-1; ++j) {
+                    // look up reported node length
+                    // and compare to what we saw
+                    // skips last mapping
+                    auto& m = a3.path().mapping(j);
+                    if (from_length(m) == to_length(m)
+                        && m.has_position()
+                        && m.position().offset()==0
+                        && a3.path().mapping(j+1).has_position()
+                        && a3.path().mapping(j+1).position().offset()==0) {
+                        auto nl = node_lengths.find(m.position().node_id());
+                        if (nl != node_lengths.end()) {
+                            if (nl->second.find(from_length(m)) == nl->second.end()) {
+                                cerr << "node length is not consistent for " << m.position().node_id() << endl;
+                                cerr << "expected " << nl->second.begin()->first << endl;
+                                cerr << "got " << from_length(m) << endl;
+                                cerr << "inputs:" << endl << pb2json(a1) << endl << pb2json(a2)
+                                     << endl << "output: " << endl << pb2json(a3) << endl;
+                                //exit(1);
+                            }
+                        }
+                    }
+                }
+                */
             } else {
+                auto& a1 = last[2*i];
                 //cerr << "no need to merge" << endl;
-                curr[i] = last[2*i];
+                curr[i] = a1;
             }
         }
         last = curr;
