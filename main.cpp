@@ -4434,7 +4434,10 @@ void vg_help(char** argv) {
          << "  -- sim           simulate reads from the graph" << endl
          << "  -- mod           filter, transform, and edit the graph" << endl
          << "  -- surject       map alignments onto specific paths" << endl
-         << "  -- msga          multiple sequence graph alignment" << endl;
+         << "  -- msga          multiple sequence graph alignment" << endl
+         << "  -- pileup        build a pileup from a set of alignments" << endl
+         << "  -- call          prune the graph by genotyping a pileup" << endl
+         << "  -- compare       compare the kmer space of two graphs" << endl;
 }
 
 int main(int argc, char *argv[])
