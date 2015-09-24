@@ -783,33 +783,38 @@ Path simplify(const Path& p) {
         size_t j = 0;
         // to simplify, we skip deletions
         // these are implied by jumps in the path
-        while (edit_is_deletion(m.edit(j))) {
-            n->mutable_position()->set_offset(n->position().offset()+m.edit(j).from_length());
-            ++j;
-        }
-        Edit e = m.edit(j++);
         for ( ; j < m.edit_size(); ++j) {
-            auto& f = m.edit(j);
-            // if the edit types are the same, merge them
-            if (edit_is_match(e) && edit_is_match(f)
-                || edit_is_sub(e) && edit_is_sub(f)
-                || edit_is_deletion(e) && edit_is_deletion(f)
-                || edit_is_insertion(e) && edit_is_insertion(f)) {
-                // will be 0 for insertions, and + for the rest
-                e.set_from_length(e.from_length()+f.from_length());
-                // will be 0 for deletions, and + for the rest
-                e.set_to_length(e.to_length()+f.to_length());
-                // will be empty for both or have sequence for both
-                e.set_sequence(e.sequence() + f.sequence());
+            if (!edit_is_deletion(m.edit(j))) {
+                break;
             } else {
-                // mismatched types are just put on
-                *n->add_edit() = e;
-                e = f;
+                n->mutable_position()->set_offset(n->position().offset()+m.edit(j).from_length());
             }
         }
-        // and keep the last edit
-        // if it isn't a deletion
-        if (!edit_is_deletion(e)) *n->add_edit() = e;
+        if (j < m.edit_size()) {
+            Edit e = m.edit(j++);
+            for ( ; j < m.edit_size(); ++j) {
+                auto& f = m.edit(j);
+                // if the edit types are the same, merge them
+                if (edit_is_match(e) && edit_is_match(f)
+                    || edit_is_sub(e) && edit_is_sub(f)
+                    || edit_is_deletion(e) && edit_is_deletion(f)
+                    || edit_is_insertion(e) && edit_is_insertion(f)) {
+                    // will be 0 for insertions, and + for the rest
+                    e.set_from_length(e.from_length()+f.from_length());
+                    // will be 0 for deletions, and + for the rest
+                    e.set_to_length(e.to_length()+f.to_length());
+                    // will be empty for both or have sequence for both
+                    e.set_sequence(e.sequence() + f.sequence());
+                } else {
+                    // mismatched types are just put on
+                    *n->add_edit() = e;
+                    e = f;
+                }
+            }
+            // and keep the last edit
+            // if it isn't a deletion
+            if (!edit_is_deletion(e)) *n->add_edit() = e;
+        }
         // and store the mapping
         *s.add_mapping() = *n;
     }
