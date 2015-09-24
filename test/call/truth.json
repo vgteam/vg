@@ -1,0 +1,71 @@
+{
+  "sequence": "GT",
+  "path": {
+    "mapping": [
+      {
+        "position": {
+          "node_id": 1
+        },
+        "edit": [
+          {
+            "from_length": 1,
+            "to_length": 1
+          },
+          {
+            "from_length": 1,
+            "to_length": 1,
+            "sequence": "T"
+          }
+        ]
+      }
+    ]
+  }
+}
+{
+  "sequence": "GA",
+  "path": {
+    "mapping": [
+      {
+        "position": {
+          "node_id": 1,
+          "offset": 3
+        },
+        "edit": [
+          {
+            "from_length": 1,
+            "to_length": 1
+          },
+          {
+            "from_length": 1,
+            "to_length": 1,
+            "sequence": "A"
+          }
+        ]
+      }
+    ]
+  }
+}
+{
+  "sequence": "GG",
+  "path": {
+    "mapping": [
+      {
+        "position": {
+          "node_id": 1,
+          "offset": 3
+        },
+        "edit": [
+          {
+            "from_length": 1,
+            "to_length": 1
+          },
+          {
+            "from_length": 1,
+            "to_length": 1,
+            "sequence": "G"
+          }
+        ]
+      }
+    ]
+  }
+}

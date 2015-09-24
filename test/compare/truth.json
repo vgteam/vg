@@ -1,0 +1,10 @@
+{
+"db1_path": "graph1.vg.index",
+"db2_path": "graph2.vg.index",
+"db1_total": 5,
+"db2_total": 7,
+"db1_only": 2,
+"db2_only": 4,
+"intersection": 3,
+"union": 9
+}

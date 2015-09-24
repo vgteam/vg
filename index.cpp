@@ -1864,4 +1864,79 @@ void index_positions(VG& graph, map<long, Node*>& node_path, map<long, Edge*>& e
     // TODO: support orientation here.
 }
 
+string Index::first_kmer_key(const string& kmer) {
+    string found_key;
+    function<void(string&, string&)> lambda = [&found_key](string& key, string& value) {
+        if (found_key.empty()) {
+            found_key = key;
+        }
+    };
+    string first_key = key_for_kmer(kmer, 0);
+    string last_key = key_for_kmer(kmer, numeric_limits<int64_t>::max());
+    for_range(first_key, last_key, lambda);
+    return found_key;
+}
+
+pair<int64_t, int64_t> Index::compare_kmers(Index& other) {
+    int64_t outFound = 0;
+    int64_t outNotFound = 0;
+    string prev_kmer;
+
+    function<void(string&, string&)> lambda = [&](string& key, string& value) {
+        if (key[1] == 'k') {
+            int64_t id;
+            int32_t pos;
+            string kmer;
+            parse_kmer(key, value, kmer, id, pos);
+
+            // only visit first kmer when multiple occurances with dif. ids in a row
+            if (kmer != prev_kmer) {
+
+                string remk = reverse_complement(kmer);
+                string remk_key = first_kmer_key(remk);
+                
+                // only visit canonical strand (ie lexicographic less than reverse comp)
+                if (remk_key.empty() || key < remk_key) {
+                    
+                    // put together a key range that will find all matches to kmer (i think)
+                    string first_key = other.key_for_kmer(kmer, 0);
+                    string last_key = other.key_for_kmer(kmer, numeric_limits<int64_t>::max());
+
+                    // search other index
+                    bool found = false;
+                    function<void(string&, string&)> lambda1 = [&found](string& key, string& value) {
+                        found = true;
+                    };
+                    other.for_range(first_key, last_key, lambda1);
+
+                    // wasn't found in other, try reverse complement
+                    if (!found) {
+                        first_key = other.key_for_kmer(remk, 0);
+                        last_key = other.key_for_kmer(remk,  numeric_limits<int64_t>::max());
+                        other.for_range(first_key, last_key, lambda1);
+                    }
+
+                    // update stats
+                    if (found) {
+                        ++outFound;
+                    } else {
+                        ++outNotFound;
+                    }
+                }
+            }
+            swap(kmer, prev_kmer);
+        }
+    };
+
+    // skip things that aren't kmers
+    string first_search_key(1, start_sep);
+    first_search_key += 'k';
+    string last_search_key(1, start_sep);
+    last_search_key += 'l';
+    
+    for_range(first_search_key, last_search_key, lambda);
+
+    return pair<int64_t, int64_t>(outFound, outNotFound);
+}            
+
 }

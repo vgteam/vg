@@ -160,12 +160,14 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
             // todo: need to either forget about these, or extend pileup format.
             // easy solution: change insert to come before position, and just add
             // optional pileup at n+1st base of node.  would like to figure out
-            // how samtools does it first... 
+            // how samtools does it first...
+            /*
             stringstream ss;
             ss << "Warning: pileup does not support insertions before 0th base in node."
                << " Offending edit: " << pb2json(edit) << endl;
 #pragma omp critical(cerr)
             cerr << ss.str();
+            */
         }
         // move right along read (and stay put on reference)
         read_offset += edit.to_length();
@@ -231,6 +233,42 @@ NodePileup& Pileups::merge_node_pileups(NodePileup& p1, NodePileup& p2) {
     }
     p2.clear_base_pileup();
     return p1;
+}
+
+void Pileups::parse_base_offsets(const BasePileup& bp,
+                                 vector<pair<int, int> >& matchOffsets,
+                                 vector<pair<int, int> >& insOffsets,
+                                 vector<pair<int, int> >& delOffsets) {
+    matchOffsets.clear();
+    insOffsets.clear();
+    delOffsets.clear();
+    
+    const string& quals = bp.qualities();
+    const string& bases = bp.bases();
+    char ref_base = ::toupper(bp.ref_base());
+
+    // we can use i to index the quality for the ith row of pileup, but
+    // need base_offset to get position of appropriate token in bases string
+    int base_offset = 0;
+    for (int i = 0; i < bp.num_bases(); ++i) {
+        // indel
+        if (bases[base_offset] == '+' || bases[base_offset] == '-') {
+            auto& buf = bases[base_offset] == '+' ? insOffsets : delOffsets;
+            buf.push_back(make_pair(base_offset, i < quals.length() ? i : -1));
+            int lf = base_offset + 1;
+            int rf = bases.find_last_of("0123456789", lf);
+            stringstream ss(bases.substr(lf, rf - lf + 1));
+            int indel_len;
+            ss >> indel_len;
+            // ex: +5aaaaa.  rf = lf = 1. indel_len = 5 -> increment 2+0+5=7
+            base_offset += 2 + rf - lf + indel_len;
+        }
+        // match / snp
+        else {
+            matchOffsets.push_back(make_pair(base_offset, i < quals.length() ? i : -1));
+            ++base_offset;
+        }
+    }
 }
 
 void Pileups::flip_alignment(Alignment& alignment) {
