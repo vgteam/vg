@@ -190,8 +190,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             return a.score() > b.score();
         });
         
-        // Set the secondary bits
-        for(size_t i = 0; i < alignments1.size(); i++) {
+        // Set the secondary bits on all but the first rescued alignment
+        for(size_t i = 1; i < alignments1.size(); i++) {
             alignments1[i].set_is_secondary(true);
         }
     } else if(alignments2.empty() && !alignments1.empty()) {
@@ -221,8 +221,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             return a.score() > b.score();
         });
         
-        // Set the secondary bits
-        for(size_t i = 0; i < alignments2.size(); i++) {
+        // Set the secondary bits on all but the first rescued alignment
+        for(size_t i = 1; i < alignments2.size(); i++) {
             alignments2[i].set_is_secondary(true);
         }
     } 
