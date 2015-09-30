@@ -61,6 +61,10 @@ public:
     inline bool operator==(const NodeTraversal& other) const {
         return node == other.node && backward == other.backward;
     }
+
+    inline bool operator!=(const NodeTraversal& other) const {
+        return node != other.node || backward != other.backward;
+    }
     
     inline bool operator<(const NodeTraversal& other) const {
         return node < other.node || (node == other.node && backward < other.backward);
@@ -90,7 +94,11 @@ public:
     inline bool operator==(const NodeSide& other) const {
         return node == other.node && is_end == other.is_end;
     }
-    
+
+    inline bool operator!=(const NodeSide& other) const {
+        return node != other.node || is_end != other.is_end;
+    }
+
     inline bool operator<(const NodeSide& other) const {
         return node < other.node || (node == other.node && is_end < other.is_end);
     }
@@ -266,7 +274,9 @@ public:
                        int max_node_size);
     void dice_nodes(int max_node_size);
 
-    // add normalize
+    // merge nodes where doing so would not affect the path
+    // space of the graph, removing redundant forks
+    void simplify_node(int64_t id);
 
     void from_gfa(istream& in, bool showp = false);
 
@@ -419,9 +429,26 @@ public:
     void edges_of_node(Node* node, vector<Edge*>& edges);
     // Get the edges of the specified set of nodes, and add them to the given set of edge pointers.
     void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
+    // Sides on the other side of edges to this side of the node
+    set<NodeSide> sides_to(NodeSide side);
+    // Sides on the other side of edges from this side of the node
+    set<NodeSide> sides_from(NodeSide side);
+    
+    set<Node*> nodes_to(Node* node, NodeSide side);
+    // get the children of this node connected to a particular side
+    set<Node*> nodes_from(Node* node, NodeSide side);
+    // to-siblings are nodes which also have edges to them from the same nodes as this one
+    set<NodeTraversal> siblings_to(const NodeTraversal& traversal);
+    // from-siblings are nodes which also have edges to them from the same nodes as this one
+    set<NodeTraversal> siblings_from(const NodeTraversal& traversal);
+    // full to-siblings are nodes traversals which share exactly the same upstream NodeSides
+    set<NodeTraversal> full_siblings_to(const NodeTraversal& trav);
+    // full from-siblings are nodes traversals which share exactly the same downstream NodeSides
+    set<NodeTraversal> full_siblings_from(const NodeTraversal& trav);
 
     // use the VG class to generate ids
     Node* create_node(string seq, int64_t id = 0);
+    // find a particular node
     Node* get_node(int64_t id);
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.

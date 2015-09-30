@@ -1981,7 +1981,8 @@ void help_stats(char** argv) {
          << "    -l, --length          length of sequences in graph" << endl
          << "    -s, --subgraphs       describe subgraphs of graph" << endl
          << "    -H, --heads           list the head nodes of the graph" << endl
-         << "    -T, --tails           list the tail nodes of the graph" << endl;
+         << "    -T, --tails           list the tail nodes of the graph" << endl
+         << "    -S, --siblings        describe the siblings of each node" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -1996,6 +1997,7 @@ int main_stats(int argc, char** argv) {
     bool stats_subgraphs = false;
     bool stats_heads = false;
     bool stats_tails = false;
+    bool show_sibs = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2008,11 +2010,12 @@ int main_stats(int argc, char** argv) {
                 {"heads", no_argument, 0, 'H'},
                 {"tails", no_argument, 0, 'T'},
                 {"help", no_argument, 0, 'h'},
+                {"siblings", no_argument, 0, 'S'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHT",
+        c = getopt_long (argc, argv, "hzlsHTS",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -2039,6 +2042,10 @@ int main_stats(int argc, char** argv) {
 
         case 'T':
             stats_tails = true;
+            break;
+
+        case 'S':
+            show_sibs = true;
             break;
 
         case 'h':
@@ -2105,6 +2112,17 @@ int main_stats(int argc, char** argv) {
             }
             cout << "\t" << length << endl;
         }
+    }
+
+    if (show_sibs) {
+        graph->for_each_node([graph](Node* n) {
+                for (auto trav : graph->full_siblings_to(NodeTraversal(n, false))) {
+                    cout << n->id() << "\t" << "to-sib" << "\t" << trav.node->id() << endl;
+                }
+                for (auto trav : graph->full_siblings_from(NodeTraversal(n, false))) {
+                    cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
+                }
+            });
     }
 
     delete graph;

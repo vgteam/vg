@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 5
+plan tests 6
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -26,3 +26,5 @@ subgraph_length=$(vg stats -s z.vg | head -1 | cut -f 2)
 is $subgraph_length $graph_length  "vg stats reports the correct subgraph length"
 
 rm -f z.vg
+
+is $(vg view -v msgas/q_redundant.gfa | vg stats -S - | md5sum | cut -f 1 -d\ ) 01fadb6a004ddb87e5fc5d056b565218 "perfect to and from siblings are determined"

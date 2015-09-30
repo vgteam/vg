@@ -280,6 +280,96 @@ void VG::edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges) {
     }
 }
 
+set<NodeSide> VG::sides_to(NodeSide side) {
+    set<NodeSide> other_sides;
+    vector<Edge*> edges;
+    edges_of_node(get_node(side.node), edges);
+    for (auto* edge : edges) {
+        if (edge->to() == side.node && edge->to_end() == side.is_end) {
+            other_sides.insert(NodeSide(edge->from(), !edge->from_start()));
+        }
+    }
+    return other_sides;
+}
+
+set<NodeSide> VG::sides_from(NodeSide side) {
+    set<NodeSide> other_sides;
+    vector<Edge*> edges;
+    edges_of_node(get_node(side.node), edges);
+    for (auto* edge : edges) {
+        if (edge->from() == side.node && edge->from_start() != side.is_end) {
+            other_sides.insert(NodeSide(edge->to(), edge->to_end()));
+        }
+    }
+    return other_sides;
+}
+
+set<NodeTraversal> VG::siblings_to(const NodeTraversal& trav) {
+    // find the sides to
+    auto to_sides = sides_to(NodeSide(trav.node->id(), trav.backward));
+    // and then find the traversals from them
+    set<NodeTraversal> travs_from_to_sides;
+    for (auto& s1 : to_sides) {
+        // and the from-children of these
+        for (auto& s2 : sides_from(s1)) {
+            auto sib = NodeTraversal(get_node(s2.node), s2.is_end);
+            // which are not this node
+            if (sib != trav) {
+                travs_from_to_sides.insert(sib);
+            }
+        }
+    }
+    return travs_from_to_sides;
+}
+
+set<NodeTraversal> VG::siblings_from(const NodeTraversal& trav) {
+    // find the sides from
+    auto from_sides = sides_from(NodeSide(trav.node->id(), !trav.backward));
+    // and then find the traversals from them
+    set<NodeTraversal> travs_to_from_sides;
+    for (auto& s1 : from_sides) {
+        // and the to-children of these
+        for (auto& s2 : sides_to(s1)) {
+            auto sib = NodeTraversal(get_node(s2.node), !s2.is_end);
+            // which are not this node
+            if (sib != trav) {
+                travs_to_from_sides.insert(sib);
+            }
+        }
+    }
+    return travs_to_from_sides;
+}
+
+set<NodeTraversal> VG::full_siblings_to(const NodeTraversal& trav) {
+    // get the siblings of
+    auto sibs_to = siblings_to(trav);
+    // and filter them for nodes with the same inbound sides
+    auto to_sides = sides_to(NodeSide(trav.node->id(), trav.backward));
+    set<NodeTraversal> full_sibs_to;
+    for (auto& sib : sibs_to) {
+        auto sib_to_sides = sides_to(NodeSide(sib.node->id(), sib.backward));
+        if (sib_to_sides == to_sides) {
+            full_sibs_to.insert(sib);
+        }
+    }
+    return full_sibs_to;
+}
+
+set<NodeTraversal> VG::full_siblings_from(const NodeTraversal& trav) {
+    // get the siblings of
+    auto sibs_from = siblings_from(trav);
+    // and filter them for nodes with the same inbound sides
+    auto from_sides = sides_from(NodeSide(trav.node->id(), trav.backward));
+    set<NodeTraversal> full_sibs_from;
+    for (auto& sib : sibs_from) {
+        auto sib_from_sides = sides_from(NodeSide(sib.node->id(), sib.backward));
+        if (sib_from_sides == from_sides) {
+            full_sibs_from.insert(sib);
+        }
+    }
+    return full_sibs_from;
+}
+
 int64_t VG::total_length_of_nodes(void) {
     int64_t length = 0;
     for (int64_t i = 0; i < graph.node_size(); ++i) {
@@ -780,6 +870,19 @@ void VG::dice_nodes(int max_node_size) {
     }
 }
 
+void VG::simplify_node(int64_t id) {
+    // do we share our incoming edges with another node?
+    // for each to-sibling
+    // does it have the same set of edges as this node?
+    // does it start with the same sequence?
+    // if so merge it into this one
+    // 
+    // does that node have the same start sequence as us?
+    // if so, pick a node to keep, step through until we're to the end of the identical sequence
+    // or we have exhausted sequence in the other node(s)
+    // cut, and forward edges from the end of the redundant node
+}
+
 /*
 void VG::normalize(size_t node_max_size) {
     // remove nodes that repeat something another node says at the same location in the graph
@@ -792,15 +895,6 @@ void VG::normalize(size_t node_max_size) {
     sort();
     // and give ids based on the sort
     compact_ids();
-}
-
-void VG::remove_redundancy(void) {
-    // for each node
-    // do we share our incoming edges with another node?
-    // does that node have the same start sequence as us?
-    // if so, pick a node to keep, step through until we're to the end of the identical sequence
-    // or we have exhausted sequence in the other node(s)
-    // cut, and forward edges from the end of the redundant node
 }
 */
 
