@@ -2952,6 +2952,192 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
     remove_null_nodes_forwarding_edges();
 }
 
+void VG::edit_both_directions(const vector<Path>& paths) {
+    // Collect the breakpoints
+    map<int64_t, set<int64_t>> breakpoints;
+    
+    for(auto path : paths) {
+        // Add in breakpoints from each path
+        find_breakpoints(path, breakpoints);
+    }
+    
+    // Break any nodes that need to be broken. Save the map we need to translate
+    // from offsets on old nodes to new nodes.
+    auto node_translation = ensure_breakpoints(breakpoints);
+    
+    // Now go through each path again, and create new nodes/wire things up.
+    for(auto path : paths) {
+        // Simplify the path, just to eliminate adjacent match Edits in the same
+        // Mapping (because we don't have or want a breakpoint there)
+        auto simplified_path = simplify(path);
+        
+        add_nodes_and_edges(path, node_translation);
+    }
+    
+}
+
+map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints) {
+    // Set up the map we will fill in with the new node start positions in the
+    // old nodes.
+    map<int64_t, map<int64_t, Node*>> toReturn;
+    
+    for(auto& kv : breakpoints) {
+        // Go through all the nodes we need to break up
+        auto original_node_id = kv.first;
+        
+        // We are going through the breakpoints left to right, so we need to
+        // keep the node pointer for the right part that still needs further
+        // dividing.
+        Node* right_part = get_node(original_node_id);
+        
+        // How far into the original node does our right part start?
+        int64_t current_offset = 0;
+        
+        for(auto breakpoint : kv.second) {
+            // For every point at which we need to make a new node, in ascending
+            // order (due to the way sets store ints)...
+            
+            if(breakpoint == 0 || breakpoint == get_node(original_node_id)->sequence().size()) {
+                // This breakpoint already exists, because the node starts or ends here
+                continue;
+            }
+            
+            // How far in do we need to break the remaining right part? And how
+            // many bases will be in this new left part?
+            int64_t divide_offset = breakpoint - current_offset;
+            
+            // Make a new left part and right part. This updates all the
+            // existing perfect match paths in the graph.
+            Node* left_part;
+            divide_node(right_part, divide_offset, left_part, right_part);
+            
+            // The left part is now done. We know it started at current_offset
+            // and ended before breakpoint, so record it by start position.
+            toReturn[original_node_id][current_offset] = left_part;
+            
+            // Record that more sequence has been consumed
+            current_offset += divide_offset;
+            
+        }
+        
+        // Now the right part is done too. It's going to be the part
+        // corresponding to the remainder of the original node.
+        toReturn[original_node_id][current_offset] = right_part;
+    }
+    
+    return toReturn;
+}
+
+void VG::add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation) {
+    // The basic algorithm is to traverse the path edit by edit, keeping track
+    // of a NodeSide for the last piece of sequence we were on. If we hit an
+    // edit that creates new sequence, we create that new sequence as a node,
+    // and attach it to the dangling NodeSide, and leave its end dangling. If we
+    // hit an edit that corresponds to a match, we know that there's a
+    // breakpoint on each end (since it's bordered by a non-perfect-match or the
+    // end of a node), so we can attach its start to the dangling NodeSide and
+    // leave its end dangling.
+    
+    // We need node_translation to translate between node ID space, where the
+    // paths are articulated, and new node ID space, where the edges are being
+    // made.
+    
+    // We use this function to get the node that contains a position on an
+    // original node.
+    auto find_new_node = [&](int64_t old_node_id, int64_t old_offset) {
+        if(node_translation.count(old_node_id) == 0) {
+            // The node is unchanged
+            return get_node(old_node_id);
+        }
+        // Otherwise, get the first new node starting after that position, and
+        // then look left.
+        auto found = node_translation.at(old_node_id).upper_bound(old_offset);
+        if(found == node_translation.at(old_node_id).begin()) {
+            // We managed to have a node with no entry for 0, or a negative offset
+            throw runtime_error("Couldn't find new node for position " + 
+                to_string(old_offset) + " on " + to_string(old_node_id));
+        }
+        // Get the thing before that (last key <= the position we want
+        --found;
+        
+        // Return the node we found.
+        return (*found).second;
+    };
+    
+    // What's dangling and waiting to be attached to? In current node ID space.
+    // We use the default constructed one (id 0) as a placeholder.
+    NodeSide dangling;
+    
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        // For each Mapping in the path
+        const Mapping& m = path.mapping(i);
+        
+        // What node are we on? In old node ID space.
+        int64_t node_id = m.position().node_id();
+        
+        // See where the next edit starts in the node. It is always included
+        // (even when the edit runs backward), unless the edit has 0 length in
+        // the reference.
+        int64_t edit_first_position = m.position().offset();
+        
+        // And in what direction we are moving (+1 or -1)
+        int64_t direction = m.is_reverse() ? -1 : 1;
+        
+        for(size_t j = 0; j < m.edit_size(); ++j) {
+            // For each Edit in the mapping
+            const Edit& e = m.edit(j);
+            
+            // Work out where its end position on the original node is (inclusive)
+            // We don't use this on insertions, so 0-from-length edits don't matter.
+            int64_t edit_last_position = edit_first_position + (e.from_length() - 1) * direction;
+            
+            if(edit_is_insertion(e) || edit_is_sub(e)) {
+                // This edit introduces new sequence.
+                
+                // Create the new node.
+                Node* new_node = create_node(e.sequence());
+                
+                if(dangling.node) {
+                    // This actually referrs to a node.
+                    
+                    // Add an edge from the dangling NodeSide to the start of this new node
+                    assert(create_edge(dangling, NodeSide(new_node->id(), false)));
+                }
+                
+                // Dangle the end of this new node
+                dangling = NodeSide(new_node->id(), true);
+            } else if(edit_is_match(e)) {
+                // We're using existing sequence
+                
+                // We know we have breakpoints on both sides, but we also might
+                // have additional breakpoints in the middle. So we need the
+                // left node, that contains the first base of the match, and the
+                // right node, that contains the last base of the match.
+                Node* left_node = find_new_node(node_id, edit_first_position);
+                Node* right_node = find_new_node(node_id, edit_last_position);
+                
+                // TODO: we just assume the outer edges of these nodes are in
+                // the right places. They should be if we cut the breakpoints
+                // right.
+                
+                if(dangling.node) {
+                    // Connect the left end of the left node we matched in the direction we matched it
+                    assert(create_edge(dangling, NodeSide(left_node->id(), direction == -1)));
+                }
+                
+                // Dangle the right end of the right node in the direction we matched it.
+                dangling = NodeSide(right_node->id(), direction == 1);
+            }
+            
+            // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
+            // Also, simplify() simplifies them out.
+            
+        }
+        
+    }
+    
+    
+}
 
 void VG::node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start) {

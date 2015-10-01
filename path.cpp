@@ -1033,4 +1033,72 @@ bool maps_to_node(const Path& p, int64_t id) {
     return false;
 }
 
+void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints) {
+    // We need to work out what offsets we will need to break each node at, if
+    // we want to add in all the new material and edges in this path.
+    
+    // TODO: Move into graph or give access to graph, so we can avoid making extra breakpoints
+    
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        // For each Mapping in the path
+        const Mapping& m = path.mapping(i);
+        
+        // What node are we on?
+        int64_t node_id = m.position().node_id();
+        
+        // See where the next edit starts in the node. It is always included
+        // (even when the edit runs backward), unless the edit has 0 length in
+        // the reference.
+        int64_t edit_first_position = m.position().offset();
+        
+        // And in what direction we are moving (+1 or -1)
+        int64_t direction = m.is_reverse() ? -1 : 1;
+        
+        for(size_t j = 0; j < m.edit_size(); ++j) {
+            // For each Edit in the mapping
+            const Edit& e = m.edit(j);
+            
+            // We know where the mapping starts in its node. But where does it
+            // end (inclusive)? Note that if the edit has 0 reference length,
+            // this may not actually be included in the edit (and
+            // edit_first_position will be further along than
+            // edit_last_position).
+            int64_t edit_last_position = edit_first_position + (e.from_length() - 1) * direction;
+            
+            if(!edit_is_match(e) || (j == 0 && i > 0)) {
+                // If this edit is not a perfect match, or if this is the first
+                // edit in this mapping and we had a previous mapping we may
+                // need to connect to, we need to make sure we have a breakpoint
+                // at the start of this edit.
+                
+                // We need to snip between edit_first_position and edit_first_position - direction.
+                // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
+                breakpoints[node_id].insert(max(edit_first_position, edit_first_position - direction));
+            }
+            
+            if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
+                // If this edit is not a perfect match, or if it is the last
+                // edit in a mapping and we have a subsequent mapping we might
+                // need to connect to, make sure we have a breakpoint at the end
+                // of this edit.
+                
+                // We also need to snip between edit_last_position and edit_last_position + direction.
+                breakpoints[node_id].insert(max(edit_last_position, edit_last_position + direction));
+            }
+            
+            // TODO: for an insertion or substitution, note that we need a new
+            // node and two new edges.
+            
+            // TODO: for a deletion, note that we need an edge. TODO: Catch
+            // and complain about some things we can't handle (like a path with
+            // a leading/trailing deletion)? Or just skip deletions when wiring.
+            
+            // Use up the portion of the node taken by this mapping, so we know
+            // where the next mapping will start.
+            edit_first_position = edit_last_position + direction;
+        }
+    }
+    
+}
+
 }

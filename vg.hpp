@@ -394,6 +394,23 @@ public:
               map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_f,
               map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_t);
     void edit(const vector<Path>& paths);
+    // Edit the graph to include all the sequence and edges added by the given
+    // paths. Can handle paths that visit nodes in any orientation.
+    void edit_both_directions(const vector<Path>& paths);
+    
+    // Take a map from node ID to a set of offsets at which new nodes should
+    // start (which may include 0 and 1-past-the-end, which should be ignored),
+    // break the specified nodes at those positions. Returns a map from old node
+    // ID to a map from old node start position to new node pointer in the
+    // graph.
+    map<int64_t, map<int64_t, Node*>> ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints);
+    
+    // Given a path on nodes that may or may not exist, and a map from node ID
+    // in the path's node ID space to a table of offset and actual node, add in
+    // all the new sequence and edges required by the path. The given path must
+    // not contain adjacent perfect match edits in the same mapping (the removal
+    // of which can be accomplished with the simplify() function).
+    void add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation);
     
     // Add in the given node, by value
     void add_node(Node& node);
