@@ -256,12 +256,15 @@ void Pileups::parse_base_offsets(const BasePileup& bp,
             auto& buf = bases[base_offset] == '+' ? insOffsets : delOffsets;
             buf.push_back(make_pair(base_offset, i < quals.length() ? i : -1));
             int lf = base_offset + 1;
-            int rf = bases.find_last_of("0123456789", lf);
+            int rf = lf;
+            while (rf < bases.length() && bases[rf] >= '0' && bases[rf] <= '9') {
+                ++rf;
+            }
             stringstream ss(bases.substr(lf, rf - lf + 1));
             int indel_len;
             ss >> indel_len;
             // ex: +5aaaaa.  rf = lf = 1. indel_len = 5 -> increment 2+0+5=7
-            base_offset += 2 + rf - lf + indel_len;
+            base_offset += 1 + rf - lf + indel_len;
         }
         // match / snp
         else {
@@ -269,6 +272,7 @@ void Pileups::parse_base_offsets(const BasePileup& bp,
             ++base_offset;
         }
     }
+    assert(base_offset == bases.length());
 }
 
 void Pileups::flip_alignment(Alignment& alignment) {
