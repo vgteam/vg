@@ -190,8 +190,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             return a.score() > b.score();
         });
         
-        // Set the secondary bits
-        for(size_t i = 0; i < alignments1.size(); i++) {
+        // Set the secondary bits on all but the first rescued alignment
+        for(size_t i = 1; i < alignments1.size(); i++) {
             alignments1[i].set_is_secondary(true);
         }
     } else if(alignments2.empty() && !alignments1.empty()) {
@@ -221,8 +221,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             return a.score() > b.score();
         });
         
-        // Set the secondary bits
-        for(size_t i = 0; i < alignments2.size(); i++) {
+        // Set the secondary bits on all but the first rescued alignment
+        for(size_t i = 1; i < alignments2.size(); i++) {
             alignments2[i].set_is_secondary(true);
         }
     } 
@@ -923,20 +923,42 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                 // using 10x the thread_extension
                 int64_t f = max((int64_t)0, idf - (int64_t) max(thread_ex, 1) * 10);
                 int64_t l = idl + (int64_t) max(thread_ex, 1) * 10;
-                if (debug) cerr << "getting node range " << f << "-" << l << endl;
-
-                { // always rebuild the graph
-                    delete graph;
-                    graph = new VG;
+                
+                // We're going to get three ranges. They need to be non-
+                // overlapping since the xg range operation can't handle
+                // repeated nodes.
+                // The ranges are:
+                // The original first-last range
+                // The new range suggested by soft clip handling on the left (f to min(idf, first - 1))
+                // The new range suggested by soft clip handling on the right (max(idl, last + 1) to l)
+                // This way, if soft clip sends us off across an ID discontinuity, we don't try to get like half the graph.
+                
+                // The last two entries might be empty or backward, but the
+                // range functions can just not get anything in those cases.
+                
+                if (debug) {
+                    cerr << "getting node ranges: " << endl;
+                    cerr << "\t" << first << "-" << last << endl;
+                    cerr << "\t" << f << "-" << min(idf, first - 1) << endl;
+                    cerr << "\t" << max(idl, last + 1) << "-" << l << endl;
                 }
+
+                // always rebuild the graph, since we messed it up by sorting it
+                delete graph;
+                graph = new VG;
+                
                 
                 // Get the bigger range, but still go out to context depth afterwards.
                 if(xindex) {
-                    xindex->get_id_range(f, l, graph->graph);
+                    xindex->get_id_range(first, last, graph->graph);
+                    xindex->get_id_range(f, min(idf, first - 1), graph->graph);
+                    xindex->get_id_range(max(idl, last + 1), l, graph->graph);
                     xindex->expand_context(graph->graph, context_depth);
                     graph->rebuild_indexes();
                 } else if(index) {
-                    index->get_range(f, l, *graph);
+                    index->get_range(first, last, *graph);
+                    index->get_range(f, min(idf, first - 1), *graph);
+                    index->get_range(max(idl, last + 1), l, *graph);
                     index->expand_context(*graph, context_depth);
                 } else {
                     cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;

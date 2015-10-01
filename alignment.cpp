@@ -156,18 +156,21 @@ size_t fastq_unpaired_for_each_parallel(string& filename, function<void(Alignmen
         while (more_data) {
             Alignment aln;
             char* buf = bufs[tid];
+            bool got_anything = false;
 #pragma omp critical (fastq_input)
-            if (more_data) {
-                more_data = get_next_alignment_from_fastq(fp, buf, len, aln);
-                nLines++;
+            {
+                if (more_data) {
+                    got_anything = more_data = get_next_alignment_from_fastq(fp, buf, len, aln);
+                    nLines++;
+                }
             }
-            if (more_data) {
+            if (got_anything) {
                 lambda(aln);
             }
         }
     }
     for (auto& buf : bufs) {
-        delete buf;
+        delete[] buf;
     }
     gzclose(fp);
     return nLines;
@@ -190,12 +193,15 @@ size_t fastq_paired_interleaved_for_each_parallel(string& filename, function<voi
         while (more_data) {
             Alignment mate1, mate2;
             char* buf = bufs[tid];
+            bool got_anything = false;
 #pragma omp critical (fastq_input)
-            if (more_data) {
-                more_data = get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
-                nLines++;
+            {
+                if (more_data) {
+                    got_anything = more_data = get_next_interleaved_alignment_pair_from_fastq(fp, buf, len, mate1, mate2);
+                    nLines++;
+                }
             }
-            if (more_data) {
+            if (got_anything) {
                 lambda(mate1, mate2);
             }
         }
@@ -225,12 +231,15 @@ size_t fastq_paired_two_files_for_each_parallel(string& file1, string& file2, fu
         while (more_data) {
             Alignment mate1, mate2;
             char* buf = bufs[tid];
+            bool got_anything = false;
 #pragma omp critical (fastq_input)
-            if (more_data) {
-                more_data = get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
-                nLines++;
+            {
+                if (more_data) {
+                    got_anything = more_data = get_next_alignment_pair_from_fastqs(fp1, fp2, buf, len, mate1, mate2);
+                    nLines++;
+                }
             }
-            if (more_data) {
+            if (got_anything) {
                 lambda(mate1, mate2);
             }
         }
