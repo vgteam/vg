@@ -758,7 +758,7 @@ int main_msga(int argc, char** argv) {
             // now take the alignment and modify the graph with it
         }
         if (debug) cerr << name << ": editing graph" << endl;
-        graph->edit(paths);
+        graph->edit_both_directions(paths);
         graph->paths.clear();
         if (debug) cerr << name << ": normalizing node size" << endl;
         graph->dice_nodes(node_max);
