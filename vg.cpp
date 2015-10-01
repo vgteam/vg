@@ -2733,6 +2733,14 @@ void VG::edit_node(int64_t node_id,
 // to get this to work, we should be using NodeSides rather than pair<int64_t, size_t>
 // to track cuts and positions in the system
 void VG::edit(const vector<Path>& paths) {
+#ifdef debug
+    // We should not add additional disconnected components
+    list<VG> subgraphs;
+    disjoint_subgraphs(subgraphs);
+    int subgraph_count = subgraphs.size();
+#endif
+
+
     //cerr << "editing graph" << endl;
     // deletions from this node position/offset on the forward strand to the second position/offset
     map<pair<int64_t, size_t>, pair<int64_t, size_t> > del_f;
@@ -2901,6 +2909,14 @@ void VG::edit(const vector<Path>& paths) {
         }
     }
     edit(mappings, cut_trans, del_f, del_t);
+    
+#ifdef debug
+    // We should not add additional disconnected components
+    subgraphs.clear();
+    disjoint_subgraphs(subgraphs);
+    int end_subgraph_count = subgraphs.size();
+    assert(end_subgraph_count == subgraph_count);
+#endif
 }
 
 // mappings sorted by node id
@@ -2935,6 +2951,7 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
     }
     remove_null_nodes_forwarding_edges();
 }
+
 
 void VG::node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start) {

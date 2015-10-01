@@ -667,6 +667,8 @@ int main_msga(int argc, char** argv) {
     }
 
     // align, include, repeat
+    
+    if (debug) cerr << "preparing initial graph" << endl;
 
     // if our graph is empty, we need to take the first sequence and build a graph from it
     if (graph->empty()) {
