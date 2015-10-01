@@ -822,11 +822,11 @@ Path simplify(const Path& p) {
 }
 
 bool mapping_ends_in_deletion(const Mapping& m){
-    return edit_is_deletion(m.edit(m.edit_size()-1));
+    return m.edit_size() >= 1 && edit_is_deletion(m.edit(m.edit_size()-1));
 }
 
 bool mapping_starts_in_deletion(const Mapping& m) {
-    return edit_is_deletion(m.edit(0));
+    return m.edit_size() >= 1 && edit_is_deletion(m.edit(0));
 }
 
 bool mapping_is_total_deletion(const Mapping& m) {
