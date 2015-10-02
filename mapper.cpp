@@ -303,6 +303,27 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     size_t to_align = div * 2 - 1; // number of alignments we'll do
     vector<Alignment> alns; alns.resize(to_align);
     vector<size_t> overlaps; overlaps.resize(to_align);
+    
+    // We need a function to get the lengths of nodes, in case we need to
+    // reverse an Alignment, including all its Mappings and Positions. TODO:
+    // make this cache the node lengths for the nodes used in the actual
+    // alignments somehow?
+    std::function<int64_t(int64_t)> get_node_length = [&](int64_t node_id) {
+        if(xindex) {
+            // Grab the node sequence only from the XG index and get its size.
+            return xindex->node_sequence(node_id).size();
+        } else if(index) {
+            // Get a 1-element range from the index and then use that.
+            VG one_node_graph;
+            index->get_range(node_id, node_id, one_node_graph);
+            return one_node_graph.get_node(node_id)->sequence().size();
+        } else {
+            // Complain we don;t have the right indices.
+            // This should be caught before here.
+            throw runtime_error("No index to get nodes from.");
+        }
+    };
+    
 #pragma omp parallel for
     for (int i = 0; i < div; ++i) {
         {
@@ -323,7 +344,13 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             Alignment mapped_aln = align(aln, kmer_size, stride);
             if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
                 >= min_score_per_bp) {
-                alns[idx] = mapped_aln;
+            
+                // We're actually going to use this alignment. We should make
+                // sure to flip it if it's backward, though. We need all the
+                // alignments to be a consistent orientation for merging.
+                if(mapped_aln.is_reverse()) cerr << "Reversing alignment: " << pb2json(mapped_aln) << endl;
+                alns[idx] = mapped_aln.is_reverse() ? reverse_alignment(mapped_aln, get_node_length) : mapped_aln;
+                cerr << "Stored alignment: " << pb2json(alns[idx]) << endl;
             } else {
                 alns[idx] = aln; // unmapped
             }
@@ -344,7 +371,9 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             Alignment mapped_aln = align(aln, kmer_size, stride);
             if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
                 >= min_score_per_bp) {
-                alns[idx] = mapped_aln;
+                if(mapped_aln.is_reverse()) cerr << "Reversing alignment: " << pb2json(mapped_aln) << endl;
+                alns[idx] = mapped_aln.is_reverse() ? reverse_alignment(mapped_aln, get_node_length) : mapped_aln;
+                cerr << "Stored alignment: " << pb2json(alns[idx]) << endl;
             } else {
                 alns[idx] = aln; // unmapped
             }
@@ -361,6 +390,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
 vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {
 
     if (aln.sequence().size() > band_width) {
+        if (debug) cerr << "switching to banded alignment" << endl;
         return vector<Alignment>{align_banded(aln, kmer_size, stride, band_width)};
     }
 

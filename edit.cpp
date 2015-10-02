@@ -1,4 +1,5 @@
 #include "edit.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
@@ -80,6 +81,16 @@ pair<Edit, Edit> cut_edit_at_from(const Edit& e, size_t from_off) {
         right.set_from_length(r);
     }
     return make_pair(left, right);
+}
+
+Edit reverse_edit(const Edit& e) {
+    // Make a reversed copy
+    Edit reversed = e;
+    
+    // All we have to do is flip the sequence
+    reversed.set_sequence(reverse_complement(e.sequence()));
+    
+    return reversed;
 }
 
 }

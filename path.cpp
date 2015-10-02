@@ -833,10 +833,64 @@ bool mapping_is_total_deletion(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_deletion(m.edit(0));
 }
 
+Mapping reverse_mapping(const Mapping& m, function<int64_t(int64_t)>& node_length) {
+    // Make a new reversed mapping
+    Mapping reversed = m;
+    
+    if(m.has_position() && m.position().node_id() != 0) {
+        // Since we're flipping m, which way do we move its start position in
+        // the coordinates of its node? Towards the node's start if we were
+        // reverse, and away from the node's start if we were forward.
+        int64_t direction = m.is_reverse() ? -1 : 1;
+    
+        // We need to have an offset from the same end of the node to the
+        // *other* end of the mapping. For this we need the mapping's
+        // from_length and the direction we need to move the mapping start point
+        // (towards or away from the start of the node). Importantly, we do not
+        // need the actual length of the node, since all offsets are from the
+        // node's start, in node-local coordinates.
+        reversed.mutable_position()->set_offset(m.position().offset() + (mapping_from_length(m) - 1) * direction);
+    }
+    
+    
+    // Flip the flag
+    reversed.set_is_reverse(!m.is_reverse());
+    
+    // Clear out all the edits. TODO: we wasted time copying them
+    reversed.clear_edit();
+    
+    for(size_t i = m.edit_size() - 1; i != (size_t) -1; i--) {
+        // For each edit in reverse order, put it in reverse complemented
+        *reversed.add_edit() = reverse_edit(m.edit(i));
+    }
+    
+    return reversed;
+}
+
+Path reverse_path(const Path& path, function<int64_t(int64_t)>& node_length) {
+    // Make a new reversed path
+    Path reversed = path;
+    
+    // Clear out all the mappings. TODO: we wasted time copying them
+    reversed.clear_mapping();
+    
+    for(size_t i = path.mapping_size() - 1; i != (size_t) -1; i--) {
+        // For each mapping in reverse order, put it in reverse complemented and
+        // measured from the other end of the node.
+        *reversed.add_mapping() = reverse_mapping(path.mapping(i), node_length);
+    }
+    
+    return reversed;
+}
+
 // ref-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
     Mapping left, right;
     assert(m.has_position() && m.position().node_id());
+    
+    // TODO: support reverse mappings
+    assert(!m.is_reverse());
+    
     //cerr << "cutting mapping " << pb2json(m) << " at pos " << pb2json(pos) << endl;
     // left always has the position of the input mapping
     *left.mutable_position() = m.position();
@@ -894,6 +948,11 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
 // mapping-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     Mapping left, right;
+    
+    // both result mappings will be in the same orientation as the original
+    left.set_is_reverse(m.is_reverse());
+    right.set_is_reverse(m.is_reverse());
+    
     //assert(m.has_position() && m.position().node_id());
     // left always has the position of the input mapping
     if (m.has_position()) *left.mutable_position() = m.position();
@@ -906,6 +965,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         left = m;
     } else {
         // we need to cut the mapping
+        
         // find the cut point and build the two mappings
         size_t seen = 0;
         size_t j = 0;
@@ -932,9 +992,13 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         }
     }
     if (m.has_position()) {
+        // The right mapping has a position on this same node
         right.mutable_position()->set_node_id(m.position().node_id());
+        // The position is closer to the node start if we're lookign at the node
+        // in reverse, and further from the node start if we're looking at it
+        // normally.
         right.mutable_position()->set_offset(left.position().offset()
-                                             + mapping_from_length(left));
+                                             + (mapping_from_length(left) - 1) * (m.is_reverse() ? 1 : -1));
     }
     assert(!m.has_position()
            || (left.has_position()
@@ -990,17 +1054,17 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
     // seek forward to the cut point
     for ( ; i < path.mapping_size() && seen < offset; ++i) {
         auto& m = path.mapping(i);
-        //cerr << "seeking cut offset " << offset << " at mapping " << pb2json(m) << endl;
+        cerr << "seeking cut offset " << offset << " at mapping " << pb2json(m) << endl;
         // the position is in this node, so make the cut
         if (seen + mapping_to_length(m) == offset) {
             *p1.add_mapping() = m;
         } else if (seen + mapping_to_length(m) > offset) {
-            //cerr << "making cuts" << endl;
+            cerr << "making cuts" << endl;
             auto mappings = cut_mapping(m, offset - seen);
             // and save the cuts
             *p1.add_mapping() = mappings.first;
             *p2.add_mapping() = mappings.second;
-            //cerr << "left cut " << pb2json(mappings.first) << " and right " << pb2json(mappings.second) << endl;
+            cerr << "left cut " << pb2json(mappings.first) << " and right " << pb2json(mappings.second) << endl;
             ++i; // we don't increment our mapping index when we break here
             seen += mapping_to_length(m); // same problem
             break;
@@ -1010,7 +1074,7 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
         }
         seen += mapping_to_length(m);
     }
-    //cerr << "seen " << seen << " offset " << offset << endl;
+    cerr << "seen " << seen << " offset " << offset << endl;
     assert(seen >= offset);
     // add in the rest of the edits
     for ( ; i < path.mapping_size(); ++i) {
@@ -1022,7 +1086,7 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
                && p1.mapping(0).position().node_id()
                && p2.mapping(0).has_position()
                && p2.mapping(0).position().node_id()));
-    //cerr << "---cut_path left " << pb2json(p1) << endl << "---and right " << pb2json(p2) << endl;
+    cerr << "---cut_path left " << pb2json(p1) << endl << "---and right " << pb2json(p2) << endl;
     return make_pair(p1, p2);
 }
 
@@ -1033,11 +1097,17 @@ bool maps_to_node(const Path& p, int64_t id) {
     return false;
 }
 
+#define debug
+
 void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
     
     // TODO: Move into graph or give access to graph, so we can avoid making extra breakpoints
+    
+#ifdef debug
+    cerr << "Processing path..." << endl;
+#endif
     
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
@@ -1054,6 +1124,11 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
         // And in what direction we are moving (+1 or -1)
         int64_t direction = m.is_reverse() ? -1 : 1;
         
+#ifdef debug
+    cerr << "Processing mapping " << i << " to node " << node_id << " in direction " << direction <<
+        " from " << edit_first_position << endl;
+#endif
+        
         for(size_t j = 0; j < m.edit_size(); ++j) {
             // For each Edit in the mapping
             const Edit& e = m.edit(j);
@@ -1065,11 +1140,20 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
             // edit_last_position).
             int64_t edit_last_position = edit_first_position + (e.from_length() - 1) * direction;
             
+#ifdef debug
+            cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
+#endif 
+            
             if(!edit_is_match(e) || (j == 0 && i > 0)) {
                 // If this edit is not a perfect match, or if this is the first
                 // edit in this mapping and we had a previous mapping we may
                 // need to connect to, we need to make sure we have a breakpoint
                 // at the start of this edit.
+                
+#ifdef debug
+                cerr << "Need to break " << node_id << " at edit lower end " <<
+                    max(edit_first_position, edit_first_position - direction) << endl;
+#endif
                 
                 // We need to snip between edit_first_position and edit_first_position - direction.
                 // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
@@ -1081,6 +1165,11 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
                 // edit in a mapping and we have a subsequent mapping we might
                 // need to connect to, make sure we have a breakpoint at the end
                 // of this edit.
+                
+#ifdef debug
+                cerr << "Need to break " << node_id << " at past edit upper end " <<
+                    max(edit_last_position, edit_last_position + direction) << endl;
+#endif
                 
                 // We also need to snip between edit_last_position and edit_last_position + direction.
                 breakpoints[node_id].insert(max(edit_last_position, edit_last_position + direction));

@@ -572,6 +572,7 @@ int alignment_from_length(const Alignment& a) {
 Alignment strip_from_start(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
+    res.set_is_reverse(aln.is_reverse());
     //cerr << "drop " << drop << " from start" << endl;
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
@@ -588,6 +589,7 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
 Alignment strip_from_end(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
+    res.set_is_reverse(aln.is_reverse());
     //cerr << "drop " << drop << " from end" << endl;
     size_t cut_at = aln.sequence().size()-drop;
     //cerr << "Cut at " << cut_at << endl;
@@ -603,8 +605,29 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
     return res;
 }
 
+Alignment reverse_alignment(const Alignment& aln, function<int64_t(int64_t)>& node_length) {
+    // We're going to reverse the alignment and all its mappings.
+    // TODO: should we/can we do this in place?
+    
+    Alignment reversed = aln;
+    reversed.set_sequence(reverse_complement(aln.sequence()));
+    reversed.set_is_reverse(!aln.is_reverse());
+    
+    if(aln.has_path()) {
+    
+        // Now invert the order of the mappings, and for each mapping, flip the
+        // is_reverse flag. The edits within mappings also get put in reverse
+        // order, get their positions corrected, and get their sequences get
+        // reverse complemented.
+        *reversed.mutable_path() = reverse_path(aln.path(), node_length);
+    }
+    
+    return reversed;
+}
+
 // merge that properly handles long indels
-// assumes that alignments should line up end-to-end
+// assumes that alignments should line up end-to-end, and that they are all either is_reverse or not.
+// within an alignment, individual mappings may still be is_reverse or not as they please.
 Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlaps, bool debug) {
     /*
     cerr << "overlaps: ";
@@ -680,6 +703,7 @@ Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& 
             e->set_sequence(aln.sequence());
             *aln.mutable_path()->add_mapping() = m;
         }
+        
         // strip
         if (i > 0) {
             //cerr << "dropping " << overlaps[i]/2 << " from start " << endl;
