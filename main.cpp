@@ -159,7 +159,9 @@ void help_call(char** argv) {
          << endl
          << "options:" << endl
          << "    -d, --min_depth      minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
-         << "    -h, --het_prior      prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
+         << "    -e, --max_depth      depth depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
+         << "    -s, --min_support    minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
+         << "    -r, --het_prior      prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
          << "    -j, --json           output in JSON" << endl
          << "    -p, --progress       show progress" << endl
          << "    -t, --threads N      number of threads to use" << endl;
@@ -174,6 +176,8 @@ int main_call(int argc, char** argv) {
 
     double het_prior = Caller::Default_het_prior;
     int min_depth = Caller::Default_min_depth;
+    int max_depth = Caller::Default_max_depth;
+    int min_support = Caller::Default_min_support;
     bool output_json = false;
     bool show_progress = false;
     int thread_count = 1;
@@ -184,6 +188,8 @@ int main_call(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"min_depth", required_argument, 0, 'd'},
+                {"max_depth", required_argument, 0, 'e'},
+                {"min_support", required_argument, 0, 's'},
                 {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
                 {"het_prior", required_argument, 0, 'r'},
@@ -192,7 +198,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:jpr:t:",
+        c = getopt_long (argc, argv, "d:e:s:jpr:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -204,6 +210,12 @@ int main_call(int argc, char** argv) {
         case 'd':
             min_depth = atoi(optarg);
             break;
+        case 'e':
+            max_depth = atoi(optarg);
+            break;
+        case 's':
+            min_support = atoi(optarg);
+            break;
         case 'j':
             output_json = true;
             break;
@@ -211,7 +223,7 @@ int main_call(int argc, char** argv) {
             show_progress = true;
             break;
         case 'r':
-            het_prior = atoi(optarg);
+            het_prior = atof(optarg);
             break;
         case 't':
             thread_count = atoi(optarg);
@@ -251,7 +263,7 @@ int main_call(int argc, char** argv) {
     }
     vector<Caller> callers;
     for (int i = 0; i < thread_count; ++i) {
-        callers.push_back(Caller(Caller::Default_buffer_size, het_prior, min_depth));
+        callers.push_back(Caller(Caller::Default_buffer_size, het_prior, min_depth, max_depth, min_support));
     }
     function<void(NodePileup&)> lambda = [&callers, &output_json](NodePileup& pileup) {
         int tid = omp_get_thread_num();

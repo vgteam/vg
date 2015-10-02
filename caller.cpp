@@ -13,8 +13,10 @@ const double Caller::Log_zero = (double)-1e100;
 // these values pretty arbitrary at this point
 const int Caller::Default_buffer_size = 1000;
 const double Caller::Default_het_prior = 0.001; // from MAQ
-const int Caller::Default_min_depth = 5;
-const double Caller::Default_min_frac = 0.75;
+const int Caller::Default_min_depth = 50;
+const int Caller::Default_max_depth = 500;
+const int Caller::Default_min_support = 25;
+const double Caller::Default_min_frac = 0.85;
 const double Caller::Default_min_likelihood = 1e-50;
 const int Caller::Default_context = 5;
 const char Caller::Default_default_quality = 10;
@@ -50,7 +52,8 @@ void Caller::flush_buffer(ostream& out, bool json) {
 
 void Caller::call_node_pileup(const NodePileup& pileup, ostream& out, bool json) {
     for (int i = 0; i < pileup.base_pileup_size(); ++i) {
-        if (pileup.base_pileup(i).num_bases() >= _min_depth) {
+        if (pileup.base_pileup(i).num_bases() >= _min_depth &&
+            pileup.base_pileup(i).num_bases() <= _max_depth) {
             call_base_pileup(pileup, i);
         }
     }
@@ -78,18 +81,17 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset) {
     char ref_base = ::toupper(bp.ref_base());
 
     // test against thresholding heuristics
-    if (top_count + second_count >= _min_depth &&
-        (double)(top_count + second_count) / (double)base_offsets.size() >= _min_frac) {
+    if ((double)(top_count + second_count) / (double)base_offsets.size() >= _min_frac) {
 
         // compute max likelihood snp genotype.  it will be one of the three combinations
         // of the top two bases (we don't care about case here)
         pair<char, char> g = mp_snp_genotype(bp, base_offsets, top_base, second_base);
         
         // if any of these bases are different than the reference, add them as snps
-        if (g.first != ref_base) {
+        if (top_count >= _min_support && g.first != ref_base) {
             create_snp(np, offset, g.first);
         }
-        if (g.second != ref_base && g.second != g.first) {
+        if (second_count >= _min_support && g.second != ref_base && g.second != g.first) {
             create_snp(np, offset, g.second);
         }
     }

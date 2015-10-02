@@ -30,6 +30,10 @@ public:
     static const double Default_het_prior;
     // minimum size of pileup to call a snp
     static const int Default_min_depth;
+    // maximum size of pileup to call a snp
+    static const int Default_max_depth;
+    // minimum number of reads that support snp required to call it
+    static const int Default_min_support;
     // minimum pct of pileup that's not indels to call snp
     static const double Default_min_frac;
     // minimum likelihood to call a snp
@@ -42,6 +46,8 @@ public:
     Caller(int buffer_size = Default_buffer_size,
            double het_prior = Default_het_prior,
            int min_depth = Default_min_depth,
+           int max_depth = Default_max_depth,
+           int min_support = Default_min_support,
            double min_frac = Default_min_frac,
            double min_likelihood = Default_min_likelihood, 
            int context = Default_context,
@@ -50,6 +56,8 @@ public:
         _het_log_prior(safe_log(het_prior)),
         _hom_log_prior(safe_log(.5 * (1. - het_prior))),
         _min_depth(min_depth),
+        _max_depth(max_depth),
+        _min_support(min_support),
         _min_frac(min_frac),
         _min_log_likelihood(safe_log(min_likelihood)),
         _context(context),
@@ -62,6 +70,8 @@ public:
                                   _het_log_prior(other._het_log_prior),
                                   _hom_log_prior(other._hom_log_prior),
                                   _min_depth(other._min_depth),
+                                  _max_depth(other._max_depth),
+                                  _min_support(other._min_support),
                                   _min_frac(other._min_frac),
                                   _min_log_likelihood(other._min_log_likelihood),
                                   _context(other._context),
@@ -74,6 +84,8 @@ public:
                              _het_log_prior(other._het_log_prior),
                              _hom_log_prior(other._hom_log_prior),
                              _min_depth(other._min_depth),
+                             _max_depth(other._max_depth),
+                             _min_support(other._min_support),
                              _min_frac(other._min_frac),
                              _min_log_likelihood(other._min_log_likelihood),
                              _context(other._context),
@@ -94,6 +106,8 @@ public:
         _het_log_prior = other._het_log_prior;
         _hom_log_prior = other._hom_log_prior;
         _min_depth = other._min_depth;
+        _max_depth = other._max_depth;
+        _min_support = other._min_support;
         _min_frac = other._min_frac;
         _min_log_likelihood = other._min_log_likelihood;
         _context = other._context;
@@ -118,6 +132,10 @@ public:
     int _buffer_size;
     // minimum depth of pileup to call variants on
     int _min_depth;
+    // maximum depth of pileup to call variants on
+    int _max_depth;
+    // min reads supporting snp to call it
+    int _min_support;
     // minimum fraction of bases in pileup that nucleotide must have to be snp
     double _min_frac;
     // minimum log likelihood for a snp to be called
