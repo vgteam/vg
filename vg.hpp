@@ -272,11 +272,21 @@ public:
                        int start_pos,
                        int stop_pos,
                        int max_node_size);
+    // chops up the nodes
     void dice_nodes(int max_node_size);
+    // does the reverse
+    void unchop(void);
+    // the set of components that could be merged into single nodes without
+    // changing the path space of the graph
+    set<list<Node*>> simple_components(void);
+    // combines the nodes into a new node that has the same external linkage as the provided component
+    void merge_nodes(const list<Node*>& nodes);
+    // uses unchop and sibling merging to simplify the graph into a normalized form
+    void normalize(void);
 
     // merge nodes where doing so would not affect the path
     // space of the graph, removing redundant forks
-    void simplify_node(int64_t id);
+    //void simplify_node(int64_t id);
 
     void from_gfa(istream& in, bool showp = false);
 
@@ -445,6 +455,12 @@ public:
     set<NodeTraversal> full_siblings_to(const NodeTraversal& trav);
     // full from-siblings are nodes traversals which share exactly the same downstream NodeSides
     set<NodeTraversal> full_siblings_from(const NodeTraversal& trav);
+    // removes easily-resolvable redundancy in the graph
+    void simplify_siblings(void);
+    // does so for all provided to-sibling sets
+    void simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs);
+    // does so for all provided from-sibling sets
+    void simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs);
 
     // use the VG class to generate ids
     Node* create_node(string seq, int64_t id = 0);

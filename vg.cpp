@@ -370,6 +370,234 @@ set<NodeTraversal> VG::full_siblings_from(const NodeTraversal& trav) {
     return full_sibs_from;
 }
 
+void VG::simplify_siblings(void) {
+    // make a list of all the sets of full siblings
+    set<set<NodeTraversal>> to_sibs;
+    set<set<NodeTraversal>> from_sibs;
+    for_each_node([this, &to_sibs, &from_sibs](Node* n) {
+            auto trav = NodeTraversal(n, false);
+            auto tsibs = full_siblings_to(trav);
+            tsibs.insert(trav);
+            if (tsibs.size() > 1) {
+                to_sibs.insert(tsibs);
+            }
+            auto fsibs = full_siblings_from(trav);
+            fsibs.insert(trav);
+            if (fsibs.size() > 1) {
+                from_sibs.insert(fsibs);
+            }
+        });
+    // for each sibling group, try to simplify it
+    // first do the perfect to-sibs
+    simplify_to_siblings(to_sibs);
+    // then the from direction
+    simplify_from_siblings(from_sibs);
+    // and remove any null nodes that result
+    remove_null_nodes_forwarding_edges();
+}
+
+void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
+    for (auto& sibs : to_sibs) {
+        // determine the amount of sharing at the start
+        // the to-sibs have the same parent(s) feeding into them
+        // so we can safely make a single node out of the shared sequence
+        // and link this to them and their parent to remove node level redundancy
+        vector<string*> seqs;
+        size_t min_seq_size = sibs.begin()->node->sequence().size();
+        for (auto& sib : sibs) {
+            auto seqp = sib.node->mutable_sequence();
+            seqs.push_back(seqp);
+            if (seqp->size() < min_seq_size) {
+                min_seq_size = seqp->size();
+            }
+        }
+        size_t i = 0;
+        bool similar = true;
+        for ( ; similar && i < min_seq_size; ++i) {
+            char c = seqs.front()->at(i);
+            for (auto s : seqs) {
+                if (c != s->at(i)) {
+                    similar = false;
+                    break;
+                }
+            }
+        }
+        size_t shared_start = i-1;
+        //cerr << "sharing is " << shared_start << " for to-sibs of "
+        //     << sibs.begin()->node->id() << endl;
+        // make a new node with the shared sequence
+        string seq = seqs.front()->substr(0,shared_start);
+        auto new_node = create_node(seq);
+        // chop it off of the old nodes
+        for (auto& sib : sibs) {
+            *sib.node->mutable_sequence() = sib.node->sequence().substr(shared_start);
+        }
+        // connect the new node to the common parents
+        // by definition we are only working with nodes that have exactly the same set of parents
+        // so we just use the first node in the set to drive the reconnection
+        auto new_left_side = NodeSide(new_node->id(), false);
+        auto new_right_side = NodeSide(new_node->id(), true);
+        for (auto side : sides_to(NodeSide(sibs.begin()->node->id(), sibs.begin()->backward))) {
+            create_edge(side, new_left_side);
+        }
+        // disconnect the old nodes from their common parents
+        for (auto& sib : sibs) {
+            auto old_side = NodeSide(sib.node->id(), sib.backward);
+            for (auto side : sides_to(old_side)) {
+                destroy_edge(side, old_side);
+            }
+            // connect the new node to the old nodes
+            create_edge(new_right_side, old_side);
+        }
+    }
+}
+
+void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
+    for (auto& sibs : from_sibs) {
+        // determine the amount of sharing at the end
+        // the from-sibs have the same downstream nodes ("parents")
+        // so we can safely make a single node out of the shared sequence at the end
+        // and link this to them and their parent to remove node level redundancy
+        vector<string*> seqs;
+        size_t min_seq_size = sibs.begin()->node->sequence().size();
+        for (auto& sib : sibs) {
+            auto seqp = sib.node->mutable_sequence();
+            seqs.push_back(seqp);
+            if (seqp->size() < min_seq_size) {
+                min_seq_size = seqp->size();
+            }
+        }
+        size_t i = 1;
+        bool similar = true;
+        for ( ; similar && i < min_seq_size; ++i) {
+            char c = seqs.front()->at(seqs.front()->size()-i);
+            for (auto s : seqs) {
+                if (c != s->at(s->size()-i)) {
+                    similar = false;
+                    break;
+                }
+            }
+        }
+        size_t shared_end = i;
+        //cerr << "sharing is " << shared_end << " for from-sibs of "
+        //     << sibs.begin()->node->id() << endl;
+        // make a new node with the shared sequence
+        string seq = seqs.front()->substr(seqs.front()->size()-shared_end);
+        auto new_node = create_node(seq);
+        // chop it off of the old nodes
+        for (auto& sib : sibs) {
+            *sib.node->mutable_sequence()
+                = sib.node->sequence().substr(0, sib.node->sequence().size()-shared_end);
+        }
+        // connect the new node to the common downstream nodes
+        // by definition we are only working with nodes that have exactly the same set of "children"
+        // so we just use the first node in the set to drive the reconnection
+        auto new_left_side = NodeSide(new_node->id(), false);
+        auto new_right_side = NodeSide(new_node->id(), true);
+        for (auto side : sides_from(NodeSide(sibs.begin()->node->id(), !sibs.begin()->backward))) {
+            create_edge(new_right_side, side);
+        }
+        // disconnect the old nodes from their common "children"
+        for (auto& sib : sibs) {
+            auto old_side = NodeSide(sib.node->id(), !sib.backward);
+            for (auto side : sides_from(old_side)) {
+                destroy_edge(old_side, side);
+            }
+            // connect the new node to the old nodes
+            create_edge(old_side, new_left_side);
+        }
+    }
+}
+
+void VG::unchop(void) {
+    for (auto& comp : simple_components()) {
+        merge_nodes(comp);
+    }
+}
+
+void VG::normalize(void) {
+    // combine diced/chopped nodes (subpaths with no branching)
+    unchop();
+    // merge redundancy across multiple nodes into single nodes
+    simplify_siblings();
+    // there may now be some cut nodes that can be simplified
+    unchop();
+}
+
+// the set of components that could be merged into single nodes without
+// changing the path space of the graph
+set<list<Node*>> VG::simple_components(void) {
+    // go around and establish groupings
+    set<list<Node*>> components;
+    for_each_node([this, &components](Node* n) {
+            // go left and right through each as far as we have only single edges connecting us
+            // to nodes that have only single edges coming in or out
+            list<Node*> c;
+            // go left
+            {
+                Node* l = n;
+                auto sides = sides_to(NodeSide(l->id(), false));
+                while (sides.size() == 1
+                       && end_degree(get_node(sides.begin()->node)) == 1) {
+                    l = get_node(sides.begin()->node);
+                    sides = sides_to(NodeSide(l->id(), false));
+                    c.push_front(l);
+                }
+            }
+            // add the node (in the middle)
+            c.push_back(n);
+            // go right
+            {
+                Node* r = n;
+                auto sides = sides_from(NodeSide(r->id(), true));
+                while (sides.size() == 1
+                       && start_degree(get_node(sides.begin()->node)) == 1) {
+                    r = get_node(sides.begin()->node);
+                    sides = sides_from(NodeSide(r->id(), true));
+                    c.push_back(r);
+                }
+            }
+            if (c.size() > 0) {
+                components.insert(c);
+            }
+        });
+    /*
+    for (auto& c : components) {
+        for (auto x : c) {
+            cerr << x->id() << " ";
+        }
+        cerr << endl;
+    }
+    */
+    return components;
+}
+
+void VG::merge_nodes(const list<Node*>& nodes) {
+    // determine the common paths that will apply to the new node
+    // TODO XXX (paths)
+    // make a new node that concatenates the labels in the order they occur in the graph
+    string seq;
+    for (auto n : nodes) {
+        seq += n->sequence();
+    }
+    auto node = create_node(seq);
+    // connect this node to the left and right connections of the set
+    auto old_start = NodeSide(nodes.front()->id(), false);
+    auto new_start = NodeSide(node->id(), false);
+    for (auto side : sides_to(old_start)) {
+        create_edge(side, new_start);
+    }
+    auto old_end = NodeSide(nodes.back()->id(), true);
+    auto new_end = NodeSide(node->id(), true);
+    for (auto side : sides_from(old_end)) {
+        create_edge(new_end, side);
+    }
+    // remove the old nodes
+    for (auto n : nodes) {
+        destroy_node(n);
+    }
+}
+
 int64_t VG::total_length_of_nodes(void) {
     int64_t length = 0;
     for (int64_t i = 0; i < graph.node_size(); ++i) {
@@ -870,6 +1098,7 @@ void VG::dice_nodes(int max_node_size) {
     }
 }
 
+/*
 void VG::simplify_node(int64_t id) {
     // do we share our incoming edges with another node?
     // for each to-sibling
@@ -882,6 +1111,7 @@ void VG::simplify_node(int64_t id) {
     // or we have exhausted sequence in the other node(s)
     // cut, and forward edges from the end of the redundant node
 }
+*/
 
 /*
 void VG::normalize(size_t node_max_size) {

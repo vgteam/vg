@@ -1144,6 +1144,11 @@ void help_mod(char** argv) {
          << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
          << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
+         << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
+         << "                            and edges that do not introduce new paths are removed and neighboring" << endl
+         << "                            nodes are merged)" << endl
+         << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
          << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
@@ -1151,6 +1156,8 @@ void help_mod(char** argv) {
          << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
          << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
          << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
+         << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
+         << "                            replace the pair with a single node that is the concatenation of their labels" << endl
          << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
          << "    -e, --edge-max N        when pruning complex regions only consider paths which cross" << endl
          << "                            this many potential alternate edges (e.g. if node out-degree is" << endl
@@ -1179,6 +1186,9 @@ int main_mod(int argc, char** argv) {
     bool add_start_and_end_markers = false;
     bool prune_subgraphs = false;
     bool kill_labels = false;
+    bool simplify_graph = false;
+    bool unchop = false;
+    bool normalize_graph = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1199,11 +1209,14 @@ int main_mod(int argc, char** argv) {
                 {"markers", no_argument, 0, 'm'},
                 {"threads", no_argument, 0, 't'},
                 {"label-paths", no_argument, 0, 'P'},
+                {"simplify", no_argument, 0, 's'},
+                {"unchop", no_argument, 0, 'u'},
+                {"normalize", no_argument, 0, 'n'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KP",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsun",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1245,6 +1258,10 @@ int main_mod(int argc, char** argv) {
             chop_to = atoi(optarg);
             break;
 
+        case 'u':
+            unchop = true;
+            break;
+
         case 'K':
             kill_labels = true;
             break;
@@ -1263,6 +1280,14 @@ int main_mod(int argc, char** argv) {
 
         case 'P':
             label_paths = true;
+            break;
+
+        case 's':
+            simplify_graph = true;
+            break;
+
+        case 'n':
+            normalize_graph = true;
             break;
 
         case 'h':
@@ -1292,6 +1317,18 @@ int main_mod(int argc, char** argv) {
 
     if (remove_orphans) {
         graph->remove_orphan_edges();
+    }
+
+    if (unchop) {
+        graph->unchop();
+    }
+
+    if (simplify_graph) {
+        graph->simplify_siblings();
+    }
+
+    if (normalize_graph) {
+        graph->normalize();
     }
 
     if (!aln_file.empty()) {
