@@ -2956,7 +2956,15 @@ void VG::edit_both_directions(const vector<Path>& paths) {
     // Collect the breakpoints
     map<int64_t, set<int64_t>> breakpoints;
     
+    std::vector<Path> simplified_paths;
+    
     for(auto path : paths) {
+        // Simplify the path, just to eliminate adjacent match Edits in the same
+        // Mapping (because we don't have or want a breakpoint there)
+        simplified_paths.push_back(simplify(path));
+    }
+    
+    for(auto path : simplified_paths) {
         // Add in breakpoints from each path
         find_breakpoints(path, breakpoints);
     }
@@ -2965,12 +2973,8 @@ void VG::edit_both_directions(const vector<Path>& paths) {
     // from offsets on old nodes to new nodes.
     auto node_translation = ensure_breakpoints(breakpoints);
     
-    // Now go through each path again, and create new nodes/wire things up.
-    for(auto path : paths) {
-        // Simplify the path, just to eliminate adjacent match Edits in the same
-        // Mapping (because we don't have or want a breakpoint there)
-        auto simplified_path = simplify(path);
-        
+    for(auto path : simplified_paths) {
+        // Now go through each path again, and create new nodes/wire things up.
         add_nodes_and_edges(path, node_translation);
     }
     
@@ -2985,6 +2989,10 @@ map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<
         // Go through all the nodes we need to break up
         auto original_node_id = kv.first;
         
+        // Save the original node length. We don;t want to break here (or later)
+        // because that would be off the end.
+        int64_t original_node_length = get_node(original_node_id)->sequence().size();
+        
         // We are going through the breakpoints left to right, so we need to
         // keep the node pointer for the right part that still needs further
         // dividing.
@@ -2997,7 +3005,7 @@ map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<
             // For every point at which we need to make a new node, in ascending
             // order (due to the way sets store ints)...
             
-            if(breakpoint == 0 || breakpoint == get_node(original_node_id)->sequence().size()) {
+            if(breakpoint == 0 || breakpoint == original_node_length) {
                 // This breakpoint already exists, because the node starts or ends here
                 continue;
             }
@@ -3090,18 +3098,26 @@ void VG::add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, N
             // Work out where its end position on the original node is (inclusive)
             // We don't use this on insertions, so 0-from-length edits don't matter.
             int64_t edit_last_position = edit_first_position + (e.from_length() - 1) * direction;
-            
+#ifdef debug
+            cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
+#endif    
+        
             if(edit_is_insertion(e) || edit_is_sub(e)) {
                 // This edit introduces new sequence.
-                
+#ifdef debug
+                cerr << "Handling ins/sub relative to " << node_id << endl;
+#endif
                 // Create the new node.
                 Node* new_node = create_node(e.sequence());
                 
                 if(dangling.node) {
                     // This actually referrs to a node.
-                    
+#ifdef debug
+                    cerr << "Connecting " << dangling << " and " << NodeSide(new_node->id(), false) << endl;
+#endif
                     // Add an edge from the dangling NodeSide to the start of this new node
                     assert(create_edge(dangling, NodeSide(new_node->id(), false)));
+                    
                 }
                 
                 // Dangle the end of this new node
@@ -3119,18 +3135,33 @@ void VG::add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, N
                 // TODO: we just assume the outer edges of these nodes are in
                 // the right places. They should be if we cut the breakpoints
                 // right.
+#ifdef debug
+                cerr << "Handling match relative to " << node_id << endl;
+#endif
                 
                 if(dangling.node) {
+#ifdef debug
+                    cerr << "Connecting " << dangling << " and " << NodeSide(left_node->id(), direction == -1) << endl;
+#endif
+                
                     // Connect the left end of the left node we matched in the direction we matched it
                     assert(create_edge(dangling, NodeSide(left_node->id(), direction == -1)));
                 }
                 
                 // Dangle the right end of the right node in the direction we matched it.
                 dangling = NodeSide(right_node->id(), direction == 1);
+            } else {
+                // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
+                // Also, simplify() simplifies them out.
+#ifdef debug
+                cerr << "Skipping other edit relative to " << node_id << endl;
+#endif
             }
             
-            // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
-            // Also, simplify() simplifies them out.
+            // Advance in the right direction along the original node for this edit.
+            // This way the next one will start at the right place.
+            edit_first_position += e.from_length() * direction;
+            
             
         }
         

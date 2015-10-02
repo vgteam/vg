@@ -760,11 +760,13 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << name << ": editing graph" << endl;
         graph->edit_both_directions(paths);
         graph->paths.clear();
+
         if (debug) cerr << name << ": normalizing node size" << endl;
         graph->dice_nodes(node_max);
         if (debug) cerr << name << ": sorting and compacting ids" << endl;
         graph->sort();
-        graph->compact_ids();
+        graph->compact_ids(); // xg can't work unless IDs are compacted.
+        
         //if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
         //graph->serialize_to_file("out.vg");
     }
