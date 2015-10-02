@@ -8,9 +8,9 @@
 		  },
 		  
 		  {
-				"num_bases": 43,
+				"num_bases": 48,
 				"ref_base": 71,
-				"bases": "...AAAAAAA....-2GT....TTTTTTTTTTTTTTT........."
+				"bases": "...AAAAAAA....-2GT....TTTTTTTTTTTTTTT.........TTTTT"
 		  },
 		  
 		  {},
@@ -22,9 +22,9 @@
 		  },
 		  
 		  {
-				"num_bases": 43,
+				"num_bases": 69,
 				"ref_base": 84,
-				"bases": "cccccccccc....-2GT...GGGGG...AAAAAAAAAAAAAAAAA"
+				"bases": "cccccccccccccccccccccc....-2GT...GGGGGGG...AAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 		  }
 	 ]
 }
