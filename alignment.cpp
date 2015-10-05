@@ -805,6 +805,10 @@ void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> n
             
             // Update the offset to count from the other end of the node.
             pos->set_offset(node_length(pos->node_id()) - pos->offset() - 1);
+            
+            // We leave all the edits the same, because in reality this node has
+            // the oriented sequence we attributed to it. It just has a
+            // different node orientation.
         } 
     }
     

@@ -780,6 +780,10 @@ Path simplify(const Path& p) {
             // take the old position
             *n->mutable_position() = m.position();
         }
+        
+        // Copy the is_reverse flag
+        n->set_is_reverse(m.is_reverse());
+        
         size_t j = 0;
         // to simplify, we skip deletions
         // these are implied by jumps in the path
@@ -998,7 +1002,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         // in reverse, and further from the node start if we're looking at it
         // normally.
         right.mutable_position()->set_offset(left.position().offset()
-                                             + (mapping_from_length(left) - 1) * (m.is_reverse() ? 1 : -1));
+                                             + (mapping_from_length(left) - 1) * (m.is_reverse() ? -1 : 1));
     }
     assert(!m.has_position()
            || (left.has_position()
