@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 12
+plan tests 13
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -43,3 +43,5 @@ rm -rf t.vg t.gam
 is $(vg mod -n msgas/q_redundant.vg | vg view - | grep ^S | wc -l) 4 "normalization produces the correct number of nodes"
 
 is $(vg mod -n msgas/q_redundant.vg | vg stats -l - | cut -f 2) 154 "normalization removes redundant sequence in the graph"
+
+is $(vg view -v graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut -f 1 -d\ ) 1754c37e444be5ebdf087c86cfba52cf "normalization doesn't introduce cycles and does remove redundancy in bubbles"

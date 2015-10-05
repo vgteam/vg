@@ -280,6 +280,78 @@ void VG::edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges) {
     }
 }
 
+bool VG::is_ancestor_prev(int64_t node_id, int64_t candidate_id, size_t steps) {
+    if (node_id == candidate_id) return true;
+    if (!steps) return false;
+    for (auto& side : sides_to(NodeSide(node_id, false))) {
+        if (is_ancestor_prev(side.node, candidate_id, steps-1)) return true;
+    }
+    return false;
+}
+
+bool VG::is_ancestor_next(int64_t node_id, int64_t candidate_id, size_t steps) {
+    if (node_id == candidate_id) return true;
+    if (!steps) return false;
+    for (auto& side : sides_from(NodeSide(node_id, true))) {
+        if (is_ancestor_next(side.node, candidate_id, steps-1)) return true;
+    }
+    return false;
+}
+
+int64_t VG::common_ancestor_prev(int64_t id1, int64_t id2, size_t steps) {
+    // arbitrarily step back from node 1 asking if we are prev-ancestral to node 2
+    auto scan = [this](int64_t id1, int64_t id2, size_t steps) -> int64_t {
+        set<int64_t> to_visit;
+        to_visit.insert(id1);
+        for (size_t i = 0; i < steps; ++i) {
+            // collect nodes to visit
+            set<int64_t> to_visit_next;
+            for (auto& id : to_visit) {
+                if (is_ancestor_prev(id2, id)) return id;
+                for (auto& side : sides_to(NodeSide(id, false))) {
+                    to_visit_next.insert(side.node);
+                }
+            }
+            to_visit = to_visit_next;
+            if (to_visit.empty()) return -1; // we hit the end of the graph
+        }
+        return 0;
+    };
+    int64_t id3 = scan(id1, id2, steps);
+    if (id3) {
+        return id3;
+    } else {
+        return scan(id2, id1, steps);
+    }
+}
+
+int64_t VG::common_ancestor_next(int64_t id1, int64_t id2, size_t steps) {
+    // arbitrarily step forward from node 1 asking if we are next-ancestral to node 2
+    auto scan = [this](int64_t id1, int64_t id2, size_t steps) -> int64_t {
+        set<int64_t> to_visit;
+        to_visit.insert(id1);
+        for (size_t i = 0; i < steps; ++i) {
+            // collect nodes to visit
+            set<int64_t> to_visit_next;
+            for (auto& id : to_visit) {
+                if (is_ancestor_next(id2, id)) return id;
+                for (auto& side : sides_from(NodeSide(id, true))) {
+                    to_visit_next.insert(side.node);
+                }
+            }
+            to_visit = to_visit_next;
+            if (to_visit.empty()) return -1; // we hit the end of the graph
+        }
+        return 0;
+    };
+    int64_t id3 = scan(id1, id2, steps);
+    if (id3) {
+        return id3;
+    } else {
+        return scan(id2, id1, steps);
+    }
+}
+
 set<NodeSide> VG::sides_to(NodeSide side) {
     set<NodeSide> other_sides;
     vector<Edge*> edges;
@@ -431,7 +503,22 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         //cerr << "sharing is " << shared_start << " for to-sibs of "
         //     << sibs.begin()->node->id() << endl;
         if (shared_start == 0) continue;
-        //return;
+        bool self_ancestors = false;
+        bool common_ancestor = true;
+        for (auto& sib1 : sibs) {
+            for (auto& sib2 : sibs) {
+                if (sib1 != sib2) {
+                    if (is_ancestor_next(sib1.node->id(), sib2.node->id())) {
+                        self_ancestors = true;
+                    }
+                    if (!common_ancestor_next(sib1.node->id(), sib2.node->id())) {
+                        common_ancestor = false;
+                    }
+                }
+            }
+        }
+        if (self_ancestors || !common_ancestor) continue;
+
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(0,shared_start);
         auto new_node = create_node(seq);
@@ -492,11 +579,32 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
         //cerr << "sharing is " << shared_end << " for from-sibs of "
         //     << sibs.begin()->node->id() << endl;
         if (shared_end == 0) continue;
-        //return;
+        // we will only use this normalization method if:
+        // 1) none of the nodes is an ancestor of any of the others
+        // 2) we can identify common ancestors within a given number of steps in the graph
+        //    thus verifying that our determination of ancestorship (or not) is approximately sound
+        // ... yes this can also fail, but at worst we add cycles into the graph
+
+        // check if any of the nodes is an ancester of the others
+        bool self_ancestors = false;
+        bool common_ancestor = true;
+        for (auto& sib1 : sibs) {
+            for (auto& sib2 : sibs) {
+                if (sib1 != sib2) {
+                    if (is_ancestor_prev(sib1.node->id(), sib2.node->id())) {
+                        self_ancestors = true;
+                    }
+                    if (!common_ancestor_prev(sib1.node->id(), sib2.node->id())) {
+                        common_ancestor = false;
+                    }
+                }
+            }
+        }
+        if (self_ancestors || !common_ancestor) continue;
+        
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(seqs.front()->size()-shared_end);
         auto new_node = create_node(seq);
-        //cerr << "new node " << pb2json(*new_node) << endl;
         // chop it off of the old nodes
         for (auto& sib : sibs) {
             *sib.node->mutable_sequence()

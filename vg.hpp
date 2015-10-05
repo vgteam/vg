@@ -284,8 +284,6 @@ public:
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
 
-    //void is_from_ancestor_of(int64_t 
-
     // merge nodes where doing so would not affect the path
     // space of the graph, removing redundant forks
     //void simplify_node(int64_t id);
@@ -445,10 +443,14 @@ public:
     set<NodeSide> sides_to(NodeSide side);
     // Sides on the other side of edges from this side of the node
     set<NodeSide> sides_from(NodeSide side);
-    
-    set<Node*> nodes_to(Node* node, NodeSide side);
-    // get the children of this node connected to a particular side
-    set<Node*> nodes_from(Node* node, NodeSide side);
+    // determine if the node is an ancestor of this one by trying to find it in a given number of steps
+    bool is_ancestor_prev(int64_t node_id, int64_t candidate_id, size_t steps = 32);
+    // the same but in the other direction
+    bool is_ancestor_next(int64_t node_id, int64_t candidate_id, size_t steps = 32);
+    // try to find a common ancestor by walking back up to steps from the first node
+    int64_t common_ancestor_prev(int64_t id1, int64_t id2, size_t steps = 32);
+    // try to find a common ancestor by walking forward up to steps from the first node
+    int64_t common_ancestor_next(int64_t id1, int64_t id2, size_t steps = 32);
     // to-siblings are nodes which also have edges to them from the same nodes as this one
     set<NodeTraversal> siblings_to(const NodeTraversal& traversal);
     // from-siblings are nodes which also have edges to them from the same nodes as this one
