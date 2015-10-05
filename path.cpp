@@ -565,8 +565,12 @@ Path concat_paths(const Path& path1, const Path& path2) {
         // adapt unmapped paths (which look like insertions here)
         if (!path2_front.has_position() && path1_back.has_position()) {
             *mapping->mutable_position() = path1_back.position();
+            // Copy the reverse flag
+            mapping->set_is_reverse(path1_back.is_reverse());
         } else if (!path1_back.has_position() && path2_front.has_position()) {
             *mapping->mutable_position() = path2_front.position();
+            // Copy the reverse flag
+            mapping->set_is_reverse(path2_front.is_reverse());
         }
         // merge the edits from the second onto the last mapping
         for (size_t i = 0; i < path2_front.edit_size(); ++i) {
@@ -791,7 +795,11 @@ Path simplify(const Path& p) {
             if (!edit_is_deletion(m.edit(j))) {
                 break;
             } else {
-                n->mutable_position()->set_offset(n->position().offset()+m.edit(j).from_length());
+                // Adjust the offset by the size of the deletion. If we're going
+                // forward on the node, this moves the mapping offset positive.
+                // Otherwise it moves the mapping offset negative.
+                n->mutable_position()->set_offset(n->position().offset() 
+                    + m.edit(j).from_length() * (n->is_reverse() ? -1 : 1));
             }
         }
         if (j < m.edit_size()) {
@@ -1000,7 +1008,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         right.mutable_position()->set_node_id(m.position().node_id());
         // The position is closer to the node start if we're looking at the node
         // in reverse, and further from the node start if we're looking at it
-        // normally.
+        // normally. We offset by the left mapping's size.
         right.mutable_position()->set_offset(left.position().offset()
                                              + mapping_from_length(left) * (m.is_reverse() ? -1 : 1));
     }
