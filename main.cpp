@@ -753,7 +753,9 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+#ifdef debug
             if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+#endif
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
