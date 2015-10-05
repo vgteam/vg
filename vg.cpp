@@ -3014,18 +3014,22 @@ map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<
             // many bases will be in this new left part?
             int64_t divide_offset = breakpoint - current_offset;
             
+#ifdef debug
             cerr << "Need to divide original " << original_node_id << " at " << breakpoint << "/" << 
                 original_node_length << endl;
             cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" << 
                 right_part->sequence().size() << endl;
+#endif
             
             // Make a new left part and right part. This updates all the
             // existing perfect match paths in the graph.
             Node* left_part;
             divide_node(right_part, divide_offset, left_part, right_part);
             
+#ifdef debug
             cerr << "Produced " << left_part->id() << " (" << left_part->sequence().size() << " bp)" << endl;
             cerr << "Left " << right_part->id() << " (" << right_part->sequence().size() << " bp)" << endl;
+#endif
             
             // The left part is now done. We know it started at current_offset
             // and ended before breakpoint, so record it by start position.

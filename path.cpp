@@ -998,7 +998,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     if (m.has_position()) {
         // The right mapping has a position on this same node
         right.mutable_position()->set_node_id(m.position().node_id());
-        // The position is closer to the node start if we're lookign at the node
+        // The position is closer to the node start if we're looking at the node
         // in reverse, and further from the node start if we're looking at it
         // normally.
         right.mutable_position()->set_offset(left.position().offset()
@@ -1058,17 +1058,23 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
     // seek forward to the cut point
     for ( ; i < path.mapping_size() && seen < offset; ++i) {
         auto& m = path.mapping(i);
+#ifdef debug
         cerr << "seeking cut offset " << offset << " at mapping " << pb2json(m) << endl;
+#endif
         // the position is in this node, so make the cut
         if (seen + mapping_to_length(m) == offset) {
             *p1.add_mapping() = m;
         } else if (seen + mapping_to_length(m) > offset) {
+#ifdef debug
             cerr << "making cuts" << endl;
+#endif
             auto mappings = cut_mapping(m, offset - seen);
             // and save the cuts
             *p1.add_mapping() = mappings.first;
             *p2.add_mapping() = mappings.second;
+#ifdef debug
             cerr << "left cut " << pb2json(mappings.first) << " and right " << pb2json(mappings.second) << endl;
+#endif
             ++i; // we don't increment our mapping index when we break here
             seen += mapping_to_length(m); // same problem
             break;
@@ -1078,7 +1084,9 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
         }
         seen += mapping_to_length(m);
     }
+#ifdef debug
     cerr << "seen " << seen << " offset " << offset << endl;
+#endif
     assert(seen >= offset);
     // add in the rest of the edits
     for ( ; i < path.mapping_size(); ++i) {
@@ -1090,7 +1098,9 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
                && p1.mapping(0).position().node_id()
                && p2.mapping(0).has_position()
                && p2.mapping(0).position().node_id()));
+#ifdef debug
     cerr << "---cut_path left " << pb2json(p1) << endl << "---and right " << pb2json(p2) << endl;
+#endif
     return make_pair(p1, p2);
 }
 
@@ -1100,8 +1110,6 @@ bool maps_to_node(const Path& p, int64_t id) {
     }
     return false;
 }
-
-#define debug
 
 void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints) {
     // We need to work out what offsets we will need to break each node at, if

@@ -348,9 +348,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
                 // We're actually going to use this alignment. We should make
                 // sure to flip it if it's backward, though. We need all the
                 // alignments to be a consistent orientation for merging.
-                if(mapped_aln.is_reverse()) cerr << "Reversing alignment: " << pb2json(mapped_aln) << endl;
                 alns[idx] = mapped_aln.is_reverse() ? reverse_alignment(mapped_aln, get_node_length) : mapped_aln;
-                cerr << "Stored alignment: " << pb2json(alns[idx]) << endl;
             } else {
                 alns[idx] = aln; // unmapped
             }
@@ -371,9 +369,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             Alignment mapped_aln = align(aln, kmer_size, stride);
             if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
                 >= min_score_per_bp) {
-                if(mapped_aln.is_reverse()) cerr << "Reversing alignment: " << pb2json(mapped_aln) << endl;
                 alns[idx] = mapped_aln.is_reverse() ? reverse_alignment(mapped_aln, get_node_length) : mapped_aln;
-                cerr << "Stored alignment: " << pb2json(alns[idx]) << endl;
             } else {
                 alns[idx] = aln; // unmapped
             }
