@@ -1002,7 +1002,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         // in reverse, and further from the node start if we're looking at it
         // normally.
         right.mutable_position()->set_offset(left.position().offset()
-                                             + (mapping_from_length(left) - 1) * (m.is_reverse() ? -1 : 1));
+                                             + mapping_from_length(left) * (m.is_reverse() ? -1 : 1));
     }
     assert(!m.has_position()
            || (left.has_position()
