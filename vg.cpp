@@ -412,19 +412,26 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
             }
         }
         size_t i = 0;
+        size_t j = 0;
         bool similar = true;
         for ( ; similar && i < min_seq_size; ++i) {
+            //cerr << i << endl;
             char c = seqs.front()->at(i);
             for (auto s : seqs) {
+                //cerr << "checking " << c << " vs " << s->at(i) << endl;
                 if (c != s->at(i)) {
                     similar = false;
                     break;
                 }
             }
+            if (!similar) break;
+            ++j;
         }
-        size_t shared_start = i-1;
+        size_t shared_start = j;
         //cerr << "sharing is " << shared_start << " for to-sibs of "
         //     << sibs.begin()->node->id() << endl;
+        if (shared_start == 0) continue;
+        //return;
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(0,shared_start);
         auto new_node = create_node(seq);
@@ -467,23 +474,29 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
                 min_seq_size = seqp->size();
             }
         }
-        size_t i = 1;
+        size_t i = 0;
+        size_t j = 0;
         bool similar = true;
         for ( ; similar && i < min_seq_size; ++i) {
-            char c = seqs.front()->at(seqs.front()->size()-i);
+            char c = seqs.front()->at(seqs.front()->size()-(i+1));
             for (auto s : seqs) {
-                if (c != s->at(s->size()-i)) {
+                if (c != s->at(s->size()-(i+1))) {
                     similar = false;
                     break;
                 }
             }
+            if (!similar) break;
+            ++j;
         }
-        size_t shared_end = i;
+        size_t shared_end = j;
         //cerr << "sharing is " << shared_end << " for from-sibs of "
         //     << sibs.begin()->node->id() << endl;
+        if (shared_end == 0) continue;
+        //return;
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(seqs.front()->size()-shared_end);
         auto new_node = create_node(seq);
+        //cerr << "new node " << pb2json(*new_node) << endl;
         // chop it off of the old nodes
         for (auto& sib : sibs) {
             *sib.node->mutable_sequence()

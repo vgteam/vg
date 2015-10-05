@@ -284,6 +284,8 @@ public:
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
 
+    //void is_from_ancestor_of(int64_t 
+
     // merge nodes where doing so would not affect the path
     // space of the graph, removing redundant forks
     //void simplify_node(int64_t id);
