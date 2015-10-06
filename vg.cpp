@@ -3734,8 +3734,6 @@ void VG::join_tails(Node* node, bool to_end) {
     connect_nodes_to_node(tails, node, to_end);
 }
 
-#define debug
-
 void VG::add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
@@ -3863,8 +3861,6 @@ void VG::add_start_end_markers(int length,
     
 }
 
-#undef debug
-
 Alignment& VG::align(Alignment& alignment) {
 
     set<int64_t> flipped_nodes;
@@ -3923,8 +3919,6 @@ void VG::for_each_kmer_of_node(Node* node,
                                bool allow_negatives) {
     _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups, allow_negatives, node);
 }
-
-#define debug
 
 void VG::_for_each_kmer(int kmer_size,
                         int edge_max,
@@ -4240,8 +4234,6 @@ void VG::_for_each_kmer(int kmer_size,
     }
 
 }
-
-#undef debug
 
 int VG::path_edge_count(list<NodeTraversal>& path, int32_t offset, int path_length) {
     int edge_count = 0;
@@ -4689,8 +4681,6 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
         
 }
 
-#define debug
-
 void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
                                               int64_t& head_id, int64_t& tail_id,
@@ -4776,8 +4766,6 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
         destroy_node(tail_node);
     }
 }
-
-#undef debug
 
 void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                         bool forward_only,
