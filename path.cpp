@@ -1136,6 +1136,11 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
         // What node are we on?
         int64_t node_id = m.position().node_id();
         
+        if(node_id == 0) {
+            // Skip Mappings that aren't actually to nodes.
+            continue;
+        }
+        
         // See where the next edit starts in the node. It is always included
         // (even when the edit runs backward), unless the edit has 0 length in
         // the reference.

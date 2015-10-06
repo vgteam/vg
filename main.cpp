@@ -771,8 +771,8 @@ int main_msga(int argc, char** argv) {
         graph->sort();
         graph->compact_ids(); // xg can't work unless IDs are compacted.
         
-        if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        graph->serialize_to_file("out.vg");
+        // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
+        // graph->serialize_to_file("out.vg");
     }
 
     rebuild(graph);
