@@ -94,7 +94,8 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     if(xindex) {
         // should have callback here
         xindex->get_id_range(first, last, graph->graph);
-        xindex->expand_context(graph->graph, context_depth);
+        // don't get the paths (this isn't yet threadsafe in sdsl-lite)
+        xindex->expand_context(graph->graph, context_depth, false);
         graph->rebuild_indexes();
     } else if(index) {
         index->get_range(first, last, *graph);
@@ -876,7 +877,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             // TODO: We're repeating this code. Break it out into a function or something.
             if(xindex) {
                 xindex->get_id_range(first, last, graph->graph);
-                xindex->expand_context(graph->graph, context_depth);
+                xindex->expand_context(graph->graph, context_depth, false);
             } else if(index) {
                 index->get_range(first, last, *graph);
                 index->expand_context(*graph, context_depth);
@@ -953,7 +954,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                     xindex->get_id_range(first, last, graph->graph);
                     xindex->get_id_range(f, min(idf, first - 1), graph->graph);
                     xindex->get_id_range(max(idl, last + 1), l, graph->graph);
-                    xindex->expand_context(graph->graph, context_depth);
+                    xindex->expand_context(graph->graph, context_depth, false);
                     graph->rebuild_indexes();
                 } else if(index) {
                     index->get_range(first, last, *graph);
