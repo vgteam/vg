@@ -715,13 +715,16 @@ int main_msga(int argc, char** argv) {
                     alignment_threads](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
         //graph->serialize_to_file(s.str());
-        if (debug) cerr << "building xg index" << endl;
+        
+        if (mapper) delete mapper;
         if (xgidx) delete xgidx;
+        if (gcsaidx) delete gcsaidx;
+        
+        if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
         if (debug) cerr << "building GCSA2 index" << endl;
-        if (gcsaidx) delete gcsaidx;
-        gcsaidx = graph->build_gcsa_index(idx_kmer_size, true, doubling_steps);
-        if (mapper) delete mapper;
+        gcsaidx = graph->build_gcsa_index(idx_kmer_size, false, doubling_steps);
+        
         mapper = new Mapper(xgidx, gcsaidx);
         { // set mapper variables
             mapper->debug = debug_align;
@@ -745,8 +748,8 @@ int main_msga(int argc, char** argv) {
     for (auto& group : strings) {
         auto& name = group.first;
         if (debug) cerr << name << ": adding to graph" << endl;
+        graph->serialize_to_file("pre-" + name + ".vg");        
         rebuild(graph);
-        graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
@@ -768,8 +771,8 @@ int main_msga(int argc, char** argv) {
         graph->sort();
         graph->compact_ids(); // xg can't work unless IDs are compacted.
         
-        //if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        //graph->serialize_to_file("out.vg");
+        if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
+        graph->serialize_to_file("out.vg");
     }
 
     rebuild(graph);
