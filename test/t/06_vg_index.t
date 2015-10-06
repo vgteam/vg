@@ -153,8 +153,8 @@ is $(vg construct -r tiny/tiny.fa | vg index -g -d t.idx -k 16 -V - 2>&1 | grep 
 
 is $(vg construct -r tiny/tiny.fa | vg index -g -d t.idx -k 16 -V -F - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing succeeds on a single-node graph"
 
-is $(vg index -g -d t.idx reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing succeeds on reversing out-of-order join"
+is $(vg index -g -d t.idx reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing succeeds on graph with heads but no tails"
 
-is $(vg index -g -d t.idx reversing/cactus.vg -k 16 -V -F 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing succeeds on reversing out-of-order join"
+is $(vg index -g -d t.idx reversing/cactus.vg -k 16 -V -F 2>&1 | grep 'Index verification complete.' | wc -l) 0 "GCSA2 forward-only indexing fails due to impossibility on graph with heads but no tails"
 
 rm t.idx

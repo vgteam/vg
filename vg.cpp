@@ -4748,6 +4748,15 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
         tail_node_in_graph = false;
     }
     
+    if(forward_only && (!head_node_in_graph || !tail_node_in_graph)) {
+        // TODO: break in arbitrarily if doing forward-only indexing and there's
+        // no place to attach one of the start/end nodes.
+        cerr << "error:[for_each_gcsa_kmer_position_parallel] attempted to forward-only index a graph "
+            "that has only heads and no tails, or only tails and no heads. Only one of the start and "
+            "end nodes could be attached." << endl;
+        exit(1);
+    }
+    
     // Actually find the GCSA2 kmers. The head and tail node pointers point to
     // things, but the graph is only guaranteed to actually own one of those
     // things.
