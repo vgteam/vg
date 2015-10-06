@@ -3734,6 +3734,8 @@ void VG::join_tails(Node* node, bool to_end) {
     connect_nodes_to_node(tails, node, to_end);
 }
 
+#define debug
+
 void VG::add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
@@ -3762,13 +3764,17 @@ void VG::add_start_end_markers(int length,
     }
 
     if(end_node == nullptr) {
-        // We get to create the node. In its forward orientation it's the start node, so we use the start character.
+        // We get to create the node. In its forward orientation it's the end node, so we use the end character.
         string end_string(length, end_char);
         end_node = create_node(end_string, end_id);
     } else {
         // We got a node to use
         add_node(*end_node);
     }
+    
+#ifdef debug
+    cerr << "Start node is " << start_node->id() << ", end node is " << end_node->id() << endl;
+#endif
 
     for(Node* head : heads) {
         if(unattached.count(head)) {
@@ -3782,6 +3788,9 @@ void VG::add_start_end_markers(int length,
 
         // Tie it to the start node
         create_edge(start_node, head);
+#ifdef debug
+    cerr << "Added edge " << start_node->id() << "->" << head->id() << endl;
+#endif
     }
 
     for(Node* tail : tails) {
@@ -3796,6 +3805,9 @@ void VG::add_start_end_markers(int length,
 
         // Tie it to the end node
         create_edge(tail, end_node);
+#ifdef debug
+    cerr << "Added edge " << tail->id() << "->" << end_node->id() << endl;
+#endif
     }
 
     // Find the connected components that aren't attached, if any.
@@ -3810,20 +3822,48 @@ void VG::add_start_end_markers(int length,
 
         // Add the edge
         create_edge(start_node, to_attach);
+#ifdef debug
+        cerr << "Added cycle-breaking edge " << start_node->id() << "->" << to_attach->id() << endl;
+#endif
         vector<Edge*> edges;
         edges_of_node(to_attach, edges);
         for (auto edge : edges) {
             //cerr << "edge of " << to_attach->id() << " " << edge->from() << " " << edge->to() << endl;
             if (edge->to() == to_attach->id() && edge->from() != start_node->id()) {
                 //cerr << "creating edge" << endl;
-                create_edge(edge->from(), end_node->id(), edge->from_start(), false);
+                Edge* created = create_edge(edge->from(), end_node->id(), edge->from_start(), false);
+#ifdef debug
+                cerr << "Added edge " << pb2json(*created) << " in response to " << pb2json(*edge) << endl;
+#endif
             }
         }
 #ifdef debug
         cerr << "Broke into disconnected component at " << to_attach->id() << endl;
 #endif
     }
+    
+    // Now we have no more disconnected stuff in our graph.
+    
+#ifdef debug
+    cerr << "Start node edges: " << endl;
+    vector<Edge*> edges;
+    edges_of_node(start_node, edges);
+    for(auto e : edges) {
+        std::cerr << pb2json(*e) << std::endl;
+    }
+    
+    cerr << "End node edges: " << endl;
+    edges.clear();
+    edges_of_node(end_node, edges);
+    for(auto e : edges) {
+        std::cerr << pb2json(*e) << std::endl;
+    }
+    
+#endif
+    
 }
+
+#undef debug
 
 Alignment& VG::align(Alignment& alignment) {
 
@@ -3884,6 +3924,8 @@ void VG::for_each_kmer_of_node(Node* node,
     _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups, allow_negatives, node);
 }
 
+#define debug
+
 void VG::_for_each_kmer(int kmer_size,
                         int edge_max,
                         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
@@ -3892,7 +3934,11 @@ void VG::_for_each_kmer(int kmer_size,
                         bool allow_dups,
                         bool allow_negatives,
                         Node* node) {
-
+        
+#ifdef debug
+    cerr << "Looking for kmers of size " << kmer_size << " over " << edge_max << " edges with node " << node << endl;
+#endif
+                        
     // use an LRU cache to clean up duplicates over the last 1mb
     // use one per thread so as to avoid contention
     // If we aren't starting a parallel kmer iteration from here, just fill in 0.
@@ -4141,7 +4187,7 @@ void VG::_for_each_kmer(int kmer_size,
 
 #ifdef debug
                         cerr << "Checking for duplicates of " << (*start_node).node->id() << "." << start_node_offset
-                             << (reversed?"🞀":"🞂")
+                             << (reversed?"⍃":"⍄")
                              << "-" << forward_kmer  << "-" << (past_end == path.end() ? 0 : (*past_end).node->id()) << "."
                              << node_past_end_position << " viewed from "
                              << (*forward_node).node->id() << " offset " << kmer_forward_relative_start << endl;
@@ -4194,6 +4240,8 @@ void VG::_for_each_kmer(int kmer_size,
     }
 
 }
+
+#undef debug
 
 int VG::path_edge_count(list<NodeTraversal>& path, int32_t offset, int path_length) {
     int edge_count = 0;
@@ -4641,6 +4689,7 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
         
 }
 
+#define debug
 
 void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
@@ -4652,8 +4701,7 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
     Node* head_node = nullptr, *tail_node = nullptr;
     if(head_id == 0) {
         assert(tail_id == 0); // they should be only set together
-        // This is the first graph.
-        // Add the start/end node, but make our own copy before we destroy the graph.
+        // This is the first graph. We need to fill in the IDs.
         add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
         // Save its ID
         head_id = head_node->id();
@@ -4674,6 +4722,45 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
         add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
     }
 
+    // Copy the head and tail nodes
+    Node local_head_node = *head_node;
+    Node local_tail_node = *tail_node;
+
+    // Now we have to drop unconnected start/end nodes, so we don't produce
+    // kmers straight from # to $
+    
+    // Remember if we don't remove them from the graph here, because we'll need
+    // to remove them from the graph later.
+    bool head_node_in_graph = true;
+    bool tail_node_in_graph = true;
+    
+    vector<Edge*> edges;
+    edges_of_node(head_node, edges);
+    if(edges.empty()) {
+        // The head node is floating disconnected.
+#ifdef debug
+        cerr << "Head node wasn't used. Excluding from graph." << endl;
+#endif
+        destroy_node(head_node);
+        // We still need one to represent the RC of the tail node, but it can't actually be in the graph.
+        head_node = &local_head_node;
+        head_node_in_graph = false;
+    }
+    edges.clear();
+    edges_of_node(tail_node, edges);
+    if(edges.empty()) {
+        // The tail node is floating disconnected.
+#ifdef debug
+        cerr << "Tail node wasn't used. Excluding from graph." << endl;
+#endif
+        destroy_node(tail_node);
+        tail_node = &local_tail_node;
+        tail_node_in_graph = false;
+    }
+    
+    // Actually find the GCSA2 kmers. The head and tail node pointers point to
+    // things, but the graph is only guaranteed to actually own one of those
+    // things.
     for_each_node_parallel(
         [kmer_size, edge_max, stride, forward_only,
          head_node, tail_node, lambda, this](Node* node) {
@@ -4682,9 +4769,15 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
         });
 
     // cleanup
-    destroy_node(head_node);
-    destroy_node(tail_node);
+    if(head_node_in_graph) {
+        destroy_node(head_node);
+    }
+    if(tail_node_in_graph) {
+        destroy_node(tail_node);
+    }
 }
+
+#undef debug
 
 void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                         bool forward_only,
