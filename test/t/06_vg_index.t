@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 37
+plan tests 39
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -152,5 +152,9 @@ is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g -d t.idx -k 
 is $(vg construct -r tiny/tiny.fa | vg index -g -d t.idx -k 16 -V - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing succeeds on a single-node graph"
 
 is $(vg construct -r tiny/tiny.fa | vg index -g -d t.idx -k 16 -V -F - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing succeeds on a single-node graph"
+
+is $(vg index -g -d t.idx reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing succeeds on reversing out-of-order join"
+
+is $(vg index -g -d t.idx reversing/cactus.vg -k 16 -V -F 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing succeeds on reversing out-of-order join"
 
 rm t.idx
