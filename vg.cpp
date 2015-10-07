@@ -2982,6 +2982,7 @@ void VG::edit_both_directions(const vector<Path>& paths) {
     
 }
 
+#define debug
 map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints) {
     // Set up the map we will fill in with the new node start positions in the
     // old nodes.
@@ -3022,6 +3023,9 @@ map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<
             cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" << 
                 right_part->sequence().size() << endl;
 #endif
+
+            assert(breakpoint > 0);
+            assert(breakpoint < original_node_length);
             
             // Make a new left part and right part. This updates all the
             // existing perfect match paths in the graph.
@@ -3049,6 +3053,7 @@ map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<
     
     return toReturn;
 }
+#undef debug
 
 void VG::add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation) {
     // The basic algorithm is to traverse the path edit by edit, keeping track

@@ -740,6 +740,8 @@ Path simplify(const Path& p) {
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = p.mapping(i);
         
+        assert(mapping_from_length(m) <= 32);
+        
         // remove wholly-deleted mappings as these are redundant
         if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) continue;
         
@@ -757,11 +759,11 @@ Path simplify(const Path& p) {
             if (ins_at_start) {
                 auto p = cut_mapping(m, ins_at_start);
                 auto& ins = p.first;
-                //cerr << "insertion " << pb2json(ins) << endl;
+                // cerr << "insertion " << pb2json(ins) << endl;
                 // take the position from the original mapping
                 m = p.second;
                 *m.mutable_position() = ins.position();
-                //cerr << "before and after " << pb2json(ins) << " and " << pb2json(m) << endl;
+                // cerr << "before and after " << pb2json(ins) << " and " << pb2json(m) << endl;
                 Mapping* l = s.mutable_mapping(s.mapping_size()-1);
                 for (size_t j = 0; j < ins.edit_size(); ++j) {
                     auto& e = ins.edit(j);
@@ -775,6 +777,10 @@ Path simplify(const Path& p) {
         Mapping* n = &n_base;
         // if we don't have a position, try to use the last mapping
         if (!m.has_position() || m.position().node_id()==0) {
+            // We can't have a mapping referencing bases that don't exist.
+            // Otherwise if we pull its stuff into the previous mapping, it can
+            // run off the end of the node.
+            assert(mapping_from_length(m) == 0);
             if (i > 0) {
                 n = s.mutable_mapping(s.mapping_size()-1);
             } else {
@@ -783,10 +789,9 @@ Path simplify(const Path& p) {
         } else {
             // take the old position
             *n->mutable_position() = m.position();
+            // Copy the is_reverse flag
+            n->set_is_reverse(m.is_reverse());
         }
-        
-        // Copy the is_reverse flag
-        n->set_is_reverse(m.is_reverse());
         
         size_t j = 0;
         // to simplify, we skip deletions
@@ -829,6 +834,8 @@ Path simplify(const Path& p) {
         }
         // and store the mapping
         *s.add_mapping() = *n;
+        
+        assert(mapping_from_length(*n) <= 32);
     }
     return s;    
 }
@@ -1119,6 +1126,7 @@ bool maps_to_node(const Path& p, int64_t id) {
     return false;
 }
 
+#define debug
 void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
@@ -1167,6 +1175,7 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
             
 #ifdef debug
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
+            cerr << pb2json(e) << endl;
 #endif 
             
             if(!edit_is_match(e) || (j == 0 && i > 0)) {
@@ -1214,5 +1223,6 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
     }
     
 }
+#undef debug
 
 }
