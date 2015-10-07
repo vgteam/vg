@@ -1417,7 +1417,8 @@ void help_sim(char** argv) {
          << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
          << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
          << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
-         << "    -f, --forward-only    don't simulate from the reverse strand" << endl;
+         << "    -f, --forward-only    don't simulate from the reverse strand" << endl
+         << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -1433,6 +1434,7 @@ int main_sim(int argc, char** argv) {
     double base_error = 0;
     double indel_error = 0;
     bool forward_only = false;
+    bool align_out = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1444,11 +1446,12 @@ int main_sim(int argc, char** argv) {
                 {"num-reads", required_argument, 0, 'n'},
                 {"random-seed", required_argument, 0, 's'},
                 {"forward-only", no_argument, 0, 'f'},
+                {"align-out", no_argument, 0, 'a'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:f",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fa",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1480,6 +1483,10 @@ int main_sim(int argc, char** argv) {
 
         case 'f':
             forward_only = true;
+            break;
+
+        case 'a':
+            align_out = true;
             break;
 
         case 'h':
@@ -1538,20 +1545,29 @@ int main_sim(int argc, char** argv) {
         return read;
     };
 
+    size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
         auto perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
         // avoid short reads at the end of the graph by retrying
         int iter = 0;
-        while (perfect_read.first.size() < read_length && ++iter < 1000) {
+        while (perfect_read.first.size() < read_length && ++iter < max_iter) {
             perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
             // if we can't make a suitable read in 1000 tries, then maybe the graph is too small?
         }
-        if (iter == 1000) {
+        if (iter == max_iter) {
             cerr << "couldn't simulate read, perhaps the chosen length is too long for this graph?" << endl;
         } else {
             // apply errors
-            string readseq = introduce_read_errors(perfect_read.first);
-            cout << readseq << endl;
+            if (!align_out) {
+                string readseq = introduce_read_errors(perfect_read.first);
+                cout << readseq << endl;
+            } else {
+                function<Alignment(uint64_t)> lambda =
+                    [&perfect_read] (uint64_t n) {
+                    return perfect_read.second;
+                };
+                stream::write(cout, 1, lambda);                
+            }
         }
     }
     delete graph;
