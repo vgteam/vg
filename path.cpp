@@ -558,16 +558,23 @@ Path concat_paths(const Path& path1, const Path& path2) {
     // move insertions from the front of the second path onto the back of the first
     // this does not change positions or anything else
 
+    // We can merge two mappings to the same node only if they're in the same
+    // direction and at compatible positions on the node. TODO: determine that
+    // and merge mappings.
+
     // check if we have to splice the last mapping together
-    if (!path2_front.has_position() || !path1_back.has_position() ||
-        path1_back.position().node_id() == path2_front.position().node_id()) {
+    if (!path2_front.has_position() || !path1_back.has_position()) {
         auto* mapping = res.mutable_mapping(res.mapping_size()-1);
         // adapt unmapped paths (which look like insertions here)
         if (!path2_front.has_position() && path1_back.has_position()) {
+            // If one mapping has no position, it can't reference reference sequence
+            assert(mapping_from_length(path2_front) == 0);
             *mapping->mutable_position() = path1_back.position();
             // Copy the reverse flag
             mapping->set_is_reverse(path1_back.is_reverse());
         } else if (!path1_back.has_position() && path2_front.has_position()) {
+            // If one mapping has no position, it can't reference reference sequence
+            assert(mapping_from_length(path1_back) == 0);
             *mapping->mutable_position() = path2_front.position();
             // Copy the reverse flag
             mapping->set_is_reverse(path2_front.is_reverse());
@@ -740,8 +747,6 @@ Path simplify(const Path& p) {
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = p.mapping(i);
         
-        assert(mapping_from_length(m) <= 32);
-        
         // remove wholly-deleted mappings as these are redundant
         if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) continue;
         
@@ -835,7 +840,6 @@ Path simplify(const Path& p) {
         // and store the mapping
         *s.add_mapping() = *n;
         
-        assert(mapping_from_length(*n) <= 32);
     }
     return s;    
 }
@@ -1126,7 +1130,6 @@ bool maps_to_node(const Path& p, int64_t id) {
     return false;
 }
 
-#define debug
 void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
@@ -1223,6 +1226,5 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
     }
     
 }
-#undef debug
 
 }

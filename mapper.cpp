@@ -380,7 +380,27 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
         }
     }
     // by telling our merge the expected overlaps, it will correctly combine the alignments
-    return merge_alignments(alns, overlaps, debug);
+    Alignment merged = merge_alignments(alns, overlaps, debug);
+    
+    if(debug) {
+        for(int i = 0; i < merged.path().mapping_size(); i++) {
+            // Check each Mapping to make sure it doesn't go past the end of its
+            // node.
+            auto& mapping = merged.path().mapping(i);
+            
+            // What node is the mapping on
+            int64_t node_id = mapping.position().node_id();
+            if(node_id != 0) {
+                // If it's actually on a node, get the node's sequence length
+                int64_t node_length = get_node_length(node_id);
+                
+                // Make sure the mapping is short enough
+                assert(node_length <= mapping_from_length(mapping));
+            }
+        }
+    }
+    
+    return merged;
 }
 
 vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {
