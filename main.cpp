@@ -1539,10 +1539,10 @@ int main_sim(int argc, char** argv) {
     };
 
     for (int i = 0; i < num_reads; ++i) {
-        string perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
+        auto perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
         // avoid short reads at the end of the graph by retrying
         int iter = 0;
-        while (perfect_read.size() < read_length && ++iter < 1000) {
+        while (perfect_read.first.size() < read_length && ++iter < 1000) {
             perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
             // if we can't make a suitable read in 1000 tries, then maybe the graph is too small?
         }
@@ -1550,7 +1550,7 @@ int main_sim(int argc, char** argv) {
             cerr << "couldn't simulate read, perhaps the chosen length is too long for this graph?" << endl;
         } else {
             // apply errors
-            string readseq = introduce_read_errors(perfect_read);
+            string readseq = introduce_read_errors(perfect_read.first);
             cout << readseq << endl;
         }
     }

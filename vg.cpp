@@ -3420,7 +3420,11 @@ string VG::path_sequence(const Path& path) {
 }
 
 // todo record as an alignment rather than a string
-string VG::random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id, bool either_strand) {
+pair<string, Alignment> VG::random_read(size_t read_len,
+                                        mt19937& rng,
+                                        int64_t min_id,
+                                        int64_t max_id,
+                                        bool either_strand) {
     uniform_int_distribution<int64_t> int64_dist(min_id, max_id);
     int64_t id = int64_dist(rng);
     // We start at the node in its local forward orientation
@@ -3431,7 +3435,17 @@ string VG::random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id,
         start_pos = uint32_dist(rng);
     }
     string read = node.node->sequence().substr(start_pos);
-    while (read.size() < length) {
+    Alignment aln;
+    Path* path = aln.mutable_path();
+    Mapping* mapping = path->add_mapping();
+    Position* position = mapping->mutable_position();
+    position->set_offset(start_pos);
+    position->set_node_id(node.node->id());
+    Edit* edit = mapping->add_edit();
+    //edit->set_sequence(read);
+    edit->set_from_length(read.size());
+    edit->set_to_length(read.size());
+    while (read.size() < read_len) {
         // pick a random downstream node
         vector<NodeTraversal> next_nodes;
         nodes_next(node, next_nodes);
@@ -3439,16 +3453,32 @@ string VG::random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id,
         uniform_int_distribution<int> next_dist(0, next_nodes.size()-1);
         node = next_nodes.at(next_dist(rng));
         // Put in the node sequence in the correct relative orientation
-        read.append(node.backward ? reverse_complement(node.node->sequence()) : node.node->sequence());
+        string addition = (node.backward
+                           ? reverse_complement(node.node->sequence()) : node.node->sequence());
+        read.append(addition);
+        mapping = path->add_mapping();
+        position = mapping->mutable_position();
+        position->set_offset(0);
+        position->set_node_id(node.node->id());
+        edit = mapping->add_edit();
+        //edit->set_sequence(addition);
+        edit->set_from_length(addition.size());
+        edit->set_to_length(addition.size());
     }
-    read = read.substr(0, length);
+    aln.set_sequence(read);
+    // fix up the length
+    read = read.substr(0, read_len);
+    size_t to_len = alignment_to_length(aln);
+    if ((int)to_len - (int)read_len > 0) {
+        aln = strip_from_end(aln, (int)to_len - (int)read_len);
+    }
     uniform_int_distribution<int> binary_dist(0, 1);
     if (either_strand && binary_dist(rng) == 1) {
         // We can flip to the other strand (i.e. node's local reverse orientation).
-        return reverse_complement(read);
-    } else {
-        return read;
+        aln.set_is_reverse(true);
+        read = reverse_complement(read);
     }
+    return make_pair(read, aln);
 }
 
 bool VG::is_valid(void) {

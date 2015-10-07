@@ -792,7 +792,7 @@ public:
     // reads
     // note that even if either_strand is false, having backward nodes in the
     // graph will result in some reads from the global reverse strand.
-    string random_read(int length, mt19937& rng, int64_t min_id, int64_t max_id, bool either_strand);
+    pair<string, Alignment> random_read(size_t read_len, mt19937& rng, int64_t min_id, int64_t max_id, bool either_strand);
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);
