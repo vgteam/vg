@@ -2982,7 +2982,6 @@ void VG::edit_both_directions(const vector<Path>& paths) {
     
 }
 
-#define debug
 map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints) {
     // Set up the map we will fill in with the new node start positions in the
     // old nodes.
@@ -3053,7 +3052,6 @@ map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<
     
     return toReturn;
 }
-#undef debug
 
 void VG::add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation) {
     // The basic algorithm is to traverse the path edit by edit, keeping track
