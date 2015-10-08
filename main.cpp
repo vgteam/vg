@@ -751,7 +751,7 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
@@ -760,7 +760,7 @@ int main_msga(int argc, char** argv) {
         graph->edit(paths);
         graph->paths.clear();
         if (debug) cerr << name << ": normalizing graph" << endl;
-        //graph->normalize();
+        graph->normalize();
         graph->dice_nodes(node_max);
         if (debug) cerr << name << ": sorting and compacting ids" << endl;
         graph->sort();
