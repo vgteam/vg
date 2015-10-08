@@ -22,7 +22,7 @@ do
     s=$i
     e=$(echo $i + $chunk | bc)
     echo "generating pdf for $s to $e"
-    vg find -x $xg -r $s:$e -c 3 | vg view -dpn - | dot -Tpdf -o $s.pdf
+    vg find -x $xg -r $s:$e -c 1 | vg view -dpn - | dot -Tpdf -o $s.pdf
 done
 
 echo "combining pdfs"
