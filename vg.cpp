@@ -2962,7 +2962,7 @@ void VG::edit_node(int64_t node_id,
                    const vector<tuple<Mapping, bool, bool> >& mappings,
                    map<pair<int64_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans) {
 
-    cerr << "editing node " << node_id << endl;
+    //cerr << "editing node " << node_id << endl;
 
     // assume these are all for the same node
     //int64_t node_id = mappings.front().node_id();
@@ -2978,7 +2978,7 @@ void VG::edit_node(int64_t node_id,
         auto& mapping = get<0>(m);
         bool at_start = get<1>(m);
         bool at_end = get<2>(m);
-        cerr << "editing on node " << node_id << " with mapping " << pb2json(mapping) << endl;
+        //cerr << "editing on node " << node_id << " with mapping " << pb2json(mapping) << endl;
         // check that we're really working on one node
         assert(mapping.position().node_id() == node_id);
         size_t offset = mapping.position().offset();
@@ -3001,7 +3001,7 @@ void VG::edit_node(int64_t node_id,
                                  at_start && i == 0,
                                  at_end && i == mapping.edit_size()-1);
             } else if (edit_is_insertion(edit)) {
-                cerr << "found an insertion " << pb2json(edit) << endl;
+                //cerr << "found an insertion " << pb2json(edit) << endl;
                 cut_at.insert(offset);
                 cut_seqs[make_pair(offset, offset)][name]
                     = make_tuple(edit,
@@ -3020,6 +3020,7 @@ void VG::edit_node(int64_t node_id,
 
     // here come the cuts
     // boom, dis is for debugging
+    /*
     for (auto cut : cut_at) {
         cerr << "cut_at: " << cut << endl;
     }
@@ -3031,6 +3032,7 @@ void VG::edit_node(int64_t node_id,
         }
         cerr << endl;
     }
+    */
 
     // tricky bit
     // we need to put the node pointers into structures to track the sides of each cut
@@ -3046,23 +3048,14 @@ void VG::edit_node(int64_t node_id,
     // make the cuts
     set<Node*> emptyset;
     for (auto cut : cut_at) {
-        cerr << "cuttin at " << cut-offset << endl;
+        //cerr << "cuttin at " << cut-offset << endl;
         // don't cut if it we already have the cut as the node end
-        // however, save the start and end of the path even though they aren't cuts
-        // so later we can correctly splice in the dangling softclips against the node
-        if (cut == 0) {
-            set<Node*> right{n};
-            cuts[cut] = make_tuple(emptyset, emptyset, right);
-        } else if (cut == node_seq.size()) {
-            set<Node*> left{n};
-            cuts[cut] = make_tuple(left, emptyset, emptyset);
-        } else {
-            //if (cut != 0 && cut != node_seq.size()) {
+        if (cut != 0 && cut != node_seq.size()) {
             divide_node(n, cut-offset, l, r);
             set<Node*> left{l};
             set<Node*> right{r};
-            cerr << "recording " << node_id << ":" << cut << " left " << pb2json(*l) << endl;
-            cerr << "recording " << node_id << ":" << cut << " right " << pb2json(*r) << endl;
+            //cerr << "recording " << node_id << ":" << cut << " left " << pb2json(*l) << endl;
+            //cerr << "recording " << node_id << ":" << cut << " right " << pb2json(*r) << endl;
             cuts[cut] = make_tuple(left, emptyset, right);
             // now that we've made the cuts record the mapping between the old node id and the new
             if (offset > 0) {
@@ -3076,19 +3069,23 @@ void VG::edit_node(int64_t node_id,
 
     // now that we've made the cuts, store the translations for the node ends
     // we don't handle them below
+    Node* start = nullptr;
+    Node* end = nullptr;
     if (!cuts.empty()) {
-        cerr << "recording cut trans of " << node_id << ":" << 0 << " " << pb2json(*n) << " " << n << endl;
+        //cerr << "recording cut trans of " << node_id << ":" << 0 << " " << pb2json(*n) << " " << n << endl;
         auto& p1 = cut_trans[make_pair(node_id, 0)];
-        Node* start = *get<0>(cuts.begin()->second).begin();
+        start = *get<0>(cuts.begin()->second).begin();
         p1.second.insert(start);
         auto& p2 = cut_trans[make_pair(node_id, node_seq.size())];
-        Node* end = *get<2>(cuts.rbegin()->second).begin();
+        end = *get<2>(cuts.rbegin()->second).begin();
         p2.first.insert(end);
     } else {
         auto& p1 = cut_trans[make_pair(node_id, 0)];
         p1.second.insert(n);
+        start = n;
         auto& p2 = cut_trans[make_pair(node_id, node_seq.size())];
         p2.first.insert(n);
+        end = n;
     }
 
     // add the novel seqs
@@ -3100,7 +3097,7 @@ void VG::edit_node(int64_t node_id,
         auto& left = get<0>(cuts[f]);
         auto& center = get<1>(cuts[f]);
         auto& right = get<2>(cuts[t]);
-        cerr << f << "," << t << " " << left.size() << "," << center.size() << "," << right.size() << endl;
+        //cerr << f << "," << t << " " << left.size() << "," << center.size() << "," << right.size() << endl;
         for (auto& p : cs.second) {
             auto& name = get<0>(p);
             auto& edit = get<0>(get<1>(p));
@@ -3121,24 +3118,27 @@ void VG::edit_node(int64_t node_id,
         auto& left = get<0>(cuts[f]);
         auto& center = get<1>(cuts[f]);
         auto& right = get<2>(cuts[t]);
-        cerr << "cut seq " << f << ":" << t << " "
-             << left.size() << "," << center.size() << "," << right.size() << endl;
+        //cerr << "cut seq " << f << ":" << t << " "
+        //     << left.size() << "," << center.size() << "," << right.size() << endl;
         for (auto& e : cs.second) {
             const string& name = e.first;
             const Edit& edit = get<0>(e.second);
             bool at_start = get<1>(e.second);
             bool at_end = get<2>(e.second);
-            cerr << "in cs " << name << " " << pb2json(edit) << endl;
-            if (at_start) cerr << "at start" << endl;
-            if (at_end) cerr << "at end" << endl;
             // handle the case where we don't have any left or right nodes
             // such as when we are a soft clip dangling off the left or right end of the node
-            if (at_start && left.empty()) {
-                
+            if (at_start && start != nullptr && right.empty()) {
+                for (auto& cp : center) {
+                    create_edge(cp, start);
+                }
             }
-            if (at_end && right.empty()) {
-                
+            // same for soft clips off end
+            if (at_end && end != nullptr && left.empty()) {
+                for (auto& cp : center) {
+                    create_edge(end, cp);
+                }
             }
+            // otherwise, use the cut set to make the joins of novel sequences
             for (auto& lp : left) {
                 for (auto& rp : right) {
                     if (!center.empty()) {
@@ -3247,7 +3247,6 @@ void VG::edit(const vector<Path>& paths) {
                     del_t[dend] = dstart;
                 } else {
                     //cerr << "creating insertion node" << endl;
-                    //cerr << "we'll also need to record it in our cut translation" << endl;
                     Node* ins = create_node(ins_seq);
                     auto dstart1 = make_pair(lid, loff);
                     auto dend1 = make_pair(ins->id(), 0);
