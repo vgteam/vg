@@ -8,7 +8,7 @@ PATH=..:$PATH # for vg
 
 plan tests 7
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -k 16 -t 1 | md5sum | cut -f 1 -d\ ) e7d78f797a36f6eec179ee4976f12d4b "MSGA produces the expected graph for GRCh38 HLA-V"
+is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -k 16 -t 1 | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 549b183e90036f767acdd10e7d5ba125 "MSGA produces the expected graph for GRCh38 HLA-V"
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -k 16 -t 4 | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 549b183e90036f767acdd10e7d5ba125 "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
