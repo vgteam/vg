@@ -152,15 +152,15 @@ return 0;
 }
 
 void help_call(char** argv) {
-    cerr << "usage: " << argv[0] << " call [options] <pileup.vgpu> > out.gam" << endl
+    cerr << "usage: " << argv[0] << " call [options] <graph.vg> <pileup.vgpu> > sample_graph.vg" << endl
          << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
-         << "Output can be merged back into the graph using vg mod -i." << endl
          << endl
          << "options:" << endl
          << "    -d, --min_depth      minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
-         << "    -e, --max_depth      depth depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
+         << "    -e, --max_depth      maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
          << "    -s, --min_support    minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
          << "    -r, --het_prior      prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
+         << "    -l, --leave_uncalled leave un-called graph regions in output" << endl
          << "    -j, --json           output in JSON" << endl
          << "    -p, --progress       show progress" << endl
          << "    -t, --threads N      number of threads to use" << endl;
@@ -168,7 +168,7 @@ void help_call(char** argv) {
 
 int main_call(int argc, char** argv) {
 
-    if (argc <= 2) {
+    if (argc <= 3) {
         help_call(argv);
         return 1;
     }
@@ -177,6 +177,7 @@ int main_call(int argc, char** argv) {
     int min_depth = Caller::Default_min_depth;
     int max_depth = Caller::Default_max_depth;
     int min_support = Caller::Default_min_support;
+    bool leave_uncalled = false;
     bool output_json = false;
     bool show_progress = false;
     int thread_count = 1;
@@ -189,6 +190,7 @@ int main_call(int argc, char** argv) {
                 {"min_depth", required_argument, 0, 'd'},
                 {"max_depth", required_argument, 0, 'e'},
                 {"min_support", required_argument, 0, 's'},
+                {"leave_uncalled", no_argument, 0, 'l'},
                 {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
                 {"het_prior", required_argument, 0, 'r'},
@@ -197,7 +199,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:jpr:t:",
+        c = getopt_long (argc, argv, "d:e:s:ljpr:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -214,6 +216,9 @@ int main_call(int argc, char** argv) {
             break;
         case 's':
             min_support = atoi(optarg);
+            break;
+        case 'l':
+            leave_uncalled = true;
             break;
         case 'j':
             output_json = true;
@@ -241,11 +246,41 @@ int main_call(int argc, char** argv) {
     omp_set_num_threads(thread_count);
     thread_count = get_thread_count();
 
+    // read the graph
+    if (optind >= argc) {
+        help_call(argv);
+        return 1;
+    }
+    if (show_progress) {
+        cerr << "Reading input graph" << endl;
+    }
+    VG* graph;
+    string graph_file_name = argv[optind++];
+    if (graph_file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(graph_file_name.c_str());
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        graph = new VG(in);
+    }    
+    
     // setup pileup stream
+    if (optind >= argc) {
+        help_call(argv);
+        return 1;
+    }
     string pileup_file_name = argv[optind];
     istream* pileup_stream = NULL;
     ifstream in;
     if (pileup_file_name == "-") {
+        if (graph_file_name == "-") {
+            cerr << "error: graph and pileup can't both be from stdin." << endl;
+            exit(1);
+        }
         pileup_stream = &std::cin;
     } else {
         in.open(pileup_file_name);
@@ -256,24 +291,31 @@ int main_call(int argc, char** argv) {
         pileup_stream = &in;
     }
 
-    // compute the pileups.
+    // compute the variants.
     if (show_progress) {
         cerr << "Computing variants" << endl;
     }
-    vector<Caller> callers;
-    for (int i = 0; i < thread_count; ++i) {
-        callers.push_back(Caller(Caller::Default_buffer_size, het_prior, min_depth, max_depth, min_support));
-    }
-    function<void(NodePileup&)> lambda = [&callers, &output_json](NodePileup& pileup) {
-        int tid = omp_get_thread_num();
-        callers[tid].call_node_pileup(pileup, cout, output_json);
-    };
-    stream::for_each_parallel(*pileup_stream, lambda);
+    Caller caller(graph,
+                  het_prior, min_depth, max_depth, min_support,
+                  Caller::Default_min_frac, Caller::Default_min_likelihood,
+                  leave_uncalled);
 
-    // empty out any remaining buffers
-    for (int i = 0; i < callers.size(); ++i) {
-      callers[i].flush_buffer(cout, output_json);
+    function<void(NodePileup&)> lambda = [&caller](NodePileup& pileup) {
+        caller.call_node_pileup(pileup);
+    };
+    stream::for_each(*pileup_stream, lambda);
+
+    // map the edges from original graph
+    if (show_progress) {
+        cerr << "Mapping edges into call graph" << endl;
     }
+    caller.update_call_graph();
+
+    // write the call graph
+    if (show_progress) {
+        cerr << "Writing call graph" << endl;
+    }
+    caller.write_call_graph(cout, output_json);
 
     return 0;
 }
@@ -366,7 +408,7 @@ int main_pileup(int argc, char** argv) {
     istream* alignment_stream = NULL;
     ifstream in;
     if (alignments_file_name == "-") {
-        if (alignments_file_name == "-") {
+        if (graph_file_name == "-") {
             cerr << "error: graph and alignments can't both be from stdin." << endl;
             exit(1);
         }

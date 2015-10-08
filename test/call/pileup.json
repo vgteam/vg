@@ -1,31 +1,86 @@
 {
-	 "node_id": 1,
+	 "node_id": 4,
 	 "base_pileup": [
+		  {
+				"num_bases": 43,
+				"ref_base": 67,
+				"bases": ".......C......-2GT....+2AA.........A...C..t......"
+		  }
+	 ]
+}
+{
+	 "node_id": 6,
+	 "base_pileup": [
+		  {
+				"num_bases": 43,
+				"ref_base": 84,
+				"bases": ".......C......-2GT....+2AA.........A...C..t......"
+		  },
+		  {
+				"num_bases": 43,
+				"ref_base": 84,
+				"bases": "AAAAAAAC...AAA-2GT....+2AA.AAAAAAAAA...C..t.AAAAA"
+		  },
 		  {
 				"num_bases": 43,
 				"ref_base": 71,
 				"bases": ".......C......-2GT....+2AA.........A...C..t......"
-		  },
-		  
+		  }
+	 ]
+}	 
+{
+	 "node_id": 7,
+	 "base_pileup": [
 		  {
 				"num_bases": 48,
 				"ref_base": 71,
-				"bases": "...AAAAAAA....-2GT....TTTTTTTTTTTTTTT.........TTTTT"
-		  },
-		  
-		  {},
-		  
-		  {
-				"num_bases": 7,
-				"ref_base": 71,
-				"bases": "....AAA"
-		  },
-		  
-		  {
-				"num_bases": 69,
-				"ref_base": 84,
-				"bases": "cccccccccccccccccccccc....-2GT...GGGGGGG...AAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+				"bases": "...AACCAAA....-2GT....CCCCCCCCCCCCCCC..CCC....CCCCC"
 		  }
 	 ]
 }
-
+{
+	 "node_id": 8,
+	 "base_pileup": [
+		  {
+				"num_bases": 48,
+				"ref_base": 65,
+				"bases": "..............-2GT............................CCCCC"
+		  }
+	 ]
+}
+{
+	 "node_id": 9,
+	 "base_pileup": [
+		  {
+				"num_bases": 69,
+				"ref_base": 65,
+				"bases": "cccccccccccccccccccccc....-2GT...GGGGGGG...CCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+		  },
+		  {
+				"num_bases": 48,
+				"ref_base": 65,
+				"bases": "..............-2GT.............AAAAAA.........CCCCC"
+		  },
+		  {},
+		  {
+				"num_bases": 7,
+				"ref_base": 65,
+				"bases": "....AAA"
+		  },
+		  {
+				"num_bases": 48,
+				"ref_base": 84,
+				"bases": "..............-2GT.............AAAAAA.........CCCCC"
+		  },
+		  {
+				"num_bases": 48,
+				"ref_base": 84,
+				"bases": "..............-2GT.............AAAAAA.........CCCCC"
+		  },
+		  {
+				"num_bases": 48,
+				"ref_base": 84,
+				"bases": "..............-2GT.............AAAAAA.........CCCCC"
+		  }
+	 ]
+}
