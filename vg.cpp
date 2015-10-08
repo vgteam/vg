@@ -4072,11 +4072,13 @@ void VG::add_start_end_markers(int length,
 
 Alignment& VG::align(Alignment& alignment) {
 
+    // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
+    Node* root = join_heads();
+
+    // we join first and then flip due to issue #116
     set<int64_t> flipped_nodes;
     orient_nodes_forward(flipped_nodes);
 
-    // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
-    Node* root = join_heads();
     // Put the nodes in sort order within the graph
     sort();
 
