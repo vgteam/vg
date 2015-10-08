@@ -751,7 +751,7 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+            if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
@@ -3446,7 +3446,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
