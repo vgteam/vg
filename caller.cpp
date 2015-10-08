@@ -103,10 +103,12 @@ void Caller::update_call_graph() {
     // map every edge in the original graph to equivalent sides
     // in the call graph. if both sides exist, make an edge in the call graph
     function<void(Edge*)> map_edge = [&](Edge* edge) {
-        auto mappedNode1 = _end_node_map.find(edge->from());
-        if (mappedNode1 != _end_node_map.end()) {
-            auto mappedNode2 = _start_node_map.find(edge->to());
-            if (mappedNode2 != _start_node_map.end()) {
+        const NodeMap& from_map = edge->from_start() ? _start_node_map : _end_node_map;
+        auto mappedNode1 = from_map.find(edge->from());
+        if (mappedNode1 != from_map.end()) {
+            const NodeMap& to_map = edge->to_end() ? _end_node_map : _start_node_map;
+            auto mappedNode2 = to_map.find(edge->to());
+            if (mappedNode2 != to_map.end()) {
                 // up to 2 mappings for each node, so 4 possible edges:
                 if (mappedNode1->second.first != -1 && mappedNode2->second.first != -1) {
                     _call_graph.create_edge(mappedNode1->second.first, mappedNode2->second.first,
