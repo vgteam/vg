@@ -788,6 +788,23 @@ int main_msga(int argc, char** argv) {
         }
     }
 
+    // remove nodes in the graph that have no assigned paths
+    // FIXME: this masks a problem wherein editing can introduce dangling nodes
+    set<int64_t> unassigned_nodes;
+    graph->for_each_node([&graph, &unassigned_nodes](Node* n) {
+            if (!graph->paths.has_node_mapping(n->id())) {
+                unassigned_nodes.insert(n->id());
+            }
+        });
+    for (auto id : unassigned_nodes) {
+        graph->destroy_node(id);
+    }
+    // re-compact ids if we have made changes to the graph
+    if (!unassigned_nodes.empty()) {
+        graph->sort();
+        graph->compact_ids();
+    }
+
     // return the graph
     graph->serialize_to_ostream(std::cout);
     delete graph;

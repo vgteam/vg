@@ -5296,7 +5296,7 @@ void VG::wrap_with_null_nodes(void) {
 /**
 Order and orient the nodes in the graph using a topological sort.
 
-We use a birirected adaptation of Kahn's topological sort (1962), which can handle components with no heads or tails.
+We use a bidirected adaptation of Kahn's topological sort (1962), which can handle components with no heads or tails.
 
 L ← Empty list that will contain the sorted and oriented elements
 S ← Set of nodes which have been oriented, but which have not had their downstream edges examined
