@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if [ $# -ne 4 ];
+then
+    echo "usage: "$(basename $0) "[graph.vg] [graph.xg] [chunk_size] [output_pdf]"
+    echo "requires vg, pdfunite (from pdftk) and dot (graphviz)"
+    echo "first index the graph with `vg index -x ...` and then choose a chunk size"
+    exit
+fi
+
+vg=$1
+xg=$2
+chunk=$3
+out=$4
+
+h=$(vg view $vg | grep ^S | cut -f 2 | sort -n | head -1)
+t=$(vg view $vg | grep ^S | cut -f 2 | sort -n | tail -1)
+
+echo "generating pdfs"
+for i in $(seq $h $chunk $t);
+do
+    s=$i
+    e=$(echo $i + $chunk | bc)
+    echo "generating pdf for $s to $e"
+    vg find -x $xg -r $s:$e -c 3 | vg view -dpn - | dot -Tpdf -o $s.pdf
+done
+
+echo "combining pdfs"
+pdfunite $(for i in $(seq $h $chunk $t); do echo $i.pdf; done) $out
+
+echo "cleaning up"
+for i in $(seq $h $chunk $t); do rm $i.pdf; done
