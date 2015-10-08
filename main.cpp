@@ -760,7 +760,6 @@ int main_msga(int argc, char** argv) {
         graph->edit(paths);
         graph->paths.clear();
         if (debug) cerr << name << ": normalizing graph" << endl;
-        graph->normalize();
         graph->dice_nodes(node_max);
         if (debug) cerr << name << ": sorting and compacting ids" << endl;
         graph->sort();
@@ -769,6 +768,12 @@ int main_msga(int argc, char** argv) {
         //graph->serialize_to_file("out.vg");
     }
 
+    if (debug) cerr << "normalizing graph" << endl;
+    graph->normalize();
+    graph->dice_nodes(node_max);
+    graph->sort();
+    graph->compact_ids();
+    
     rebuild(graph);
 
     // include the paths in the graph
