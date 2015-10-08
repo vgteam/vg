@@ -3302,9 +3302,7 @@ void VG::edit(const vector<Path>& paths) {
             }
             Info info; info.set_str(path.name());
             (*mapping.mutable_metadata()->mutable_info())["path_name"] = info;
-            // -1 if we are at the start, 1 if at the end, 0 otherwise
-            // for communicating which edits are soft clips
-            //int pos_indicator = (i == 0 ? -1 : (i == path.mapping_size()-1 ? 1 : 0));
+            // store in our mapping set, with flags for whether we're at the start or end
             mappings[mapping.position().node_id()].push_back(make_tuple(
                                                                  mapping,
                                                                  i==0,
