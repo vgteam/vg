@@ -3643,7 +3643,6 @@ void VG::add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, N
         
     }
     
-    
 }
 
 void VG::node_starts_in_path(const list<NodeTraversal>& path,

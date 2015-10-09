@@ -781,7 +781,7 @@ int main_msga(int argc, char** argv) {
     graph->dice_nodes(node_max);
     graph->sort();
     graph->compact_ids();
-    
+
     rebuild(graph);
 
     // include the paths in the graph
@@ -793,6 +793,7 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
             //if (debug) cerr << "alignment score: " << aln.score() << endl;
+            //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
             aln.mutable_path()->set_name(name);
             // todo simplify in the mapper itself when merging the banded bits
             if (debug) cerr << name << ": labeling" << endl;
@@ -3375,7 +3376,7 @@ void help_map(char** argv) {
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold" << endl
          << "    -P, --score-per-bp N  accept alignment only if the alignment score per base is > N" << endl
-         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 2)" << endl
+         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 7)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
@@ -3414,7 +3415,7 @@ int main_map(int argc, char** argv) {
     int hit_max = 100;
     int max_multimaps = 1;
     int thread_count = 1;
-    int thread_ex = 2;
+    int thread_ex = 7;
     int context_depth = 1;
     bool output_json = false;
     bool debug = false;

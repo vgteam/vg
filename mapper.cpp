@@ -13,7 +13,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , kmer_min(0)
     , kmer_threshold(1)
     , kmer_sensitivity_step(3)
-    , thread_extension(1)
+    , thread_extension(7)
     , thread_extension_max(80)
     , max_thread_gap(30)
     , context_depth(1)
@@ -910,10 +910,9 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
         
             // thread extension should be determined during iteration
             // note that there is a problem and hits tend to be imbalanced
-            int64_t first = max((int64_t)0, *thread.begin() - thread_ex);
+            // due to the fact that we record the node position of the start of the kmer
+            int64_t first = max((int64_t)0, *thread.begin());
             int64_t last = *thread.rbegin() + thread_ex;
-            //int64_t first = *thread.begin();
-            //int64_t last = *thread.rbegin();
             // so we can pick it up efficiently from the index by pulling the range from first to last
             if (debug) cerr << "getting node range " << first << "-" << last << endl;
             VG* graph = new VG;
@@ -958,70 +957,56 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
 
             if (!ta.has_path()) continue;
             
+            // we can be more precise about our handling of softclips due to the low cost
+            // of the fully in-memory xg index
             int sc_start = softclip_start(ta);
             int sc_end = softclip_end(ta);
-
-            if (sc_start > softclip_threshold || sc_end > softclip_threshold) {
-                if (debug) cerr << "softclip handling " << sc_start << " " << sc_end << endl;
+            size_t itr = 0;
+            while (itr++ < 3
+                   && (sc_start > softclip_threshold || sc_end > softclip_threshold)) {
+                if (debug) cerr << "softclip before " << sc_start << " " << sc_end << endl;
+                double avg_node_size = graph->length() / graph->size();
+                if (debug) cerr << "average node size " << avg_node_size << endl;
+                // get the node at the end
                 Path* path = ta.mutable_path();
                 int64_t idf = path->mutable_mapping(0)->position().node_id();
                 int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
                 // step towards the side where there were soft clips
-                // using 10x the thread_extension
-                int64_t f = max((int64_t)0, idf - (int64_t) max(thread_ex, 1) * 10);
-                int64_t l = idl + (int64_t) max(thread_ex, 1) * 10;
-                
-                // We're going to get three ranges. They need to be non-
-                // overlapping since the xg range operation can't handle
-                // repeated nodes.
-                // The ranges are:
-                // The original first-last range
-                // The new range suggested by soft clip handling on the left (f to min(idf, first - 1))
-                // The new range suggested by soft clip handling on the right (max(idl, last + 1) to l)
-                // This way, if soft clip sends us off across an ID discontinuity, we don't try to get like half the graph.
-                
-                // The last two entries might be empty or backward, but the
-                // range functions can just not get anything in those cases.
-                
-                if (debug) {
-                    cerr << "getting node ranges: " << endl;
-                    cerr << "\t" << first << "-" << last << endl;
-                    cerr << "\t" << f << "-" << min(idf, first - 1) << endl;
-                    cerr << "\t" << max(idl, last + 1) << "-" << l << endl;
+                if (sc_start) {
+                    if (xindex) {
+                        Graph flank;
+                        xindex->get_id_range(idf-1, idf, flank);
+                        xindex->expand_context(flank, max(context_depth,
+                                                          (int)(sc_start/avg_node_size)));
+                        graph->extend(flank);
+                    } else if (index) {
+                        VG flank;
+                        index->get_range(max((int64_t)0, idf-thread_ex), idf, flank);
+                        index->expand_context(flank, context_depth);
+                        graph->extend(flank);
+                    }
                 }
-
-                // always rebuild the graph, since we messed it up by sorting it
-                delete graph;
-                graph = new VG;
-                
-                
-                // Get the bigger range, but still go out to context depth afterwards.
-                if(xindex) {
-                    xindex->get_id_range(first, last, graph->graph);
-                    xindex->get_id_range(f, min(idf, first - 1), graph->graph);
-                    xindex->get_id_range(max(idl, last + 1), l, graph->graph);
-                    xindex->expand_context(graph->graph, context_depth, false);
-                    graph->rebuild_indexes();
-                } else if(index) {
-                    index->get_range(first, last, *graph);
-                    index->get_range(f, min(idf, first - 1), *graph);
-                    index->get_range(max(idl, last + 1), l, *graph);
-                    index->expand_context(*graph, context_depth);
-                } else {
-                    cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
-                    exit(1);
+                if (sc_end) {
+                    if (xindex) {
+                        Graph flank;
+                        xindex->get_id_range(idl, idl+1, flank);
+                        xindex->expand_context(flank, max(context_depth,
+                                                          (int)(sc_end/avg_node_size)));
+                        graph->extend(flank);
+                    } else if (index) {
+                        VG flank;
+                        index->get_range(idl, idl+thread_ex, flank);
+                        index->expand_context(flank, context_depth);
+                        graph->extend(flank);
+                    }
                 }
-                
                 graph->remove_orphan_edges();
-                
-                if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
-                                << graph->edge_count() << " edges" << endl;
-
-                //graph->serialize_to_file("align1.vg");
                 ta.clear_path();
                 ta.set_score(0);
                 graph->align(ta);
-                if (debug) cerr << "softclip after " << softclip_start(ta) << " " << softclip_end(ta) << endl;
+                sc_start = softclip_start(ta);
+                sc_end = softclip_end(ta);
+                if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
             }
 
             delete graph;
