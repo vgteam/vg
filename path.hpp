@@ -132,6 +132,18 @@ int from_length(const Mapping& m);
 bool mapping_ends_in_deletion(const Mapping& m);
 bool mapping_starts_in_deletion(const Mapping& m);
 bool mapping_is_total_deletion(const Mapping& m);
+// Reverse-complement a Mapping and all the Edits in it. A function to get node
+// lengths is needed, because the mapping will need to count its position from
+// the other end of the node.
+Mapping reverse_mapping(const Mapping& m, function<int64_t(int64_t)>& node_length);
+// Reverse-complement a Path and all the Mappings in it. A function to get node
+// lengths is needed, because the mappings will need to count their positions
+// from the other ends of their nodes.
+Path reverse_path(const Path& path, function<int64_t(int64_t)>& node_length);
+// Simplify the path for addition as new material in the graph. Remove any
+// mappings that are merely single deletions, merge adjacent edits of the same
+// type, strip leading and trailing deletion edits on mappings, and make sure no
+// mappings have missing positions.
 Path simplify(const Path& p);
 Path concat_paths(const Path& path1, const Path& path2);
 // divide mapping at reference-relative position
@@ -143,6 +155,13 @@ pair<Path, Path> cut_path(const Path& path, const Position& pos);
 // divide the path at a path-relative offset as measured in to_length from start
 pair<Path, Path> cut_path(const Path& path, size_t offset);
 bool maps_to_node(const Path& p, int64_t id);
+// Find all the points at which a Path enters or leaves nodes in the graph. Adds
+// them to the given map by node ID of sets of bases in the node that will need
+// to become the starts of new nodes. Note that some breakpoints may be at 0 or
+// the past-the-end position of the node in question, since we don't look at the
+// graph here.
+void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints);
+
 
 }
 

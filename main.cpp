@@ -668,6 +668,8 @@ int main_msga(int argc, char** argv) {
     }
 
     // align, include, repeat
+    
+    if (debug) cerr << "preparing initial graph" << endl;
 
     // if our graph is empty, we need to take the first sequence and build a graph from it
     if (graph->empty()) {
@@ -714,13 +716,16 @@ int main_msga(int argc, char** argv) {
                     alignment_threads](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
         //graph->serialize_to_file(s.str());
-        if (debug) cerr << "building xg index" << endl;
+        
+        if (mapper) delete mapper;
         if (xgidx) delete xgidx;
+        if (gcsaidx) delete gcsaidx;
+        
+        if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
         if (debug) cerr << "building GCSA2 index" << endl;
-        if (gcsaidx) delete gcsaidx;
-        gcsaidx = graph->build_gcsa_index(idx_kmer_size, true, doubling_steps);
-        if (mapper) delete mapper;
+        gcsaidx = graph->build_gcsa_index(idx_kmer_size, false, doubling_steps);
+        
         mapper = new Mapper(xgidx, gcsaidx);
         { // set mapper variables
             mapper->debug = debug_align;
@@ -744,28 +749,31 @@ int main_msga(int argc, char** argv) {
     for (auto& group : strings) {
         auto& name = group.first;
         if (debug) cerr << name << ": adding to graph" << endl;
+        graph->serialize_to_file("pre-" + name + ".vg");        
         rebuild(graph);
         //graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;
         for (auto& seq : group.second) {
             // align to the graph
-            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
+                graph->node_count() << " nodes" << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+            // if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
         }
         if (debug) cerr << name << ": editing graph" << endl;
-        graph->edit(paths);
+        graph->edit_both_directions(paths);
         graph->paths.clear();
-        if (debug) cerr << name << ": normalizing graph" << endl;
+        if (debug) cerr << name << ": normalizing node size" << endl;
         graph->dice_nodes(node_max);
         if (debug) cerr << name << ": sorting and compacting ids" << endl;
         graph->sort();
-        graph->compact_ids();
-        //if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        //graph->serialize_to_file("out.vg");
+        graph->compact_ids(); // xg can't work unless IDs are compacted.
+        
+        // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
+        // graph->serialize_to_file("out.vg");
     }
 
     if (debug) cerr << "normalizing graph" << endl;

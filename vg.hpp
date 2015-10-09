@@ -414,6 +414,23 @@ public:
               map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_f,
               map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_t);
     void edit(const vector<Path>& paths);
+    // Edit the graph to include all the sequence and edges added by the given
+    // paths. Can handle paths that visit nodes in any orientation.
+    void edit_both_directions(const vector<Path>& paths);
+    
+    // Take a map from node ID to a set of offsets at which new nodes should
+    // start (which may include 0 and 1-past-the-end, which should be ignored),
+    // break the specified nodes at those positions. Returns a map from old node
+    // ID to a map from old node start position to new node pointer in the
+    // graph.
+    map<int64_t, map<int64_t, Node*>> ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints);
+    
+    // Given a path on nodes that may or may not exist, and a map from node ID
+    // in the path's node ID space to a table of offset and actual node, add in
+    // all the new sequence and edges required by the path. The given path must
+    // not contain adjacent perfect match edits in the same mapping (the removal
+    // of which can be accomplished with the simplify() function).
+    void add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation);
     
     // Add in the given node, by value
     void add_node(Node& node);
@@ -737,6 +754,10 @@ public:
                       set<tuple<char, int64_t, bool, int32_t>>& prev_positions,
                       set<tuple<char, int64_t, bool, int32_t>>& next_positions);
 
+    // Do the GCSA2 kmers for a node. head_node and tail_node must both be non-
+    // null, but only one of those nodes actually needs to be in the graph. They
+    // will be examined directly to get their representative characters. They
+    // also don't need to be actually owned by the graph; they can be copies.
     void gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int stride,
                                    bool forward_only,
                                    Node* head_node, Node* tail_node,
@@ -813,15 +834,16 @@ public:
     // add singular head and tail null nodes to graph
     void wrap_with_null_nodes(void);
     
-    // Add a single combination start/end node, where all existing heads in the
-    // graph are connected to it, and all existing tails in the graph are
-    // connected to its end. Any connected components in the graph which do not
-    // have a head or tail are connected to the node at an arbitrary point. If
-    // head_tail_node is null, a new node will be created. Otherwise, the passed
-    // node will be used. The graph ends up having the new node as its only
-    // head, and having no tails. If id is 0, and head_tail_node is null, the
-    // next free ID will be chosen for the node. Note that this visits every
-    // node, to make sure it is attached to all connected components.
+    // Add a start node and an end node, where all existing heads in the graph
+    // are connected to the start node, and all existing tails in the graph are
+    // connected to the end node. Any connected components in the graph which do
+    // not have either are connected to the start at an arbitrary point, and the
+    // end node from nodes going to that arbitrary point. If start_node or
+    // end_node is null, a new node will be created. Otherwise, the passed node
+    // will be used. Note that this visits every node, to make sure it is
+    // attached to all connected components. Note that if a graph has, say,
+    // heads but no tails, the start node will be attached buut the end node
+    // will be free-floating.
     void add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,

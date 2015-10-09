@@ -71,15 +71,23 @@ int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
 Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlap, bool debug);
 // merge is destructive so we copy
+// Merge two alignments end-to-end. The resulting alignment is not considered to be in reverse.
 Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug);
 Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
+// Flip the alignment's sequence and is_reverse flag, and flip and re-order its
+// Mappings to match. A function to get node lengths is needed because the
+// Mappings in the alignment will need to give their positions from the opposite
+// ends of their nodes.
+Alignment reverse_alignment(const Alignment& aln, function<int64_t(int64_t)>& node_length);
 int softclip_start(Alignment& alignment);
 int softclip_end(Alignment& alignment);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);
 size_t from_length_before_pos(const Alignment& aln, const Position& pos);
+
+
 
 // Invert the orientation in the alignment of all the nodes whose IDs are
 // listed. It needs a callback to ask the length of any given node.
