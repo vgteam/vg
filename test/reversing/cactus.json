@@ -1,0 +1,21 @@
+{
+  "node": [
+    {
+      "id": 1,
+      "sequence": "TG",
+      "name": "GI262359905_0_2_0"
+    },
+    {
+      "id": 2,
+      "sequence": "GTA"
+    }
+  ],
+  "edge": [
+    {
+      "from": 2,
+      "to": 1,
+      "to_end": true
+    }
+  ]
+}
+

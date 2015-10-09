@@ -1207,6 +1207,8 @@ void VG::dice_nodes(int max_node_size) {
                 while (n->sequence().size() > segment_size) {
                     // For each division between the div new pieces,
                     // break off a piece of the determined size at the left
+                    // TODO: for very large nodes, this is n * (n/max_node_size) = O(n^2).
+                    // We could do n log n if we split nodes in their middles.
                     divide_node(n, segment_size, l, r);
                     // Keep dividing the right node
                     n = r;
@@ -3195,6 +3197,14 @@ void VG::edit_node(int64_t node_id,
 // to get this to work, we should be using NodeSides rather than pair<int64_t, size_t>
 // to track cuts and positions in the system
 void VG::edit(const vector<Path>& paths) {
+#ifdef debug
+    // We should not add additional disconnected components
+    list<VG> subgraphs;
+    disjoint_subgraphs(subgraphs);
+    int subgraph_count = subgraphs.size();
+#endif
+
+
     //cerr << "editing graph" << endl;
     // deletions from this node position/offset on the forward strand to the second position/offset
     map<pair<int64_t, size_t>, pair<int64_t, size_t> > del_f;
@@ -3360,6 +3370,14 @@ void VG::edit(const vector<Path>& paths) {
         }
     }
     edit(mappings, cut_trans, del_f, del_t);
+    
+#ifdef debug
+    // We should not add additional disconnected components
+    subgraphs.clear();
+    disjoint_subgraphs(subgraphs);
+    int end_subgraph_count = subgraphs.size();
+    assert(end_subgraph_count == subgraph_count);
+#endif
 }
 
 // mappings sorted by node id
@@ -3393,6 +3411,239 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
         }
     }
     remove_null_nodes_forwarding_edges();
+}
+
+void VG::edit_both_directions(const vector<Path>& paths) {
+    // Collect the breakpoints
+    map<int64_t, set<int64_t>> breakpoints;
+    
+    std::vector<Path> simplified_paths;
+    
+    for(auto path : paths) {
+        // Simplify the path, just to eliminate adjacent match Edits in the same
+        // Mapping (because we don't have or want a breakpoint there)
+        simplified_paths.push_back(simplify(path));
+    }
+    
+    for(auto path : simplified_paths) {
+        // Add in breakpoints from each path
+        find_breakpoints(path, breakpoints);
+    }
+    
+    // Break any nodes that need to be broken. Save the map we need to translate
+    // from offsets on old nodes to new nodes.
+    auto node_translation = ensure_breakpoints(breakpoints);
+    
+    for(auto path : simplified_paths) {
+        // Now go through each path again, and create new nodes/wire things up.
+        add_nodes_and_edges(path, node_translation);
+    }
+    
+}
+
+map<int64_t, map<int64_t, Node*>> VG::ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints) {
+    // Set up the map we will fill in with the new node start positions in the
+    // old nodes.
+    map<int64_t, map<int64_t, Node*>> toReturn;
+    
+    for(auto& kv : breakpoints) {
+        // Go through all the nodes we need to break up
+        auto original_node_id = kv.first;
+        
+        // Save the original node length. We don;t want to break here (or later)
+        // because that would be off the end.
+        int64_t original_node_length = get_node(original_node_id)->sequence().size();
+        
+        // We are going through the breakpoints left to right, so we need to
+        // keep the node pointer for the right part that still needs further
+        // dividing.
+        Node* right_part = get_node(original_node_id);
+        
+        // How far into the original node does our right part start?
+        int64_t current_offset = 0;
+        
+        for(auto breakpoint : kv.second) {
+            // For every point at which we need to make a new node, in ascending
+            // order (due to the way sets store ints)...
+            
+            if(breakpoint == 0 || breakpoint == original_node_length) {
+                // This breakpoint already exists, because the node starts or ends here
+                continue;
+            }
+            
+            // How far in do we need to break the remaining right part? And how
+            // many bases will be in this new left part?
+            int64_t divide_offset = breakpoint - current_offset;
+            
+#ifdef debug
+            cerr << "Need to divide original " << original_node_id << " at " << breakpoint << "/" << 
+                original_node_length << endl;
+            cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" << 
+                right_part->sequence().size() << endl;
+#endif
+
+            assert(breakpoint > 0);
+            assert(breakpoint < original_node_length);
+            
+            // Make a new left part and right part. This updates all the
+            // existing perfect match paths in the graph.
+            Node* left_part;
+            divide_node(right_part, divide_offset, left_part, right_part);
+            
+#ifdef debug
+            cerr << "Produced " << left_part->id() << " (" << left_part->sequence().size() << " bp)" << endl;
+            cerr << "Left " << right_part->id() << " (" << right_part->sequence().size() << " bp)" << endl;
+#endif
+            
+            // The left part is now done. We know it started at current_offset
+            // and ended before breakpoint, so record it by start position.
+            toReturn[original_node_id][current_offset] = left_part;
+            
+            // Record that more sequence has been consumed
+            current_offset += divide_offset;
+            
+        }
+        
+        // Now the right part is done too. It's going to be the part
+        // corresponding to the remainder of the original node.
+        toReturn[original_node_id][current_offset] = right_part;
+    }
+    
+    return toReturn;
+}
+
+void VG::add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation) {
+    // The basic algorithm is to traverse the path edit by edit, keeping track
+    // of a NodeSide for the last piece of sequence we were on. If we hit an
+    // edit that creates new sequence, we create that new sequence as a node,
+    // and attach it to the dangling NodeSide, and leave its end dangling. If we
+    // hit an edit that corresponds to a match, we know that there's a
+    // breakpoint on each end (since it's bordered by a non-perfect-match or the
+    // end of a node), so we can attach its start to the dangling NodeSide and
+    // leave its end dangling.
+    
+    // We need node_translation to translate between node ID space, where the
+    // paths are articulated, and new node ID space, where the edges are being
+    // made.
+    
+    // We use this function to get the node that contains a position on an
+    // original node.
+    auto find_new_node = [&](int64_t old_node_id, int64_t old_offset) {
+        if(node_translation.count(old_node_id) == 0) {
+            // The node is unchanged
+            return get_node(old_node_id);
+        }
+        // Otherwise, get the first new node starting after that position, and
+        // then look left.
+        auto found = node_translation.at(old_node_id).upper_bound(old_offset);
+        if(found == node_translation.at(old_node_id).begin()) {
+            // We managed to have a node with no entry for 0, or a negative offset
+            throw runtime_error("Couldn't find new node for position " + 
+                to_string(old_offset) + " on " + to_string(old_node_id));
+        }
+        // Get the thing before that (last key <= the position we want
+        --found;
+        
+        // Return the node we found.
+        return (*found).second;
+    };
+    
+    // What's dangling and waiting to be attached to? In current node ID space.
+    // We use the default constructed one (id 0) as a placeholder.
+    NodeSide dangling;
+    
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        // For each Mapping in the path
+        const Mapping& m = path.mapping(i);
+        
+        // What node are we on? In old node ID space.
+        int64_t node_id = m.position().node_id();
+        
+        // See where the next edit starts in the node. It is always included
+        // (even when the edit runs backward), unless the edit has 0 length in
+        // the reference.
+        int64_t edit_first_position = m.position().offset();
+        
+        // And in what direction we are moving (+1 or -1)
+        int64_t direction = m.is_reverse() ? -1 : 1;
+        
+        for(size_t j = 0; j < m.edit_size(); ++j) {
+            // For each Edit in the mapping
+            const Edit& e = m.edit(j);
+            
+            // Work out where its end position on the original node is (inclusive)
+            // We don't use this on insertions, so 0-from-length edits don't matter.
+            int64_t edit_last_position = edit_first_position + (e.from_length() - 1) * direction;
+#ifdef debug
+            cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
+#endif    
+        
+            if(edit_is_insertion(e) || edit_is_sub(e)) {
+                // This edit introduces new sequence.
+#ifdef debug
+                cerr << "Handling ins/sub relative to " << node_id << endl;
+#endif
+                // Create the new node.
+                Node* new_node = create_node(e.sequence());
+                
+                if(dangling.node) {
+                    // This actually referrs to a node.
+#ifdef debug
+                    cerr << "Connecting " << dangling << " and " << NodeSide(new_node->id(), false) << endl;
+#endif
+                    // Add an edge from the dangling NodeSide to the start of this new node
+                    assert(create_edge(dangling, NodeSide(new_node->id(), false)));
+                    
+                }
+                
+                // Dangle the end of this new node
+                dangling = NodeSide(new_node->id(), true);
+            } else if(edit_is_match(e)) {
+                // We're using existing sequence
+                
+                // We know we have breakpoints on both sides, but we also might
+                // have additional breakpoints in the middle. So we need the
+                // left node, that contains the first base of the match, and the
+                // right node, that contains the last base of the match.
+                Node* left_node = find_new_node(node_id, edit_first_position);
+                Node* right_node = find_new_node(node_id, edit_last_position);
+                
+                // TODO: we just assume the outer edges of these nodes are in
+                // the right places. They should be if we cut the breakpoints
+                // right.
+#ifdef debug
+                cerr << "Handling match relative to " << node_id << endl;
+#endif
+                
+                if(dangling.node) {
+#ifdef debug
+                    cerr << "Connecting " << dangling << " and " << NodeSide(left_node->id(), direction == -1) << endl;
+#endif
+                
+                    // Connect the left end of the left node we matched in the direction we matched it
+                    assert(create_edge(dangling, NodeSide(left_node->id(), direction == -1)));
+                }
+                
+                // Dangle the right end of the right node in the direction we matched it.
+                dangling = NodeSide(right_node->id(), direction == 1);
+            } else {
+                // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
+                // Also, simplify() simplifies them out.
+#ifdef debug
+                cerr << "Skipping other edit relative to " << node_id << endl;
+#endif
+            }
+            
+            // Advance in the right direction along the original node for this edit.
+            // This way the next one will start at the right place.
+            edit_first_position += e.from_length() * direction;
+            
+            
+        }
+        
+    }
+    
+    
 }
 
 void VG::node_starts_in_path(const list<NodeTraversal>& path,
@@ -4005,13 +4256,17 @@ void VG::add_start_end_markers(int length,
     }
 
     if(end_node == nullptr) {
-        // We get to create the node. In its forward orientation it's the start node, so we use the start character.
+        // We get to create the node. In its forward orientation it's the end node, so we use the end character.
         string end_string(length, end_char);
         end_node = create_node(end_string, end_id);
     } else {
         // We got a node to use
         add_node(*end_node);
     }
+    
+#ifdef debug
+    cerr << "Start node is " << start_node->id() << ", end node is " << end_node->id() << endl;
+#endif
 
     for(Node* head : heads) {
         if(unattached.count(head)) {
@@ -4025,6 +4280,9 @@ void VG::add_start_end_markers(int length,
 
         // Tie it to the start node
         create_edge(start_node, head);
+#ifdef debug
+    cerr << "Added edge " << start_node->id() << "->" << head->id() << endl;
+#endif
     }
 
     for(Node* tail : tails) {
@@ -4039,6 +4297,9 @@ void VG::add_start_end_markers(int length,
 
         // Tie it to the end node
         create_edge(tail, end_node);
+#ifdef debug
+    cerr << "Added edge " << tail->id() << "->" << end_node->id() << endl;
+#endif
     }
 
     // Find the connected components that aren't attached, if any.
@@ -4053,19 +4314,45 @@ void VG::add_start_end_markers(int length,
 
         // Add the edge
         create_edge(start_node, to_attach);
+#ifdef debug
+        cerr << "Added cycle-breaking edge " << start_node->id() << "->" << to_attach->id() << endl;
+#endif
         vector<Edge*> edges;
         edges_of_node(to_attach, edges);
         for (auto edge : edges) {
             //cerr << "edge of " << to_attach->id() << " " << edge->from() << " " << edge->to() << endl;
             if (edge->to() == to_attach->id() && edge->from() != start_node->id()) {
                 //cerr << "creating edge" << endl;
-                create_edge(edge->from(), end_node->id(), edge->from_start(), false);
+                Edge* created = create_edge(edge->from(), end_node->id(), edge->from_start(), false);
+#ifdef debug
+                cerr << "Added edge " << pb2json(*created) << " in response to " << pb2json(*edge) << endl;
+#endif
             }
         }
 #ifdef debug
         cerr << "Broke into disconnected component at " << to_attach->id() << endl;
 #endif
     }
+    
+    // Now we have no more disconnected stuff in our graph.
+    
+#ifdef debug
+    cerr << "Start node edges: " << endl;
+    vector<Edge*> edges;
+    edges_of_node(start_node, edges);
+    for(auto e : edges) {
+        std::cerr << pb2json(*e) << std::endl;
+    }
+    
+    cerr << "End node edges: " << endl;
+    edges.clear();
+    edges_of_node(end_node, edges);
+    for(auto e : edges) {
+        std::cerr << pb2json(*e) << std::endl;
+    }
+    
+#endif
+    
 }
 
 Alignment& VG::align(Alignment& alignment) {
@@ -4137,7 +4424,11 @@ void VG::_for_each_kmer(int kmer_size,
                         bool allow_dups,
                         bool allow_negatives,
                         Node* node) {
-
+        
+#ifdef debug
+    cerr << "Looking for kmers of size " << kmer_size << " over " << edge_max << " edges with node " << node << endl;
+#endif
+                        
     // use an LRU cache to clean up duplicates over the last 1mb
     // use one per thread so as to avoid contention
     // If we aren't starting a parallel kmer iteration from here, just fill in 0.
@@ -4386,7 +4677,7 @@ void VG::_for_each_kmer(int kmer_size,
 
 #ifdef debug
                         cerr << "Checking for duplicates of " << (*start_node).node->id() << "." << start_node_offset
-                             << (reversed?"🞀":"🞂")
+                             << (reversed?"⍃":"⍄")
                              << "-" << forward_kmer  << "-" << (past_end == path.end() ? 0 : (*past_end).node->id()) << "."
                              << node_past_end_position << " viewed from "
                              << (*forward_node).node->id() << " offset " << kmer_forward_relative_start << endl;
@@ -4886,7 +5177,6 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
         
 }
 
-
 void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
                                               int64_t& head_id, int64_t& tail_id,
@@ -4897,8 +5187,7 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
     Node* head_node = nullptr, *tail_node = nullptr;
     if(head_id == 0) {
         assert(tail_id == 0); // they should be only set together
-        // This is the first graph.
-        // Add the start/end node, but make our own copy before we destroy the graph.
+        // This is the first graph. We need to fill in the IDs.
         add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
         // Save its ID
         head_id = head_node->id();
@@ -4919,6 +5208,54 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
         add_start_end_markers(kmer_size, '#', '$', head_node, tail_node, head_id, tail_id);
     }
 
+    // Copy the head and tail nodes
+    Node local_head_node = *head_node;
+    Node local_tail_node = *tail_node;
+
+    // Now we have to drop unconnected start/end nodes, so we don't produce
+    // kmers straight from # to $
+    
+    // Remember if we don't remove them from the graph here, because we'll need
+    // to remove them from the graph later.
+    bool head_node_in_graph = true;
+    bool tail_node_in_graph = true;
+    
+    vector<Edge*> edges;
+    edges_of_node(head_node, edges);
+    if(edges.empty()) {
+        // The head node is floating disconnected.
+#ifdef debug
+        cerr << "Head node wasn't used. Excluding from graph." << endl;
+#endif
+        destroy_node(head_node);
+        // We still need one to represent the RC of the tail node, but it can't actually be in the graph.
+        head_node = &local_head_node;
+        head_node_in_graph = false;
+    }
+    edges.clear();
+    edges_of_node(tail_node, edges);
+    if(edges.empty()) {
+        // The tail node is floating disconnected.
+#ifdef debug
+        cerr << "Tail node wasn't used. Excluding from graph." << endl;
+#endif
+        destroy_node(tail_node);
+        tail_node = &local_tail_node;
+        tail_node_in_graph = false;
+    }
+    
+    if(forward_only && (!head_node_in_graph || !tail_node_in_graph)) {
+        // TODO: break in arbitrarily if doing forward-only indexing and there's
+        // no place to attach one of the start/end nodes.
+        cerr << "error:[for_each_gcsa_kmer_position_parallel] attempted to forward-only index a graph "
+            "that has only heads and no tails, or only tails and no heads. Only one of the start and "
+            "end nodes could be attached." << endl;
+        exit(1);
+    }
+    
+    // Actually find the GCSA2 kmers. The head and tail node pointers point to
+    // things, but the graph is only guaranteed to actually own one of those
+    // things.
     for_each_node_parallel(
         [kmer_size, edge_max, stride, forward_only,
          head_node, tail_node, lambda, this](Node* node) {
@@ -4927,8 +5264,12 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
         });
 
     // cleanup
-    destroy_node(head_node);
-    destroy_node(tail_node);
+    if(head_node_in_graph) {
+        destroy_node(head_node);
+    }
+    if(tail_node_in_graph) {
+        destroy_node(tail_node);
+    }
 }
 
 void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,

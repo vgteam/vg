@@ -72,9 +72,9 @@ message Edit {
 // An empty edit list implies complete match.
 //
 message Mapping {
-    Position position = 1;
+    Position position = 1; // the position at which the first Edit, if any, in the Mapping starts. Inclusive.
     repeated Edit edit = 2; // series of edit to transform to region in read/alt
-    bool is_reverse = 3; // does the mapping go from the end of the node to the start
+    bool is_reverse = 3; // does the Mapping go from the Position towards the start of the Node, instead of towards the end?
     Metadata metadata = 4;
 }
 
