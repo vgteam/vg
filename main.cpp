@@ -1399,13 +1399,7 @@ int main_mod(int argc, char** argv) {
             cerr << "[vg mod]: when pruning complex regions you must specify a --path-length and --edge-max" << endl;
             return 1;
         }
-        Node* head_node = NULL;
-        Node* tail_node = NULL;
-        graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
-        graph->prune_complex(path_length, edge_max, head_node, tail_node);
-        // These nodes were created in the graph, so we can destroy them by pointer.
-        graph->destroy_node(head_node);
-        graph->destroy_node(tail_node);
+        graph->prune_complex_with_head_tail(path_length, edge_max);
     }
 
     if (prune_subgraphs) {

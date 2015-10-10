@@ -5389,7 +5389,14 @@ gcsa::GCSA* VG::build_gcsa_index(int kmer_size, bool forward_only,
     return result;
 }
 
-
+void VG::prune_complex_with_head_tail(int path_length, int edge_max) {
+    Node* head_node = NULL;
+    Node* tail_node = NULL;
+    add_start_end_markers(path_length, '#', '$', head_node, tail_node);
+    prune_complex(path_length, edge_max, head_node, tail_node);
+    destroy_node(head_node);
+    destroy_node(tail_node);
+}
 
 void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node) {
     vector<set<NodeTraversal> > prev_maxed_nodes;

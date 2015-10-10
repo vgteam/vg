@@ -780,6 +780,9 @@ public:
     // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to
     // head_node or tail_node depending on which direction the path extension was stopped
     void prune_complex(int path_length, int edge_max, Node* head_node, Node* tail_node);
+    // wraps the graph with heads and tails before doing the prune
+    // utility function for preparing for indexing
+    void prune_complex_with_head_tail(int path_length, int edge_max);
 
 private:
     // Call the given function on each kmer. If parallel is specified, goes
