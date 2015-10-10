@@ -5595,10 +5595,18 @@ void VG::disjoint_subgraphs(list<VG>& subgraphs) {
     }
 }
 
+bool VG::is_head_node(int64_t id) {
+    return is_head_node(get_node(id));
+}
+
+bool VG::is_head_node(Node* node) {
+    return start_degree(node) == 0;
+}
+
 void VG::head_nodes(vector<Node*>& nodes) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        if (start_degree(n) == 0) {
+        if (is_head_node(n)) {
             nodes.push_back(n);
         }
     }
@@ -5610,10 +5618,38 @@ vector<Node*> VG::head_nodes(void) {
     return heads;
 }
 
+int VG::distance_to_head(int64_t id, size_t limit) {
+    return distance_to_head(get_node(id), limit);
+}
+
+int VG::distance_to_head(Node* node, size_t limit) {
+    int dist = 0;
+    Node* n = node;
+    while (!is_head_node(n) && dist < limit) {
+        for (auto& side : sides_to(n->id())) {
+            // take the first side that's in expected orientation
+            if (side.is_end) {
+                n = get_node(side.node);
+                break;
+            }
+        }
+        dist += n->sequence().size();
+    }
+    return dist > limit ? -1 : dist;
+}
+
+bool VG::is_tail_node(int64_t id) {
+    return is_tail_node(get_node(id));
+}
+
+bool VG::is_tail_node(Node* node) {
+    return end_degree(node) == 0;
+}
+
 void VG::tail_nodes(vector<Node*>& nodes) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        if (end_degree(n) == 0) {
+        if (is_tail_node(n)) {
             nodes.push_back(n);
         }
     }
@@ -5623,6 +5659,26 @@ vector<Node*> VG::tail_nodes(void) {
     vector<Node*> tails;
     tail_nodes(tails);
     return tails;
+}
+
+int VG::distance_to_tail(int64_t id, size_t limit) {
+    return distance_to_tail(get_node(id), limit);
+}
+
+int VG::distance_to_tail(Node* node, size_t limit) {
+    int dist = 0;
+    Node* n = node;
+    while (!is_tail_node(n) && dist < limit) {
+        for (auto& side : sides_from(n->id())) {
+            // take the first side that's in expected orientation
+            if (!side.is_end) {
+                n = get_node(side.node);
+                break;
+            }
+        }
+        dist += n->sequence().size();
+    }
+    return dist > limit ? -1 : dist;
 }
 
 void VG::wrap_with_null_nodes(void) {

@@ -963,15 +963,21 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             int sc_end = softclip_end(ta);
             int last_score = ta.score();
             size_t itr = 0;
+            Path* path = ta.mutable_path();
+            int64_t idf = path->mutable_mapping(0)->position().node_id();
+            int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
             while (itr++ < 3
-                   && (sc_start > softclip_threshold || sc_end > softclip_threshold)) {
-                if (debug) cerr << "softclip before " << sc_start << " " << sc_end << endl;
+                   && ((sc_start > softclip_threshold
+                        && graph->distance_to_head(idf, sc_start*3) < sc_start)
+                       || (sc_end > softclip_threshold
+                           && graph->distance_to_tail(idl, sc_end*3) < sc_end))) {
+                if (debug) {
+                    cerr << "softclip before " << sc_start << " " << sc_end << endl;
+                    cerr << "distance to head " << graph->distance_to_head(idf, sc_start*3) << endl;
+                    cerr << "distance to tail " << graph->distance_to_head(idl, sc_end*3) << endl;
+                }
                 double avg_node_size = graph->length() / graph->size();
                 if (debug) cerr << "average node size " << avg_node_size << endl;
-                // get the node at the end
-                Path* path = ta.mutable_path();
-                int64_t idf = path->mutable_mapping(0)->position().node_id();
-                int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
                 // step towards the side where there were soft clips
                 if (sc_start) {
                     if (xindex) {
@@ -1010,7 +1016,11 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                 if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
                 // we are not improving, so increasing the window is unlikely to help
                 if (last_score == ta.score()) break;
+                // update tracking of path end
                 last_score = ta.score();
+                path = ta.mutable_path();
+                idf = path->mutable_mapping(0)->position().node_id();
+                idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
             }
 
             delete graph;
