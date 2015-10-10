@@ -961,6 +961,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             // of the fully in-memory xg index
             int sc_start = softclip_start(ta);
             int sc_end = softclip_end(ta);
+            int last_score = ta.score();
             size_t itr = 0;
             while (itr++ < 3
                    && (sc_start > softclip_threshold || sc_end > softclip_threshold)) {
@@ -1007,6 +1008,9 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);
                 if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
+                // we are not improving, so increasing the window is unlikely to help
+                if (last_score == ta.score()) break;
+                last_score = ta.score();
             }
 
             delete graph;
