@@ -3405,6 +3405,7 @@ void help_map(char** argv) {
          << "    -X, --score-per-bp N  accept early alignment if the alignment score per base is > N and -F or -G is set" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
+         << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl;
 }
 
@@ -3449,6 +3450,7 @@ int main_map(int argc, char** argv) {
     float min_kmer_entropy = 0;
     float min_score_per_bp = 0;
     size_t kmer_min = 0;
+    int softclip_threshold = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3489,12 +3491,13 @@ int main_map(int argc, char** argv) {
                 {"band-width", required_argument, 0, 'B'},
                 {"score-per-bp", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
+                {"softclip-trig", required_argument, 0, 'T'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3565,6 +3568,10 @@ int main_map(int argc, char** argv) {
             
         case 'n':
             context_depth = atoi(optarg);
+            break;
+
+        case 'T':
+            softclip_threshold = atoi(optarg);
             break;
 
         case 'r':
@@ -3765,6 +3772,7 @@ int main_map(int argc, char** argv) {
         m->min_kmer_entropy = min_kmer_entropy;
         m->kmer_min = kmer_min;
         m->min_score_per_bp = min_score_per_bp;
+        m->softclip_threshold = softclip_threshold;
         mapper[i] = m;
     }
 
