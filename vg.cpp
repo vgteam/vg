@@ -653,13 +653,15 @@ set<list<Node*>> VG::simple_components(void) {
     for_each_node([this, &components](Node* n) {
             // go left and right through each as far as we have only single edges connecting us
             // to nodes that have only single edges coming in or out
+            // and these edges are "normal" in that they go from the tail to the head
             list<Node*> c;
             // go left
             {
                 Node* l = n;
                 auto sides = sides_to(NodeSide(l->id(), false));
                 while (sides.size() == 1
-                       && end_degree(get_node(sides.begin()->node)) == 1) {
+                       && end_degree(get_node(sides.begin()->node)) == 1
+                       && sides.begin()->is_end) {
                     l = get_node(sides.begin()->node);
                     sides = sides_to(NodeSide(l->id(), false));
                     c.push_front(l);
@@ -672,7 +674,8 @@ set<list<Node*>> VG::simple_components(void) {
                 Node* r = n;
                 auto sides = sides_from(NodeSide(r->id(), true));
                 while (sides.size() == 1
-                       && start_degree(get_node(sides.begin()->node)) == 1) {
+                       && start_degree(get_node(sides.begin()->node)) == 1
+                       && !sides.begin()->is_end) {
                     r = get_node(sides.begin()->node);
                     sides = sides_from(NodeSide(r->id(), true));
                     c.push_back(r);

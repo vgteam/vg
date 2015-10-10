@@ -749,7 +749,6 @@ int main_msga(int argc, char** argv) {
     for (auto& group : strings) {
         auto& name = group.first;
         if (debug) cerr << name << ": adding to graph" << endl;
-        graph->serialize_to_file("pre-" + name + ".vg");        
         rebuild(graph);
         //graph->serialize_to_file("pre-" + name + ".vg");
         vector<Path> paths;

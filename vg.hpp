@@ -284,10 +284,6 @@ public:
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
 
-    // merge nodes where doing so would not affect the path
-    // space of the graph, removing redundant forks
-    //void simplify_node(int64_t id);
-
     void from_gfa(istream& in, bool showp = false);
 
 
@@ -331,15 +327,6 @@ public:
         rebuild_indexes();
         return *this;
     }
-
-    // todo
-    // set vg up to not build indexes
-    // providing very light runtime
-    // this would disable a ton of functions
-    // and change the deserialization semantics
-    //
-    //void no_indexes(void);
-    //void yes_indexes(void);
 
     void build_indexes(void);
     void index_paths(void);
