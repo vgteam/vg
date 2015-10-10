@@ -418,6 +418,8 @@ void help_msga(char** argv) {
          << "    -k, --map-kmer-size N   use kmers of size N when mapping (default: 16)" << endl
          << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold (default: 5)" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
+         << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
          << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
@@ -454,7 +456,6 @@ int main_msga(int argc, char** argv) {
     bool reverse_complement = false;
     string base_seq_name;
     size_t max_fragment_length = 100000; // 100kb
-    int edge_max = 0;
     int idx_kmer_size = 16;
     int idx_doublings = 2;
     int kmer_size = 16;
@@ -475,6 +476,8 @@ int main_msga(int argc, char** argv) {
     size_t node_max = 0;
     size_t kmer_min = 5;
     int alignment_threads = 1;
+    int edge_max = 0;
+    int subgraph_prune = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -501,11 +504,13 @@ int main_msga(int argc, char** argv) {
                 {"cluster-min", required_argument, 0, 'C'},
                 {"score-per-bp", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
+                {"idx-edge-max", required_argument, 0, 'E'},
+                {"idx-prune-subs", required_argument, 0, 'Q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:E:Q:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -603,6 +608,14 @@ int main_msga(int argc, char** argv) {
         case 't':
             omp_set_num_threads(atoi(optarg));
             alignment_threads = atoi(optarg);
+            break;
+
+        case 'Q':
+            subgraph_prune = atoi(optarg);
+            break;
+
+        case 'E':
+            edge_max = atoi(optarg);
             break;
 
         case 'h':
@@ -706,6 +719,8 @@ int main_msga(int argc, char** argv) {
                     debug_align,
                     &iter,
                     idx_kmer_size,
+                    edge_max,
+                    subgraph_prune,
                     doubling_steps,
                     kmer_min,
                     sens_step,
@@ -724,8 +739,17 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
         if (debug) cerr << "building GCSA2 index" << endl;
-        gcsaidx = graph->build_gcsa_index(idx_kmer_size, false, doubling_steps);
-        
+        if (edge_max) {
+            VG gcsa_graph = *graph; // copy the graph
+            // remove complex components
+            gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
+            if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
+            // then index
+            gcsaidx = gcsa_graph.build_gcsa_index(idx_kmer_size, false, doubling_steps);
+        } else {
+            // if no complexity reduction is requested, just build the index
+            gcsaidx = graph->build_gcsa_index(idx_kmer_size, false, doubling_steps);
+        }
         mapper = new Mapper(xgidx, gcsaidx);
         { // set mapper variables
             mapper->debug = debug_align;
