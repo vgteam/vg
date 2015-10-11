@@ -421,6 +421,7 @@ void help_msga(char** argv) {
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
+         << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
          << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
@@ -478,6 +479,7 @@ int main_msga(int argc, char** argv) {
     int alignment_threads = 1;
     int edge_max = 0;
     int subgraph_prune = 0;
+    bool normalize = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -506,11 +508,12 @@ int main_msga(int argc, char** argv) {
                 {"kmer-min", required_argument, 0, 'l'},
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
+                {"normalize", no_argument, 0, 'N'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:E:Q:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:E:Q:N",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -599,6 +602,10 @@ int main_msga(int argc, char** argv) {
 
         case 'm':
             node_max = atoi(optarg);
+            break;
+
+        case 'N':
+            normalize = false;
             break;
 
         case 'P':
@@ -799,11 +806,13 @@ int main_msga(int argc, char** argv) {
         // graph->serialize_to_file("out.vg");
     }
 
-    if (debug) cerr << "normalizing graph" << endl;
-    graph->normalize();
-    graph->dice_nodes(node_max);
-    graph->sort();
-    graph->compact_ids();
+    if (normalize) {
+        if (debug) cerr << "normalizing graph" << endl;
+        graph->normalize();
+        graph->dice_nodes(node_max);
+        graph->sort();
+        graph->compact_ids();
+    }
 
     rebuild(graph);
 
