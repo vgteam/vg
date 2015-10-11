@@ -815,6 +815,7 @@ int main_msga(int argc, char** argv) {
     }
 
     rebuild(graph);
+    if (debug) graph->serialize_to_file("msga-pre-label.vg");
 
     // include the paths in the graph
     if (debug) cerr << "including paths" << endl;
@@ -834,6 +835,7 @@ int main_msga(int argc, char** argv) {
         }
     }
 
+    if (debug) graph->serialize_to_file("msga-post-label.vg");
     // remove nodes in the graph that have no assigned paths
     // FIXME: this masks a problem wherein editing can introduce dangling nodes
     set<int64_t> unassigned_nodes;
