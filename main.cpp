@@ -797,7 +797,6 @@ int main_msga(int argc, char** argv) {
         graph->edit_both_directions(paths);
         graph->paths.clear();
         if (debug) cerr << name << ": normalizing node size" << endl;
-        graph->unchop();
         graph->dice_nodes(node_max);
         if (debug) cerr << name << ": sorting and compacting ids" << endl;
         graph->sort();
