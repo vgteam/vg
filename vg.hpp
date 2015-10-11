@@ -283,6 +283,8 @@ public:
     void merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
+    // removes pieces of the graph which are not part of any path
+    void remove_non_path(void);
 
     void from_gfa(istream& in, bool showp = false);
 

@@ -645,6 +645,53 @@ void VG::normalize(void) {
     unchop();
 }
 
+void VG::remove_non_path(void) {
+    set<Edge*> path_edges;
+    function<void(Path&)> lambda = [this, &path_edges](Path& path) {
+        for (int i = 0; i < path.mapping_size(); ++i) {
+            const Mapping& m1 = path.mapping(i);
+            if (i < path.mapping_size()-1) {
+                const Mapping& m2 = path.mapping(i+1);
+                // Find the Edge connecting the mappings in the order they occur in the path.
+                Edge* edge = get_edge(NodeTraversal(get_node(m1.position().node_id()),
+                                                    m1.is_reverse()),
+                                      NodeTraversal(get_node(m2.position().node_id()),
+                                                    m2.is_reverse()));
+                path_edges.insert(edge);
+            }
+        }
+    };
+    paths.for_each(lambda);
+    // now determine which edges aren't used
+    set<Edge*> non_path_edges;
+    for_each_edge([this, &path_edges, &non_path_edges](Edge* e) {
+            if (!path_edges.count(e)) {
+                non_path_edges.insert(e);
+            }
+        });
+    // and destroy them
+    for (auto* e : non_path_edges) {
+        destroy_edge(e);
+    }
+    
+    set<int64_t> non_path_nodes;
+    for_each_node([this, &non_path_nodes](Node* n) {
+            if (!paths.has_node_mapping(n->id())) {
+                non_path_nodes.insert(n->id());
+            }
+        });
+    for (auto id : non_path_nodes) {
+        destroy_node(id);
+    }
+    
+    // re-compact ids if we have made changes to the graph
+    if (!non_path_nodes.empty()) {
+        sort();
+        compact_ids();
+    }
+}
+
+
 // the set of components that could be merged into single nodes without
 // changing the path space of the graph
 set<list<Node*>> VG::simple_components(void) {
