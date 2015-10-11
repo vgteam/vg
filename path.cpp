@@ -789,7 +789,7 @@ Path simplify(const Path& p) {
             if (i > 0) {
                 n = s.mutable_mapping(s.mapping_size()-1);
             } else {
-                cerr << "warning: path has no position in first mapping" << endl;
+                //cerr << "warning: path has no position in first mapping" << endl;
             }
         } else {
             // take the old position
