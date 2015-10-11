@@ -3881,7 +3881,11 @@ bool VG::is_valid(void) {
     return true;
 }
 
-void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, bool walk_paths, bool annotate_paths,
+void VG::to_dot(ostream& out, vector<Alignment> alignments,
+                bool show_paths,
+                bool walk_paths,
+                bool annotate_paths,
+                bool invert_edge_ports,
                 int random_seed) {
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
@@ -3966,14 +3970,16 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments, bool show_paths, boo
         // depending on if the edge comes from the start or not
         out << "    " << e->from() << " -> " << e->to();
         out << " [dir=both,";
-        if (e->from_start()) {
+        if (!invert_edge_ports && e->from_start()
+            || invert_edge_ports && !e->from_start()) {
             out << "arrowtail=none,";
             out << "tailport=sw,";
         } else {
             out << "arrowtail=none,";
             out << "tailport=ne,";
         }
-        if (e->to_end()) {
+        if (!invert_edge_ports && e->to_end()
+            || invert_edge_ports && !e->to_end()) {
             out << "arrowhead=normal,";
             out << "headport=se";
         } else {

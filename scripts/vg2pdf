@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ $# -ne 4 ];
+if [ $# -ne 6 ];
 then
-    echo "usage: "$(basename $0) "[graph.vg] [graph.xg] [chunk_size] [output_pdf]"
+    echo "usage: "$(basename $0) "[graph.vg] [graph.xg] [chunk_size] [context] [output_pdf] [dot|neato]"
     echo "requires vg, pdfunite (from pdftk) and dot (graphviz)"
     echo "first index the graph with `vg index -x ...` and then choose a chunk size"
     exit
@@ -11,7 +11,9 @@ fi
 vg=$1
 xg=$2
 chunk=$3
-out=$4
+context=$4
+out=$5
+renderer=$6
 
 h=$(vg view $vg | grep ^S | cut -f 2 | sort -n | head -1)
 t=$(vg view $vg | grep ^S | cut -f 2 | sort -n | tail -1)
@@ -22,11 +24,12 @@ do
     s=$i
     e=$(echo $i + $chunk | bc)
     echo "generating pdf for $s to $e"
-    vg find -x $xg -r $s:$e -c 1 | vg view -dpn - | dot -Tpdf -o $s.pdf
+    vg find -x $xg -r $s:$e -c $context | vg view -dpn - | mars | $renderer -Tsvg -n -o $out.tmp.$s.svg
+    cairosvg $out.tmp.$s.svg  -fpdf -o $out.tmp.$s.pdf
 done
 
 echo "combining pdfs"
-pdfunite $(for i in $(seq $h $chunk $t); do echo $i.pdf; done) $out
+pdfunite $(ls $out.tmp.$s.pdf | sort -V)
 
 echo "cleaning up"
-for i in $(seq $h $chunk $t); do rm $i.pdf; done
+rm $out.tmp.*

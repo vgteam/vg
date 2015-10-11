@@ -797,6 +797,7 @@ int main_msga(int argc, char** argv) {
         graph->edit_both_directions(paths);
         graph->paths.clear();
         if (debug) cerr << name << ": normalizing node size" << endl;
+        graph->unchop();
         graph->dice_nodes(node_max);
         if (debug) cerr << name << ": sorting and compacting ids" << endl;
         graph->sort();
@@ -815,7 +816,7 @@ int main_msga(int argc, char** argv) {
     }
 
     rebuild(graph);
-    if (debug) graph->serialize_to_file("msga-pre-label.vg");
+    //if (debug) graph->serialize_to_file("msga-pre-label.vg");
 
     // include the paths in the graph
     if (debug) cerr << "including paths" << endl;
@@ -835,7 +836,7 @@ int main_msga(int argc, char** argv) {
         }
     }
 
-    if (debug) graph->serialize_to_file("msga-post-label.vg");
+    //if (debug) graph->serialize_to_file("msga-post-label.vg");
     // remove nodes in the graph that have no assigned paths
     // FIXME: this masks a problem wherein editing can introduce dangling nodes
     set<int64_t> unassigned_nodes;
@@ -4000,6 +4001,7 @@ void help_view(char** argv) {
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
          << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
+         << "    -I, --invert-ports   invert the edge ports in dot so that ne->nw is reversed" << endl
          << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
          
          << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
@@ -4043,6 +4045,7 @@ int main_view(int argc, char** argv) {
     bool show_paths_in_dot = false;
     bool walk_paths_in_dot = false;
     bool annotate_paths_in_dot = false;
+    bool invert_edge_ports_in_dot = false;
     int seed_val = time(NULL);
 
     int c;
@@ -4071,11 +4074,12 @@ int main_view(int argc, char** argv) {
                 {"random-seed", required_argument, 0, 's'},
                 {"pileup", no_argument, 0, 'L'},
                 {"pileup-in", no_argument, 0, 'l'},
+                {"invert-ports", no_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlL",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLI",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -4170,6 +4174,10 @@ int main_view(int argc, char** argv) {
 
         case 'A':
             alignments = optarg;
+            break;
+
+        case 'I':
+            invert_edge_ports_in_dot = true;
             break;
 
         case 'L':
@@ -4393,7 +4401,8 @@ int main_view(int argc, char** argv) {
     // requested output format.
 
     if (output_type == "dot") {
-        graph->to_dot(std::cout, alns, show_paths_in_dot, walk_paths_in_dot, annotate_paths_in_dot, seed_val);
+        graph->to_dot(std::cout, alns, show_paths_in_dot, walk_paths_in_dot,
+                      annotate_paths_in_dot, invert_edge_ports_in_dot, seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {

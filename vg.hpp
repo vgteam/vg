@@ -580,7 +580,7 @@ public:
     //void node_replace_next(Node* node, Node* before, Node* after);
 
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                bool annotate_paths = false, int random_seed = 0);
+                bool annotate_paths = false, bool invert_edge_ports = false, int random_seed = 0);
     void to_gfa(ostream& out);
     bool is_valid(void);
 
