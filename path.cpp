@@ -1227,4 +1227,22 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
     
 }
 
+// returns the start position, or an empty position if the path has no mappings with positions
+Position path_start(const Path& path) {
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        if (mapping.has_position()) return mapping.position();
+    }
+}
+
+// determine the path end
+Position path_end(const Path& path) {
+    Position pos;
+    if (!path.mapping_size()) return pos;
+    auto& last = path.mapping(path.mapping_size()-1);
+    pos = last.position();
+    pos.set_offset(pos.offset()+mapping_from_length(last));
+    return pos;
+}
+
 }

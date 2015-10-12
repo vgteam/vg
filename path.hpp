@@ -161,6 +161,9 @@ bool maps_to_node(const Path& p, int64_t id);
 // the past-the-end position of the node in question, since we don't look at the
 // graph here.
 void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints);
+// the position that starts just after the path ends
+Position path_start(const Path& path);
+Position path_end(const Path& path);
 
 
 }

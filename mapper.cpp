@@ -302,8 +302,8 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     //cerr << "Segment size be " << segment_size << endl;
     // and overlap them too
     size_t to_align = div * 2 - 1; // number of alignments we'll do
-    vector<Alignment> alns; alns.resize(to_align);
     vector<size_t> overlaps; overlaps.resize(to_align);
+    vector<Alignment> bands; bands.resize(to_align);
     
     // We need a function to get the lengths of nodes, in case we need to
     // reverse an Alignment, including all its Mappings and Positions. TODO:
@@ -324,65 +324,48 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
             throw runtime_error("No index to get nodes from.");
         }
     };
-    
-#pragma omp parallel for
+
     for (int i = 0; i < div; ++i) {
-        {
-            Alignment aln = read;
-            if (i+1 == div) {
-                // ensure we get all the sequence
-                aln.set_sequence(read.sequence().substr(i*segment_size));
-            } else {
-                aln.set_sequence(read.sequence().substr(i*segment_size, segment_size));
-            }
-            // todo, possible problem
-            // overlap can possibly go to 100% of the "last" read
-            // if we aren't careful about this it might cause a problem in the merge
-            size_t overlap = (i == 0? 0 : segment_size/2);
-            //cerr << "overlap is " << overlap << endl;
-            size_t idx = 2*i;
-            overlaps[idx] = overlap;
-            Alignment mapped_aln = align(aln, kmer_size, stride);
-            if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
-                >= min_score_per_bp) {
-            
-                // We're actually going to use this alignment. We should make
-                // sure to flip it if it's backward, though. We need all the
-                // alignments to be a consistent orientation for merging.
-                alns[idx] = mapped_aln.is_reverse() ? reverse_alignment(mapped_aln, get_node_length) : mapped_aln;
-            } else {
-                alns[idx] = aln; // unmapped
-            }
-            if (debug) {
-#pragma omp critical (cerr)
-                cerr << pb2json(alns[idx]) << endl;
-            }
+        size_t off = i*segment_size;
+        auto aln = read;
+        if (i+1 == div) {
+            // ensure we get all the sequence and the end
+            aln.set_sequence(read.sequence().substr(off));
+        } else {
+            aln.set_sequence(read.sequence().substr(off, segment_size));
         }
-        // step to next position
-        // and the overlapped bit --- here we're using a hard-coded 50% overlap
+        size_t idx = 2*i;
+        overlaps[idx] = (i == 0 ? 0 : segment_size/2);
+        bands[idx] = aln;
         if (i != div-1) { // if we're not at the last sequence
-            Alignment aln = read;
-            aln.set_sequence(read.sequence().substr(i*segment_size+segment_size/2,
+            aln.set_sequence(read.sequence().substr(off+segment_size/2,
                                                     segment_size));
-            size_t overlap = segment_size/2;
-            size_t idx = 2*i+1;
-            overlaps[idx] = overlap;
-            Alignment mapped_aln = align(aln, kmer_size, stride);
-            if ((float) mapped_aln.score() / (float) mapped_aln.sequence().size()
-                >= min_score_per_bp) {
-                alns[idx] = mapped_aln.is_reverse() ? reverse_alignment(mapped_aln, get_node_length) : mapped_aln;
-            } else {
-                alns[idx] = aln; // unmapped
-            }
-            if (debug) {
-#pragma omp critical (cerr)
-                cerr << pb2json(alns[idx]) << endl;
+            idx = 2*i+1;
+            overlaps[idx] = segment_size/2;
+            bands[idx] = aln;
+        }
+    }
+
+    vector<vector<Alignment>> multi_alns; multi_alns.resize(to_align);
+#pragma omp parallel for
+    for (int i = 0; i < bands.size(); ++i) {
+        {
+            vector<Alignment>& malns = multi_alns[i];
+            malns = align_multi(bands[i], kmer_size, stride);
+            for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
+                Alignment& aln = *a;
+                // strip overlaps
+                if (i > 0) aln = strip_from_start(aln, overlaps[i]/2);
+                if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
             }
         }
     }
-    // by telling our merge the expected overlaps, it will correctly combine the alignments
-    Alignment merged = merge_alignments(alns, overlaps, debug);
-    
+    // resolve the highest-scoring traversal of the multi-mappings
+    auto alns = resolve_banded_multi(multi_alns);
+    multi_alns.clear(); // clean up
+    // merge the resulting alignments
+    Alignment merged = merge_alignments(alns, debug);
+
     if(debug) {
         for(int i = 0; i < merged.path().mapping_size(); i++) {
             // Check each Mapping to make sure it doesn't go past the end of its
@@ -402,6 +385,125 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     }
     
     return merged;
+}
+
+vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_alns) {
+    // use a basic dynamic programming to score the path through the multi mapping
+    // we add the score as long as our alignments overlap (we expect them to)
+    // otherwise we add nothing
+    // reads that are < the minimum alignment score threshold are dropped    
+
+    // a vector of
+    // score, current alignment, parent alignment (direction)
+    typedef tuple<int, Alignment*, size_t> score_t;
+    vector<vector<score_t>> scores;
+    scores.resize(multi_alns.size());
+    // start with the scores for the first alignments
+    for (auto& aln : multi_alns[0]) {
+        scores.front().push_back(make_tuple(aln.score(), &aln, 0));
+    }
+    for (size_t i = 1; i < multi_alns.size(); ++i) {
+        auto& curr_alns = multi_alns[i];
+        vector<score_t>& curr_scores = scores[i];
+        auto& prev_scores = scores[i-1];
+        // find the best previous score
+        score_t best_prev = prev_scores.front();
+        size_t best_idx = 0;
+        size_t j = 0;
+        for (auto& t : prev_scores) {
+            if (get<0>(t) > get<0>(best_prev)) {
+                best_prev = t;
+                best_idx = j;
+            }
+            ++j;
+        }
+        // for each alignment
+        cerr << "curr alns size " << curr_alns.size() << endl;
+        for (auto& aln : curr_alns) {
+            // if it's not mapped, take the best previous score
+            if (!aln.score()) {
+                curr_scores.push_back(make_tuple(get<0>(best_prev),
+                                                 &aln, best_idx));
+            } else {
+                // determine our start
+                auto& curr_start = aln.path().mapping(0).position();
+                // accumulate candidate alignments
+                map<int, vector<pair<score_t, size_t>>> candidates;
+                // for each previous alignment
+                size_t k = 0;
+                for (auto& score : prev_scores) {
+                    auto old = get<1>(score);
+                    auto prev_end = path_end(old->path());
+                    // save it as a candidate if the two are adjacent
+                    if (adjacent_positions(prev_end, curr_start)) {
+                        candidates[get<0>(score)].push_back(make_pair(score,k));
+                    }
+                    ++k;
+                }
+                if (candidates.size()) {
+                    // take the best one (at least the first best one we saw)
+                    auto& opt = candidates.rbegin()->second.front();
+                    // DP scoring step: add scores when we match head to tail
+                    curr_scores.push_back(make_tuple(get<0>(opt.first) + aln.score(),
+                                                     &aln, opt.second));
+                } else {
+                    // if there are no alignments matching our start
+                    // just take the highest-scoring one
+                    // but don't increment the score
+                    curr_scores.push_back(make_tuple(get<0>(best_prev),
+                                                     &aln, best_idx));
+                }
+            }
+        }
+    }
+    // find the best score at the end
+    score_t best_last = scores.back().front();
+    size_t best_last_idx = 0;
+    size_t j = 0;
+    for (auto& s : scores.back()) {
+        if (get<0>(s) > get<0>(best_last)) {
+            best_last = s;
+            best_last_idx = j;
+        }
+        ++j;
+    }
+    // accumulate the alignments in the optimal path
+    vector<Alignment> alns; alns.resize(multi_alns.size());
+    size_t prev_best_idx = best_last_idx;
+    for (int i = scores.size()-1; i >= 0; --i) {
+        auto& score = scores[i][prev_best_idx];
+        alns[i] = *get<1>(score); // save the alignment
+        prev_best_idx = get<2>(score); // and where we go next
+    }
+    return alns;
+}
+
+bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
+    // are they the same id, with offset differing by 1?
+    if (pos1.node_id() == pos2.node_id()
+        && pos1.offset() == pos2.offset()-1) {
+        return true;
+    }
+    // otherwise, we're going to need to check via the index
+    VG graph;
+    // pick up a graph that's just the neighborhood of the start and end positions
+    int64_t id1 = pos1.node_id();
+    int64_t id2 = pos2.node_id();
+    if(xindex) {
+        // Grab the node sequence only from the XG index and get its size.
+        xindex->get_id_range(id1, id1, graph.graph);
+        xindex->get_id_range(id2, id2, graph.graph);
+        xindex->expand_context(graph.graph, 1, false);
+        graph.rebuild_indexes();
+    } else if(index) {
+        index->get_context(id1, graph);
+        index->get_context(id2, graph);
+        index->expand_context(graph, 1);
+    } else {
+        throw runtime_error("No index to get nodes from.");
+    }
+    // now look in the graph to figure out if we are adjacent
+    return graph.adjacent(pos1, pos2);
 }
 
 vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {

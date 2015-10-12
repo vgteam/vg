@@ -630,6 +630,35 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
     }
 }
 
+bool VG::adjacent(const Position& pos1, const Position& pos2) {
+    // two positions are on the same node
+    if (pos1.node_id() == pos2.node_id()) {
+        if (pos1.offset() == pos1.offset()+1) {
+            // and have adjacent offsets
+            return true;
+        } else {
+            // if not, they aren't adjacent
+            return false;
+        }
+    } else {
+        // is the first at the end of its node
+        // and the second at the start of its node
+        // determine if the two nodes are connected
+        auto* node1 = get_node(pos1.node_id());
+        auto* node2 = get_node(pos2.node_id());
+        if (pos1.offset() == node1->sequence().size()-1
+            && pos2.offset() == 0) {
+            // these are adjacent iff we have an edge
+            return has_edge(NodeSide(pos1.node_id(), true),
+                            NodeSide(pos2.node_id(), false));
+        } else {
+            // the offsets aren't at the end and start
+            // so these positions can't be adjacent
+            return false;
+        }
+    }
+}
+
 void VG::unchop(void) {
     for (auto& comp : simple_components()) {
         merge_nodes(comp);

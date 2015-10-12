@@ -626,14 +626,9 @@ Alignment reverse_alignment(const Alignment& aln, function<int64_t(int64_t)>& no
 }
 
 // merge that properly handles long indels
-// assumes that alignments should line up end-to-end, and that they are all either is_reverse or not.
-// within an alignment, individual mappings may still be is_reverse or not as they please.
-Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlaps, bool debug) {
-    /*
-    cerr << "overlaps: ";
-    for (auto i : overlaps) cerr << i << " ";
-    cerr << endl;
-    */
+// assumes that alignments should line up end-to-end
+Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
+
     if (alns.size() == 0) {
         Alignment aln;
         return aln;
@@ -702,16 +697,6 @@ Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& 
             e->set_to_length(aln.sequence().size());
             e->set_sequence(aln.sequence());
             *aln.mutable_path()->add_mapping() = m;
-        }
-        
-        // strip
-        if (i > 0) {
-            //cerr << "dropping " << overlaps[i]/2 << " from start " << endl;
-            aln = strip_from_start(aln, overlaps[i]/2);
-        }
-        if (i < last.size()-1) {
-            //cerr << "dropping " << overlaps[i+1]/2 << " from end " << endl;
-            aln = strip_from_end(aln, overlaps[i+1]/2);
         }
     }
 

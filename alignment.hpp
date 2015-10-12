@@ -69,7 +69,7 @@ void alignment_quality_short_to_char(Alignment& alignment);
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
 int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
-Alignment merge_alignments(const vector<Alignment>& alns, const vector<size_t>& overlap, bool debug);
+Alignment merge_alignments(const vector<Alignment>& alns, bool debug);
 // merge is destructive so we copy
 // Merge two alignments end-to-end. The resulting alignment is not considered to be in reverse.
 Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug);

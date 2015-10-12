@@ -54,7 +54,13 @@ public:
     void align_mate_in_window(Alignment& read1, Alignment& read2, int pair_window);
 
     // Return the one best banded alignment.
-    Alignment align_banded(Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    Alignment align_banded(Alignment& read,
+                           int kmer_size = 0,
+                           int stride = 0,
+                           int band_width = 1000);
+    
+    vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
+    bool adjacent_positions(const Position& pos1, const Position& pos2);
 
     // paired-end based
     

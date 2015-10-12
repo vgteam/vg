@@ -471,6 +471,8 @@ public:
     void simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs);
     // does so for all provided from-sibling sets
     void simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs);
+    // determines of pos1 occurs directly before pos2
+    bool adjacent(const Position& pos1, const Position& pos2);
 
     // use the VG class to generate ids
     Node* create_node(string seq, int64_t id = 0);
