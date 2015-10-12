@@ -421,7 +421,6 @@ void help_msga(char** argv) {
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
-         << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
          << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
@@ -430,6 +429,8 @@ void help_msga(char** argv) {
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
+         << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
          << "    -t, --threads N         number of threads to use" << endl
@@ -480,6 +481,7 @@ int main_msga(int argc, char** argv) {
     int edge_max = 0;
     int subgraph_prune = 0;
     bool normalize = true;
+    bool allow_nonpath = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -509,11 +511,12 @@ int main_msga(int argc, char** argv) {
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
+                {"allow-nonpath", no_argument, 0, 'z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:E:Q:N",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:E:Q:Nz",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -623,6 +626,10 @@ int main_msga(int argc, char** argv) {
 
         case 'E':
             edge_max = atoi(optarg);
+            break;
+
+        case 'z':
+            allow_nonpath = true;
             break;
 
         case 'h':
@@ -838,7 +845,9 @@ int main_msga(int argc, char** argv) {
     //if (debug) graph->serialize_to_file("msga-post-label.vg");
     // remove nodes in the graph that have no assigned paths
     // FIXME: this masks a problem wherein editing can introduce dangling nodes
-    graph->remove_non_path();
+    if (!allow_nonpath) {
+        graph->remove_non_path();
+    }
 
     // return the graph
     graph->serialize_to_ostream(std::cout);
