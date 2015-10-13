@@ -572,6 +572,8 @@ int alignment_from_length(const Alignment& a) {
 Alignment strip_from_start(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
+    res.set_name(aln.name());
+    res.set_score(aln.score());
     res.set_is_reverse(aln.is_reverse());
     //cerr << "drop " << drop << " from start" << endl;
     res.set_sequence(aln.sequence().substr(drop));
@@ -589,6 +591,8 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
 Alignment strip_from_end(const Alignment& aln, size_t drop) {
     if (!drop) return aln;
     Alignment res;
+    res.set_name(aln.name());
+    res.set_score(aln.score());
     res.set_is_reverse(aln.is_reverse());
     //cerr << "drop " << drop << " from end" << endl;
     size_t cut_at = aln.sequence().size()-drop;

@@ -33,7 +33,7 @@ do
     else
         vg find -x $xg -r $s:$e -c $context \
             | vg mod -z - \
-            | vg view -dpn - \
+            | vg view -dn - \
             | $renderer -Tpdf -o $out.tmp.$s
     fi
     #cairosvg $out.tmp.$s.svg  -fpdf -o $out.tmp.$s.pdf

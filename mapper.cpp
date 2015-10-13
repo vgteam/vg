@@ -346,23 +346,58 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
         }
     }
 
-    vector<vector<Alignment>> multi_alns; multi_alns.resize(to_align);
+    vector<vector<Alignment>> multi_alns;
+    vector<Alignment> alns;
+    if (max_multimaps > 1) multi_alns.resize(to_align);
+    else alns.resize(to_align);
+    
 #pragma omp parallel for
     for (int i = 0; i < bands.size(); ++i) {
         {
-            vector<Alignment>& malns = multi_alns[i];
-            malns = align_multi(bands[i], kmer_size, stride);
-            for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
-                Alignment& aln = *a;
+            if (max_multimaps > 1) {
+                vector<Alignment>& malns = multi_alns[i];
+                malns = align_multi(bands[i], kmer_size, stride);
+                // always include an unaligned mapping
+                malns.push_back(bands[i]);
+                for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
+                    Alignment& aln = *a;
+                    bool above_threshold = ((float) aln.score() / (float) aln.sequence().size()
+                                            >= min_score_per_bp);
+                    if (above_threshold) {
+                        // strip overlaps
+                        aln = aln.is_reverse()
+                            ? reverse_alignment(aln, get_node_length) : aln;
+                    } else {
+                        // treat as unmapped
+                        aln = bands[i];
+                    }
+                    if (i > 0) aln = strip_from_start(aln, overlaps[i]/2);
+                    if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
+                }
+            } else {
+                Alignment maln = align(bands[i], kmer_size, stride);
+                bool above_threshold = ((float) maln.score() / (float) maln.sequence().size()
+                                        >= min_score_per_bp);
+                Alignment& aln = alns[i];
                 // strip overlaps
+                if (above_threshold) {
+                    aln = maln.is_reverse()
+                        ? reverse_alignment(maln, get_node_length) : maln;
+                } else {
+                    aln = bands[i]; // unmapped
+                }
+                // strip
                 if (i > 0) aln = strip_from_start(aln, overlaps[i]/2);
                 if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
             }
         }
     }
+
     // resolve the highest-scoring traversal of the multi-mappings
-    auto alns = resolve_banded_multi(multi_alns);
-    multi_alns.clear(); // clean up
+    if (max_multimaps > 1) {
+        alns = resolve_banded_multi(multi_alns);
+        multi_alns.clear(); // clean up
+    }
     // merge the resulting alignments
     Alignment merged = merge_alignments(alns, debug);
 
@@ -409,16 +444,21 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
         // find the best previous score
         score_t best_prev = prev_scores.front();
         size_t best_idx = 0;
+        score_t unmapped_prev = prev_scores.front();
+        size_t unmapped_idx = 0;
         size_t j = 0;
         for (auto& t : prev_scores) {
             if (get<0>(t) > get<0>(best_prev)) {
                 best_prev = t;
                 best_idx = j;
             }
+            if (get<0>(t) == 0) {
+                unmapped_idx = j;
+                unmapped_prev = t;
+            }
             ++j;
         }
         // for each alignment
-        cerr << "curr alns size " << curr_alns.size() << endl;
         for (auto& aln : curr_alns) {
             // if it's not mapped, take the best previous score
             if (!aln.score()) {
@@ -426,6 +466,7 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                                                  &aln, best_idx));
             } else {
                 // determine our start
+                bool curr_rev = aln.is_reverse();
                 auto& curr_start = aln.path().mapping(0).position();
                 // accumulate candidate alignments
                 map<int, vector<pair<score_t, size_t>>> candidates;
@@ -433,10 +474,13 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                 size_t k = 0;
                 for (auto& score : prev_scores) {
                     auto old = get<1>(score);
+                    if (!old->score()) continue; // unmapped
+                    bool prev_rev = old->is_reverse();
                     auto prev_end = path_end(old->path());
                     // save it as a candidate if the two are adjacent
-                    if (
-                        adjacent_positions(prev_end, curr_start)) {
+                    // and in the same orientation
+                    if (curr_rev == prev_rev
+                        && adjacent_positions(prev_end, curr_start)) {
                         candidates[get<0>(score)].push_back(make_pair(score,k));
                     }
                     ++k;
@@ -450,9 +494,14 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                 } else {
                     // if there are no alignments matching our start
                     // just take the highest-scoring one
-                    // but don't increment the score
-                    curr_scores.push_back(make_tuple(get<0>(best_prev),
-                                                     &aln, best_idx));
+                    auto best_prev_aln = get<1>(prev_scores[best_idx]);
+                    if (best_prev_aln->is_reverse() == curr_rev) {
+                        curr_scores.push_back(make_tuple(get<0>(best_prev),
+                                                         &aln, best_idx));
+                    } else {
+                        curr_scores.push_back(make_tuple(get<0>(unmapped_prev),
+                                                         &aln, unmapped_idx));
+                    }
                 }
             }
         }
