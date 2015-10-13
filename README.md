@@ -18,6 +18,10 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 ### building
 
+Before you begin, you'll need to install some basic tools if they are not already installed.
+
+    sudo apt-get install git cmake pkg-config libncurses-dev libbz2-dev
+
 You'll need the protobuf and jansson development libraries installed on your server.
 
     sudo apt-get install protobuf-compiler libprotoc-dev libjansson-dev automake libtool
