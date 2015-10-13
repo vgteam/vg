@@ -30,11 +30,18 @@ do
             | vg mod -z - \
             | vg view -dn - \
             | $renderer -Tpdf -o $out.tmp.$s
-    else
+    elif [ "$renderer" == "dot" ];
+    then
         vg find -x $xg -r $s:$e -c $context \
             | vg mod -z - \
             | vg view -dn - \
             | $renderer -Tpdf -o $out.tmp.$s
+    elif [ "$renderer" == "dotnopath" ];
+    then
+         vg find -x $xg -r $s:$e -c $context \
+             | vg mod -z - \
+             | vg view -d - \
+             | dot -Tpdf -o $out.tmp.$s
     fi
     #cairosvg $out.tmp.$s.svg  -fpdf -o $out.tmp.$s.pdf
     # also try mars if rendering is problematic
