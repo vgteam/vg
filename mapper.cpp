@@ -435,7 +435,8 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                     auto old = get<1>(score);
                     auto prev_end = path_end(old->path());
                     // save it as a candidate if the two are adjacent
-                    if (adjacent_positions(prev_end, curr_start)) {
+                    if (
+                        adjacent_positions(prev_end, curr_start)) {
                         candidates[get<0>(score)].push_back(make_pair(score,k));
                     }
                     ++k;

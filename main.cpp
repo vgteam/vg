@@ -1207,6 +1207,7 @@ void help_mod(char** argv) {
          << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
          << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -z, --sort              sort the graph using an approximate topological sort" << endl
          << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
          << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
@@ -1252,6 +1253,7 @@ int main_mod(int argc, char** argv) {
     bool simplify_graph = false;
     bool unchop = false;
     bool normalize_graph = false;
+    bool sort_graph = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1275,11 +1277,12 @@ int main_mod(int argc, char** argv) {
                 {"simplify", no_argument, 0, 's'},
                 {"unchop", no_argument, 0, 'u'},
                 {"normalize", no_argument, 0, 'n'},
+                {"sort", no_argument, 0, 'z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsun",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunz",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1353,6 +1356,10 @@ int main_mod(int argc, char** argv) {
             normalize_graph = true;
             break;
 
+        case 'z':
+            sort_graph = true;
+            break;
+
         case 'h':
         case '?':
             help_mod(argv);
@@ -1392,6 +1399,10 @@ int main_mod(int argc, char** argv) {
 
     if (normalize_graph) {
         graph->normalize();
+    }
+
+    if (sort_graph) {
+        graph->sort();
     }
 
     if (!aln_file.empty()) {

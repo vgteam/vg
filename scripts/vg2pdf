@@ -26,10 +26,14 @@ do
     echo "generating pdf for $s to $e"
     if [ "$renderer" == "neato" ];
     then
-        vg find -x $xg -r $s:$e -c $context | vg view -dn - \
+        vg find -x $xg -r $s:$e -c $context \
+            | vg mod -z - \
+            | vg view -dn - \
             | $renderer -Tpdf -o $out.tmp.$s
     else
-        vg find -x $xg -r $s:$e -c $context | vg view -dn - \
+        vg find -x $xg -r $s:$e -c $context \
+            | vg mod -z - \
+            | vg view -dpn - \
             | $renderer -Tpdf -o $out.tmp.$s
     fi
     #cairosvg $out.tmp.$s.svg  -fpdf -o $out.tmp.$s.pdf
@@ -37,7 +41,7 @@ do
 done
 
 echo "combining pdfs"
-pdfunite $(ls $out.tmp.$s | sort -V)
+pdfunite $(ls $out.tmp.* | sort -V) $out
 
 echo "cleaning up"
 rm $out.tmp.*
