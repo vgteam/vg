@@ -1214,6 +1214,7 @@ void help_mod(char** argv) {
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
+         << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
          << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
          << "                            cross more than --edge-max edges" << endl
@@ -1254,6 +1255,7 @@ int main_mod(int argc, char** argv) {
     bool unchop = false;
     bool normalize_graph = false;
     bool sort_graph = false;
+    bool remove_non_path = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1278,11 +1280,12 @@ int main_mod(int argc, char** argv) {
                 {"unchop", no_argument, 0, 'u'},
                 {"normalize", no_argument, 0, 'n'},
                 {"sort", no_argument, 0, 'z'},
+                {"remove-non-path", no_argument, 0, 'N'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunz",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzN",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1356,6 +1359,10 @@ int main_mod(int argc, char** argv) {
             normalize_graph = true;
             break;
 
+        case 'N':
+            remove_non_path = true;
+            break;
+
         case 'z':
             sort_graph = true;
             break;
@@ -1399,6 +1406,10 @@ int main_mod(int argc, char** argv) {
 
     if (normalize_graph) {
         graph->normalize();
+    }
+
+    if (remove_non_path) {
+        graph->remove_non_path();
     }
 
     if (sort_graph) {
