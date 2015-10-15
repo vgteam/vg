@@ -406,7 +406,7 @@ void help_msga(char** argv) {
          << "Multiple sequence / graph aligner." << endl
          << endl
          << "options:" << endl
-         << "    -f, --from FILE         use sequneces in (fasta) FILE" << endl
+         << "    -f, --from FILE         use sequences in (fasta) FILE" << endl
          << "    -n, --name NAME         include this sequence" << endl
          << "                             (If any --name is specified, use only" << endl
          << "                              specified sequences from FASTA files.)" << endl
