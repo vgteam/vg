@@ -450,13 +450,13 @@ public:
     // Sides on the other side of edges from this side of the node
     set<NodeSide> sides_from(NodeSide side);
     // determine if the node is an ancestor of this one by trying to find it in a given number of steps
-    bool is_ancestor_prev(int64_t node_id, int64_t candidate_id, size_t steps = 32);
+    bool is_ancestor_prev(int64_t node_id, int64_t candidate_id, size_t steps = 16);
     // the same but in the other direction
-    bool is_ancestor_next(int64_t node_id, int64_t candidate_id, size_t steps = 32);
+    bool is_ancestor_next(int64_t node_id, int64_t candidate_id, size_t steps = 16);
     // try to find a common ancestor by walking back up to steps from the first node
-    int64_t common_ancestor_prev(int64_t id1, int64_t id2, size_t steps = 32);
+    int64_t common_ancestor_prev(int64_t id1, int64_t id2, size_t steps = 16);
     // try to find a common ancestor by walking forward up to steps from the first node
-    int64_t common_ancestor_next(int64_t id1, int64_t id2, size_t steps = 32);
+    int64_t common_ancestor_next(int64_t id1, int64_t id2, size_t steps = 16);
     // to-siblings are nodes which also have edges to them from the same nodes as this one
     set<NodeTraversal> siblings_to(const NodeTraversal& traversal);
     // from-siblings are nodes which also have edges to them from the same nodes as this one
