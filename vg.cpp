@@ -3768,6 +3768,9 @@ pair<string, Alignment> VG::random_read(size_t read_len,
                                         int64_t min_id,
                                         int64_t max_id,
                                         bool either_strand) {
+    // this is broken as it should be scaled by the sequence space
+    // not node space
+    // TODO BROKEN
     uniform_int_distribution<int64_t> int64_dist(min_id, max_id);
     int64_t id = int64_dist(rng);
     // We start at the node in its local forward orientation
@@ -3963,20 +3966,29 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool annotate_paths,
                 bool invert_edge_ports,
                 int random_seed) {
+
+    // setup graphviz output
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
     //out << "    fontsize=22;" << endl;
     //out << "    colorscheme=paired12;" << endl;
     //out << "    splines=line;" << endl;
+    //out << "    splines=true;" << endl;
     //out << "    smoothType=spring;" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2];" << endl;
+        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
+        // for neato output, which tends to randomly order the graph
+        if (is_head_node(n)) {
+            out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\"";
+        } else if (is_tail_node(n)) {
+            out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
+        }
+        out << "];" << endl;
     }
-    
-    
+
     // We're going to fill this in with all the path (symbol, color) label
     // pairs that each edge should get, by edge pointer. If a path takes an
     // edge multiple times, it will appear only once.

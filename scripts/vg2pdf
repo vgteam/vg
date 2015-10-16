@@ -30,6 +30,29 @@ do
             | vg mod -z - \
             | vg view -dn - \
             | $renderer -Tpdf -o $out.tmp.$s
+    elif [ "$renderer" == "mars" ];
+    then
+        vg find -x $xg -r $s:$e -c $context \
+            | vg mod -z - \
+            | vg view -dn - \
+            | mars -g \
+            | neato -Tpdf -n -o $out.tmp.$s
+    elif [ "$renderer" == "marsnopath" ];
+    then
+        vg find -x $xg -r $s:$e -c $context \
+            | vg mod -n - \
+            | vg mod -X 32 - \
+            | vg mod -z - \
+            | vg view -d - \
+            | mars -g \
+            | neato -Tpdf -n -o $out.tmp.$s
+    elif [ "$renderer" == "marspath" ];
+    then
+         vg find -x $xg -r $s:$e -c $context \
+            | vg mod -z - \
+            | vg view -dpn - \
+            | mars -g \
+            | neato -Tpdf -n -o $out.tmp.$s
     elif [ "$renderer" == "dot" ];
     then
         vg find -x $xg -r $s:$e -c $context \
@@ -42,8 +65,16 @@ do
              | vg mod -z - \
              | vg view -d - \
              | dot -Tpdf -o $out.tmp.$s
+    elif [ "$renderer" == "dotnolabels" ];
+    then
+        vg find -x $xg -r $s:$e -c $context \
+            | vg mod -u - \
+            | vg mod -K - \
+            | vg mod -cz - \
+            | vg view -d - \
+            | dot -Tpdf -o $out.tmp.$s
     fi
-    #cairosvg $out.tmp.$s.svg  -fpdf -o $out.tmp.$s.pdf
+    #cairosvg $out.tmp.$s -fpdf -o $out.tmp.$s.pdf
     # also try mars if rendering is problematic
 done
 
