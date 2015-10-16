@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 14
+plan tests 16
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -51,3 +51,7 @@ is $(vg view -v graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut
 is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^P |wc -l) \
    $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^S |wc -l) \
    "vg mod removes non-path nodes and edge"
+
+is $(vg view -v msgas/inv-mess.gfa | vg mod -u - | md5sum | cut -f 1 -d\ ) fbc63ab5cd6b45c3cd35cf1354965fc4 "unchop correctly handles a graph with an inversion"
+
+is $(vg view -v msgas/inv-mess.gfa | vg mod -n - | md5sum | cut -f 1 -d\ ) 3f5dd32137f9d5b7903eb00b1bfc6409 "normalization works on a graph with an inversion"

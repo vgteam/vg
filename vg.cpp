@@ -736,6 +736,7 @@ set<list<Node*>> VG::simple_components(void) {
                 Node* l = n;
                 auto sides = sides_to(NodeSide(l->id(), false));
                 while (sides.size() == 1
+                       && start_degree(n) == 1
                        && end_degree(get_node(sides.begin()->node)) == 1
                        && sides.begin()->is_end) {
                     l = get_node(sides.begin()->node);
@@ -750,6 +751,7 @@ set<list<Node*>> VG::simple_components(void) {
                 Node* r = n;
                 auto sides = sides_from(NodeSide(r->id(), true));
                 while (sides.size() == 1
+                       && end_degree(n) == 1
                        && start_degree(get_node(sides.begin()->node)) == 1
                        && !sides.begin()->is_end) {
                     r = get_node(sides.begin()->node);
@@ -775,23 +777,40 @@ set<list<Node*>> VG::simple_components(void) {
 void VG::merge_nodes(const list<Node*>& nodes) {
     // determine the common paths that will apply to the new node
     // TODO XXX (paths)
+    // to do the ptahs right, we can only combine nodes if they also share all of their paths
     // make a new node that concatenates the labels in the order they occur in the graph
+
     string seq;
     for (auto n : nodes) {
         seq += n->sequence();
     }
     auto node = create_node(seq);
     // connect this node to the left and right connections of the set
+    
+    // do the left connections
     auto old_start = NodeSide(nodes.front()->id(), false);
     auto new_start = NodeSide(node->id(), false);
+    // forward
     for (auto side : sides_to(old_start)) {
         create_edge(side, new_start);
     }
+    // reverse
+    for (auto side : sides_from(old_start)) {
+        create_edge(new_start, side);
+    }
+    
+    // do the right connections
     auto old_end = NodeSide(nodes.back()->id(), true);
     auto new_end = NodeSide(node->id(), true);
+    // forward
     for (auto side : sides_from(old_end)) {
         create_edge(new_end, side);
     }
+    // reverse
+    for (auto side : sides_to(old_end)) {
+        create_edge(side, new_end);
+    }
+    
     // remove the old nodes
     for (auto n : nodes) {
         destroy_node(n);
