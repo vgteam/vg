@@ -40,8 +40,6 @@ do
     elif [ "$renderer" == "marsnopath" ];
     then
         vg find -x $xg -r $s:$e -c $context \
-            | vg mod -n - \
-            | vg mod -X 32 - \
             | vg mod -z - \
             | vg view -d - \
             | mars -g \

@@ -4119,7 +4119,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             const string& nodestr = get_node(m.position().node_id())->sequence();
             string mstr = mapping_string(nodestr, m);
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
-            mapid << cigar_string(cigar) << ":" << mstr;
+            mapid << cigar_string(cigar) << ":"
+                  << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
+                  << mstr;
             // determine sequence of this portion of the alignment
             // set color based on cigar/mapping relationship
             string nstr;
