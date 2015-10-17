@@ -413,6 +413,23 @@ set<NodeTraversal> VG::siblings_from(const NodeTraversal& trav) {
     return travs_to_from_sides;
 }
 
+set<Node*> VG::siblings_of(Node* node) {
+    set<Node*> sibs;
+    for (auto& s : siblings_to(NodeTraversal(node, false))) {
+        sibs.insert(s.node);
+    }
+    for (auto& s : siblings_to(NodeTraversal(node, true))) {
+        sibs.insert(s.node);
+    }
+    for (auto& s : siblings_from(NodeTraversal(node, false))) {
+        sibs.insert(s.node);
+    }
+    for (auto& s : siblings_from(NodeTraversal(node, true))) {
+        sibs.insert(s.node);
+    }
+    return sibs;
+}
+
 set<NodeTraversal> VG::full_siblings_to(const NodeTraversal& trav) {
     // get the siblings of
     auto sibs_to = siblings_to(trav);
@@ -660,8 +677,10 @@ bool VG::adjacent(const Position& pos1, const Position& pos2) {
     }
 }
 
+// by definition, we can merge nodes that are a "simple component"
+// without affecting the sequence space of the graph
 void VG::unchop(void) {
-    for (auto& comp : simple_components()) {
+    for (auto& comp : simple_multinode_components()) {
         merge_nodes(comp);
     }
 }
@@ -721,13 +740,16 @@ void VG::remove_non_path(void) {
     }
 }
 
+set<list<Node*>> VG::simple_multinode_components(void) {
+    return simple_components(2);
+}
 
 // the set of components that could be merged into single nodes without
 // changing the path space of the graph
-set<list<Node*>> VG::simple_components(void) {
+set<list<Node*>> VG::simple_components(int min_size) {
     // go around and establish groupings
     set<list<Node*>> components;
-    for_each_node([this, &components](Node* n) {
+    for_each_node([this, min_size, &components](Node* n) {
             // go left and right through each as far as we have only single edges connecting us
             // to nodes that have only single edges coming in or out
             // and these edges are "normal" in that they go from the tail to the head
@@ -737,7 +759,7 @@ set<list<Node*>> VG::simple_components(void) {
                 Node* l = n;
                 auto sides = sides_to(NodeSide(l->id(), false));
                 while (sides.size() == 1
-                       && start_degree(n) == 1
+                       && start_degree(l) == 1
                        && end_degree(get_node(sides.begin()->node)) == 1
                        && sides.begin()->is_end) {
                     l = get_node(sides.begin()->node);
@@ -752,7 +774,7 @@ set<list<Node*>> VG::simple_components(void) {
                 Node* r = n;
                 auto sides = sides_from(NodeSide(r->id(), true));
                 while (sides.size() == 1
-                       && end_degree(n) == 1
+                       && end_degree(r) == 1
                        && start_degree(get_node(sides.begin()->node)) == 1
                        && !sides.begin()->is_end) {
                     r = get_node(sides.begin()->node);
@@ -760,7 +782,7 @@ set<list<Node*>> VG::simple_components(void) {
                     c.push_back(r);
                 }
             }
-            if (c.size() > 0) {
+            if (c.size() >= min_size) {
                 components.insert(c);
             }
         });
@@ -4088,10 +4110,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         }
         if (!invert_edge_ports && e->to_end()
             || invert_edge_ports && !e->to_end()) {
-            out << "arrowhead=normal,";
+            out << "arrowhead=none,";
             out << "headport=se";
         } else {
-            out << "arrowhead=normal,";
+            out << "arrowhead=none,";
             out << "headport=nw";
         }
         out << ",penwidth=2";

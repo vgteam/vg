@@ -278,7 +278,8 @@ public:
     void unchop(void);
     // the set of components that could be merged into single nodes without
     // changing the path space of the graph
-    set<list<Node*>> simple_components(void);
+    set<list<Node*>> simple_components(int min_size = 1);
+    set<list<Node*>> simple_multinode_components(void);
     // combines the nodes into a new node that has the same external linkage as the provided component
     void merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
@@ -465,6 +466,8 @@ public:
     set<NodeTraversal> full_siblings_to(const NodeTraversal& trav);
     // full from-siblings are nodes traversals which share exactly the same downstream NodeSides
     set<NodeTraversal> full_siblings_from(const NodeTraversal& trav);
+    // general siblings of
+    set<Node*> siblings_of(Node* node);
     // removes easily-resolvable redundancy in the graph
     void simplify_siblings(void);
     // does so for all provided to-sibling sets
