@@ -177,33 +177,33 @@ The serialization of very large graphs (>62MB) is enabled by the use of protocol
 - [x] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
 - [x] index the kmers of large graphs in reasonable time (48 hours, 32 threads, 2500 samples in 1000 genomes phase 3)
 - [x] compression of serialization format
-- [ ] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
+- [x] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
 - [x] emded paths in serialized graph format (important especially in the case of reference paths)
 - [x] alignment serialization format
 - [x] prune non-informative kmers from index, so as to save space
-- [ ] per-node, per-sample quality and count information on graph
+- [x] per-node, per-sample quality and count information on graph
 - [x] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
 - [x] multiple samples in one graph (colors) - solved by paths
 - [x] modify a graph using an alignment's path, adding new nodes as needed and updating the path/alignment to match
 - [x] modify a graph using many alignments (update mod procedure to include many mappings)
-- [ ] use an alignment to add a named path to the graph
+- [x] use an alignment to add a named path to the graph
 - [x] path range query from index (give me the subgraph corresponding to a particular genome location)
 - [x] _surject_ alignments back into arbitrary path (such as GRCh37)
 - [x] use htslib for BAM/CRAM/SAM i/o
 - [ ] factor longer functions in main.cpp into library functions for easier reuse
 - [x] sort alignments and output a sorted GAM stream
 - [x] kmers input to GCSA: kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
-- [ ] properly handle pairs in alignment and surjection
+- [x] properly handle pairs in alignment and surjection
 - [x] read paired-end data in FASTQ format
 - [x] allow the efficient alignment of very long sequences by banding
 - [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
 - [ ] genotype likelihood generation (given a source and sink, genotype paths)
 - [ ] genotyping of paths using freebayes-like genotyping model
 - [ ] genotyping using dynamic programming genotyping model and compressed sequence results against graph
-- [ ] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
+- [x] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
 - [ ] [perceptual DNA hashing](http://arxiv-web3.library.cornell.edu/abs/1412.5517) to reduce index memory usage
 - [ ] implement pBWT for quick haplotype lookup, which is useful to constrain kmer indexing space and also to support long haplotype driven genotyping
-- [ ] test compressed bitvectors and intvectors from sdsl-lite for storage of genome paths and annotations
+- [x] compressed bitvectors and intvectors from sdsl-lite for storage of genome paths and annotations
 
 ## License
 
