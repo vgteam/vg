@@ -280,21 +280,34 @@ void VG::edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges) {
     }
 }
 
-// TODO avoid cycles -- they are expensive ouch
-bool VG::is_ancestor_prev(int64_t node_id, int64_t candidate_id, size_t steps) {
+bool VG::is_ancestor_prev(int64_t node_id, int64_t candidate_id) {
+    set<int64_t> seen;
+    return is_ancestor_prev(node_id, candidate_id, seen);
+}
+
+bool VG::is_ancestor_prev(int64_t node_id, int64_t candidate_id, set<int64_t>& seen, size_t steps) {
     if (node_id == candidate_id) return true;
     if (!steps) return false;
     for (auto& side : sides_to(NodeSide(node_id, false))) {
-        if (is_ancestor_prev(side.node, candidate_id, steps-1)) return true;
+        if (seen.count(side.node)) continue;
+        seen.insert(side.node);
+        if (is_ancestor_prev(side.node, candidate_id, seen, steps-1)) return true;
     }
     return false;
 }
 
-bool VG::is_ancestor_next(int64_t node_id, int64_t candidate_id, size_t steps) {
+bool VG::is_ancestor_next(int64_t node_id, int64_t candidate_id) {
+    set<int64_t> seen;
+    return is_ancestor_next(node_id, candidate_id, seen);
+}
+
+bool VG::is_ancestor_next(int64_t node_id, int64_t candidate_id, set<int64_t>& seen, size_t steps) {
     if (node_id == candidate_id) return true;
     if (!steps) return false;
     for (auto& side : sides_from(NodeSide(node_id, true))) {
-        if (is_ancestor_next(side.node, candidate_id, steps-1)) return true;
+        if (seen.count(side.node)) continue;
+        seen.insert(side.node);
+        if (is_ancestor_next(side.node, candidate_id, seen, steps-1)) return true;
     }
     return false;
 }
