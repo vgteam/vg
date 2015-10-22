@@ -813,38 +813,55 @@ int main_msga(int argc, char** argv) {
         // graph->serialize_to_file("out.vg");
     }
 
+    auto include_paths = [&mapper,
+                          kmer_size,
+                          kmer_stride,
+                          band_width,
+                          debug,
+                          &strings](VG* graph) {
+        // include the paths in the graph
+        if (debug) cerr << "including paths" << endl;
+        for (auto& group : strings) {
+            auto& name = group.first;
+            if (debug) cerr << name << ": tracing path through graph" << endl;
+            for (auto& seq : group.second) {
+                if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+                //if (debug) cerr << "alignment score: " << aln.score() << endl;
+                //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
+                aln.mutable_path()->set_name(name);
+                // todo simplify in the mapper itself when merging the banded bits
+                if (debug) cerr << name << ": labeling" << endl;
+                graph->include(aln.path());
+                // now repeat back the path
+            }
+        }
+    };
+
+    rebuild(graph);
+    include_paths(graph);
+
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;
+        // use this step to simplify the graph so we can efficiently normalize it
+        graph->remove_non_path();
+        graph->paths.clear();
+        graph->graph.clear_path();
         graph->normalize();
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
+        // rebuild
+        rebuild(graph);
+        // and re-include paths now that we've normalized
+        include_paths(graph);
     }
 
-    rebuild(graph);
     //if (debug) graph->serialize_to_file("msga-pre-label.vg");
-
-    // include the paths in the graph
-    if (debug) cerr << "including paths" << endl;
-    for (auto& group : strings) {
-        auto& name = group.first;
-        if (debug) cerr << name << ": tracing path through graph" << endl;
-        for (auto& seq : group.second) {
-            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
-            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            //if (debug) cerr << "alignment score: " << aln.score() << endl;
-            //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
-            aln.mutable_path()->set_name(name);
-            // todo simplify in the mapper itself when merging the banded bits
-            if (debug) cerr << name << ": labeling" << endl;
-            graph->include(aln.path());
-            // now repeat back the path
-        }
-    }
 
     //if (debug) graph->serialize_to_file("msga-post-label.vg");
     // remove nodes in the graph that have no assigned paths
-    // FIXME: this masks a problem wherein editing can introduce dangling nodes
+    // this should be pretty minimal now that we've made one iteration
     if (!allow_nonpath) {
         graph->remove_non_path();
     }

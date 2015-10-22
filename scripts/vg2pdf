@@ -29,34 +29,34 @@ do
         vg find -x $xg -r $s:$e -c $context \
             | vg mod -z - \
             | vg view -dn - \
-            | $renderer -Tpdf -o $out.tmp.$s
+            | neato -Tpdf -o $out.tmp.$s
     elif [ "$renderer" == "mars" ];
     then
         vg find -x $xg -r $s:$e -c $context \
             | vg mod -z - \
             | vg view -dn - \
-            | mars -g \
+            | mars -g -k $chunk \
             | neato -Tpdf -n -o $out.tmp.$s
     elif [ "$renderer" == "marsnopath" ];
     then
         vg find -x $xg -r $s:$e -c $context \
             | vg mod -z - \
             | vg view -d - \
-            | mars -g \
+            | mars -g -k $chunk \
             | neato -Tpdf -n -o $out.tmp.$s
     elif [ "$renderer" == "marspath" ];
     then
          vg find -x $xg -r $s:$e -c $context \
             | vg mod -z - \
             | vg view -dpn - \
-            | mars -g \
+            | mars -g -k $chunk \
             | neato -Tpdf -n -o $out.tmp.$s
     elif [ "$renderer" == "dot" ];
     then
         vg find -x $xg -r $s:$e -c $context \
             | vg mod -z - \
             | vg view -dn - \
-            | $renderer -Tpdf -o $out.tmp.$s
+            | dot -Tpdf -o $out.tmp.$s
     elif [ "$renderer" == "dotnopath" ];
     then
          vg find -x $xg -r $s:$e -c $context \
