@@ -280,20 +280,34 @@ void VG::edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges) {
     }
 }
 
-bool VG::is_ancestor_prev(int64_t node_id, int64_t candidate_id, size_t steps) {
+bool VG::is_ancestor_prev(int64_t node_id, int64_t candidate_id) {
+    set<int64_t> seen;
+    return is_ancestor_prev(node_id, candidate_id, seen);
+}
+
+bool VG::is_ancestor_prev(int64_t node_id, int64_t candidate_id, set<int64_t>& seen, size_t steps) {
     if (node_id == candidate_id) return true;
     if (!steps) return false;
     for (auto& side : sides_to(NodeSide(node_id, false))) {
-        if (is_ancestor_prev(side.node, candidate_id, steps-1)) return true;
+        if (seen.count(side.node)) continue;
+        seen.insert(side.node);
+        if (is_ancestor_prev(side.node, candidate_id, seen, steps-1)) return true;
     }
     return false;
 }
 
-bool VG::is_ancestor_next(int64_t node_id, int64_t candidate_id, size_t steps) {
+bool VG::is_ancestor_next(int64_t node_id, int64_t candidate_id) {
+    set<int64_t> seen;
+    return is_ancestor_next(node_id, candidate_id, seen);
+}
+
+bool VG::is_ancestor_next(int64_t node_id, int64_t candidate_id, set<int64_t>& seen, size_t steps) {
     if (node_id == candidate_id) return true;
     if (!steps) return false;
     for (auto& side : sides_from(NodeSide(node_id, true))) {
-        if (is_ancestor_next(side.node, candidate_id, steps-1)) return true;
+        if (seen.count(side.node)) continue;
+        seen.insert(side.node);
+        if (is_ancestor_next(side.node, candidate_id, seen, steps-1)) return true;
     }
     return false;
 }
@@ -410,6 +424,23 @@ set<NodeTraversal> VG::siblings_from(const NodeTraversal& trav) {
         }
     }
     return travs_to_from_sides;
+}
+
+set<Node*> VG::siblings_of(Node* node) {
+    set<Node*> sibs;
+    for (auto& s : siblings_to(NodeTraversal(node, false))) {
+        sibs.insert(s.node);
+    }
+    for (auto& s : siblings_to(NodeTraversal(node, true))) {
+        sibs.insert(s.node);
+    }
+    for (auto& s : siblings_from(NodeTraversal(node, false))) {
+        sibs.insert(s.node);
+    }
+    for (auto& s : siblings_from(NodeTraversal(node, true))) {
+        sibs.insert(s.node);
+    }
+    return sibs;
 }
 
 set<NodeTraversal> VG::full_siblings_to(const NodeTraversal& trav) {
@@ -659,8 +690,10 @@ bool VG::adjacent(const Position& pos1, const Position& pos2) {
     }
 }
 
+// by definition, we can merge nodes that are a "simple component"
+// without affecting the sequence space of the graph
 void VG::unchop(void) {
-    for (auto& comp : simple_components()) {
+    for (auto& comp : simple_multinode_components()) {
         merge_nodes(comp);
     }
 }
@@ -720,13 +753,16 @@ void VG::remove_non_path(void) {
     }
 }
 
+set<list<Node*>> VG::simple_multinode_components(void) {
+    return simple_components(2);
+}
 
 // the set of components that could be merged into single nodes without
 // changing the path space of the graph
-set<list<Node*>> VG::simple_components(void) {
+set<list<Node*>> VG::simple_components(int min_size) {
     // go around and establish groupings
     set<list<Node*>> components;
-    for_each_node([this, &components](Node* n) {
+    for_each_node([this, min_size, &components](Node* n) {
             // go left and right through each as far as we have only single edges connecting us
             // to nodes that have only single edges coming in or out
             // and these edges are "normal" in that they go from the tail to the head
@@ -736,6 +772,7 @@ set<list<Node*>> VG::simple_components(void) {
                 Node* l = n;
                 auto sides = sides_to(NodeSide(l->id(), false));
                 while (sides.size() == 1
+                       && start_degree(l) == 1
                        && end_degree(get_node(sides.begin()->node)) == 1
                        && sides.begin()->is_end) {
                     l = get_node(sides.begin()->node);
@@ -750,6 +787,7 @@ set<list<Node*>> VG::simple_components(void) {
                 Node* r = n;
                 auto sides = sides_from(NodeSide(r->id(), true));
                 while (sides.size() == 1
+                       && end_degree(r) == 1
                        && start_degree(get_node(sides.begin()->node)) == 1
                        && !sides.begin()->is_end) {
                     r = get_node(sides.begin()->node);
@@ -757,7 +795,7 @@ set<list<Node*>> VG::simple_components(void) {
                     c.push_back(r);
                 }
             }
-            if (c.size() > 0) {
+            if (c.size() >= min_size) {
                 components.insert(c);
             }
         });
@@ -775,23 +813,40 @@ set<list<Node*>> VG::simple_components(void) {
 void VG::merge_nodes(const list<Node*>& nodes) {
     // determine the common paths that will apply to the new node
     // TODO XXX (paths)
+    // to do the ptahs right, we can only combine nodes if they also share all of their paths
     // make a new node that concatenates the labels in the order they occur in the graph
+
     string seq;
     for (auto n : nodes) {
         seq += n->sequence();
     }
     auto node = create_node(seq);
     // connect this node to the left and right connections of the set
+    
+    // do the left connections
     auto old_start = NodeSide(nodes.front()->id(), false);
     auto new_start = NodeSide(node->id(), false);
+    // forward
     for (auto side : sides_to(old_start)) {
         create_edge(side, new_start);
     }
+    // reverse
+    for (auto side : sides_from(old_start)) {
+        create_edge(new_start, side);
+    }
+    
+    // do the right connections
     auto old_end = NodeSide(nodes.back()->id(), true);
     auto new_end = NodeSide(node->id(), true);
+    // forward
     for (auto side : sides_from(old_end)) {
         create_edge(new_end, side);
     }
+    // reverse
+    for (auto side : sides_to(old_end)) {
+        create_edge(side, new_end);
+    }
+    
     // remove the old nodes
     for (auto n : nodes) {
         destroy_node(n);
@@ -3768,6 +3823,9 @@ pair<string, Alignment> VG::random_read(size_t read_len,
                                         int64_t min_id,
                                         int64_t max_id,
                                         bool either_strand) {
+    // this is broken as it should be scaled by the sequence space
+    // not node space
+    // TODO BROKEN
     uniform_int_distribution<int64_t> int64_dist(min_id, max_id);
     int64_t id = int64_dist(rng);
     // We start at the node in its local forward orientation
@@ -3963,20 +4021,29 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool annotate_paths,
                 bool invert_edge_ports,
                 int random_seed) {
+
+    // setup graphviz output
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
     //out << "    fontsize=22;" << endl;
     //out << "    colorscheme=paired12;" << endl;
     //out << "    splines=line;" << endl;
+    //out << "    splines=true;" << endl;
     //out << "    smoothType=spring;" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2];" << endl;
+        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
+        // for neato output, which tends to randomly order the graph
+        if (is_head_node(n)) {
+            out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\"";
+        } else if (is_tail_node(n)) {
+            out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
+        }
+        out << "];" << endl;
     }
-    
-    
+
     // We're going to fill this in with all the path (symbol, color) label
     // pairs that each edge should get, by edge pointer. If a path takes an
     // edge multiple times, it will appear only once.
@@ -4056,10 +4123,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         }
         if (!invert_edge_ports && e->to_end()
             || invert_edge_ports && !e->to_end()) {
-            out << "arrowhead=normal,";
+            out << "arrowhead=none,";
             out << "headport=se";
         } else {
-            out << "arrowhead=normal,";
+            out << "arrowhead=none,";
             out << "headport=nw";
         }
         out << ",penwidth=2";
@@ -4107,7 +4174,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             const string& nodestr = get_node(m.position().node_id())->sequence();
             string mstr = mapping_string(nodestr, m);
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
-            mapid << cigar_string(cigar) << ":" << mstr;
+            mapid << cigar_string(cigar) << ":"
+                  << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
+                  << mstr;
             // determine sequence of this portion of the alignment
             // set color based on cigar/mapping relationship
             string nstr;

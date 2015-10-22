@@ -1433,7 +1433,7 @@ int main_mod(int argc, char** argv) {
         }
         if (!label_paths) {
             // execute the edits
-            graph->edit(paths);
+            graph->edit_both_directions(paths);
             // and optionally compact ids
             if (compact_ids) {
                 graph->sort();

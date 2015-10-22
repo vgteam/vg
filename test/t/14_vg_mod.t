@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 14
+plan tests 17
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -44,10 +44,17 @@ is $(vg mod -n msgas/q_redundant.vg | vg view - | grep ^S | wc -l) 4 "normalizat
 
 is $(vg mod -n msgas/q_redundant.vg | vg stats -l - | cut -f 2) 154 "normalization removes redundant sequence in the graph"
 
-is $(vg view -v graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut -f 1 -d\ ) 1754c37e444be5ebdf087c86cfba52cf "normalization doesn't introduce cycles and does remove redundancy in bubbles"
+is $(vg view -v graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut -f 1 -d\ ) a38ac699119df12630ce747e3bf6b5fe "normalization doesn't introduce cycles and does remove redundancy in bubbles"
 
 # shows that after mod we have == numbers of path annotations and nodes
 # in this one-path graph
 is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^P |wc -l) \
    $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^S |wc -l) \
    "vg mod removes non-path nodes and edge"
+
+is $(vg view -v msgas/inv-mess.gfa | vg mod -u - | md5sum | cut -f 1 -d\ ) 75e29bc73b25beaf0450a6aeacef4f67 "unchop correctly handles a graph with an inversion"
+
+is $(vg view -v msgas/inv-mess.gfa | vg mod -n - | md5sum | cut -f 1 -d\ ) 5b1c2a8467f5f1b1b1c8da10f62d48ab "normalization works on a graph with an inversion"
+
+vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCT$(revcomp AACTACTCCACATCAAAGCTAC)CCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -k 16 -B 16 -Nz | vg mod -u - >/dev/null
+is $? 0 "mod successfully unchops a difficult graph"

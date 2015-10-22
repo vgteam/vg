@@ -26,3 +26,4 @@ rm t.vg
 is $(vg msga -f msgas/s.fa -k 16 -b s1 -B 20 | vg view -j - | jq -M -c --sort-keys '{"node": .node, "edge": .edge}') $(vg msga -f msgas/s.fa -f msgas/s-rev.fa -k 16 -b s1 -B 20 | vg view -j - | jq -M -c --sort-keys '{"node": .node, "edge": .edge}') "adding in existing sequences in reverse doesn't change graph"
 
 # TODO: you should get the same graph no matter the orientation of the input sequences, but you don't. This is probably due to the orientation-dependence of the kmer search.
+
