@@ -1,0 +1,246 @@
+{
+  "node": [
+    {
+      "sequence": "C",
+      "id": 16
+    },
+    {
+      "sequence": "T",
+      "id": 17
+    },
+    {
+      "sequence": "A",
+      "id": 18
+    },
+    {
+      "sequence": "T",
+      "id": 19
+    },
+    {
+      "sequence": "G",
+      "id": 20
+    },
+    {
+      "sequence": "C",
+      "id": 21
+    },
+    {
+      "sequence": "G",
+      "id": 22
+    },
+    {
+      "sequence": "A",
+      "id": 23
+    },
+    {
+      "sequence": "C",
+      "id": 24
+    },
+    {
+      "sequence": "G",
+      "id": 25
+    },
+    {
+      "sequence": "AATTTTCTGGAGTTCTAT",
+      "id": 26
+    },
+    {
+      "sequence": "CAAATAAG",
+      "id": 1
+    },
+    {
+      "sequence": "G",
+      "id": 2
+    },
+    {
+      "sequence": "A",
+      "id": 3
+    },
+    {
+      "sequence": "T",
+      "id": 5
+    },
+    {
+      "sequence": "T",
+      "id": 10
+    },
+    {
+      "sequence": "A",
+      "id": 11
+    },
+    {
+      "sequence": "ATAT",
+      "id": 12
+    },
+    {
+      "sequence": "T",
+      "id": 13
+    },
+    {
+      "sequence": "A",
+      "id": 14
+    },
+    {
+      "sequence": "CCAACTCTCTG",
+      "id": 15
+    }
+  ],
+  "path": [
+    {
+      "mapping": [
+        {
+          "position": {
+            "node_id": 18
+          }
+        }
+      ],
+      "name": "SNP_18"
+    },
+    {
+      "mapping": [
+        {
+          "position": {
+            "node_id": 21
+          }
+        }
+      ],
+      "name": "SNP_21"
+    },
+    {
+      "mapping": [
+        {
+          "position": {
+            "node_id": 24
+          }
+        }
+      ],
+      "name": "SNP_24"
+    }
+  ],
+  "edge": [
+    {
+      "from": 17,
+      "to": 18
+    },
+    {
+      "from": 17,
+      "to": 19
+    },
+    {
+      "from": 18,
+      "to": 20
+    },
+    {
+      "from": 19,
+      "to": 20
+    },
+    {
+      "from": 24,
+      "to": 26
+    },
+    {
+      "from": 25,
+      "to": 26
+    },
+    {
+      "from": 1,
+      "to": 2
+    },
+    {
+      "from": 1,
+      "to": 3
+    },
+    {
+      "from": 2,
+      "to": 16
+    },
+    {
+      "from": 2,
+      "to": 5
+    },
+    {
+      "from": 3,
+      "to": 16
+    },
+    {
+      "from": 3,
+      "to": 5
+    },
+    {
+      "from": 16,
+      "to": 17
+    },
+    {
+      "from": 5,
+      "to": 17
+    },
+    {
+      "from": 20,
+      "to": 21
+    },
+    {
+      "from": 20,
+      "to": 22
+    },
+    {
+      "from": 20,
+      "to": 23
+    },
+    {
+      "from": 21,
+      "to": 24
+    },
+    {
+      "from": 21,
+      "to": 25
+    },
+    {
+      "from": 22,
+      "to": 24
+    },
+    {
+      "from": 22,
+      "to": 25
+    },
+    {
+      "from": 23,
+      "to": 24
+    },
+    {
+      "from": 23,
+      "to": 25
+    },
+    {
+      "from": 26,
+      "to": 10
+    },
+    {
+      "from": 26,
+      "to": 11
+    },
+    {
+      "from": 10,
+      "to": 12
+    },
+    {
+      "from": 11,
+      "to": 12
+    },
+    {
+      "from": 12,
+      "to": 13
+    },
+    {
+      "from": 12,
+      "to": 14
+    },
+    {
+      "from": 13,
+      "to": 15
+    },
+    {
+      "from": 14,
+      "to": 15
+    }
+  ]
+}

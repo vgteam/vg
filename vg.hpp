@@ -591,7 +591,10 @@ public:
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
                 bool annotate_paths = false, bool invert_edge_ports = false, int random_seed = 0);
     void to_gfa(ostream& out);
-    bool is_valid(void);
+    bool is_valid(bool check_nodes = true,
+                  bool check_edges = true,
+                  bool check_paths = true,
+                  bool check_orphans = true);
 
     // topologically orders nodes
     // Makes sure that Nodes appear in the Protobuf Graph object in their topological sort order.

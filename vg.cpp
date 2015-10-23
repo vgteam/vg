@@ -3882,134 +3882,171 @@ pair<string, Alignment> VG::random_read(size_t read_len,
     return make_pair(read, aln);
 }
 
-bool VG::is_valid(void) {
+bool VG::is_valid(bool check_nodes,
+                  bool check_edges,
+                  bool check_paths,
+                  bool check_orphans) {
 
-    if (node_by_id.size() != graph.node_size()) {
-        cerr << "graph invalid: node count is not equal to that found in node by-id index" << endl;
-        return false;
-    }
-
-    for (int i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        if (node_by_id.find(n->id()) == node_by_id.end()) {
-            cerr << "graph invalid: node " << n->id() << " missing from by-id index" << endl;
+    if (check_nodes) {
+        
+        if (node_by_id.size() != graph.node_size()) {
+            cerr << "graph invalid: node count is not equal to that found in node by-id index" << endl;
             return false;
         }
-    }
-
-    for (int i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
-        int64_t f = e->from();
-        int64_t t = e->to();
-
-        //cerr << "edge " << e << " " << e->from() << "->" << e->to() << endl;
-
-        if (node_by_id.find(f) == node_by_id.end()) {
-            cerr << "graph invalid: edge index=" << i << " (" << f << "->" << t << ") cannot find node (from) " << f << endl;
-            return false;
-        }
-        if (node_by_id.find(t) == node_by_id.end()) {
-            cerr << "graph invalid: edge index=" << i << " (" << f << "->" << t << ") cannot find node (to) " << t << endl;
-            return false;
-        }
-
-        if (!edges_on_start.count(f) && !edges_on_end.count(f)) {
-            // todo check if it's in the vector
-            cerr << "graph invalid: edge index=" << i << " could not find entry in either index for 'from' node " << f << endl;
-            return false;
-        }
-
-        if (!edges_on_start.count(t) && !edges_on_end.count(t)) {
-            // todo check if it's in the vector
-            cerr << "graph invalid: edge index=" << i << " could not find entry in either index for 'to' node " << t << endl;
-            return false;
-        }
-
-    }
-
-    for (pair<const int64_t, vector<pair<int64_t, bool>>>& start_and_edges : edges_on_start) {
-        for (auto& edge_destination : start_and_edges.second) {
-            // We're on the start, so we go to the end if we aren't a reversing edge
-            Edge* e = get_edge(NodeSide::pair_from_start_edge(start_and_edges.first, edge_destination));
-            if (!e) {
-                cerr << "graph invalid, edge is null" << endl;
-                return false;
-            }
-            if(start_and_edges.first != e->to() && start_and_edges.first != e->from()) {
-                // It needs to be attached to the node we looked up
-                cerr << "graph invalid: edge " << e->from() << "->" << e->to()
-                     << " doesn't have start-indexed node in " << start_and_edges.first << "<->"
-                     << edge_destination.first << endl;
-                return false;
-            }
-            if(edge_destination.first != e->to() && edge_destination.first != e->from()) {
-                // It also needs to be attached to the node it says it goes to
-                cerr << "graph invalid: edge " << e->from() << "->" << e->to()
-                     << " doesn't have non-start-indexed node in " << start_and_edges.first << "<->"
-                     << edge_destination.first << endl;
-                return false;
-            }
-            if(!((start_and_edges.first == e->to() && !e->to_end()) ||
-                 (start_and_edges.first == e->from() && e->from_start()))) {
-            
-                // The edge needs to actually attach to the start of the node we looked it up for.
-                // So at least one of its ends has to be to the start of the correct node.
-                // It may also be attached to the end.
-                cerr << "graph invalid: edge " << e->from() << "->" << e->to()
-                     << " doesn't attach to start of " << start_and_edges.first << endl;
-                return false;
-            }
-            if (!has_node(e->from())) {
-                cerr << "graph invalid: edge from a non-existent node " << e->from() << "->" << e->to() << endl;
-                return false;
-            }
-            if (!has_node(e->to())) {
-                cerr << "graph invalid: edge to a non-existent node " << e->from() << "->" << e->to() << endl;
+        
+        for (int i = 0; i < graph.node_size(); ++i) {
+            Node* n = graph.mutable_node(i);
+            if (node_by_id.find(n->id()) == node_by_id.end()) {
+                cerr << "graph invalid: node " << n->id() << " missing from by-id index" << endl;
                 return false;
             }
         }
     }
 
-     for (pair<const int64_t, vector<pair<int64_t, bool>>>& end_and_edges : edges_on_end) {
-        for (auto& edge_destination : end_and_edges.second) {
-            Edge* e = get_edge(NodeSide::pair_from_end_edge(end_and_edges.first, edge_destination));
-            if (!e) {
-                cerr << "graph invalid, edge is null" << endl;
+    if (check_edges) {
+        for (int i = 0; i < graph.edge_size(); ++i) {
+            Edge* e = graph.mutable_edge(i);
+            int64_t f = e->from();
+            int64_t t = e->to();
+
+            //cerr << "edge " << e << " " << e->from() << "->" << e->to() << endl;
+
+            if (node_by_id.find(f) == node_by_id.end()) {
+                cerr << "graph invalid: edge index=" << i << " (" << f << "->" << t << ") cannot find node (from) " << f << endl;
                 return false;
             }
-            if(end_and_edges.first != e->to() && end_and_edges.first != e->from()) {
-                // It needs to be attached to the node we looked up
-                cerr << "graph invalid: edge " << e->from() << "->" << e->to()
-                     << " doesn't have end-indexed node in " << end_and_edges.first << "<->"
-                     << edge_destination.first << endl;
+            if (node_by_id.find(t) == node_by_id.end()) {
+                cerr << "graph invalid: edge index=" << i << " (" << f << "->" << t << ") cannot find node (to) " << t << endl;
                 return false;
             }
-            if(edge_destination.first != e->to() && edge_destination.first != e->from()) {
-                // It also needs to be attached to the node it says it goes to
-                cerr << "graph invalid: edge " << e->from() << "->" << e->to()
-                     << " doesn't have non-end-indexed node in " << end_and_edges.first << "<->"
-                     << edge_destination.first << endl;
+
+            if (!edges_on_start.count(f) && !edges_on_end.count(f)) {
+                // todo check if it's in the vector
+                cerr << "graph invalid: edge index=" << i << " could not find entry in either index for 'from' node " << f << endl;
                 return false;
             }
-            if(!((end_and_edges.first == e->to() && e->to_end()) ||
-                 (end_and_edges.first == e->from() && !e->from_start()))) {
-            
-                // The edge needs to actually attach to the end of the node we looked it up for.
-                // So at least one of its ends has to be to the end of the correct node.
-                // It may also be attached to the start.
-                cerr << "graph invalid: edge " << e->from() << "->" << e->to()
-                     << " doesn't attach to end of " << end_and_edges.first << endl;
-                return false;
-            }
-            if (!has_node(e->from())) {
-                cerr << "graph invalid: edge from a non-existent node " << e->from() << "->" << e->to() << endl;
-                return false;
-            }
-            if (!has_node(e->to())) {
-                cerr << "graph invalid: edge to a non-existent node " << e->from() << "->" << e->to() << endl;
+
+            if (!edges_on_start.count(t) && !edges_on_end.count(t)) {
+                // todo check if it's in the vector
+                cerr << "graph invalid: edge index=" << i << " could not find entry in either index for 'to' node " << t << endl;
                 return false;
             }
         }
+
+        for (pair<const int64_t, vector<pair<int64_t, bool>>>& start_and_edges : edges_on_start) {
+            for (auto& edge_destination : start_and_edges.second) {
+                // We're on the start, so we go to the end if we aren't a reversing edge
+                Edge* e = get_edge(NodeSide::pair_from_start_edge(start_and_edges.first, edge_destination));
+                if (!e) {
+                    cerr << "graph invalid, edge is null" << endl;
+                    return false;
+                }
+                if(start_and_edges.first != e->to() && start_and_edges.first != e->from()) {
+                    // It needs to be attached to the node we looked up
+                    cerr << "graph invalid: edge " << e->from() << "->" << e->to()
+                         << " doesn't have start-indexed node in " << start_and_edges.first << "<->"
+                         << edge_destination.first << endl;
+                    return false;
+                }
+                if(edge_destination.first != e->to() && edge_destination.first != e->from()) {
+                    // It also needs to be attached to the node it says it goes to
+                    cerr << "graph invalid: edge " << e->from() << "->" << e->to()
+                         << " doesn't have non-start-indexed node in " << start_and_edges.first << "<->"
+                         << edge_destination.first << endl;
+                    return false;
+                }
+                if(!((start_and_edges.first == e->to() && !e->to_end()) ||
+                     (start_and_edges.first == e->from() && e->from_start()))) {
+                    
+                    // The edge needs to actually attach to the start of the node we looked it up for.
+                    // So at least one of its ends has to be to the start of the correct node.
+                    // It may also be attached to the end.
+                    cerr << "graph invalid: edge " << e->from() << "->" << e->to()
+                         << " doesn't attach to start of " << start_and_edges.first << endl;
+                    return false;
+                }
+                if (!has_node(e->from())) {
+                    cerr << "graph invalid: edge from a non-existent node " << e->from() << "->" << e->to() << endl;
+                    return false;
+                }
+                if (!has_node(e->to())) {
+                    cerr << "graph invalid: edge to a non-existent node " << e->from() << "->" << e->to() << endl;
+                    return false;
+                }
+            }
+        }
+
+        for (pair<const int64_t, vector<pair<int64_t, bool>>>& end_and_edges : edges_on_end) {
+            for (auto& edge_destination : end_and_edges.second) {
+                Edge* e = get_edge(NodeSide::pair_from_end_edge(end_and_edges.first, edge_destination));
+                if (!e) {
+                    cerr << "graph invalid, edge is null" << endl;
+                    return false;
+                }
+                if(end_and_edges.first != e->to() && end_and_edges.first != e->from()) {
+                    // It needs to be attached to the node we looked up
+                    cerr << "graph invalid: edge " << e->from() << "->" << e->to()
+                         << " doesn't have end-indexed node in " << end_and_edges.first << "<->"
+                         << edge_destination.first << endl;
+                    return false;
+                }
+                if(edge_destination.first != e->to() && edge_destination.first != e->from()) {
+                    // It also needs to be attached to the node it says it goes to
+                    cerr << "graph invalid: edge " << e->from() << "->" << e->to()
+                         << " doesn't have non-end-indexed node in " << end_and_edges.first << "<->"
+                         << edge_destination.first << endl;
+                    return false;
+                }
+                if(!((end_and_edges.first == e->to() && e->to_end()) ||
+                     (end_and_edges.first == e->from() && !e->from_start()))) {
+                    
+                    // The edge needs to actually attach to the end of the node we looked it up for.
+                    // So at least one of its ends has to be to the end of the correct node.
+                    // It may also be attached to the start.
+                    cerr << "graph invalid: edge " << e->from() << "->" << e->to()
+                         << " doesn't attach to end of " << end_and_edges.first << endl;
+                    return false;
+                }
+                if (!has_node(e->from())) {
+                    cerr << "graph invalid: edge from a non-existent node " << e->from() << "->" << e->to() << endl;
+                    return false;
+                }
+                if (!has_node(e->to())) {
+                    cerr << "graph invalid: edge to a non-existent node " << e->from() << "->" << e->to() << endl;
+                    return false;
+                }
+            }
+        }
+    }
+
+    if (check_paths) {
+        bool paths_ok = true;
+        function<void(Path&)> lambda = 
+            [this, &paths_ok]
+            (Path& path) {
+            if (!paths_ok) {
+                return;
+            }
+            if (!path.mapping_size()) {
+                cerr << "graph invalid: path " << path.name() << " has no component mappings" << endl;
+                paths_ok = false;
+                return;
+            }
+            for (size_t i = 1; i < path.mapping_size(); ++i) {
+                auto& m1 = path.mapping(i-1);
+                auto& m2 = path.mapping(i);
+                auto s1 = NodeSide(m1.position().node_id(), (m1.is_reverse() ? false : true));
+                auto s2 = NodeSide(m2.position().node_id(), (m2.is_reverse() ? true : false));
+                // check that we always have an edge between the two nodes in the correct direction
+                if (!has_edge(s1, s2)) {
+                    cerr << "graph invalid: edge from " << s1 << " to " << s2 << " does not exist" << endl;
+                    paths_ok = false;
+                    return;
+                }
+            }
+        };
+        paths.for_each(lambda);
+        if (!paths_ok) return false;
     }
 
     return true;
