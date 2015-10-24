@@ -473,28 +473,66 @@ set<NodeTraversal> VG::full_siblings_from(const NodeTraversal& trav) {
     return full_sibs_from;
 }
 
+set<set<NodeTraversal>> VG::transitive_sibling_sets(const set<set<NodeTraversal>>& sibs) {
+    set<set<NodeTraversal>> trans_sibs;
+    map<Node*, int> membership;
+    // determine the number of sibling sets that each node is in
+    for (auto& s : sibs) {
+        for (auto& t : s) {
+            if (membership.find(t.node) == membership.end()) {
+                membership[t.node] = 1;
+            } else {
+                ++membership[t.node];
+            }
+        }
+    }
+    // now exclude components which are intransitive
+    // by only keeping those sib sets whose members are in only one set
+    for (auto& s : sibs) {
+        // all members must only appear in this set
+        bool is_transitive = true;
+        for (auto& t : s) {
+            if (membership[t.node] > 1) {
+                is_transitive = false;
+                break;
+            }
+        }
+        if (is_transitive) {
+            trans_sibs.insert(s);
+        }
+    }
+    return trans_sibs;
+}
+
 void VG::simplify_siblings(void) {
-    // make a list of all the sets of full siblings
+    // make a list of all the sets of siblings
     set<set<NodeTraversal>> to_sibs;
-    set<set<NodeTraversal>> from_sibs;
-    for_each_node([this, &to_sibs, &from_sibs](Node* n) {
+    for_each_node([this, &to_sibs](Node* n) {
             auto trav = NodeTraversal(n, false);
             auto tsibs = full_siblings_to(trav);
             tsibs.insert(trav);
             if (tsibs.size() > 1) {
                 to_sibs.insert(tsibs);
             }
+        });
+    // make the sibling sets transitive
+    // by removing any that are intransitive
+    // then simplify
+    simplify_to_siblings(transitive_sibling_sets(to_sibs));
+    // and remove any null nodes that result
+    remove_null_nodes_forwarding_edges();
+
+    set<set<NodeTraversal>> from_sibs;
+    for_each_node([this, &from_sibs](Node* n) {
+            auto trav = NodeTraversal(n, false);
             auto fsibs = full_siblings_from(trav);
             fsibs.insert(trav);
             if (fsibs.size() > 1) {
                 from_sibs.insert(fsibs);
             }
         });
-    // for each sibling group, try to simplify it
-    // first do the perfect to-sibs
-    simplify_to_siblings(to_sibs);
     // then the from direction
-    simplify_from_siblings(from_sibs);
+    simplify_from_siblings(transitive_sibling_sets(from_sibs));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
 }
@@ -1821,6 +1859,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         vector<vcflib::Variant> records;
         int i = 0;
         while (variantCallFile.is_open() && variantCallFile.getNextVariant(var)) {
+            // this ... maybe we should remove it as for when we have calls against N
             bool isDNA = allATGC(var.ref);
             for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
                 if (!allATGC(*a)) isDNA = false;

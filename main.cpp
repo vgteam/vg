@@ -606,10 +606,6 @@ int main_msga(int argc, char** argv) {
     set<string> seq_names;
     vector<string> sequences;
     vector<string> graph_files;
-    // will inevitably add parameters for MSA
-    // but keep it simple for now
-    // ...
-    bool reverse_complement = false;
     string base_seq_name;
     size_t max_fragment_length = 100000; // 100kb
     int idx_kmer_size = 16;

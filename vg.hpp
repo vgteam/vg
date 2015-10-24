@@ -476,6 +476,8 @@ public:
     void simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs);
     // does so for all provided from-sibling sets
     void simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs);
+    // removes intransitive sibling sets, such as where (A, B, C) = S1 but C ∊ S2
+    set<set<NodeTraversal>> transitive_sibling_sets(const set<set<NodeTraversal>>& sibs);
     // determines of pos1 occurs directly before pos2
     bool adjacent(const Position& pos1, const Position& pos2);
 
