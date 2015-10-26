@@ -952,7 +952,7 @@ int main_msga(int argc, char** argv) {
         }
         if (debug) cerr << name << ": editing graph" << endl;
         graph->edit_both_directions(paths);
-        graph->paths.clear();
+        graph->clear_paths();
         if (debug) cerr << name << ": normalizing node size" << endl;
         graph->dice_nodes(node_max);
         if (debug) cerr << name << ": sorting and compacting ids" << endl;
@@ -995,8 +995,7 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "normalizing graph" << endl;
         // use this step to simplify the graph so we can efficiently normalize it
         graph->remove_non_path();
-        graph->paths.clear();
-        graph->graph.clear_path(); // paths.clear() should do this too
+        graph->clear_paths();
         graph->normalize();
         graph->dice_nodes(node_max);
         graph->sort();

@@ -58,11 +58,22 @@ VG::VG(function<bool(Graph&)>& get_next_graph, bool showp) {
     paths.to_graph(graph);
 }
 
-void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
+void VG::clear_paths(void) {
+    paths.clear();
+    graph.clear_path(); // paths.clear() should do this too
+    sync_paths();
+}
 
+// synchronize the VG index and its backing store
+void VG::sync_paths(void) {
     // ensure we can navigate paths correctly
     // by building paths.mapping_path_order
     paths.rebuild_mapping_aux();
+}
+
+void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
+
+    sync_paths();
     
     // save the number of the messages to be serialized into the output file
     int64_t count = graph.node_size() / chunk_size + 1;
