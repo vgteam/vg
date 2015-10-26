@@ -2323,7 +2323,8 @@ void VG::unindex_edge_by_node_sides(Edge* edge) {
         // The edge is on the start of the from node, so remove it from the
         // start of the from node, with the correct relative orientation for the
         // to node.
-        swap_remove(edges_start(edge->from()), make_pair(edge->to(), relative_orientation));
+        std::pair<int64_t, bool> to_remove {edge->to(), relative_orientation};
+        swap_remove(edges_start(edge->from()), to_remove);
         // removing the sub-indexes if they are now empty
         // we must do this to maintain a valid structure
         if (edges_on_start[edge->from()].empty()) edges_on_start.erase(edge->from());
@@ -2331,7 +2332,8 @@ void VG::unindex_edge_by_node_sides(Edge* edge) {
         //cerr << "Removed " << edge->from() << "-start to " << edge->to() << " orientation " << relative_orientation << endl;
     } else {
         // The edge is on the end of the from node, do remove it form the end of the from node.
-        swap_remove(edges_end(edge->from()), make_pair(edge->to(), relative_orientation));
+        std::pair<int64_t, bool> to_remove {edge->to(), relative_orientation};
+        swap_remove(edges_end(edge->from()), to_remove);
         if (edges_on_end[edge->from()].empty()) edges_on_end.erase(edge->from());
 
         //cerr << "Removed " << edge->from() << "-end to " << edge->to() << " orientation " << relative_orientation << endl;
@@ -2340,12 +2342,14 @@ void VG::unindex_edge_by_node_sides(Edge* edge) {
     if(edge->from() != edge->to() || edge->from_start() == edge->to_end()) {
         // Same for the to node, if we aren't just on the same node and side as with the from node.
         if(edge->to_end()) {
-            swap_remove(edges_end(edge->to()), make_pair(edge->from(), relative_orientation));
+            std::pair<int64_t, bool> to_remove {edge->from(), relative_orientation};
+            swap_remove(edges_end(edge->to()), to_remove);
             if (edges_on_end[edge->to()].empty()) edges_on_end.erase(edge->to());
 
             //cerr << "Removed " << edge->to() << "-end to " << edge->from() << " orientation " << relative_orientation << endl;
         } else {
-            swap_remove(edges_start(edge->to()), make_pair(edge->from(), relative_orientation));
+            std::pair<int64_t, bool> to_remove {edge->from(), relative_orientation};
+            swap_remove(edges_start(edge->to()), to_remove);
             if (edges_on_start[edge->to()].empty()) edges_on_start.erase(edge->to());
 
             //cerr << "Removed " << edge->to() << "-start to " << edge->from() << " orientation "
@@ -2886,8 +2890,8 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
         if (prev.node->sequence().size() < length) {
             prev_kpaths_from_node(prev,
                                   length - prev.node->sequence().size(),
-                                  // Charge 1 against edge_max for every alternative edge we passed up
-                                  edge_max - max(left_degree(node)-1, 0),
+                                  // Charge 1 against edge_max for every time we pass up alternative edges
+                                  edge_max - (left_degree(node) > 1),
                                   // but only if we are using edge bounding
                                   edge_bounding,
                                   postfix, paths, maxed_nodes);
@@ -2921,8 +2925,8 @@ void VG::next_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
         if (next.node->sequence().size() < length) {
             next_kpaths_from_node(next,
                                   length - next.node->sequence().size(),
-                                  // Charge 1 against edge_max for every alternative edge we passed up
-                                  edge_max - max(right_degree(node)-1, 0),
+                                  // Charge 1 against edge_max for every time we pass up alternative edges
+                                  edge_max - (right_degree(node) > 1),
                                   // but only if we are using edge bounding
                                   edge_bounding,
                                   prefix, paths, maxed_nodes);
