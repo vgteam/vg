@@ -1390,9 +1390,7 @@ void help_mod(char** argv) {
          << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
          << "                            replace the pair with a single node that is the concatenation of their labels" << endl
          << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
-         << "    -e, --edge-max N        when pruning complex regions only consider paths which cross" << endl
-         << "                            this many potential alternate edges (e.g. if node out-degree is" << endl
-         << "                            2, we would count 1 toward --edge-max; for 3 we would count 2)" << endl
+         << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
@@ -1824,9 +1822,7 @@ void help_kmers(char** argv) {
          << endl
          << "options:" << endl
          << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
-         << "    -e, --edge-max N      only consider paths which cross this many potential alternate edges" << endl
-         << "                          (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
-         << "                          for 3 we would count 2)" << endl
+         << "    -e, --edge-max N      only consider paths which make edge choices at <= this many points" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -d, --ignore-dups     filter out duplicated kmers in normal output" << endl
@@ -2434,9 +2430,7 @@ void help_paths(char** argv) {
          << "options:" << endl
          << "    -n, --node ID         starting at node with ID" << endl
          << "    -l, --max-length N    generate paths of at most length N" << endl
-         << "    -e, --edge-max N      only consider paths which cross this many potential alternate edges" << endl
-         << "                          (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
-         << "                          for 3 we would count 2)" << endl
+         << "    -e, --edge-max N      only consider paths which make edge choices at this many points" << endl
          << "    -s, --as-seqs         write each path as a sequence" << endl;
 }
 
@@ -2993,9 +2987,7 @@ void help_index(char** argv) {
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
          << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
-         << "    -e, --edge-max N       only consider paths which cross this many potential alternate edges" << endl
-         << "                           (e.g. if node out-degree is 2, we would count 1 toward --edge-max," << endl
-         << "                           for 3 we would count 2)" << endl
+         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
          << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
          << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
