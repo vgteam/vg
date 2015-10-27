@@ -83,7 +83,7 @@ void for_each(std::istream& in,
     uint64_t count;
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
-    while (coded_in->ReadVarint64(&count)) {
+    while (coded_in->ReadVarint64((::google::protobuf::uint64*) &count)) {
 
         handle_count(count);
 
@@ -128,7 +128,7 @@ void for_each_parallel(std::istream& in,
           new ::google::protobuf::io::CodedInputStream(gzip_in);
 
     uint64_t count;
-    bool more_input = coded_in->ReadVarint64(&count);
+    bool more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
     bool more_objects = false;
     // this loop handles a chunked file with many pieces
     // such as we might write in a multithreaded process
@@ -175,7 +175,7 @@ void for_each_parallel(std::istream& in,
                         }
                     }
                 }
-                more_input = coded_in->ReadVarint64(&count);
+                more_input = coded_in->ReadVarint64((::google::protobuf::uint64*) &count);
             }
             
             // TODO: Between when the master announces there is no more input,

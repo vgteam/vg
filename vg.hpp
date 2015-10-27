@@ -667,11 +667,11 @@ public:
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
     // Given an oriented start node, a length in bp, a maximum number of edges
     // to cross, and a stack of nodes visited so far, fill in the set of paths
-    // with all the paths starting at the oriented start node and going left no
-    // longer than the specified length, calling maxed_nodes on nodes which
-    // can't be visited due to the edge-crossing limit. Produces paths ending
-    // with the specified node.
-    // TODO: postfix should not be (potentially) copied on every call.
+    // with all the paths starting at the oriented start node and going left off
+    // its end no longer than the specified length, calling maxed_nodes on nodes
+    // which can't be visited due to the edge-crossing limit. Produces paths
+    // ending with the specified node. TODO: postfix should not be (potentially)
+    // copied on every call.
     void prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
                                list<NodeTraversal> postfix, set<list<NodeTraversal> >& paths,
                                function<void(NodeTraversal)>& maxed_nodes);

@@ -2323,7 +2323,8 @@ void VG::unindex_edge_by_node_sides(Edge* edge) {
         // The edge is on the start of the from node, so remove it from the
         // start of the from node, with the correct relative orientation for the
         // to node.
-        swap_remove(edges_start(edge->from()), make_pair(edge->to(), relative_orientation));
+        std::pair<int64_t, bool> to_remove {edge->to(), relative_orientation};
+        swap_remove(edges_start(edge->from()), to_remove);
         // removing the sub-indexes if they are now empty
         // we must do this to maintain a valid structure
         if (edges_on_start[edge->from()].empty()) edges_on_start.erase(edge->from());
@@ -2331,7 +2332,8 @@ void VG::unindex_edge_by_node_sides(Edge* edge) {
         //cerr << "Removed " << edge->from() << "-start to " << edge->to() << " orientation " << relative_orientation << endl;
     } else {
         // The edge is on the end of the from node, do remove it form the end of the from node.
-        swap_remove(edges_end(edge->from()), make_pair(edge->to(), relative_orientation));
+        std::pair<int64_t, bool> to_remove {edge->to(), relative_orientation};
+        swap_remove(edges_end(edge->from()), to_remove);
         if (edges_on_end[edge->from()].empty()) edges_on_end.erase(edge->from());
 
         //cerr << "Removed " << edge->from() << "-end to " << edge->to() << " orientation " << relative_orientation << endl;
@@ -2340,12 +2342,14 @@ void VG::unindex_edge_by_node_sides(Edge* edge) {
     if(edge->from() != edge->to() || edge->from_start() == edge->to_end()) {
         // Same for the to node, if we aren't just on the same node and side as with the from node.
         if(edge->to_end()) {
-            swap_remove(edges_end(edge->to()), make_pair(edge->from(), relative_orientation));
+            std::pair<int64_t, bool> to_remove {edge->from(), relative_orientation};
+            swap_remove(edges_end(edge->to()), to_remove);
             if (edges_on_end[edge->to()].empty()) edges_on_end.erase(edge->to());
 
             //cerr << "Removed " << edge->to() << "-end to " << edge->from() << " orientation " << relative_orientation << endl;
         } else {
-            swap_remove(edges_start(edge->to()), make_pair(edge->from(), relative_orientation));
+            std::pair<int64_t, bool> to_remove {edge->from(), relative_orientation};
+            swap_remove(edges_start(edge->to()), to_remove);
             if (edges_on_start[edge->to()].empty()) edges_on_start.erase(edge->to());
 
             //cerr << "Removed " << edge->to() << "-start to " << edge->from() << " orientation "
@@ -2865,73 +2869,140 @@ int VG::node_count_next(NodeTraversal n) {
 void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
                                list<NodeTraversal> postfix, set<list<NodeTraversal> >& paths,
                                function<void(NodeTraversal)>& maxed_nodes) {
-    if (length == 0) return;
-    if (edge_bounding && edge_max <= 0) {
-        // We recursed in here and hit the max edge depth. Complain to the caller.
-        maxed_nodes(node);
-        return;
+                               
+   // length gives the number of bases *off the end of the current node* to
+   // look, and does not get the length of the current node chargged against it.
+   // We keep the last node that length at all reaches into.
+                               
+#ifdef debug
+    cerr << "Looking left from " << node << " out to length " << length <<
+        " with remaining edges " << edge_max << " on top of:" << endl;
+    for(auto x : postfix) {
+        cerr << "\t" << x << endl;
     }
+#endif
+    
+    if(edge_bounding && edge_max < 0) {
+        // (recursive) caller must check edge_max and call maxed_nodes for this node
+        cerr << "Called prev_kpaths_from_node with negative edges left." << endl;
+        exit(1);
+    }
+    
     // start at node
     // do a leftward DFS up to length limit to establish paths from the left of the node
     postfix.push_front(node);
     // Get all the nodes left of this one
     vector<NodeTraversal> prev_nodes;
     nodes_prev(node, prev_nodes);
-    if (prev_nodes.empty()) {
-        // We can't go any lefter, so we produce this as a path
-        list<NodeTraversal> new_path = postfix;
-        paths.insert(new_path);
-    } // implicit else
-    for (NodeTraversal& prev : prev_nodes) {
-        if (prev.node->sequence().size() < length) {
-            prev_kpaths_from_node(prev,
-                                  length - prev.node->sequence().size(),
-                                  // Charge 1 against edge_max for every alternative edge we passed up
-                                  edge_max - max(left_degree(node)-1, 0),
-                                  // but only if we are using edge bounding
-                                  edge_bounding,
-                                  postfix, paths, maxed_nodes);
-        } else {
-            // create a path for this node
-            list<NodeTraversal> new_path = postfix;
-            new_path.push_front(prev);
-            paths.insert(new_path);
+
+    // If we can't find any valid extensions, we have to just emit up to here as
+    // a path.
+    bool valid_extensions = false;    
+    
+    if(length > 0) {
+        // We're allowed to look off our end
+    
+        for (NodeTraversal& prev : prev_nodes) {
+#ifdef debug
+            cerr << "Consider prev node " << prev << endl;
+#endif
+
+            if(edge_bounding && edge_max - (left_degree(node) > 1) < 0) {
+                // We won't have been able to get anything out of this next node
+                maxed_nodes(prev);
+                
+#ifdef debug
+                cerr << "Out of edge-crossing range" << endl;
+#endif
+                
+            } else {
+#ifdef debug
+                cerr << "Recursing..." << endl;
+#endif
+                prev_kpaths_from_node(prev,
+                                      length - prev.node->sequence().size(),
+                                      // Charge 1 against edge_max for every time we pass up alternative edges
+                                      edge_max - (left_degree(node) > 1),
+                                      // but only if we are using edge bounding
+                                      edge_bounding,
+                                      postfix, paths, maxed_nodes);
+                                      
+                // We found a valid extension of this node
+                valid_extensions = true;
+                                      
+            }
+                                  
+            
         }
+    } else {
+#ifdef debug
+        cerr << "No length remaining." << endl;
+# endif
+    }
+    
+    if(!valid_extensions) {
+        // We didn't find an extension to do, either because we ran out of edge
+        // crossings, or because our length will run out somewhere in this node.
+        // Create a path for this node.
+        paths.insert(postfix);
+#ifdef debug
+        cerr << "Reported path:" << endl;
+        for(auto x : postfix) {
+            cerr << "\t" << x << endl;
+        }
+#endif
     }
 }
 
 void VG::next_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
                                list<NodeTraversal> prefix, set<list<NodeTraversal> >& paths,
                                function<void(NodeTraversal)>& maxed_nodes) {
-    if (length == 0) return;
-    if (edge_bounding && edge_max <= 0) {
-        maxed_nodes(node);
-        return;
+    
+    if(edge_bounding && edge_max < 0) {
+        // (recursive) caller must check edge_max and call maxed_nodes for this node
+        cerr << "Called next_kpaths_from_node with negative edges left." << endl;
+        exit(1);
     }
+    
     // start at node
     // do a leftward DFS up to length limit to establish paths from the left of the node
     prefix.push_back(node);
     vector<NodeTraversal> next_nodes;
     nodes_next(node, next_nodes);
-    if (next_nodes.empty()) {
-        list<NodeTraversal> new_path = prefix;
-        paths.insert(new_path);
-    } // implicit else
-    for (NodeTraversal& next : next_nodes) {
-        if (next.node->sequence().size() < length) {
-            next_kpaths_from_node(next,
+    
+    // If we can't find any valid extensions, we have to just emit up to here as
+    // a path.
+    bool valid_extensions = false;    
+    
+    if(length > 0) {
+        // We're allowed to look off our end
+    
+        for (NodeTraversal& next : next_nodes) {
+
+            if(edge_bounding && edge_max - (right_degree(node) > 1) < 0) {
+                // We won't have been able to get anything out of this next node
+                maxed_nodes(next);
+            } else {
+                next_kpaths_from_node(next,
                                   length - next.node->sequence().size(),
-                                  // Charge 1 against edge_max for every alternative edge we passed up
-                                  edge_max - max(right_degree(node)-1, 0),
+                                  // Charge 1 against edge_max for every time we pass up alternative edges
+                                  edge_max - (right_degree(node) > 1),
                                   // but only if we are using edge bounding
                                   edge_bounding,
                                   prefix, paths, maxed_nodes);
-        } else {
-            // create a path for this node
-            list<NodeTraversal> new_path = prefix;
-            new_path.push_back(next);
-            paths.insert(new_path);
+                                      
+                // We found a valid extension of this node
+                valid_extensions = true;
+                                      
+            }
         }
+    }
+    
+    if(!valid_extensions) {
+        // We didn't find an extension to do, either because we ran out of edge
+        // crossings, or because our length will run out somewhere in this node.
+        // Create a path for this node.
+        paths.insert(prefix);
     }
 }
 
@@ -5724,6 +5795,20 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
 
     for(Node* n : to_destroy) {
         // Destroy all the nodes we wanted to destroy.
+        if(n == head_node || n == tail_node) {
+            // Keep these around
+            continue;
+        }
+        
+        // First delete any paths that touch it.
+        // TODO: split the paths in two at this node somehow
+        set<string> paths_to_remove;
+        for(auto path_and_mapping : paths.get_node_mapping(n)) {
+            paths_to_remove.insert(path_and_mapping.first);
+        }
+        paths.remove_paths(paths_to_remove);
+        
+        // Actually destroy the node
         destroy_node(n);
     }
 
