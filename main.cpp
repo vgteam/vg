@@ -1000,6 +1000,7 @@ int main_msga(int argc, char** argv) {
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
+        graph->clear_paths();
         // rebuild
         rebuild(graph);
         // and re-include paths now that we've normalized
