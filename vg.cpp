@@ -96,9 +96,11 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
             //cerr << "getting node mappings for " << node->id() << endl;
             for (auto m : mappings) {
                 auto& name = m.first;
-                auto mapping = m.second;
-                //cerr << "mapping " << name << pb2json(*mapping) << endl;
-                sorted_paths[name][paths.mapping_path_order[mapping]] = mapping;
+                auto& mappings = m.second;
+                for (auto& mapping : mappings) {
+                    //cerr << "mapping " << name << pb2json(*mapping) << endl;
+                    sorted_paths[name][paths.mapping_path_order[mapping]] = mapping;
+                }
             }
         }
         // now get the paths for this chunk so that they are ordered correctly
@@ -1063,6 +1065,7 @@ void VG::extend(VG& g, bool warn_on_duplicates) {
                  << e->to() << (e->to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
         }
     }
+    // todo breaks on cycles!
     paths.append(g.paths);
 }
 
@@ -2605,7 +2608,9 @@ void VG::remove_node_forwarding_edges(Node* node) {
     if (paths.has_node_mapping(node)) {
         auto& node_mappings = paths.get_node_mapping(node);
         for (auto& p : node_mappings) {
-            paths.remove_mapping(p.second);
+            for (auto& m : p.second) {
+                paths.remove_mapping(m);
+            }
         }
     }
     // delete the actual node
@@ -2661,26 +2666,28 @@ void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
                     kept_names.insert(appearance.first);
                     to_keep = true;
 
-                    // Walk left along the path and keep the edge we traverse.
-                    Mapping* left_neighbor = paths.traverse_left(appearance.second);
+                    // Walk left along the path and keep the edge(s) we traverse.
+                    for (auto* m : appearance.second) {
+                        Mapping* left_neighbor = paths.traverse_left(m);
 
-                    if(left_neighbor != nullptr) {
-                        // We aren't the first thing in the path, we want to keep the edge to our left.
-                        // It may not exist, but we can still ask to keep it.
+                        if(left_neighbor != nullptr) {
+                            // We aren't the first thing in the path, we want to keep the edge to our left.
+                            // It may not exist, but we can still ask to keep it.
 
-                        // What other node do we go to?
-                        int64_t neighbor_id = left_neighbor->position().node_id();
+                            // What other node do we go to?
+                            int64_t neighbor_id = left_neighbor->position().node_id();
 
-                        if(has_node(neighbor_id)) {
-                            // Keep the edge if we actually have the other end.
-                            // We know the other end is on this path and will be
-                            // kept.
+                            if(has_node(neighbor_id)) {
+                                // Keep the edge if we actually have the other end.
+                                // We know the other end is on this path and will be
+                                // kept.
 
-                            // We attach to the end of the previous node if it isn't
-                            // backward along the path, and the end of this node if
-                            // it is backward along the path.
-                            edges_to_keep.insert(minmax(NodeSide(neighbor_id, !left_neighbor->is_reverse()),
-                                                        NodeSide(node->id(), appearance.second->is_reverse())));
+                                // We attach to the end of the previous node if it isn't
+                                // backward along the path, and the end of this node if
+                                // it is backward along the path.
+                                edges_to_keep.insert(minmax(NodeSide(neighbor_id, !left_neighbor->is_reverse()),
+                                                            NodeSide(node->id(), m->is_reverse())));
+                            }
                         }
                     }
 
@@ -2788,8 +2795,9 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         vector<Mapping*> to_divide;
         for (auto& pm : node_path_mapping) {
             string path_name = pm.first;
-            Mapping* m = pm.second;
-            to_divide.push_back(m);
+            for (auto* m : pm.second) {
+                to_divide.push_back(m);
+            }
         }
         for (auto m : to_divide) {
             // we have to divide the mapping
@@ -4423,23 +4431,25 @@ void VG::to_gfa(ostream& out) {
         auto& node_mapping = paths.get_node_mapping(n->id());
         set<Mapping*> seen;
         for (auto& p : node_mapping) {
-            if (seen.count(p.second)) continue;
-            else seen.insert(p.second);
-            const Mapping& mapping = *p.second;
-            string cigar;
-            if (mapping.edit_size() > 0) {
-                vector<pair<int, char> > cigarv;
-                mapping_cigar(mapping, cigarv);
-                cigar = cigar_string(cigarv);
-            } else {
-                // empty mapping edit implies perfect match
-                stringstream cigarss;
-                cigarss << n->sequence().size() << "M";
-                cigar = cigarss.str();
+            for (auto* m : p.second) {
+                if (seen.count(m)) continue;
+                else seen.insert(m);
+                const Mapping& mapping = *m;
+                string cigar;
+                if (mapping.edit_size() > 0) {
+                    vector<pair<int, char> > cigarv;
+                    mapping_cigar(mapping, cigarv);
+                    cigar = cigar_string(cigarv);
+                } else {
+                    // empty mapping edit implies perfect match
+                    stringstream cigarss;
+                    cigarss << n->sequence().size() << "M";
+                    cigar = cigarss.str();
+                }
+                string orientation = mapping.is_reverse() ? "-" : "+";
+                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
+                  << orientation << "\t" << cigar << "\n";
             }
-            string orientation = mapping.is_reverse() ? "-" : "+";
-            s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
-              << orientation << "\t" << cigar << "\n";
         }
         sorted_output[n->id()].push_back(s.str());
     }

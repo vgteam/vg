@@ -127,13 +127,7 @@ Path& append_path(Path& a, const Path& b) {
 // as will happen with looping paths
 bool Paths::has_mapping(const string& name, const Mapping& m) {
     auto& node_mapping = get_node_mapping(m.position().node_id());
-    for (auto& p : node_mapping) {
-        const string& path_name = p.first;
-        if (path_name == name) {
-            return true;
-        }
-    }
-    return false;
+    return node_mapping.find(name) != node_mapping.end() && !node_mapping[name].empty();
 }
 
 void Paths::append_mapping(const string& name, const Mapping& m) {
@@ -146,7 +140,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
         Mapping* mp = &pt.back();
         // add it to the node mappings
         auto& ms = get_node_mapping(m.position().node_id());
-        ms.insert(make_pair(name, mp));
+        ms[name].insert(mp);
         // and record its position in this list
         list<Mapping>::iterator mi = pt.end(); --mi;
         mapping_itr[mp] = mi;
@@ -200,7 +194,7 @@ void Paths::rebuild_node_mapping(void) {
         const string& path_name = p.first;
         list<Mapping>& path = p.second;
         for (auto& m : path) {
-            get_node_mapping(m.position().node_id()).insert(make_pair(path_name, &m));
+            get_node_mapping(m.position().node_id())[path_name].insert(&m);
         }
     }
 }
@@ -234,7 +228,7 @@ list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     list<Mapping>::iterator p = _paths[path_name].erase(mapping_itr[m]);
     if (has_node_mapping(id)) {
         auto& node_path_mapping = get_node_mapping(id);
-        node_path_mapping.erase(make_pair(path_name, m));
+        node_path_mapping[path_name].erase(m);
         if (node_path_mapping.empty()) node_mapping.erase(id);
     }
     mapping_path.erase(m);
@@ -253,7 +247,7 @@ list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const s
     } else {
         p = path.insert(w, m);
     }
-    get_node_mapping(m.position().node_id()).insert(make_pair(path_name, &*p));
+    get_node_mapping(m.position().node_id())[path_name].insert(&*p);
     mapping_path[&*p] = path_name;
     mapping_itr[&*p] = p;
     return p;
@@ -321,11 +315,11 @@ bool Paths::has_node_mapping(Node* n) {
     return node_mapping.find(n->id()) != node_mapping.end();
 }
 
-set<pair<string, Mapping*> >& Paths::get_node_mapping(int64_t id) {
+map<string, set<Mapping*>>& Paths::get_node_mapping(int64_t id) {
     return node_mapping[id];
 }
 
-set<pair<string, Mapping*> >& Paths::get_node_mapping(Node* n) {
+map<string, set<Mapping*>>& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
 }
 
@@ -395,17 +389,21 @@ bool Paths::are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string
         auto& p1 = get_node_mapping(id1);
         auto& p2 = get_node_mapping(id2);
         // is p1 directly before p2?
-        list<Mapping>::iterator i1, i2;
+        vector<list<Mapping>::iterator> i1s, i2s;
         // note that this will get the first mapping in each path, not an arbitrary one
         // (we can have looping paths, so there could be several mappings per path)
-        for (auto& nm : p1) {
-            if (nm.first == path_name) i1 = mapping_itr[nm.second];
+        for (auto& mp : p1[path_name]) {
+            i1s.push_back(mapping_itr[mp]);
         }
-        for (auto& nm : p2) {
-            if (nm.first == path_name) i2 = mapping_itr[nm.second];
+        for (auto& mp : p2[path_name]) {
+            i2s.push_back(mapping_itr[mp]);
         }
-        ++i1; // increment the first node's mapping iterator
-        if (i1 == i2) return true;
+        for (auto i1 : i1s) {
+            ++i1; // increment the first node's mapping iterator
+            for (auto i2 : i2s) {
+                if (i1 == i2) return true;
+            }
+        }
     }
     return false;
 }
@@ -464,13 +462,6 @@ int mapping_from_length(const Mapping& m) {
     }
     return l;
 
-}
-
-void path_into_mappings(const Path& path, map<int64_t, vector<Mapping> >& mappings) {
-    for (int i = 0; i < path.mapping_size(); ++i) {
-        const Mapping& m = path.mapping(i);
-        mappings[m.position().node_id()].push_back(m);
-    }
 }
 
 int softclip_start(const Mapping& mapping) {
