@@ -63,8 +63,12 @@ $(LIBGCSA2): gcsa2/*.cpp gcsa2/*.h $(SDSLLITE)
 	cd gcsa2 && cat Makefile | grep -v VERBOSE_STATUS_INFO >Makefile.quiet && $(MAKE) -f Makefile.quiet libgcsa2.a
 	touch $(LIBGCSA2)
 
-$(LIBXG): xg/*.cpp xg/*.hpp $(SDSLLITE)
-	cd xg && $(MAKE) libxg.a
+$(EXECUTABLE): $(LIBS) main.o
+	$(CXX) $(CXXFLAGS) -o $(EXECUTABLE) $(LIBS) main.o $(INCLUDES) $(LDSEARCH) $(STATICFLAGS) $(LDFLAGS)
+
+$(LIBXG): xg/xg.cpp xg/xg.hpp $(LIBSDSL) cpp/vg.pb.h
+	$(CXX) $(CXXFLAGS) -c -o xg/xg.o xg/xg.cpp $(INCLUDES)
+	ar rs xg/libxg.a cpp/vg.pb.o xg/xg.o
 
 $(SDSLLITE): sdsl-lite/lib/*.cpp sdsl-lite/include/sdsl/*.hpp
 	cd sdsl-lite && mkdir -p install && ./install.sh `pwd`/install

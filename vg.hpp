@@ -342,6 +342,11 @@ public:
     void merge(Graph& g);
     void merge(VG& g);
 
+    // clear the paths object (which indexes the graph.paths) and the graph paths themselves
+    void clear_paths(void);
+    // synchronizes in-memory indexes and protobuf graph
+    void sync_paths(void);
+
     // merge protobufs after removing overlaps
     // good when there aren't many overlaps
     void merge_union(VG& g);
