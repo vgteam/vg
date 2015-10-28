@@ -1137,6 +1137,11 @@ void VG::append(VG& g) {
         }
     }
 
+    // wipe the ranks of the mappings, as these are destroyed in append
+    // NB: append assumes that we are concatenating paths
+    paths.clear_node_ranks();
+    g.paths.clear_node_ranks();
+
     // and join paths that are embedded in the graph, where path names are the same
     paths.append(g.paths);
 }

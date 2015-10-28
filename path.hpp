@@ -57,6 +57,7 @@ public:
     // This maps from Mapping* pointer to the name of the path it belongs to
     // (which can then be used to get the list its iterator belongs to).
     map<Mapping*, string> mapping_path;
+    void sort_by_mapping_rank(void);
     void rebuild_mapping_aux(void);
     // ...we need this in order to get subsets of the paths in correct order
     map<Mapping*, size_t> mapping_path_order;
@@ -96,6 +97,7 @@ public:
     size_t size(void) const;
     bool empty(void) const;
     void clear(void);
+    void clear_node_ranks(void);
     //void add_node_mapping(Node* n);
     void load(istream& in);
     void write(ostream& out);

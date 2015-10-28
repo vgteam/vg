@@ -75,6 +75,7 @@ message Mapping {
     Position position = 1; // the position at which the first Edit, if any, in the Mapping starts. Inclusive.
     repeated Edit edit = 2; // series of edit to transform to region in read/alt
     bool is_reverse = 3; // does the Mapping go from the Position towards the start of the Node, instead of towards the end?
+    int64 rank = 5; // the 1-based rank of the mapping in its containing path
     Metadata metadata = 4;
 }
 

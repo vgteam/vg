@@ -106,6 +106,8 @@ void Paths::append(Paths& paths) {
             append_mapping(name, m);
         }
     }
+    sort_by_mapping_rank();
+    rebuild_mapping_aux();
 }
 
 void Paths::append(Graph& g) {
@@ -127,7 +129,14 @@ Path& append_path(Path& a, const Path& b) {
 // as will happen with looping paths
 bool Paths::has_mapping(const string& name, const Mapping& m) {
     auto& node_mapping = get_node_mapping(m.position().node_id());
-    return node_mapping.find(name) != node_mapping.end() && !node_mapping[name].empty();
+    if (node_mapping.find(name) == node_mapping.end()) return false; // no mappings for path
+    for (auto* mp : node_mapping[name]) {
+        if (m.rank() == mp->rank()
+            && m.is_reverse() == mp->is_reverse()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void Paths::append_mapping(const string& name, const Mapping& m) {
@@ -145,6 +154,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
         list<Mapping>::iterator mi = pt.end(); --mi;
         mapping_itr[mp] = mi;
         mapping_path[mp] = name;
+        mapping_path_order[mp] = m.rank();
     }
 }
 
@@ -152,6 +162,7 @@ void Paths::append_mapping(const string& name, int64_t id, bool is_reverse) {
     Mapping m;
     m.mutable_position()->set_node_id(id);
     m.set_is_reverse(is_reverse);
+    m.set_rank(get_path(name).size()+1); // rank is 1-based
     append_mapping(name, m);
 }
 
@@ -199,6 +210,16 @@ void Paths::rebuild_node_mapping(void) {
     }
 }
 
+// attempt to sort the paths based on the recorded ranks of the mappings
+void Paths::sort_by_mapping_rank(void) {
+    for (auto p = _paths.begin(); p != _paths.end(); ++p) {
+        list<Mapping>& path = p->second;
+        path.sort([](const Mapping& m1, const Mapping& m2) {
+                return m1.rank() < m2.rank();
+            });
+    }
+}
+
 void Paths::rebuild_mapping_aux(void) {
 //    map<Mapping*, list<Mapping>::iterator> mapping_itr
     mapping_itr.clear();
@@ -212,6 +233,7 @@ void Paths::rebuild_mapping_aux(void) {
             mapping_itr[&*i] = i;
             mapping_path[&*i] = path_name;
             mapping_path_order[&*i] = order_in_path++;
+            i->set_rank(order_in_path); // force correct ranking (it is 1-based)
         }
     }
 }
@@ -271,6 +293,16 @@ bool Paths::empty(void) const {
 void Paths::clear(void) {
     _paths.clear();
     node_mapping.clear();
+}
+
+void Paths::clear_node_ranks(void) {
+    for (auto p = _paths.begin(); p != _paths.end(); ++p) {
+        list<Mapping>& path = p->second;
+        for (auto m = path.begin(); m != path.end(); ++m) {
+            Mapping& mapping = *m;
+            mapping.clear_rank();
+        }
+    }
 }
 
 list<Mapping>& Paths::get_path(const string& name) {
