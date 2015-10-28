@@ -46,11 +46,12 @@ is "$(vg kmers -g -k 11 -t 1 x.vg | grep AAGAATACAA | cut -f1,3,4 | tr '\n\t' ' 
 rm x.vg
 rm -rf x.vg.index
 
-is $(vg kmers -n -k 11 -e 5 -d jumble/j.vg | wc -l) \
-    6918 \
+is "$(vg kmers -k 15 -e 1 jumble/j.vg -t 1 | cut -f1 | sort | tr '\n' ' ')" "CGGCCTGGCGCACAA CGGCCTGGCTCACAA TGGCCTGGCGCACAA TGGCCTGGCTCACAA " "edge-max can limit to paths with exactly one choice from any node's point of view"
+
+is $(vg kmers -n -k 11 -e 2 -d jumble/j.vg | wc -l) \
+    7096 \
     "edge-max correctly bounds the number of kmers in a complex graph"
 
-is $(vg kmers -n -k 11 -e 1 -d jumble/j.vg | wc -l) 0 "edge-max doesn't go negative"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 -H 1000 -T 1001 - | grep '1000\|1001' | wc -l) 76 "start/stop node IDs can be specified in GCSA2 output"
 

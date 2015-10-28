@@ -173,4 +173,4 @@ clean: clean-vg
 	cd rocksdb && $(MAKE) clean
 	cd sparsehash && $(MAKE) clean && rm -rf build
 	cd gcsa2 && $(MAKE) clean
-	rm -f $(SDSLLITE) && cd sdsl-lite && ./uninstall.sh `pwd`/install
+	rm -Rf $(SDSLLITE) && cd sdsl-lite && ./uninstall.sh `pwd`/install
