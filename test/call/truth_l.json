@@ -91,7 +91,8 @@
         {
           "position": {
             "node_id": 18
-          }
+          },
+          "rank": 1
         }
       ],
       "name": "SNP_18"
@@ -101,7 +102,8 @@
         {
           "position": {
             "node_id": 21
-          }
+          },
+          "rank": 1
         }
       ],
       "name": "SNP_21"
@@ -111,7 +113,8 @@
         {
           "position": {
             "node_id": 24
-          }
+          },
+          "rank": 1
         }
       ],
       "name": "SNP_24"
