@@ -747,6 +747,8 @@ void VG::unchop(void) {
     for (auto& comp : simple_multinode_components()) {
         merge_nodes(comp);
     }
+    // clear paths, as these are not maintained by unchop
+    clear_paths();
 }
 
 void VG::normalize(void) {
@@ -1660,6 +1662,7 @@ void VG::from_gfa(istream& in, bool showp) {
     };
 
     int64_t id1, id2;
+    size_t rank;
     string seq;
     char side1, side2;
     string cigar;
@@ -1698,7 +1701,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'L': id2 = atol(item.c_str()); break;
                 case 'S': too_many_fields(); break;
-                case 'P': is_reverse = (item == "+" ? false : true); break;
+                case 'P': rank = atol(item.c_str());
                 default: break;
                 }
                 break;
@@ -1706,7 +1709,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'L': side2 = item[0]; break;
                 case 'S': too_many_fields(); break;
-                case 'P': cigar = item; break;
+                case 'P': is_reverse = (item == "+" ? false : true); break;
                 default: break;
                 }
                 break;
@@ -1714,6 +1717,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'L': cigar = item; break;
                 case 'S': too_many_fields(); break;
+                case 'P': cigar = item; break;
                 default: break;
                 }
                 break;
@@ -1737,7 +1741,7 @@ void VG::from_gfa(istream& in, bool showp) {
             if (side2 == '-') edge.set_to_end(true);
             add_edge(edge);
         } else if (type == 'P') {
-            paths.append_mapping(path_name, id1, is_reverse);
+            paths.append_mapping(path_name, id1, rank, is_reverse);
         }
     }
 }
@@ -2120,6 +2124,9 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             combine(g);
         }
     }
+    // rebuild the mapping ranks now that we've combined everything
+    paths.clear_node_ranks();
+    paths.rebuild_mapping_aux();
 }
 
 void VG::sort(void) {
@@ -3374,7 +3381,6 @@ void VG::edit_node(int64_t node_id,
             if (!edit.sequence().empty()) {
                 Node* c = create_node(edit.sequence());
                 // add to path
-                //paths.append_mapping(name, c->id(), false);
                 center.insert(c);
             }
         }
@@ -4234,7 +4240,8 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 const Mapping& m1 = path.mapping(i);
                 if (i < path.mapping_size()-1) {
                     const Mapping& m2 = path.mapping(i+1);
-                    
+                    // skip if they are not contiguous
+                    if (!adjacent_mappings(m1, m2)) continue;
                     // Find the Edge connecting the mappings in the order they occur in the path.
                     Edge* edge_used = get_edge(NodeTraversal(get_node(m1.position().node_id()), m1.is_reverse()),
                                                NodeTraversal(get_node(m2.position().node_id()), m2.is_reverse()));
@@ -4455,7 +4462,7 @@ void VG::to_gfa(ostream& out) {
                 }
                 string orientation = mapping.is_reverse() ? "-" : "+";
                 s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
-                  << orientation << "\t" << cigar << "\n";
+                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
             }
         }
         sorted_output[n->id()].push_back(s.str());

@@ -103,7 +103,7 @@ public:
     void write(ostream& out);
     void to_graph(Graph& g);
     void append_mapping(const string& name, const Mapping& m);
-    void append_mapping(const string& name, int64_t id, bool is_reverse = false);
+    void append_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
     void append(Paths& p);
     void append(Graph& g);
     void extend(Paths& p);

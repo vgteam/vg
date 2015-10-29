@@ -158,11 +158,15 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
     }
 }
 
-void Paths::append_mapping(const string& name, int64_t id, bool is_reverse) {
+void Paths::append_mapping(const string& name, int64_t id, size_t rank, bool is_reverse) {
     Mapping m;
     m.mutable_position()->set_node_id(id);
     m.set_is_reverse(is_reverse);
-    m.set_rank(get_path(name).size()+1); // rank is 1-based
+    if (rank) {
+        m.set_rank(rank);
+    } else {
+        m.set_rank(get_path(name).size()+1); // rank is 1-based
+    }
     append_mapping(name, m);
 }
 
