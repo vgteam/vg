@@ -4169,11 +4169,12 @@ bool VG::is_valid(bool check_nodes,
             for (size_t i = 1; i < path.mapping_size(); ++i) {
                 auto& m1 = path.mapping(i-1);
                 auto& m2 = path.mapping(i);
+                if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
                 auto s1 = NodeSide(m1.position().node_id(), (m1.is_reverse() ? false : true));
                 auto s2 = NodeSide(m2.position().node_id(), (m2.is_reverse() ? true : false));
                 // check that we always have an edge between the two nodes in the correct direction
                 if (!has_edge(s1, s2)) {
-                    cerr << "graph invalid: edge from " << s1 << " to " << s2 << " does not exist" << endl;
+                    cerr << "graph path '" << path.name() << "' invalid: edge from " << s1 << " to " << s2 << " does not exist" << endl;
                     paths_ok = false;
                     return;
                 }
@@ -4396,12 +4397,13 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     const Mapping& m = path.mapping(i);
                     stringstream mapid;
                     mapid << path_label << " " << m.position().node_id();
-                    if (i == 0) {
-                        out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\",fontcolor=\"" << color << "\"];" << endl;      
+                    if (i == 0) { // add the path name at the start
+                        out << "    " << pathid << " [label=\"" << path_label << " "
+                            << path.name() << "  " << m.position().node_id() << "\",fontcolor=\"" << color << "\"];" << endl;      
                     } else {
                         out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontcolor=\"" << color << "\"];" << endl;
                     }
-                    if (i > 0) {
+                    if (i > 0 && adjacent_mappings(path.mapping(i-1), m)) {
                         out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
                     }
                     out << "    " << pathid << " -> " << m.position().node_id() << " [dir=none,color=\"" << color << "\", style=invis];" << endl;

@@ -165,6 +165,7 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
 // the position that starts just after the path ends
 Position path_start(const Path& path);
 Position path_end(const Path& path);
+bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 
 
 }

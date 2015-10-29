@@ -221,7 +221,6 @@ void Paths::sort_by_mapping_rank(void) {
 }
 
 void Paths::rebuild_mapping_aux(void) {
-//    map<Mapping*, list<Mapping>::iterator> mapping_itr
     mapping_itr.clear();
     mapping_path.clear();
     mapping_path_order.clear();
@@ -232,8 +231,15 @@ void Paths::rebuild_mapping_aux(void) {
         for (list<Mapping>::iterator i = path.begin(); i != path.end(); ++i) {
             mapping_itr[&*i] = i;
             mapping_path[&*i] = path_name;
-            mapping_path_order[&*i] = order_in_path++;
-            i->set_rank(order_in_path); // force correct ranking (it is 1-based)
+            // if we have a rank already, use it
+            if (i->rank()) {
+                mapping_path_order[&*i] = i->rank();
+            } else {
+                // otherwise we set the rank based on what we've built
+                mapping_path_order[&*i] = order_in_path;
+                i->set_rank(order_in_path+1);
+            }
+            ++order_in_path;
         }
     }
 }
@@ -1266,6 +1272,10 @@ Position path_end(const Path& path) {
     pos = last.position();
     pos.set_offset(pos.offset()+mapping_from_length(last));
     return pos;
+}
+
+bool adjacent_mappings(const Mapping& m1, const Mapping& m2) {
+    return abs(m1.rank() - m2.rank()) == 1;
 }
 
 }
