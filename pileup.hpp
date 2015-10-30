@@ -73,7 +73,7 @@ public:
     void write(ostream& out, uint64_t buffer_size = 1000);
 
     // apply function to each pileup in table
-    void for_each(function<void(NodePileup&)>& lambda);
+    void for_each(const function<void(NodePileup&)>& lambda);
 
     // search hash table for node id
     NodePileup* get(int64_t node_id) {

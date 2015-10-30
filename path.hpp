@@ -108,8 +108,8 @@ public:
     void append(Graph& g);
     void extend(Paths& p);
     void extend(const Path& p);
-    void for_each(function<void(Path&)>& lambda);
-    void for_each_stream(istream& in, function<void(Path&)>& lambda);
+    void for_each(const function<void(Path&)>& lambda);
+    void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(int64_t inc);
     // Replace the node IDs used as keys with those used as values.
     // This is only efficient to do in a batch.

@@ -49,7 +49,7 @@ void Paths::to_graph(Graph& g) {
     }
 }
 
-void Paths::for_each(function<void(Path&)>& lambda) {
+void Paths::for_each(const function<void(Path&)>& lambda) {
     for (auto& p : _paths) {
         const string& name = p.first;
         list<Mapping>& mappings = p.second;
@@ -72,7 +72,7 @@ void Paths::for_each_mapping(const function<void(Mapping*)>& lambda) {
     }
 }
 
-void Paths::for_each_stream(istream& in, function<void(Path&)>& lambda) {
+void Paths::for_each_stream(istream& in, const function<void(Path&)>& lambda) {
     uint64_t count = 0;
     function<void(uint64_t)> handle_count = [this, &count](uint64_t c) { count = c; };
     stream::for_each(in, lambda, handle_count);
