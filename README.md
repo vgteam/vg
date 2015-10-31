@@ -1,5 +1,7 @@
 # vg
 
+[![Join the chat at https://gitter.im/ekg/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ekg/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [![Build Status](https://travis-ci.org/ekg/vg.svg)](https://travis-ci.org/ekg/vg)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
