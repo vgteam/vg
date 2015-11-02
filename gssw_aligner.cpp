@@ -128,6 +128,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
         Mapping* mapping = path->add_mapping();
         mapping->mutable_position()->set_node_id(nc->node->id);
         mapping->mutable_position()->set_offset(from_pos);
+        mapping->set_rank(path->mapping_size());
 
         //cerr << from_node->id() << ":" << endl;
 

@@ -85,6 +85,9 @@ void Paths::extend(const Path& p) {
         const Mapping& m = p.mapping(i);
         append_mapping(name, m);
     }
+    // re-sort?
+    sort_by_mapping_rank();
+    rebuild_mapping_aux();
 }
 
 // one of these should go away
@@ -93,9 +96,11 @@ void Paths::extend(Paths& p) {
         const string& name = l.first;
         list<Mapping>& path = l.second;
         for (auto& m : path) {
-            append_mapping(name, m);         
+            append_mapping(name, m);
         }
     }
+    sort_by_mapping_rank();
+    rebuild_mapping_aux();
 }
 
 void Paths::append(Paths& paths) {
@@ -777,16 +782,21 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
 Path simplify(const Path& p) {
     Path s;
     s.set_name(p.name());
+    //cerr << "simplifying " << pb2json(p) << endl;
+    // loop over the mappings in the path, doing a few things
+    // exclude mappings that are total deletions
+    // when possible, merge a mapping with the previous mapping
+    // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
-        auto m = p.mapping(i);
-        
+        auto m = simplify(p.mapping(i));
         // remove wholly-deleted mappings as these are redundant
         if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) continue;
-        
         // if this isn't the first mapping
-        // split off any insertions from the start
-        // and push them to the last mapping
         if (i > 0) {
+            // refer to the last mapping
+            Mapping* l = s.mutable_mapping(s.mapping_size()-1);
+            // split off any insertions from the start
+            // and push them to the last mapping
             size_t ins_at_start = 0;
             for (size_t j = 0; j < m.edit_size(); ++j) {
                 auto& e = m.edit(j);
@@ -802,79 +812,100 @@ Path simplify(const Path& p) {
                 m = p.second;
                 *m.mutable_position() = ins.position();
                 // cerr << "before and after " << pb2json(ins) << " and " << pb2json(m) << endl;
-                Mapping* l = s.mutable_mapping(s.mapping_size()-1);
                 for (size_t j = 0; j < ins.edit_size(); ++j) {
                     auto& e = ins.edit(j);
                     *l->add_edit() = e;
                 }
             }
-        }
-
-        // handle the rest of path
-        Mapping n_base; // our new mapping for this node
-        Mapping* n = &n_base;
-        // if we don't have a position, try to use the last mapping
-        if (!m.has_position() || m.position().node_id()==0) {
-            // We can't have a mapping referencing bases that don't exist.
-            // Otherwise if we pull its stuff into the previous mapping, it can
-            // run off the end of the node.
-            assert(mapping_from_length(m) == 0);
-            if (i > 0) {
-                n = s.mutable_mapping(s.mapping_size()-1);
+            // if our last mapping has no position, but we do, merge
+            if (!l->has_position() && m.has_position()) {
+                *l->mutable_position() = m.position();
+            } else if (l->has_position() && m.has_position()
+                       && l->position().node_id() == m.position().node_id()) {
+                // we can merge the current mapping onto the old one
+                *l = merge(*l, m);
             } else {
-                //cerr << "warning: path has no position in first mapping" << endl;
+                *s.add_mapping() = m;
             }
         } else {
-            // take the old position
-            *n->mutable_position() = m.position();
-            // Copy the is_reverse flag
-            n->set_is_reverse(m.is_reverse());
+            *s.add_mapping() = m;
         }
-        
-        size_t j = 0;
-        // to simplify, we skip deletions
-        // these are implied by jumps in the path
-        for ( ; j < m.edit_size(); ++j) {
-            if (!edit_is_deletion(m.edit(j))) {
-                break;
-            } else {
-                // Adjust the offset by the size of the deletion. If we're going
-                // forward on the node, this moves the mapping offset positive.
-                // Otherwise it moves the mapping offset negative.
-                n->mutable_position()->set_offset(n->position().offset() 
-                    + m.edit(j).from_length() * (n->is_reverse() ? -1 : 1));
-            }
-        }
-        if (j < m.edit_size()) {
-            Edit e = m.edit(j++);
-            for ( ; j < m.edit_size(); ++j) {
-                auto& f = m.edit(j);
-                // if the edit types are the same, merge them
-                if (edit_is_match(e) && edit_is_match(f)
-                    || edit_is_sub(e) && edit_is_sub(f)
-                    || edit_is_deletion(e) && edit_is_deletion(f)
-                    || edit_is_insertion(e) && edit_is_insertion(f)) {
-                    // will be 0 for insertions, and + for the rest
-                    e.set_from_length(e.from_length()+f.from_length());
-                    // will be 0 for deletions, and + for the rest
-                    e.set_to_length(e.to_length()+f.to_length());
-                    // will be empty for both or have sequence for both
-                    e.set_sequence(e.sequence() + f.sequence());
-                } else {
-                    // mismatched types are just put on
-                    *n->add_edit() = e;
-                    e = f;
-                }
-            }
-            // and keep the last edit
-            // if it isn't a deletion
-            if (!edit_is_deletion(e)) *n->add_edit() = e;
-        }
-        // and store the mapping
-        *s.add_mapping() = *n;
-        
     }
-    return s;    
+    // now set ranks
+    for (size_t i = 0; i < s.mapping_size(); ++i) {
+        auto* m = s.mutable_mapping(i);
+        m->set_rank(i+1);
+    }
+    //cerr << "simplified " << pb2json(s) << endl;
+    return s;
+}
+
+// simple merge
+Mapping merge(const Mapping& m, const Mapping& n) {
+    Mapping c = m;
+    // add the edits on
+    for (size_t i = 0; i < n.edit_size(); ++i) {
+        *c.add_edit() = n.edit(i);
+    }
+    // merge anything that's identical
+    return simplify(c);
+}
+
+Mapping simplify(const Mapping& m) {
+    Mapping n;
+    // get the position
+    if (!m.has_position() || m.position().node_id()==0) {
+        // do nothing
+    } else {
+        // take the old position
+        *n.mutable_position() = m.position();
+        // Copy the is_reverse flag
+        n.set_is_reverse(m.is_reverse());
+    }
+
+    size_t j = 0;
+    // to simplify, we skip deletions
+    // these are implied by jumps in the path
+    for ( ; j < m.edit_size(); ++j) {
+        if (!edit_is_deletion(m.edit(j))) {
+            break;
+        } else {
+            // Adjust the offset by the size of the deletion. If we're going
+            // forward on the node, this moves the mapping offset positive.
+            // Otherwise it moves the mapping offset negative.
+            n.mutable_position()->set_offset(n.position().offset() 
+                                             + m.edit(j).from_length() * (m.is_reverse() ? -1 : 1));
+        }
+    }
+
+    // now go through the rest of the edits and see if we can merge them
+    if (j < m.edit_size()) {
+        Edit e = m.edit(j++);
+        for ( ; j < m.edit_size(); ++j) {
+            auto& f = m.edit(j);
+            // if the edit types are the same, merge them
+            if (edit_is_match(e) && edit_is_match(f)
+                || edit_is_sub(e) && edit_is_sub(f)
+                || edit_is_deletion(e) && edit_is_deletion(f)
+                || edit_is_insertion(e) && edit_is_insertion(f)) {
+                // will be 0 for insertions, and + for the rest
+                e.set_from_length(e.from_length()+f.from_length());
+                // will be 0 for deletions, and + for the rest
+                e.set_to_length(e.to_length()+f.to_length());
+                // will be empty for both or have sequence for both
+                e.set_sequence(e.sequence() + f.sequence());
+            } else {
+                // mismatched types are just put on
+                *n.add_edit() = e;
+                e = f;
+            }
+        }
+        // and keep the last edit
+        // if it isn't a deletion
+        if (!edit_is_deletion(e)) *n.add_edit() = e;
+    }
+    
+    return n;
 }
 
 bool mapping_ends_in_deletion(const Mapping& m){

@@ -102,6 +102,7 @@ public:
     void load(istream& in);
     void write(ostream& out);
     void to_graph(Graph& g);
+    // add mappings, assume sorted by default
     void append_mapping(const string& name, const Mapping& m);
     void append_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
     void append(Paths& p);
@@ -146,6 +147,8 @@ Path reverse_path(const Path& path, function<int64_t(int64_t)>& node_length);
 // type, strip leading and trailing deletion edits on mappings, and make sure no
 // mappings have missing positions.
 Path simplify(const Path& p);
+Mapping simplify(const Mapping& m);
+Mapping merge(const Mapping& m, const Mapping& n);
 Path concat_paths(const Path& path1, const Path& path2);
 // divide mapping at reference-relative position
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos);
