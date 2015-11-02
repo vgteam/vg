@@ -52,9 +52,9 @@ is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - 
    $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^S |wc -l) \
    "vg mod removes non-path nodes and edge"
 
-is $(vg view -v msgas/inv-mess.gfa | vg mod -u - | md5sum | cut -f 1 -d\ ) 75e29bc73b25beaf0450a6aeacef4f67 "unchop correctly handles a graph with an inversion"
+is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) 9684fb6d14ffe5cb8e21cc11abbf04d0 "unchop correctly handles a graph with an inversion"
 
-is $(vg view -v msgas/inv-mess.gfa | vg mod -n - | md5sum | cut -f 1 -d\ ) 5b1c2a8467f5f1b1b1c8da10f62d48ab "normalization works on a graph with an inversion"
+is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 29a99770b1d3a7cdbc0ceb73159d6c1f "normalization works on a graph with an inversion"
 
 vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCT$(revcomp AACTACTCCACATCAAAGCTAC)CCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -k 16 -B 16 -Nz | vg mod -u - >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"

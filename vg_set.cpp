@@ -237,6 +237,9 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
              });
 }
 
+// TODO
+// to implement edge_max correctly we will need to mod each graph *before* passing it into
+// the kmer generation routines in vg::VG
 void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                            bool forward_only,
                            vector<gcsa::KMer>& kmers_out,

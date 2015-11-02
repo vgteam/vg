@@ -57,13 +57,14 @@ public:
     // This maps from Mapping* pointer to the name of the path it belongs to
     // (which can then be used to get the list its iterator belongs to).
     map<Mapping*, string> mapping_path;
+    void sort_by_mapping_rank(void);
     void rebuild_mapping_aux(void);
     // ...we need this in order to get subsets of the paths in correct order
     map<Mapping*, size_t> mapping_path_order;
     // This maps from node ID to a set of path name, mapping instance pairs.
     // Note that we don't have a map for each node, because each node can appear
     // along any given path multiple times, with multiple Mapping* pointers.
-    map<int64_t, set<pair<string, Mapping*> > > node_mapping;
+    map<int64_t, map<string, set<Mapping*>>> node_mapping;
     
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);
@@ -81,8 +82,8 @@ public:
     bool has_mapping(const string& name, const Mapping& m);
     bool has_node_mapping(int64_t id);
     bool has_node_mapping(Node* n);
-    set<pair<string, Mapping*> >& get_node_mapping(Node* n);
-    set<pair<string, Mapping*> >& get_node_mapping(int64_t id);
+    map<string, set<Mapping*>>& get_node_mapping(Node* n);
+    map<string, set<Mapping*>>& get_node_mapping(int64_t id);
     // Go left along the path that this Mapping* belongs to, and return the
     // Mapping* there, or null if this Mapping* is the first in its path.
     Mapping* traverse_left(Mapping* mapping);
@@ -96,12 +97,14 @@ public:
     size_t size(void) const;
     bool empty(void) const;
     void clear(void);
+    void clear_node_ranks(void);
     //void add_node_mapping(Node* n);
     void load(istream& in);
     void write(ostream& out);
     void to_graph(Graph& g);
+    // add mappings, assume sorted by default
     void append_mapping(const string& name, const Mapping& m);
-    void append_mapping(const string& name, int64_t id, bool is_reverse = false);
+    void append_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
     void append(Paths& p);
     void append(Graph& g);
     void extend(Paths& p);
@@ -123,7 +126,6 @@ int path_to_length(const Path& path);
 int path_from_length(const Path& path);
 int mapping_to_length(const Mapping& m);
 int mapping_from_length(const Mapping& m);
-void path_into_mappings(const Path& path, map<int64_t, vector<Mapping> >& mappings);
 Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2);
 Position first_path_position(const Path& path);
 Position last_path_position(const Path& path);
@@ -145,6 +147,8 @@ Path reverse_path(const Path& path, function<int64_t(int64_t)>& node_length);
 // type, strip leading and trailing deletion edits on mappings, and make sure no
 // mappings have missing positions.
 Path simplify(const Path& p);
+Mapping simplify(const Mapping& m);
+Mapping merge(const Mapping& m, const Mapping& n);
 Path concat_paths(const Path& path1, const Path& path2);
 // divide mapping at reference-relative position
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos);
@@ -164,6 +168,7 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
 // the position that starts just after the path ends
 Position path_start(const Path& path);
 Position path_end(const Path& path);
+bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 
 
 }

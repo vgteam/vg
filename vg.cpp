@@ -96,9 +96,11 @@ void VG::serialize_to_ostream(ostream& out, int64_t chunk_size) {
             //cerr << "getting node mappings for " << node->id() << endl;
             for (auto m : mappings) {
                 auto& name = m.first;
-                auto mapping = m.second;
-                //cerr << "mapping " << name << pb2json(*mapping) << endl;
-                sorted_paths[name][paths.mapping_path_order[mapping]] = mapping;
+                auto& mappings = m.second;
+                for (auto& mapping : mappings) {
+                    //cerr << "mapping " << name << pb2json(*mapping) << endl;
+                    sorted_paths[name][paths.mapping_path_order[mapping]] = mapping;
+                }
             }
         }
         // now get the paths for this chunk so that they are ordered correctly
@@ -745,6 +747,8 @@ void VG::unchop(void) {
     for (auto& comp : simple_multinode_components()) {
         merge_nodes(comp);
     }
+    // clear paths, as these are not maintained by unchop
+    clear_paths();
 }
 
 void VG::normalize(void) {
@@ -1063,6 +1067,7 @@ void VG::extend(VG& g, bool warn_on_duplicates) {
                  << e->to() << (e->to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
         }
     }
+    // todo breaks on cycles!
     paths.append(g.paths);
 }
 
@@ -1133,6 +1138,11 @@ void VG::append(VG& g) {
             create_edge(tail, head);
         }
     }
+
+    // wipe the ranks of the mappings, as these are destroyed in append
+    // NB: append assumes that we are concatenating paths
+    paths.clear_node_ranks();
+    g.paths.clear_node_ranks();
 
     // and join paths that are embedded in the graph, where path names are the same
     paths.append(g.paths);
@@ -1652,6 +1662,7 @@ void VG::from_gfa(istream& in, bool showp) {
     };
 
     int64_t id1, id2;
+    size_t rank;
     string seq;
     char side1, side2;
     string cigar;
@@ -1690,7 +1701,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'L': id2 = atol(item.c_str()); break;
                 case 'S': too_many_fields(); break;
-                case 'P': is_reverse = (item == "+" ? false : true); break;
+                case 'P': rank = atol(item.c_str());
                 default: break;
                 }
                 break;
@@ -1698,7 +1709,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'L': side2 = item[0]; break;
                 case 'S': too_many_fields(); break;
-                case 'P': cigar = item; break;
+                case 'P': is_reverse = (item == "+" ? false : true); break;
                 default: break;
                 }
                 break;
@@ -1706,6 +1717,7 @@ void VG::from_gfa(istream& in, bool showp) {
                 switch (type) {
                 case 'L': cigar = item; break;
                 case 'S': too_many_fields(); break;
+                case 'P': cigar = item; break;
                 default: break;
                 }
                 break;
@@ -1729,7 +1741,7 @@ void VG::from_gfa(istream& in, bool showp) {
             if (side2 == '-') edge.set_to_end(true);
             add_edge(edge);
         } else if (type == 'P') {
-            paths.append_mapping(path_name, id1, is_reverse);
+            paths.append_mapping(path_name, id1, rank, is_reverse);
         }
     }
 }
@@ -2112,6 +2124,9 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             combine(g);
         }
     }
+    // rebuild the mapping ranks now that we've combined everything
+    paths.clear_node_ranks();
+    paths.rebuild_mapping_aux();
 }
 
 void VG::sort(void) {
@@ -2605,7 +2620,9 @@ void VG::remove_node_forwarding_edges(Node* node) {
     if (paths.has_node_mapping(node)) {
         auto& node_mappings = paths.get_node_mapping(node);
         for (auto& p : node_mappings) {
-            paths.remove_mapping(p.second);
+            for (auto& m : p.second) {
+                paths.remove_mapping(m);
+            }
         }
     }
     // delete the actual node
@@ -2661,26 +2678,28 @@ void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
                     kept_names.insert(appearance.first);
                     to_keep = true;
 
-                    // Walk left along the path and keep the edge we traverse.
-                    Mapping* left_neighbor = paths.traverse_left(appearance.second);
+                    // Walk left along the path and keep the edge(s) we traverse.
+                    for (auto* m : appearance.second) {
+                        Mapping* left_neighbor = paths.traverse_left(m);
 
-                    if(left_neighbor != nullptr) {
-                        // We aren't the first thing in the path, we want to keep the edge to our left.
-                        // It may not exist, but we can still ask to keep it.
+                        if(left_neighbor != nullptr) {
+                            // We aren't the first thing in the path, we want to keep the edge to our left.
+                            // It may not exist, but we can still ask to keep it.
 
-                        // What other node do we go to?
-                        int64_t neighbor_id = left_neighbor->position().node_id();
+                            // What other node do we go to?
+                            int64_t neighbor_id = left_neighbor->position().node_id();
 
-                        if(has_node(neighbor_id)) {
-                            // Keep the edge if we actually have the other end.
-                            // We know the other end is on this path and will be
-                            // kept.
+                            if(has_node(neighbor_id)) {
+                                // Keep the edge if we actually have the other end.
+                                // We know the other end is on this path and will be
+                                // kept.
 
-                            // We attach to the end of the previous node if it isn't
-                            // backward along the path, and the end of this node if
-                            // it is backward along the path.
-                            edges_to_keep.insert(minmax(NodeSide(neighbor_id, !left_neighbor->is_reverse()),
-                                                        NodeSide(node->id(), appearance.second->is_reverse())));
+                                // We attach to the end of the previous node if it isn't
+                                // backward along the path, and the end of this node if
+                                // it is backward along the path.
+                                edges_to_keep.insert(minmax(NodeSide(neighbor_id, !left_neighbor->is_reverse()),
+                                                            NodeSide(node->id(), m->is_reverse())));
+                            }
                         }
                     }
 
@@ -2788,8 +2807,9 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         vector<Mapping*> to_divide;
         for (auto& pm : node_path_mapping) {
             string path_name = pm.first;
-            Mapping* m = pm.second;
-            to_divide.push_back(m);
+            for (auto* m : pm.second) {
+                to_divide.push_back(m);
+            }
         }
         for (auto m : to_divide) {
             // we have to divide the mapping
@@ -3361,7 +3381,6 @@ void VG::edit_node(int64_t node_id,
             if (!edit.sequence().empty()) {
                 Node* c = create_node(edit.sequence());
                 // add to path
-                //paths.append_mapping(name, c->id(), false);
                 center.insert(c);
             }
         }
@@ -4156,11 +4175,12 @@ bool VG::is_valid(bool check_nodes,
             for (size_t i = 1; i < path.mapping_size(); ++i) {
                 auto& m1 = path.mapping(i-1);
                 auto& m2 = path.mapping(i);
+                if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
                 auto s1 = NodeSide(m1.position().node_id(), (m1.is_reverse() ? false : true));
                 auto s2 = NodeSide(m2.position().node_id(), (m2.is_reverse() ? true : false));
                 // check that we always have an edge between the two nodes in the correct direction
                 if (!has_edge(s1, s2)) {
-                    cerr << "graph invalid: edge from " << s1 << " to " << s2 << " does not exist" << endl;
+                    cerr << "graph path '" << path.name() << "' invalid: edge from " << s1 << " to " << s2 << " does not exist" << endl;
                     paths_ok = false;
                     return;
                 }
@@ -4220,7 +4240,8 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 const Mapping& m1 = path.mapping(i);
                 if (i < path.mapping_size()-1) {
                     const Mapping& m2 = path.mapping(i+1);
-                    
+                    // skip if they are not contiguous
+                    if (!adjacent_mappings(m1, m2)) continue;
                     // Find the Edge connecting the mappings in the order they occur in the path.
                     Edge* edge_used = get_edge(NodeTraversal(get_node(m1.position().node_id()), m1.is_reverse()),
                                                NodeTraversal(get_node(m2.position().node_id()), m2.is_reverse()));
@@ -4383,12 +4404,13 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     const Mapping& m = path.mapping(i);
                     stringstream mapid;
                     mapid << path_label << " " << m.position().node_id();
-                    if (i == 0) {
-                        out << "    " << pathid << " [label=\"" << path_label << " " << path.name() << "  " << m.position().node_id() << "\",fontcolor=\"" << color << "\"];" << endl;      
+                    if (i == 0) { // add the path name at the start
+                        out << "    " << pathid << " [label=\"" << path_label << " "
+                            << path.name() << "  " << m.position().node_id() << "\",fontcolor=\"" << color << "\"];" << endl;      
                     } else {
                         out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontcolor=\"" << color << "\"];" << endl;
                     }
-                    if (i > 0) {
+                    if (i > 0 && adjacent_mappings(path.mapping(i-1), m)) {
                         out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
                     }
                     out << "    " << pathid << " -> " << m.position().node_id() << " [dir=none,color=\"" << color << "\", style=invis];" << endl;
@@ -4423,23 +4445,25 @@ void VG::to_gfa(ostream& out) {
         auto& node_mapping = paths.get_node_mapping(n->id());
         set<Mapping*> seen;
         for (auto& p : node_mapping) {
-            if (seen.count(p.second)) continue;
-            else seen.insert(p.second);
-            const Mapping& mapping = *p.second;
-            string cigar;
-            if (mapping.edit_size() > 0) {
-                vector<pair<int, char> > cigarv;
-                mapping_cigar(mapping, cigarv);
-                cigar = cigar_string(cigarv);
-            } else {
-                // empty mapping edit implies perfect match
-                stringstream cigarss;
-                cigarss << n->sequence().size() << "M";
-                cigar = cigarss.str();
+            for (auto* m : p.second) {
+                if (seen.count(m)) continue;
+                else seen.insert(m);
+                const Mapping& mapping = *m;
+                string cigar;
+                if (mapping.edit_size() > 0) {
+                    vector<pair<int, char> > cigarv;
+                    mapping_cigar(mapping, cigarv);
+                    cigar = cigar_string(cigarv);
+                } else {
+                    // empty mapping edit implies perfect match
+                    stringstream cigarss;
+                    cigarss << n->sequence().size() << "M";
+                    cigar = cigarss.str();
+                }
+                string orientation = mapping.is_reverse() ? "-" : "+";
+                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
+                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
             }
-            string orientation = mapping.is_reverse() ? "-" : "+";
-            s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
-              << orientation << "\t" << cigar << "\n";
         }
         sorted_output[n->id()].push_back(s.str());
     }
