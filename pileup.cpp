@@ -49,7 +49,7 @@ void Pileups::write(ostream& out, uint64_t buffer_size) {
     }
 }
 
-void Pileups::for_each(function<void(NodePileup&)>& lambda) {
+void Pileups::for_each(const function<void(NodePileup&)>& lambda) {
     for (auto& p : _pileups) {
         lambda(*p.second);
     }
