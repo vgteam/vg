@@ -77,7 +77,7 @@ is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCG
 rm -Rf graphs/multimap.vg.index
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -x x.vg.idx -gd x.vg.gcsa -k 16 -X 2 x.vg
+vg index -x x.vg.idx -g x.vg.gcsa -k 16 -X 2 x.vg
 vg sim -s 1337 -n 1000 x.vg >x.reads
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -k 16 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
 rm -f x.vg.idx x.vg.gcsa x.vg x.reads

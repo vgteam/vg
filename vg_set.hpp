@@ -44,9 +44,10 @@ public:
     // stores kmers of size kmer_size with stride over paths in graphs in the index
     void index_kmers(Index& index, int kmer_size, int edge_max, int stride = 1, 
                      bool allow_negatives = false);
-    void for_each_kmer_parallel(function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>& lambda,
-                                int kmer_size, int edge_max, int stride, 
-                                bool allow_dups, bool allow_negatives = false);
+    void for_each_kmer_parallel(
+        const function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>& lambda,
+        int kmer_size, int edge_max, int stride, 
+        bool allow_dups, bool allow_negatives = false);
     
     // Write out kmer lines to GCSA2
     void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride,

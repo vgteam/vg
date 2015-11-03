@@ -2983,7 +2983,7 @@ void help_index(char** argv) {
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
          << "                           the graph(s) (effectively replaces rocksdb)" << endl
          << "gcsa options:" << endl
-         << "    -g, --gcsa-out         output a GCSA2 index instead of a rocksdb index" << endl
+         << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
@@ -3021,6 +3021,7 @@ int main_index(int argc, char** argv) {
     }
 
     string db_name;
+    string gcsa_name;
     string xg_name;
     int kmer_size = 0;
     int edge_max = 0;
@@ -3038,7 +3039,6 @@ int main_index(int argc, char** argv) {
     bool compact = false;
     bool dump_alignments = false;
     bool use_snappy = false;
-    bool gcsa_out = false;
     int doubling_steps = gcsa::GCSA::DOUBLING_STEPS;
     bool verify_index = false;
     bool forward_only = false;
@@ -3068,7 +3068,7 @@ int main_index(int argc, char** argv) {
                 {"compact", no_argument, 0, 'C'},
                 {"allow-negs", no_argument, 0, 'n'},
                 {"use-snappy", no_argument, 0, 'Q'},
-                {"gcsa-out", no_argument, 0, 'g'},
+                {"gcsa-name", required_argument, 0, 'g'},
                 {"xg-name", no_argument, 0, 'x'},
                 {"verify-index", no_argument, 0, 'V'},
                 {"forward-only", no_argument, 0, 'F'},
@@ -3077,7 +3077,7 @@ int main_index(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQgX:x:VFZ:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:VFZ:",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -3163,7 +3163,7 @@ int main_index(int argc, char** argv) {
             break;
             
         case 'g':
-            gcsa_out = true;
+            gcsa_name = optarg;
             break;
 
         case 'V':
@@ -3201,25 +3201,20 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (db_name.empty() && xg_name.empty()) {
+    if (db_name.empty() && xg_name.empty() && gcsa_name.empty()) {
         if (file_names.size() > 1) {
             cerr << "error:[vg index] working on multiple graphs and no db name (-d) given, exiting" << endl;
             return 1;
         } else if (file_names.size() == 1) {
-            if(gcsa_out) {
-                // Name the database for gcsa
-                db_name = *file_names.begin() + gcsa::GCSA::EXTENSION;
-            } else {
-                // Name the database for rocksdb
-                db_name = *file_names.begin() + ".index";
-            }
+            // Name the database for rocksdb
+            db_name = *file_names.begin() + ".index";
         } else {
             cerr << "error:[vg index] no graph or db given, exiting" << endl;
             return 1;
         }
     }
 
-    if(kmer_size == 0 && gcsa_out) {
+    if(kmer_size == 0 && !gcsa_name.empty()) {
         // gcsa doesn't do anything if we tell it a kmer size of 0.
         cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
         return 1;
@@ -3243,7 +3238,7 @@ int main_index(int argc, char** argv) {
         // should we stop here?
     }
 
-    if(gcsa_out) {
+    if(!gcsa_name.empty()) {
         // We need to make a gcsa index.
     
         // Load up the graphs
@@ -3303,7 +3298,7 @@ int main_index(int argc, char** argv) {
         }
         
         // Save it to the index filename
-        sdsl::store_to_file(gcsa_index, db_name);
+        sdsl::store_to_file(gcsa_index, gcsa_name);
         
         // Skip all the Snappy stuff we can't do (yet).
         return 0;
@@ -3856,15 +3851,15 @@ int main_map(int argc, char** argv) {
     }
 
     if (db_name.empty() && !file_name.empty()) {
-            db_name = file_name + ".index";
+        db_name = file_name + ".index";
     }
     
     if (xg_name.empty() && !file_name.empty()) {
-            xg_name = file_name + ".xg";
+        xg_name = file_name + ".xg";
     }
     
     if (gcsa_name.empty() && !file_name.empty()) {
-            gcsa_name = file_name + gcsa::GCSA::EXTENSION;
+        gcsa_name = file_name + gcsa::GCSA::EXTENSION;
     }
 
     // Load up our indexes.
