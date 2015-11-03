@@ -6,7 +6,7 @@
 	url = https://github.com/ekg/fastahack.git
 [submodule "gssw"]
 	path = deps/gssw
-	url = https://github.com/ekg/gssw.git
+	url = https://github.com/edawson/gssw.git
 [submodule "snappy"]
 	path = deps/snappy
 	url = https://github.com/google/snappy.git
