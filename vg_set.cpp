@@ -167,8 +167,9 @@ void VGset::index_kmers(Index& index, int kmer_size, int edge_max, int stride, b
 
 }
 
-void VGset::for_each_kmer_parallel(function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>& lambda,
-                                   int kmer_size, int edge_max, int stride, bool allow_dups, bool allow_negatives) {
+void VGset::for_each_kmer_parallel(
+    const function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>& lambda,
+    int kmer_size, int edge_max, int stride, bool allow_dups, bool allow_negatives) {
     for_each([&lambda, kmer_size, edge_max, stride, allow_dups, allow_negatives, this](VG* g) {
         g->show_progress = show_progress;
         g->progress_message = "processing kmers of " + g->name;
