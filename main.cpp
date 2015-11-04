@@ -1427,6 +1427,7 @@ void help_mod(char** argv) {
          << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
+         << "    -f, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -1454,6 +1455,7 @@ int main_mod(int argc, char** argv) {
     bool normalize_graph = false;
     bool sort_graph = false;
     bool remove_non_path = false;
+    bool orient_forward = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1479,11 +1481,12 @@ int main_mod(int argc, char** argv) {
                 {"normalize", no_argument, 0, 'n'},
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
+                {"orient-forward", no_argument, 0, 'f'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzN",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1543,6 +1546,10 @@ int main_mod(int argc, char** argv) {
 
         case 't':
             omp_set_num_threads(atoi(optarg));
+            break;
+
+        case 'f':
+            orient_forward = true;
             break;
 
         case 'P':
@@ -1608,6 +1615,11 @@ int main_mod(int argc, char** argv) {
 
     if (remove_non_path) {
         graph->remove_non_path();
+    }
+
+    if (orient_forward) {
+        set<int64_t> flipped;
+        graph->orient_nodes_forward(flipped);
     }
 
     if (sort_graph) {
