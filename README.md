@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/ekg/vg.png?label=ready&title=Ready)](https://waffle.io/ekg/vg)
 # vg
 
 [![Join the chat at https://gitter.im/ekg/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ekg/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
