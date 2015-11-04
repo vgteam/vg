@@ -23,8 +23,11 @@ GCSA2_DIR:=deps/gcsa2
 PROGRESS_BAR_DIR:=deps/progress_bar
 FASTAHACK_DIR:=deps/fastahack
 HTSLIB_DIR:=deps/htslib
+VCFLIB_DIR:=deps/vcflib
 XG_DIR:=deps/xg
 
+
+$(shell ./source_me.sh)
 
 .PHONY: clean get-deps
 
@@ -60,4 +63,7 @@ htslib:
 
 xg: sdsl-lite protobuf
 	cd $(XG_DIR) && $(MAKE) all && cp obj/xg.o $(CWD)/$(OBJ_DIR) && cp lib/libxg.a $(CWD)/$(LIB_DIR) && cp src/*.hpp $(CWD)/$(INC_DIR)
+
+vcflib:
+	cd $(VCFLIB_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
 
