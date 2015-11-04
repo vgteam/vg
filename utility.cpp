@@ -72,6 +72,23 @@ const std::string sha1head(const std::string& data, size_t head) {
     return sha1sum(data).substr(0, head);
 }
 
+string wrap_text(const string& str, size_t width) {
+    stringstream w;
+    size_t j = 0;
+    for (auto c : str) {
+        if (j++ > 50) {
+            if (c == ' ') {
+                w << "\n";
+                j = 0;
+            } else {
+                w << c;
+            }
+        } else {
+            w << c;
+        }
+    }
+    return w.str();
+}
 
 bool allATGC(string& s) {
     for (string::iterator c = s.begin(); c != s.end(); ++c) {

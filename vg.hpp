@@ -509,6 +509,9 @@ public:
     // is the graph empty?
     bool empty(void);
 
+    // generates a digest of the serialized graph
+    const string hash(void);
+
     // remove nodes with no sequence
     // these are created in some cases during the process of graph construction
     void remove_null_nodes(void);

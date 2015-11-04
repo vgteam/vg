@@ -134,6 +134,7 @@ int from_length(const Mapping& m);
 bool mapping_ends_in_deletion(const Mapping& m);
 bool mapping_starts_in_deletion(const Mapping& m);
 bool mapping_is_total_deletion(const Mapping& m);
+bool mapping_is_simple_match(const Mapping& m);
 // Reverse-complement a Mapping and all the Edits in it. A function to get node
 // lengths is needed, because the mapping will need to count its position from
 // the other end of the node.

@@ -37,6 +37,7 @@ bam_hdr_t* hts_string_header(string& header,
                              map<string, int64_t>& path_length,
                              map<string, string>& rg_sample);
 void write_alignments(std::ostream& out, vector<Alignment>& buf);
+void write_alignment_to_file(const string& file, const Alignment& aln);
 
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
@@ -75,6 +76,8 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug);
 Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug);
 Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
+// generate a digest of the alignmnet
+const string hash_alignment(const Alignment& aln);
 // Flip the alignment's sequence and is_reverse flag, and flip and re-order its
 // Mappings to match. A function to get node lengths is needed because the
 // Mappings in the alignment will need to give their positions from the opposite
@@ -86,8 +89,6 @@ size_t to_length_after_pos(const Alignment& aln, const Position& pos);
 size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);
 size_t from_length_before_pos(const Alignment& aln, const Position& pos);
-
-
 
 // Invert the orientation in the alignment of all the nodes whose IDs are
 // listed. It needs a callback to ask the length of any given node.

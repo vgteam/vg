@@ -843,5 +843,11 @@ size_t from_length_before_pos(const Alignment& aln, const Position& pos) {
     return path_from_length(cut_path(aln.path(), pos).first);
 }
 
+const string hash_alignment(const Alignment& aln) {
+    string data;
+    aln.SerializeToString(&data);
+    return sha1sum(data);
+}
+
 
 }

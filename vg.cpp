@@ -1157,6 +1157,12 @@ void VG::combine(VG& g) {
 }
 
 void VG::include(const Path& path) {
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        if (!mapping_is_simple_match(path.mapping(i))) {
+            cerr << "mapping " << pb2json(path.mapping(i)) << " cannot be included in the graph because it is not a simple match" << endl;
+            //exit(1);
+        }
+    }
     paths.extend(path);
 }
 
@@ -4396,30 +4402,19 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             const Mapping& m = aln.path().mapping(i);
             //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
             //string cigar_string(vector<pair<int, char> >& cigar);
-            vector<pair<int, char> > cigar;
-            mapping_cigar(m, cigar);
             stringstream mapid;
-            const string& nodestr = get_node(m.position().node_id())->sequence();
-            string mstr = mapping_string(nodestr, m);
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
-            mapid << cigar_string(cigar) << ":"
-                  << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
-                  << mstr;
+            //mapid << cigar_string(cigar) << ":"
+            //      << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
+            mapid << pb2json(m);
+            string mstr = mapid.str();
+            mstr.erase(std::remove_if(mstr.begin(), mstr.end(), [](char c) { return c == '"'; }), mstr.end());
+            mstr = wrap_text(mstr, 50);
             // determine sequence of this portion of the alignment
             // set color based on cigar/mapping relationship
-            string nstr;
-            if (i == 0) {
-                nstr = nodestr.substr(m.position().offset());
-            } else if (i == aln.path().mapping_size()-1) {
-                nstr = nodestr.substr(0, mapping_from_length(m));
-            } else {
-                nstr = nodestr;
-            }
-            string color = "blue";
-            if (mstr != nstr) { // some mismatch, indicate with orange color
-                color = "orange";
-            }
-            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontcolor=" << color << "];" << endl;
+            // some mismatch, indicate with orange color
+            string color = mapping_is_simple_match(m) ? "blue" : "orange";
+            out << "    " << alnid << " [label=\"" << mstr << "\",fontcolor=" << color << ",fontsize=10];" << endl;
             if (i > 0) {
                 out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
             }
@@ -4751,6 +4746,8 @@ Alignment& VG::align(Alignment& alignment) {
     // Put the nodes in sort order within the graph
     sort();
 
+    //serialize_to_file("pre-" + hash_alignment(alignment).substr(0,8) + "-" + hash().substr(0,8) + ".vg");
+
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(alignment);
     delete gssw_aligner;
@@ -4770,6 +4767,12 @@ Alignment VG::align(const string& sequence) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment);
+}
+
+const string VG::hash(void) {
+    stringstream s;
+    serialize_to_ostream(s);
+    return sha1sum(s.str());
 }
 
 void VG::for_each_kmer_parallel(int kmer_size,

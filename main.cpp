@@ -935,33 +935,66 @@ int main_msga(int argc, char** argv) {
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
-        auto& name = group.first;
-        if (debug) cerr << name << ": adding to graph" << endl;
-        rebuild(graph);
-        //graph->serialize_to_file("pre-" + name + ".vg");
-        vector<Path> paths;
-        for (auto& seq : group.second) {
-            // align to the graph
-            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
-                graph->node_count() << " nodes" << endl;
-            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            // if (debug) cerr << pb2json(aln) << endl; // huge in some cases
-            paths.push_back(aln.path());
-            // note that the addition of paths is a second step
-            // now take the alignment and modify the graph with it
+        bool incomplete = true; // complete when we've fully included the sequence set
+        int iter = 0;
+        int iter_max = 1;
+        while (incomplete && iter++ < iter_max) {
+            stringstream s; s << iter; string iterstr = s.str();
+            auto& name = group.first;
+            if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
+            rebuild(graph);
+            //graph->serialize_to_file("pre-" + name + "-" + iterstr + ".vg");
+            vector<Path> paths;
+            vector<Alignment> alns;
+            for (auto& seq : group.second) {
+                // align to the graph
+                if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
+                               graph->node_count() << " nodes" << endl;
+                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+                alns.push_back(aln);
+                //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+                paths.push_back(aln.path());
+                // note that the addition of paths is a second step
+                // now take the alignment and modify the graph with it
+            }
+            // save a rendering of the graph
+            //ofstream gv(name + "-" + iterstr + ".gv");
+            //graph->to_dot(gv, alns);
+            //gv.close();
+            if (debug) cerr << name << ": editing graph" << endl;
+            graph->edit_both_directions(paths);
+            graph->clear_paths();
+            if (debug) cerr << name << ": normalizing node size" << endl;
+            graph->dice_nodes(node_max);
+            if (debug) cerr << name << ": sorting and compacting ids" << endl;
+            graph->sort();
+            graph->compact_ids(); // xg can't work unless IDs are compacted.
+            //graph->serialize_to_file("post-edit-" + name + "-" + iterstr + ".vg");
+
+            // check that all is well
+            rebuild(graph);
+            bool included = true;
+            for (auto& seq : group.second) {
+                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+                //cerr << pb2json(aln) << endl;
+                for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+                    if (!mapping_is_simple_match(aln.path().mapping(i))) {
+                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
+                        included = false;
+                    }
+                }
+            }
+            incomplete = !included;
         }
-        if (debug) cerr << name << ": editing graph" << endl;
-        graph->edit_both_directions(paths);
-        graph->clear_paths();
-        if (debug) cerr << name << ": normalizing node size" << endl;
-        graph->dice_nodes(node_max);
-        if (debug) cerr << name << ": sorting and compacting ids" << endl;
-        graph->sort();
-        graph->compact_ids(); // xg can't work unless IDs are compacted.
-        
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        // graph->serialize_to_file("out.vg");
+        /*
+        if (iter == iter_max) {
+            cerr << "failed to include path" << endl;
+            exit(1);
+        }
+        */
     }
+    //graph->serialize_to_file("pre-include.vg");
 
     auto include_paths = [&mapper,
                           kmer_size,
@@ -978,8 +1011,8 @@ int main_msga(int argc, char** argv) {
                 if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 //if (debug) cerr << "alignment score: " << aln.score() << endl;
-                //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
                 aln.mutable_path()->set_name(name);
+                if (debug) cerr << "alignment: " << pb2json(aln) << endl;
                 // todo simplify in the mapper itself when merging the banded bits
                 if (debug) cerr << name << ": labeling" << endl;
                 graph->include(aln.path());
