@@ -25,7 +25,8 @@ FASTAHACK_DIR:=deps/fastahack
 HTSLIB_DIR:=deps/htslib
 VCFLIB_DIR:=deps/vcflib
 XG_DIR:=deps/xg
-
+GSSW_DIR:=deps/gssw
+SPARSEHASH_DIR:=deps/sparsehash
 
 $(shell ./source_me.sh)
 
@@ -65,5 +66,21 @@ xg: sdsl-lite protobuf
 	cd $(XG_DIR) && $(MAKE) all && cp obj/xg.o $(CWD)/$(OBJ_DIR) && cp lib/libxg.a $(CWD)/$(LIB_DIR) && cp src/*.hpp $(CWD)/$(INC_DIR)
 
 vcflib:
-	cd $(VCFLIB_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
+	cd $(VCFLIB_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp src/*.h $(CWD)/$(INC_DIR)/
 
+gssw: pre
+	cd $(GSSW_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
+
+sparsehash:
+	cd $(SPARSEHASH_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
+
+pre:
+	if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
+	if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
+	if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
+	if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
+
+## TODO vg source code
+## TODO LRU_CACHE
+## TODO bash-tap
+## TODO sha1
