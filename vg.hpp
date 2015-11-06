@@ -259,6 +259,7 @@ public:
        bool target_is_chrom,
        int vars_per_region,
        int max_node_size = 0,
+       bool flat_input_vcf = false,
        bool showprog = false);
     void from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,
@@ -267,7 +268,8 @@ public:
                                 map<long, set<vcflib::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
-                                int max_node_size = 0);
+                                int max_node_size = 0,
+                                bool flat_input_vcf = false);
     void slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
                        int start_pos,
                        int stop_pos,
