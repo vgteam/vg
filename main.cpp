@@ -257,14 +257,16 @@ void help_call(char** argv) {
          << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
          << endl
          << "options:" << endl
-         << "    -d, --min_depth      minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
-         << "    -e, --max_depth      maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
-         << "    -s, --min_support    minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
-         << "    -r, --het_prior      prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
-         << "    -l, --leave_uncalled leave un-called graph regions in output" << endl
-         << "    -j, --json           output in JSON" << endl
-         << "    -p, --progress       show progress" << endl
-         << "    -t, --threads N      number of threads to use" << endl;
+         << "    -d, --min_depth         minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
+         << "    -e, --max_depth         maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
+         << "    -s, --min_support       minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
+         << "    -r, --het_prior         prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
+         << "    -q, --default_read_qual phred quality score to use if none found in the pileup (default="
+         << (int)Caller::Default_default_quality << ")" << endl
+         << "    -l, --leave_uncalled    leave un-called graph regions in output" << endl
+         << "    -j, --json              output in JSON" << endl
+         << "    -p, --progress          show progress" << endl
+         << "    -t, --threads N         number of threads to use" << endl;
 }
 
 int main_call(int argc, char** argv) {
@@ -278,6 +280,7 @@ int main_call(int argc, char** argv) {
     int min_depth = Caller::Default_min_depth;
     int max_depth = Caller::Default_max_depth;
     int min_support = Caller::Default_min_support;
+    int default_read_qual = Caller::Default_default_quality;
     bool leave_uncalled = false;
     bool output_json = false;
     bool show_progress = false;
@@ -291,6 +294,7 @@ int main_call(int argc, char** argv) {
                 {"min_depth", required_argument, 0, 'd'},
                 {"max_depth", required_argument, 0, 'e'},
                 {"min_support", required_argument, 0, 's'},
+                {"default_read_qual", required_argument, 0, 'q'},
                 {"leave_uncalled", no_argument, 0, 'l'},
                 {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
@@ -300,7 +304,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:ljpr:t:",
+        c = getopt_long (argc, argv, "d:e:s:q:ljpr:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -317,6 +321,9 @@ int main_call(int argc, char** argv) {
             break;
         case 's':
             min_support = atoi(optarg);
+            break;
+        case 'q':
+            default_read_qual = atoi(optarg);
             break;
         case 'l':
             leave_uncalled = true;
@@ -399,7 +406,7 @@ int main_call(int argc, char** argv) {
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
                   Caller::Default_min_frac, Caller::Default_min_likelihood,
-                  leave_uncalled);
+                  leave_uncalled, default_read_qual);
 
     function<void(NodePileup&)> lambda = [&caller](NodePileup& pileup) {
         caller.call_node_pileup(pileup);
