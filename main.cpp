@@ -4650,7 +4650,8 @@ void help_construct(char** argv) {
          << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
          << "                          nodes greater than this threshold will be divided" << endl
          << "    -p, --progress        show progress" << endl
-         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl;
+         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
+         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
 }
 
 int main_construct(int argc, char** argv) {
@@ -4668,6 +4669,7 @@ int main_construct(int argc, char** argv) {
     int vars_per_region = 25000;
     int max_node_size = 0;
     string ref_paths_file;
+    bool flat_alts = false;
 
     int c;
     while (true) {
@@ -4683,12 +4685,13 @@ int main_construct(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"region", required_argument, 0, 'R'},
                 {"region-is-chrom", no_argument, 0, 'C'},
-                {"node-max", required_argument, 0, 'm'},
+                {"node-max", required_argument, 0, 'm'},\
+                {"flat-alts", no_argument, 0, 'f'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:s:C",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:s:Cf",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -4732,7 +4735,11 @@ int main_construct(int argc, char** argv) {
         case 'm':
             max_node_size = atoi(optarg);
             break;
-            
+
+        case 'f':
+            flat_alts = true;
+            break;
+                        
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -4764,7 +4771,7 @@ int main_construct(int argc, char** argv) {
     // store our reference sequence paths
     Paths ref_paths;
 
-    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region, max_node_size, progress);
+    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region, max_node_size, flat_alts, progress);
 
     if (!ref_paths_file.empty()) {
         ofstream paths_out(ref_paths_file);

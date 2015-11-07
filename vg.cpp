@@ -1319,14 +1319,14 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, set<vcflib::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
-                                int max_node_size) {
+                                int max_node_size,
+                                bool flat_input_vcf) {
 
     create_progress("parsing variants", records.size());
 
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
         // decompose to alts
-        bool flat_input_vcf = false; // hack
         map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
@@ -1810,6 +1810,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
        bool target_is_chrom,
        int vars_per_region,
        int max_node_size,
+       bool flat_input_vcf,
        bool showprog) {
 
     init();
@@ -1904,7 +1905,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 
         map<long,set<vcflib::VariantAllele> > alleles;
         // decompose records int alleles with offsets against our target sequence
-        vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size);
+        vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size, flat_input_vcf);
         records.clear(); // clean up
 
         // enforce a maximum node size
