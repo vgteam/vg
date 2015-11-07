@@ -12,12 +12,12 @@ const double Caller::Log_zero = (double)-1e100;
 
 // these values pretty arbitrary at this point
 const double Caller::Default_het_prior = 0.001; // from MAQ
-const int Caller::Default_min_depth = 50;
-const int Caller::Default_max_depth = 500;
-const int Caller::Default_min_support = 25;
-const double Caller::Default_min_frac = 0.85;
+const int Caller::Default_min_depth = 20;
+const int Caller::Default_max_depth = 5000;
+const int Caller::Default_min_support = 20;
+const double Caller::Default_min_frac = 0.75;
 const double Caller::Default_min_likelihood = 1e-50;
-const char Caller::Default_default_quality = 10;
+const char Caller::Default_default_quality = 30;
 
 Caller::Caller(VG* graph,
                double het_prior,
