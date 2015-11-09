@@ -3954,15 +3954,6 @@ void VG::kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int ed
     }
 }
 
-// not quite right -- only for exact matching paths
-string VG::path_sequence(const Path& path) {
-    string sequence;
-    for (int i = 0; i < path.mapping_size(); ++i) {
-        sequence.append(node_by_id[path.mapping(i).position().node_id()]->sequence());
-    }
-    return sequence;
-}
-
 // todo record as an alignment rather than a string
 pair<string, Alignment> VG::random_read(size_t read_len,
                                         mt19937& rng,
@@ -4746,8 +4737,6 @@ Alignment& VG::align(Alignment& alignment) {
     // Put the nodes in sort order within the graph
     sort();
 
-    //serialize_to_file("pre-" + hash_alignment(alignment).substr(0,8) + "-" + hash().substr(0,8) + ".vg");
-
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(alignment);
     delete gssw_aligner;
@@ -5174,6 +5163,28 @@ int VG::path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path
     l = (*pitr).node->sequence().size() - l - 1;
 
     return l;
+}
+
+const vector<Alignment> VG::paths_as_alignments(void) {
+    vector<Alignment> alns;
+    paths.for_each([this,&alns](Path& path) {
+            alns.emplace_back();
+            auto& aln = alns.back();
+            *aln.mutable_path() = path; // copy the path
+            // now reconstruct the sequence
+            aln.set_sequence(this->path_sequence(path));
+            aln.set_name(path.name());
+        });
+    return alns;
+}
+
+const string VG::path_sequence(const Path& path) {
+    string seq;
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        auto& m = path.mapping(i);
+        seq.append(mapping_sequence(m, *get_node(m.position().node_id())));
+    }
+    return seq;
 }
 
 void VG::kmer_context(string& kmer,

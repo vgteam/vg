@@ -618,8 +618,12 @@ vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride,
     int kmer_count_f = 0;
     int kmer_count_r = 0;
 
-    while (best_f.score() == 0 && best_r.score() == 0 && attempt < max_attempts) {
+    while (!((float)best_f.score()/(float)sequence.size() > min_score_per_bp
+            || (float)best_r.score()/(float)sequence.size() > min_score_per_bp)
+           && attempt < max_attempts) {
 
+        //cerr << "min score per bp " << min_score_per_bp << " " << (float)best_f.score()/(float)sequence.size()
+        //<< " " << (float)best_r.score()/(float)sequence.size() << endl;
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             if (debug) start = std::chrono::system_clock::now();
@@ -1075,6 +1079,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             if(xindex) {
                 xindex->get_id_range(first, last, graph->graph);
                 xindex->expand_context(graph->graph, context_depth, false);
+                graph->rebuild_indexes();
             } else if(index) {
                 index->get_range(first, last, *graph);
                 index->expand_context(*graph, context_depth);
@@ -1091,6 +1096,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
 
             if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
                             << graph->edge_count() << " edges" << endl;
+            //serialize_to_file("init-" + alignment.sequence() + "-" + hash_alignment(alignment).substr(0,8) + "-" + hash().substr(0,8) + ".vg"); 
                             
             // Topologically sort the graph, breaking cycles and orienting all edges end to start.
             // This flips some nodes around, so we need to translate alignments back.

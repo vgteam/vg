@@ -924,6 +924,34 @@ bool mapping_is_simple_match(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_match(m.edit(0));
 }
 
+const string mapping_sequence(const Mapping& mp, const Node& n) {
+    assert(mp.position().node_id() == n.id());
+    auto& node_seq = n.sequence();
+    string seq;
+    // todo reverse the mapping
+    function<int64_t(int64_t)> lambda = [&node_seq](int64_t i){return node_seq.size();};
+    Mapping m = (mp.is_reverse() ? reverse_mapping(mp, lambda) : mp);
+    // then edit in the forward direction (easier)
+    // and, if the mapping is reversed, finally reverse-complement the result
+    size_t t = 0;
+    size_t f = 0;
+    for (size_t i = 0; i < m.edit_size(); ++i) {
+        auto& e = m.edit(i);
+        if (edit_is_match(e)) {
+            seq.append(node_seq.substr(f, e.from_length()));
+        } else if (edit_is_sub(e)) {
+            seq.append(e.sequence());
+        } else if (edit_is_insertion(e)) {
+            seq.append(e.sequence());
+        } else if (edit_is_deletion(e)) {
+            // no-op
+        }
+        t += e.to_length();
+        f += e.to_length();
+    }
+    return (mp.is_reverse() ? reverse_complement(seq) : seq);
+}
+
 Mapping reverse_mapping(const Mapping& m, function<int64_t(int64_t)>& node_length) {
     // Make a new reversed mapping
     Mapping reversed = m;

@@ -943,7 +943,7 @@ int main_msga(int argc, char** argv) {
             auto& name = group.first;
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
             rebuild(graph);
-            //graph->serialize_to_file("pre-" + name + "-" + iterstr + ".vg");
+            graph->serialize_to_file("pre-aln-" + name + "-" + iterstr + ".vg");
             vector<Path> paths;
             vector<Alignment> alns;
             for (auto& seq : group.second) {
@@ -965,11 +965,12 @@ int main_msga(int argc, char** argv) {
             graph->edit_both_directions(paths);
             graph->clear_paths();
             if (debug) cerr << name << ": normalizing node size" << endl;
+            graph->normalize();
             graph->dice_nodes(node_max);
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
-            //graph->serialize_to_file("post-edit-" + name + "-" + iterstr + ".vg");
+            graph->serialize_to_file("post-edit-" + name + "-" + iterstr + ".vg");
 
             // check that all is well
             rebuild(graph);
@@ -981,6 +982,7 @@ int main_msga(int argc, char** argv) {
                     if (!mapping_is_simple_match(aln.path().mapping(i))) {
                         cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
                         included = false;
+                        graph->serialize_to_file("post-fail-" + name + "-" + iterstr + ".vg");
                     }
                 }
             }
@@ -2474,6 +2476,9 @@ int main_stats(int argc, char** argv) {
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
          << "options:" << endl
+         << "  obtain paths in GAM:" << endl
+         << "    -x, --extract         return (as alignments) the stored paths in the graph" << endl
+         << "  generation:" << endl
          << "    -n, --node ID         starting at node with ID" << endl
          << "    -l, --max-length N    generate paths of at most length N" << endl
          << "    -e, --edge-max N      only consider paths which make edge choices at this many points" << endl
@@ -2491,12 +2496,14 @@ int main_paths(int argc, char** argv) {
     int edge_max = 0;
     int64_t node_id = 0;
     bool as_seqs = false;
+    bool extract = false;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
+                {"extract", no_argument, 0, 'x'},
                 {"node", required_argument, 0, 'n'},
                 {"max-length", required_argument, 0, 'l'},
                 {"edge-max", required_argument, 0, 'e'},
@@ -2505,7 +2512,7 @@ int main_paths(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hse:",
+        c = getopt_long (argc, argv, "n:l:hse:x",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -2514,6 +2521,11 @@ int main_paths(int argc, char** argv) {
  
         switch (c)
         {
+
+        case 'x':
+            extract = true;
+            break;
+
         case 'n':
             node_id = atoll(optarg);
             break;
@@ -2553,6 +2565,13 @@ int main_paths(int argc, char** argv) {
         graph = new VG(in);
     }
 
+    if (extract) {
+        vector<Alignment> alns = graph->paths_as_alignments();
+        write_alignments(cout, alns);
+        delete graph;
+        return 0;
+    }
+    
     if (max_length == 0) {
         cerr << "error:[vg paths] a --max-length is required when generating paths" << endl;
     }

@@ -10,6 +10,7 @@
 #include "vg.pb.h"
 #include "edit.hpp"
 #include "hash_map.hpp"
+#include "utility.hpp"
 
 namespace vg {
 
@@ -135,6 +136,8 @@ bool mapping_ends_in_deletion(const Mapping& m);
 bool mapping_starts_in_deletion(const Mapping& m);
 bool mapping_is_total_deletion(const Mapping& m);
 bool mapping_is_simple_match(const Mapping& m);
+// convert the mapping to the particular node into the sequence implied by the mapping
+const string mapping_sequence(const Mapping& m, const Node& n);
 // Reverse-complement a Mapping and all the Edits in it. A function to get node
 // lengths is needed, because the mapping will need to count its position from
 // the other end of the node.

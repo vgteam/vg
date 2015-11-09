@@ -540,6 +540,9 @@ public:
     // orientation, and is inclusive. Returned offset is remaining unused length
     // in the last node touched.
     int path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path_length);
+    // converts the stored paths in this graph to alignments
+    const vector<Alignment> paths_as_alignments(void);
+    const string path_sequence(const Path& path);
 
     // edges
     // If the given edge cannot be created, returns null.
@@ -686,8 +689,6 @@ public:
     void paths_between(Node* from, Node* to, vector<Path>& paths);
     void paths_between(int64_t from, int64_t to, vector<Path>& paths);
     void likelihoods(vector<Alignment>& alignments, vector<Path>& paths, vector<long double>& likelihoods);
-
-    string path_sequence(const Path& path);
 
     // traversal
     // Get the nodes attached to the left side of the given NodeTraversal, in their proper orientations.
