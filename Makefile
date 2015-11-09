@@ -14,9 +14,9 @@ CXXFLAGS:=-O0 -msse4 -fopenmp -std=c++11
 CWD:=$(shell pwd)
 
 LD_INCLUDE_FLAGS:=-I$(INC_DIR) -I. -Isrc
-LD_LIB_FLAGS:= -L$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64 #-lvg
+LD_LIB_FLAGS:= -L$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64
 
-OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/main.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o
+OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o
 
 PROTOBUF_DIR:=deps/protobuf
 SDSL_DIR:=deps/sdsl-lite
@@ -39,14 +39,14 @@ $(shell ./source_me.sh)
 all: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a
 
 
-$(BIN_DIR)/vg: deps $(OBJ)
-	$(CXX) $(CXXFLAGS) -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+$(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(OBJ) deps
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJ_DIR)/main.o $(OBJ) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(LIB_DIR)/libvg.a: $(BIN_DIR)/vg
 	ar rs $(LIB_DIR)/libvg.a
 
 
-deps: $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libgssw.a $(LIB_DIR)/libgcsa2.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/libvcflib.a sparsehash $(OBJ_DIR)/sha1.o rocksdb htslib $(LIB_DIR)/libxg.a
+deps: $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libgssw.a $(LIB_DIR)/libgcsa2.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/libvcflib.a sparsehash $(OBJ_DIR)/sha1.o rocksdb $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a
 
 $(LIB_DIR)/libprotobuf.a:
 	cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && make -j 8 && make install
@@ -60,6 +60,7 @@ $(LIB_DIR)/libsnappy.a:
 rocksdb:
 	cd $(ROCKSDB_DIR) && $(MAKE) static_lib && mv librocksdb.a $(CWD)/lib && cp -r include/* $(CWD)/$(INC_DIR)/
 
+$(INC_DIR)/gcsa.h: $(LIB_DIR)/libgcsa2.a
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a
 	cd $(GCSA2_DIR) && $(MAKE) && mv libgcsa2.a $(CWD)/$(LIB_DIR) && cp *.h* $(CWD)/$(INC_DIR)/
 	touch $(LIB_DIR)/libgcsa2.a
@@ -70,11 +71,12 @@ progress_bar:
 $(OBJ_DIR)/Fasta.o:
 	cd $(FASTAHACK_DIR) && make && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
-htslib:
+$(LIB_DIR)/libhts.a:
 	cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib/ $(CWD)/$(INC_DIR)/
+	touch $@
 
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a
-	cd $(XG_DIR) && $(MAKE) all && cp obj/xg.o $(CWD)/$(OBJ_DIR)/ && cp lib/libxg.a $(CWD)/$(LIB_DIR)/ && cp src/*.hpp $(CWD)/$(INC_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/
+	cd $(XG_DIR) && $(MAKE) all && cp obj/xg.o $(CWD)/$(OBJ_DIR)/ && cp lib/libxg.a $(CWD)/$(LIB_DIR)/ && cp src/*.hpp $(CWD)/$(INC_DIR)/ #&& cp include/* $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libvcflib.a: pre
 	cd $(VCFLIB_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/
@@ -88,6 +90,7 @@ $(INC_DIR)/lru_cache.h:
 sparsehash:
 	cd $(SPARSEHASH_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
+$(INC_DIR)/sha1.h: $(OBJ_DIR)/sha1.o
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
 
@@ -95,15 +98,18 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 ## VG source code compilation begins here
 ####################################
 
+include/stream.hpp:
+	cp stream.hpp include/
+
 $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h pre
 $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a pre
 	protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	cp $@ $(INC_DIR)
 
-$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a sparsehash $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a progress_bar
+$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a sparsehash $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a progress_bar $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/gssw_aligner.o: $(SRC_DIR)/gssw_aligner.cpp $(SRC_DIR)/gssw_aligner.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libgssw.a $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libvcflib.a
+$(OBJ_DIR)/gssw_aligner.o: $(SRC_DIR)/gssw_aligner.cpp $(SRC_DIR)/gssw_aligner.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libgssw.a $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libhts.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/index.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libgssw.a $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libsdsl.a
@@ -112,14 +118,14 @@ $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.h
 $(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libsdsl.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(LIB_DIR)/libvcflib.a $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libsdsl.a rocksdb $(CPP_DIR)/vg.pb.cc 
+$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(LIB_DIR)/libvcflib.a $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libsdsl.a rocksdb $(CPP_DIR)/vg.pb.cc $(LIB_DIR)/libxg.a $(INC_DIR)/gcsa.h $(LIB_DIR)/libhts.a $(INC_DIR)/sha1.h progress_bar $(INC_DIR)/lru_cache.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(LIB_DIR)/libprotobuf.a sparsehash
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 
-$(OBJ_DIR)/index.o: $(SRC_DIR)/index.cpp $(SRC_DIR)/index.hpp $(LIB_DIR)/libprotobuf.a sparsehash
+$(OBJ_DIR)/index.o: $(SRC_DIR)/index.cpp $(SRC_DIR)/index.hpp $(LIB_DIR)/libprotobuf.a sparsehash rocksdb $(LIB_DIR)/libxg.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/utility.o: $(SRC_DIR)/utility.cpp $(SRC_DIR)/utility.hpp $(LIB_DIR)/libprotobuf.a sparsehash
@@ -129,9 +135,9 @@ $(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(LIB_DIR)/libprotobu
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_LIB_FLAGS) -Iinclude
 
 $(OBJ_DIR)/edit.o: $(SRC_DIR)/edit.cpp $(SRC_DIR)/edit.hpp $(LIB_DIR)/libprotobuf.a
-	$(CXX) $(CXXFLAGS) -c -o edit.o edit.cpp $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(SRC_DIR)/alignment.hpp htslib $(LIB_DIR)/libprotobuf.a  sparsehash  $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp
+$(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(SRC_DIR)/alignment.hpp $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a  sparsehash  $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_INCLUDE_FLAGS)
 
 
