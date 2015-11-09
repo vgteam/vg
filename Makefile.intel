@@ -33,6 +33,11 @@ ROCKSDB_PORTABLE:=
 
 ## Copy all deps into this dir once built
 DEP_DIR:=./deps
+SRC_DIR:=src
+BIN_DIR:=bin
+OBJ_DIR:=obj
+LIB_DIR:=lib
+INC_DIR:=include
 
 ## Test dir
 TEST_DIR:=test
@@ -57,11 +62,13 @@ LIB_SDSLLITE:=build/include/sdsl
 LIB_FASTAHACK:=
 
 ## Vars for Executable files
-VG_EXE:=vg
+EXE:=vg
 ## Linker flags
-#INCLUDES:= -I./ -I$(PROTOBUF_OUT_DIR) -I$(VCFLIB_DIR) -I$(FASTAHACK_DIR) -I$(GSSW_DIR)/src -I$(PROTOBUF_DIR)/build/include -I$(ROCKS_DIR)/include -I$(LRU_CACHE_DIR) -I$(SHA1_DIR) -I$(XG_DIR) -I$(SDSL_DIR)/install/include -I$(GCSA_DIR) -I$(HTSLIB_DIR)
-LD_FLAGS:= -L./ -Lvcflib -Lgssw/src -Lprotobuf -Lsnappy -Lrocksdb -Lprogressbar -Lhtslib -Lgcsa2 -Lsdsl-lite/install/lib -Lxg -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64 -lvg
-LIBS:= -L/deps/
+#LD_INCLUDE_FLAGS:= -I./ -I$(PROTOBUF_OUT_DIR) -I$(VCFLIB_DIR) -I$(FASTAHACK_DIR) -I$(GSSW_DIR)/src -I$(PROTOBUF_DIR)/build/include -I$(ROCKS_DIR)/include -I$(LRU_CACHE_DIR) -I$(SHA1_DIR) -I$(XG_DIR) -I$(SDSL_DIR)/install/include -I$(GCSA_DIR) -I$(HTSLIB_DIR)
+LD_INCLUDE_FLAGS:=-I$(INC_DIR)
+LD_LIB_FLAGS:= -L$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64 -lvg
+
+OBJ:=gssw_aligner.o vg.o cpp/vg.pb.o main.o index.o mapper.o region.o progress_bar/progress_bar.o vg_set.o utility.o path.o alignment.o edit.o sha1/sha1.o json2pb.o entropy.o pileup.o caller.o
 
 ## Switch for building on OS X
 SYS=$(shell uname -s)
@@ -73,30 +80,22 @@ SYS=$(shell uname -s)
 
 all: vg libvg.a
 
-echo:
-	@echo $(VG_SRC)
 
-download-latest:
-	@echo "Not yet implemented"
-
-test: vg $(VG_DIR)/libvg.a build_graph
+test: vg $(LIB_DIR)/libvg.a build_graph
 	cd $(TEST_DIR) && $(MAKE)
 
-build_graph: $(TEST_DIR)/build_graph.cpp $(VG_DIR)/libvg.a
-	cd $(TEST_DIR) && $(CXX) $(CXXFLAGS) build_graph.cpp $(INCLUDES) -lvg $(LDFLAGS) -o $(TEST_DIR)/build_graph
+build_graph: $(TEST_DIR)/build_graph.cpp $(LIB_DIR)/libvg.a
+	cd $(TEST_DIR) && $(CXX) $(CXXFLAGS) build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LDFLAGS) -o $(TEST_DIR)/build_graph
 
 ## Install fresh jq and link into path
 ## try ports for other dependencies
 get-deps-mac:
-	sudo port install bison bzip2 zlibc protobufcompiler
+	sudo port install bison bzip2 zlibc protobufcompiler cmake gcc4.9
 
 get-deps:
 	sudo apt-get install -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev libtool curl unzip cmake pkg-config wget bc
 
 deps: $(LIB_ROCKS) $(LIB_SNAPPY) $(LIB_GCSA) $(LIB_SDSLLITE) $(LIB_XG) $(LIB_HTSLIB)
-	if [ ! -d $(DEP_DIR) ]; then mkdir $(DEP_DIR); fi
-	if [ ! -d $(BIN_DIR) ]; then mkdir $(BIN_DIR); fi
-	if [ ! -f $(LIB_DIR) ]; then mkdir $(LIB_DIR); fi
 	mv $(VCFLIB_DIR)/$(LIB_VCFLIB) $(DEP_DIR)
 	mv $(SPARSEHASH_DIR)/$(LIB_SPARSEHASH) $(DEP_DIR)
 	mv $(HTSLIB_DIR)/$(LIB_HTSLIB) $(DEP_DIR)
@@ -107,8 +106,8 @@ deps: $(LIB_ROCKS) $(LIB_SNAPPY) $(LIB_GCSA) $(LIB_SDSLLITE) $(LIB_XG) $(LIB_HTS
 $(LIB_HTSLIB):
 	cd $(HTSLIB_DIR) && $(MAKE) lib-static
 
-$(LIB_PROTOBUF): $(PROTOBUF_DIR)/src/google/protobuf/*cc $(PROTOBUF_DIR)/src/google/protobuf/*h
-	cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix=`pwd` && $(MAKE) && $(MAKE) install
+protobuf:
+	c_dir="`pwd`" && cd deps/$(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix=`${c_dir}` && $(MAKE) && $(MAKE) install
 	
 
 $(LIB_ROCKS): $(ROCKS_DIR)/include/rocksdb/*.h $(ROCKS_DIR)/db/*.c $(ROCKS_DIR)/db/*.cc $(ROCKS_DIR)/db/*.h
@@ -118,14 +117,9 @@ $(LIB_XG): $(LIB_SDSLLITE) $(LIB_PROTOBUF) $(PROTO_OUT_DIR)/vg.pb.h
 	cd $(XG_DIR) && $(CXX) $(CXXFLAGS) -I$(PROTO_OUT_DIR) -c -o xg.o xg.cpp 
 	ar rs $(LIB_XG) xg.o
 
-#$(XG_DIR)/xg.o: $(XG_DIR)/xg.cpp $(XG_DIR)/xg.hpp $(LIBSDSL) $(VG_DIR)/cpp/vg.pb.h
-#	cd $(XG_DIR) && $(CXX) $(CXXFLAGS) -c -o xg.o xg.cpp $(INCLUDES)
-
 $(LIB_SNAPPY): $(SNAPPY_DIR)/*cc $(SNAPPY_DIR)/*h
 	cd $(SNAPPY_DIR) && ./autogen.sh && ./configure --prefix=`pwd` && $(MAKE) && $(MAKE) install
 
-##$(GCSA_DIR)/*.cpp $(GCSA_DIR)/*.h
-## $(SDSL_DIR)/lib/*.cpp $(SDSL_DIR)/include/*.hpp
 $(LIB_SDSLLITE): 
 	cd $(SDSL_DIR) && ./install.sh `pwd`
 	touch $(SDSL_DIR)/$(LIB_SDSLLITE)
@@ -137,7 +131,6 @@ $(LIB_GCSA): $(LIB_SDSLLITE)
 $(LIB_FASTAHACK): fastahack/Fasta.h fastahack/Fasta.cpp
 	cd $(FASTAHACK_DIR) && $(MAKE)
 
-#progress_bar/progress_bar.cpp progress_bar/progress_bar.hpp
 $(PROGRESS_BAR_DIR)/progress_bar.o: 
 	cd $(PROGRESS_BAR_DIR) && $(MAKE)
 
@@ -146,65 +139,60 @@ $(PROTO_OUT_DIR)/vg.pb.h: $(LIB_PROTOBUF)
 	mkdir -p cpp
 	$(PROTOBUF_DIR)/bin/protoc $(VG_DIR)/vg.proto --cpp_out=cpp
 
-
-
-
-
-
 vg.o: $(PROTO_OUT_DIR)/vg.pb.h $(LIB_VCFLIB) $(FASTAHACK_DIR)/Fasta.o $(LIB_GSSW) $(LIB_SPARSEHASH) $(LRU_CACHE_DIR)/lru_cache.h stream.hpp $(LIB_PROTOBUF) $(LIB_SDSLLITE)
-	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o vg.o vg.cpp $(LD_INCLUDE_FLAGS)
 
 gssw_aligner.o: gssw_aligner.cpp gssw_aligner.hpp cpp/vg.pb.h $(LIB_GSSW) $(LIB_PROTOBUF) $(LIB_SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o gssw_aligner.o gssw_aligner.cpp $(LD_INCLUDE_FLAGS)
 
 vg_set.o: vg_set.cpp vg_set.hpp vg.hpp index.hpp cpp/vg.pb.h $(LIBGSSW) $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
-	$(CXX) $(CXXFLAGS) -c -o vg_set.o vg_set.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o vg_set.o vg_set.cpp $(LD_INCLUDE_FLAGS)
 
 mapper.o: mapper.cpp mapper.hpp cpp/vg.pb.h $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
-	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o mapper.o mapper.cpp $(LD_INCLUDE_FLAGS)
 
 main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBPROTOBUF) $(SPARSEHASH) $(SDSLLITE)
-	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o main.o main.cpp $(LD_INCLUDE_FLAGS)
 
 region.o: region.cpp region.hpp $(LIBPROTOBUF) $(SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o region.o region.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o region.o region.cpp $(LD_INCLUDE_FLAGS)
 
 index.o: index.cpp index.hpp $(LIBPROTOBUF) $(SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(LD_INCLUDE_FLAGS)
 
 utility.o: utility.cpp utility.hpp $(LIBPROTOBUF) $(SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o utility.o utility.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o utility.o utility.cpp $(LD_INCLUDE_FLAGS)
 
 path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o path.o path.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o path.o path.cpp $(LD_INCLUDE_FLAGS)
 
 edit.o: edit.cpp edit.hpp $(LIBPROTOBUF)
-	$(CXX) $(CXXFLAGS) -c -o edit.o edit.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o edit.o edit.cpp $(LD_INCLUDE_FLAGS)
 
 alignment.o: alignment.cpp alignment.hpp $(LIBHTS)  $(LIBPROTOBUF) $(SPARSEHASH) edit.hpp edit.cpp
-	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o alignment.o alignment.cpp $(LD_INCLUDE_FLAGS)
 
 sha1/sha1.o: sha1/sha1.cpp sha1/sha1.hpp
-	$(CXX) $(CXXFLAGS) -c -o sha1/sha1.o sha1/sha1.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o sha1/sha1.o sha1/sha1.cpp $(LD_INCLUDE_FLAGS)
 
 json2pb.o: json2pb.cpp json2pb.h bin2ascii.h $(LIBPROTOBUF)
-	$(CXX) $(CXXFLAGS) -c -o json2pb.o json2pb.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o json2pb.o json2pb.cpp $(LD_INCLUDE_FLAGS)
 
 entropy.o: entropy.cpp entropy.hpp
-	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o entropy.o entropy.cpp $(LD_INCLUDE_FLAGS)
 
 pileup.o: pileup.cpp pileup.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h $(LIBPROTOBUF) $(SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o pileup.o pileup.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o pileup.o pileup.cpp $(LD_INCLUDE_FLAGS)
 
 caller.o: caller.cpp caller.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h pileup.hpp $(LIBPROTOBUF) $(SPARSEHASH)
-	$(CXX) $(CXXFLAGS) -c -o caller.o caller.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) -c -o caller.o caller.cpp $(LD_INCLUDE_FLAGS)
 
 
 
 
 
 vg: deps
-	cd $(VG_DIR) && $(CXX) $(CXXFLAGS) -o $(VG_EXE) $(INCLUDES) $(LIBS) $(STATIC_FLAGS) && mv $(VG_EXE) ../
+	cd $(VG_DIR) && $(CXX) $(CXXFLAGS) -o $(VG_EXE) $(LD_INCLUDE_FLAGS) $(LIBS) $(STATIC_FLAGS) && mv $(VG_EXE) ../
 
 
 clean:
@@ -216,6 +204,12 @@ clean:
 	cd $(SPARSEHASH_DIR) && $(MAKE) clean
 	cd $(ROCKS_DIR) && $(MAKE) clean
 	cd $(SDSL_DIR) && ./uninstall.sh `pwd`
+
+pre:
+	mkdir -p $(BIN_DIR)
+	mkdir -p $(LIB_DIR)
+	mkdir -p $(OBJ_DIR)
+	mkdir -p $(INC_DIR)
 
 clobber-vg:
 	$(RM) $(VG_OBJ)	
