@@ -2834,12 +2834,23 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 #endif
             
             string path_name = paths.mapping_path_name(m);
-            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, left, right);
+            // TODO: this only preserves perfect match paths.
+            // TODO: warn if that precondition is violated
+            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, node, left, right);
             // with the mapping divided, insert the pieces where the old one was
             auto mpit = paths.remove_mapping(m);
-            // insert right then left (insert puts *before* the iterator)
-            mpit = paths.insert_mapping(mpit, path_name, r);
-            mpit = paths.insert_mapping(mpit, path_name, l);
+            if(m->is_reverse()) {
+                // insert left then right in the path, snce we're going through
+                // this node backward (insert puts *before* the iterator)
+                mpit = paths.insert_mapping(mpit, path_name, l);
+                mpit = paths.insert_mapping(mpit, path_name, r);
+            } else {
+                // insert right then left (insert puts *before* the iterator)
+                mpit = paths.insert_mapping(mpit, path_name, r);
+                mpit = paths.insert_mapping(mpit, path_name, l);
+            }
+                
+            
 
 #ifdef debug
 #pragma omp critical (cerr)
