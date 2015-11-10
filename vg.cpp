@@ -1385,6 +1385,9 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
 }
 
 void VG::dice_nodes(int max_node_size) {
+    // We're going to chop up everything, so clear out the path ranks.
+    paths.clear_node_ranks();
+
     if (max_node_size) {
         vector<Node*> nodes; nodes.reserve(size());
         for_each_node(
@@ -1418,6 +1421,9 @@ void VG::dice_nodes(int max_node_size) {
             lambda(nodes[i]);
         }
     }
+    
+    // Set the ranks again
+    paths.rebuild_mapping_aux();
 }
 
 /*
@@ -2752,6 +2758,7 @@ void VG::keep_path(string& path_name) {
     keep_paths(s, k);
 }
 
+
 // utilities
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
@@ -2820,13 +2827,36 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         }
         for (auto m : to_divide) {
             // we have to divide the mapping
+            
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << omp_get_thread_num() << ": dividing mapping " << pb2json(*m) << endl;
+#endif
+            
             string path_name = paths.mapping_path_name(m);
-            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, left, right);
+            // TODO: this only preserves perfect match paths.
+            // TODO: warn if that precondition is violated
+            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, node, left, right);
             // with the mapping divided, insert the pieces where the old one was
             auto mpit = paths.remove_mapping(m);
-            // insert right then left (insert puts *before* the iterator)
-            mpit = paths.insert_mapping(mpit, path_name, r);
-            mpit = paths.insert_mapping(mpit, path_name, l);
+            if(m->is_reverse()) {
+                // insert left then right in the path, snce we're going through
+                // this node backward (insert puts *before* the iterator)
+                mpit = paths.insert_mapping(mpit, path_name, l);
+                mpit = paths.insert_mapping(mpit, path_name, r);
+            } else {
+                // insert right then left (insert puts *before* the iterator)
+                mpit = paths.insert_mapping(mpit, path_name, r);
+                mpit = paths.insert_mapping(mpit, path_name, l);
+            }
+                
+            
+
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << omp_get_thread_num() << ": produced mappings " << pb2json(l) << " and " << pb2json(r) << endl;
+#endif
+            
         }
     }
 
@@ -3241,6 +3271,7 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 // Mappings are provided as a tuple of <offset, mapping, start/end indicator>, where the
 // start/end indicator lets us know if the mapping may contain a soft clip from the start (-1) or
 // end (1) of a path. (0) indicates full containment of the mapping in the path we are including.
+// Noet that the caller will have to clear and regenerate the path ranks.
 
 void VG::edit_node(int64_t node_id,
                    const vector<tuple<Mapping, bool, bool> >& mappings,
@@ -3694,13 +3725,13 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
     remove_null_nodes_forwarding_edges();
 }
 
-void VG::edit_both_directions(const vector<Path>& paths) {
+void VG::edit_both_directions(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<int64_t, set<int64_t>> breakpoints;
     
     std::vector<Path> simplified_paths;
     
-    for(auto path : paths) {
+    for(auto path : paths_to_add) {
         // Simplify the path, just to eliminate adjacent match Edits in the same
         // Mapping (because we don't have or want a breakpoint there)
         simplified_paths.push_back(simplify(path));
@@ -3711,14 +3742,25 @@ void VG::edit_both_directions(const vector<Path>& paths) {
         find_breakpoints(path, breakpoints);
     }
     
+    // Clear existing path ranks.
+    paths.clear_node_ranks();
+    
     // Break any nodes that need to be broken. Save the map we need to translate
-    // from offsets on old nodes to new nodes.
+    // from offsets on old nodes to new nodes. Note that this would mess up the
+    // ranks of nodes in their existing paths, which is why we clear and rebuild
+    // them.
     auto node_translation = ensure_breakpoints(breakpoints);
     
     for(auto path : simplified_paths) {
-        // Now go through each path again, and create new nodes/wire things up.
+        // Now go through each new path again, and create new nodes/wire things up.
         add_nodes_and_edges(path, node_translation);
     }
+    
+    // TODO: add the new path to the graph, with perfect match mappings to all
+    // the new and old stuff it visits.
+    
+    // Rebuild path ranks
+    paths.rebuild_mapping_aux();
     
 }
 

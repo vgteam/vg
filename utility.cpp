@@ -186,11 +186,53 @@ string cigar_string(vector<pair<int, char> >& cigar) {
 }
 
 // todo, make a version that works for non-invariants
-void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* nl, Node* nr) {
+void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* n, Node* nl, Node* nr) {
     // an invariant mapping is, by definition, without any edits
-    //assert(orig.edit_size() == 0);
-    left.mutable_position()->set_node_id(nl->id());
-    right.mutable_position()->set_node_id(nr->id());
+    assert(orig.edit_size() == 0);
+    
+    
+    // Things to consider: This mapping might not take up the whole node
+    // (because it can start early via the offset). This mapping might go in
+    // reverse (in which case, in the output path, the right mapping will get
+    // put before the left mapping.)
+    
+    if(orig.is_reverse()) {
+        // The mapping is reverse
+        
+        // We can't correctly split the mapping if none of it lands in the right
+        // node.
+        assert(orig.position().offset() >= nl->sequence().size());
+        
+        // Work out the distance from the right end of the original node. Count
+        // the very last base as 0.
+        int64_t right_distance = n->sequence().size() - orig.position().offset() - 1;
+        
+        // The left mapping will start at the very end of the left
+        // node, and be reverse.
+        left.mutable_position()->set_node_id(nl->id());
+        left.mutable_position()->set_offset(nl->sequence().size() - 1);
+        left.set_is_reverse(true);
+        
+        // The right mapping will start the correct distance from its right end,
+        // and be reverse.
+        right.mutable_position()->set_node_id(nr->id());
+        right.mutable_position()->set_offset(nr->sequence().size() - right_distance - 1);
+        right.set_is_reverse(true);
+    } else {
+        // The mapping is forward.
+        
+        // We can't correctly split the mapping if none of it lands in the left
+        // node.
+        assert(orig.position().offset() < nl->sequence().size());
+        
+        // The left mapping will start where this mapping started, in the left
+        // node.
+        left.mutable_position()->set_node_id(nl->id());
+        left.mutable_position()->set_offset(orig.position().offset());
+        
+        // The right mapping will start at 0
+        right.mutable_position()->set_node_id(nr->id());
+    }
 }
 
 

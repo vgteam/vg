@@ -1,0 +1,35 @@
+{
+    "node": [
+        {"id": 24, "sequence": "GATTACA"},
+        {"id": 25, "sequence": "CATTAG"}
+    ],
+    "edge": [
+        {
+            "from": 24,
+            "to": 25
+        }
+    ],
+    "path": [
+        {
+            "name": "GI262359905",
+            "mapping": [
+                {
+                    "rank": 1,
+                    "position": {
+                        "node_id": 25,
+                        "offset": 5
+                    },
+                    "is_reverse": true
+                },
+                {
+                    "rank": 2,
+                    "position": {
+                        "node_id": 24,
+                        "offset": 6
+                    },
+                    "is_reverse": true
+                }
+            ]
+        }
+    ]
+}
