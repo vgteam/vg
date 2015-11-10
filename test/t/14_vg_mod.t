@@ -7,7 +7,7 @@ PATH=..:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 17
+plan tests 18
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -51,6 +51,8 @@ is $(vg view -v graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut
 is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^P |wc -l) \
    $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - | grep ^S |wc -l) \
    "vg mod removes non-path nodes and edge"
+
+is "$(vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate - && echo 'Graph is valid')" "Graph is valid" "chopping a graph works correctly with reverse mappings"
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) 9684fb6d14ffe5cb8e21cc11abbf04d0 "unchop correctly handles a graph with an inversion"
 

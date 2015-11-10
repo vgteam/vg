@@ -413,8 +413,8 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
                 // If it's actually on a node, get the node's sequence length
                 int64_t node_length = get_node_length(node_id);
                 
-                // Make sure the mapping is short enough
-                assert(node_length <= mapping_from_length(mapping));
+                // Make sure the mapping from length is shorter than the node length
+                assert(node_length >= mapping_from_length(mapping));
             }
         }
     }

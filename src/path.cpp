@@ -920,6 +920,10 @@ bool mapping_is_total_deletion(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_deletion(m.edit(0));
 }
 
+bool mapping_is_simple_match(const Mapping& m) {
+    return m.edit_size() == 1 && edit_is_match(m.edit(0));
+}
+
 Mapping reverse_mapping(const Mapping& m, function<int64_t(int64_t)>& node_length) {
     // Make a new reversed mapping
     Mapping reversed = m;

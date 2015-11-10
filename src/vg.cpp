@@ -1157,6 +1157,12 @@ void VG::combine(VG& g) {
 }
 
 void VG::include(const Path& path) {
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        if (!mapping_is_simple_match(path.mapping(i))) {
+            cerr << "mapping " << pb2json(path.mapping(i)) << " cannot be included in the graph because it is not a simple match" << endl;
+            //exit(1);
+        }
+    }
     paths.extend(path);
 }
 
@@ -1313,14 +1319,14 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, set<vcflib::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
-                                int max_node_size) {
+                                int max_node_size,
+                                bool flat_input_vcf) {
 
     create_progress("parsing variants", records.size());
 
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
         // decompose to alts
-        bool flat_input_vcf = false; // hack
         map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
@@ -1379,6 +1385,9 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
 }
 
 void VG::dice_nodes(int max_node_size) {
+    // We're going to chop up everything, so clear out the path ranks.
+    paths.clear_node_ranks();
+
     if (max_node_size) {
         vector<Node*> nodes; nodes.reserve(size());
         for_each_node(
@@ -1412,6 +1421,9 @@ void VG::dice_nodes(int max_node_size) {
             lambda(nodes[i]);
         }
     }
+    
+    // Set the ranks again
+    paths.rebuild_mapping_aux();
 }
 
 /*
@@ -1804,6 +1816,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
        bool target_is_chrom,
        int vars_per_region,
        int max_node_size,
+       bool flat_input_vcf,
        bool showprog) {
 
     init();
@@ -1898,7 +1911,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 
         map<long,set<vcflib::VariantAllele> > alleles;
         // decompose records int alleles with offsets against our target sequence
-        vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size);
+        vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size, flat_input_vcf);
         records.clear(); // clean up
 
         // enforce a maximum node size
@@ -2745,6 +2758,7 @@ void VG::keep_path(string& path_name) {
     keep_paths(s, k);
 }
 
+
 // utilities
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
@@ -2813,13 +2827,36 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         }
         for (auto m : to_divide) {
             // we have to divide the mapping
+            
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << omp_get_thread_num() << ": dividing mapping " << pb2json(*m) << endl;
+#endif
+            
             string path_name = paths.mapping_path_name(m);
-            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, left, right);
+            // TODO: this only preserves perfect match paths.
+            // TODO: warn if that precondition is violated
+            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, node, left, right);
             // with the mapping divided, insert the pieces where the old one was
             auto mpit = paths.remove_mapping(m);
-            // insert right then left (insert puts *before* the iterator)
-            mpit = paths.insert_mapping(mpit, path_name, r);
-            mpit = paths.insert_mapping(mpit, path_name, l);
+            if(m->is_reverse()) {
+                // insert left then right in the path, snce we're going through
+                // this node backward (insert puts *before* the iterator)
+                mpit = paths.insert_mapping(mpit, path_name, l);
+                mpit = paths.insert_mapping(mpit, path_name, r);
+            } else {
+                // insert right then left (insert puts *before* the iterator)
+                mpit = paths.insert_mapping(mpit, path_name, r);
+                mpit = paths.insert_mapping(mpit, path_name, l);
+            }
+                
+            
+
+#ifdef debug
+#pragma omp critical (cerr)
+            cerr << omp_get_thread_num() << ": produced mappings " << pb2json(l) << " and " << pb2json(r) << endl;
+#endif
+            
         }
     }
 
@@ -3234,6 +3271,7 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 // Mappings are provided as a tuple of <offset, mapping, start/end indicator>, where the
 // start/end indicator lets us know if the mapping may contain a soft clip from the start (-1) or
 // end (1) of a path. (0) indicates full containment of the mapping in the path we are including.
+// Noet that the caller will have to clear and regenerate the path ranks.
 
 void VG::edit_node(int64_t node_id,
                    const vector<tuple<Mapping, bool, bool> >& mappings,
@@ -3687,13 +3725,13 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
     remove_null_nodes_forwarding_edges();
 }
 
-void VG::edit_both_directions(const vector<Path>& paths) {
+void VG::edit_both_directions(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<int64_t, set<int64_t>> breakpoints;
     
     std::vector<Path> simplified_paths;
     
-    for(auto path : paths) {
+    for(auto path : paths_to_add) {
         // Simplify the path, just to eliminate adjacent match Edits in the same
         // Mapping (because we don't have or want a breakpoint there)
         simplified_paths.push_back(simplify(path));
@@ -3704,14 +3742,25 @@ void VG::edit_both_directions(const vector<Path>& paths) {
         find_breakpoints(path, breakpoints);
     }
     
+    // Clear existing path ranks.
+    paths.clear_node_ranks();
+    
     // Break any nodes that need to be broken. Save the map we need to translate
-    // from offsets on old nodes to new nodes.
+    // from offsets on old nodes to new nodes. Note that this would mess up the
+    // ranks of nodes in their existing paths, which is why we clear and rebuild
+    // them.
     auto node_translation = ensure_breakpoints(breakpoints);
     
     for(auto path : simplified_paths) {
-        // Now go through each path again, and create new nodes/wire things up.
+        // Now go through each new path again, and create new nodes/wire things up.
         add_nodes_and_edges(path, node_translation);
     }
+    
+    // TODO: add the new path to the graph, with perfect match mappings to all
+    // the new and old stuff it visits.
+    
+    // Rebuild path ranks
+    paths.rebuild_mapping_aux();
     
 }
 
@@ -4396,30 +4445,19 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             const Mapping& m = aln.path().mapping(i);
             //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
             //string cigar_string(vector<pair<int, char> >& cigar);
-            vector<pair<int, char> > cigar;
-            mapping_cigar(m, cigar);
             stringstream mapid;
-            const string& nodestr = get_node(m.position().node_id())->sequence();
-            string mstr = mapping_string(nodestr, m);
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
-            mapid << cigar_string(cigar) << ":"
-                  << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
-                  << mstr;
+            //mapid << cigar_string(cigar) << ":"
+            //      << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
+            mapid << pb2json(m);
+            string mstr = mapid.str();
+            mstr.erase(std::remove_if(mstr.begin(), mstr.end(), [](char c) { return c == '"'; }), mstr.end());
+            mstr = wrap_text(mstr, 50);
             // determine sequence of this portion of the alignment
             // set color based on cigar/mapping relationship
-            string nstr;
-            if (i == 0) {
-                nstr = nodestr.substr(m.position().offset());
-            } else if (i == aln.path().mapping_size()-1) {
-                nstr = nodestr.substr(0, mapping_from_length(m));
-            } else {
-                nstr = nodestr;
-            }
-            string color = "blue";
-            if (mstr != nstr) { // some mismatch, indicate with orange color
-                color = "orange";
-            }
-            out << "    " << alnid << " [label=\"" << mapid.str() << "\",fontcolor=" << color << "];" << endl;
+            // some mismatch, indicate with orange color
+            string color = mapping_is_simple_match(m) ? "blue" : "orange";
+            out << "    " << alnid << " [label=\"" << mstr << "\",fontcolor=" << color << ",fontsize=10];" << endl;
             if (i > 0) {
                 out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
             }
@@ -4751,6 +4789,8 @@ Alignment& VG::align(Alignment& alignment) {
     // Put the nodes in sort order within the graph
     sort();
 
+    //serialize_to_file("pre-" + hash_alignment(alignment).substr(0,8) + "-" + hash().substr(0,8) + ".vg");
+
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(alignment);
     delete gssw_aligner;
@@ -4770,6 +4810,12 @@ Alignment VG::align(const string& sequence) {
     Alignment alignment;
     alignment.set_sequence(sequence);
     return align(alignment);
+}
+
+const string VG::hash(void) {
+    stringstream s;
+    serialize_to_ostream(s);
+    return sha1sum(s.str());
 }
 
 void VG::for_each_kmer_parallel(int kmer_size,

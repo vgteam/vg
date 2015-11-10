@@ -13,8 +13,8 @@ CXXFLAGS:=-O0 -msse4 -fopenmp -std=c++11
 
 CWD:=$(shell pwd)
 
-LD_INCLUDE_FLAGS:=-I$(INC_DIR) -I. -Isrc
-LD_LIB_FLAGS:= -L$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64
+LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/src
+LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64
 
 OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o
 
@@ -32,21 +32,25 @@ GSSW_DIR:=deps/gssw
 SPARSEHASH_DIR:=deps/sparsehash
 SHA1_DIR:=deps/sha1
 
-$(shell ./source_me.sh)
 
-.PHONY: clean get-deps set-path
+.PHONY: clean get-deps test set-path
 
 all: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a
-
+	$(shell ./source_me.sh)
 
 $(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(OBJ) deps
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJ_DIR)/main.o $(OBJ) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(LIB_DIR)/libvg.a: $(BIN_DIR)/vg
-	ar rs $(LIB_DIR)/libvg.a
+	ar rs $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(OBJ)
 
+test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph
+	cd test && $(MAKE)
 
-deps: $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libgssw.a $(LIB_DIR)/libgcsa2.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/libvcflib.a sparsehash $(OBJ_DIR)/sha1.o rocksdb $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a
+test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
+	$(CXX) $(CXXFLAGS) test/build_graph.cpp $(LD_INCLUDE_FLAGS) -I$(CWD)/cpp $(LD_LIB_FLAGS) -lvg -lrt -o test/build_graph
+
+deps: $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libgssw.a $(LIB_DIR)/libgcsa2.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/libvcflib.a $(INC_DIR)/sparsehash/sparse_hash_map $(OBJ_DIR)/sha1.o $(LIB_DIR)/librocksdb.a $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a
 
 $(LIB_DIR)/libprotobuf.a:
 	cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && make -j 8 && make install
@@ -57,7 +61,7 @@ $(LIB_DIR)/libsdsl.a:
 $(LIB_DIR)/libsnappy.a:
 	cd $(SNAPPY_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
-rocksdb:
+$(LIB_DIR)/librocksdb.a:
 	cd $(ROCKSDB_DIR) && $(MAKE) static_lib && mv librocksdb.a $(CWD)/lib && cp -r include/* $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/gcsa.h: $(LIB_DIR)/libgcsa2.a
@@ -65,7 +69,7 @@ $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a
 	cd $(GCSA2_DIR) && $(MAKE) && mv libgcsa2.a $(CWD)/$(LIB_DIR) && cp *.h* $(CWD)/$(INC_DIR)/
 	touch $(LIB_DIR)/libgcsa2.a
 
-progress_bar:
+$(OBJ_DIR)/progress_bar.o:
 	cd $(PROGRESS_BAR_DIR) && $(MAKE) && cp progress_bar.o $(CWD)/$(OBJ_DIR) && cp *.h* $(CWD)/$(INC_DIR)
 
 $(OBJ_DIR)/Fasta.o:
@@ -80,6 +84,7 @@ $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a
 
 $(LIB_DIR)/libvcflib.a: pre
 	cd $(VCFLIB_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/
+	touch $(LIB_DIR)/libvcflib.a
 
 $(LIB_DIR)/libgssw.a: pre
 	cd $(GSSW_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
@@ -87,7 +92,7 @@ $(LIB_DIR)/libgssw.a: pre
 $(INC_DIR)/lru_cache.h:
 	cd $(DEP_DIR)/lru_cache && $(MAKE) && cp *.h* $(CWD)/$(INC_DIR)/
 
-sparsehash:
+$(INC_DIR)/sparsehash/sparse_hash_map:
 	cd $(SPARSEHASH_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
 $(INC_DIR)/sha1.h: $(OBJ_DIR)/sha1.o
@@ -106,38 +111,38 @@ $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a pre
 	protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	cp $@ $(INC_DIR)
 
-$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a sparsehash $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a progress_bar $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.h
+$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/sparsehash/sparse_hash_map $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(OBJ_DIR)/progress_bar.o $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/gssw_aligner.o: $(SRC_DIR)/gssw_aligner.cpp $(SRC_DIR)/gssw_aligner.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libgssw.a $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libhts.a
+$(OBJ_DIR)/gssw_aligner.o: $(SRC_DIR)/gssw_aligner.cpp $(SRC_DIR)/gssw_aligner.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libgssw.a $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libhts.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/index.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libgssw.a $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libsdsl.a
+$(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/index.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libgssw.a $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libxg.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libsdsl.a
+$(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libxg.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(LIB_DIR)/libvcflib.a $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a sparsehash $(LIB_DIR)/libsdsl.a rocksdb $(CPP_DIR)/vg.pb.cc $(LIB_DIR)/libxg.a $(INC_DIR)/gcsa.h $(LIB_DIR)/libhts.a $(INC_DIR)/sha1.h progress_bar $(INC_DIR)/lru_cache.h
+$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(LIB_DIR)/libvcflib.a $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libsdsl.a $(LIB_DIR)/librocksdb.a $(CPP_DIR)/vg.pb.cc $(LIB_DIR)/libxg.a $(INC_DIR)/gcsa.h $(LIB_DIR)/libhts.a $(INC_DIR)/sha1.h $(OBJ_DIR)/progress_bar.o $(INC_DIR)/lru_cache.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(LIB_DIR)/libprotobuf.a sparsehash
+$(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 
-$(OBJ_DIR)/index.o: $(SRC_DIR)/index.cpp $(SRC_DIR)/index.hpp $(LIB_DIR)/libprotobuf.a sparsehash rocksdb $(LIB_DIR)/libxg.a
+$(OBJ_DIR)/index.o: $(SRC_DIR)/index.cpp $(SRC_DIR)/index.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/librocksdb.a $(LIB_DIR)/libxg.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/utility.o: $(SRC_DIR)/utility.cpp $(SRC_DIR)/utility.hpp $(LIB_DIR)/libprotobuf.a sparsehash
+$(OBJ_DIR)/utility.o: $(SRC_DIR)/utility.cpp $(SRC_DIR)/utility.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(LIB_DIR)/libprotobuf.a sparsehash
+$(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_LIB_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/edit.o: $(SRC_DIR)/edit.cpp $(SRC_DIR)/edit.hpp $(LIB_DIR)/libprotobuf.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(SRC_DIR)/alignment.hpp $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a  sparsehash  $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp
+$(OBJ_DIR)/alignment.o: $(SRC_DIR)/alignment.cpp $(SRC_DIR)/alignment.hpp $(LIB_DIR)/libhts.a $(LIB_DIR)/libprotobuf.a  $(INC_DIR)/sparsehash/sparse_hash_map  $(SRC_DIR)/edit.hpp $(SRC_DIR)/edit.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_INCLUDE_FLAGS)
 
 
@@ -147,10 +152,10 @@ $(OBJ_DIR)/json2pb.o: $(SRC_DIR)/json2pb.cpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/bin
 $(OBJ_DIR)/entropy.o: $(SRC_DIR)/entropy.cpp $(SRC_DIR)/entropy.hpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/pileup.o: $(SRC_DIR)/pileup.cpp $(SRC_DIR)/pileup.hpp $(CPP_DIR)/vg.pb.h $(INC_DIR)/stream.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a sparsehash
+$(OBJ_DIR)/pileup.o: $(SRC_DIR)/pileup.cpp $(SRC_DIR)/pileup.hpp $(CPP_DIR)/vg.pb.h $(INC_DIR)/stream.hpp $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(LIB_DIR)/libprotobuf.a sparsehash
+$(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map
 	$(CXX) $(CXXFLAGS) -c -o $(OBJ_DIR)/caller.o $(SRC_DIR)/caller.cpp $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 pre:

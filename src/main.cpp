@@ -257,14 +257,16 @@ void help_call(char** argv) {
          << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
          << endl
          << "options:" << endl
-         << "    -d, --min_depth      minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
-         << "    -e, --max_depth      maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
-         << "    -s, --min_support    minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
-         << "    -r, --het_prior      prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
-         << "    -l, --leave_uncalled leave un-called graph regions in output" << endl
-         << "    -j, --json           output in JSON" << endl
-         << "    -p, --progress       show progress" << endl
-         << "    -t, --threads N      number of threads to use" << endl;
+         << "    -d, --min_depth         minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
+         << "    -e, --max_depth         maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
+         << "    -s, --min_support       minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
+         << "    -r, --het_prior         prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
+         << "    -q, --default_read_qual phred quality score to use if none found in the pileup (default="
+         << (int)Caller::Default_default_quality << ")" << endl
+         << "    -l, --leave_uncalled    leave un-called graph regions in output" << endl
+         << "    -j, --json              output in JSON" << endl
+         << "    -p, --progress          show progress" << endl
+         << "    -t, --threads N         number of threads to use" << endl;
 }
 
 int main_call(int argc, char** argv) {
@@ -278,6 +280,7 @@ int main_call(int argc, char** argv) {
     int min_depth = Caller::Default_min_depth;
     int max_depth = Caller::Default_max_depth;
     int min_support = Caller::Default_min_support;
+    int default_read_qual = Caller::Default_default_quality;
     bool leave_uncalled = false;
     bool output_json = false;
     bool show_progress = false;
@@ -291,6 +294,7 @@ int main_call(int argc, char** argv) {
                 {"min_depth", required_argument, 0, 'd'},
                 {"max_depth", required_argument, 0, 'e'},
                 {"min_support", required_argument, 0, 's'},
+                {"default_read_qual", required_argument, 0, 'q'},
                 {"leave_uncalled", no_argument, 0, 'l'},
                 {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
@@ -300,7 +304,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:ljpr:t:",
+        c = getopt_long (argc, argv, "d:e:s:q:ljpr:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -317,6 +321,9 @@ int main_call(int argc, char** argv) {
             break;
         case 's':
             min_support = atoi(optarg);
+            break;
+        case 'q':
+            default_read_qual = atoi(optarg);
             break;
         case 'l':
             leave_uncalled = true;
@@ -399,7 +406,7 @@ int main_call(int argc, char** argv) {
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
                   Caller::Default_min_frac, Caller::Default_min_likelihood,
-                  leave_uncalled);
+                  leave_uncalled, default_read_qual);
 
     function<void(NodePileup&)> lambda = [&caller](NodePileup& pileup) {
         caller.call_node_pileup(pileup);
@@ -935,33 +942,66 @@ int main_msga(int argc, char** argv) {
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
-        auto& name = group.first;
-        if (debug) cerr << name << ": adding to graph" << endl;
-        rebuild(graph);
-        //graph->serialize_to_file("pre-" + name + ".vg");
-        vector<Path> paths;
-        for (auto& seq : group.second) {
-            // align to the graph
-            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
-                graph->node_count() << " nodes" << endl;
-            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            // if (debug) cerr << pb2json(aln) << endl; // huge in some cases
-            paths.push_back(aln.path());
-            // note that the addition of paths is a second step
-            // now take the alignment and modify the graph with it
+        bool incomplete = true; // complete when we've fully included the sequence set
+        int iter = 0;
+        int iter_max = 1;
+        while (incomplete && iter++ < iter_max) {
+            stringstream s; s << iter; string iterstr = s.str();
+            auto& name = group.first;
+            if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
+            rebuild(graph);
+            //graph->serialize_to_file("pre-" + name + "-" + iterstr + ".vg");
+            vector<Path> paths;
+            vector<Alignment> alns;
+            for (auto& seq : group.second) {
+                // align to the graph
+                if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
+                               graph->node_count() << " nodes" << endl;
+                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+                alns.push_back(aln);
+                //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+                paths.push_back(aln.path());
+                // note that the addition of paths is a second step
+                // now take the alignment and modify the graph with it
+            }
+            // save a rendering of the graph
+            //ofstream gv(name + "-" + iterstr + ".gv");
+            //graph->to_dot(gv, alns);
+            //gv.close();
+            if (debug) cerr << name << ": editing graph" << endl;
+            graph->edit_both_directions(paths);
+            graph->clear_paths();
+            if (debug) cerr << name << ": normalizing node size" << endl;
+            graph->dice_nodes(node_max);
+            if (debug) cerr << name << ": sorting and compacting ids" << endl;
+            graph->sort();
+            graph->compact_ids(); // xg can't work unless IDs are compacted.
+            //graph->serialize_to_file("post-edit-" + name + "-" + iterstr + ".vg");
+
+            // check that all is well
+            rebuild(graph);
+            bool included = true;
+            for (auto& seq : group.second) {
+                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+                //cerr << pb2json(aln) << endl;
+                for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+                    if (!mapping_is_simple_match(aln.path().mapping(i))) {
+                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
+                        included = false;
+                    }
+                }
+            }
+            incomplete = !included;
         }
-        if (debug) cerr << name << ": editing graph" << endl;
-        graph->edit_both_directions(paths);
-        graph->clear_paths();
-        if (debug) cerr << name << ": normalizing node size" << endl;
-        graph->dice_nodes(node_max);
-        if (debug) cerr << name << ": sorting and compacting ids" << endl;
-        graph->sort();
-        graph->compact_ids(); // xg can't work unless IDs are compacted.
-        
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        // graph->serialize_to_file("out.vg");
+        /*
+        if (iter == iter_max) {
+            cerr << "failed to include path" << endl;
+            exit(1);
+        }
+        */
     }
+    //graph->serialize_to_file("pre-include.vg");
 
     auto include_paths = [&mapper,
                           kmer_size,
@@ -978,8 +1018,8 @@ int main_msga(int argc, char** argv) {
                 if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 //if (debug) cerr << "alignment score: " << aln.score() << endl;
-                //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
                 aln.mutable_path()->set_name(name);
+                if (debug) cerr << "alignment: " << pb2json(aln) << endl;
                 // todo simplify in the mapper itself when merging the banded bits
                 if (debug) cerr << name << ": labeling" << endl;
                 graph->include(aln.path());
@@ -1394,6 +1434,7 @@ void help_mod(char** argv) {
          << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
+         << "    -f, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -1421,6 +1462,7 @@ int main_mod(int argc, char** argv) {
     bool normalize_graph = false;
     bool sort_graph = false;
     bool remove_non_path = false;
+    bool orient_forward = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1446,11 +1488,12 @@ int main_mod(int argc, char** argv) {
                 {"normalize", no_argument, 0, 'n'},
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
+                {"orient-forward", no_argument, 0, 'f'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzN",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1510,6 +1553,10 @@ int main_mod(int argc, char** argv) {
 
         case 't':
             omp_set_num_threads(atoi(optarg));
+            break;
+
+        case 'f':
+            orient_forward = true;
             break;
 
         case 'P':
@@ -1575,6 +1622,11 @@ int main_mod(int argc, char** argv) {
 
     if (remove_non_path) {
         graph->remove_non_path();
+    }
+
+    if (orient_forward) {
+        set<int64_t> flipped;
+        graph->orient_nodes_forward(flipped);
     }
 
     if (sort_graph) {
@@ -4605,7 +4657,8 @@ void help_construct(char** argv) {
          << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
          << "                          nodes greater than this threshold will be divided" << endl
          << "    -p, --progress        show progress" << endl
-         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl;
+         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
+         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
 }
 
 int main_construct(int argc, char** argv) {
@@ -4623,6 +4676,7 @@ int main_construct(int argc, char** argv) {
     int vars_per_region = 25000;
     int max_node_size = 0;
     string ref_paths_file;
+    bool flat_alts = false;
 
     int c;
     while (true) {
@@ -4638,12 +4692,13 @@ int main_construct(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"region", required_argument, 0, 'R'},
                 {"region-is-chrom", no_argument, 0, 'C'},
-                {"node-max", required_argument, 0, 'm'},
+                {"node-max", required_argument, 0, 'm'},\
+                {"flat-alts", no_argument, 0, 'f'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:s:C",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:s:Cf",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -4687,7 +4742,11 @@ int main_construct(int argc, char** argv) {
         case 'm':
             max_node_size = atoi(optarg);
             break;
-            
+
+        case 'f':
+            flat_alts = true;
+            break;
+                        
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -4719,7 +4778,7 @@ int main_construct(int argc, char** argv) {
     // store our reference sequence paths
     Paths ref_paths;
 
-    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region, max_node_size, progress);
+    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region, max_node_size, flat_alts, progress);
 
     if (!ref_paths_file.empty()) {
         ofstream paths_out(ref_paths_file);
