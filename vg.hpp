@@ -259,6 +259,7 @@ public:
        bool target_is_chrom,
        int vars_per_region,
        int max_node_size = 0,
+       bool flat_input_vcf = false,
        bool showprog = false);
     void from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,
@@ -267,7 +268,8 @@ public:
                                 map<long, set<vcflib::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
-                                int max_node_size = 0);
+                                int max_node_size = 0,
+                                bool flat_input_vcf = false);
     void slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
                        int start_pos,
                        int stop_pos,
@@ -417,14 +419,15 @@ public:
     // start (which may include 0 and 1-past-the-end, which should be ignored),
     // break the specified nodes at those positions. Returns a map from old node
     // ID to a map from old node start position to new node pointer in the
-    // graph.
+    // graph. Note that the caller will have to crear and rebuild path rank
+    // data.
     map<int64_t, map<int64_t, Node*>> ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints);
     
     // Given a path on nodes that may or may not exist, and a map from node ID
     // in the path's node ID space to a table of offset and actual node, add in
     // all the new sequence and edges required by the path. The given path must
     // not contain adjacent perfect match edits in the same mapping (the removal
-    // of which can be accomplished with the simplify() function).
+    // of which can be accomplished with the simplify() function). 
     void add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation);
     
     // Add in the given node, by value
@@ -596,7 +599,12 @@ public:
 
     // utilities
     // These only work on forward nodes.
+    
+    // Divide a node at a given internal position. Inserts the new nodes in the
+    // correct paths, but can't update the ranks, so they need to be cleared and
+    // re-calculated by the caller.
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
+    // Divide a path at a position. Also invalidates stored rank information.
     void divide_path(map<long, int64_t>& path, long pos, Node*& left, Node*& right);
     //void node_replace_prev(Node* node, Node* before, Node* after);
     //void node_replace_next(Node* node, Node* before, Node* after);
