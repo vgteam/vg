@@ -48,7 +48,7 @@ test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph
 	cd test && $(MAKE)
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
-	$(CXX) $(CXXFLAGS) test/build_graph.cpp $(LD_INCLUDE_FLAGS) -I$(CWD)/cpp $(LD_LIB_FLAGS) -lvg -lrt -o test/build_graph
+	$(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -I$(CWD)/cpp $(LD_LIB_FLAGS) -lvg -lrt 
 
 deps: $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libgssw.a $(LIB_DIR)/libgcsa2.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/libvcflib.a $(INC_DIR)/sparsehash/sparse_hash_map $(OBJ_DIR)/sha1.o $(LIB_DIR)/librocksdb.a $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a
 
