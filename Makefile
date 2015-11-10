@@ -99,7 +99,7 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 ####################################
 
 include/stream.hpp:
-	cp stream.hpp include/
+	touch src/stream.hpp
 
 $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h pre
 $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a pre
@@ -132,7 +132,7 @@ $(OBJ_DIR)/utility.o: $(SRC_DIR)/utility.cpp $(SRC_DIR)/utility.hpp $(LIB_DIR)/l
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(LIB_DIR)/libprotobuf.a sparsehash
-	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_LIB_FLAGS) -Iinclude
+	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_LIB_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/edit.o: $(SRC_DIR)/edit.cpp $(SRC_DIR)/edit.hpp $(LIB_DIR)/libprotobuf.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
@@ -168,6 +168,14 @@ clean:
 	$(RM) -r $(CPP_DIR)
 	cd $(DEP_DIR) && cd protobuf && $(MAKE) clean
 	cd $(DEP_DIR) && cd xg && $(MAKE) clean
+	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
+	cd $(DEP_DIR) && cd sparsehash && $(MAKE) clean
+	cd $(DEP_DIR) && cd htslib && $(MAKE) clean
+	cd $(DEP_DIR) && cd fastahack && $(MAKE) clean
+	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
+	cd $(DEP_DIR) && cd gssw && $(MAKE) clean
+	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
+	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh
 
 ## TODO vg source code
 ## TODO LRU_CACHE

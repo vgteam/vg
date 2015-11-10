@@ -22,7 +22,7 @@ namespace stream {
 // count is written before the objects, but if it is 0, it is not written
 // if not all objects are written, return false, otherwise true
 template <typename T>
-bool write(std::ostream& out, uint64_t count, std::function<T(uint64_t)>& lambda) {
+bool write(std::ostream& out, uint64_t count, const std::function<T(uint64_t)>& lambda) {
 
     ::google::protobuf::io::ZeroCopyOutputStream *raw_out =
           new ::google::protobuf::io::OstreamOutputStream(&out);
@@ -70,8 +70,8 @@ bool write_buffered(std::ostream& out, std::vector<T>& buffer, uint64_t buffer_l
 
 template <typename T>
 void for_each(std::istream& in,
-              std::function<void(T&)>& lambda,
-              std::function<void(uint64_t)>& handle_count) {
+              const std::function<void(T&)>& lambda,
+              const std::function<void(uint64_t)>& handle_count) {
 
     ::google::protobuf::io::ZeroCopyInputStream *raw_in =
           new ::google::protobuf::io::IstreamInputStream(&in);
@@ -110,15 +110,15 @@ void for_each(std::istream& in,
 
 template <typename T>
 void for_each(std::istream& in,
-              std::function<void(T&)>& lambda) {
+              const std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
     for_each(in, lambda, noop);
 }
 
 template <typename T>
 void for_each_parallel(std::istream& in,
-                       std::function<void(T&)>& lambda,
-                       std::function<void(uint64_t)>& handle_count) {
+                       const std::function<void(T&)>& lambda,
+                       const std::function<void(uint64_t)>& handle_count) {
 
     ::google::protobuf::io::ZeroCopyInputStream *raw_in =
           new ::google::protobuf::io::IstreamInputStream(&in);
@@ -194,7 +194,7 @@ void for_each_parallel(std::istream& in,
 
 template <typename T>
 void for_each_parallel(std::istream& in,
-              std::function<void(T&)>& lambda) {
+              const std::function<void(T&)>& lambda) {
     std::function<void(uint64_t)> noop = [](uint64_t) { };
     for_each_parallel(in, lambda, noop);
 }
