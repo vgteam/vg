@@ -166,6 +166,7 @@ clean:
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)
 	$(RM) -r $(CPP_DIR)
+	$(RM) -r share/
 	cd $(DEP_DIR) && cd protobuf && $(MAKE) clean
 	cd $(DEP_DIR) && cd xg && $(MAKE) clean
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
