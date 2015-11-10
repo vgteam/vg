@@ -21,7 +21,7 @@
 	url = https://github.com/ekg/cpp_progress_bar.git
 [submodule "lru_cache"]
 	path = deps/lru_cache
-	url = https://github.com/ekg/lru_cache.git
+	url = https://github.com/edawson/lru_cache.git
 [submodule "rocksdb"]
 	path = deps/rocksdb
 	url = https://github.com/ekg/rocksdb.git
