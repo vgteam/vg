@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-BASH_TAP_ROOT=../bash-tap
-. ../bash-tap/bash-tap-bootstrap
+BASH_TAP_ROOT=../deps/bash-tap
+. ../deps/bash-tap/bash-tap-bootstrap
 
 PATH=../bin:$PATH # for vg
 
@@ -72,15 +72,15 @@ rm -f fail.vg
 # check that we produce a full graph
 
 # build deps
-cd ../vcflib && make vcf2tsv && cd -
-cd ../fastahack && make && cd -
+cd ../deps/vcflib && make vcf2tsv && cd -
+cd ../deps/fastahack && make && cd -
 
-refbp=$(../fastahack/fastahack -r x small/x.fa | tr '\n' ' ' | sed 's/ //' | wc -c)
-variantbp=$(zcat small/x.vcf.gz | ../vcflib/bin/vcf2tsv \
+refbp=$(../deps/fastahack/fastahack -r x small/x.fa | tr '\n' ' ' | sed 's/ //' | wc -c)
+variantbp=$(zcat small/x.vcf.gz | ../deps/vcflib/bin/vcf2tsv \
     | cut -f 5,4 | tail -n+2 \
     | awk '{ x=length($2)-length($1); if (x > 0) { print x; } else if (x == 0) { print length($2); } }' \
         | awk '{ sum += $1 } END { print sum }')
-rm ../vcflib/bin/vcf2tsv ../fastahack/fastahack
+rm ../deps/vcflib/bin/vcf2tsv ../deps/fastahack/fastahack
 
 graphbp=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -l - | cut -f 2)
 
