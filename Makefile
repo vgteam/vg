@@ -44,6 +44,9 @@ $(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(OBJ)
 $(LIB_DIR)/libvg.a: $(BIN_DIR)/vg
 	ar rs $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(OBJ)
 
+get-deps:
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip cmake pkg-config wget bc
+
 test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph
 	cd test && $(MAKE)
 
