@@ -3,7 +3,7 @@
 BASH_TAP_ROOT=../bash-tap
 . ../bash-tap/bash-tap-bootstrap
 
-PATH=..:$PATH # for vg
+PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 

@@ -1,9 +1,9 @@
 .PHONY: all clean
 
-CXX=g++
-CXXFLAGS=-O3 -std=c++11 -fopenmp -g
+CXX:=g++
+CXXFLAGS:=-O3 -std=c++11 -fopenmp -g
 
-vg=../vg
+vg:=../bin/vg
 
 all: test clean
 
@@ -11,7 +11,7 @@ test: build_graph $(vg)
 	prove -v t
 
 $(vg):
-	cd .. && $(MAKE) vg
+	cd .. && $(MAKE) bin/vg
 
 build_graph: build_graph.cpp
 	cd .. && $(MAKE) test/build_graph
