@@ -188,8 +188,7 @@ string cigar_string(vector<pair<int, char> >& cigar) {
 // todo, make a version that works for non-invariants
 void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* n, Node* nl, Node* nr) {
     // an invariant mapping is, by definition, without any edits
-    assert(orig.edit_size() == 0);
-    
+    //assert(orig.edit_size() == 0);
     
     // Things to consider: This mapping might not take up the whole node
     // (because it can start early via the offset). This mapping might go in

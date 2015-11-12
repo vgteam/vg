@@ -3776,6 +3776,13 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
 }
 
 map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints) {
+    cerr << "breakpoints before " << endl;
+    for (auto& n : breakpoints) {
+        for (auto p : n.second) {
+            cerr << p << endl;
+        }
+    }
+
     map<int64_t, set<pos_t>> fwd;
     for (auto& p : breakpoints) {
         id_t node_id = p.first;
@@ -3790,6 +3797,12 @@ map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t
             } else {
                 fwd[node_id].insert(pos);
             }
+        }
+    }
+    cerr << "breakpoints afterr " << endl;
+    for (auto& n : fwd) {
+        for (auto p : n.second) {
+            cerr << p << endl;
         }
     }
     return fwd;
@@ -4856,10 +4869,14 @@ Alignment VG::align(const Alignment& alignment) {
 
     destroy_node(root);
 
+    cerr << "pre flip " << pb2json(aln) << endl;
+
     flip_nodes(aln, flipped_nodes, [this](int64_t node_id) {
             // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
             return get_node(node_id)->sequence().size();
         });
+
+    cerr << "post flip " << pb2json(aln) << endl;
 
     return aln;
 }

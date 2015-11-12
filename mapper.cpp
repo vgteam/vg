@@ -376,9 +376,11 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                 if (!above_threshold) {
                     aln = bands[i]; // unmapped
                 }
+                cerr << "aln bf strip " << pb2json(aln) << endl;
                 // strip overlaps
                 if (i > 0) aln = strip_from_start(aln, overlaps[i]/2);
                 if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
+                cerr << "aln af strip " << pb2json(aln) << endl;
             }
         }
     }
@@ -1228,9 +1230,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
     // get the best alignment
     if (!good.empty()) {
-        if (debug) {
-            cerr << "best alignment score " << alignment.score() << endl;
-        }
+        // TODO log best alignment score?
     } else {
         good.emplace_back();
         Alignment& aln = good.back();
@@ -1238,8 +1238,6 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
         aln.clear_path();
         aln.set_score(0);
     }
-
-    if (debug && alignment.score() == 0) cerr << "failed alignment" << endl;
 
     // Return all the multimappings
     return good;

@@ -959,12 +959,13 @@ Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node
     // switching around to the reverse strand requires us to find the end of the mapping
     // on the forward and convert to the reverse --- or vice versa
     if(m.has_position() && m.position().node_id() != 0) {
-        //*reversed.mutable_position() = reverse_position(reversed.position());
-        Position& p = *reversed.mutable_position();
-        p.set_is_reverse(!m.position().is_reverse());
-        // find the end of the mapping
-        p.set_offset(node_length(m.position().node_id())
-                     - from_length(m));
+        Position p = m.position();
+        // set to the end of the mapping
+        p.set_offset(p.offset() + mapping_from_length(m) - 1);
+        // then flip the position onto the other side
+        *reversed.mutable_position()
+            = make_position(reverse(make_pos_t(p),
+                                    node_length(m.position().node_id())));
     }
     
     // Clear out all the edits. TODO: we wasted time copying them
