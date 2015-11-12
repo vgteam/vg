@@ -369,10 +369,10 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                     if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
                 }
             } else {
-                Alignment maln = align(bands[i], kmer_size, stride);
-                bool above_threshold = ((float) maln.score() / (float) maln.sequence().size()
+                Alignment& aln = alns[i];
+                aln = align(bands[i], kmer_size, stride);
+                bool above_threshold = ((float) aln.score() / (float) aln.sequence().size()
                                         >= min_score_per_bp);
-                Alignment aln = maln;
                 if (!above_threshold) {
                     aln = bands[i]; // unmapped
                 }

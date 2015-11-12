@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../bash-tap
 PATH=..:$PATH # for vg
 
 
-plan tests 8
+plan tests 10
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -k 16 -t 1 | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 549b183e90036f767acdd10e7d5ba125 "MSGA produces the expected graph for GRCh38 HLA-V"
 
@@ -25,5 +25,6 @@ rm t.vg
 
 is $(vg msga -f msgas/s.fa -k 16 -b s1 -B 20 | vg view -j - | jq -M -c --sort-keys '{"node": .node, "edge": .edge}') $(vg msga -f msgas/s.fa -f msgas/s-rev.fa -k 16 -b s1 -B 20 | vg view -j - | jq -M -c --sort-keys '{"node": .node, "edge": .edge}') "adding in existing sequences in reverse doesn't change graph"
 
-# TODO: you should get the same graph no matter the orientation of the input sequences, but you don't. This is probably due to the orientation-dependence of the kmer search.
+is $((for seq in $(vg msga -f msgas/w.fa -b x -K 16 | vg paths -x - | vg view -a - | jq .sequence | sed s/\"//g ); do grep $seq msgas/w.fa ; done) | wc -l) 2 "the paths of the graph encode the original sequences used to build it"
 
+is $((for seq in $(vg msga -f msgas/w.fa -b x -K 16 -B 20 | vg paths -x - | vg view -a - | jq .sequence | sed s/\"//g ); do grep $seq msgas/w.fa ; done) | wc -l) 2 "even when banding the paths of the graph encode the original sequences used to build it"
