@@ -137,7 +137,7 @@ bool Paths::has_mapping(const string& name, const Mapping& m) {
     if (node_mapping.find(name) == node_mapping.end()) return false; // no mappings for path
     for (auto* mp : node_mapping[name]) {
         if (m.rank() == mp->rank()
-            && m.is_reverse() == mp->is_reverse()) {
+            && m.position().is_reverse() == mp->position().is_reverse()) {
             return true;
         }
     }
@@ -166,7 +166,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
 void Paths::append_mapping(const string& name, int64_t id, size_t rank, bool is_reverse) {
     Mapping m;
     m.mutable_position()->set_node_id(id);
-    m.set_is_reverse(is_reverse);
+    m.mutable_position()->set_is_reverse(is_reverse);
     if (rank) {
         m.set_rank(rank);
     } else {
@@ -609,13 +609,13 @@ Path concat_paths(const Path& path1, const Path& path2) {
             assert(mapping_from_length(path2_front) == 0);
             *mapping->mutable_position() = path1_back.position();
             // Copy the reverse flag
-            mapping->set_is_reverse(path1_back.is_reverse());
+            mapping->mutable_position()->set_is_reverse(path1_back.position().is_reverse());
         } else if (!path1_back.has_position() && path2_front.has_position()) {
             // If one mapping has no position, it can't reference reference sequence
             assert(mapping_from_length(path1_back) == 0);
             *mapping->mutable_position() = path2_front.position();
             // Copy the reverse flag
-            mapping->set_is_reverse(path2_front.is_reverse());
+            mapping->mutable_position()->set_is_reverse(path2_front.position().is_reverse());
         }
         // merge the edits from the second onto the last mapping
         for (size_t i = 0; i < path2_front.edit_size(); ++i) {
@@ -859,8 +859,6 @@ Mapping simplify(const Mapping& m) {
     } else {
         // take the old position
         *n.mutable_position() = m.position();
-        // Copy the is_reverse flag
-        n.set_is_reverse(m.is_reverse());
     }
 
     size_t j = 0;
@@ -870,11 +868,9 @@ Mapping simplify(const Mapping& m) {
         if (!edit_is_deletion(m.edit(j))) {
             break;
         } else {
-            // Adjust the offset by the size of the deletion. If we're going
-            // forward on the node, this moves the mapping offset positive.
-            // Otherwise it moves the mapping offset negative.
-            n.mutable_position()->set_offset(n.position().offset() 
-                                             + m.edit(j).from_length() * (m.is_reverse() ? -1 : 1));
+            // Adjust the offset by the size of the deletion.
+            n.mutable_position()->set_offset(n.position().offset()
+                                             + m.edit(j).from_length());
         }
     }
 
@@ -930,7 +926,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     string seq;
     // todo reverse the mapping
     function<int64_t(int64_t)> lambda = [&node_seq](int64_t i){return node_seq.size();};
-    Mapping m = (mp.is_reverse() ? reverse_mapping(mp, lambda) : mp);
+    Mapping m = (mp.position().is_reverse() ? reverse_mapping(mp, lambda) : mp);
     // then edit in the forward direction (easier)
     // and, if the mapping is reversed, finally reverse-complement the result
     size_t t = 0;
@@ -949,31 +945,27 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
         t += e.to_length();
         f += e.to_length();
     }
-    return (mp.is_reverse() ? reverse_complement(seq) : seq);
+    // perfect match
+    if (m.edit_size() == 0) {
+        seq = node_seq;
+    }
+    return (mp.position().is_reverse() ? reverse_complement(seq) : seq);
 }
 
-Mapping reverse_mapping(const Mapping& m, function<int64_t(int64_t)>& node_length) {
+Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node_length) {
     // Make a new reversed mapping
     Mapping reversed = m;
-    
+
+    // switching around to the reverse strand requires us to find the end of the mapping
+    // on the forward and convert to the reverse --- or vice versa
     if(m.has_position() && m.position().node_id() != 0) {
-        // Since we're flipping m, which way do we move its start position in
-        // the coordinates of its node? Towards the node's start if we were
-        // reverse, and away from the node's start if we were forward.
-        int64_t direction = m.is_reverse() ? -1 : 1;
-    
-        // We need to have an offset from the same end of the node to the
-        // *other* end of the mapping. For this we need the mapping's
-        // from_length and the direction we need to move the mapping start point
-        // (towards or away from the start of the node). Importantly, we do not
-        // need the actual length of the node, since all offsets are from the
-        // node's start, in node-local coordinates.
-        reversed.mutable_position()->set_offset(m.position().offset() + (mapping_from_length(m) - 1) * direction);
+        //*reversed.mutable_position() = reverse_position(reversed.position());
+        Position& p = *reversed.mutable_position();
+        p.set_is_reverse(!m.position().is_reverse());
+        // find the end of the mapping
+        p.set_offset(node_length(m.position().node_id())
+                     - from_length(m));
     }
-    
-    
-    // Flip the flag
-    reversed.set_is_reverse(!m.is_reverse());
     
     // Clear out all the edits. TODO: we wasted time copying them
     reversed.clear_edit();
@@ -986,7 +978,7 @@ Mapping reverse_mapping(const Mapping& m, function<int64_t(int64_t)>& node_lengt
     return reversed;
 }
 
-Path reverse_path(const Path& path, function<int64_t(int64_t)>& node_length) {
+Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_length) {
     // Make a new reversed path
     Path reversed = path;
     
@@ -998,6 +990,9 @@ Path reverse_path(const Path& path, function<int64_t(int64_t)>& node_length) {
         // measured from the other end of the node.
         *reversed.add_mapping() = reverse_mapping(path.mapping(i), node_length);
     }
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        reversed.mutable_mapping(i)->set_rank(i+1);
+    }
     
     return reversed;
 }
@@ -1008,7 +1003,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
     assert(m.has_position() && m.position().node_id());
     
     // TODO: support reverse mappings
-    assert(!m.is_reverse());
+    assert(!m.position().is_reverse());
     
     //cerr << "cutting mapping " << pb2json(m) << " at pos " << pb2json(pos) << endl;
     // left always has the position of the input mapping
@@ -1069,8 +1064,8 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     Mapping left, right;
     
     // both result mappings will be in the same orientation as the original
-    left.set_is_reverse(m.is_reverse());
-    right.set_is_reverse(m.is_reverse());
+    left.mutable_position()->set_is_reverse(m.position().is_reverse());
+    right.mutable_position()->set_is_reverse(m.position().is_reverse());
     
     //assert(m.has_position() && m.position().node_id());
     // left always has the position of the input mapping
@@ -1113,11 +1108,8 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     if (m.has_position()) {
         // The right mapping has a position on this same node
         right.mutable_position()->set_node_id(m.position().node_id());
-        // The position is closer to the node start if we're looking at the node
-        // in reverse, and further from the node start if we're looking at it
-        // normally. We offset by the left mapping's size.
         right.mutable_position()->set_offset(left.position().offset()
-                                             + mapping_from_length(left) * (m.is_reverse() ? -1 : 1));
+                                             + mapping_from_length(left));
     }
     assert(!m.has_position()
            || (left.has_position()
@@ -1226,7 +1218,8 @@ bool maps_to_node(const Path& p, int64_t id) {
     return false;
 }
 
-void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints) {
+// returns breakpoints on the forward strand of the nodes
+void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints) {
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
     
@@ -1248,13 +1241,14 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
             continue;
         }
         
+        // And in what direction we are moving (+1 or -1)
+        int64_t direction = m.position().is_reverse() ? -1 : 1;
+
         // See where the next edit starts in the node. It is always included
         // (even when the edit runs backward), unless the edit has 0 length in
         // the reference.
-        int64_t edit_first_position = m.position().offset();
-        
-        // And in what direction we are moving (+1 or -1)
-        int64_t direction = m.is_reverse() ? -1 : 1;
+        pos_t edit_first_position = make_pos_t(m.position());
+        cerr << "in find_breakpoints " << edit_first_position << endl;
         
 #ifdef debug
     cerr << "Processing mapping " << i << " to node " << node_id << " in direction " << direction <<
@@ -1270,7 +1264,10 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
             // this may not actually be included in the edit (and
             // edit_first_position will be further along than
             // edit_last_position).
-            int64_t edit_last_position = edit_first_position + (e.from_length() - 1) * direction;
+            pos_t edit_last_position = edit_first_position;
+            if (e.from_length()) {
+                get_offset(edit_last_position) += e.from_length();
+            }
             
 #ifdef debug
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
@@ -1285,12 +1282,12 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
                 
 #ifdef debug
                 cerr << "Need to break " << node_id << " at edit lower end " <<
-                    max(edit_first_position, edit_first_position - direction) << endl;
+                    edit_first_position << endl;
 #endif
                 
                 // We need to snip between edit_first_position and edit_first_position - direction.
                 // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
-                breakpoints[node_id].insert(max(edit_first_position, edit_first_position - direction));
+                breakpoints[node_id].insert(edit_first_position);
             }
             
             if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
@@ -1301,11 +1298,11 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
                 
 #ifdef debug
                 cerr << "Need to break " << node_id << " at past edit upper end " <<
-                    max(edit_last_position, edit_last_position + direction) << endl;
+                    edit_last_position << endl;
 #endif
                 
                 // We also need to snip between edit_last_position and edit_last_position + direction.
-                breakpoints[node_id].insert(max(edit_last_position, edit_last_position + direction));
+                breakpoints[node_id].insert(edit_last_position);
             }
             
             // TODO: for an insertion or substitution, note that we need a new
@@ -1317,7 +1314,7 @@ void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints)
             
             // Use up the portion of the node taken by this mapping, so we know
             // where the next mapping will start.
-            edit_first_position = edit_last_position + direction;
+            edit_first_position = edit_last_position;
         }
     }
     

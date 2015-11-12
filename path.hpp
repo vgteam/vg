@@ -11,6 +11,10 @@
 #include "edit.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
+#include "types.hpp"
+#include "position.hpp"
+
+//#define debug
 
 namespace vg {
 
@@ -141,11 +145,11 @@ const string mapping_sequence(const Mapping& m, const Node& n);
 // Reverse-complement a Mapping and all the Edits in it. A function to get node
 // lengths is needed, because the mapping will need to count its position from
 // the other end of the node.
-Mapping reverse_mapping(const Mapping& m, function<int64_t(int64_t)>& node_length);
+Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node_length);
 // Reverse-complement a Path and all the Mappings in it. A function to get node
 // lengths is needed, because the mappings will need to count their positions
 // from the other ends of their nodes.
-Path reverse_path(const Path& path, function<int64_t(int64_t)>& node_length);
+Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_length);
 // Simplify the path for addition as new material in the graph. Remove any
 // mappings that are merely single deletions, merge adjacent edits of the same
 // type, strip leading and trailing deletion edits on mappings, and make sure no
@@ -168,7 +172,7 @@ bool maps_to_node(const Path& p, int64_t id);
 // to become the starts of new nodes. Note that some breakpoints may be at 0 or
 // the past-the-end position of the node in question, since we don't look at the
 // graph here.
-void find_breakpoints(const Path& path, map<int64_t, set<int64_t>>& breakpoints);
+void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints);
 // the position that starts just after the path ends
 Position path_start(const Path& path);
 Position path_end(const Path& path);

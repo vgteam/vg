@@ -77,12 +77,12 @@ Alignment Mapper::align(const string& seq, int kmer_size, int stride, int band_w
 }
 
 // align read2 near read1's mapping location
-void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_window) {
+void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window) {
     if (read1.score() == 0) return; // bail out if we haven't aligned the first
     // try to recover in region
-    Path* path = read1.mutable_path();
-    int64_t idf = path->mutable_mapping(0)->position().node_id();
-    int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
+    auto& path = read1.path();
+    int64_t idf = path.mapping(0).position().node_id();
+    int64_t idl = path.mapping(path.mapping_size()-1).position().node_id();
     // but which way should we expand? this will make things much easier
     // just use the whole "window" for now
     int64_t first = max((int64_t)0, idf - pair_window);
@@ -110,12 +110,12 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
     read2.clear_path();
     read2.set_score(0);
     
-    graph->align(read2);
+    read2 = graph->align(read2);
     delete graph;
 }
 
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
-    Alignment& read1, Alignment& read2, int kmer_size, int stride, int band_width, int pair_window) {
+    const Alignment& read1, const Alignment& read2, int kmer_size, int stride, int band_width, int pair_window) {
 
     // use paired-end resolution techniques
     //
@@ -138,16 +138,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         Alignment aln_same = mate;
         // And one to align in the opposite local orientation
         Alignment aln_opposite = mate;
-        
+
         // Is reverse going to be preferable in a tie?
-        if (read.is_reverse()) {
+        if (read.has_path() && read.path().mapping(0).position().is_reverse()) {
             // If so, reverse the "same direction" Alignment sequence
             aln_same.set_sequence(reverse_complement(aln_same.sequence()));
-            aln_same.set_is_reverse(true);
         } else {
             // Otherwise reverse the opposite direction sequence
             aln_opposite.set_sequence(reverse_complement(aln_opposite.sequence()));
-            aln_opposite.set_is_reverse(true);
         }
         
         // Do both the alignments
@@ -246,7 +244,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
 }
 
-pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& read2, int kmer_size, int stride, 
+pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Alignment& read2, int kmer_size, int stride, 
     int band_width, int pair_window) {
  
     pair<vector<Alignment>, vector<Alignment>> multimappings = align_paired_multi(read1, read2, 
@@ -277,7 +275,27 @@ pair<Alignment, Alignment> Mapper::align_paired(Alignment& read1, Alignment& rea
     return make_pair(aln1, aln2);
 }
 
-Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int band_width) {
+// We need a function to get the lengths of nodes, in case we need to
+// reverse an Alignment, including all its Mappings and Positions. TODO:
+// make this cache the node lengths for the nodes used in the actual
+// alignments somehow?
+int64_t Mapper::get_node_length(int64_t node_id) {
+    if(xindex) {
+        // Grab the node sequence only from the XG index and get its size.
+        return xindex->node_sequence(node_id).size();
+    } else if(index) {
+        // Get a 1-element range from the index and then use that.
+        VG one_node_graph;
+        index->get_range(node_id, node_id, one_node_graph);
+        return one_node_graph.get_node(node_id)->sequence().size();
+    } else {
+        // Complain we don;t have the right indices.
+        // This should be caught before here.
+        throw runtime_error("No index to get nodes from.");
+    }
+}
+
+Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int band_width) {
     // split the alignment up into overlapping chunks of band_width size
     list<Alignment> alignments;
     // force used bandwidth to be divisible by 4
@@ -305,26 +323,6 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
     vector<size_t> overlaps; overlaps.resize(to_align);
     vector<Alignment> bands; bands.resize(to_align);
     
-    // We need a function to get the lengths of nodes, in case we need to
-    // reverse an Alignment, including all its Mappings and Positions. TODO:
-    // make this cache the node lengths for the nodes used in the actual
-    // alignments somehow?
-    std::function<int64_t(int64_t)> get_node_length = [&](int64_t node_id) {
-        if(xindex) {
-            // Grab the node sequence only from the XG index and get its size.
-            return xindex->node_sequence(node_id).size();
-        } else if(index) {
-            // Get a 1-element range from the index and then use that.
-            VG one_node_graph;
-            index->get_range(node_id, node_id, one_node_graph);
-            return one_node_graph.get_node(node_id)->sequence().size();
-        } else {
-            // Complain we don;t have the right indices.
-            // This should be caught before here.
-            throw runtime_error("No index to get nodes from.");
-        }
-    };
-
     for (int i = 0; i < div; ++i) {
         size_t off = i*segment_size;
         auto aln = read;
@@ -363,11 +361,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
                     Alignment& aln = *a;
                     bool above_threshold = ((float) aln.score() / (float) aln.sequence().size()
                                             >= min_score_per_bp);
-                    if (above_threshold) {
-                        // strip overlaps
-                        aln = aln.is_reverse()
-                            ? reverse_alignment(aln, get_node_length) : aln;
-                    } else {
+                    if (!above_threshold) {
                         // treat as unmapped
                         aln = bands[i];
                     }
@@ -378,15 +372,11 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
                 Alignment maln = align(bands[i], kmer_size, stride);
                 bool above_threshold = ((float) maln.score() / (float) maln.sequence().size()
                                         >= min_score_per_bp);
-                Alignment& aln = alns[i];
-                // strip overlaps
-                if (above_threshold) {
-                    aln = maln.is_reverse()
-                        ? reverse_alignment(maln, get_node_length) : maln;
-                } else {
+                Alignment aln = maln;
+                if (!above_threshold) {
                     aln = bands[i]; // unmapped
                 }
-                // strip
+                // strip overlaps
                 if (i > 0) aln = strip_from_start(aln, overlaps[i]/2);
                 if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
             }
@@ -466,7 +456,6 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                                                  &aln, best_idx));
             } else {
                 // determine our start
-                bool curr_rev = aln.is_reverse();
                 auto& curr_start = aln.path().mapping(0).position();
                 // accumulate candidate alignments
                 map<int, vector<pair<score_t, size_t>>> candidates;
@@ -475,12 +464,10 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                 for (auto& score : prev_scores) {
                     auto old = get<1>(score);
                     if (!old->score()) continue; // unmapped
-                    bool prev_rev = old->is_reverse();
                     auto prev_end = path_end(old->path());
                     // save it as a candidate if the two are adjacent
                     // and in the same orientation
-                    if (curr_rev == prev_rev
-                        && adjacent_positions(prev_end, curr_start)) {
+                    if (adjacent_positions(prev_end, curr_start)) {
                         candidates[get<0>(score)].push_back(make_pair(score,k));
                     }
                     ++k;
@@ -495,7 +482,7 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
                     // if there are no alignments matching our start
                     // just take the highest-scoring one
                     auto best_prev_aln = get<1>(prev_scores[best_idx]);
-                    if (best_prev_aln->is_reverse() == curr_rev) {
+                    if (best_prev_aln->has_path()) {
                         curr_scores.push_back(make_tuple(get<0>(best_prev),
                                                          &aln, best_idx));
                     } else {
@@ -556,7 +543,7 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     return graph.adjacent(pos1, pos2);
 }
 
-vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride, int band_width) {
+vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width) {
 
     if (aln.sequence().size() > band_width) {
         if (debug) cerr << "switching to banded alignment" << endl;
@@ -587,9 +574,8 @@ vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride,
 
     // This will similarly hold all the reverse alignments.
     // Right now we set it up to provide input to the actual alignment algorithm.
-    Alignment best_r = aln;
-    best_r.set_sequence(reverse_complement(aln.sequence()));
-    best_r.set_is_reverse(true);
+    Alignment best_r = reverse_alignment(aln,
+                                         (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
     // This will hold all of the reverse alignments up to max_multimaps
     vector<Alignment> alignments_r;
 
@@ -600,7 +586,7 @@ vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride,
                                  &best_f,
                                  &best_r]() {
         kmer_size -= kmer_sensitivity_step;
-        stride = sequence.size() / ceil((double)sequence.size() / kmer_size);
+        stride = sequence.size() / ceil( (double)sequence.size() / kmer_size);
         if (debug) cerr << "realigning with " << kmer_size << " " << stride << endl;
         /*
         if ((double)stride/kmer_size < 0.5 && kmer_size -5 >= kmer_min) {
@@ -641,7 +627,9 @@ vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride,
             // If we need to look on the reverse strand, do that too.
             std::chrono::time_point<std::chrono::system_clock> start, end;
             if (debug) start = std::chrono::system_clock::now();
-            alignments_r = align_threaded(best_r, kmer_count_r, kmer_size, stride, attempt);
+            auto alns =  align_threaded(best_r, kmer_count_r, kmer_size, stride, attempt);
+            alignments_r = reverse_alignments(alns,
+                                              (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
             if (debug) {
                 end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;
@@ -714,7 +702,7 @@ vector<Alignment> Mapper::align_multi(Alignment& aln, int kmer_size, int stride,
     return merged;
 }
 
-Alignment Mapper::align(Alignment& aln, int kmer_size, int stride, int band_width) {
+Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int band_width) {
     // Do the multi-mapping
     vector<Alignment> best = align_multi(aln, kmer_size, stride, band_width);
     
@@ -730,7 +718,7 @@ Alignment Mapper::align(Alignment& aln, int kmer_size, int stride, int band_widt
     return best[0];
 }
 
-vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, int kmer_size, int stride, int attempt) {
+vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_count, int kmer_size, int stride, int attempt) {
 
     // parameters, some of which should probably be modifiable
     // TODO -- move to Mapper object
@@ -776,7 +764,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
         // Report the approximate match byte size
         if (debug) cerr << k << "\t~" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
-        // we can do multiple mapping by relaxing this
+        // we can do multiple mapping by rnelaxing this
         if (approx_matches > hit_size_threshold) {
             continue;
         }
@@ -1107,7 +1095,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             //graph->serialize_to_file("align2.vg");
             ta.clear_path();
             ta.set_score(0);
-            graph->align(ta);
+            ta = graph->align(ta);
 
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
@@ -1168,7 +1156,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                 graph->remove_orphan_edges();
                 ta.clear_path();
                 ta.set_score(0);
-                graph->align(ta);
+                ta = graph->align(ta);
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);
                 if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
@@ -1240,16 +1228,15 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
 
     // get the best alignment
     if (!good.empty()) {
-        alignment = good[0];
         if (debug) {
             cerr << "best alignment score " << alignment.score() << endl;
         }
     } else {
-        alignment.clear_path();
-        alignment.set_score(0);
-        
-        // We return an empty vector, and give an Alignment with no path and 0
-        // score through our output parameter.
+        good.emplace_back();
+        Alignment& aln = good.back();
+        aln = alignment;
+        aln.clear_path();
+        aln.set_score(0);
     }
 
     if (debug && alignment.score() == 0) cerr << "failed alignment" << endl;
@@ -1258,7 +1245,7 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
     return good;
 }
 
-Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride) {
+Alignment Mapper::align_simple(const Alignment& alignment, int kmer_size, int stride) {
 
     if (index == NULL) {
         cerr << "error:[vg::Mapper] no index loaded, cannot map alignment!" << endl;
@@ -1319,11 +1306,11 @@ Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride)
     */
 
     // Make sure the graph we're aligning to is all oriented
-    graph->align(alignment);
+    Alignment aln = graph->align(alignment);
     
     delete graph;
 
-    return alignment;
+    return aln;
 
 }
 

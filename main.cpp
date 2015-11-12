@@ -959,7 +959,7 @@ int main_msga(int argc, char** argv) {
                                graph->node_count() << " nodes" << endl;
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 alns.push_back(aln);
-                //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+                if (debug) cerr << pb2json(aln) << endl; // huge in some cases
                 paths.push_back(aln.path());
                 // note that the addition of paths is a second step
                 // now take the alignment and modify the graph with it
@@ -984,7 +984,7 @@ int main_msga(int argc, char** argv) {
             bool included = true;
             for (auto& seq : group.second) {
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                //cerr << pb2json(aln) << endl;
+                cerr << pb2json(aln) << endl;
                 for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
                     if (!mapping_is_simple_match(aln.path().mapping(i))) {
                         cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
@@ -3645,7 +3645,7 @@ void help_map(char** argv) {
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
-         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold" << endl
+         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
          << "    -P, --score-per-bp N  accept alignment only if the alignment score per base is > N" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 7)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
@@ -3703,7 +3703,7 @@ int main_map(int argc, char** argv) {
     bool try_both_mates_first = false;
     float min_kmer_entropy = 0;
     float min_score_per_bp = 0;
-    size_t kmer_min = 0;
+    size_t kmer_min = 8;
     int softclip_threshold = 0;
 
     int c;

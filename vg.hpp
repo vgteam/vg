@@ -34,6 +34,8 @@
 #include "pictographs.hpp"
 #include "colors.hpp"
 
+#include "types.hpp"
+
 // uncomment to enable verbose debugging to stderr
 //#define debug
 
@@ -421,14 +423,17 @@ public:
     // ID to a map from old node start position to new node pointer in the
     // graph. Note that the caller will have to crear and rebuild path rank
     // data.
-    map<int64_t, map<int64_t, Node*>> ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints);
+    map<pos_t, Node*> ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpoints);
+
+    // flips the breakpoints onto the forward strand
+    map<int64_t, set<pos_t>> forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints);
     
     // Given a path on nodes that may or may not exist, and a map from node ID
     // in the path's node ID space to a table of offset and actual node, add in
     // all the new sequence and edges required by the path. The given path must
     // not contain adjacent perfect match edits in the same mapping (the removal
     // of which can be accomplished with the simplify() function). 
-    void add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation);
+    void add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation);
     
     // Add in the given node, by value
     void add_node(Node& node);
@@ -633,7 +638,7 @@ public:
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
-    Alignment& align(Alignment& alignment);
+    Alignment align(const Alignment& alignment);
     Alignment align(const string& sequence);
     void destroy_alignable_graph(void);
 
