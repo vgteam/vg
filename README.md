@@ -6,7 +6,7 @@
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
-![Variation graph](https://raw.githubusercontent.com/ekg/vg/master/figures/example.png)
+![Variation graph](https://cloud.githubusercontent.com/assets/6685511/11076646/b5bcd98a-87b0-11e5-8ec7-ef36f1dca62b.png)
 
 _Variation graphs_ provide a succinct encoding of the sequences of many genomes. A variation graph (in particular as implemented in vg) is composed of:
 
@@ -16,37 +16,41 @@ _Variation graphs_ provide a succinct encoding of the sequences of many genomes.
 
 This model is similar to a number of sequence graphs that have been used in assembly and multiple sequence alignment. Paths provide coordinate systems relative to genomes encoded in the graph, allowing stable mappings to be produced even if the structure of the graph is changed. For visual documentation, please refer to a presentation on the topic: [Resequencing against a human whole genome variation graph](https://docs.google.com/presentation/d/1bbl2zY4qWQ0yYBHhoVuXb79HdgajRotIUa_VEn3kTpI/edit?usp=sharing) (April 14, 2015).
 
-## Usage
+### Building vg
+vg is tested and deployed on Linux but has been built on Mac OS X as well. It requires modern CPU instructions, so you'll need to make sure you're using a processor from 2012 or later. It relies on several third-party libraries and the 3.x series of Linux header files. If you're running Ubuntu, you can install all the necessary system-level dependencies with ```sudo make get-deps```.
 
-### building
 
-Before you begin, you'll need to install some basic tools if they are not already installed.
-
-    sudo apt-get install git cmake pkg-config libncurses-dev libbz2-dev
-
-You'll need the protobuf and jansson development libraries installed on your server.
-
-    sudo apt-get install protobuf-compiler libprotoc-dev libjansson-dev automake libtool
+If you're on another Unix distro, you'll need to install things using your favorite package manager or from source. Here's a list of things that vg uses to do its thing:
     
-Additionally, to run the tests, you will need jq.
+    gcc4.8 or newer
+    jansson
+    cmake
+    ncurses
+    bzip2
+    zlib
+    pkg-config
+    automake
+    libtool
+    samtools
 
-    sudo apt-get install jq
-
-You can also run `make get-deps`.
-
-Other libraries may be required. Please report any build difficulties.
+You can probably grab most of these from your package manager, but some will require updated versions. In addition, you'll need the latest jq to pass the test suite.
 
 Now, obtain the repo and its submodules:
 
     git clone --recursive https://github.com/ekg/vg.git
 
-Then build with `make`, and run with `./vg`.
+Change into the vg directory and ```./configure.sh```.
+Then build with `make`, test with `make test`, and run with `./vg`.
+
+#### Known issues
+VG requires a modern set of Linux header files, so it won't build on CEntOS 6 or older. It has been built on Ubuntu 14.x and 15.x, Fedora, and Mac OS X given sufficient fiddling.
+
+VG uses several advanced SIMD instructions, so it will not build if your CPU is too old. For Intel chips, you'll need at least a Sandy Bradge-era CPU.
 
 #### building on Mac OS X
-
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool bison
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
@@ -54,6 +58,32 @@ To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to r
 
 VG can now be cloned and built as described above.
 
+
+## Usage
+VG uses a similar usage model to that of samtools. To run a command, use something along the lines of  ````vg <command> [options] <input>```.
+You can find all of the available commands simply by typing ```vg```.
+
+
+ Here are the basic commands:
+
+- *construct*: graph construction
+- *view*: conversion (dot/protobuf/json/GFA)
+- *index*: index features of the graph in a disk-backed key/value store
+- *find*: use an index to find nodes, edges, kmers, or positions
+- *paths*: traverse paths in the graph
+- *align*: local alignment
+- *map*: global alignment (kmer-driven)
+- *stats*: metrics describing graph properties
+- *join*: combine graphs (parallel)
+- *concat*: combine graphs (serial)
+- *ids*: id manipulation
+- *kmers*: generate kmers from a graph
+- *sim*: simulate reads by walking paths in the graph
+- *mod*: various transformations of the graph
+- *surject*: force graph alignments into a linear reference space
+
+
+VG is threaded, so make sure to use the ```-t``` flag if you have a system with many cores. VG also supports piping to change commands together.
 ### Variation graph construction
 
 The simplest thing to do with `vg` is to build a graph and align to it. At present, you'll want to use a reference and VCF file to do so. If you're working in the `test/` directory:
@@ -116,26 +146,6 @@ vg map -r <(vg sim -n 1000 -l 150 x.vg) x.vg >aln.gam
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
 vg surject -p x -b aln.gam >aln.bam
 ```
-
-### Command line interface
-
-A variety of commands are available:
-
-- *construct*: graph construction
-- *view*: conversion (dot/protobuf/json/GFA)
-- *index*: index features of the graph in a disk-backed key/value store
-- *find*: use an index to find nodes, edges, kmers, or positions
-- *paths*: traverse paths in the graph
-- *align*: local alignment
-- *map*: global alignment (kmer-driven)
-- *stats*: metrics describing graph properties
-- *join*: combine graphs (parallel)
-- *concat*: combine graphs (serial)
-- *ids*: id manipulation
-- *kmers*: generate kmers from a graph
-- *sim*: simulate reads by walking paths in the graph
-- *mod*: various transformations of the graph
-- *surject*: force graph alignments into a linear reference space
 
 ## Implementation notes
 
