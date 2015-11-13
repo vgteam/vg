@@ -387,7 +387,7 @@ void Caller::create_snp_path(int64_t snp_node, bool secondary_snp) {
         // useful but will use to count snps... 
         pos->set_node_id(snp_node);
         pos->set_offset(0);
-        mapping.set_is_reverse(false);
+        mapping.mutable_position()->set_is_reverse(false);
         
         // note: create_path doesn't seem to work.. too rushed to look into
         //list<Mapping>& mappings = _call_graph.paths.create_path(name.str());

@@ -487,7 +487,10 @@ int32_t sam_flag(const Alignment& alignment) {
         // correctly aligned
         flag |= BAM_FPROPER_PAIR;
     }
-    if (alignment.is_reverse()) {
+    // HACKZ -- you can't determine orientation from a single part of the mapping
+    // unless the graph is a DAG
+    if (alignment.has_path()
+        && alignment.path().mapping(0).position().is_reverse()) {
         flag |= BAM_FREVERSE;
     }
     if (alignment.is_secondary()) {
@@ -542,7 +545,7 @@ Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample) {
     alignment.set_name(read_name);
     alignment.set_sequence(sequence);
     alignment.set_quality(quality);
-    alignment.set_is_reverse(bam_is_rev(b));
+    
     // TODO: htslib doesn't wrap this flag for some reason.
     alignment.set_is_secondary(b->core.flag & BAM_FSECONDARY);
     if (sname.size()) {
@@ -574,7 +577,6 @@ Alignment strip_from_start(const Alignment& aln, size_t drop) {
     Alignment res;
     res.set_name(aln.name());
     res.set_score(aln.score());
-    res.set_is_reverse(aln.is_reverse());
     //cerr << "drop " << drop << " from start" << endl;
     res.set_sequence(aln.sequence().substr(drop));
     if (!aln.has_path()) return res;
@@ -593,7 +595,6 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
     Alignment res;
     res.set_name(aln.name());
     res.set_score(aln.score());
-    res.set_is_reverse(aln.is_reverse());
     //cerr << "drop " << drop << " from end" << endl;
     size_t cut_at = aln.sequence().size()-drop;
     //cerr << "Cut at " << cut_at << endl;
@@ -609,13 +610,20 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
     return res;
 }
 
-Alignment reverse_alignment(const Alignment& aln, function<int64_t(int64_t)>& node_length) {
+vector<Alignment> reverse_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length) {
+    vector<Alignment> revalns;
+    for (auto& aln : alns) {
+        revalns.push_back(reverse_alignment(aln, node_length));
+    }
+    return revalns;
+}
+
+Alignment reverse_alignment(const Alignment& aln, const function<int64_t(int64_t)>& node_length) {
     // We're going to reverse the alignment and all its mappings.
     // TODO: should we/can we do this in place?
     
     Alignment reversed = aln;
     reversed.set_sequence(reverse_complement(aln.sequence()));
-    reversed.set_is_reverse(!aln.is_reverse());
     
     if(aln.has_path()) {
     
@@ -719,12 +727,6 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
             if (2*i+1 < last.size()) {
                 auto& a1 = last[2*i];
                 auto& a2 = last[2*i+1];
-                if (a1.is_reverse() != a2.is_reverse()) {
-                    cerr << "warning: orientation of alignments to be merged is not consistent" << endl;
-                    cerr << "first is " << (a1.is_reverse()?"reversed":"forward")
-                         << " and second is " << (a2.is_reverse()?"reversed":"forward") << endl;
-                    cerr << pb2json(a1) << endl << pb2json(a2) << endl;
-                }
                 curr[i] = merge_alignments(a1, a2, debug);
                 // check that the merge did the right thing
                 /*
@@ -778,7 +780,7 @@ Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug)
     return a3;
 }
 
-void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> node_length) {
+void flip_nodes(Alignment& a, set<int64_t> ids, const std::function<size_t(int64_t)>& node_length) {
     Path* path = a.mutable_path();
     for(size_t i = 0; i < path->mapping_size(); i++) {
         // Grab each mapping
@@ -790,17 +792,13 @@ void flip_nodes(Alignment& a, set<int64_t> ids, std::function<size_t(int64_t)> n
             // We need to flip this mapping
             
             // Flip its orientation
-            mapping->set_is_reverse(!mapping->is_reverse());
-            
-            // Update the offset to count from the other end of the node.
-            pos->set_offset(node_length(pos->node_id()) - pos->offset() - 1);
+            *pos = reverse(*pos, node_length(pos->node_id()));
             
             // We leave all the edits the same, because in reality this node has
             // the oriented sequence we attributed to it. It just has a
             // different node orientation.
         } 
     }
-    
 }
 
 int softclip_start(Alignment& alignment) {

@@ -67,8 +67,12 @@ bool Pileups::insert(NodePileup* pileup) {
 }
 
 void Pileups::compute_from_alignment(VG& graph, Alignment& alignment) {
-    if (alignment.is_reverse()) {
-        flip_alignment(alignment);
+    // if we start reversed
+    if (alignment.has_path() && alignment.path().mapping(0).position().is_reverse()) {
+        alignment = reverse_alignment(alignment,
+                                      (function<int64_t(int64_t)>) ([&graph](int64_t id) {
+                                          return graph.get_node(id)->sequence().size();
+                                          }));
     }
     const Path& path = alignment.path();
     int64_t read_offset = 0;
@@ -97,14 +101,14 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                                 const Node& node, const Alignment& alignment,
                                 const Mapping& mapping, const Edit& edit) {
     string seq = edit.sequence();
-    bool is_reverse = mapping.is_reverse();
+    bool is_reverse = mapping.position().is_reverse();
     
     // ***** MATCH *****
     if (edit.from_length() == edit.to_length()) {
         assert (edit.from_length() > 0);
         make_match(seq, edit.from_length(), is_reverse);
         assert(seq.length() == edit.from_length());            
-        int64_t delta = is_reverse ? -1 : 1;
+        int64_t delta = 1;
         for (int64_t i = 0; i < edit.from_length(); ++i) {
             BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
             // reference_base if empty
@@ -195,7 +199,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         }
         // pileup size increases by 1
         base_pileup->set_num_bases(base_pileup->num_bases() + 1);
-        int64_t delta = is_reverse ? -edit.from_length() : edit.from_length();
+        int64_t delta = edit.from_length();
         // stay put on read, move left/right depending on strand on reference
         node_offset += delta;
     }
@@ -273,28 +277,6 @@ void Pileups::parse_base_offsets(const BasePileup& bp,
         }
     }
     assert(base_offset == bases.length());
-}
-
-void Pileups::flip_alignment(Alignment& alignment) {
-    string rev_seq = reverse_complement(alignment.sequence());
-    int to_pos = 0;
-    Path* path = alignment.mutable_path();
-    for (int i = 0; i < path->mapping_size(); ++i) {
-        Mapping* mapping = path->mutable_mapping(i);
-        for (int j = 0; j < mapping->edit_size(); ++j) {
-            Edit* edit = mapping->mutable_edit(j);
-            if (edit->to_length() > 0) {
-                if (edit->sequence().length() > 0) {
-                    int start_offset = rev_seq.length() - to_pos - edit->to_length();
-                    assert (start_offset >=0 && start_offset < rev_seq.length());
-                    edit->set_sequence(rev_seq.substr(start_offset, edit->to_length()));
-                }
-                to_pos += edit->to_length();
-            }
-        }
-    }
-    alignment.set_sequence(reverse_complement(rev_seq));
-    alignment.set_is_reverse(!alignment.is_reverse());
 }
 
 }

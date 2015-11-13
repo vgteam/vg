@@ -188,15 +188,14 @@ string cigar_string(vector<pair<int, char> >& cigar) {
 // todo, make a version that works for non-invariants
 void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* n, Node* nl, Node* nr) {
     // an invariant mapping is, by definition, without any edits
-    assert(orig.edit_size() == 0);
-    
+    //assert(orig.edit_size() == 0);
     
     // Things to consider: This mapping might not take up the whole node
     // (because it can start early via the offset). This mapping might go in
     // reverse (in which case, in the output path, the right mapping will get
     // put before the left mapping.)
     
-    if(orig.is_reverse()) {
+    if(orig.position().is_reverse()) {
         // The mapping is reverse
         
         // We can't correctly split the mapping if none of it lands in the right
@@ -211,13 +210,13 @@ void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int 
         // node, and be reverse.
         left.mutable_position()->set_node_id(nl->id());
         left.mutable_position()->set_offset(nl->sequence().size() - 1);
-        left.set_is_reverse(true);
+        left.mutable_position()->set_is_reverse(true);
         
         // The right mapping will start the correct distance from its right end,
         // and be reverse.
         right.mutable_position()->set_node_id(nr->id());
         right.mutable_position()->set_offset(nr->sequence().size() - right_distance - 1);
-        right.set_is_reverse(true);
+        right.mutable_position()->set_is_reverse(true);
     } else {
         // The mapping is forward.
         
