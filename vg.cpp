@@ -4308,34 +4308,19 @@ bool VG::is_valid(bool check_nodes,
                 }
 
                 // verify that m1 ends at offset length-1 for forward mapping
-                if (!m1.position().is_reverse() && p1.offset() + m1_edit_length != n1.sequence().length()) {
-                    cerr << "graph path '" << path.name() << "' has invalid mapping at rank " << m1.rank()
+                if (p1.offset() + m1_edit_length != n1.sequence().length()) {
+                    cerr << "graph path '" << path.name() << "' has invalid mapping " << pb2json(m1)
                     << ": offset (" << p1.offset() << ") + from_length (" << m1_edit_length << ")"
                     << " != node length (" << n1.sequence().length() << ")" << endl;
                     paths_ok = false;
                     return;
                 }
-                // verify that m1 ends at offset 0 for reverse mapping
-                else if (m1.position().is_reverse() && p1.offset() + 1 != m1_edit_length) {
-                    cerr << "graph path '" << path.name() << "' invalid (reverse) mapping at rank " << m1.rank() << ": offset ("
-                    << p1.offset() << ") != edit length (" << m1_edit_length << ") -1" << endl;
-                    paths_ok = false;
-                    return;
-                }
                 // verify that m2 starts at offset 0 for forward mapping
-                if (!m2.position().is_reverse() && p2.offset() > 0) {
-                    cerr << "graph path '" << path.name() << "' has invalid mapping at rank " << m2.rank()
+                if (p2.offset() > 0) {
+                    cerr << "graph path '" << path.name() << "' has invalid mapping " << pb2json(m2)
                     << ": offset=" << p2.offset() << " found when offset=0 expected" << endl;
                     paths_ok = false;
                         return;
-                }
-                // verify that m2 starts at offset length-1 for reverse mapping
-                else if (m2.position().is_reverse() && p2.offset() != n2.sequence().length() - 1) {
-                    cerr << "graph path '" << path.name() << "' has invalid (reverse) mapping at rank " << m2.rank()
-                    << ": offset=" << p2.offset() << " found when offset="
-                    << (n2.sequence().length() - 1) << " expected" << endl;
-                    paths_ok = false;
-                    return;
                 }
             }
         };
