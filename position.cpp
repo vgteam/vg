@@ -43,13 +43,11 @@ off_t& get_offset(pos_t& pos) {
 }
 
 pos_t reverse(const pos_t& pos, size_t node_length) {
-    cerr << "pre reverse " << pos << endl;
     pos_t rev = pos;
     // swap the offset onto the other strand
-    get_offset(rev) = node_length - offset(rev) - 1;
+    get_offset(rev) = node_length - offset(rev);
     // invert the position
     get_is_rev(rev) = !is_rev(rev);
-    cerr << "post reverse " << rev << endl;
     return rev;
 }
 

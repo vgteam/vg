@@ -85,11 +85,11 @@ message Mapping {
 //
 // Example:
 //
-// seq+       G A T T A C A
-// offset+  → 0 1 2 3 4 5 6
+// seq+        G A T T A C A
+// offset+  → 0 1 2 3 4 5 6 7
 //
-// seq-       C T A A T G T
-// offset-    6 5 4 3 2 1 0 ←
+// seq-        C T A A T G T
+// offset-    7 6 5 4 3 2 1 0 ←
 //
 message Position {
     int64 node_id = 1;

@@ -3776,13 +3776,6 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
 }
 
 map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints) {
-    cerr << "breakpoints before " << endl;
-    for (auto& n : breakpoints) {
-        for (auto p : n.second) {
-            cerr << p << endl;
-        }
-    }
-
     map<int64_t, set<pos_t>> fwd;
     for (auto& p : breakpoints) {
         id_t node_id = p.first;
@@ -3799,12 +3792,6 @@ map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t
             }
         }
     }
-    cerr << "breakpoints afterr " << endl;
-    for (auto& n : fwd) {
-        for (auto p : n.second) {
-            cerr << p << endl;
-        }
-    }
     return fwd;
 }
 
@@ -3812,8 +3799,6 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
     // Set up the map we will fill in with the new node start positions in the
     // old nodes.
     map<pos_t, Node*> toReturn;
-    serialize_to_file("pre-ensure.vg");
-    cerr << "in ensure breakpoints" << endl;
     
     for(auto& kv : breakpoints) {
         // Go through all the nodes we need to break up
@@ -3836,7 +3821,6 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
         for(auto breakpoint : kv.second) {
             // For every point at which we need to make a new node, in ascending
             // order (due to the way sets store ints)...
-            cerr << "!#@#@ on breakpoint " << breakpoint << endl;
             assert(!is_rev(breakpoint));
 
             // This breakpoint already exists, because the node starts or ends here
@@ -3865,10 +3849,10 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             // existing perfect match paths in the graph.
             divide_node(right_part, divide_offset, left_part, right_part);
             
-//#ifdef debug
+#ifdef debug
             cerr << "Produced " << left_part->id() << " (" << left_part->sequence().size() << " bp)" << endl;
             cerr << "Left " << right_part->id() << " (" << right_part->sequence().size() << " bp)" << endl;
-//#endif
+#endif
             
             // The left part is now done. We know it started at current_offset
             // and ended before breakpoint, so record it by start position.
@@ -3914,17 +3898,17 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
     
     // We use this function to get the node that contains a position on an
     // original node.
+    /*
     cerr << "node translation" << endl;
     for (auto& p : node_translation) {
         pos_t pos = p.first;
         cerr << pos << " " << (p.second != nullptr?pb2json(*p.second):"null") << endl;
     }
+    */
     
     auto find_new_node = [&](pos_t old_pos) {
-        cerr << "finding new node " << old_pos << endl;
         if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
             // The node is unchanged
-            cerr << "the node is unchanged" << endl;
             auto n = get_node(id(old_pos));
             assert(n != nullptr);
             return n;
@@ -3935,11 +3919,6 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
         assert(found != node_translation.end());
         if (id(found->first) != id(old_pos)
             || is_rev(found->first) != is_rev(old_pos)) {
-            //pos_t fp = found->first;
-            //cerr << fp << " vs " << old_pos << endl;
-            // We managed to have a node with no entry for 0, or a negative offset
-            //stringstream op; op << old_pos;
-            //throw runtime_error("Couldn't find new node for position " + op.str());
             return (Node*)nullptr;
         }
         // Get the thing before that (last key <= the position we want
@@ -3973,9 +3952,11 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
             // Work out where its end position on the original node is (inclusive)
             // We don't use this on insertions, so 0-from-length edits don't matter.
             pos_t edit_last_position = edit_first_position;
-            get_offset(edit_last_position) += e.from_length() - 1;
+            //get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
+            get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
 #ifdef debug
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
+            cerr << pb2json(e) << endl;
 #endif    
         
             if(edit_is_insertion(e) || edit_is_sub(e)) {
@@ -3983,8 +3964,11 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
 #ifdef debug
                 cerr << "Handling ins/sub relative to " << node_id << endl;
 #endif
-                // Create the new node.
-                Node* new_node = create_node(e.sequence());
+                // Create the new node, reversing it if we are reversed
+                Node* new_node = create_node(
+                    m.position().is_reverse() ?
+                    reverse_complement(e.sequence())
+                    : e.sequence());
                 
                 if(dangling.node) {
                     // This actually referrs to a node.
@@ -4855,9 +4839,13 @@ Alignment VG::align(const Alignment& alignment) {
     auto aln = alignment;
     Node* root = join_heads();
 
+    //serialize_to_file("pre-flip-" + alignment.sequence() + "-" + hash() + ".vg");
+
     // we join first and then flip due to issue #116
     set<int64_t> flipped_nodes;
     orient_nodes_forward(flipped_nodes);
+
+    //serialize_to_file("post-flip-" + alignment.sequence() + "-" + hash() + ".vg");
 
     // Put the nodes in sort order within the graph
     sort();
@@ -4869,14 +4857,10 @@ Alignment VG::align(const Alignment& alignment) {
 
     destroy_node(root);
 
-    cerr << "pre flip " << pb2json(aln) << endl;
-
     flip_nodes(aln, flipped_nodes, [this](int64_t node_id) {
             // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
             return get_node(node_id)->sequence().size();
         });
-
-    cerr << "post flip " << pb2json(aln) << endl;
 
     return aln;
 }

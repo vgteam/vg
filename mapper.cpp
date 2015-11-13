@@ -376,11 +376,9 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                 if (!above_threshold) {
                     aln = bands[i]; // unmapped
                 }
-                cerr << "aln bf strip " << pb2json(aln) << endl;
                 // strip overlaps
                 if (i > 0) aln = strip_from_start(aln, overlaps[i]/2);
                 if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
-                cerr << "aln af strip " << pb2json(aln) << endl;
             }
         }
     }

@@ -961,7 +961,7 @@ Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node
     if(m.has_position() && m.position().node_id() != 0) {
         Position p = m.position();
         // set to the end of the mapping
-        p.set_offset(p.offset() + mapping_from_length(m) - 1);
+        p.set_offset(p.offset() + mapping_from_length(m));
         // then flip the position onto the other side
         *reversed.mutable_position()
             = make_position(reverse(make_pos_t(p),
@@ -1249,7 +1249,6 @@ void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints) {
         // (even when the edit runs backward), unless the edit has 0 length in
         // the reference.
         pos_t edit_first_position = make_pos_t(m.position());
-        cerr << "in find_breakpoints " << edit_first_position << endl;
         
 #ifdef debug
     cerr << "Processing mapping " << i << " to node " << node_id << " in direction " << direction <<

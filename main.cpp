@@ -987,11 +987,25 @@ int main_msga(int argc, char** argv) {
             for (auto& seq : group.second) {
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 if (debug) cerr << "testing inclusion of " << pb2json(aln) << endl;
+                // check for connectivity
                 for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
                     if (!mapping_is_simple_match(aln.path().mapping(i))) {
                         cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
                         included = false;
                         graph->serialize_to_file("post-fail-" + name + "-" + iterstr + ".vg");
+                    } else if (i > 0) {
+                        auto& p1 = aln.path().mapping(i-1).position();
+                        auto& p2 = aln.path().mapping(i).position();
+                        // are we at the end of the node before we jump?
+                        if (p1.node_id() != p2.node_id()
+                            &&
+                            mapping_from_length(aln.path().mapping(i))
+                            != graph->get_node(p2.node_id())->sequence().size()) {
+                            cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i))
+                                 << " to " << pb2json(aln.path().mapping(i-1)) << endl;
+                            included = false;
+                            graph->serialize_to_file("post-fail-" + name + "-" + iterstr + ".vg");
+                        }
                     }
                 }
             }
