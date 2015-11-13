@@ -586,7 +586,7 @@ void help_msga(char** argv) {
          << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
-         << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
+         << "    -c, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
@@ -661,7 +661,7 @@ int main_msga(int argc, char** argv) {
                 {"sens-step", required_argument, 0, 'S'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"max-attempts", required_argument, 0, 'M'},
-                {"context-depth", required_argument, 0, 'd'},
+                {"context-depth", required_argument, 0, 'c'},
                 {"cluster-min", required_argument, 0, 'C'},
                 {"score-per-bp", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
@@ -673,7 +673,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:E:Q:Nz",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:c:C:X:m:K:l:P:t:E:Q:Nz",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -695,7 +695,7 @@ int main_msga(int argc, char** argv) {
             max_attempts = atoi(optarg);
             break;
 
-        case 'd':
+        case 'c':
             context_depth = atoi(optarg);
             break;
 
@@ -939,6 +939,9 @@ int main_msga(int argc, char** argv) {
         }
     };
 
+    // set up the graph for mapping
+    rebuild(graph);
+
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
@@ -949,7 +952,6 @@ int main_msga(int argc, char** argv) {
             stringstream s; s << iter; string iterstr = s.str();
             auto& name = group.first;
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
-            rebuild(graph);
             graph->serialize_to_file("pre-aln-" + name + "-" + iterstr + ".vg");
             vector<Path> paths;
             vector<Alignment> alns;
@@ -984,7 +986,7 @@ int main_msga(int argc, char** argv) {
             bool included = true;
             for (auto& seq : group.second) {
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                cerr << pb2json(aln) << endl;
+                if (debug) cerr << "testing inclusion of " << pb2json(aln) << endl;
                 for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
                     if (!mapping_is_simple_match(aln.path().mapping(i))) {
                         cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
