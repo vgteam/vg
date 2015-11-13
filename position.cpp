@@ -51,6 +51,13 @@ pos_t reverse(const pos_t& pos, size_t node_length) {
     return rev;
 }
 
+Position reverse(const Position& pos, size_t node_length) {
+    auto p = pos;
+    p.set_offset(node_length - pos.offset());
+    p.set_is_reverse(!pos.is_reverse());
+    return p;
+}
+
 ostream& operator<<(ostream& out, const pos_t& pos) {
     return out << id(pos) << (is_rev(pos) ? "-" : "+") << offset(pos);
 }

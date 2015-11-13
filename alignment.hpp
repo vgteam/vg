@@ -6,6 +6,7 @@
 #include <zlib.h>
 #include "utility.hpp"
 #include "path.hpp"
+#include "position.hpp"
 #include "vg.pb.h"
 
 #include "htslib/hfile.h"

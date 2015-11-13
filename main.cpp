@@ -901,7 +901,6 @@ int main_msga(int argc, char** argv) {
                     min_score_per_bp,
                     alignment_threads](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
-        //graph->serialize_to_file(s.str());
         
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
@@ -952,7 +951,6 @@ int main_msga(int argc, char** argv) {
             stringstream s; s << iter; string iterstr = s.str();
             auto& name = group.first;
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
-            graph->serialize_to_file("pre-aln-" + name + "-" + iterstr + ".vg");
             vector<Path> paths;
             vector<Alignment> alns;
             for (auto& seq : group.second) {
@@ -961,7 +959,7 @@ int main_msga(int argc, char** argv) {
                                graph->node_count() << " nodes" << endl;
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 alns.push_back(aln);
-                if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+                //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
                 paths.push_back(aln.path());
                 // note that the addition of paths is a second step
                 // now take the alignment and modify the graph with it
@@ -979,7 +977,6 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
-            graph->serialize_to_file("post-edit-" + name + "-" + iterstr + ".vg");
 
             // check that all is well
             rebuild(graph);
@@ -992,7 +989,6 @@ int main_msga(int argc, char** argv) {
                     if (!mapping_is_simple_match(aln.path().mapping(i))) {
                         cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
                         included = false;
-                        graph->serialize_to_file("post-fail-" + name + "-" + iterstr + ".vg");
                     } else if (i > 0) {
                         auto& p1 = aln.path().mapping(i-1).position();
                         auto& p2 = aln.path().mapping(i).position();
@@ -1004,7 +1000,6 @@ int main_msga(int argc, char** argv) {
                             cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i))
                                  << " to " << pb2json(aln.path().mapping(i-1)) << endl;
                             included = false;
-                            graph->serialize_to_file("post-fail-" + name + "-" + iterstr + ".vg");
                         }
                     }
                 }
@@ -1037,7 +1032,7 @@ int main_msga(int argc, char** argv) {
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 //if (debug) cerr << "alignment score: " << aln.score() << endl;
                 aln.mutable_path()->set_name(name);
-                if (debug) cerr << "alignment: " << pb2json(aln) << endl;
+                //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
                 // todo simplify in the mapper itself when merging the banded bits
                 if (debug) cerr << name << ": labeling" << endl;
                 graph->include(aln.path());

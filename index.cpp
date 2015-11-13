@@ -854,9 +854,9 @@ void Index::store_path(VG& graph, Path& path) {
 
         const Mapping& mapping = path.mapping(i);
         // put an entry in the path table
-        put_path_position(path_id, path_pos, mapping.is_reverse(), mapping.position().node_id(), mapping);
+        put_path_position(path_id, path_pos, mapping.position().is_reverse(), mapping.position().node_id(), mapping);
         // put an entry in the graph table
-        put_node_path(mapping.position().node_id(), path_id, path_pos, mapping.is_reverse(), mapping);
+        put_node_path(mapping.position().node_id(), path_id, path_pos, mapping.position().is_reverse(), mapping);
 
         // get the node, to find the size of this step
         Node node;
@@ -1176,7 +1176,7 @@ Mapping Index::path_relative_mapping(int64_t node_id, bool backward, int64_t pat
     Mapping mapping;
     // TODO: shouldn't this point to the node(s?) we're changing, not the one we changed to?
     mapping.mutable_position()->set_node_id(node_id); 
-    mapping.set_is_reverse(backward);
+    mapping.mutable_position()->set_is_reverse(backward);
     // what about offset?
     if (get_node_path_relative_position(node_id, backward, path_id,
                                         path_prev, prev_pos, prev_orientation, path_next, next_pos, next_orientation)) {
@@ -1254,7 +1254,7 @@ bool Index::surject_alignment(const Alignment& source,
         int64_t hit_id = surjection.path().mapping(0).position().node_id();
         Node hit_node;
         get_node(hit_id, hit_node);
-        bool hit_backward = surjection.path().mapping(0).is_reverse();
+        bool hit_backward = surjection.path().mapping(0).position().is_reverse();
         int64_t pos = surjection.path().mapping(0).position().offset();
         // we pick up positional information using the index
         int64_t prev_pos=0, next_pos=0;

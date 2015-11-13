@@ -814,7 +814,6 @@ set<list<Node*>> VG::simple_multinode_components(void) {
 // changing the path space of the graph
 set<list<Node*>> VG::simple_components(int min_size) {
 
-    serialize_to_file("pre-simple.vg");
     // go around and establish groupings
     set<list<Node*>> components;
     for_each_node([this, min_size, &components](Node* n) {
@@ -4824,13 +4823,9 @@ Alignment VG::align(const Alignment& alignment) {
     auto aln = alignment;
     Node* root = join_heads();
 
-    //serialize_to_file("pre-flip-" + alignment.sequence() + "-" + hash() + ".vg");
-
     // we join first and then flip due to issue #116
     set<int64_t> flipped_nodes;
     orient_nodes_forward(flipped_nodes);
-
-    //serialize_to_file("post-flip-" + alignment.sequence() + "-" + hash() + ".vg");
 
     // Put the nodes in sort order within the graph
     sort();

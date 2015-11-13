@@ -792,17 +792,13 @@ void flip_nodes(Alignment& a, set<int64_t> ids, const std::function<size_t(int64
             // We need to flip this mapping
             
             // Flip its orientation
-            mapping->set_is_reverse(!mapping->is_reverse());
-            
-            // Update the offset to count from the other end of the node.
-            pos->set_offset(node_length(pos->node_id()) - pos->offset() - 1);
+            *pos = reverse(*pos, node_length(pos->node_id()));
             
             // We leave all the edits the same, because in reality this node has
             // the oriented sequence we attributed to it. It just has a
             // different node orientation.
         } 
     }
-    
 }
 
 int softclip_start(Alignment& alignment) {
