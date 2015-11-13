@@ -108,7 +108,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         assert (edit.from_length() > 0);
         make_match(seq, edit.from_length(), is_reverse);
         assert(seq.length() == edit.from_length());            
-        int64_t delta = is_reverse ? -1 : 1;
+        int64_t delta = 1;
         for (int64_t i = 0; i < edit.from_length(); ++i) {
             BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
             // reference_base if empty
@@ -199,7 +199,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         }
         // pileup size increases by 1
         base_pileup->set_num_bases(base_pileup->num_bases() + 1);
-        int64_t delta = is_reverse ? -edit.from_length() : edit.from_length();
+        int64_t delta = edit.from_length();
         // stay put on read, move left/right depending on strand on reference
         node_offset += delta;
     }
