@@ -142,10 +142,6 @@ public:
                                    vector<pair<int, int> >& insOffsets,
                                    vector<pair<int, int> >& delOffests);
 
-    // flip the is_reverse flag of an alignment, along with its sequence string
-    // and those in its edits. 
-    static void flip_alignment(Alignment& alignment);
-
     // transform case of every character in string
     static void casify(string& seq, bool is_reverse) {
         if (is_reverse) {

@@ -34,6 +34,8 @@
 #include "pictographs.hpp"
 #include "colors.hpp"
 
+#include "types.hpp"
+
 // uncomment to enable verbose debugging to stderr
 //#define debug
 
@@ -421,14 +423,17 @@ public:
     // ID to a map from old node start position to new node pointer in the
     // graph. Note that the caller will have to crear and rebuild path rank
     // data.
-    map<int64_t, map<int64_t, Node*>> ensure_breakpoints(const map<int64_t, set<int64_t>>& breakpoints);
+    map<pos_t, Node*> ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpoints);
+
+    // flips the breakpoints onto the forward strand
+    map<int64_t, set<pos_t>> forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints);
     
     // Given a path on nodes that may or may not exist, and a map from node ID
     // in the path's node ID space to a table of offset and actual node, add in
     // all the new sequence and edges required by the path. The given path must
     // not contain adjacent perfect match edits in the same mapping (the removal
     // of which can be accomplished with the simplify() function). 
-    void add_nodes_and_edges(const Path& path, const map<int64_t, map<int64_t, Node*>>& node_translation);
+    void add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation);
     
     // Add in the given node, by value
     void add_node(Node& node);
@@ -543,6 +548,9 @@ public:
     // orientation, and is inclusive. Returned offset is remaining unused length
     // in the last node touched.
     int path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path_length);
+    // converts the stored paths in this graph to alignments
+    const vector<Alignment> paths_as_alignments(void);
+    const string path_sequence(const Path& path);
 
     // edges
     // If the given edge cannot be created, returns null.
@@ -630,7 +638,7 @@ public:
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
-    Alignment& align(Alignment& alignment);
+    Alignment align(const Alignment& alignment);
     Alignment align(const string& sequence);
     void destroy_alignable_graph(void);
 
@@ -694,8 +702,6 @@ public:
     void paths_between(Node* from, Node* to, vector<Path>& paths);
     void paths_between(int64_t from, int64_t to, vector<Path>& paths);
     void likelihoods(vector<Alignment>& alignments, vector<Path>& paths, vector<long double>& likelihoods);
-
-    string path_sequence(const Path& path);
 
     // traversal
     // Get the nodes attached to the left side of the given NodeTraversal, in their proper orientations.

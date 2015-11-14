@@ -42,25 +42,26 @@ public:
     // Align the given string and return an Alignment.
     Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
-    Alignment align(Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    Alignment align(const Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Align the given read with multi-mapping. Returns the alignments in score
     // order, up to max_multimaps. Does not update the alignment passed in.
     // If the sequence is longer than the band_width, will only produce a single best banded alignment.
     // All alignments but the first are marked as secondary.
-    vector<Alignment> align_multi(Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
 
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
-    void align_mate_in_window(Alignment& read1, Alignment& read2, int pair_window);
+    void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
 
     // Return the one best banded alignment.
-    Alignment align_banded(Alignment& read,
+    Alignment align_banded(const Alignment& read,
                            int kmer_size = 0,
                            int stride = 0,
                            int band_width = 1000);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     bool adjacent_positions(const Position& pos1, const Position& pos2);
+    int64_t get_node_length(int64_t node_id);
 
     // paired-end based
     
@@ -70,8 +71,8 @@ public:
     // be corresponding paired alignments. If a read does not map, its vector
     // will be empty.
     pair<vector<Alignment>, vector<Alignment>> 
-        align_paired_multi(Alignment& read1,
-                           Alignment& read2,
+        align_paired_multi(const Alignment& read1,
+                           const Alignment& read2,
                            int kmer_size = 0,
                            int stride = 0,
                            int band_width = 1000,
@@ -80,8 +81,8 @@ public:
     // Paired-end alignment ignoring multi-mapping. Returns either the two
     // highest-scoring reads if no rescue was required, or the highest-scoring
     // read and its corresponding rescue result if rescue was used.
-    pair<Alignment, Alignment> align_paired(Alignment& read1,
-                                            Alignment& read2,
+    pair<Alignment, Alignment> align_paired(const Alignment& read1,
+                                            const Alignment& read2,
                                             int kmer_size = 0,
                                             int stride = 0,
                                             int band_width = 1000,
@@ -92,14 +93,14 @@ public:
     // max_multimaps. If the read does not map, the returned vector will be
     // empty. No alignments will be marked as secondary; the caller must do that
     // if they plan to produce GAM output.
-    vector<Alignment> align_threaded(Alignment& read,
+    vector<Alignment> align_threaded(const Alignment& read,
                                      int& hit_count,
                                      int kmer_size = 0,
                                      int stride = 0,
                                      int attempt = 0);
 
     // not used
-    Alignment& align_simple(Alignment& alignment, int kmer_size = 0, int stride = 0);
+    Alignment align_simple(const Alignment& alignment, int kmer_size = 0, int stride = 0);
 
     set<int> kmer_sizes;
     bool debug;

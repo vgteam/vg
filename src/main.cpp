@@ -586,7 +586,7 @@ void help_msga(char** argv) {
          << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
-         << "    -d, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
+         << "    -c, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
@@ -661,7 +661,7 @@ int main_msga(int argc, char** argv) {
                 {"sens-step", required_argument, 0, 'S'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"max-attempts", required_argument, 0, 'M'},
-                {"context-depth", required_argument, 0, 'd'},
+                {"context-depth", required_argument, 0, 'c'},
                 {"cluster-min", required_argument, 0, 'C'},
                 {"score-per-bp", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
@@ -673,7 +673,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:d:C:X:m:K:l:P:t:E:Q:Nz",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:c:C:X:m:K:l:P:t:E:Q:Nz",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -695,7 +695,7 @@ int main_msga(int argc, char** argv) {
             max_attempts = atoi(optarg);
             break;
 
-        case 'd':
+        case 'c':
             context_depth = atoi(optarg);
             break;
 
@@ -901,7 +901,6 @@ int main_msga(int argc, char** argv) {
                     min_score_per_bp,
                     alignment_threads](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
-        //graph->serialize_to_file(s.str());
         
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
@@ -939,6 +938,9 @@ int main_msga(int argc, char** argv) {
         }
     };
 
+    // set up the graph for mapping
+    rebuild(graph);
+
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& group : strings) {
@@ -949,8 +951,6 @@ int main_msga(int argc, char** argv) {
             stringstream s; s << iter; string iterstr = s.str();
             auto& name = group.first;
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
-            rebuild(graph);
-            //graph->serialize_to_file("pre-" + name + "-" + iterstr + ".vg");
             vector<Path> paths;
             vector<Alignment> alns;
             for (auto& seq : group.second) {
@@ -972,22 +972,35 @@ int main_msga(int argc, char** argv) {
             graph->edit_both_directions(paths);
             graph->clear_paths();
             if (debug) cerr << name << ": normalizing node size" << endl;
+            graph->normalize();
             graph->dice_nodes(node_max);
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
-            //graph->serialize_to_file("post-edit-" + name + "-" + iterstr + ".vg");
 
             // check that all is well
             rebuild(graph);
             bool included = true;
             for (auto& seq : group.second) {
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                //cerr << pb2json(aln) << endl;
+                if (debug) cerr << "testing inclusion of " << pb2json(aln) << endl;
+                // check for connectivity
                 for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
                     if (!mapping_is_simple_match(aln.path().mapping(i))) {
                         cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
                         included = false;
+                    } else if (i > 0) {
+                        auto& p1 = aln.path().mapping(i-1).position();
+                        auto& p2 = aln.path().mapping(i).position();
+                        // are we at the end of the node before we jump?
+                        if (p1.node_id() != p2.node_id()
+                            &&
+                            mapping_from_length(aln.path().mapping(i))
+                            != graph->get_node(p2.node_id())->sequence().size()) {
+                            cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i))
+                                 << " to " << pb2json(aln.path().mapping(i-1)) << endl;
+                            included = false;
+                        }
                     }
                 }
             }
@@ -1019,7 +1032,7 @@ int main_msga(int argc, char** argv) {
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 //if (debug) cerr << "alignment score: " << aln.score() << endl;
                 aln.mutable_path()->set_name(name);
-                if (debug) cerr << "alignment: " << pb2json(aln) << endl;
+                //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
                 // todo simplify in the mapper itself when merging the banded bits
                 if (debug) cerr << name << ": labeling" << endl;
                 graph->include(aln.path());
@@ -2481,6 +2494,9 @@ int main_stats(int argc, char** argv) {
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
          << "options:" << endl
+         << "  obtain paths in GAM:" << endl
+         << "    -x, --extract         return (as alignments) the stored paths in the graph" << endl
+         << "  generation:" << endl
          << "    -n, --node ID         starting at node with ID" << endl
          << "    -l, --max-length N    generate paths of at most length N" << endl
          << "    -e, --edge-max N      only consider paths which make edge choices at this many points" << endl
@@ -2498,12 +2514,14 @@ int main_paths(int argc, char** argv) {
     int edge_max = 0;
     int64_t node_id = 0;
     bool as_seqs = false;
+    bool extract = false;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
             {
+                {"extract", no_argument, 0, 'x'},
                 {"node", required_argument, 0, 'n'},
                 {"max-length", required_argument, 0, 'l'},
                 {"edge-max", required_argument, 0, 'e'},
@@ -2512,7 +2530,7 @@ int main_paths(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hse:",
+        c = getopt_long (argc, argv, "n:l:hse:x",
                          long_options, &option_index);
         
         // Detect the end of the options.
@@ -2521,6 +2539,11 @@ int main_paths(int argc, char** argv) {
  
         switch (c)
         {
+
+        case 'x':
+            extract = true;
+            break;
+
         case 'n':
             node_id = atoll(optarg);
             break;
@@ -2560,6 +2583,13 @@ int main_paths(int argc, char** argv) {
         graph = new VG(in);
     }
 
+    if (extract) {
+        vector<Alignment> alns = graph->paths_as_alignments();
+        write_alignments(cout, alns);
+        delete graph;
+        return 0;
+    }
+    
     if (max_length == 0) {
         cerr << "error:[vg paths] a --max-length is required when generating paths" << endl;
     }
@@ -3610,6 +3640,7 @@ void help_map(char** argv) {
          << "                          A graph is not required. But GCSA/xg take precedence if available." << endl
          << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+         << "    -V, --in-memory       build the XG and GCSA2 indexes in-memory from the provided .vg file" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
@@ -3626,7 +3657,7 @@ void help_map(char** argv) {
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
-         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold" << endl
+         << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
          << "    -P, --score-per-bp N  accept alignment only if the alignment score per base is > N" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 7)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
@@ -3684,8 +3715,9 @@ int main_map(int argc, char** argv) {
     bool try_both_mates_first = false;
     float min_kmer_entropy = 0;
     float min_score_per_bp = 0;
-    size_t kmer_min = 0;
+    size_t kmer_min = 8;
     int softclip_threshold = 0;
+    bool build_in_memory = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3727,12 +3759,13 @@ int main_map(int argc, char** argv) {
                 {"score-per-bp", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
+                {"in-memory", no_argument, 0, 'V'},
                 {"debug", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:V",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -3743,6 +3776,10 @@ int main_map(int argc, char** argv) {
         {
         case 's':
             seq = optarg;
+            break;
+
+        case 'V':
+            build_in_memory = true;
             break;
 
         case 'Q':
@@ -3905,7 +3942,7 @@ int main_map(int argc, char** argv) {
     if (db_name.empty() && !file_name.empty()) {
         db_name = file_name + ".index";
     }
-    
+
     if (xg_name.empty() && !file_name.empty()) {
         xg_name = file_name + ".xg";
     }
@@ -3916,27 +3953,44 @@ int main_map(int argc, char** argv) {
 
     // Load up our indexes.
     xg::XG* xindex = nullptr;
-    
-    // We try opening the file, and then see if it worked
-    ifstream xg_stream(xg_name);
-    
-    if(xg_stream) {
-        // We have an xg index!
-        if(debug) {
-            cerr << "Loading xg index " << xg_name << "..." << endl;
-        }
-        xindex = new xg::XG(xg_stream);
-    }
-    
     gcsa::GCSA* gcsa = nullptr;
-    ifstream gcsa_stream(gcsa_name);
-    if(gcsa_stream) {
-        // We have a GCSA index too!
-        if(debug) {
-            cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
+    
+    // for testing, we sometimes want to run the mapper on indexes we build in memory
+    if (build_in_memory) {
+        VG* graph;
+        if (file_name == "-") {
+            graph = new VG(std::cin);
+        } else {
+            ifstream in;
+            in.open(file_name.c_str());
+            graph = new VG(in);
         }
-        gcsa = new gcsa::GCSA();
-        gcsa->load(gcsa_stream);
+        xindex = new xg::XG(graph->graph);
+        assert(kmer_size);
+        int doubling_steps = 2;
+        gcsa = graph->build_gcsa_index(kmer_size, false, 2);
+        delete graph;
+    } else {
+        // We try opening the file, and then see if it worked
+        ifstream xg_stream(xg_name);
+    
+        if(xg_stream) {
+            // We have an xg index!
+            if(debug) {
+                cerr << "Loading xg index " << xg_name << "..." << endl;
+            }
+            xindex = new xg::XG(xg_stream);
+        }
+    
+        ifstream gcsa_stream(gcsa_name);
+        if(gcsa_stream) {
+            // We have a GCSA index too!
+            if(debug) {
+                cerr << "Loading GCSA2 index " << gcsa_name << "..." << endl;
+            }
+            gcsa = new gcsa::GCSA();
+            gcsa->load(gcsa_stream);
+        }
     }
     
     Index* idx = nullptr;
