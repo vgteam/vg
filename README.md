@@ -6,7 +6,7 @@
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
-![Variation graph](https://raw.githubusercontent.com/ekg/vg/master/figures/example.png)
+![Variation graph](https://cloud.githubusercontent.com/assets/145425/10908413/c2d15e2a-8229-11e5-9b99-a6cae48b38a3.png)
 
 _Variation graphs_ provide a succinct encoding of the sequences of many genomes. A variation graph (in particular as implemented in vg) is composed of:
 
@@ -46,7 +46,7 @@ Then build with `make`, and run with `./vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 

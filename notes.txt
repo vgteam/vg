@@ -1,0 +1,3 @@
+INSTALL ORDER MATTERS
+--We're going to have to get really clever with lib paths to make this whole thing work.
+

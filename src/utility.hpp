@@ -7,7 +7,7 @@
 #include <omp.h>
 #include <cstring>
 #include "vg.pb.h"
-#include "sha1/sha1.hpp"
+#include "sha1.hpp"
 
 namespace vg {
 

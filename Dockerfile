@@ -1,4 +1,4 @@
-FROM ubuntu:15.04
+FROM ubuntu:14.04
 
 MAINTAINER Erik Garrison <erik.garrison@gmail.com>
 
@@ -15,6 +15,7 @@ RUN \
     apt-get update && \
     apt-get install -y \
         build-essential \
+        pkg-config
         sudo && \
     make get-deps && \
     rm -rf /var/lib/apt/lists/*
