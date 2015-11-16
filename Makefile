@@ -75,7 +75,7 @@ $(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libsnappy.a
 
 $(INC_DIR)/gcsa.h: $(LIB_DIR)/libgcsa2.a
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a
-	. ./source_me.sh && cd $(GCSA2_DIR) && $(MAKE) && mv libgcsa2.a $(CWD)/$(LIB_DIR) && cp *.h* $(CWD)/$(INC_DIR)/
+	. ./source_me.sh && cd $(GCSA2_DIR) && cat Makefile | grep -v VERBOSE_STATUS_INFO >Makefile.quiet && $(MAKE) -f Makefile.quiet libgcsa2.a && mv libgcsa2.a $(CWD)/$(LIB_DIR) && cp *.h* $(CWD)/$(INC_DIR)/
 	touch $(LIB_DIR)/libgcsa2.a
 
 $(OBJ_DIR)/progress_bar.o:
@@ -170,10 +170,6 @@ $(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(CPP_DIR)/vg.p
 
 $(OBJ_DIR)/position.o: $(SRC_DIR)/position.cpp $(SRC_DIR)/position.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS)
-
-#vg: $(LIBS) $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) $(LIBROCKSDB) $(LIBSNAPPY) $(LIBHTS) $(LIBPROTOBUF) $(LIBGCSA2) $(SPARSEHASH) $(SDSLLITE) $(LIBXG) Makefile
-#	$(CXX) $(CXXFLAGS) -o vg $(LIBS) $(INCLUDES) $(LDFLAGS) $(STATICFLAGS)
-#>>>>>>> upstream/master
 
 pre:
 	if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
