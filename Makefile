@@ -15,6 +15,7 @@ CWD:=$(shell pwd)
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(CPP_DIR)
 LD_LIB_FLAGS:= -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64
+STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/position.o
 	###$(OBJ_DIR)/main.o $(OBJ)
@@ -34,10 +35,13 @@ SPARSEHASH_DIR:=deps/sparsehash
 SHA1_DIR:=deps/sha1
 
 
-.PHONY: clean get-deps test set-path
+.PHONY: clean get-deps test set-path static
 
 all: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a
 	$(shell ./source_me.sh)
+
+static: $(OBJ_DIR)/main.o $(OBJ)
+	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(BIN_DIR)/vg: $(OBJ_DIR)/main.o $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJ_DIR)/main.o $(OBJ) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
