@@ -101,19 +101,21 @@ If your graph is large, you want to use `vg index` to store the graph and `vg ma
 # construct the graph
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
-# store the graph in the index, and also index the kmers in the graph of size 11
-# you can provide a list of .vg files on the command line, which is useful if you
-# have constructed a graph for each chromosome in a large reference
+# store the graph in the xg/gcsa index pair
+vg index -x x.xg -g x.gcsa -k 11 x.vg
+
+# alternatively, store in a rocksdb backed index
 vg index -s -k 11 x.vg
 
 # align a read to the indexed version of the graph
 # note that the graph file is not opened, but x.vg.index is assumed
-vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG x.vg >read.gam
+vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 >read.gam
 
 # simulate a bunch of 150bp reads from the graph and map them
-vg map -r <(vg sim -n 1000 -l 150 x.vg) x.vg >aln.gam
+vg map -r <(vg sim -n 1000 -l 150 x.vg) -x x.xg -g x.gcsa -k 22 >aln.gam
 
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
+# NB: currently requires the rocksdb-backed index
 vg surject -p x -b aln.gam >aln.bam
 ```
 
@@ -136,76 +138,15 @@ A variety of commands are available:
 - *sim*: simulate reads by walking paths in the graph
 - *mod*: various transformations of the graph
 - *surject*: force graph alignments into a linear reference space
+- *msga*: construct a graph from an assembly of multiple sequences
 
 ## Implementation notes
 
 `vg` is based around a graph object (vg::VG) which has a native serialized representation that is almost identical on disk and in-memory, with the exception of adjacency indexes that are built when the object is parsed from a stream or file. These graph objects are the results of queries of larger indexes, or manipulation (for example joins or concatenations) of other graphs. vg is designed for interactive, stream-oriented use. You can, for instance, construct a graph, merge it with another one, and pipe the result into a local alignment process. The graph object can be stored in an index (vg::Index), aligned against directly (vg::GSSWAligner), or "mapped" against in a global sense (vg::Mapper), using an index of kmers.
 
-Once constructed, a variation graph (.vg is the suggested file extension) is typically around the same size as the reference (FASTA) and uncompressed variant set (VCF) which were used to build it. The index, however, may be much larger, perhaps more than an order of magnitude. This is less of a concern as it is not loaded into memory, but could be a pain point as vg is scaled up to whole-genome mapping.
+Once constructed, a variation graph (.vg is the suggested file extension) is typically around the same size as the reference (FASTA) and uncompressed variant set (VCF) which were used to build it. The rocksdb-based index, however, may be much larger, perhaps more than an order of magnitude. This is less of a concern as it is not loaded into memory, but could be a pain point as vg is scaled up to whole-genome mapping.
 
 The serialization of very large graphs (>62MB) is enabled by the use of protocol buffer ZeroCopyStreams. Graphs are decomposed into sets of N (presently 10k) nodes, and these are written, with their edges, into graph objects that can be streamed into and out of vg. Graphs of unbounded size are possible using this approach.
-
-## Development
-
-- [x] data models for reference graph and alignments against it (vg.proto)
-- [x] local alignment against the graph (vg.cpp)
-- [x] index capable of storing large graphs on disk and efficiently retrieving subgraphs (index.cpp)
-- [x] protobuf, json, and dot format serialization (view)
-- [x] binary format for graph and alignments against it
-- [x] command-line interfaces: construct, view, index, find, align, paths (main.cpp)
-- [x] tap-compliant tests
-- [x] kmer-based indexing of the graph
-- [x] graph statistics
-- [x] subgraph decomposition
-- [x] k-path enumeration
-- [x] limiting k-paths to only those crossing a certain number of nodes (this prevents kpath blowup in densely varying regions of the graph)
-- [x] graph joining: combine subgraphs represented in a single or different .vg files
-- [x] GFA output
-- [x] global mapping against large graphs
-- [x] non-recursive topological sort of graph
-- [x] stable ID compaction
-- [x] efficient construction for large DAGs
-- [x] improve memory performance of kmer indexing for large graphs by storing incremental results of k-path generation
-- [x] global alignment: retain and expand only the most-likely subgraphs
-- [x] verify that snappy compression is enabled for index, and measure size for large graphs
-- [x] move to rocksdb for better indexing performance on modern hardware (multiple cores, SSDs)
-- [x] object streams (enable graphs > 60mb) and alignment streams (via protobuf's ZeroCopyInputStream/ZeroCopyOutputStream interface)
-- [x] use dense_hash for improved memory and runtime efficiency with large graphs (or sparse_hash, if memory is at a premium--- but it's easy to switch and ideally we can design large-scale construction without loading entire whole-genome graphs into memory)
-- [x] GFA input (efficient use requires bluntifying the graph, removing node-node overlaps), and probably default GFA output from vg view
-- [x] index metadata (to quickly check if we have kmer index of size >=N)
-- [x] use divide-and-conquer for graph fragment concatenation during construction
-- [x] simplify mapping by setting a maximum node size in construction
-- [x] kmer falloff in global alignment (if we can't find hits at a kmer size of K, try K-n; enabled by the sorted nature of the index's key-value backend)
-- [x] positional indexing for improved global mapping (can be done on graph constructed from VCF+fasta reference)
-- [x] index the kmers of large graphs in reasonable time (48 hours, 32 threads, 2500 samples in 1000 genomes phase 3)
-- [x] compression of serialization format
-- [x] interface harmonization of in-memory (vg.cpp) and on-disk (index.cpp) graph representations
-- [x] emded paths in serialized graph format (important especially in the case of reference paths)
-- [x] alignment serialization format
-- [x] prune non-informative kmers from index, so as to save space
-- [x] per-node, per-sample quality and count information on graph
-- [x] should an alignment be a graph too? : express a sample's sequencing results as a labeled graph
-- [x] multiple samples in one graph (colors) - solved by paths
-- [x] modify a graph using an alignment's path, adding new nodes as needed and updating the path/alignment to match
-- [x] modify a graph using many alignments (update mod procedure to include many mappings)
-- [x] use an alignment to add a named path to the graph
-- [x] path range query from index (give me the subgraph corresponding to a particular genome location)
-- [x] _surject_ alignments back into arbitrary path (such as GRCh37)
-- [x] use htslib for BAM/CRAM/SAM i/o
-- [ ] factor longer functions in main.cpp into library functions for easier reuse
-- [x] sort alignments and output a sorted GAM stream
-- [x] kmers input to GCSA: kmer, starting position = (node id, offset), previous characters, successive characters, successive positions
-- [x] properly handle pairs in alignment and surjection
-- [x] read paired-end data in FASTQ format
-- [x] allow the efficient alignment of very long sequences by banding
-- [ ] dynamic programming method to estimate path qualities given per-node qualities and counts
-- [ ] genotype likelihood generation (given a source and sink, genotype paths)
-- [ ] genotyping of paths using freebayes-like genotyping model
-- [ ] genotyping using dynamic programming genotyping model and compressed sequence results against graph
-- [x] generalization to assembly graphs (although directional, nothing is intrinsically DAG-based except alignment)
-- [ ] [perceptual DNA hashing](http://arxiv-web3.library.cornell.edu/abs/1412.5517) to reduce index memory usage
-- [ ] implement pBWT for quick haplotype lookup, which is useful to constrain kmer indexing space and also to support long haplotype driven genotyping
-- [x] compressed bitvectors and intvectors from sdsl-lite for storage of genome paths and annotations
 
 ## License
 
