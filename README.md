@@ -40,7 +40,7 @@ Now, obtain the repo and its submodules:
 
     git clone --recursive https://github.com/ekg/vg.git
 
-Then build with `make`, and run with `./vg`.
+Then build with `. ./source_me.sh && make`, and run with `./vg`.
 
 #### building on Mac OS X
 
