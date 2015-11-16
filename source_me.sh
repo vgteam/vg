@@ -5,3 +5,5 @@ export C_INCLUDE_PATH=$C_INCLUDE_PATH:`pwd`/include
 export CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH:`pwd`/include
 export INCLUDE_PATH=$INCLUDE_PATH:`pwd`/include
 export PATH=$PATH:`pwd`/bin
+export CC=$(which gcc)
+export CXX=$(which g++)
