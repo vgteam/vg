@@ -1873,7 +1873,7 @@ int main_sim(int argc, char** argv) {
                     [&perfect_read] (uint64_t n) {
                     return perfect_read.second;
                 };
-                stream::write(cout, 1, lambda);                
+                stream::write(cout, 1, lambda);
             }
         }
     }
