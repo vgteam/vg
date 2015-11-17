@@ -76,7 +76,6 @@ $(LIB_DIR)/librocksdb.a: $(LIB_DIR)/libsnappy.a
 $(INC_DIR)/gcsa.h: $(LIB_DIR)/libgcsa2.a
 $(LIB_DIR)/libgcsa2.a: $(LIB_DIR)/libsdsl.a
 	. ./source_me.sh && cd $(GCSA2_DIR) && cat Makefile | grep -v VERBOSE_STATUS_INFO >Makefile.quiet && $(MAKE) -f Makefile.quiet libgcsa2.a && mv libgcsa2.a $(CWD)/$(LIB_DIR) && cp *.h* $(CWD)/$(INC_DIR)/
-	touch $(LIB_DIR)/libgcsa2.a
 
 $(OBJ_DIR)/progress_bar.o:
 	cd $(PROGRESS_BAR_DIR) && $(MAKE) && cp progress_bar.o $(CWD)/$(OBJ_DIR) && cp *.h* $(CWD)/$(INC_DIR)
@@ -86,15 +85,14 @@ $(OBJ_DIR)/Fasta.o:
 
 $(LIB_DIR)/libhts.a:
 	cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib/ $(CWD)/$(INC_DIR)/
-	touch $@
 
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a
 	. ./source_me.sh  && export PATH=$(CWD)/bin:$$PATH && cd $(XG_DIR) && $(MAKE) && cp obj/xg.o $(CWD)/$(OBJ_DIR)/ && cp lib/libxg.a $(CWD)/$(LIB_DIR)/ && cp src/*.hpp $(CWD)/$(INC_DIR)/ #&& cp include/* $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libvcflib.a: pre
+$(LIB_DIR)/libvcflib.a: .pre-build
 	. ./source_me.sh && cd $(VCFLIB_DIR) && $(MAKE) libvcflib.a && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libgssw.a: pre
+$(LIB_DIR)/libgssw.a: .pre-build
 	cd $(GSSW_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
 
 $(INC_DIR)/lru_cache.h:
@@ -112,11 +110,11 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 ####################################
 
 include/stream.hpp:
-	touch src/stream.hpp
+	cp src/stream.hpp include/stream.hpp
 
-$(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h pre
+$(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h .pre-build
 	. ./source_me.sh && g++ -O3 -msse4.1 -fopenmp -std=c++11 -c -o cpp/vg.pb.o cpp/vg.pb.cc $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
-$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a pre
+$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a .pre-build
 	./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	cp $@ $(INC_DIR)
 
@@ -170,12 +168,13 @@ $(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(CPP_DIR)/vg.p
 $(OBJ_DIR)/position.o: $(SRC_DIR)/position.cpp $(SRC_DIR)/position.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a
 	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS)
 
-pre:
+.pre-build:
 	if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
 	if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
 	if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
 	if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
 	if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
+	touch .pre-build
 
 clean:
 	$(RM) -r $(BIN_DIR)
@@ -184,6 +183,7 @@ clean:
 	$(RM) -r $(INC_DIR)
 	$(RM) -r $(CPP_DIR)
 	$(RM) -r share/
+	$(RM) -f .pre-build
 	cd $(DEP_DIR) && cd protobuf && $(MAKE) clean
 	cd $(DEP_DIR) && cd xg && $(MAKE) clean
 	cd $(DEP_DIR) && cd vcflib && $(MAKE) clean
