@@ -6,7 +6,7 @@
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
-![Variation graph](https://cloud.githubusercontent.com/assets/6685511/11076646/b5bcd98a-87b0-11e5-8ec7-ef36f1dca62b.png)
+![Variation graph](https://raw.githubusercontent.com/ekg/vg/master/doc/figures/vg_logo.png)
 
 _Variation graphs_ provide a succinct encoding of the sequences of many genomes. A variation graph (in particular as implemented in vg) is composed of:
 
