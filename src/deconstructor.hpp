@@ -2,18 +2,19 @@
 #define DECON_HPP
 #include <vector>
 #include <string>
-#include <UnorderedMap>
+#include <unordered_map>
 #include "Variant.h"
 #include "index.hpp"
 #include "path.hpp"
 #include "vg.hpp"
-#include "set"
+#include <set>
+#include "vg.pb.h"
 
 class Deconstructor{
 public:
 
   Deconstructor();
-  void set_index(Index& ind);
+  void set_index(Index ind);
 
   /**
   * Project a mapping onto another mapping.
@@ -39,7 +40,7 @@ public:
   VariantCallFile write_variants(string filename, vector<Variant> variants);
 private:
   // TODO Should probably be able to handle XG or VG indices
-  Index& index;
+  Index index;
 
 }
 
