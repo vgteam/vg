@@ -9,6 +9,8 @@
 #include "path.hpp"
 #include "vg.hpp"
 #include "vg.pb.h"
+#include "Fasta.h"
+#include "xg.hpp"
 namespace vg{
     using namespace std;
     class Deconstructor{
@@ -17,10 +19,14 @@ namespace vg{
             Deconstructor();
             ~Deconstructor();
             void clear();
-            void set_index(Index ind, bool isXG);
+            void set_xg(xg::XG* xg);
+            void enumerate_paths_in_index();
+            void set_reference(string ref);
+            void set_index(Index* index);
 
             /**
-             * Project a mapping onto another mapping.
+             * Project a path onto another path,
+             * much like a transformation of p2 onto p1 in space.
              */
             Path relative_mapping(Path& p1, Path& p2);
 
@@ -35,17 +41,18 @@ namespace vg{
              * Build a vcf record from two paths, with the
              * second path argument taken as the reference.
              */
-            Variant mapping_to_variant(Path variant, Path ref);
+            vcflib::Variant mapping_to_variant(Path variant, Path ref);
 
             /**
              * Turn a vector of variants into a proper VCF.
              */
-            VariantCallFile write_variants(string filename, vector<Variant> variants);
+            vcflib::VariantCallFile write_variants(string filename, vector<vcflib::Variant> variants);
         private:
             // TODO Should probably be able to handle XG or VG indices
-            Index index;
+            Index* index;
+            FastaReference* reference;
+            xg::XG* xg;
 
-    }
+    };
 }
-
 #endif
