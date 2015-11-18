@@ -1107,7 +1107,8 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
             // expand in the direction where there were soft clips
 
-            if (!ta.has_path()) continue;
+            // We can't expand if we just didn't find anything.
+            if (!ta.has_path() || ta.path().mapping_size() == 0) continue;
             
             // we can be more precise about our handling of softclips due to the low cost
             // of the fully in-memory xg index
