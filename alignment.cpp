@@ -99,8 +99,24 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
 
     // handle name
     if (0!=gzgets(fp,buffer,len)) {
+        
+        while(strlen(buffer) == 1) {
+            // Skip blank lines
+            if(0==gzgets(fp,buffer,len)) {
+                // We ran out of data looking for the next fastq record
+                return false;
+            }
+        }
+        
+        // If we get here, we have a line with at least one non-newline on it
+        
+        // We know there's a trailing newline in the buffer, so this safely removes it.
         buffer[strlen(buffer)-1] = '\0';
         string name = buffer;
+        
+        if(name[0] != '@') {
+            cerr << "[vg::alignment.cpp] error: expected '@' introducing fastq record" << endl; exit(1);
+        }
         name = name.substr(1); // trim off leading @
         // keep trailing /1 /2
         alignment.set_name(name);
