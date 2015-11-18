@@ -98,8 +98,8 @@ void Mapper::align_mate_in_window(Alignment& read1, Alignment& read2, int pair_w
         xindex->expand_context(graph->graph, context_depth, false);
         graph->rebuild_indexes();
     } else if(index) {
-        index->get_range(first, last, *graph);
-        index->expand_context(*graph, context_depth);
+        index->get_range(first, last, *graph, false);
+        index->expand_context(*graph, context_depth, false);
     } else {
         cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
         exit(1);
@@ -316,7 +316,7 @@ Alignment Mapper::align_banded(Alignment& read, int kmer_size, int stride, int b
         } else if(index) {
             // Get a 1-element range from the index and then use that.
             VG one_node_graph;
-            index->get_range(node_id, node_id, one_node_graph);
+            index->get_range(node_id, node_id, one_node_graph, false);
             return one_node_graph.get_node(node_id)->sequence().size();
         } else {
             // Complain we don;t have the right indices.
@@ -548,7 +548,7 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     } else if(index) {
         index->get_context(id1, graph);
         index->get_context(id2, graph);
-        index->expand_context(graph, 1);
+        index->expand_context(graph, 1, false);
     } else {
         throw runtime_error("No index to get nodes from.");
     }
@@ -1076,8 +1076,8 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                 xindex->get_id_range(first, last, graph->graph);
                 xindex->expand_context(graph->graph, context_depth, false);
             } else if(index) {
-                index->get_range(first, last, *graph);
-                index->expand_context(*graph, context_depth);
+                index->get_range(first, last, *graph, false);
+                index->expand_context(*graph, context_depth, false);
             } else {
                 cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
                 exit(1);
@@ -1136,12 +1136,13 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                         Graph flank;
                         xindex->get_id_range(idf-1, idf, flank);
                         xindex->expand_context(flank, max(context_depth,
-                                                          (int)(sc_start/avg_node_size)));
+                                                          (int)(sc_start/avg_node_size)),
+                                                          false);
                         graph->extend(flank);
                     } else if (index) {
                         VG flank;
-                        index->get_range(max((int64_t)0, idf-thread_ex), idf, flank);
-                        index->expand_context(flank, context_depth);
+                        index->get_range(max((int64_t)0, idf-thread_ex), idf, flank, false);
+                        index->expand_context(flank, context_depth, false);
                         graph->extend(flank);
                     }
                 }
@@ -1150,12 +1151,13 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
                         Graph flank;
                         xindex->get_id_range(idl, idl+1, flank);
                         xindex->expand_context(flank, max(context_depth,
-                                                          (int)(sc_end/avg_node_size)));
+                                                          (int)(sc_end/avg_node_size)),
+                                                          false);
                         graph->extend(flank);
                     } else if (index) {
                         VG flank;
-                        index->get_range(idl, idl+thread_ex, flank);
-                        index->expand_context(flank, context_depth);
+                        index->get_range(idl, idl+thread_ex, flank, false);
+                        index->expand_context(flank, context_depth, false);
                         graph->extend(flank);
                     }
                 }
@@ -1298,7 +1300,7 @@ Alignment& Mapper::align_simple(Alignment& alignment, int kmer_size, int stride)
     get_max_subgraph_size();
 
     while (max_subgraph_size < sequence.size()*2 && iter < max_iter) {
-        index->expand_context(*graph, context_step);
+        index->expand_context(*graph, context_step, false);
         index->get_connected_nodes(*graph);
         get_max_subgraph_size();
         ++iter;

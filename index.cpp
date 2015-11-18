@@ -1369,7 +1369,7 @@ void Index::for_each_mapping(function<void(const Mapping&)> lambda) {
         });
 }
 
-void Index::expand_context(VG& graph, int steps = 1) {
+void Index::expand_context(VG& graph, int steps, bool add_paths) {
     for (int step = 0; step < steps; ++step) {
         set<int64_t> ids;
         graph.for_each_edge([this, &graph, &ids](Edge* edge) {
@@ -1381,7 +1381,7 @@ void Index::expand_context(VG& graph, int steps = 1) {
                 }
             });
         for (auto id : ids) {
-            get_context(id, graph);
+            get_context(id, graph, add_paths);
         }
         // TODO: optimize this to only look at newly added edges on subsequent steps.
     }
@@ -1402,7 +1402,7 @@ void Index::get_connected_nodes(VG& graph) {
         });
 }
 
-void Index::get_context(int64_t id, VG& graph) {
+void Index::get_context(int64_t id, VG& graph, bool add_paths) {
     rocksdb::Iterator* it = db->NewIterator(rocksdb::ReadOptions());
     string key_start = key_for_node(id).substr(0,3+sizeof(int64_t));
     rocksdb::Slice start = rocksdb::Slice(key_start);
@@ -1442,6 +1442,14 @@ void Index::get_context(int64_t id, VG& graph) {
         } break;
         case 'p': {
             // Key describes a path membership
+            
+            if(!add_paths) {
+                // Only look at it if we want paths; we can have several
+                // thousand of these on a single node now that we have ranks.
+                // TODO: this is still linear in number of visits to a node on a path
+                break;
+            }
+            
             int64_t node_id, path_id, path_pos;
             Mapping mapping;
             bool backward;
@@ -1459,8 +1467,8 @@ void Index::get_context(int64_t id, VG& graph) {
     delete it;
 }
 
-void Index::get_range(int64_t from_id, int64_t to_id, VG& graph) {
-    auto handle_entry = [this, &graph](string& key, string& value) {
+void Index::get_range(int64_t from_id, int64_t to_id, VG& graph, bool add_paths) {
+    auto handle_entry = [this, &graph, &add_paths](string& key, string& value) {
         char keyt = graph_key_type(key);
         switch (keyt) {
         case 'n': {
@@ -1487,6 +1495,14 @@ void Index::get_range(int64_t from_id, int64_t to_id, VG& graph) {
         } break;
         case 'p': {
             // Key describes a path membership
+            
+            if(!add_paths) {
+                // Only look at it if we want paths; we can have several
+                // thousand of these on a single node now that we have ranks.
+                // TODO: this is still linear in number of visits to a node on a path
+                break;
+            }
+            
             int64_t node_id, path_id, path_pos;
             Mapping mapping;
             bool backward;

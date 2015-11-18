@@ -199,12 +199,16 @@ public:
     string alignment_entry_to_string(const string& key, const string& value);
 
     // accessors, traversal, context
-    void get_context(int64_t id, VG& graph);
+    // add_paths flag allows turning off the (potentially costly) addition of paths
+    // when these are not necessary
+    void get_context(int64_t id, VG& graph, bool add_paths = true);
     // Augment the given graph with the nodes referenced by orphan edges, and
     // all the edges of those nodes, repeatedly for the given number of steps.
-    void expand_context(VG& graph, int steps);
+    // add_paths flag allows turning off the (potentially costly) addition of paths
+    // when these are not necessary
+    void expand_context(VG& graph, int steps = 1, bool add_paths = true);
     // Add all the elements in the given range to the given graph, if they aren't in it already.
-    void get_range(int64_t from_id, int64_t to_id, VG& graph);
+    void get_range(int64_t from_id, int64_t to_id, VG& graph, bool add_paths = true);
     void for_graph_range(int64_t from_id, int64_t to_id, function<void(string&, string&)> lambda);
     void get_connected_nodes(VG& graph);
     // Get the edges on the end of the given node

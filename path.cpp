@@ -136,6 +136,7 @@ bool Paths::has_mapping(const string& name, const Mapping& m) {
     auto& node_mapping = get_node_mapping(m.position().node_id());
     if (node_mapping.find(name) == node_mapping.end()) return false; // no mappings for path
     for (auto* mp : node_mapping[name]) {
+        // TODO: this is n^2 and some paths go through the same node several thousand times.
         if (m.rank() == mp->rank()
             && m.is_reverse() == mp->is_reverse()) {
             return true;
