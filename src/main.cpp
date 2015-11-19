@@ -19,6 +19,7 @@
 #include "convert.hpp"
 #include "pileup.hpp"
 #include "caller.hpp"
+#include "deconstructor.hpp"
 #include "google/protobuf/stubs/common.h"
 
 using namespace std;
@@ -4712,6 +4713,64 @@ int main_deconstruct(int argc, char** argv){
     help_deconstruct(argv);
     exit(1);
   }
+
+  string reference_file = "";
+  string xg_file = "";
+  string graph_file = "";
+  string output_file = "";
+  int c;
+  while (true){
+    static struct option long_options[] = {
+      {"output", required_argument, 0, 'o'},
+      {"reference", required_argument, 0, 'r'},
+      {"xg", required_argument, 0, 'x'},
+      {"graph", required_argument, 0, 'g'}
+    };
+
+    int option_index = 0;
+    c = getopt_long (argc, argv, "o:r:x:g:h",
+                     long_options, &option_index);
+    if (c == -1){
+      break;
+    }
+    switch (c){
+      case 'r':
+          reference_file = optarg;
+          break;
+      case 'o':
+          output_file = optarg;
+          break;
+      case 'x':
+          xg_file = optarg;
+          break;
+      case 'g':
+          graph_file = optarg;
+          break;
+
+      case 'h':
+      case '?':
+          /* getopt_long already printed an error message. */
+          help_deconstruct(argv);
+          exit(1);
+          break;
+
+      default:
+          abort ();
+    }
+  }
+
+  if (reference_file.empty()){
+    cerr << "Error: A reference is needed for projection into vcf." << endl;
+    exit(1);
+  }
+  if (xg_file.empty() && graph_file.empty()){
+    cerr << "Error: must provide an XG graph or VG graph (with the corresponding index)." << endl;
+    exit(1);
+  }
+
+  Deconstructor decon = Deconstructor();
+  decon.set_reference(reference_file);
+  
 
 }
 
