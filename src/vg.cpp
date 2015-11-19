@@ -3794,6 +3794,101 @@ map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t
     return fwd;
 }
 
+// returns breakpoints on the forward strand of the nodes
+void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints) {
+    // We need to work out what offsets we will need to break each node at, if
+    // we want to add in all the new material and edges in this path.
+
+#ifdef debug
+    cerr << "Processing path..." << endl;
+#endif
+    
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        // For each Mapping in the path
+        const Mapping& m = path.mapping(i);
+        
+        // What node are we on?
+        int64_t node_id = m.position().node_id();
+        
+        if(node_id == 0) {
+            // Skip Mappings that aren't actually to nodes.
+            continue;
+        }
+        
+        // See where the next edit starts in the node. It is always included
+        // (even when the edit runs backward), unless the edit has 0 length in
+        // the reference.
+        pos_t edit_first_position = make_pos_t(m.position());
+        
+#ifdef debug
+        cerr << "Processing mapping " << pb2json(m) << endl;
+#endif
+        
+        for(size_t j = 0; j < m.edit_size(); ++j) {
+            // For each Edit in the mapping
+            const Edit& e = m.edit(j);
+            
+            // We know where the mapping starts in its node. But where does it
+            // end (inclusive)? Note that if the edit has 0 reference length,
+            // this may not actually be included in the edit (and
+            // edit_first_position will be further along than
+            // edit_last_position).
+            pos_t edit_last_position = edit_first_position;
+            if (e.from_length()) {
+                get_offset(edit_last_position) += e.from_length();
+            }
+            
+#ifdef debug
+            cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
+            cerr << pb2json(e) << endl;
+#endif 
+            
+            if(!edit_is_match(e) || (j == 0 && i > 0)) {
+                // If this edit is not a perfect match, or if this is the first
+                // edit in this mapping and we had a previous mapping we may
+                // need to connect to, we need to make sure we have a breakpoint
+                // at the start of this edit.
+                
+#ifdef debug
+                cerr << "Need to break " << node_id << " at edit lower end " <<
+                    edit_first_position << endl;
+#endif
+                
+                // We need to snip between edit_first_position and edit_first_position - direction.
+                // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
+                breakpoints[node_id].insert(edit_first_position);
+            }
+            
+            if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
+                // If this edit is not a perfect match, or if it is the last
+                // edit in a mapping and we have a subsequent mapping we might
+                // need to connect to, make sure we have a breakpoint at the end
+                // of this edit.
+                
+#ifdef debug
+                cerr << "Need to break " << node_id << " at past edit upper end " <<
+                    edit_last_position << endl;
+#endif
+                
+                // We also need to snip between edit_last_position and edit_last_position + direction.
+                breakpoints[node_id].insert(edit_last_position);
+            }
+            
+            // TODO: for an insertion or substitution, note that we need a new
+            // node and two new edges.
+            
+            // TODO: for a deletion, note that we need an edge. TODO: Catch
+            // and complain about some things we can't handle (like a path with
+            // a leading/trailing deletion)? Or just skip deletions when wiring.
+            
+            // Use up the portion of the node taken by this mapping, so we know
+            // where the next mapping will start.
+            edit_first_position = edit_last_position;
+        }
+    }
+    
+}
+
 map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpoints) {
     // Set up the map we will fill in with the new node start positions in the
     // old nodes.
@@ -4155,23 +4250,27 @@ bool VG::is_valid(bool check_nodes,
             //cerr << "edge " << e << " " << e->from() << "->" << e->to() << endl;
 
             if (node_by_id.find(f) == node_by_id.end()) {
-                cerr << "graph invalid: edge index=" << i << " (" << f << "->" << t << ") cannot find node (from) " << f << endl;
+                cerr << "graph invalid: edge index=" << i
+                     << " (" << f << "->" << t << ") cannot find node (from) " << f << endl;
                 return false;
             }
             if (node_by_id.find(t) == node_by_id.end()) {
-                cerr << "graph invalid: edge index=" << i << " (" << f << "->" << t << ") cannot find node (to) " << t << endl;
+                cerr << "graph invalid: edge index=" << i
+                     << " (" << f << "->" << t << ") cannot find node (to) " << t << endl;
                 return false;
             }
 
             if (!edges_on_start.count(f) && !edges_on_end.count(f)) {
                 // todo check if it's in the vector
-                cerr << "graph invalid: edge index=" << i << " could not find entry in either index for 'from' node " << f << endl;
+                cerr << "graph invalid: edge index=" << i
+                     << " could not find entry in either index for 'from' node " << f << endl;
                 return false;
             }
 
             if (!edges_on_start.count(t) && !edges_on_end.count(t)) {
                 // todo check if it's in the vector
-                cerr << "graph invalid: edge index=" << i << " could not find entry in either index for 'to' node " << t << endl;
+                cerr << "graph invalid: edge index=" << i
+                     << " could not find entry in either index for 'to' node " << t << endl;
                 return false;
             }
         }
@@ -4284,7 +4383,8 @@ bool VG::is_valid(bool check_nodes,
                 auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
                 // check that we always have an edge between the two nodes in the correct direction
                 if (!has_edge(s1, s2)) {
-                    cerr << "graph path '" << path.name() << "' invalid: edge from " << s1 << " to " << s2 << " does not exist" << endl;
+                    cerr << "graph path '" << path.name() << "' invalid: edge from "
+                         << s1 << " to " << s2 << " does not exist" << endl;
                     paths_ok = false;
                     return;
                 }

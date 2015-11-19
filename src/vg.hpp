@@ -416,6 +416,11 @@ public:
     // Edit the graph to include all the sequence and edges added by the given
     // paths. Can handle paths that visit nodes in any orientation.
     void edit_both_directions(const vector<Path>& paths);
+
+    // Find all the points at which a Path enters or leaves nodes in the graph. Adds
+    // them to the given map by node ID of sets of bases in the node that will need
+    // to become the starts of new nodes.
+    void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints);
     
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),

@@ -167,12 +167,6 @@ pair<Path, Path> cut_path(const Path& path, const Position& pos);
 // divide the path at a path-relative offset as measured in to_length from start
 pair<Path, Path> cut_path(const Path& path, size_t offset);
 bool maps_to_node(const Path& p, int64_t id);
-// Find all the points at which a Path enters or leaves nodes in the graph. Adds
-// them to the given map by node ID of sets of bases in the node that will need
-// to become the starts of new nodes. Note that some breakpoints may be at 0 or
-// the past-the-end position of the node in question, since we don't look at the
-// graph here.
-void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints);
 // the position that starts just after the path ends
 Position path_start(const Path& path);
 Position path_end(const Path& path);
