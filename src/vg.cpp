@@ -69,12 +69,14 @@ void VG::clear_paths(void) {
 // synchronize the VG index and its backing store
 void VG::sync_paths(void) {
     // ensure we can navigate paths correctly
-    // by building paths.mapping_path_order
+    // by building paths.
     paths.rebuild_mapping_aux();
 }
 
 void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
 
+    // This makes sure mapping ranks are updated to reflect their actual
+    // positions along their paths.
     sync_paths();
 
     // save the number of the messages to be serialized into the output file
@@ -93,7 +95,6 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
             // Grab the node and only the edges where it has the lower ID.
             // This prevents duplication of edges in the serialized output.
             nonoverlapping_node_context_without_paths(node, g);
-            //set<pair<string, Mapping*> >& Paths::get_node_mapping(id_t id);
             auto& mappings = paths.get_node_mapping(node);
             //cerr << "getting node mappings for " << node->id() << endl;
             for (auto m : mappings) {
@@ -101,7 +102,7 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
                 auto& mappings = m.second;
                 for (auto& mapping : mappings) {
                     //cerr << "mapping " << name << pb2json(*mapping) << endl;
-                    sorted_paths[name][paths.mapping_path_order[mapping]] = mapping;
+                    sorted_paths[name][mapping->rank()] = mapping;
                 }
             }
         }
@@ -109,7 +110,7 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
         for (auto& p : sorted_paths) {
             auto& name = p.first;
             auto& path = p.second;
-            // now sorted in ascending order
+            // now sorted in ascending order by rank
             // we could also assert that we have a contiguous path here
             for (auto& m : path) {
                 g.paths.append_mapping(name, *m.second);
@@ -5192,6 +5193,14 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
         cerr << pos << " " << (p.second != nullptr?pb2json(*p.second):"null") << endl;
     }
     */
+    
+    if(!path.name().empty()) {
+        // If the path has a name, we're going to add it to our collection of
+        // paths, as we make all the new nodes and edges it requires. But, we
+        // can't already have any mappings under that path name, or we won;t be
+        // able to just append in all the new mappings.
+        assert(!paths.has_path(path.name()));
+    }
 
     auto find_new_node = [&](pos_t old_pos) {
         if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
@@ -5293,7 +5302,11 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     Mapping nm;
                     nm.mutable_position()->set_node_id(new_node->id());
                     nm.mutable_position()->set_is_reverse(m.position().is_reverse());
-                    nm.set_rank(m.rank());
+                    
+                    // Don't set a rank; since we're going through the input
+                    // path in order, the auto-generated ranks will put our
+                    // newly created mappings in order.
+                    
                     Edit* e = nm.add_edit();
                     size_t l = new_node->sequence().size();
                     e->set_from_length(l);
@@ -5340,9 +5353,11 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                                                        edit_last_position,
                                                        m.position().is_reverse())) {
                         //cerr << "in match, adding " << pb2json(nm) << endl;
-                        // no rank has been established, so get the next available
-                        // otherwise we'll fail to include looping paths
-                        nm.set_rank(m.rank());
+                        
+                        // Don't set a rank; since we're going through the input
+                        // path in order, the auto-generated ranks will put our
+                        // newly created mappings in order.
+                            
                         paths.append_mapping(path.name(), nm);
                     }
                 }
