@@ -51,7 +51,7 @@ public:
     // This maps from path name to the list of Mappings for that path.
     map<string, list<Mapping> > _paths;
     // This maps from Mapping* pointer to its iterator in its list of Mappings
-    // for its path. The list in question is stroed above in _paths. Recall that
+    // for its path. The list in question is stored above in _paths. Recall that
     // std::list iterators are bidirectional.
     map<Mapping*, list<Mapping>::iterator > mapping_itr;
     // This maps from Mapping* pointer to the name of the path it belongs to
@@ -59,11 +59,12 @@ public:
     map<Mapping*, string> mapping_path;
     void sort_by_mapping_rank(void);
     void rebuild_mapping_aux(void);
-    // ...we need this in order to get subsets of the paths in correct order
-    map<Mapping*, size_t> mapping_path_order;
-    // This maps from node ID to a set of path name, mapping instance pairs.
-    // Note that we don't have a map for each node, because each node can appear
-    // along any given path multiple times, with multiple Mapping* pointers.
+    // We need this in order to make sure we aren't adding duplicate mappings
+    // with the same rank in the same path. Maps from path name and rank to
+    // Mapping pointer.
+    map<string, map<size_t, Mapping*>> mappings_by_rank;
+    // This maps from node ID, then path name, then rank and orientation, to
+    // Mapping pointers for the mappings on that path to that node.
     map<int64_t, map<string, set<Mapping*>>> node_mapping;
     
     void rebuild_node_mapping(void);
@@ -79,7 +80,13 @@ public:
     list<Mapping>& get_path(const string& name);
     list<Mapping>& get_create_path(const string& name);
     list<Mapping>& create_path(const string& name);
-    bool has_mapping(const string& name, const Mapping& m);
+    // Does the given path have a mapping meeting the given criteria?
+    // Is there a mapping in the given path with the given assigned rank? Note
+    // that the rank passed may not be 0.
+    bool has_mapping(const string& name, size_t rank);
+    // We used to be able to search for a Mapping by value, but that's not
+    // efficient if the Mappings don't have ranks, and it never checked the
+    // edits for equality anyway.
     bool has_node_mapping(int64_t id);
     bool has_node_mapping(Node* n);
     map<string, set<Mapping*>>& get_node_mapping(Node* n);
@@ -102,7 +109,11 @@ public:
     void load(istream& in);
     void write(ostream& out);
     void to_graph(Graph& g);
-    // add mappings, assume sorted by default
+    // add mappings. Mappings are assumed to either be pre-sorted or to have
+    // ranks assigned already. If you append a mapping with no rank after
+    // mappings with ranks, or visa versa, the relative ordering is undefined.
+    // Also, if both pre-ranked and un-ranked mappings are appended,
+    // mappings_by_rank may be incorrect until rebuild_mapping_aux() is called.
     void append_mapping(const string& name, const Mapping& m);
     void append_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
     void append(Paths& p);
