@@ -96,24 +96,36 @@ void GSSWAligner::align(Alignment& alignment) {
     gssw_graph_mapping_destroy(gm);
 
 }
-
 void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                                             Alignment& alignment) {
     alignment.clear_path();
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
-    Path* path = alignment.mutable_path();
+    
     //alignment.set_cigar(graph_cigar(gm));
 
     gssw_graph_cigar* gc = &gm->cigar;
     gssw_node_cigar* nc = gc->elements;
     int to_pos = 0;
     int from_pos = gm->position;
-    //cerr << "gm->position " << gm->position << endl;
+#ifdef debug
+    cerr << "gm->position " << gm->position << endl;
+#endif
     string& to_seq = *alignment.mutable_sequence();
-    //cerr << "-------------" << endl;
+#ifdef debug
+    cerr << "-------------" << endl;
+#endif
 
-    //gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
+#ifdef debug
+    gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
+#endif
+
+    // Create a Path in the alignment only if it is going to be non-empty.
+    // Sometimes GSSW finds no matching bases and produces no local alignment.
+    Path* path;
+    if(gc->length) {
+        path = alignment.mutable_path();
+    }
 
     for (int i = 0; i < gc->length; ++i, ++nc) {
         if (i > 0) from_pos = 0; // reset for each node after the first
@@ -130,12 +142,16 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
         mapping->mutable_position()->set_offset(from_pos);
         mapping->set_rank(path->mapping_size());
 
-        //cerr << from_node->id() << ":" << endl;
+#ifdef debug
+        cerr << from_node->id() << ":" << endl;
+#endif
 
         for (int j=0; j < l; ++j, ++e) {
             Edit* edit;
             int32_t length = e->length;
-            //cerr << e->length << e->type << endl;
+#ifdef debug
+            cerr << e->length << e->type << endl;
+#endif
             switch (e->type) {
             case 'M': {
                 // do the sequences match?
@@ -144,7 +160,9 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                 int last_start = from_pos;
                 int k = to_pos;
                 for ( ; h < from_pos + length; ++h, ++k) {
-                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+#ifdef debug
+                    cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+#endif
                     if (from_seq[h] != to_seq[k]) {
                         // emit the last "match" region
                         if (h-last_start > 0) {
@@ -200,7 +218,9 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
 
             }
         }
-        //cerr << "path to_length " << path_to_length(*path) << endl;
+#ifdef debug
+        cerr << "path to_length " << path_to_length(*path) << endl;
+#endif
     }
 }
 

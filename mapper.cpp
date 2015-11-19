@@ -1107,7 +1107,10 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
             // expand in the direction where there were soft clips
 
-            // We can't expand if we just didn't find anything.
+            // We can't expand if we just didn't find anything. Occasionally
+            // GSSW will try to, say, map a sequence of all As to a graph of all
+            // Ts, find no matches in this orientation, and produce an alignment
+            // with no actual mappings. This just counts as unmapped.
             if (!ta.has_path() || ta.path().mapping_size() == 0) continue;
             
             // we can be more precise about our handling of softclips due to the low cost
@@ -1195,7 +1198,13 @@ vector<Alignment> Mapper::align_threaded(Alignment& alignment, int& kmer_count, 
     map<int, set<Alignment*> > alignment_by_score;
     for (auto& ta : alignments) {
         Alignment* aln = &ta.second;
-        alignment_by_score[aln->score()].insert(aln);
+        if(aln->has_path() && aln->path().mapping_size() != 0) {
+            // Keep the alignment only if it actually stuck to something in its
+            // thread's graph.
+            alignment_by_score[aln->score()].insert(aln);
+        } else if(debug) {
+            cerr << "Alignment " << pb2json(*aln) << " failed to find a local alignment to its thread." << endl;
+        }
     }
 
     // Collect all the good alignments
