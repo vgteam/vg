@@ -954,6 +954,7 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
             vector<Path> paths;
             vector<Alignment> alns;
+            int j = 0;
             for (auto& seq : group.second) {
                 // align to the graph
                 if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
@@ -962,17 +963,20 @@ int main_msga(int argc, char** argv) {
                 alns.push_back(aln);
                 //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
                 paths.push_back(aln.path());
+                /*
+                ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
+                stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                f.close();
+                */
                 // note that the addition of paths is a second step
                 // now take the alignment and modify the graph with it
+                ++j;
             }
-            // save a rendering of the graph
-            //ofstream gv(name + "-" + iterstr + ".gv");
-            //graph->to_dot(gv, alns);
-            //gv.close();
             if (debug) cerr << name << ": editing graph" << endl;
+            //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
             graph->clear_paths();
-            if (debug) cerr << name << ": normalizing node size" << endl;
+            if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
             graph->dice_nodes(node_max);
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
@@ -984,12 +988,17 @@ int main_msga(int argc, char** argv) {
             bool included = true;
             for (auto& seq : group.second) {
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                if (debug) cerr << "testing inclusion of " << pb2json(aln) << endl;
+                if (debug) cerr << "testing inclusion of " << group.first << endl;
                 // check for connectivity
                 for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
                     if (!mapping_is_simple_match(aln.path().mapping(i))) {
                         cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
                         included = false;
+                        graph->serialize_to_file(group.first + "-failed-edit.vg");
+                        ofstream f(group.first + "-failed-edit.gam");
+                        stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                        f.close();
+                        return 1;
                     } else if (i > 0) {
                         auto& p1 = aln.path().mapping(i-1).position();
                         auto& p2 = aln.path().mapping(i).position();
@@ -998,9 +1007,14 @@ int main_msga(int argc, char** argv) {
                             &&
                             mapping_from_length(aln.path().mapping(i))
                             != graph->get_node(p2.node_id())->sequence().size()) {
-                            cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i))
-                                 << " to " << pb2json(aln.path().mapping(i-1)) << endl;
+                            cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i-1))
+                                 << " to " << pb2json(aln.path().mapping(i)) << endl;
                             included = false;
+                            graph->serialize_to_file(group.first + "-failed-edit-no-edge.vg");
+                            ofstream f(group.first + "-failed-edit-no-edge.gam");
+                            stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                            f.close();
+                            return 1;
                         }
                     }
                 }
