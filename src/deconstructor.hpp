@@ -11,6 +11,7 @@
 #include "vg.pb.h"
 #include "Fasta.h"
 #include "xg.hpp"
+
 namespace vg{
     using namespace std;
     class Deconstructor{
@@ -19,10 +20,11 @@ namespace vg{
             Deconstructor();
             ~Deconstructor();
             void clear();
-            void set_xg(xg::XG* xg);
-            void enumerate_paths_in_index();
-            void set_reference(string ref);
-            void set_index(Index* index);
+            void set_xg(string xg);
+            void enumerate_path_names_in_index();
+            void set_reference(string ref_file);
+            void set_index(string index_file);
+            void set_graph(VG* v);
 
             /**
              * Project a path onto another path,
@@ -41,17 +43,18 @@ namespace vg{
              * Build a vcf record from two paths, with the
              * second path argument taken as the reference.
              */
-            vcflib::Variant mapping_to_variant(Path variant, Path ref);
-
+            vcflib::Variant path_to_variant(Path variant, Path ref);
+            vcflib::Variant pathname_to_variant(string variant, Path ref);
             /**
              * Turn a vector of variants into a proper VCF.
              */
             vcflib::VariantCallFile write_variants(string filename, vector<vcflib::Variant> variants);
         private:
             // TODO Should probably be able to handle XG or VG indices
-            Index* index;
-            FastaReference* reference;
-            xg::XG* xg;
+            string index_file;
+            string reference;
+            string xg_file;
+            VG* vgraph;
 
     };
 }

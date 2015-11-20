@@ -4732,17 +4732,19 @@ int main_deconstruct(int argc, char** argv){
   string xg_file = "";
   string graph_file = "";
   string output_file = "";
+  string index_file = "";
   int c;
   while (true){
     static struct option long_options[] = {
       {"output", required_argument, 0, 'o'},
       {"reference", required_argument, 0, 'r'},
       {"xg", required_argument, 0, 'x'},
-      {"graph", required_argument, 0, 'g'}
+      {"graph", required_argument, 0, 'g'},
+      {"index", required_argument, 0, 'i'}
     };
 
     int option_index = 0;
-    c = getopt_long (argc, argv, "o:r:x:g:h",
+    c = getopt_long (argc, argv, "o:i:r:x:g:h",
                      long_options, &option_index);
     if (c == -1){
       break;
@@ -4759,6 +4761,9 @@ int main_deconstruct(int argc, char** argv){
           break;
       case 'g':
           graph_file = optarg;
+          break;
+      case 'i':
+          index_file = optarg;
           break;
 
       case 'h':
@@ -4777,14 +4782,27 @@ int main_deconstruct(int argc, char** argv){
     cerr << "Error: A reference is needed for projection into vcf." << endl;
     exit(1);
   }
-  if (xg_file.empty() && graph_file.empty()){
+  if ((xg_file.empty() && index_file.empty()) && graph_file.empty()){
     cerr << "Error: must provide an XG graph or VG graph (with the corresponding index)." << endl;
     exit(1);
   }
 
   Deconstructor decon = Deconstructor();
   decon.set_reference(reference_file);
+
+  ifstream in;
+  in.open(graph_file.c_str());
+  VG v = VG(in);
+  decon.set_graph(&v);
   
+  if (index_file.empty()){
+    decon.set_xg(xg_file);
+  }
+  else if (xg_file.empty()){
+    decon.set_index(index_file);
+  }
+
+  decon.enumerate_path_names_in_index();
 
 }
 
