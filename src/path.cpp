@@ -823,7 +823,7 @@ Path simplify(const Path& p) {
             // otherwise, if we end at exactly the start position of the next mapping, we can merge
             } else if (l->has_position() && m.has_position()
                        && l->position().node_id() == m.position().node_id()
-                       && mapping_from_length(*l) == m.position().offset()) {
+                       && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
                 // we can merge the current mapping onto the old one
                 *l = merge(*l, m);
             } else {
