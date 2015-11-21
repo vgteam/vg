@@ -3799,10 +3799,10 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
 
-#ifdef debug
+#ifdef debug_breakpoints
     cerr << "Processing path..." << endl;
 #endif
-    
+
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
         const Mapping& m = path.mapping(i);
@@ -3820,7 +3820,7 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
         // the reference.
         pos_t edit_first_position = make_pos_t(m.position());
         
-#ifdef debug
+#ifdef debug_breakpoints
         cerr << "Processing mapping " << pb2json(m) << endl;
 #endif
         
@@ -3838,18 +3838,19 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
                 get_offset(edit_last_position) += e.from_length();
             }
             
-#ifdef debug
+#ifdef debug_breakpoints
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
             cerr << pb2json(e) << endl;
 #endif 
             
-            if(!edit_is_match(e) || (j == 0 && i > 0)) {
+            //if(!edit_is_match(e) || (j == 0 && i > 0)) {
+            if (!edit_is_match(e) || j == 0) {
                 // If this edit is not a perfect match, or if this is the first
                 // edit in this mapping and we had a previous mapping we may
                 // need to connect to, we need to make sure we have a breakpoint
                 // at the start of this edit.
                 
-#ifdef debug
+#ifdef debug_breakpoints
                 cerr << "Need to break " << node_id << " at edit lower end " <<
                     edit_first_position << endl;
 #endif
@@ -3858,14 +3859,15 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
                 // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
                 breakpoints[node_id].insert(edit_first_position);
             }
-            
-            if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
+
+            //if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
+            if (!edit_is_match(e) || (j == m.edit_size() - 1)) {
                 // If this edit is not a perfect match, or if it is the last
                 // edit in a mapping and we have a subsequent mapping we might
                 // need to connect to, make sure we have a breakpoint at the end
                 // of this edit.
                 
-#ifdef debug
+#ifdef debug_breakpoints
                 cerr << "Need to break " << node_id << " at past edit upper end " <<
                     edit_last_position << endl;
 #endif
@@ -3926,8 +3928,9 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             // How far in do we need to break the remaining right part? And how
             // many bases will be in this new left part?
             int64_t divide_offset = offset(breakpoint) - current_offset;
+#define debug_breakpoints true
             
-#ifdef debug
+#ifdef debug_breakpoints
             cerr << "Need to divide original " << original_node_id << " at " << breakpoint << "/" << 
                 original_node_length << endl;
             cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" << 
@@ -3943,7 +3946,7 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             // existing perfect match paths in the graph.
             divide_node(right_part, divide_offset, left_part, right_part);
             
-#ifdef debug
+#ifdef debug_breakpoints
             cerr << "Produced " << left_part->id() << " (" << left_part->sequence().size() << " bp)" << endl;
             cerr << "Left " << right_part->id() << " (" << right_part->sequence().size() << " bp)" << endl;
 #endif

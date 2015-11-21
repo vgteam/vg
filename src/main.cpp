@@ -946,7 +946,7 @@ int main_msga(int argc, char** argv) {
     for (auto& group : strings) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        int iter_max = 1;
+        int iter_max = 10;
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             auto& name = group.first;
@@ -960,19 +960,17 @@ int main_msga(int argc, char** argv) {
                                graph->node_count() << " nodes" << endl;
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 alns.push_back(aln);
-                //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+                if (debug) cerr << pb2json(aln) << endl; // huge in some cases
                 paths.push_back(aln.path());
-                /*
                 ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
                 stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                 f.close();
-                */
                 // note that the addition of paths is a second step
                 // now take the alignment and modify the graph with it
                 ++j;
             }
             if (debug) cerr << name << ": editing graph" << endl;
-            //graph->serialize_to_file(name + "-pre-edit.vg");
+            graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
             graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
@@ -982,6 +980,10 @@ int main_msga(int argc, char** argv) {
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
 
+            // the edit needs to cut nodes at mapping starts and ends
+            // thus allowing paths to be included that map directly to entire nodes
+            // XXX
+            
             // check that all is well
             rebuild(graph);
             bool included = true;
@@ -990,22 +992,24 @@ int main_msga(int argc, char** argv) {
                 if (debug) cerr << "testing inclusion of " << group.first << endl;
                 // check for connectivity
                 for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
-                    if (!mapping_is_simple_match(aln.path().mapping(i))) {
-                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
+                    auto& m = aln.path().mapping(i);
+                    if (!mapping_is_simple_match(m)
+                        || mapping_from_length(m)
+                           != graph->get_node(m.position().node_id())->sequence().size()) {
+                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a total match!" << endl;
                         included = false;
                         graph->serialize_to_file(group.first + "-failed-edit.vg");
                         ofstream f(group.first + "-failed-edit.gam");
                         stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                         f.close();
-                        return 1;
+                        //return 1;
                     } else if (i > 0) {
                         auto& p1 = aln.path().mapping(i-1).position();
                         auto& p2 = aln.path().mapping(i).position();
                         // are we at the end of the node before we jump?
                         if (p1.node_id() != p2.node_id()
-                            &&
-                            mapping_from_length(aln.path().mapping(i))
-                            != graph->get_node(p2.node_id())->sequence().size()) {
+                            && !graph->has_edge(NodeSide(p1.node_id(), !p1.is_reverse()),
+                                                NodeSide(p2.node_id(), p2.is_reverse()))) {
                             cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i-1))
                                  << " to " << pb2json(aln.path().mapping(i)) << endl;
                             included = false;
@@ -1013,7 +1017,7 @@ int main_msga(int argc, char** argv) {
                             ofstream f(group.first + "-failed-edit-no-edge.gam");
                             stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                             f.close();
-                            return 1;
+                            //return 1;
                         }
                     }
                 }
@@ -1021,12 +1025,10 @@ int main_msga(int argc, char** argv) {
             incomplete = !included;
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        /*
-        if (iter == iter_max) {
+        if (iter >= iter_max) {
             cerr << "failed to include path" << endl;
             exit(1);
         }
-        */
     }
     //graph->serialize_to_file("pre-include.vg");
 
