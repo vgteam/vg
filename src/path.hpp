@@ -97,17 +97,19 @@ public:
     Mapping* traverse_right(Mapping* mapping);
     // TODO: should this be a reference?
     string mapping_path_name(Mapping* m);
-    set<string> of_node(int64_t id);
+    // get the paths on this node and the number of mappings from each one
+    map<string, int> of_node(int64_t id);
     bool are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name);
     size_t size(void) const;
     bool empty(void) const;
     void clear(void);
-    void clear_node_ranks(void);
+    void clear_mapping_ranks(void);
+    void compact_ranks(void);
     //void add_node_mapping(Node* n);
     void load(istream& in);
     void write(ostream& out);
     void to_graph(Graph& g);
-    // add mappings, assume sorted by default
+    // add mappings, use rank to sort later
     void append_mapping(const string& name, const Mapping& m);
     void append_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
     void append(Paths& p);
@@ -156,7 +158,7 @@ Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_lengt
 // mappings have missing positions.
 Path simplify(const Path& p);
 Mapping simplify(const Mapping& m);
-Mapping merge(const Mapping& m, const Mapping& n);
+Mapping merge_mappings(const Mapping& m, const Mapping& n);
 Path concat_paths(const Path& path1, const Path& path2);
 // divide mapping at reference-relative position
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos);

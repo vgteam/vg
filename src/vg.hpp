@@ -729,7 +729,12 @@ public:
     // Caller is responsible for dealing with orientations.
     void node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start);
-                             
+    // true if nodes share all paths and the mappings they share in these paths
+    // are adjacent
+    bool nodes_are_perfect_path_neighbors(id_t id1, id_t id2);
+    // true if the mapping completely covers the node it maps to and is a perfect match
+    bool mapping_is_total_match(const Mapping& m);
+
     // These versions handle paths in which nodes can be traversed multiple
     // times. Unfortunately since we're throwing non-const iterators around, we
     // can't take the input path as const.

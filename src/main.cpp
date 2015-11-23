@@ -947,9 +947,9 @@ int main_msga(int argc, char** argv) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
         int iter_max = 10;
+        auto& name = group.first;
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
-            auto& name = group.first;
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
             vector<Path> paths;
             vector<Alignment> alns;
@@ -993,10 +993,10 @@ int main_msga(int argc, char** argv) {
                 // check for connectivity
                 for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
                     auto& m = aln.path().mapping(i);
-                    if (!mapping_is_simple_match(m)
-                        || mapping_from_length(m)
-                           != graph->get_node(m.position().node_id())->sequence().size()) {
-                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a total match!" << endl;
+                    if (!mapping_is_simple_match(m)) {
+                        //|| mapping_from_length(m)
+                        //!= graph->get_node(m.position().node_id())->sequence().size()) {
+                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a simple match!" << endl;
                         included = false;
                         graph->serialize_to_file(group.first + "-failed-edit.vg");
                         ofstream f(group.first + "-failed-edit.gam");
@@ -1026,7 +1026,7 @@ int main_msga(int argc, char** argv) {
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
         if (iter >= iter_max) {
-            cerr << "failed to include path" << endl;
+            cerr << "failed to include path " << name << endl;
             exit(1);
         }
     }
@@ -1443,6 +1443,7 @@ void help_mod(char** argv) {
          << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
          << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
          << "    -z, --sort              sort the graph using an approximate topological sort" << endl
          << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
          << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
@@ -1492,6 +1493,7 @@ int main_mod(int argc, char** argv) {
     bool sort_graph = false;
     bool remove_non_path = false;
     bool orient_forward = false;
+    bool compact_ranks = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1501,6 +1503,7 @@ int main_mod(int argc, char** argv) {
                 {"help", no_argument, 0, 'h'},
                 {"include-aln", required_argument, 0, 'i'},
                 {"compact-ids", no_argument, 0, 'c'},
+                {"compact-ranks", no_argument, 0, 'C'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {"prune-complex", no_argument, 0, 'p'},
@@ -1522,7 +1525,7 @@ int main_mod(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfC",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1540,6 +1543,10 @@ int main_mod(int argc, char** argv) {
             compact_ids = true;
             break;
 
+        case 'C':
+            compact_ranks = true;
+            break;
+            
         case 'k':
             path_name = optarg;
             break;
@@ -1680,17 +1687,22 @@ int main_mod(int argc, char** argv) {
         if (!label_paths) {
             // execute the edits
             graph->edit_both_directions(paths);
-            // and optionally compact ids
-            if (compact_ids) {
-                graph->sort();
-                graph->compact_ids();
-            }
         } else {
             // just add the path labels to the graph
             for (auto& path : paths) {
                 graph->paths.extend(path);
             }
         }
+    }
+
+    // and optionally compact ids
+    if (compact_ids) {
+        graph->sort();
+        graph->compact_ids();
+    }
+
+    if (compact_ranks) {
+        graph->paths.compact_ranks();
     }
 
     if (prune_complex) {

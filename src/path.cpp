@@ -197,7 +197,6 @@ void Paths::swap_node_ids(hash_map<int64_t, int64_t> id_mapping) {
         for (auto& m : path) {
             // Look up the replacement ID
             auto replacement = id_mapping.find(m.position().node_id());
-        
             if(replacement != id_mapping.end()) {
                 // If there is a replacement, use it.
                 m.mutable_position()->set_node_id((*replacement).second);
@@ -227,6 +226,16 @@ void Paths::sort_by_mapping_rank(void) {
                 return m1.rank() < m2.rank();
             });
     }
+}
+
+// compact the ranks preserving the relative rank order
+void Paths::compact_ranks(void) {
+    // first ensure the storage order of the mappings is correct
+    sort_by_mapping_rank();
+    // clear the ranks
+    clear_mapping_ranks();
+    // and rebuild them and other aux data structures
+    rebuild_mapping_aux();
 }
 
 void Paths::rebuild_mapping_aux(void) {
@@ -310,7 +319,7 @@ void Paths::clear(void) {
     node_mapping.clear();
 }
 
-void Paths::clear_node_ranks(void) {
+void Paths::clear_mapping_ranks(void) {
     for (auto p = _paths.begin(); p != _paths.end(); ++p) {
         list<Mapping>& path = p->second;
         for (auto m = path.begin(); m != path.end(); ++m) {
@@ -422,13 +431,13 @@ string Paths::mapping_path_name(Mapping* m) {
     }
 }
 
-set<string> Paths::of_node(int64_t id) {
-    set<string> path_names;
+map<string, int> Paths::of_node(int64_t id) {
+    map<string, int> path_counts;
     auto& node_mapping = get_node_mapping(id);
     for (auto& p : node_mapping) {
-        path_names.insert(p.first);
+        path_counts[p.first]++;
     }
-    return path_names;
+    return path_counts;
 }
 
 bool Paths::are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name) {
@@ -825,7 +834,7 @@ Path simplify(const Path& p) {
                        && l->position().node_id() == m.position().node_id()
                        && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
                 // we can merge the current mapping onto the old one
-                *l = merge(*l, m);
+                *l = merge_mappings(*l, m);
             } else {
                 *s.add_mapping() = m;
             }
@@ -843,7 +852,7 @@ Path simplify(const Path& p) {
 }
 
 // simple merge
-Mapping merge(const Mapping& m, const Mapping& n) {
+Mapping merge_mappings(const Mapping& m, const Mapping& n) {
     Mapping c = m;
     // add the edits on
     for (size_t i = 0; i < n.edit_size(); ++i) {
