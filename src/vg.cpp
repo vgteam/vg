@@ -749,7 +749,7 @@ void VG::unchop(void) {
         merge_nodes(comp);
     }
     // rebuild path ranks, as these will be affected by mapping merging
-    //paths.compact_ranks();
+    paths.compact_ranks();
 }
 
 void VG::normalize(void) {
@@ -877,6 +877,7 @@ bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
 
 // the set of components that could be merged into single nodes without
 // changing the path space of the graph
+// respects stored paths
 set<list<Node*>> VG::simple_components(int min_size) {
 
     // go around and establish groupings
@@ -961,32 +962,35 @@ void VG::merge_nodes(const list<Node*>& nodes) {
             }
         }
     }
+
+    // make the new mappings for the node
     map<string, Mapping> new_mappings;
     for (auto& m : mappings) {
         auto& name = m.first;
         // collect the mapping
         Mapping mapping;
         for (auto& r : m.second) {
+            // assign a rank if we have not yet
+            if (!mapping.rank()) mapping.set_rank(r.second->rank());
             mapping = merge_mappings(mapping, *r.second);
         }
         new_mappings[name] = mapping;
     }
 
     // make a new node that concatenates the labels in the order they occur in the graph
-
     string seq;
     for (auto n : nodes) {
         seq += n->sequence();
     }
     auto node = create_node(seq);
-    
+
     // change the position of the new mappings to point to the new node
     for (map<string, Mapping>::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
         Mapping& m = nm->second;
         m.mutable_position()->set_node_id(node->id());
         paths.append_mapping(nm->first, m);
     }
-    
+
     // connect this node to the left and right connections of the set
     
     // do the left connections

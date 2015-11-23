@@ -235,6 +235,7 @@ void Paths::compact_ranks(void) {
     // clear the ranks
     clear_mapping_ranks();
     // and rebuild them and other aux data structures
+    rebuild_node_mapping();
     rebuild_mapping_aux();
 }
 
@@ -864,6 +865,7 @@ Mapping merge_mappings(const Mapping& m, const Mapping& n) {
 
 Mapping simplify(const Mapping& m) {
     Mapping n;
+    if (m.rank()) n.set_rank(m.rank());
     //cerr << "pre simplify " << pb2json(m) << endl;
     // get the position
     if (!m.has_position() || m.position().node_id()==0) {
