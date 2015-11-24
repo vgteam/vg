@@ -3992,7 +3992,7 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
     // We need to work out what offsets we will need to break each node at, if
     // we want to add in all the new material and edges in this path.
 
-#ifdef debug_breakpoints
+#ifdef debug
     cerr << "Processing path..." << endl;
 #endif
 
@@ -4013,7 +4013,7 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
         // the reference.
         pos_t edit_first_position = make_pos_t(m.position());
         
-#ifdef debug_breakpoints
+#ifdef debug
         cerr << "Processing mapping " << pb2json(m) << endl;
 #endif
         
@@ -4031,7 +4031,7 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
                 get_offset(edit_last_position) += e.from_length();
             }
             
-#ifdef debug_breakpoints
+#ifdef debug
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
             cerr << pb2json(e) << endl;
 #endif 
@@ -4043,7 +4043,7 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
                 // need to connect to, we need to make sure we have a breakpoint
                 // at the start of this edit.
                 
-#ifdef debug_breakpoints
+#ifdef debug
                 cerr << "Need to break " << node_id << " at edit lower end " <<
                     edit_first_position << endl;
 #endif
@@ -4060,7 +4060,7 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
                 // need to connect to, make sure we have a breakpoint at the end
                 // of this edit.
                 
-#ifdef debug_breakpoints
+#ifdef debug
                 cerr << "Need to break " << node_id << " at past edit upper end " <<
                     edit_last_position << endl;
 #endif
@@ -4121,9 +4121,8 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             // How far in do we need to break the remaining right part? And how
             // many bases will be in this new left part?
             int64_t divide_offset = offset(breakpoint) - current_offset;
-#define debug_breakpoints true
             
-#ifdef debug_breakpoints
+#ifdef debug
             cerr << "Need to divide original " << original_node_id << " at " << breakpoint << "/" << 
                 original_node_length << endl;
             cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" << 
@@ -4139,7 +4138,7 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             // existing perfect match paths in the graph.
             divide_node(right_part, divide_offset, left_part, right_part);
             
-#ifdef debug_breakpoints
+#ifdef debug
             cerr << "Produced " << left_part->id() << " (" << left_part->sequence().size() << " bp)" << endl;
             cerr << "Left " << right_part->id() << " (" << right_part->sequence().size() << " bp)" << endl;
 #endif

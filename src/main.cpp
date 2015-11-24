@@ -970,7 +970,7 @@ int main_msga(int argc, char** argv) {
                 ++j;
             }
             if (debug) cerr << name << ": editing graph" << endl;
-            graph->serialize_to_file(name + "-pre-edit.vg");
+            //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
             graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
@@ -996,13 +996,15 @@ int main_msga(int argc, char** argv) {
                     if (!mapping_is_simple_match(m)) {
                         //|| mapping_from_length(m)
                         //!= graph->get_node(m.position().node_id())->sequence().size()) {
-                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a simple match!" << endl;
+                        if (debug) cerr << "edit failed! "
+                                        << pb2json(aln.path().mapping(i)) << " is not a simple match!" << endl;
                         included = false;
-                        graph->serialize_to_file(group.first + "-failed-edit.vg");
-                        ofstream f(group.first + "-failed-edit.gam");
-                        stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-                        f.close();
-                        //return 1;
+                        /*
+                          graph->serialize_to_file(group.first + "-failed-edit.vg");
+                          ofstream f(group.first + "-failed-edit.gam");
+                          stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                          f.close();
+                        */
                     } else if (i > 0) {
                         auto& p1 = aln.path().mapping(i-1).position();
                         auto& p2 = aln.path().mapping(i).position();
@@ -1010,14 +1012,15 @@ int main_msga(int argc, char** argv) {
                         if (p1.node_id() != p2.node_id()
                             && !graph->has_edge(NodeSide(p1.node_id(), !p1.is_reverse()),
                                                 NodeSide(p2.node_id(), p2.is_reverse()))) {
-                            cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i-1))
-                                 << " to " << pb2json(aln.path().mapping(i)) << endl;
+                            if (debug) cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i-1))
+                                            << " to " << pb2json(aln.path().mapping(i)) << endl;
                             included = false;
+                            /*
                             graph->serialize_to_file(group.first + "-failed-edit-no-edge.vg");
                             ofstream f(group.first + "-failed-edit-no-edge.gam");
                             stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                             f.close();
-                            //return 1;
+                            */
                         }
                     }
                 }
@@ -1026,7 +1029,7 @@ int main_msga(int argc, char** argv) {
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
         if (iter >= iter_max) {
-            cerr << "failed to include path " << name << endl;
+            cerr << "[vg msga] Error: failed to include path " << name << endl;
             exit(1);
         }
     }

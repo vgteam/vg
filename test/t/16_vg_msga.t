@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 11
+plan tests 12
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -k 16 -t 1 | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 549b183e90036f767acdd10e7d5ba125 "MSGA produces the expected graph for GRCh38 HLA-V"
 
@@ -31,3 +31,6 @@ is $((for seq in $(vg msga -f msgas/w.fa -b x -K 16 -B 20 | vg paths -x - | vg v
 
 vg msga -f GRCh38_alts/FASTA/HLA/K-3138.fa -B 256 -k 22 -K 11 -X 1 -E 4 -Q 22 | vg validate -
 is $? 0 "HLA K-3138 correctly includes all input paths"
+
+vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg validate -
+is $? 0 "a difficult cyclic path can be included to produce a valid graph"
