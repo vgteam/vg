@@ -4794,7 +4794,7 @@ int main_deconstruct(int argc, char** argv){
   in.open(graph_file.c_str());
   VG v = VG(in);
   decon.set_graph(&v);
-  
+
   if (index_file.empty()){
     decon.set_xg(xg_file);
   }
@@ -4803,7 +4803,9 @@ int main_deconstruct(int argc, char** argv){
   }
 
   decon.enumerate_path_names_in_index();
-
+  vector<vcflib::Variant> vars = decon.get_variants("");
+  decon.write_variants(output_file, vars);
+  return 1;
 }
 
 void help_construct(char** argv) {
