@@ -1027,7 +1027,7 @@ map<string, vector<Mapping>>
         ns.pop_front();
         auto merged = merged_mappings_for_node_pair(np->id(), op->id());
         // if this is our first batch, just keep them
-        if (!new_mappings.empty()) {
+        if (new_mappings.empty()) {
             new_mappings = merged;
         } else {
             // otherwise, splice these onto the previous mappings
@@ -1043,7 +1043,7 @@ map<string, vector<Mapping>>
             new_mappings = merge_mapping_groups(r1, r2);
         }
     }
-    
+
     return new_mappings;
 }
 
