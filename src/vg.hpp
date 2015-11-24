@@ -734,6 +734,13 @@ public:
     bool nodes_are_perfect_path_neighbors(id_t id1, id_t id2);
     // true if the mapping completely covers the node it maps to and is a perfect match
     bool mapping_is_total_match(const Mapping& m);
+    // merge the mappings for a pair of nodes; handles multiple mappings per path
+    map<string, vector<Mapping>> merged_mappings_for_node_pair(id_t id1, id_t id2);
+    // for a list of nodes that we want to merge
+    map<string, vector<Mapping>> merged_mappings_for_nodes(const list<Node*>& nodes);
+    // helper function
+    map<string, vector<Mapping>> merge_mapping_groups(map<string, map<int, Mapping*>>& r1,
+                                                      map<string, map<int, Mapping*>>& r2);
 
     // These versions handle paths in which nodes can be traversed multiple
     // times. Unfortunately since we're throwing non-const iterators around, we

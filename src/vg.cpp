@@ -861,8 +861,8 @@ bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
             auto rank = r.first;
             auto& m = *r.second;
             auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
-            // TODO is it necessary to check if the mappings are in the same orientation?
             if (f == ranked2.end()) return false;
+            if (f->second->position().is_reverse() != m.position().is_reverse()) return false;
             ranked2.erase(f); // remove so we can verify that we have fully matched
         }
     }
@@ -936,7 +936,71 @@ set<list<Node*>> VG::simple_components(int min_size) {
     return components;
 }
 
-void VG::merge_nodes(const list<Node*>& nodes) {
+map<string, vector<Mapping>>
+    VG::merged_mappings_for_node_pair(id_t id1, id_t id2) {
+
+    // guard against attempts to merge the path mappings of nodes that we can't merge
+    assert(paths.of_node(id1) == paths.of_node(id2));
+
+    // now we know that the paths are identical in count and name between the two nodes
+
+    // get the mappings for each node
+    auto& m1 = paths.get_node_mapping(id1);
+    auto& m2 = paths.get_node_mapping(id2);
+
+    // verify that they are all perfect matches
+    for (auto& p : m1) {
+        for (auto* m : p.second) {
+            assert(mapping_is_total_match(*m));
+        }
+    }
+    for (auto& p : m2) {
+        for (auto* m : p.second) {
+            assert(mapping_is_total_match(*m));
+        }
+    }
+
+    // order the mappings by rank so we can quickly stitch up the new mappings
+    map<string, map<int, Mapping*>> r1, r2;
+    for (auto& p : m1) {
+        auto& name = p.first;
+        auto& mp1 = p.second;
+        auto& mp2 = m2[name];
+        for (auto* m : mp1) r1[name][m->rank()] = m;
+        for (auto* m : mp2) r2[name][m->rank()] = m;
+    }
+
+    return merge_mapping_groups(r1, r2);
+}
+
+map<string, vector<Mapping>>
+    VG::merge_mapping_groups(map<string, map<int, Mapping*>>& r1,
+                             map<string, map<int, Mapping*>>& r2) {
+    map<string, vector<Mapping>> new_mappings;
+    // collect new mappings
+    for (auto& p : r1) {
+        auto& name = p.first;
+        auto& ranked1 = p.second;
+        map<int, Mapping*>& ranked2 = r2[name];
+        for (auto& r : ranked1) {
+            auto rank = r.first;
+            auto& m = *r.second;
+            auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
+            assert(f != ranked2.end());
+            auto& o = *f->second;
+            assert(m.position().is_reverse() == o.position().is_reverse());
+            // make the new mapping for this pair of nodes
+            Mapping n;
+            n = (!m.position().is_reverse() ? merge_mappings(m, o) : merge_mappings(o, m));
+            new_mappings[name].push_back(n);
+            ranked2.erase(f); // remove so we can verify that we have fully matched
+        }
+    }
+    return new_mappings;
+}
+
+map<string, vector<Mapping>>
+    VG::merged_mappings_for_nodes(const list<Node*>& nodes) {
 
     // determine the common paths that will apply to the new node
     // to do the ptahs right, we can only combine nodes if they also share all of their paths
@@ -950,32 +1014,43 @@ void VG::merge_nodes(const list<Node*>& nodes) {
         cerr << "[VG::merge_nodes] error: cannot merge nodes with differing paths" << endl;
         exit(1); // we should be raising an error
     }
+
+    map<string, vector<Mapping>> new_mappings;
     
-    // as we have just one set of path groups, work with them
-    map<string,int> path_names = *path_groups.begin();
-    map<string, map<int, Mapping*>> mappings;
-    for (auto n : nodes) {
-        auto& node_mapping = paths.get_node_mapping(n);
-        for (auto& m : node_mapping) {
-            for (auto* mapping : m.second) {
-                mappings[m.first][mapping->rank()] = mapping;
+    auto ns = nodes; // to modify destructively
+    auto np = nodes.front();
+    ns.pop_front();
+    
+    while (!ns.empty()) {
+        // merge
+        auto op = ns.front();
+        ns.pop_front();
+        auto merged = merged_mappings_for_node_pair(np->id(), op->id());
+        // if this is our first batch, just keep them
+        if (!new_mappings.empty()) {
+            new_mappings = merged;
+        } else {
+            // otherwise, splice these onto the previous mappings
+            // which means finding which mappings line up and connecting them
+            map<string, map<int, Mapping*>> r1, r2;
+            for (auto& p : new_mappings) {
+                auto& name = p.first;
+                auto& mp1 = p.second;
+                for (auto& m : mp1) r1[name][m.rank()] = &m;
+                auto& mp2 = merged[name];
+                for (auto& m : mp2) r2[name][m.rank()] = &m;
             }
+            new_mappings = merge_mapping_groups(r1, r2);
         }
     }
+    
+    return new_mappings;
+}
+
+void VG::merge_nodes(const list<Node*>& nodes) {
 
     // make the new mappings for the node
-    map<string, Mapping> new_mappings;
-    for (auto& m : mappings) {
-        auto& name = m.first;
-        // collect the mapping
-        Mapping mapping;
-        for (auto& r : m.second) {
-            // assign a rank if we have not yet
-            if (!mapping.rank()) mapping.set_rank(r.second->rank());
-            mapping = merge_mappings(mapping, *r.second);
-        }
-        new_mappings[name] = mapping;
-    }
+    map<string, vector<Mapping>> new_mappings = merged_mappings_for_nodes(nodes);
 
     // make a new node that concatenates the labels in the order they occur in the graph
     string seq;
@@ -985,10 +1060,12 @@ void VG::merge_nodes(const list<Node*>& nodes) {
     auto node = create_node(seq);
 
     // change the position of the new mappings to point to the new node
-    for (map<string, Mapping>::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
-        Mapping& m = nm->second;
-        m.mutable_position()->set_node_id(node->id());
-        paths.append_mapping(nm->first, m);
+    for (map<string, vector<Mapping>>::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
+        vector<Mapping>& ms = nm->second;
+        for (vector<Mapping>::iterator m = ms.begin(); m != ms.end(); ++m) {
+            m->mutable_position()->set_node_id(node->id());
+            paths.append_mapping(nm->first, *m);
+        }
     }
 
     // connect this node to the left and right connections of the set
