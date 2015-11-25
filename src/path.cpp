@@ -380,6 +380,16 @@ map<string, set<Mapping*>>& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
 }
 
+map<string, map<int, Mapping>> Paths::get_node_mapping_copies_by_rank(int64_t id) {
+    map<string, map<int, Mapping>> by_ranks;
+    for (auto& p : get_node_mapping(id)) {
+        auto& name = p.first;
+        auto& mp = p.second;
+        for (auto* m : mp) by_ranks[name][m->rank()] = *m;
+    }
+    return by_ranks;
+}
+
 Mapping* Paths::traverse_left(Mapping* mapping) {
     // Get the iterator for this Mapping*
     list<Mapping>::iterator place = mapping_itr.at(mapping);

@@ -936,63 +936,34 @@ set<list<Node*>> VG::simple_components(int min_size) {
     return components;
 }
 
-map<string, vector<Mapping>>
-    VG::merged_mappings_for_node_pair(id_t id1, id_t id2) {
-
-    // guard against attempts to merge the path mappings of nodes that we can't merge
-    assert(paths.of_node(id1) == paths.of_node(id2));
-
-    // now we know that the paths are identical in count and name between the two nodes
-
-    // get the mappings for each node
-    auto& m1 = paths.get_node_mapping(id1);
-    auto& m2 = paths.get_node_mapping(id2);
-
-    // verify that they are all perfect matches
-    for (auto& p : m1) {
-        for (auto* m : p.second) {
-            assert(mapping_is_total_match(*m));
-        }
-    }
-    for (auto& p : m2) {
-        for (auto* m : p.second) {
-            assert(mapping_is_total_match(*m));
-        }
-    }
-
-    // order the mappings by rank so we can quickly stitch up the new mappings
-    map<string, map<int, Mapping*>> r1, r2;
-    for (auto& p : m1) {
-        auto& name = p.first;
-        auto& mp1 = p.second;
-        auto& mp2 = m2[name];
-        for (auto* m : mp1) r1[name][m->rank()] = m;
-        for (auto* m : mp2) r2[name][m->rank()] = m;
-    }
-
-    return merge_mapping_groups(r1, r2);
-}
-
-map<string, vector<Mapping>>
-    VG::merge_mapping_groups(map<string, map<int, Mapping*>>& r1,
-                             map<string, map<int, Mapping*>>& r2) {
-    map<string, vector<Mapping>> new_mappings;
+// merges right, so we take the rightmost rank as the new rank
+map<string, map<int, Mapping>>
+    VG::merge_mapping_groups(map<string, map<int, Mapping>>& r1,
+                             map<string, map<int, Mapping>>& r2) {
+    map<string, map<int, Mapping>> new_mappings;
     // collect new mappings
     for (auto& p : r1) {
         auto& name = p.first;
         auto& ranked1 = p.second;
-        map<int, Mapping*>& ranked2 = r2[name];
+        map<int, Mapping>& ranked2 = r2[name];
         for (auto& r : ranked1) {
             auto rank = r.first;
-            auto& m = *r.second;
+            auto& m = r.second;
             auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
             assert(f != ranked2.end());
-            auto& o = *f->second;
+            auto& o = f->second;
             assert(m.position().is_reverse() == o.position().is_reverse());
             // make the new mapping for this pair of nodes
             Mapping n;
-            n = (!m.position().is_reverse() ? merge_mappings(m, o) : merge_mappings(o, m));
-            new_mappings[name].push_back(n);
+            if (!m.position().is_reverse()) {
+                n = merge_mappings(m, o);
+                // merge right criteria
+                n.set_rank(o.rank());
+            } else {
+                n = merge_mappings(o, m);
+                n.set_rank(m.rank());
+            }
+            new_mappings[name][n.rank()] = n;
             ranked2.erase(f); // remove so we can verify that we have fully matched
         }
     }
@@ -1015,32 +986,28 @@ map<string, vector<Mapping>>
         exit(1); // we should be raising an error
     }
 
-    map<string, vector<Mapping>> new_mappings;
-    
     auto ns = nodes; // to modify destructively
     auto np = nodes.front();
     ns.pop_front();
+    // store the first base
+    // we will use this to drive the merge
+    auto base = paths.get_node_mapping_copies_by_rank(np->id());
     
     while (!ns.empty()) {
         // merge
         auto op = ns.front();
         ns.pop_front();
-        auto merged = merged_mappings_for_node_pair(np->id(), op->id());
         // if this is our first batch, just keep them
-        if (new_mappings.empty()) {
-            new_mappings = merged;
-        } else {
-            // otherwise, splice these onto the previous mappings
-            // which means finding which mappings line up and connecting them
-            map<string, map<int, Mapping*>> r1, r2;
-            for (auto& p : new_mappings) {
-                auto& name = p.first;
-                auto& mp1 = p.second;
-                for (auto& m : mp1) r1[name][m.rank()] = &m;
-                auto& mp2 = merged[name];
-                for (auto& m : mp2) r2[name][m.rank()] = &m;
-            }
-            new_mappings = merge_mapping_groups(r1, r2);
+        auto next = paths.get_node_mapping_copies_by_rank(op->id());
+        base = merge_mapping_groups(base, next);
+    }
+
+    // stores a merged mapping for each path traversal through the nodes we are merging
+    map<string, vector<Mapping>> new_mappings;
+    for (auto& p : base) {
+        auto& name = p.first;
+        for (auto& m : p.second) {
+            new_mappings[name].push_back(m.second);
         }
     }
 

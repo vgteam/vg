@@ -739,8 +739,9 @@ public:
     // for a list of nodes that we want to merge
     map<string, vector<Mapping>> merged_mappings_for_nodes(const list<Node*>& nodes);
     // helper function
-    map<string, vector<Mapping>> merge_mapping_groups(map<string, map<int, Mapping*>>& r1,
-                                                      map<string, map<int, Mapping*>>& r2);
+    map<string, map<int, Mapping>>
+        merge_mapping_groups(map<string, map<int, Mapping>>& r1,
+                             map<string, map<int, Mapping>>& r2);
 
     // These versions handle paths in which nodes can be traversed multiple
     // times. Unfortunately since we're throwing non-const iterators around, we

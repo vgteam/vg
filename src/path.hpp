@@ -89,6 +89,7 @@ public:
     bool has_node_mapping(Node* n);
     map<string, set<Mapping*>>& get_node_mapping(Node* n);
     map<string, set<Mapping*>>& get_node_mapping(int64_t id);
+    map<string, map<int, Mapping>> get_node_mapping_copies_by_rank(int64_t id);
     // Go left along the path that this Mapping* belongs to, and return the
     // Mapping* there, or null if this Mapping* is the first in its path.
     Mapping* traverse_left(Mapping* mapping);
