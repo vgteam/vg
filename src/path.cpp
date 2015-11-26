@@ -318,6 +318,8 @@ bool Paths::empty(void) const {
 void Paths::clear(void) {
     _paths.clear();
     node_mapping.clear();
+    mapping_path.clear();
+    mapping_path_order.clear();
 }
 
 void Paths::clear_mapping_ranks(void) {

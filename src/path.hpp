@@ -103,6 +103,7 @@ public:
     bool are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name);
     size_t size(void) const;
     bool empty(void) const;
+    // clear the internal data structures tracking mappings and storing the paths
     void clear(void);
     void clear_mapping_ranks(void);
     void compact_ranks(void);

@@ -1453,6 +1453,7 @@ void help_mod(char** argv) {
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -d, --drop-paths        remove the paths of the graph" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -1497,6 +1498,7 @@ int main_mod(int argc, char** argv) {
     bool remove_non_path = false;
     bool orient_forward = false;
     bool compact_ranks = false;
+    bool drop_paths = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1507,6 +1509,7 @@ int main_mod(int argc, char** argv) {
                 {"include-aln", required_argument, 0, 'i'},
                 {"compact-ids", no_argument, 0, 'c'},
                 {"compact-ranks", no_argument, 0, 'C'},
+                {"drop-paths", no_argument, 0, 'd'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {"prune-complex", no_argument, 0, 'p'},
@@ -1528,7 +1531,7 @@ int main_mod(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfC",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCd",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1602,6 +1605,10 @@ int main_mod(int argc, char** argv) {
             label_paths = true;
             break;
 
+        case 'd':
+            drop_paths = true;
+            break;
+
         case 's':
             simplify_graph = true;
             break;
@@ -1641,6 +1648,10 @@ int main_mod(int argc, char** argv) {
 
     if (!path_name.empty()) {
         graph->keep_path(path_name);
+    }
+
+    if (drop_paths) {
+        graph->paths.clear();
     }
 
     if (remove_orphans) {
