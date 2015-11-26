@@ -535,6 +535,7 @@ void VG::simplify_siblings(void) {
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
 
+    // make a list of the from-siblings
     set<set<NodeTraversal>> from_sibs;
     for_each_node([this, &from_sibs](Node* n) {
             auto trav = NodeTraversal(n, false);
@@ -544,7 +545,7 @@ void VG::simplify_siblings(void) {
                 from_sibs.insert(fsibs);
             }
         });
-    // then the from direction
+    // then do the from direction
     simplify_from_siblings(transitive_sibling_sets(from_sibs));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
@@ -604,10 +605,23 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(0,shared_start);
         auto new_node = create_node(seq);
-        // chop it off of the old nodes
+
+        // remove the sequence of the new node from the old nodes
         for (auto& sib : sibs) {
             *sib.node->mutable_sequence() = sib.node->sequence().substr(shared_start);
+            // for each node mapping of the sibling
+            // divide the mapping at the cut point
+            
+            // and then switch the node assignment for the cut nodes
+            //
         }
+
+        // give it the mappings from the other nodes
+        // wtf is the rank
+        // it's the same as it was before
+        // no worries
+        
+        
         // connect the new node to the common parents
         // by definition we are only working with nodes that have exactly the same set of parents
         // so we just use the first node in the set to drive the reconnection
@@ -941,6 +955,24 @@ map<string, map<int, Mapping>>
     VG::merge_mapping_groups(map<string, map<int, Mapping>>& r1,
                              map<string, map<int, Mapping>>& r2) {
     map<string, map<int, Mapping>> new_mappings;
+    cerr << "merging mapping groups" << endl;
+    cerr << "r1" << endl;
+    for (auto& p : r1) {
+        auto& name = p.first;
+        auto& ranked1 = p.second;
+        for (auto& r : ranked1) {
+            cerr << pb2json(r.second) << endl;
+        }
+    }
+    cerr << "r2" << endl;
+    for (auto& p : r2) {
+        auto& name = p.first;
+        auto& ranked1 = p.second;
+        for (auto& r : ranked1) {
+            cerr << pb2json(r.second) << endl;
+        }
+    }
+    cerr << "------------------" << endl;
     // collect new mappings
     for (auto& p : r1) {
         auto& name = p.first;

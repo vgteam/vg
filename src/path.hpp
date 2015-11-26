@@ -76,6 +76,10 @@ public:
     list<Mapping>::iterator remove_mapping(Mapping* m);
     list<Mapping>::iterator insert_mapping(list<Mapping>::iterator w,
                                            const string& path_name, const Mapping& m);
+    pair<Mapping*, Mapping*> divide_mapping(Mapping* m, const Position& pos);
+    pair<Mapping*, Mapping*> divide_mapping(Mapping* m, size_t offset);
+    // replace the mapping with two others in the order provided
+    pair<Mapping*, Mapping*> replace_mapping(Mapping* m, pair<Mapping, Mapping> n);
     void remove_paths(const set<string>& names);
     void keep_paths(const set<string>& name);
     void remove_node(int64_t id);
@@ -97,7 +101,7 @@ public:
     // Mapping* there, or null if this Mapping* is the last in its path.
     Mapping* traverse_right(Mapping* mapping);
     // TODO: should this be a reference?
-    string mapping_path_name(Mapping* m);
+    const string mapping_path_name(Mapping* m);
     // get the paths on this node and the number of mappings from each one
     map<string, int> of_node(int64_t id);
     bool are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name);

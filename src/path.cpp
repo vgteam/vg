@@ -175,6 +175,46 @@ void Paths::append_mapping(const string& name, int64_t id, size_t rank, bool is_
     append_mapping(name, m);
 }
 
+// these will split a mapping into two
+// NB: each submapping ends up with the same rank as the parent
+// however, they will be ordered correctly in the path
+// we will need to normalize path ranks to make this right
+pair<Mapping*, Mapping*> Paths::divide_mapping(Mapping* m, const Position& pos) {
+    // this is needed to split mappinsg during e.g. normalization
+    // but still ensure that the mappings are out there
+    // what do we do?
+    // first we take the mapping and divide it as we do
+    auto n = cut_mapping(*m, pos);
+    return replace_mapping(m, n);
+}
+
+pair<Mapping*, Mapping*> Paths::divide_mapping(Mapping* m, size_t offset) {
+    auto n = cut_mapping(*m, offset);
+    return replace_mapping(m, n);
+}
+
+pair<Mapping*, Mapping*> Paths::replace_mapping(Mapping* m, pair<Mapping, Mapping> n) {
+    // then we remove it from the node it's pointing to
+    // and replace it with the other two mappings
+    // we'll give them the same rank, but record them in the right order
+    // this leaves an invalid graph
+    // there are a few ways to fix this--- they involve changing the way we record ranks
+    // but for now it's going to be simplest if the calling context manages this
+    auto& path_name = mapping_path_name(m);
+    n.first.set_rank(m->rank());
+    n.second.set_rank(m->rank());
+    // remove the mapping, getting an iterator pointing to the element that was after it
+    auto i = remove_mapping(m);
+    // the insertion will happen in reverse order
+    // because insert puts the position before the iterator it's given
+    // so we first insert the second element
+    i = insert_mapping(i, path_name, n.second);
+    // and then the second
+    auto j = insert_mapping(i, path_name, n.second);
+    // and we return them in proper order
+    return make_pair(&*i, &*j);
+}
+
 bool Paths::has_path(const string& name) {
     return _paths.find(name) != _paths.end();
 }
@@ -435,7 +475,7 @@ Mapping* Paths::traverse_right(Mapping* mapping) {
     return &(*place);
 }
 
-string Paths::mapping_path_name(Mapping* m) {
+const string Paths::mapping_path_name(Mapping* m) {
     auto n = mapping_path.find(m);
     if (n == mapping_path.end()) {
         return "";
