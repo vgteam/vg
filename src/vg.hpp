@@ -641,6 +641,9 @@ public:
     // flipped around
     void orient_nodes_forward(set<int64_t>& nodes_flipped);
 
+    // for each path assigns edits that describe a total match of the mapping to the node
+    void force_path_match(void);
+
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
     Alignment align(const Alignment& alignment);

@@ -1102,6 +1102,19 @@ void VG::merge_nodes(const list<Node*>& nodes) {
     }
     auto node = create_node(seq);
 
+    // remove the old mappings
+    for (auto n : nodes) {
+        set<Mapping*> to_remove;
+        for (auto p : paths.get_node_mapping(n)) {
+            for (auto* m : p.second) {
+                to_remove.insert(m);
+            }
+        }
+        for (auto m : to_remove) {
+            paths.remove_mapping(m);
+        }
+    }
+
     // change the position of the new mappings to point to the new node
     for (map<string, vector<Mapping>>::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
         vector<Mapping>& ms = nm->second;
@@ -3074,7 +3087,15 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
             string path_name = paths.mapping_path_name(m);
             // TODO: this only preserves perfect match paths.
             // TODO: warn if that precondition is violated
-            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, node, left, right);
+            //divide_invariant_mapping(*m, l, r, pos, node, left, right);
+            auto n = cut_mapping(*m, pos);
+            Mapping l=n.first, r=n.second;
+            l.mutable_position()->set_node_id(left->id());
+            l.mutable_position()->set_offset(0);
+            r.mutable_position()->set_node_id(right->id());
+            r.mutable_position()->set_offset(0);
+
+            //divide_mapping
             // with the mapping divided, insert the pieces where the old one was
             auto mpit = paths.remove_mapping(m);
             if(m->position().is_reverse()) {
@@ -6797,6 +6818,20 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
     // we have destroyed the graph's edge and node index to ensure its order
     // rebuild the indexes
     rebuild_indexes();
+}
+
+void VG::force_path_match(void) {
+    for_each_node([&](Node* node) {
+            for (auto p : paths.get_node_mapping(node)) {
+                for (auto m : p.second) {
+                    // force the matching edit
+                    m->clear_edit();
+                    Edit* e = m->add_edit();
+                    e->set_from_length(node->sequence().size());
+                    e->set_to_length(node->sequence().size());
+                }
+            }
+    });
 }
 
 void VG::orient_nodes_forward(set<int64_t>& nodes_flipped) {

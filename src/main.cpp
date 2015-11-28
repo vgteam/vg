@@ -1469,6 +1469,7 @@ void help_mod(char** argv) {
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
          << "    -f, --orient-forward    orient the nodes in the graph forward" << endl
+         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -1499,6 +1500,7 @@ int main_mod(int argc, char** argv) {
     bool orient_forward = false;
     bool compact_ranks = false;
     bool drop_paths = false;
+    bool force_path_match = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1527,11 +1529,12 @@ int main_mod(int argc, char** argv) {
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
                 {"orient-forward", no_argument, 0, 'f'},
+                {"force-path-match", no_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCd",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdF",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1599,6 +1602,10 @@ int main_mod(int argc, char** argv) {
 
         case 'f':
             orient_forward = true;
+            break;
+
+        case 'F':
+            force_path_match = true;
             break;
 
         case 'P':
@@ -1674,6 +1681,10 @@ int main_mod(int argc, char** argv) {
         graph->remove_non_path();
     }
 
+    if (force_path_match) {
+        graph->force_path_match();
+    }
+
     if (orient_forward) {
         set<int64_t> flipped;
         graph->orient_nodes_forward(flipped);
@@ -1733,6 +1744,7 @@ int main_mod(int argc, char** argv) {
 
     if (chop_to) {
         graph->dice_nodes(chop_to);
+        graph->paths.compact_ranks();
     }
 
     if (kill_labels) {

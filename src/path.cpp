@@ -376,7 +376,7 @@ void Paths::clear_mapping_ranks(void) {
         list<Mapping>& path = p->second;
         for (auto m = path.begin(); m != path.end(); ++m) {
             Mapping& mapping = *m;
-            mapping.clear_rank();
+            mapping.set_rank(0);
         }
     }
 }
