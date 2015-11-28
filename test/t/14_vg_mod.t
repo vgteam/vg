@@ -40,7 +40,7 @@ is $(vg mod -i t.gam t.vg | vg view - | grep ^S | grep $(vg mod -i t.gam t.vg | 
 is $(vg mod -i t.gam t.vg | vg view - | grep ^S | grep $(vg mod -i t.gam t.vg | vg stats  -T - | awk '{ print $3}') | cut -f 3) AAAAAAAA "a soft clip at read end becomes a new tail of the graph"
 rm -rf t.vg t.gam
 
-is $(vg mod -n msgas/q_redundant.vg | vg view - | grep ^S | wc -l) 4 "normalization produces the correct number of nodes"
+is $(vg mod -n msgas/q_redundant.vg | vg view - | grep ^S | wc -l) 6 "normalization produces the correct number of nodes"
 
 vg mod -n msgas/q_redundant.vg | vg validate -
 is $? 0 "normalization produces a valid graph"
