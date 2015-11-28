@@ -608,12 +608,29 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
 
         // remove the sequence of the new node from the old nodes
         for (auto& sib : sibs) {
+            //cerr << "to sib " << pb2json(*sib.node) << endl;
             *sib.node->mutable_sequence() = sib.node->sequence().substr(shared_start);
             // for each node mapping of the sibling
             // divide the mapping at the cut point
             
             // and then switch the node assignment for the cut nodes
-            //
+            // for each mapping of the node
+            for (auto& p : paths.get_node_mapping(sib.node)) {
+                vector<Mapping*> v;
+                for (auto& m : p.second) {
+                    v.push_back(m);
+                }
+                for (auto m : v) {
+                    auto mpts = paths.divide_mapping(m, shared_start);
+                    // and then assign the first part of the mapping to the new node
+                    auto o = mpts.first;
+                    o->mutable_position()->set_offset(0);
+                    auto n = mpts.second;
+                    n->mutable_position()->set_offset(0);
+                    paths.reassign_node(new_node->id(), n);
+                    // note that the other part now maps to the correct (old) node
+                }
+            }
         }
 
         // give it the mappings from the other nodes
@@ -703,8 +720,29 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
         auto new_node = create_node(seq);
         // chop it off of the old nodes
         for (auto& sib : sibs) {
+            //cerr << "from sib " << pb2json(*sib.node) << endl;
             *sib.node->mutable_sequence()
                 = sib.node->sequence().substr(0, sib.node->sequence().size()-shared_end);
+
+            // and then switch the node assignment for the cut nodes
+            // for each mapping of the node
+            for (auto& p : paths.get_node_mapping(sib.node)) {
+                vector<Mapping*> v;
+                for (auto& m : p.second) {
+                    v.push_back(m);
+                }
+                for (auto m : v) {
+                    auto mpts = paths.divide_mapping(m, sib.node->sequence().size());
+                    // and then assign the second part of the mapping to the new node
+                    auto o = mpts.first;
+                    o->mutable_position()->set_offset(0);
+                    paths.reassign_node(new_node->id(), o);
+                    auto n = mpts.second;
+                    n->mutable_position()->set_offset(0);
+
+                    // note that the other part now maps to the correct (old) node
+                }
+            }
         }
         // connect the new node to the common downstream nodes
         // by definition we are only working with nodes that have exactly the same set of "children"
@@ -771,8 +809,12 @@ void VG::normalize(void) {
     unchop();
     // merge redundancy across multiple nodes into single nodes
     simplify_siblings();
+    // compact node ranks
+    paths.compact_ranks();
     // there may now be some cut nodes that can be simplified
     unchop();
+    // compact node ranks (again)
+    paths.compact_ranks();
 }
 
 void VG::remove_non_path(void) {
@@ -955,6 +997,7 @@ map<string, map<int, Mapping>>
     VG::merge_mapping_groups(map<string, map<int, Mapping>>& r1,
                              map<string, map<int, Mapping>>& r2) {
     map<string, map<int, Mapping>> new_mappings;
+    /*
     cerr << "merging mapping groups" << endl;
     cerr << "r1" << endl;
     for (auto& p : r1) {
@@ -973,6 +1016,7 @@ map<string, map<int, Mapping>>
         }
     }
     cerr << "------------------" << endl;
+    */
     // collect new mappings
     for (auto& p : r1) {
         auto& name = p.first;
@@ -1063,6 +1107,7 @@ void VG::merge_nodes(const list<Node*>& nodes) {
         vector<Mapping>& ms = nm->second;
         for (vector<Mapping>::iterator m = ms.begin(); m != ms.end(); ++m) {
             m->mutable_position()->set_node_id(node->id());
+            m->mutable_position()->set_offset(0); // uhhh
             paths.append_mapping(nm->first, *m);
         }
     }
@@ -4628,6 +4673,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool show_paths,
                 bool walk_paths,
                 bool annotate_paths,
+                bool show_mappings,
                 bool invert_edge_ports,
                 int random_seed) {
 
@@ -4816,7 +4862,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         function<void(Path&)> lambda = 
-            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths]
+            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings]
             (Path& path) {
             string path_label = picts.hashed(path.name());
             string color = colors.hashed(path.name());
@@ -4825,11 +4871,22 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     const Mapping& m = path.mapping(i);
                     stringstream mapid;
                     mapid << path_label << " " << m.position().node_id();
+                    stringstream mappings;
+                    if (show_mappings) {
+                        mappings << pb2json(m);
+                    }
+                    string mstr = mappings.str();
+                    mstr.erase(std::remove_if(mstr.begin(), mstr.end(), [](char c) { return c == '"'; }), mstr.end());
+                    mstr = wrap_text(mstr, 50);
+                            
                     if (i == 0) { // add the path name at the start
                         out << "    " << pathid << " [label=\"" << path_label << " "
-                            << path.name() << "  " << m.position().node_id() << "\",fontcolor=\"" << color << "\"];" << endl;      
+                            << path.name() << "  " << m.position().node_id() << " "
+                            << mstr << "\",fontcolor=\"" << color << "\"];" << endl;
                     } else {
-                        out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontcolor=\"" << color << "\"];" << endl;
+                        out << "    " << pathid << " [label=\"" << mapid.str() << " "
+                            << mstr
+                            << "\",fontcolor=\"" << color << "\"];" << endl;
                     }
                     if (i > 0 && adjacent_mappings(path.mapping(i-1), m)) {
                         out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;

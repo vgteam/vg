@@ -4320,6 +4320,7 @@ void help_view(char** argv) {
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
          << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
+         << "    -M, --show-mappings  with -p print the mappings in each path in JSON" << endl
          << "    -I, --invert-ports   invert the edge ports in dot so that ne->nw is reversed" << endl
          << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
          
@@ -4365,6 +4366,7 @@ int main_view(int argc, char** argv) {
     bool walk_paths_in_dot = false;
     bool annotate_paths_in_dot = false;
     bool invert_edge_ports_in_dot = false;
+    bool show_mappings_in_dot = false;
     int seed_val = time(NULL);
 
     int c;
@@ -4394,11 +4396,12 @@ int main_view(int argc, char** argv) {
                 {"pileup", no_argument, 0, 'L'},
                 {"pileup-in", no_argument, 0, 'l'},
                 {"invert-ports", no_argument, 0, 'I'},
+                {"show-mappings", no_argument, 0, 'M'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLI",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIM",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -4413,6 +4416,10 @@ int main_view(int argc, char** argv) {
 
         case 'p':
             show_paths_in_dot = true;
+            break;
+
+        case 'M':
+            show_mappings_in_dot = true;
             break;
 
         case 'w':
@@ -4720,8 +4727,14 @@ int main_view(int argc, char** argv) {
     // requested output format.
 
     if (output_type == "dot") {
-        graph->to_dot(std::cout, alns, show_paths_in_dot, walk_paths_in_dot,
-                      annotate_paths_in_dot, invert_edge_ports_in_dot, seed_val);
+        graph->to_dot(std::cout,
+                      alns,
+                      show_paths_in_dot,
+                      walk_paths_in_dot,
+                      annotate_paths_in_dot,
+                      show_mappings_in_dot,
+                      invert_edge_ports_in_dot,
+                      seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {

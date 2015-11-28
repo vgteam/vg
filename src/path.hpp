@@ -128,6 +128,9 @@ public:
     // Replace the node IDs used as keys with those used as values.
     // This is only efficient to do in a batch.
     void swap_node_ids(hash_map<int64_t, int64_t> id_mapping);
+    // sets the mapping to the new id
+    // erases current (old index information)
+    void reassign_node(int64_t new_id, Mapping* m);
     void for_each_mapping(const function<void(Mapping*)>& lambda);
 };
 

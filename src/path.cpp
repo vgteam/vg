@@ -208,11 +208,11 @@ pair<Mapping*, Mapping*> Paths::replace_mapping(Mapping* m, pair<Mapping, Mappin
     // the insertion will happen in reverse order
     // because insert puts the position before the iterator it's given
     // so we first insert the second element
-    i = insert_mapping(i, path_name, n.second);
-    // and then the second
     auto j = insert_mapping(i, path_name, n.second);
+    // and then the first
+    auto k = insert_mapping(j, path_name, n.first);
     // and we return them in proper order
-    return make_pair(&*i, &*j);
+    return make_pair(&*j, &*k);
 }
 
 bool Paths::has_path(const string& name) {
@@ -244,6 +244,15 @@ void Paths::swap_node_ids(hash_map<int64_t, int64_t> id_mapping) {
         }
     }
     rebuild_node_mapping();
+}
+
+void Paths::reassign_node(int64_t new_id, Mapping* m) {
+    // erase the old node id
+    node_mapping[m->position().node_id()][mapping_path_name(m)].erase(m);
+    // set the new node id
+    m->mutable_position()->set_node_id(new_id);
+    // and record it in the new node record
+    node_mapping[m->position().node_id()][mapping_path_name(m)].insert(m);
 }
 
 void Paths::rebuild_node_mapping(void) {
@@ -1069,7 +1078,11 @@ Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_lengt
 // ref-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
     Mapping left, right;
+    //cerr << "cutting mapping " << pb2json(m) << " at " << pb2json(pos) << endl;
     assert(m.has_position() && m.position().node_id());
+    // the two mappings get the same rank
+    left.set_rank(m.rank());
+    right.set_rank(m.rank());
     
     // TODO: support reverse mappings
     assert(!m.position().is_reverse());
@@ -1131,10 +1144,12 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
 // mapping-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     Mapping left, right;
-    
+    //cerr << ".cutting mapping " << pb2json(m) << " at " << offset << endl;
     // both result mappings will be in the same orientation as the original
     left.mutable_position()->set_is_reverse(m.position().is_reverse());
     right.mutable_position()->set_is_reverse(m.position().is_reverse());
+    left.set_rank(m.rank());
+    right.set_rank(m.rank());
     
     //assert(m.has_position() && m.position().node_id());
     // left always has the position of the input mapping
@@ -1186,7 +1201,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
                && right.has_position()
                && right.position().node_id()));
     //cerr << "cut mappings " << endl
-    //     << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+    //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
     return make_pair(left, right);
 }
 
