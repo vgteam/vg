@@ -535,6 +535,7 @@ void VG::simplify_siblings(void) {
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
 
+    // make a list of the from-siblings
     set<set<NodeTraversal>> from_sibs;
     for_each_node([this, &from_sibs](Node* n) {
             auto trav = NodeTraversal(n, false);
@@ -544,7 +545,7 @@ void VG::simplify_siblings(void) {
                 from_sibs.insert(fsibs);
             }
         });
-    // then the from direction
+    // then do the from direction
     simplify_from_siblings(transitive_sibling_sets(from_sibs));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
@@ -604,10 +605,40 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(0,shared_start);
         auto new_node = create_node(seq);
-        // chop it off of the old nodes
+
+        // remove the sequence of the new node from the old nodes
         for (auto& sib : sibs) {
+            //cerr << "to sib " << pb2json(*sib.node) << endl;
             *sib.node->mutable_sequence() = sib.node->sequence().substr(shared_start);
+            // for each node mapping of the sibling
+            // divide the mapping at the cut point
+            
+            // and then switch the node assignment for the cut nodes
+            // for each mapping of the node
+            for (auto& p : paths.get_node_mapping(sib.node)) {
+                vector<Mapping*> v;
+                for (auto& m : p.second) {
+                    v.push_back(m);
+                }
+                for (auto m : v) {
+                    auto mpts = paths.divide_mapping(m, shared_start);
+                    // and then assign the first part of the mapping to the new node
+                    auto o = mpts.first;
+                    o->mutable_position()->set_offset(0);
+                    auto n = mpts.second;
+                    n->mutable_position()->set_offset(0);
+                    paths.reassign_node(new_node->id(), n);
+                    // note that the other part now maps to the correct (old) node
+                }
+            }
         }
+
+        // give it the mappings from the other nodes
+        // wtf is the rank
+        // it's the same as it was before
+        // no worries
+        
+        
         // connect the new node to the common parents
         // by definition we are only working with nodes that have exactly the same set of parents
         // so we just use the first node in the set to drive the reconnection
@@ -689,8 +720,29 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
         auto new_node = create_node(seq);
         // chop it off of the old nodes
         for (auto& sib : sibs) {
+            //cerr << "from sib " << pb2json(*sib.node) << endl;
             *sib.node->mutable_sequence()
                 = sib.node->sequence().substr(0, sib.node->sequence().size()-shared_end);
+
+            // and then switch the node assignment for the cut nodes
+            // for each mapping of the node
+            for (auto& p : paths.get_node_mapping(sib.node)) {
+                vector<Mapping*> v;
+                for (auto& m : p.second) {
+                    v.push_back(m);
+                }
+                for (auto m : v) {
+                    auto mpts = paths.divide_mapping(m, sib.node->sequence().size());
+                    // and then assign the second part of the mapping to the new node
+                    auto o = mpts.first;
+                    o->mutable_position()->set_offset(0);
+                    paths.reassign_node(new_node->id(), o);
+                    auto n = mpts.second;
+                    n->mutable_position()->set_offset(0);
+
+                    // note that the other part now maps to the correct (old) node
+                }
+            }
         }
         // connect the new node to the common downstream nodes
         // by definition we are only working with nodes that have exactly the same set of "children"
@@ -742,13 +794,14 @@ bool VG::adjacent(const Position& pos1, const Position& pos2) {
 }
 
 // by definition, we can merge nodes that are a "simple component"
-// without affecting the sequence space of the graph
+// without affecting the sequence or path space of the graph
+// so we don't unchop nodes when they have mismatched path sets
 void VG::unchop(void) {
     for (auto& comp : simple_multinode_components()) {
         merge_nodes(comp);
     }
-    // clear paths, as these are not maintained by unchop
-    clear_paths();
+    // rebuild path ranks, as these will be affected by mapping merging
+    paths.compact_ranks();
 }
 
 void VG::normalize(void) {
@@ -756,8 +809,12 @@ void VG::normalize(void) {
     unchop();
     // merge redundancy across multiple nodes into single nodes
     simplify_siblings();
+    // compact node ranks
+    paths.compact_ranks();
     // there may now be some cut nodes that can be simplified
     unchop();
+    // compact node ranks (again)
+    paths.compact_ranks();
 }
 
 void VG::remove_non_path(void) {
@@ -810,8 +867,73 @@ set<list<Node*>> VG::simple_multinode_components(void) {
     return simple_components(2);
 }
 
+// true if the mapping completely covers the node it maps to and is a perfect match
+bool VG::mapping_is_total_match(const Mapping& m) {
+    return mapping_is_simple_match(m)
+        && mapping_from_length(m) == get_node(m.position().node_id())->sequence().size();
+}
+
+bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
+    // it is not possible for the nodes to be perfect neighbors if
+    // they do not have exactly the same counts of paths
+    if (paths.of_node(id1) != paths.of_node(id2)) return false;
+    // now we know that the paths are identical in count and name between the two nodes
+
+    // get the mappings for each node
+    auto& m1 = paths.get_node_mapping(id1);
+    auto& m2 = paths.get_node_mapping(id2);
+
+    // verify that they are all perfect matches
+    for (auto& p : m1) {
+        for (auto* m : p.second) {
+            if (!mapping_is_total_match(*m)) return false;
+        }
+    }
+    for (auto& p : m2) {
+        for (auto* m : p.second) {
+            if (!mapping_is_total_match(*m)) return false;
+        }
+    }
+
+    // it is still possible that we have the same path annotations
+    // but the components of the paths we have are not contiguous across these nodes
+    // to verify, we check that each mapping on the first immediately proceeds one on the second
+    
+    // order the mappings by rank so we can quickly check if everything is adjacent
+    map<string, map<int, Mapping*>> r1, r2;
+    for (auto& p : m1) {
+        auto& name = p.first;
+        auto& mp1 = p.second;
+        auto& mp2 = m2[name];
+        for (auto* m : mp1) r1[name][m->rank()] = m;
+        for (auto* m : mp2) r2[name][m->rank()] = m;
+    }
+    // verify adjacency
+    for (auto& p : r1) {
+        auto& name = p.first;
+        auto& ranked1 = p.second;
+        map<int, Mapping*>& ranked2 = r2[name];
+        for (auto& r : ranked1) {
+            auto rank = r.first;
+            auto& m = *r.second;
+            auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
+            if (f == ranked2.end()) return false;
+            if (f->second->position().is_reverse() != m.position().is_reverse()) return false;
+            ranked2.erase(f); // remove so we can verify that we have fully matched
+        }
+    }
+    // verify that we fully matched the second node
+    for (auto& p : r2) {
+        if (!p.second.empty()) return false;
+    }
+
+    // we've passed all checks, so we have a node pair with mergable paths
+    return true;
+}
+
 // the set of components that could be merged into single nodes without
 // changing the path space of the graph
+// respects stored paths
 set<list<Node*>> VG::simple_components(int min_size) {
 
     // go around and establish groupings
@@ -829,7 +951,10 @@ set<list<Node*>> VG::simple_components(int min_size) {
                        && start_degree(l) == 1
                        && end_degree(get_node(sides.begin()->node)) == 1
                        && sides.begin()->is_end) {
+                    id_t last_id = l->id();
                     l = get_node(sides.begin()->node);
+                    // avoid merging if it breaks stored paths
+                    if (!nodes_are_perfect_path_neighbors(l->id(), last_id)) break;
                     sides = sides_to(NodeSide(l->id(), false));
                     c.push_front(l);
                 }
@@ -844,7 +969,10 @@ set<list<Node*>> VG::simple_components(int min_size) {
                        && end_degree(r) == 1
                        && start_degree(get_node(sides.begin()->node)) == 1
                        && !sides.begin()->is_end) {
+                    id_t last_id = r->id();
                     r = get_node(sides.begin()->node);
+                    // avoid merging if it breaks stored paths
+                    if (!nodes_are_perfect_path_neighbors(last_id, r->id())) break;
                     sides = sides_from(NodeSide(r->id(), true));
                     c.push_back(r);
                 }
@@ -864,17 +992,139 @@ set<list<Node*>> VG::simple_components(int min_size) {
     return components;
 }
 
-void VG::merge_nodes(const list<Node*>& nodes) {
-    // determine the common paths that will apply to the new node
-    // TODO XXX (paths)
-    // to do the ptahs right, we can only combine nodes if they also share all of their paths
-    // make a new node that concatenates the labels in the order they occur in the graph
+// merges right, so we take the rightmost rank as the new rank
+map<string, map<int, Mapping>>
+    VG::merge_mapping_groups(map<string, map<int, Mapping>>& r1,
+                             map<string, map<int, Mapping>>& r2) {
+    map<string, map<int, Mapping>> new_mappings;
+    /*
+    cerr << "merging mapping groups" << endl;
+    cerr << "r1" << endl;
+    for (auto& p : r1) {
+        auto& name = p.first;
+        auto& ranked1 = p.second;
+        for (auto& r : ranked1) {
+            cerr << pb2json(r.second) << endl;
+        }
+    }
+    cerr << "r2" << endl;
+    for (auto& p : r2) {
+        auto& name = p.first;
+        auto& ranked1 = p.second;
+        for (auto& r : ranked1) {
+            cerr << pb2json(r.second) << endl;
+        }
+    }
+    cerr << "------------------" << endl;
+    */
+    // collect new mappings
+    for (auto& p : r1) {
+        auto& name = p.first;
+        auto& ranked1 = p.second;
+        map<int, Mapping>& ranked2 = r2[name];
+        for (auto& r : ranked1) {
+            auto rank = r.first;
+            auto& m = r.second;
+            auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
+            assert(f != ranked2.end());
+            auto& o = f->second;
+            assert(m.position().is_reverse() == o.position().is_reverse());
+            // make the new mapping for this pair of nodes
+            Mapping n;
+            if (!m.position().is_reverse()) {
+                n = merge_mappings(m, o);
+                // merge right criteria
+                n.set_rank(o.rank());
+            } else {
+                n = merge_mappings(o, m);
+                n.set_rank(m.rank());
+            }
+            new_mappings[name][n.rank()] = n;
+            ranked2.erase(f); // remove so we can verify that we have fully matched
+        }
+    }
+    return new_mappings;
+}
 
+map<string, vector<Mapping>>
+    VG::merged_mappings_for_nodes(const list<Node*>& nodes) {
+
+    // determine the common paths that will apply to the new node
+    // to do the ptahs right, we can only combine nodes if they also share all of their paths
+    // and equal numbers of traversals
+    set<map<string,int>> path_groups;
+    for (auto n : nodes) {
+        path_groups.insert(paths.of_node(n->id()));
+    }
+    
+    if (path_groups.size() != 1) {
+        cerr << "[VG::merge_nodes] error: cannot merge nodes with differing paths" << endl;
+        exit(1); // we should be raising an error
+    }
+
+    auto ns = nodes; // to modify destructively
+    auto np = nodes.front();
+    ns.pop_front();
+    // store the first base
+    // we will use this to drive the merge
+    auto base = paths.get_node_mapping_copies_by_rank(np->id());
+    
+    while (!ns.empty()) {
+        // merge
+        auto op = ns.front();
+        ns.pop_front();
+        // if this is our first batch, just keep them
+        auto next = paths.get_node_mapping_copies_by_rank(op->id());
+        base = merge_mapping_groups(base, next);
+    }
+
+    // stores a merged mapping for each path traversal through the nodes we are merging
+    map<string, vector<Mapping>> new_mappings;
+    for (auto& p : base) {
+        auto& name = p.first;
+        for (auto& m : p.second) {
+            new_mappings[name].push_back(m.second);
+        }
+    }
+
+    return new_mappings;
+}
+
+void VG::merge_nodes(const list<Node*>& nodes) {
+
+    // make the new mappings for the node
+    map<string, vector<Mapping>> new_mappings = merged_mappings_for_nodes(nodes);
+
+    // make a new node that concatenates the labels in the order they occur in the graph
     string seq;
     for (auto n : nodes) {
         seq += n->sequence();
     }
     auto node = create_node(seq);
+
+    // remove the old mappings
+    for (auto n : nodes) {
+        set<Mapping*> to_remove;
+        for (auto p : paths.get_node_mapping(n)) {
+            for (auto* m : p.second) {
+                to_remove.insert(m);
+            }
+        }
+        for (auto m : to_remove) {
+            paths.remove_mapping(m);
+        }
+    }
+
+    // change the position of the new mappings to point to the new node
+    for (map<string, vector<Mapping>>::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
+        vector<Mapping>& ms = nm->second;
+        for (vector<Mapping>::iterator m = ms.begin(); m != ms.end(); ++m) {
+            m->mutable_position()->set_node_id(node->id());
+            m->mutable_position()->set_offset(0); // uhhh
+            paths.append_mapping(nm->first, *m);
+        }
+    }
+
     // connect this node to the left and right connections of the set
     
     // do the left connections
@@ -1142,8 +1392,8 @@ void VG::append(VG& g) {
 
     // wipe the ranks of the mappings, as these are destroyed in append
     // NB: append assumes that we are concatenating paths
-    paths.clear_node_ranks();
-    g.paths.clear_node_ranks();
+    paths.clear_mapping_ranks();
+    g.paths.clear_mapping_ranks();
 
     // and join paths that are embedded in the graph, where path names are the same
     paths.append(g.paths);
@@ -1387,7 +1637,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
 
 void VG::dice_nodes(int max_node_size) {
     // We're going to chop up everything, so clear out the path ranks.
-    paths.clear_node_ranks();
+    paths.clear_mapping_ranks();
 
     if (max_node_size) {
         vector<Node*> nodes; nodes.reserve(size());
@@ -2139,7 +2389,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         }
     }
     // rebuild the mapping ranks now that we've combined everything
-    paths.clear_node_ranks();
+    paths.clear_mapping_ranks();
     paths.rebuild_mapping_aux();
 }
 
@@ -2837,7 +3087,15 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
             string path_name = paths.mapping_path_name(m);
             // TODO: this only preserves perfect match paths.
             // TODO: warn if that precondition is violated
-            Mapping l, r; divide_invariant_mapping(*m, l, r, pos, node, left, right);
+            //divide_invariant_mapping(*m, l, r, pos, node, left, right);
+            auto n = cut_mapping(*m, pos);
+            Mapping l=n.first, r=n.second;
+            l.mutable_position()->set_node_id(left->id());
+            l.mutable_position()->set_offset(0);
+            r.mutable_position()->set_node_id(right->id());
+            r.mutable_position()->set_offset(0);
+
+            //divide_mapping
             // with the mapping divided, insert the pieces where the old one was
             auto mpit = paths.remove_mapping(m);
             if(m->position().is_reverse()) {
@@ -3753,7 +4011,7 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
     breakpoints = forwardize_breakpoints(breakpoints);
 
     // Clear existing path ranks.
-    paths.clear_node_ranks();
+    paths.clear_mapping_ranks();
     
     // Break any nodes that need to be broken. Save the map we need to translate
     // from offsets on old nodes to new nodes. Note that this would mess up the
@@ -3802,7 +4060,7 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
 #ifdef debug
     cerr << "Processing path..." << endl;
 #endif
-    
+
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         // For each Mapping in the path
         const Mapping& m = path.mapping(i);
@@ -3843,7 +4101,8 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
             cerr << pb2json(e) << endl;
 #endif 
             
-            if(!edit_is_match(e) || (j == 0 && i > 0)) {
+            //if(!edit_is_match(e) || (j == 0 && i > 0)) {
+            if (!edit_is_match(e) || j == 0) {
                 // If this edit is not a perfect match, or if this is the first
                 // edit in this mapping and we had a previous mapping we may
                 // need to connect to, we need to make sure we have a breakpoint
@@ -3858,8 +4117,9 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
                 // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
                 breakpoints[node_id].insert(edit_first_position);
             }
-            
-            if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
+
+            //if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
+            if (!edit_is_match(e) || (j == m.edit_size() - 1)) {
                 // If this edit is not a perfect match, or if it is the last
                 // edit in a mapping and we have a subsequent mapping we might
                 // need to connect to, make sure we have a breakpoint at the end
@@ -4434,6 +4694,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool show_paths,
                 bool walk_paths,
                 bool annotate_paths,
+                bool show_mappings,
                 bool invert_edge_ports,
                 int random_seed) {
 
@@ -4493,8 +4754,8 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        auto from_paths = paths.of_node(e->from());
-        auto to_paths = paths.of_node(e->to());
+        auto from_paths = map_keys_to_set(paths.of_node(e->from()));
+        auto to_paths = map_keys_to_set(paths.of_node(e->to()));
         set<string> both_paths;
         std::set_intersection(from_paths.begin(), from_paths.end(),
                               to_paths.begin(), to_paths.end(),
@@ -4622,7 +4883,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         function<void(Path&)> lambda = 
-            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths]
+            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings]
             (Path& path) {
             string path_label = picts.hashed(path.name());
             string color = colors.hashed(path.name());
@@ -4631,11 +4892,22 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     const Mapping& m = path.mapping(i);
                     stringstream mapid;
                     mapid << path_label << " " << m.position().node_id();
+                    stringstream mappings;
+                    if (show_mappings) {
+                        mappings << pb2json(m);
+                    }
+                    string mstr = mappings.str();
+                    mstr.erase(std::remove_if(mstr.begin(), mstr.end(), [](char c) { return c == '"'; }), mstr.end());
+                    mstr = wrap_text(mstr, 50);
+                            
                     if (i == 0) { // add the path name at the start
                         out << "    " << pathid << " [label=\"" << path_label << " "
-                            << path.name() << "  " << m.position().node_id() << "\",fontcolor=\"" << color << "\"];" << endl;      
+                            << path.name() << "  " << m.position().node_id() << " "
+                            << mstr << "\",fontcolor=\"" << color << "\"];" << endl;
                     } else {
-                        out << "    " << pathid << " [label=\"" << mapid.str() << "\",fontcolor=\"" << color << "\"];" << endl;
+                        out << "    " << pathid << " [label=\"" << mapid.str() << " "
+                            << mstr
+                            << "\",fontcolor=\"" << color << "\"];" << endl;
                     }
                     if (i > 0 && adjacent_mappings(path.mapping(i-1), m)) {
                         out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
@@ -6546,6 +6818,20 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
     // we have destroyed the graph's edge and node index to ensure its order
     // rebuild the indexes
     rebuild_indexes();
+}
+
+void VG::force_path_match(void) {
+    for_each_node([&](Node* node) {
+            for (auto p : paths.get_node_mapping(node)) {
+                for (auto m : p.second) {
+                    // force the matching edit
+                    m->clear_edit();
+                    Edit* e = m->add_edit();
+                    e->set_from_length(node->sequence().size());
+                    e->set_to_length(node->sequence().size());
+                }
+            }
+    });
 }
 
 void VG::orient_nodes_forward(set<int64_t>& nodes_flipped) {
