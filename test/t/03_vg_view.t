@@ -30,3 +30,4 @@ is $(vg view -d ./cyclic/all.vg | wc -l) 23 "view produces the expected number o
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $(cat x.vg x.vg x.vg x.vg | vg view -c - | wc -l) 4 "streaming JSON output produces the expected number of chunks"
+rm x.vg
