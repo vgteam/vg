@@ -620,7 +620,7 @@ public:
     //void node_replace_next(Node* node, Node* before, Node* after);
 
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                bool annotate_paths = false, bool invert_edge_ports = false, int random_seed = 0);
+                bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0);
     void to_gfa(ostream& out);
     bool is_valid(bool check_nodes = true,
                   bool check_edges = true,
@@ -640,6 +640,9 @@ public:
     // orientations changed. TODO: update the paths that touch nodes that
     // flipped around
     void orient_nodes_forward(set<int64_t>& nodes_flipped);
+
+    // for each path assigns edits that describe a total match of the mapping to the node
+    void force_path_match(void);
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
@@ -739,8 +742,9 @@ public:
     // for a list of nodes that we want to merge
     map<string, vector<Mapping>> merged_mappings_for_nodes(const list<Node*>& nodes);
     // helper function
-    map<string, vector<Mapping>> merge_mapping_groups(map<string, map<int, Mapping*>>& r1,
-                                                      map<string, map<int, Mapping*>>& r2);
+    map<string, map<int, Mapping>>
+        merge_mapping_groups(map<string, map<int, Mapping>>& r1,
+                             map<string, map<int, Mapping>>& r2);
 
     // These versions handle paths in which nodes can be traversed multiple
     // times. Unfortunately since we're throwing non-const iterators around, we

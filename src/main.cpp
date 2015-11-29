@@ -1453,6 +1453,7 @@ void help_mod(char** argv) {
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -d, --drop-paths        remove the paths of the graph" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -1468,6 +1469,7 @@ void help_mod(char** argv) {
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
          << "    -f, --orient-forward    orient the nodes in the graph forward" << endl
+         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -1497,6 +1499,8 @@ int main_mod(int argc, char** argv) {
     bool remove_non_path = false;
     bool orient_forward = false;
     bool compact_ranks = false;
+    bool drop_paths = false;
+    bool force_path_match = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1507,6 +1511,7 @@ int main_mod(int argc, char** argv) {
                 {"include-aln", required_argument, 0, 'i'},
                 {"compact-ids", no_argument, 0, 'c'},
                 {"compact-ranks", no_argument, 0, 'C'},
+                {"drop-paths", no_argument, 0, 'd'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {"prune-complex", no_argument, 0, 'p'},
@@ -1524,11 +1529,12 @@ int main_mod(int argc, char** argv) {
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
                 {"orient-forward", no_argument, 0, 'f'},
+                {"force-path-match", no_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfC",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdF",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1598,8 +1604,16 @@ int main_mod(int argc, char** argv) {
             orient_forward = true;
             break;
 
+        case 'F':
+            force_path_match = true;
+            break;
+
         case 'P':
             label_paths = true;
+            break;
+
+        case 'd':
+            drop_paths = true;
             break;
 
         case 's':
@@ -1643,6 +1657,10 @@ int main_mod(int argc, char** argv) {
         graph->keep_path(path_name);
     }
 
+    if (drop_paths) {
+        graph->paths.clear();
+    }
+
     if (remove_orphans) {
         graph->remove_orphan_edges();
     }
@@ -1661,6 +1679,10 @@ int main_mod(int argc, char** argv) {
 
     if (remove_non_path) {
         graph->remove_non_path();
+    }
+
+    if (force_path_match) {
+        graph->force_path_match();
     }
 
     if (orient_forward) {
@@ -1722,6 +1744,7 @@ int main_mod(int argc, char** argv) {
 
     if (chop_to) {
         graph->dice_nodes(chop_to);
+        graph->paths.compact_ranks();
     }
 
     if (kill_labels) {
@@ -4299,7 +4322,8 @@ void help_view(char** argv) {
          
          << "    -j, --json           output JSON format" << endl
          << "    -J, --json-in        input JSON format" << endl
-         
+         << "    -c, --json-stream    streaming conversion of a VG format graph in line delimited JSON format" << endl
+         << "                         (this cannot be loaded directly via -J)" << endl
          << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
          << "                         Alignment/Map)" << endl
          << "    -a, --align-in       input GAM format" << endl
@@ -4309,6 +4333,7 @@ void help_view(char** argv) {
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
          << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
+         << "    -M, --show-mappings  with -p print the mappings in each path in JSON" << endl
          << "    -I, --invert-ports   invert the edge ports in dot so that ne->nw is reversed" << endl
          << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
          
@@ -4354,6 +4379,7 @@ int main_view(int argc, char** argv) {
     bool walk_paths_in_dot = false;
     bool annotate_paths_in_dot = false;
     bool invert_edge_ports_in_dot = false;
+    bool show_mappings_in_dot = false;
     int seed_val = time(NULL);
 
     int c;
@@ -4368,6 +4394,7 @@ int main_view(int argc, char** argv) {
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
                 {"json-in",  no_argument, 0, 'J'},
+                {"json-stream", no_argument, 0, 'c'},
                 {"vg", no_argument, 0, 'v'},
                 {"vg-in", no_argument, 0, 'V'},
                 {"align-in", no_argument, 0, 'a'},
@@ -4383,11 +4410,12 @@ int main_view(int argc, char** argv) {
                 {"pileup", no_argument, 0, 'L'},
                 {"pileup-in", no_argument, 0, 'l'},
                 {"invert-ports", no_argument, 0, 'I'},
+                {"show-mappings", no_argument, 0, 'M'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLI",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMc",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -4402,6 +4430,10 @@ int main_view(int argc, char** argv) {
 
         case 'p':
             show_paths_in_dot = true;
+            break;
+
+        case 'M':
+            show_mappings_in_dot = true;
             break;
 
         case 'w':
@@ -4434,6 +4466,11 @@ int main_view(int argc, char** argv) {
                 input_type = "json";
             }
             input_json = true;
+            break;
+
+        case 'c':
+            input_type = "vg";
+            output_type = "stream";
             break;
 
         case 'v':
@@ -4534,12 +4571,24 @@ int main_view(int argc, char** argv) {
     }
     string file_name = argv[optind];
     if (input_type == "vg") {
-        if (file_name == "-") {
-            graph = new VG(std::cin);
+        if (output_type == "stream") {
+            function<void(Graph&)> lambda = [&](Graph& g) { cout << pb2json(g) << endl; };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+            return 0;
         } else {
-            ifstream in;
-            in.open(file_name.c_str());
-            graph = new VG(in);
+            if (file_name == "-") {
+                graph = new VG(std::cin);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                graph = new VG(in);
+            }
         }
         // VG can convert to any of the graph formats, so keep going
     } else if (input_type == "gfa") {
@@ -4709,8 +4758,14 @@ int main_view(int argc, char** argv) {
     // requested output format.
 
     if (output_type == "dot") {
-        graph->to_dot(std::cout, alns, show_paths_in_dot, walk_paths_in_dot,
-                      annotate_paths_in_dot, invert_edge_ports_in_dot, seed_val);
+        graph->to_dot(std::cout,
+                      alns,
+                      show_paths_in_dot,
+                      walk_paths_in_dot,
+                      annotate_paths_in_dot,
+                      show_mappings_in_dot,
+                      invert_edge_ports_in_dot,
+                      seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
