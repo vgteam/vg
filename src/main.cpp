@@ -4322,7 +4322,8 @@ void help_view(char** argv) {
          
          << "    -j, --json           output JSON format" << endl
          << "    -J, --json-in        input JSON format" << endl
-         
+         << "    -c, --json-stream    streaming conversion of a VG format graph in line delimited JSON format" << endl
+         << "                         (this cannot be loaded directly via -J)" << endl
          << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
          << "                         Alignment/Map)" << endl
          << "    -a, --align-in       input GAM format" << endl
@@ -4393,6 +4394,7 @@ int main_view(int argc, char** argv) {
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
                 {"json-in",  no_argument, 0, 'J'},
+                {"json-stream", no_argument, 0, 'c'},
                 {"vg", no_argument, 0, 'v'},
                 {"vg-in", no_argument, 0, 'V'},
                 {"align-in", no_argument, 0, 'a'},
@@ -4413,7 +4415,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIM",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMc",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -4464,6 +4466,11 @@ int main_view(int argc, char** argv) {
                 input_type = "json";
             }
             input_json = true;
+            break;
+
+        case 'c':
+            input_type = "vg";
+            output_type = "stream";
             break;
 
         case 'v':
@@ -4564,12 +4571,24 @@ int main_view(int argc, char** argv) {
     }
     string file_name = argv[optind];
     if (input_type == "vg") {
-        if (file_name == "-") {
-            graph = new VG(std::cin);
+        if (output_type == "stream") {
+            function<void(Graph&)> lambda = [&](Graph& g) { cout << pb2json(g) << endl; };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+            return 0;
         } else {
-            ifstream in;
-            in.open(file_name.c_str());
-            graph = new VG(in);
+            if (file_name == "-") {
+                graph = new VG(std::cin);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                graph = new VG(in);
+            }
         }
         // VG can convert to any of the graph formats, so keep going
     } else if (input_type == "gfa") {
