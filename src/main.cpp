@@ -590,6 +590,7 @@ void help_msga(char** argv) {
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 10)" << endl
          << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
@@ -639,6 +640,7 @@ int main_msga(int argc, char** argv) {
     int subgraph_prune = 0;
     bool normalize = true;
     bool allow_nonpath = false;
+    int iter_max = 10;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -669,11 +671,12 @@ int main_msga(int argc, char** argv) {
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"allow-nonpath", no_argument, 0, 'z'},
+                {"iter-max", required_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:c:C:X:m:K:l:P:t:E:Q:Nz",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:c:C:X:m:K:l:P:t:E:Q:NzI:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -693,6 +696,10 @@ int main_msga(int argc, char** argv) {
 
         case 'M':
             max_attempts = atoi(optarg);
+            break;
+
+        case 'I':
+            iter_max = atoi(optarg);
             break;
 
         case 'c':
@@ -946,7 +953,6 @@ int main_msga(int argc, char** argv) {
     for (auto& group : strings) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        int iter_max = 10;
         auto& name = group.first;
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
