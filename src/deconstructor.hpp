@@ -33,7 +33,7 @@ namespace vg{
              * Project a path onto another path,
              * much like a projection of p2 onto p1 in space.
              */
-            Path relative_mapping(Path& p1, Path& p2);
+             vector<Mapping> relative_mapping(Path& p1, Path& p2);
 
             // bool surject_alignment(Alignment& source,
             //                         set<string> path_names,
@@ -47,8 +47,8 @@ namespace vg{
              * Project a mapping with name 'p2' onto p1.
              * Return the projection as a mapping (i.e. an alignment of p2 on p1).
              */
-            Path relative_mapping(Path& p1, string p2);
-
+            // Path relative_mapping(Path& p1, string p2);
+            void enumerate_graph_paths();
             /**
             *
             */

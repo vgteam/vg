@@ -38,10 +38,10 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g) : Mapper(idex, g, nullptr)
         cerr << "error:[vg::Mapper] cannot create a RocksDB-based Mapper with null index" << endl;
         exit(1);
     }
-    
+
     kmer_sizes = index->stored_kmer_sizes();
     if (kmer_sizes.empty() && gcsa == NULL) {
-        cerr << "error:[vg::Mapper] the index (" 
+        cerr << "error:[vg::Mapper] the index ("
              << index->name << ") does not include kmers"
              << " and no GCSA index has been provided" << endl;
         exit(1);
@@ -54,7 +54,7 @@ Mapper::Mapper(xg::XG* xidex, gcsa::GCSA* g) : Mapper(nullptr, g, xidex) {
         cerr << "error:[vg::Mapper] cannot create an xg-based Mapper with null xg index" << endl;
         exit(1);
     }
-    
+
     if(g == nullptr) {
         // With this constructor we need a GCSA2 index too.
         cerr << "error:[vg::Mapper] cannot create an xg-based Mapper with null GCSA2 index" << endl;
@@ -88,7 +88,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     int64_t first = max((int64_t)0, idf - pair_window);
     int64_t last = idl + (int64_t) pair_window;
     VG* graph = new VG;
-    
+
     // Now we need to get the neighborhood by ID and expand outward by actual
     // edges. How we do this depends on what indexing structures we have.
     if(xindex) {
@@ -104,12 +104,12 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
         cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
         exit(1);
     }
-    
-    
+
+
     graph->remove_orphan_edges();
     read2.clear_path();
     read2.set_score(0);
-    
+
     read2 = graph->align(read2);
     delete graph;
 }
@@ -123,14 +123,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // if both map, return the pair of all the mappings
     // if one maps but not the other, attempt to rescue by mapping the other nearby in both orientations
     //     for each mapping of the mapped read, pick the best mapping of the unmapped read near it
-    
+
     // problem: need to develop model of pair orientations
     // solution: collect a buffer of alignments and then align them using unpaired approach
     //           detect read orientation and mean (and sd) of pair distance
 
     vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width);
     vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width);
-    
+
     // We have some logic around align_mate_in_window to handle orientation
     // Since we now support reversing edges, we have to at least try opposing orientations for the reads.
     auto align_mate = [&](Alignment& read, Alignment& mate) {
@@ -147,11 +147,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             // Otherwise reverse the opposite direction sequence
             aln_opposite.set_sequence(reverse_complement(aln_opposite.sequence()));
         }
-        
+
         // Do both the alignments
         align_mate_in_window(read, aln_same, pair_window);
         align_mate_in_window(read, aln_opposite, pair_window);
-        
+
         if(aln_same.score() >= aln_opposite.score()) {
             // The alignment in the same direction is best
             mate = aln_same;
@@ -160,35 +160,35 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             mate = aln_opposite;
         }
     };
-    
+
     // Try to rescue the unmapped end with each of the mapped end's  alignments.
     if(alignments1.empty() && !alignments2.empty()) {
         // We need to try aligning the mate near each of the places we aligned
         // the read. But we need to deduplicate those alignments. So we
         // serialize them into this set.
         set<string> serializedAlignmentsUsed;
-    
+
         for(auto& aln2 : alignments2) {
             // Align the mate the best way for each alignment of read 2
             Alignment mate = read1;
             align_mate(aln2, mate);
-            
+
             // Work out what it is as a string
             string serialized;
             mate.SerializeToString(&serialized);
-            
+
             if(!serializedAlignmentsUsed.count(serialized)) {
                 // It's not a duplicate
                 alignments1.push_back(mate);
                 serializedAlignmentsUsed.insert(serialized);
             }
         }
-        
+
         // Sort these alignments by score, descending
         sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
             return a.score() > b.score();
         });
-        
+
         // Set the secondary bits on all but the first rescued alignment
         for(size_t i = 1; i < alignments1.size(); i++) {
             alignments1[i].set_is_secondary(true);
@@ -198,34 +198,34 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // the read. But we need to deduplicate those alignments. So we
         // serialize them into this set.
         set<string> serializedAlignmentsUsed;
-    
+
         for(auto& aln1 : alignments1) {
             // Align the mate the best way for each alignment of read 1
             Alignment mate = read2;
             align_mate(aln1, mate);
-            
+
             // Work out what it is as a string
             string serialized;
             mate.SerializeToString(&serialized);
-            
+
             if(!serializedAlignmentsUsed.count(serialized)) {
                 // It's not a duplicate
                 alignments2.push_back(mate);
                 serializedAlignmentsUsed.insert(serialized);
             }
         }
-        
+
         // Sort these alignments by score, descending
         sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
             return a.score() > b.score();
         });
-        
+
         // Set the secondary bits on all but the first rescued alignment
         for(size_t i = 1; i < alignments2.size(); i++) {
             alignments2[i].set_is_secondary(true);
         }
-    } 
-    
+    }
+
     // link the fragments
     for(size_t i = 0; i < alignments1.size(); i++) {
         alignments1[i].mutable_fragment_next()->set_name(read2.name());
@@ -233,10 +233,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     for(size_t i = 0; i < alignments2.size(); i++) {
         alignments2[i].mutable_fragment_prev()->set_name(read1.name());
     }
-    
+
     // TODO: sort in order of best overall score, if the alignments happen to actually correspond?
     // TODO: pathfind between alignments?
-    
+
     // TODO
     // mark them as discordant if there is an issue?
     // this needs to be detected with care using statistics built up from a bunch of reads
@@ -244,12 +244,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
 }
 
-pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Alignment& read2, int kmer_size, int stride, 
+pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Alignment& read2, int kmer_size, int stride,
     int band_width, int pair_window) {
- 
-    pair<vector<Alignment>, vector<Alignment>> multimappings = align_paired_multi(read1, read2, 
+
+    pair<vector<Alignment>, vector<Alignment>> multimappings = align_paired_multi(read1, read2,
         kmer_size, stride, band_width, pair_window);
-        
+
     // Grab the input reads as alignments if nothing was found, and the found alignments otherwise
     Alignment aln1;
     if(multimappings.first.empty()) {
@@ -270,7 +270,7 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Al
     } else {
         aln2 = multimappings.second[0];
     }
-    
+
     // Stick the alignments together
     return make_pair(aln1, aln2);
 }
@@ -322,7 +322,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     size_t to_align = div * 2 - 1; // number of alignments we'll do
     vector<size_t> overlaps; overlaps.resize(to_align);
     vector<Alignment> bands; bands.resize(to_align);
-    
+
     for (int i = 0; i < div; ++i) {
         size_t off = i*segment_size;
         auto aln = read;
@@ -348,7 +348,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     vector<Alignment> alns;
     if (max_multimaps > 1) multi_alns.resize(to_align);
     else alns.resize(to_align);
-    
+
 #pragma omp parallel for
     for (int i = 0; i < bands.size(); ++i) {
         {
@@ -396,19 +396,19 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             // Check each Mapping to make sure it doesn't go past the end of its
             // node.
             auto& mapping = merged.path().mapping(i);
-            
+
             // What node is the mapping on
             int64_t node_id = mapping.position().node_id();
             if(node_id != 0) {
                 // If it's actually on a node, get the node's sequence length
                 int64_t node_length = get_node_length(node_id);
-                
+
                 // Make sure the mapping from length is shorter than the node length
                 assert(node_length >= mapping_from_length(mapping));
             }
         }
     }
-    
+
     return merged;
 }
 
@@ -416,7 +416,7 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
     // use a basic dynamic programming to score the path through the multi mapping
     // we add the score as long as our alignments overlap (we expect them to)
     // otherwise we add nothing
-    // reads that are < the minimum alignment score threshold are dropped    
+    // reads that are < the minimum alignment score threshold are dropped
 
     // a vector of
     // score, current alignment, parent alignment (direction)
@@ -661,7 +661,7 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
     // What alignments are we looking at next in out in-order merge?
     size_t next_f = 0;
     size_t next_r = 0;
-    
+
     // TODO: Apply a minimum score threshold?
     while(merged.size() < max_multimaps) {
         if(next_f < alignments_f.size()) {
@@ -692,7 +692,7 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
             break;
         }
     }
-    
+
     // Set all but the first alignment secondary.
     for(size_t i = 1; i < merged.size(); i++) {
         merged[i].set_is_secondary(true);
@@ -705,7 +705,7 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
 Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int band_width) {
     // Do the multi-mapping
     vector<Alignment> best = align_multi(aln, kmer_size, stride, band_width);
-    
+
     if(best.size() == 0) {
         // Spit back an alignment that says we failed, but make sure it has the right sequence in it.
         Alignment failed = aln;
@@ -713,7 +713,7 @@ Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int ban
         failed.set_score(0);
         return failed;
     }
-    
+
     // Otherwise, just repoirt the best alignment, since we know one exists
     return best[0];
 }
@@ -729,7 +729,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
     }
 
     const string& sequence = alignment.sequence();
-    
+
     // Generate all the kmers we want to look up, with the correct stride.
     auto kmers = balanced_kmers(sequence, kmer_size, stride);
 
@@ -743,10 +743,10 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
         if (!allATGC(k)) continue; // we can't handle Ns in this scheme
         //if (debug) cerr << "kmer " << k << " entropy = " << entropy(k) << endl;
         if (min_kmer_entropy > 0 && entropy(k) < min_kmer_entropy) continue;
-        
+
         // We fill this in only once if we're using GCSA indexing
         gcsa::range_type gcsa_range;
-        
+
         // Work out the number of *bytes* of matches for this kmer with the appropriate index.
         uint64_t approx_matches;
         if(gcsa) {
@@ -760,7 +760,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             cerr << "error:[vg::Mapper] no search index present" << endl;
             exit(1);
         }
-        
+
         // Report the approximate match byte size
         if (debug) cerr << k << "\t~" << approx_matches << endl;
         // if we have more than one block worth of kmers on disk, consider this kmer non-informative
@@ -768,16 +768,16 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
         if (approx_matches > hit_size_threshold) {
             continue;
         }
-        
+
         // Grab the map from node ID to kmer start positions for this particular kmer.
         auto& kmer_positions = positions.at(i);
         // Fill it in, since we know there won't be too many to work with.
-        
+
         if(gcsa) {
             // We need to fill in this vector with the GCSA nodes and then convert.
             std::vector<gcsa::node_type> gcsa_nodes;
             gcsa->locate(gcsa_range, gcsa_nodes);
-            
+
             for(gcsa::node_type gcsa_node : gcsa_nodes) {
                 if(gcsa::Node::rc(gcsa_node)) {
                     // We found a kmer on the reverse strand. The old index
@@ -788,15 +788,15 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 // Decode the result's ID and offset and record it
                 kmer_positions[gcsa::Node::id(gcsa_node)].push_back(gcsa::Node::offset(gcsa_node));
             }
-            
+
         } else if(index) {
            index->get_kmer_positions(k, kmer_positions);
         } else {
             cerr << "error:[vg::Mapper] no search index present" << endl;
             exit(1);
         }
-        
-        
+
+
         // ignore this kmer if it has too many hits
         // typically this will be filtered out by the approximate matches filter
         if (kmer_positions.size() > hit_max) kmer_positions.clear();
@@ -818,17 +818,17 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
     // the order that they appear in the query. One would expect them to be
     // monotonically increasing.
     map<int64_t, vector<int> > node_kmer_order;
-    
+
     // Maps from node ID and offset to a thread ending with the kmer that starts
     // there, if any such thread exists.
     map<pair<int64_t, int32_t>, vector<int64_t> > position_threads;
-    
+
     // For each node, holds the last thread for that node. Because we only do
     // position wobble, threads only touch a single node.
     map<int64_t, vector<int64_t> > node_threads;
-    
+
     //int node_wobble = 0; // turned off...
-    
+
     // How far left or right from the "correct" position for the previous kmer
     // are we willing to search when looking for a thread to extend?
     int position_wobble = 2;
@@ -841,23 +841,23 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
     i = 0;
     for (auto& p : positions) {
         // For every map from node ID to collection of kmer starts, for kmer i...
-        
+
         // Grab the kmer and advance i for next loop iteration
         auto& kmer = kmers.at(i++);
         for (auto& x : p) {
-            // For each node ID and the offsets on that node at which this kmer appears...        
+            // For each node ID and the offsets on that node at which this kmer appears...
             int64_t id = x.first;
             vector<int32_t>& pos = x.second;
-            
+
             // Note that this kmer is the next kmer in the query to appear in that node.
             node_kmer_order[id].push_back(i-1);
             for (auto& y : pos) {
                 // For every offset along the node at which this kmer appears, in order...
-            
+
                 //cerr << kmer << "\t" << i << "\t" << id << "\t" << y << endl;
                 // thread rules
                 // if we find the previous position
-                
+
                 // This holds the thread that this instance of this kmer on this node is involved in.
                 vector<int64_t> thread;
 
@@ -868,7 +868,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 // this kmer starts (i.e. at y - stride). However, due to indels
                 // existing, we search with a "wobble" of up to position_wobble
                 // in either direction, outwards from the center.
-                
+
                 // This holds the current wobble that we are searching (between
                 // -position_wobble and +position_wobble).
                 int m = 0;
@@ -887,16 +887,16 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                         // 1.
                         m *= -1; ++m;
                     }
-                    
+
                     //cerr << "checking " << id << " " << y << " - " << kmer_size << " + " << m << endl;
-                    
+
                     // See if we can find a thread at this wobbled position
                     auto previous = position_threads.find(make_pair(id, y - stride + m));
                     if (previous != position_threads.end()) {
                         // If we did find one, use it as our thread, remove it
                         // so it can't be extended by anything else, and stop
                         // searching more extreme wobbles.
-                        
+
                         //length = position_threads[make_pair(id, y - stride + m)] + 1;
                         thread = previous->second;
                         position_threads.erase(previous);
@@ -906,12 +906,12 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 }
 
                 // Now we either have the thread we are extending in thread, or we are starting a new thread.
-                
-                // Extend the thread with another kmer on this node ID. 
+
+                // Extend the thread with another kmer on this node ID.
                 thread.push_back(id);
                 // Save the thread as ending with a kmer at this offset on this node.
                 position_threads[make_pair(id, y)] = thread;
-                
+
                 // This is now the last thread for this node.
                 node_threads[id] = thread;
             }
@@ -956,21 +956,21 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
     // go back through and combine closely-linked threads
     // ... but only if their kmer order is proper
-    
+
     // This holds threads by the last node ID they touch.
     map<int64_t, vector<int64_t> > threads_by_last;
-    
+
     // go from threads that are longer to ones that are shorter
     for (auto& thread : sorted_threads) {
         //cerr << thread.front() << "-" << thread.back() << endl;
-        
+
         // Find the earliest-ending thread that ends within max_thread_gap nodes of this thread's start
         auto prev = threads_by_last.upper_bound(thread.front()-max_thread_gap);
         //if (prev != threads_by_last.begin()) --prev;
         // now we should be at the highest thread within the bounds
         //cerr << prev->first << " " << thread.front() << endl;
         // todo: it may also make sense to check that the kmer order makes sense
-        // what does this mean? it means that the previous 
+        // what does this mean? it means that the previous
         if (prev != threads_by_last.end()
             && prev->first > thread.front() - max_thread_gap) {
             // If we found such a thread, and it also *starts* within
@@ -1051,7 +1051,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
         // by definition, our thread should construct a contiguous graph
         for (auto& thread : threads) {
             // Do an alignment to the subgraph for each thread.
-        
+
             // thread extension should be determined during iteration
             // note that there is a problem and hits tend to be imbalanced
             // due to the fact that we record the node position of the start of the kmer
@@ -1060,7 +1060,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             // so we can pick it up efficiently from the index by pulling the range from first to last
             if (debug) cerr << "getting node range " << first << "-" << last << endl;
             VG* graph = new VG;
-            
+
             // Now we need to get the neighborhood by ID and expand outward by actual
             // edges. How we do this depends on what indexing structures we have.
             // TODO: We're repeating this code. Break it out into a function or something.
@@ -1075,22 +1075,22 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
                 exit(1);
             }
-            
+
             Alignment& ta = alignments[&thread];
             ta = alignment;
             // by default, expand the graph a bit so we are likely to map
             //index->get_connected_nodes(*graph);
             graph->remove_orphan_edges();
 
-            if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, " 
+            if (debug) cerr << "got subgraph with " << graph->node_count() << " nodes, "
                             << graph->edge_count() << " edges" << endl;
-            //serialize_to_file("init-" + alignment.sequence() + "-" + hash_alignment(alignment).substr(0,8) + "-" + hash().substr(0,8) + ".vg"); 
-                            
+            //serialize_to_file("init-" + alignment.sequence() + "-" + hash_alignment(alignment).substr(0,8) + "-" + hash().substr(0,8) + ".vg");
+
             // Topologically sort the graph, breaking cycles and orienting all edges end to start.
             // This flips some nodes around, so we need to translate alignments back.
             set<int64_t> flipped_nodes;
             graph->orient_nodes_forward(flipped_nodes);
-                            
+
             // align
             //graph->serialize_to_file("align2.vg");
             ta.clear_path();
@@ -1102,7 +1102,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             // expand in the direction where there were soft clips
 
             if (!ta.has_path()) continue;
-            
+
             // we can be more precise about our handling of softclips due to the low cost
             // of the fully in-memory xg index
             int sc_start = softclip_start(ta);
@@ -1170,7 +1170,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             }
 
             delete graph;
-            
+
             if (debug) cerr << "score per bp is " << (float)ta.score() / (float)ta.sequence().size() << endl;
             if (greedy_accept && (float)ta.score() / (float)ta.sequence().size() >= target_score_per_bp) {
                 if (debug) cerr << "greedy accept" << endl;
@@ -1198,28 +1198,28 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
         // This is going to let us deduplicate our alignments with this score, by storing them serialized to strings in this set.
         set<string> serializedAlignmentsUsed;
-        
+
         for(Alignment* pointer : (*it).second) {
             // We serialize the alignment to a string
             string serialized;
             pointer->SerializeToString(&serialized);
-        
+
             if(!serializedAlignmentsUsed.count(serialized)) {
                 // This alignment hasn't been produced yet. Produce it. The
                 // order in the alignment vector doesn't matter for things with
                 // the same score.
                 good.push_back(*pointer);
-                
+
                 // Save it so we can avoid putting it in the vector again
                 serializedAlignmentsUsed.insert(serialized);
             }
-            
+
             if(good.size() >= max_multimaps) {
                 // Don't report too many mappings
                 break;
             }
         }
-        
+
         if(good.size() >= max_multimaps) {
             // Don't report too many mappings
             break;
@@ -1250,7 +1250,7 @@ Alignment Mapper::align_simple(const Alignment& alignment, int kmer_size, int st
 
     // establish kmers
     const string& sequence = alignment.sequence();
-    //  
+    //
     auto kmers = balanced_kmers(sequence, kmer_size, stride);
 
     map<string, int32_t> kmer_counts;
@@ -1303,7 +1303,7 @@ Alignment Mapper::align_simple(const Alignment& alignment, int kmer_size, int st
 
     // Make sure the graph we're aligning to is all oriented
     Alignment aln = graph->align(alignment);
-    
+
     delete graph;
 
     return aln;

@@ -384,16 +384,16 @@ void Index::parse_node(const string& key, const string& value, int64_t& id, Node
 void Index::parse_edge(const string& key, char& type, int64_t& node_id, int64_t& other_id, bool& backward) {
     // Parse the edge just out of the key
     const char* k = key.c_str();
-    
+
     // Work out what type the key is ('s' or 'e' depending on if it's on the first node's start or end).
     type = graph_key_type(key);
-    
+
     // Get the node IDs involved.
     memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
     memcpy(&other_id, (k + 6*sizeof(char)) + sizeof(int64_t), sizeof(int64_t));
     node_id = be64toh(node_id);
     other_id = be64toh(other_id);
-    
+
     // Is the relative orientation forward ('0') or backward ('1')?
     char backward_char;
     memcpy(&backward_char, (k + 7*sizeof(char)) + 2*sizeof(int64_t), sizeof(char));
@@ -404,24 +404,24 @@ void Index::parse_edge(const string& key, const string& value, char& type, int64
     // We can take either of the two edge keys:
     // +g+node_id+s+other_id+backward
     // +g+node_id+e+other_id+backward
-    
-    
+
+
     if(value.size() > 0) {
         // We can just deserialize the edge.
         edge.ParseFromString(value);
-        
+
         // But we still need to fill in our output parameters
         type = graph_key_type(key);
         id1 = edge.from();
         id2 = edge.to();
-        
+
     } else {
         // We have to synthesize an edge.
-        
+
         // Get what we can from the key. Arbitrarily say this node is the from.
         bool backward;
         parse_edge(key, type, id1, id2, backward);
-        
+
         // Work out if the edge should be from the start
         bool from_start = type == 's';
         // And if it should be to the end. We attach to the end of the other
@@ -429,20 +429,20 @@ void Index::parse_edge(const string& key, const string& value, char& type, int64
         // forward, or when we attached to the end of this node and we want to
         // be backward. That works out to: XOR(on start, should be backward).
         bool to_end = from_start != backward;
-        
+
         if(from_start && to_end) {
             // If we got that it should be both, we can replace it with the
             // normal end to start edge going the other way.
             swap(id1, id2);
             from_start = to_end = false;
         }
-        
+
         // Build the edge
         edge.set_from(id1);
         edge.set_to(id2);
         edge.set_from_start(from_start);
         edge.set_to_end(to_end);
-        
+
         // TODO: get the edge data somehow in these cases instead of making up edges.
     }
 }
@@ -467,7 +467,7 @@ string Index::graph_entry_to_string(const string& key, const string& value) {
             edge.ParseFromString(value);
         }
         parse_edge(key, type, id1, id2, backward);
-        s << "{\"key\":\"+g+" << id1 << "+s+" << id2 << "+" << (backward ? '1' : '0') 
+        s << "{\"key\":\"+g+" << id1 << "+s+" << id2 << "+" << (backward ? '1' : '0')
           << "\", \"value\":"<< (value.size() > 0 ? pb2json(edge) : "") << "}";
     } break;
     case 'e': {
@@ -557,7 +557,7 @@ string Index::node_path_to_string(const string& key, const string& value) {
     bool backward;
     parse_node_path(key, value, node_id, path_id, path_pos, backward, mapping);
     stringstream s;
-    s << "{\"key\":\"+g+" << node_id << "+p+" << path_id << "+" << path_pos << "+" << (backward ? '1' : '0') 
+    s << "{\"key\":\"+g+" << node_id << "+p+" << path_id << "+" << path_pos << "+" << (backward ? '1' : '0')
       << "\", \"value\":"<< pb2json(mapping) << "}";
     return s.str();
 }
@@ -568,7 +568,7 @@ string Index::path_position_to_string(const string& key, const string& value) {
     bool backward;
     parse_path_position(key, value, path_id, path_pos, backward, node_id, mapping);
     stringstream s;
-    s << "{\"key\":\"+p+" << path_id << "+" << path_pos << "+" << (backward ? '1' : '0') << "+" << node_id 
+    s << "{\"key\":\"+p+" << path_id << "+" << path_pos << "+" << (backward ? '1' : '0') << "+" << node_id
       << "\", \"value\":"<< pb2json(mapping) << "}";
     return s.str();
 }
@@ -645,15 +645,15 @@ void Index::put_edge(const Edge* edge) {
 
     // One will probably hold an empty string, unless this is a self loop somehow.
     string null_data;
-    
+
     // only store serialized edge in the key linking the edge to the smaller
     // node. If the two node IDs are equal, store in both keys (which might just actually be one key).
     string& from_data = (edge->from() <= edge->to()) ? data : null_data;
     string& to_data = (edge->to() <= edge->from()) ? data : null_data;
-    
+
     // Is the edge reversing relative node orientation?
     bool backward = (edge->from_start() != edge->to_end());
-    
+
     if(edge->from_start()) {
         // On the from node, we're on the start
         db->Put(write_options, key_for_edge_on_start(edge->from(), edge->to(), backward), from_data);
@@ -661,7 +661,7 @@ void Index::put_edge(const Edge* edge) {
         // On the from node, we're on the end
         db->Put(write_options, key_for_edge_on_end(edge->from(), edge->to(), backward), from_data);
     }
-    
+
     if(edge->to_end()) {
         // On the to node, we're on the end
         db->Put(write_options, key_for_edge_on_end(edge->to(), edge->from(), backward), to_data);
@@ -678,15 +678,15 @@ void Index::batch_edge(const Edge* edge, rocksdb::WriteBatch& batch) {
 
     // One will probably hold an empty string, unless this is a self loop somehow.
     string null_data;
-    
+
     // only store serialized edge in the key linking the edge to the smaller
     // node. If the two node IDs are equal, store in both keys (which might just actually be one key).
     string& from_data = (edge->from() <= edge->to()) ? data : null_data;
     string& to_data = (edge->to() <= edge->from()) ? data : null_data;
-    
+
     // Is the edge reversing relative node orientation?
     bool backward = (edge->from_start() != edge->to_end());
-    
+
     if(edge->from_start()) {
         // On the from node, we're on the start
         batch.Put(key_for_edge_on_start(edge->from(), edge->to(), backward), from_data);
@@ -694,7 +694,7 @@ void Index::batch_edge(const Edge* edge, rocksdb::WriteBatch& batch) {
         // On the from node, we're on the end
         batch.Put(key_for_edge_on_end(edge->from(), edge->to(), backward), from_data);
     }
-    
+
     if(edge->to_end()) {
         // On the to node, we're on the end
         batch.Put(key_for_edge_on_end(edge->to(), edge->from(), backward), to_data);
@@ -885,10 +885,10 @@ rocksdb::Status Index::get_node(int64_t id, Node& node) {
 rocksdb::Status Index::get_edge(int64_t from, bool from_start, int64_t to, bool to_end, Edge& edge) {
     // Are we looking for a reversing edge?
     bool backward = from_start != to_end;
-    
+
     // What key do we need to look up to get the edge data?
     string key;
-    
+
     // TODO: restructure keys so we don't need to do so much figuring to work out what to look up.
     if(from < to) {
         // We will find the edge data on the record for its attachment to the from node.
@@ -905,7 +905,7 @@ rocksdb::Status Index::get_edge(int64_t from, bool from_start, int64_t to, bool 
             key = key_for_edge_on_start(to, from, backward);
         }
     }
-    
+
     string value;
     rocksdb::Status s = db->Get(rocksdb::ReadOptions(), key, &value);
     if (s.ok()) {
@@ -958,10 +958,10 @@ pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> Index::get_nearest_node_pre
 
     list<pair<int64_t, bool>> nullpath;
     list<pair<int64_t, bool>> bpath;
-    
+
     // Keeps a list of oriented nodes we can reach, by path taken to reach them
     map<list<pair<int64_t, bool>>, pair<Node, bool>> nq;
-    
+
     { // handle this node
         // Put this node on the path
         bpath.push_front(make_pair(node_id, backward));
@@ -969,29 +969,29 @@ pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> Index::get_nearest_node_pre
         Node& node = nq[bpath].first;
         get_node(node_id, node);
         nq[bpath].second = backward;
-        
-        
+
+
         Mapping mapping;
         bool backward_on_path;
         if (get_node_path(node_id, path_id, path_pos, backward_on_path, mapping) > 0) {
             // This node is on the target path.
-            
+
             // Report if we were looking at it backward relative to the path
             relative_orientation = (backward != backward_on_path);
-            
+
             // Return a search path of just this node, and its ID. We inclue it
             // in the search path (due to being the end of the search) even
             // though it wouldn't normally be included (due to being the start
             // of the search).
             return make_pair(bpath, bpath.front());
         }
-        
+
         // Otherwise, say we're at this node after taking the empty path.
         Node n = node;
         nq.clear();
         nq[nullpath] = make_pair(n, backward);
     }
-    
+
     // BFS back
     int steps_back = 0;
     while (steps_back++ < max_steps) {
@@ -1002,43 +1002,43 @@ pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> Index::get_nearest_node_pre
             Node& node = n.second.first;
             bool orientation = n.second.second;
             const list<pair<int64_t, bool>>& path = n.first;
-            
+
             // Look off the left side of this oriented node, and get the oriented nodes you find there.
             vector<pair<int64_t, bool>> destinations;
             get_nodes_prev(node.id(), orientation, destinations);
-            
+
             for(auto& destination : destinations) {
                 int64_t id = destination.first;
-                
+
                 // Extend the path on the left with this destination
                 list<pair<int64_t, bool>> npath = path;
                 npath.push_front(destination);
-                
+
                 // Fill in the Node object and orientation you can reach via this path
                 Node& node = cq[npath].first;
                 get_node(id, node);
                 cq[npath].second = destination.second;
-                
+
                 Mapping mapping;
                 bool backward_on_path;
                 if (get_node_path(id, path_id, path_pos, backward_on_path, mapping) > 0) {
-                    // This node we just reached is on the path 
-                    
+                    // This node we just reached is on the path
+
                     // Report if we were looking at it backward relative to the path
                     relative_orientation = (destination.second != backward_on_path);
-                    
+
                     if(!relative_orientation) {
                         // The right side of this oriented node, which we reached, comes later in the path.
                         path_pos += node.sequence().size();
                     }
                     return make_pair(npath, npath.front());
                 }
-            }            
+            }
         }
         // Advance to the next search stage.
         nq = cq;
     }
-    
+
     // If we get here, we failed to find a path
     relative_orientation = false;
     return make_pair(nullpath, make_pair(0, false));
@@ -1049,10 +1049,10 @@ pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> Index::get_nearest_node_nex
 
     list<pair<int64_t, bool>> nullpath;
     list<pair<int64_t, bool>> bpath;
-    
+
     // Keeps a list of oriented nodes we can reach, by path taken to reach them
     map<list<pair<int64_t, bool>>, pair<Node, bool>> nq;
-    
+
     { // handle this node
         // Put this node on the path
         bpath.push_back(make_pair(node_id, backward));
@@ -1060,29 +1060,29 @@ pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> Index::get_nearest_node_nex
         Node& node = nq[bpath].first;
         get_node(node_id, node);
         nq[bpath].second = backward;
-        
-        
+
+
         Mapping mapping;
         bool backward_on_path;
         if (get_node_path(node_id, path_id, path_pos, backward_on_path, mapping) > 0) {
             // This node is on the target path.
-            
+
             // Report if we were looking at it backward relative to the path
             relative_orientation = (backward != backward_on_path);
-            
+
             // Return a search path of just this node, and its ID. We inclue it
             // in the search path (due to being the end of the search) even
             // though it wouldn't normally be included (due to being the start
             // of the search).
             return make_pair(bpath, bpath.back());
         }
-        
+
         // Otherwise, say we're at this node after taking the empty path.
         Node n = node;
         nq.clear();
         nq[nullpath] = make_pair(n, backward);
     }
-    
+
     // BFS forward
     int steps_forward = 0;
     while (steps_forward++ < max_steps) {
@@ -1093,43 +1093,43 @@ pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> Index::get_nearest_node_nex
             Node& node = n.second.first;
             bool orientation = n.second.second;
             const list<pair<int64_t, bool>>& path = n.first;
-            
+
             // Look off the right side of this oriented node, and get the oriented nodes you find there.
             vector<pair<int64_t, bool>> destinations;
             get_nodes_next(node.id(), orientation, destinations);
-            
+
             for(auto& destination : destinations) {
                 int64_t id = destination.first;
-                
+
                 // Extend the path on the left with this destination
                 list<pair<int64_t, bool>> npath = path;
                 npath.push_back(destination);
-                
+
                 // Fill in the Node object and orientation you can reach via this path
                 Node& node = cq[npath].first;
                 get_node(id, node);
                 cq[npath].second = destination.second;
-                
+
                 Mapping mapping;
                 bool backward_on_path;
                 if (get_node_path(id, path_id, path_pos, backward_on_path, mapping) > 0) {
-                    // This node we just reached is on the path 
-                    
+                    // This node we just reached is on the path
+
                     // Report if we were looking at it backward relative to the path
                     relative_orientation = (destination.second != backward_on_path);
-                    
+
                     if(relative_orientation) {
                         // The *left* side of this oriented node, which we reached, comes later in the path.
                         path_pos += node.sequence().size();
                     }
                     return make_pair(npath, npath.back());
                 }
-            }            
+            }
         }
         // Advance to the next search stage.
         nq = cq;
     }
-    
+
     // If we get here, we failed to find a path
     relative_orientation = false;
     return make_pair(nullpath, make_pair(0, false));
@@ -1141,10 +1141,10 @@ bool Index::get_node_path_relative_position(int64_t node_id, bool backward, int6
     // scan the range before the node
     // start with our node, and walk back BFS until we find a node with a path
     // are any parents part of the path?
-    
+
     list<pair<int64_t, bool>> nullpath;
     auto null_pair = make_pair(nullpath, make_pair((int64_t)0, false));
-    
+
     auto to_path_prev = get_nearest_node_prev_path_member(node_id, backward, path_id, prev_pos, prev_orientation);
     if (to_path_prev == null_pair) {
         cerr << "no to path" << endl;
@@ -1160,7 +1160,7 @@ bool Index::get_node_path_relative_position(int64_t node_id, bool backward, int6
     } else {
         path_next = to_path_next.first;
     }
-    
+
     if(next_orientation != prev_orientation) {
         // TODO: this will only happen if cycles are possible, but it's not clear how to handle it.
         cerr << "meets path in different orientations from different ends" << endl;
@@ -1175,13 +1175,13 @@ Mapping Index::path_relative_mapping(int64_t node_id, bool backward, int64_t pat
                                      list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation) {
     Mapping mapping;
     // TODO: shouldn't this point to the node(s?) we're changing, not the one we changed to?
-    mapping.mutable_position()->set_node_id(node_id); 
+    mapping.mutable_position()->set_node_id(node_id);
     mapping.mutable_position()->set_is_reverse(backward);
     // what about offset?
     if (get_node_path_relative_position(node_id, backward, path_id,
                                         path_prev, prev_pos, prev_orientation, path_next, next_pos, next_orientation)) {
         // We found a way to the path.
-        
+
         Edit* edit = mapping.add_edit();
         Node node; get_node(node_id, node);
         // See if we're actually just on that path.
@@ -1260,7 +1260,7 @@ bool Index::surject_alignment(const Alignment& source,
         int64_t prev_pos=0, next_pos=0;
         bool prev_orientation, next_orientation;
         list<pair<int64_t, bool>> path_prev, path_next;
-        get_node_path_relative_position(hit_id, hit_backward, path_id, path_prev, prev_pos, prev_orientation, 
+        get_node_path_relative_position(hit_id, hit_backward, path_id, path_prev, prev_pos, prev_orientation,
                                         path_next, next_pos, next_orientation);
         // as a surjection this node must be in the path
         // the nearest place we map should be the head of this node
@@ -1593,24 +1593,24 @@ void Index::get_edges_on_start(int64_t node_id, vector<Edge>& edges) {
             char type;
             bool backward;
             parse_edge(it->key().ToString(), type, id1, id2, backward);
-        
+
             // TODO: If we can know we don't really need the edge metadata, we could stop here and save a lookup.
-        
+
             // What's the other node involved in this edge?
             assert(node_id == id1);
             int64_t other_id = id2;
-            
+
             if(other_id < node_id) {
                 // The edge metadata wasn't stored here. We need to look it up.
-                
+
                 // What's the key for the other end of this edge? If this edge
                 // is reversing, then it's on the other node's start, too.
                 // Otherwise it's on the other node's end.
-                string other_key = backward ? 
-                    key_for_edge_on_start(other_id, node_id, backward) : 
+                string other_key = backward ?
+                    key_for_edge_on_start(other_id, node_id, backward) :
                     key_for_edge_on_end(other_id, node_id, backward);
-                
-                // Load up that key 
+
+                // Load up that key
                 string value;
                 rocksdb::Status status = db->Get(rocksdb::ReadOptions(), other_key, &value);
                 if (status.ok()) {
@@ -1650,22 +1650,22 @@ void Index::get_edges_on_end(int64_t node_id, vector<Edge>& edges) {
             bool backward;
             parse_edge(it->key().ToString(), type, id1, id2, backward);
             // TODO: If we can know we don't really need the edge metadata, we could stop here and save a lookup.
-        
+
             // What's the other node involved in this edge?
             assert(node_id == id1);
             int64_t other_id = id2;
-        
+
             if(other_id < node_id) {
                 // The edge metadata wasn't stored here. We need to look it up.
-                
+
                 // What's the key for the other end of this edge? If this edge
                 // is reversing, then it's on the other node's end, too.
                 // Otherwise it's on the other node's start.
-                string other_key = backward ? 
-                    key_for_edge_on_end(other_id, node_id, backward) : 
+                string other_key = backward ?
+                    key_for_edge_on_end(other_id, node_id, backward) :
                     key_for_edge_on_start(other_id, node_id, backward);
-                
-                // Load up that key 
+
+                // Load up that key
                 string value;
                 rocksdb::Status status = db->Get(rocksdb::ReadOptions(), other_key, &value);
                 if (status.ok()) {
@@ -1690,9 +1690,9 @@ void Index::get_edges_on_end(int64_t node_id, vector<Edge>& edges) {
 }
 
 void Index::get_nodes_next(int64_t node, bool backward, vector<pair<int64_t, bool>>& destinations) {
-    
+
     // Get all the edges off the appropriate side of the node.
-    vector<Edge> edges_to_follow;  
+    vector<Edge> edges_to_follow;
     if(backward) {
         // "next" = right = start
         get_edges_on_start(node, edges_to_follow);
@@ -1700,14 +1700,14 @@ void Index::get_nodes_next(int64_t node, bool backward, vector<pair<int64_t, boo
         // "next" = right = end
         get_edges_on_end(node, edges_to_follow);
     }
-    
+
     for(Edge& e : edges_to_follow) {
         // Get the other node involved in the edge
         int64_t other_node = (e.to() == node ? e.from() : e.to());
-        
+
         // Work out if this is a reversing edge
         bool reversing_edge = e.from_start() != e.to_end();
-        
+
         // Put in the other node ID and the relative orientation, which is our
         // orientation, only reversed if we crossed a reversing edge.
         destinations.emplace_back(other_node, backward != reversing_edge);
@@ -1718,7 +1718,7 @@ void Index::get_nodes_prev(int64_t node, bool backward, vector<pair<int64_t, boo
     // TODO: combine with get_nodes_next, since they're basically the same code.
 
     // Get all the edges off the appropriate side of the node.
-    vector<Edge> edges_to_follow;  
+    vector<Edge> edges_to_follow;
     if(backward) {
         // "prev" = left = end
         get_edges_on_end(node, edges_to_follow);
@@ -1726,14 +1726,14 @@ void Index::get_nodes_prev(int64_t node, bool backward, vector<pair<int64_t, boo
         // "prev" = left = start
         get_edges_on_start(node, edges_to_follow);
     }
-    
+
     for(Edge& e : edges_to_follow) {
         // Get the other node involved in the edge
         int64_t other_node = (e.to() == node ? e.from() : e.to());
-        
+
         // Work out if this is a reversing edge
         bool reversing_edge = e.from_start() != e.to_end();
-        
+
         // Put in the other node ID and the relative orientation, which is our
         // orientation, only reversed if we crossed a reversing edge.
         destinations.emplace_back(other_node, backward != reversing_edge);
@@ -1750,7 +1750,7 @@ void Index::get_path(VG& graph, const string& name, int64_t start, int64_t end) 
     string key_start = key_for_path_position(path_id, start, false, 0);
     // This is deliberately before any key we would get for the actual end, because the end is exclusive.
     string key_end = key_for_path_position(path_id, end, false, 0);
-    
+
     for_range(key_start, key_end, [this, &graph](string& key, string& data) {
             Mapping mapping;
             int64_t path_id, path_pos, node_id;
@@ -1767,9 +1767,9 @@ void Index::get_path(VG& graph, const string& name, int64_t start, int64_t end) 
 void node_path_position(int64_t id, string& path_name, int64_t& position, bool backward, int64_t& offset) {
     // if we are in the path, trivial
     // if not, run a BFS back to the nearest node in the path
-    
+
     throw runtime_error("node_path_position not yet implemented");
-    
+
 }
 
 void Index::put_kmer(const string& kmer,
@@ -1894,10 +1894,10 @@ pair<int64_t, int64_t> Index::compare_kmers(Index& other) {
 
                 string remk = reverse_complement(kmer);
                 string remk_key = first_kmer_key(remk);
-                
+
                 // only visit canonical strand (ie lexicographic less than reverse comp)
                 if (remk_key.empty() || key < remk_key) {
-                    
+
                     // put together a key range that will find all matches to kmer (i think)
                     string first_key = other.key_for_kmer(kmer, 0);
                     string last_key = other.key_for_kmer(kmer, numeric_limits<int64_t>::max());
@@ -1933,10 +1933,10 @@ pair<int64_t, int64_t> Index::compare_kmers(Index& other) {
     first_search_key += 'k';
     string last_search_key(1, start_sep);
     last_search_key += 'l';
-    
+
     for_range(first_search_key, last_search_key, lambda);
 
     return pair<int64_t, int64_t>(outFound, outNotFound);
-}            
+}
 
 }

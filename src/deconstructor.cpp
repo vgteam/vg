@@ -110,6 +110,51 @@ namespace vg {
       index_file = i;
     }
 
+    void Deconstructor::enumerate_graph_paths(){
+      (*vgraph).for_each_node([this](Node* n){
+          //cerr << n->id() << endl;
+          if ((*vgraph).paths.has_node_mapping(n->id())){
+            //cerr << "In mapping" << endl;
+            return;
+          }
+          else{
+            //pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> (*index)
+            Index ix;
+            ix.open_read_only(index_file);
+            map<string, int64_t> paths = ix.paths_by_id();
+            bool backward = false;
+            string pathname = "x";
+            auto p = paths.at(pathname);
+            //list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
+              //                    list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orien
+            // Alright, here's the meat of it.
+            // Get the previous node in the path and the next node in the path
+            // Then get a relative mapping using these.
+            // Then devise a way to translate this to a vcf record.
+            pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_node_in_named_path;
+            pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_node_in_named_path;
+            int64_t path_pos;
+            bool rel;
+            Mapping m; //mapping = {edits} + position, where position P is
+            //
+
+            prev_node_in_named_path = ix.get_nearest_node_prev_path_member((int64_t) n->id(), backward,
+                                              p, path_pos, rel, 4);
+            next_node_in_named_path = ix.get_nearest_node_next_path_member((int64_t) n->id(), backward,
+                                              p, path_pos,rel, 4);
+            m = ix.path_relative_mapping((int64_t) n->id(), backward, p,
+                                      prev_node_in_named_path.first, prev_node_in_named_path.second.first, prev_node_in_named_path.second.second,
+                                      next_node_in_named_path.first, next_node_in_named_path.second.first, next_node_in_named_path.second.second);
+            cerr << m.edit(0).sequence() << endl;
+          }
+      });
+      // map<string, int64_t> paths = ind.paths_by_id();
+      // map<string, int64_t> ::iterator it;
+      // for (it = paths.begin(); it != paths.end(); it++){
+      //   cerr << it->first << " " << it->second << endl;
+      // }
+    }
+
     void Deconstructor::set_xg(string x){
       cerr << "Setting XG index to " << x << "." << endl;
       xg_file = x;
@@ -169,9 +214,9 @@ namespace vg {
       int i;
       vcflib::Variant v;
       for (i = 0; i < paths_to_project.size(); i++){
-        // v = pathname_to_variants(paths_to_project[i]);
+        v = pathname_to_variants(paths_to_project[i]);
         cerr << "Extracting variant paths for " << paths_to_project[i] << endl;
-        //for ()
+
         //#pragma omp critical
         variants.push_back(v);
       }
@@ -182,50 +227,71 @@ namespace vg {
     }
 
     /**
-     * This one is still a bit unsettled in implementation, but the gist
-     * is to:
-     * 1. Open the index or xg
-     * 2. One path represents the reference and the other represents a variant
-     *    - BFS along the reference path
-     *    - at each x-furcation, process the different variant path(s) into a variant
-     *    record (essentially an alignment against the reference)
+     * Returns a path, which is a list of mappings.
+     * A mapping is a list of edits that transform a position
+     * within a path to another path at that same position.
+     *
+     * So, for each position in the returns list of mappings, it's
+     * possible to reconstruct the variant at that position by transforming
+     * the edits.
      */
-    Path Deconstructor::relative_mapping(Path& p1, Path& p2){
+    vector<Mapping> Deconstructor::relative_mapping(Path& ref, Path& alt){
         Path ret;
         Index vindex;
-        vindex.open_read_only(index_file);
-        //(*index).get_nearest_node_next_path_member();
-        //(*index).get_nearest_node_prev_path_member();
-        //(*index).path_relative_mapping()
+        std::vector<Mapping> mapping_list = std::vector<Mapping>();
+        (*vgraph).for_each_node([this, mapping_list, ref, alt](Node* n) mutable {
+            cerr << n->id() << endl;
+            if ((*vgraph).paths.has_node_mapping(n->id())){
+              //cerr << "In mapping" << endl;
+            }
+            else{
+              //pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> (*index)
+              Index ix;
+              ix.open_read_only(index_file);
+              map<string, int64_t> paths = ix.paths_by_id();
+              bool backward = false;
 
-        pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> node_and_path_taken_prev;
-        pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> node_and_path_taken_next;
-        // TODO Get previous node in path1
-        // could also grab the Position from the first/last mappings
-        const Position p = path_start(p1);
-        pos_t p_pos_t = make_pos_t(p);
-        cerr << get_id(p_pos_t) << endl;
-        int64_t p_node_id = get_id(p_pos_t);
-        // Position q = path_start(p1);
-        // int64_t q_node_id = get_id(q);
-        // int64_t future_path_pos;
-        // bool future_rel_orientation;
-        // node_and_path_taken_prev = vindex.get_nearest_node_prev_path_member(p_node_id, is_rev(p), vindex.get_path_id(p2.name()),
-        //                             future_path_pos, future_rel_orientation, 4);
-        // node_and_path_taken_next = vindex.get_nearest_node_next_path_member(q_node_id, is_rev(q), vindex.get_path_id(p2.name()),
-        //                             future_path_pos, future_rel_orientation, 4);
+              // Alright, here's the meat of it.
+              // Get the previous node in the path and the next node in the path
+              // Then get a relative mapping using these.
+              // Then devise a way to translate this to a vcf record.
+              pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_node_in_named_path;
+              pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_node_in_named_path;
+              int64_t path_pos;
+              bool rel;
+              Mapping m; //mapping = {edits} + position, where position P is
+              //
 
-        return ret;
-    }
+              auto ref_id = paths.at(ref.name());
+              auto alt_id = paths.at(alt.name());
 
-    Path Deconstructor::relative_mapping(Path& p1, string path_name2){
-        if ((*vgraph).paths.has_path(path_name2)){
-            cerr << "Path: " << path_name2 << " in graph " << endl;
-        }
-       list<Mapping> p2_mapping = (*vgraph).paths.get_path(path_name2);
-       Path p2;
-        return relative_mapping(p1, p2);
-    }
+              prev_node_in_named_path = ix.get_nearest_node_prev_path_member((int64_t) n->id(), backward,
+                                                ref_id, path_pos, rel, 4);
+              next_node_in_named_path = ix.get_nearest_node_next_path_member((int64_t) n->id(), backward,
+                                                ref_id, path_pos,rel, 4);
+              m = ix.path_relative_mapping((int64_t) n->id(), backward, ref_id,
+                                        prev_node_in_named_path.first, prev_node_in_named_path.second.first, prev_node_in_named_path.second.second,
+                                        next_node_in_named_path.first, next_node_in_named_path.second.first, next_node_in_named_path.second.second);
+              mapping_list.push_back(m);
+            }
+    });
+    return mapping_list;
+
+  }
+
+    // Path Deconstructor::relative_mapping(Path& p1, string path_name2){
+    //     if ((*vgraph).paths.has_path(path_name2)){
+    //         cerr << "Path: " << path_name2 << " in graph " << endl;
+    //     }
+    //     Index ix;
+    //     ix.open_read_only(index_file);
+    //     map<string, int64_t> paths = ix.paths_by_id();
+    //     bool backward = false;
+    //     string pathname = "x";
+    //     auto p_alt = paths.at(pathname);
+    //
+    //     return relative_mapping(p1, p_alt);
+    // }
 
     vcflib::Variant Deconstructor::path_to_variants(Path variant, Path ref){
 
