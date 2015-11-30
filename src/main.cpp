@@ -966,7 +966,7 @@ int main_msga(int argc, char** argv) {
                                graph->node_count() << " nodes" << endl;
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 alns.push_back(aln);
-                if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+                //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
                 paths.push_back(aln.path());
                 ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
                 stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
