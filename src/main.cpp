@@ -968,9 +968,11 @@ int main_msga(int argc, char** argv) {
                 alns.push_back(aln);
                 //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
                 paths.push_back(aln.path());
+                /*
                 ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
                 stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                 f.close();
+                */
                 // note that the addition of paths is a second step
                 // now take the alignment and modify the graph with it
                 ++j;
