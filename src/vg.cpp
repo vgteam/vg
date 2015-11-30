@@ -982,6 +982,7 @@ set<list<Node*>> VG::simple_components(int min_size) {
             }
         });
     /*
+    cerr << "components " << endl;
     for (auto& c : components) {
         for (auto x : c) {
             cerr << x->id() << " ";
@@ -4101,7 +4102,6 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
             cerr << pb2json(e) << endl;
 #endif 
             
-            //if(!edit_is_match(e) || (j == 0 && i > 0)) {
             if (!edit_is_match(e) || j == 0) {
                 // If this edit is not a perfect match, or if this is the first
                 // edit in this mapping and we had a previous mapping we may
@@ -4118,7 +4118,6 @@ void VG::find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoint
                 breakpoints[node_id].insert(edit_first_position);
             }
 
-            //if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
             if (!edit_is_match(e) || (j == m.edit_size() - 1)) {
                 // If this edit is not a perfect match, or if it is the last
                 // edit in a mapping and we have a subsequent mapping we might
@@ -4259,7 +4258,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
         cerr << pos << " " << (p.second != nullptr?pb2json(*p.second):"null") << endl;
     }
     */
-    
+
     auto find_new_node = [&](pos_t old_pos) {
         if(node_translation.find(make_pos_t(id(old_pos), false, 0)) == node_translation.end()) {
             // The node is unchanged
@@ -4281,6 +4280,35 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
         
         // Return the node we found.
         return found->second;
+    };
+
+    auto create_new_mappings = [&](pos_t p1, pos_t p2, bool is_rev) {
+        vector<Mapping> mappings;
+        vector<Node*> nodes;
+        for (pos_t p = p1; p <= p2; ++get_offset(p)) {
+            auto n = find_new_node(p);
+            assert(n != nullptr);
+            nodes.push_back(find_new_node(p));
+        }
+        auto np = nodes.begin();
+        while (np != nodes.end()) {
+            size_t c = 0;
+            auto n1 = np;
+            while (np != nodes.end() && *n1 == *np) {
+                ++c;
+                ++np; // we'll always increment once
+            }
+            // set the mapping position
+            Mapping m;
+            m.mutable_position()->set_node_id((*n1)->id());
+            m.mutable_position()->set_is_reverse(is_rev);
+            // and the edit that says we match
+            Edit* e = m.add_edit();
+            e->set_from_length(c);
+            e->set_to_length(c);
+            mappings.push_back(m);
+        }
+        return mappings;
     };
     
     // What's dangling and waiting to be attached to? In current node ID space.
@@ -4323,6 +4351,13 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     m.position().is_reverse() ?
                     reverse_complement(e.sequence())
                     : e.sequence());
+
+                if (!path.name().empty()) {
+                    Mapping m;
+                    m.mutable_position()->set_node_id(new_node->id());
+                    m.mutable_position()->set_is_reverse(m.position().is_reverse());
+                    paths.append_mapping(path.name(), m);
+                }
                 
                 if(dangling.node) {
                     // This actually referrs to a node.
@@ -4336,6 +4371,9 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                 
                 // Dangle the end of this new node
                 dangling = NodeSide(new_node->id(), !m.position().is_reverse());
+
+                // save edit into translated path
+                
             } else if(edit_is_match(e)) {
                 // We're using existing sequence
                 
@@ -4349,6 +4387,17 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                 // TODO: we just assume the outer edges of these nodes are in
                 // the right places. They should be if we cut the breakpoints
                 // right.
+
+                // TODO include path
+                // get the set of new nodes that we map to
+                // and use the lengths of each to create new mappings
+                // and append them to the path we are including
+                if (!path.name().empty()) {
+                    for (auto& nm : create_new_mappings(edit_first_position, edit_last_position, m.position().is_reverse())) {
+                        paths.append_mapping(path.name(), nm);
+                    }
+                }
+                
 #ifdef debug
                 cerr << "Handling match relative to " << node_id << endl;
 #endif

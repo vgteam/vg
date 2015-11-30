@@ -968,6 +968,7 @@ int main_msga(int argc, char** argv) {
                 alns.push_back(aln);
                 //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
                 paths.push_back(aln.path());
+                paths.back().set_name(name); // cache name to trigger inclusion of path elements in graph by edit
                 /*
                 ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
                 stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
@@ -980,7 +981,7 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
-            graph->clear_paths();
+            //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
             graph->dice_nodes(node_max);
@@ -995,6 +996,10 @@ int main_msga(int argc, char** argv) {
             // check that all is well
             rebuild(graph);
             bool included = true;
+            incomplete = !included;
+            // XXX XX XXXXX TODO
+            // CHANGE THIS TO CHECK VALIDITY BY JUST EXTRACTING PATH
+            if (false) {
             for (auto& seq : group.second) {
                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
                 if (debug) cerr << "testing inclusion of " << group.first << endl;
@@ -1007,12 +1012,11 @@ int main_msga(int argc, char** argv) {
                         if (debug) cerr << "edit failed! "
                                         << pb2json(aln.path().mapping(i)) << " is not a simple match!" << endl;
                         included = false;
-                        /*
-                          graph->serialize_to_file(group.first + "-failed-edit.vg");
-                          ofstream f(group.first + "-failed-edit.gam");
-                          stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-                          f.close();
-                        */
+                        graph->serialize_to_file(group.first + "-failed-edit.vg");
+                        ofstream f(group.first + "-failed-edit.gam");
+                        stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                        f.close();
+                        return 1;// bail out, testing
                     } else if (i > 0) {
                         auto& p1 = aln.path().mapping(i-1).position();
                         auto& p2 = aln.path().mapping(i).position();
@@ -1034,6 +1038,7 @@ int main_msga(int argc, char** argv) {
                 }
             }
             incomplete = !included;
+            }
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
         if (iter >= iter_max) {
@@ -1068,23 +1073,23 @@ int main_msga(int argc, char** argv) {
         }
     };
 
-    rebuild(graph);
-    include_paths(graph);
+    //rebuild(graph);
+    //include_paths(graph);
 
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;
         // use this step to simplify the graph so we can efficiently normalize it
         graph->remove_non_path();
-        graph->clear_paths();
+        //graph->clear_paths();
         graph->normalize();
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
-        graph->clear_paths();
+        //graph->clear_paths();
         // rebuild
-        rebuild(graph);
+        //rebuild(graph);
         // and re-include paths now that we've normalized
-        include_paths(graph);
+        //include_paths(graph);
     }
 
     //if (debug) graph->serialize_to_file("msga-pre-label.vg");
