@@ -29,7 +29,13 @@ bool allATGC(string& s);
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
-void divide_invariant_mapping(Mapping& orig, Mapping& left, Mapping& right, int offset, Node* n, Node* nl, Node* nr);
+
+template<typename T, typename V>
+set<T> map_keys_to_set(const map<T, V>& m) {
+    set<T> r;
+    for (auto p : m) r.insert(p.first);
+    return r;
+}
 
 }
 

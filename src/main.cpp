@@ -591,6 +591,7 @@ void help_msga(char** argv) {
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 10)" << endl
          << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
@@ -640,6 +641,7 @@ int main_msga(int argc, char** argv) {
     int subgraph_prune = 0;
     bool normalize = true;
     bool allow_nonpath = false;
+    int iter_max = 10;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -670,11 +672,12 @@ int main_msga(int argc, char** argv) {
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"allow-nonpath", no_argument, 0, 'z'},
+                {"iter-max", required_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:c:C:X:m:K:l:P:t:E:Q:Nz",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:c:C:X:m:K:l:P:t:E:Q:NzI:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -694,6 +697,10 @@ int main_msga(int argc, char** argv) {
 
         case 'M':
             max_attempts = atoi(optarg);
+            break;
+
+        case 'I':
+            iter_max = atoi(optarg);
             break;
 
         case 'c':
@@ -947,10 +954,9 @@ int main_msga(int argc, char** argv) {
     for (auto& group : strings) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        int iter_max = 1;
+        auto& name = group.first;
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
-            auto& name = group.first;
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
             vector<Path> paths;
             vector<Alignment> alns;
@@ -963,11 +969,9 @@ int main_msga(int argc, char** argv) {
                 alns.push_back(aln);
                 //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
                 paths.push_back(aln.path());
-                /*
                 ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
                 stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                 f.close();
-                */
                 // note that the addition of paths is a second step
                 // now take the alignment and modify the graph with it
                 ++j;
@@ -983,6 +987,10 @@ int main_msga(int argc, char** argv) {
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
 
+            // the edit needs to cut nodes at mapping starts and ends
+            // thus allowing paths to be included that map directly to entire nodes
+            // XXX
+            
             // check that all is well
             rebuild(graph);
             bool included = true;
@@ -991,30 +999,35 @@ int main_msga(int argc, char** argv) {
                 if (debug) cerr << "testing inclusion of " << group.first << endl;
                 // check for connectivity
                 for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
-                    if (!mapping_is_simple_match(aln.path().mapping(i))) {
-                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
+                    auto& m = aln.path().mapping(i);
+                    if (!mapping_is_simple_match(m)) {
+                        //|| mapping_from_length(m)
+                        //!= graph->get_node(m.position().node_id())->sequence().size()) {
+                        if (debug) cerr << "edit failed! "
+                                        << pb2json(aln.path().mapping(i)) << " is not a simple match!" << endl;
                         included = false;
-                        graph->serialize_to_file(group.first + "-failed-edit.vg");
-                        ofstream f(group.first + "-failed-edit.gam");
-                        stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-                        f.close();
-                        return 1;
+                        /*
+                          graph->serialize_to_file(group.first + "-failed-edit.vg");
+                          ofstream f(group.first + "-failed-edit.gam");
+                          stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                          f.close();
+                        */
                     } else if (i > 0) {
                         auto& p1 = aln.path().mapping(i-1).position();
                         auto& p2 = aln.path().mapping(i).position();
                         // are we at the end of the node before we jump?
                         if (p1.node_id() != p2.node_id()
-                            &&
-                            mapping_from_length(aln.path().mapping(i))
-                            != graph->get_node(p2.node_id())->sequence().size()) {
-                            cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i-1))
-                                 << " to " << pb2json(aln.path().mapping(i)) << endl;
+                            && !graph->has_edge(NodeSide(p1.node_id(), !p1.is_reverse()),
+                                                NodeSide(p2.node_id(), p2.is_reverse()))) {
+                            if (debug) cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i-1))
+                                            << " to " << pb2json(aln.path().mapping(i)) << endl;
                             included = false;
+                            /*
                             graph->serialize_to_file(group.first + "-failed-edit-no-edge.vg");
                             ofstream f(group.first + "-failed-edit-no-edge.gam");
                             stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                             f.close();
-                            return 1;
+                            */
                         }
                     }
                 }
@@ -1022,12 +1035,10 @@ int main_msga(int argc, char** argv) {
             incomplete = !included;
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        /*
-        if (iter == iter_max) {
-            cerr << "failed to include path" << endl;
+        if (iter >= iter_max) {
+            cerr << "[vg msga] Error: failed to include path " << name << endl;
             exit(1);
         }
-        */
     }
     //graph->serialize_to_file("pre-include.vg");
 
@@ -1442,12 +1453,14 @@ void help_mod(char** argv) {
          << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
          << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
          << "    -z, --sort              sort the graph using an approximate topological sort" << endl
          << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
          << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -d, --drop-paths        remove the paths of the graph" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -1463,6 +1476,7 @@ void help_mod(char** argv) {
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
          << "    -f, --orient-forward    orient the nodes in the graph forward" << endl
+         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -1491,6 +1505,9 @@ int main_mod(int argc, char** argv) {
     bool sort_graph = false;
     bool remove_non_path = false;
     bool orient_forward = false;
+    bool compact_ranks = false;
+    bool drop_paths = false;
+    bool force_path_match = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1500,6 +1517,8 @@ int main_mod(int argc, char** argv) {
                 {"help", no_argument, 0, 'h'},
                 {"include-aln", required_argument, 0, 'i'},
                 {"compact-ids", no_argument, 0, 'c'},
+                {"compact-ranks", no_argument, 0, 'C'},
+                {"drop-paths", no_argument, 0, 'd'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {"prune-complex", no_argument, 0, 'p'},
@@ -1517,11 +1536,12 @@ int main_mod(int argc, char** argv) {
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
                 {"orient-forward", no_argument, 0, 'f'},
+                {"force-path-match", no_argument, 0, 'F'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdF",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1539,6 +1559,10 @@ int main_mod(int argc, char** argv) {
             compact_ids = true;
             break;
 
+        case 'C':
+            compact_ranks = true;
+            break;
+            
         case 'k':
             path_name = optarg;
             break;
@@ -1587,8 +1611,16 @@ int main_mod(int argc, char** argv) {
             orient_forward = true;
             break;
 
+        case 'F':
+            force_path_match = true;
+            break;
+
         case 'P':
             label_paths = true;
+            break;
+
+        case 'd':
+            drop_paths = true;
             break;
 
         case 's':
@@ -1632,6 +1664,10 @@ int main_mod(int argc, char** argv) {
         graph->keep_path(path_name);
     }
 
+    if (drop_paths) {
+        graph->paths.clear();
+    }
+
     if (remove_orphans) {
         graph->remove_orphan_edges();
     }
@@ -1650,6 +1686,10 @@ int main_mod(int argc, char** argv) {
 
     if (remove_non_path) {
         graph->remove_non_path();
+    }
+
+    if (force_path_match) {
+        graph->force_path_match();
     }
 
     if (orient_forward) {
@@ -1679,17 +1719,22 @@ int main_mod(int argc, char** argv) {
         if (!label_paths) {
             // execute the edits
             graph->edit_both_directions(paths);
-            // and optionally compact ids
-            if (compact_ids) {
-                graph->sort();
-                graph->compact_ids();
-            }
         } else {
             // just add the path labels to the graph
             for (auto& path : paths) {
                 graph->paths.extend(path);
             }
         }
+    }
+
+    // and optionally compact ids
+    if (compact_ids) {
+        graph->sort();
+        graph->compact_ids();
+    }
+
+    if (compact_ranks) {
+        graph->paths.compact_ranks();
     }
 
     if (prune_complex) {
@@ -1706,6 +1751,7 @@ int main_mod(int argc, char** argv) {
 
     if (chop_to) {
         graph->dice_nodes(chop_to);
+        graph->paths.compact_ranks();
     }
 
     if (kill_labels) {
@@ -4283,7 +4329,8 @@ void help_view(char** argv) {
 
          << "    -j, --json           output JSON format" << endl
          << "    -J, --json-in        input JSON format" << endl
-
+         << "    -c, --json-stream    streaming conversion of a VG format graph in line delimited JSON format" << endl
+         << "                         (this cannot be loaded directly via -J)" << endl
          << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
          << "                         Alignment/Map)" << endl
          << "    -a, --align-in       input GAM format" << endl
@@ -4293,6 +4340,7 @@ void help_view(char** argv) {
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
          << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
+         << "    -M, --show-mappings  with -p print the mappings in each path in JSON" << endl
          << "    -I, --invert-ports   invert the edge ports in dot so that ne->nw is reversed" << endl
          << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
 
@@ -4338,6 +4386,7 @@ int main_view(int argc, char** argv) {
     bool walk_paths_in_dot = false;
     bool annotate_paths_in_dot = false;
     bool invert_edge_ports_in_dot = false;
+    bool show_mappings_in_dot = false;
     int seed_val = time(NULL);
 
     int c;
@@ -4352,6 +4401,7 @@ int main_view(int argc, char** argv) {
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
                 {"json-in",  no_argument, 0, 'J'},
+                {"json-stream", no_argument, 0, 'c'},
                 {"vg", no_argument, 0, 'v'},
                 {"vg-in", no_argument, 0, 'V'},
                 {"align-in", no_argument, 0, 'a'},
@@ -4367,11 +4417,12 @@ int main_view(int argc, char** argv) {
                 {"pileup", no_argument, 0, 'L'},
                 {"pileup-in", no_argument, 0, 'l'},
                 {"invert-ports", no_argument, 0, 'I'},
+                {"show-mappings", no_argument, 0, 'M'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLI",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMc",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4386,6 +4437,10 @@ int main_view(int argc, char** argv) {
 
         case 'p':
             show_paths_in_dot = true;
+            break;
+
+        case 'M':
+            show_mappings_in_dot = true;
             break;
 
         case 'w':
@@ -4418,6 +4473,11 @@ int main_view(int argc, char** argv) {
                 input_type = "json";
             }
             input_json = true;
+            break;
+
+        case 'c':
+            input_type = "vg";
+            output_type = "stream";
             break;
 
         case 'v':
@@ -4518,12 +4578,24 @@ int main_view(int argc, char** argv) {
     }
     string file_name = argv[optind];
     if (input_type == "vg") {
-        if (file_name == "-") {
-            graph = new VG(std::cin);
+        if (output_type == "stream") {
+            function<void(Graph&)> lambda = [&](Graph& g) { cout << pb2json(g) << endl; };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+            return 0;
         } else {
-            ifstream in;
-            in.open(file_name.c_str());
-            graph = new VG(in);
+            if (file_name == "-") {
+                graph = new VG(std::cin);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                graph = new VG(in);
+            }
         }
         // VG can convert to any of the graph formats, so keep going
     } else if (input_type == "gfa") {
@@ -4693,8 +4765,14 @@ int main_view(int argc, char** argv) {
     // requested output format.
 
     if (output_type == "dot") {
-        graph->to_dot(std::cout, alns, show_paths_in_dot, walk_paths_in_dot,
-                      annotate_paths_in_dot, invert_edge_ports_in_dot, seed_val);
+        graph->to_dot(std::cout,
+                      alns,
+                      show_paths_in_dot,
+                      walk_paths_in_dot,
+                      annotate_paths_in_dot,
+                      show_mappings_in_dot,
+                      invert_edge_ports_in_dot,
+                      seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
