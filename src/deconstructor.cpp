@@ -167,7 +167,6 @@ namespace vg {
       enumerate_path_names_in_index();
       vector<string> paths_to_project;
       if (region_name != ""){
-        paths_to_project = vector<string>();
         //TODO check if region in reference paths TODO
         paths_to_project.push_back(region_name);
       }
@@ -187,8 +186,10 @@ namespace vg {
         // a reference path.
         string p = paths_to_project.at(i);
         list<Mapping> m = get_mappings_off_reference(p);
+        cerr << "Retrieved mappings of non-reference nodes. Converting to VCF..." << endl;
+        cerr << "There are " << m.size() << " mappings to convert." << endl;
         list<Mapping>::iterator it;
-        for (it = m.begin(); it != m.begin(); it++){
+        for (it = m.begin(); it != m.end(); it++){
           v = mapping_to_variant(*it);
           variants.push_back(v);
         }
@@ -199,12 +200,12 @@ namespace vg {
 
     list<Mapping> Deconstructor::get_mappings_off_reference(string pathname){
       Index vindex;
-      vindex.open_read_only(index_file);
-      map<string, int64_t> path_ids = vindex.paths_by_id();
-      int64_t path_id = path_ids.at(pathname);
-      Path ref = (*vgraph).paths._paths.at(pathname);
-      list<Mapping> m;
-      m = get_mappings_off_reference(ref);
+      //vindex.open_read_only(index_file);
+      //map<string, int64_t> path_ids = vindex.paths_by_id();
+      //int64_t path_id = path_ids.at(pathname);
+      Path ref = (*vgraph).paths.path(pathname);
+      //vindex.close();
+      list<Mapping> m = get_mappings_off_reference(ref);
       return m;
     }
 
@@ -218,17 +219,18 @@ namespace vg {
      * the edits.
      */
      list<Mapping> Deconstructor::get_mappings_off_reference(Path& ref){
-        Index vindex;
+        Index ix;
+        ix.open_read_only(index_file);
         std::list<Mapping> mapping_list = std::list<Mapping>();
-        (*vgraph).for_each_node([this, mapping_list, ref](Node* n) mutable {
-            cerr << n->id() << endl;
+        (*vgraph).for_each_node([this, &mapping_list, ref, &ix](Node* n) mutable {
+            //cerr << n->id() << endl;
             if ((*vgraph).paths.has_node_mapping(n->id())){
               //cerr << "In mapping" << endl;
             }
             else{
               //pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> (*index)
-              Index ix;
-              ix.open_read_only(index_file);
+              //Index ix;
+              //ix.open_read_only(index_file);
               map<string, int64_t> paths = ix.paths_by_id();
               bool backward = false;
 
@@ -256,6 +258,7 @@ namespace vg {
               mapping_list.push_back(m);
             }
     });
+
     return mapping_list;
 
   }
@@ -269,6 +272,11 @@ namespace vg {
     */
     vcflib::Variant Deconstructor::mapping_to_variant(Mapping m){
       vcflib::Variant v;
+      int64_t n_id = (int64_t) m.position().node_id();
+      Node* n = (*vgraph).get_node(n_id);
+      const string x = mapping_sequence(m, *n);
+      cerr << x << " " << m.edit(0).sequence() << endl;
+
 
       return v;
     }
