@@ -49,17 +49,25 @@ void Paths::to_graph(Graph& g) {
     }
 }
 
-void Paths::for_each(const function<void(Path&)>& lambda) {
+Path Paths::path(const string& name) {
+    Path path;
+    auto p = _paths.find(name);
+    if (p == _paths.end()) {
+        return path;
+    }
+    list<Mapping>& mappings = p->second;
+    path.set_name(name);
+    for (auto& m : mappings) {
+        Mapping* nm = path.add_mapping();
+        *nm = m;
+    }
+    return path;
+}
+
+void Paths::for_each(const function<void(const Path&)>& lambda) {
     for (auto& p : _paths) {
         const string& name = p.first;
-        list<Mapping>& mappings = p.second;
-        Path path;
-        path.set_name(name);
-        for (auto& m : mappings) {
-            Mapping* nm = path.add_mapping();
-            *nm = m;
-        }
-        lambda(path);
+        lambda(path(name));
     }
 }
 
@@ -350,7 +358,7 @@ list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const s
 }
 
 void Paths::to_json(ostream& out) {
-    function<void(Path&)> lambda = [this, &out](Path& p) {
+    function<void(const Path&)> lambda = [this, &out](const Path& p) {
         out << pb2json(p) <<endl;
     };
     for_each(lambda);

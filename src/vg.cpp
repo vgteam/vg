@@ -819,7 +819,7 @@ void VG::normalize(void) {
 
 void VG::remove_non_path(void) {
     set<Edge*> path_edges;
-    function<void(Path&)> lambda = [this, &path_edges](Path& path) {
+    function<void(const Path&)> lambda = [this, &path_edges](const Path& path) {
         for (int i = 0; i < path.mapping_size(); ++i) {
             const Mapping& m1 = path.mapping(i);
             if (i < path.mapping_size()-1) {
@@ -3491,16 +3491,12 @@ string VG::path_string(const list<NodeTraversal>& nodes) {
     return seq;
 }
 
-string VG::path_string(Path& path) {
+string VG::path_string(const Path& path) {
     string seq;
     for (int i = 0; i < path.mapping_size(); ++i) {
-        Mapping* m = path.mutable_mapping(i);
-        Node* n = node_by_id[m->position().node_id()];
-        if (m->position().is_reverse()) {
-            seq.append(reverse_complement(n->sequence()));
-        } else {
-            seq.append(n->sequence());
-        }
+        auto& m = path.mapping(i);
+        Node* n = node_by_id[m.position().node_id()];
+        seq.append(mapping_sequence(m, *n));
     }
     return seq;
 }
@@ -4298,6 +4294,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                 ++c;
                 ++np; // we'll always increment once
             }
+            assert(c);
             // set the mapping position
             Mapping m;
             m.mutable_position()->set_node_id((*n1)->id());
@@ -4356,6 +4353,10 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     Mapping m;
                     m.mutable_position()->set_node_id(new_node->id());
                     m.mutable_position()->set_is_reverse(m.position().is_reverse());
+                    Edit* e = m.add_edit();
+                    size_t l = new_node->sequence().size();
+                    e->set_from_length(l);
+                    e->set_to_length(l);
                     paths.append_mapping(path.name(), m);
                 }
                 
@@ -4672,9 +4673,9 @@ bool VG::is_valid(bool check_nodes,
 
     if (check_paths) {
         bool paths_ok = true;
-        function<void(Path&)> lambda = 
+        function<void(const Path&)> lambda = 
             [this, &paths_ok]
-            (Path& path) {
+            (const Path& path) {
             if (!paths_ok) {
                 return;
             }
@@ -4779,7 +4780,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         // Work out what path symbols belong on what edges
-        function<void(Path&)> lambda = [this, &picts, &colors, &symbols_for_edge](Path& path) {
+        function<void(const Path&)> lambda = [this, &picts, &colors, &symbols_for_edge](const Path& path) {
             // Make up the path's label
             string path_label = picts.hashed(path.name());
             string color = colors.hashed(path.name());
@@ -4931,9 +4932,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         int pathid = alnid;
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        function<void(Path&)> lambda = 
+        function<void(const Path&)> lambda = 
             [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings]
-            (Path& path) {
+            (const Path& path) {
             string path_label = picts.hashed(path.name());
             string color = colors.hashed(path.name());
             if (show_paths) {
@@ -5681,7 +5682,7 @@ int VG::path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path
 
 const vector<Alignment> VG::paths_as_alignments(void) {
     vector<Alignment> alns;
-    paths.for_each([this,&alns](Path& path) {
+    paths.for_each([this,&alns](const Path& path) {
             alns.emplace_back();
             auto& aln = alns.back();
             *aln.mutable_path() = path; // copy the path
