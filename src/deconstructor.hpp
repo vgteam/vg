@@ -43,14 +43,6 @@ namespace vg{
             //                         int64_t& path_pos,
             //                         int window);
 
-            /**
-             * Convenience function.
-             * Project a mapping with name 'p2' onto p1.
-             * Return the projection as a mapping (i.e. an alignment of p2 on p1).
-             */
-            // Path relative_mapping(Path& p1, string p2);
-            void enumerate_graph_paths();
-
             vector<vcflib::Variant> get_variants(string region_file);
             /**
             *
