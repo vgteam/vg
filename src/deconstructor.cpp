@@ -11,13 +11,15 @@ namespace vg {
     }
 
     void Deconstructor::clear(){
+      vgraph = nullptr;
+      index_file = "";
+      reference = "";
+      xg_file = "";
 
     }
 
     void Deconstructor::set_graph(VG* v){
       vgraph = v;
-
-
     }
 
     /**
@@ -86,18 +88,6 @@ namespace vg {
 
     void Deconstructor::set_reference(string ref_file){
       cerr << "Setting reference to " << ref_file << endl;
-      // if (!ref_file.empty()){
-      //   FastaReference fr;
-      //   fr.open(ref_file);
-      //   for (auto seq : fr.index->sequenceNames){
-      //     cout << seq << endl;
-      //   }
-      //   reference = &fr;
-      // }
-      // else{
-      //   cerr << "Error: fasta file not provided" << endl;
-      //   exit(1);
-      // }
       reference = ref_file;
     }
 
@@ -111,48 +101,7 @@ namespace vg {
     }
 
     void Deconstructor::enumerate_graph_paths(){
-      (*vgraph).for_each_node([this](Node* n){
-          //cerr << n->id() << endl;
-          if ((*vgraph).paths.has_node_mapping(n->id())){
-            //cerr << "In mapping" << endl;
-            return;
-          }
-          else{
-            //pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> (*index)
-            Index ix;
-            ix.open_read_only(index_file);
-            map<string, int64_t> paths = ix.paths_by_id();
-            bool backward = false;
-            string pathname = "x";
-            auto p = paths.at(pathname);
-            //list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
-              //                    list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orien
-            // Alright, here's the meat of it.
-            // Get the previous node in the path and the next node in the path
-            // Then get a relative mapping using these.
-            // Then devise a way to translate this to a vcf record.
-            pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_node_in_named_path;
-            pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_node_in_named_path;
-            int64_t path_pos;
-            bool rel;
-            Mapping m; //mapping = {edits} + position, where position P is
-            //
 
-            prev_node_in_named_path = ix.get_nearest_node_prev_path_member((int64_t) n->id(), backward,
-                                              p, path_pos, rel, 4);
-            next_node_in_named_path = ix.get_nearest_node_next_path_member((int64_t) n->id(), backward,
-                                              p, path_pos,rel, 4);
-            m = ix.path_relative_mapping((int64_t) n->id(), backward, p,
-                                      prev_node_in_named_path.first, prev_node_in_named_path.second.first, prev_node_in_named_path.second.second,
-                                      next_node_in_named_path.first, next_node_in_named_path.second.first, next_node_in_named_path.second.second);
-            cerr << m.edit(0).sequence() << endl;
-          }
-      });
-      // map<string, int64_t> paths = ind.paths_by_id();
-      // map<string, int64_t> ::iterator it;
-      // for (it = paths.begin(); it != paths.end(); it++){
-      //   cerr << it->first << " " << it->second << endl;
-      // }
     }
 
     void Deconstructor::set_xg(string x){
@@ -191,12 +140,31 @@ namespace vg {
         ref_paths = paths_in_ref;
         inter_ref_and_index = intersection_ref_and_index;
 
-
     }
 
-    vector<vcflib::Variant> Deconstructor::get_variants(string region_name = ""){
-      vector<vcflib::Variant> variants;
+    // TODO
+    vector<vcflib::Variant> Deconstructor::get_variants(string region_file){
+      vector<vcflib::Variant> vars;
+      cerr << "Not implemented" << endl;
+      exit(1);
+      return vars;
+    }
 
+    /**
+    * If a region name is given, extract variants for that path in the reference.
+    * Otherwise, try to get variants for all paths. If a pathname is not in the
+    * reference, skip it.
+    * First, locate list<Mapping> for nodes that connect to reference paths but
+    * that lie off of them.
+    * Next, transform this information into a vcf record, append it to a vector,
+    * and return.
+    *
+    */
+    vector<vcflib::Variant> Deconstructor::get_variants(string region_name, int start, int end){
+      vector<vcflib::Variant> variants;
+      //This function must be called, as it takes the intersection of paths in
+      // the reference and index, which is used a few lines later.
+      enumerate_path_names_in_index();
       vector<string> paths_to_project;
       if (region_name != ""){
         paths_to_project = vector<string>();
@@ -212,18 +180,32 @@ namespace vg {
 
       //#pragma omp parallel for
       int i;
+      int j;
       vcflib::Variant v;
       for (i = 0; i < paths_to_project.size(); i++){
-        v = pathname_to_variants(paths_to_project[i]);
-        cerr << "Extracting variant paths for " << paths_to_project[i] << endl;
-
-        //#pragma omp critical
-        variants.push_back(v);
+        // Get a mapping for each node in the graph that lies attached, but not on,
+        // a reference path.
+        string p = paths_to_project.at(i);
+        list<Mapping> m = get_mappings_off_reference(p);
+        list<Mapping>::iterator it;
+        for (it = m.begin(); it != m.begin(); it++){
+          v = mapping_to_variant(*it);
+          variants.push_back(v);
+        }
       }
-
-
       return variants;
 
+    }
+
+    list<Mapping> Deconstructor::get_mappings_off_reference(string pathname){
+      Index vindex;
+      vindex.open_read_only(index_file);
+      map<string, int64_t> path_ids = vindex.paths_by_id();
+      int64_t path_id = path_ids.at(pathname);
+      Path ref = (*vgraph).paths._paths.at(pathname);
+      list<Mapping> m;
+      m = get_mappings_off_reference(ref);
+      return m;
     }
 
     /**
@@ -235,11 +217,10 @@ namespace vg {
      * possible to reconstruct the variant at that position by transforming
      * the edits.
      */
-    vector<Mapping> Deconstructor::relative_mapping(Path& ref, Path& alt){
-        Path ret;
+     list<Mapping> Deconstructor::get_mappings_off_reference(Path& ref){
         Index vindex;
-        std::vector<Mapping> mapping_list = std::vector<Mapping>();
-        (*vgraph).for_each_node([this, mapping_list, ref, alt](Node* n) mutable {
+        std::list<Mapping> mapping_list = std::list<Mapping>();
+        (*vgraph).for_each_node([this, mapping_list, ref](Node* n) mutable {
             cerr << n->id() << endl;
             if ((*vgraph).paths.has_node_mapping(n->id())){
               //cerr << "In mapping" << endl;
@@ -263,7 +244,7 @@ namespace vg {
               //
 
               auto ref_id = paths.at(ref.name());
-              auto alt_id = paths.at(alt.name());
+              //auto alt_id = paths.at(alt.name());
 
               prev_node_in_named_path = ix.get_nearest_node_prev_path_member((int64_t) n->id(), backward,
                                                 ref_id, path_pos, rel, 4);
@@ -279,27 +260,26 @@ namespace vg {
 
   }
 
-    // Path Deconstructor::relative_mapping(Path& p1, string path_name2){
-    //     if ((*vgraph).paths.has_path(path_name2)){
-    //         cerr << "Path: " << path_name2 << " in graph " << endl;
-    //     }
-    //     Index ix;
-    //     ix.open_read_only(index_file);
-    //     map<string, int64_t> paths = ix.paths_by_id();
-    //     bool backward = false;
-    //     string pathname = "x";
-    //     auto p_alt = paths.at(pathname);
+
+
+    /**
+    * Transforms a Mapping (a list of edits on a path) to a vcf entry.
+    * The reference path that the variant originates from can be grabbed
+    * from the Mapping's position.
+    */
+    vcflib::Variant Deconstructor::mapping_to_variant(Mapping m){
+      vcflib::Variant v;
+
+      return v;
+    }
+
+
+
+    // vcflib::Variant Deconstructor::pathname_to_variants(string ref_path){
+    //   Path alt;
     //
-    //     return relative_mapping(p1, p_alt);
+    //   //list<Mapping> mapping_list = relative_mapping()
     // }
-
-    vcflib::Variant Deconstructor::path_to_variants(Path variant, Path ref){
-
-    }
-
-    vcflib::Variant Deconstructor::pathname_to_variants(string variant, Path ref){
-
-    }
 
     void Deconstructor::write_variants(string filename, vector<vcflib::Variant> variants){
         cerr << "writing variants." << endl;

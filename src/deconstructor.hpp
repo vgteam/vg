@@ -1,6 +1,7 @@
 #ifndef DECON_HPP
 #define DECON_HPP
 #include <vector>
+#include <list>
 #include <string>
 #include <iostream>
 #include <unordered_map>
@@ -33,7 +34,7 @@ namespace vg{
              * Project a path onto another path,
              * much like a projection of p2 onto p1 in space.
              */
-             vector<Mapping> relative_mapping(Path& p1, Path& p2);
+             //list<Mapping> relative_mapping(Path& p1, Path& p2);
 
             // bool surject_alignment(Alignment& source,
             //                         set<string> path_names,
@@ -49,20 +50,26 @@ namespace vg{
              */
             // Path relative_mapping(Path& p1, string p2);
             void enumerate_graph_paths();
+
+            vector<vcflib::Variant> get_variants(string region_file);
             /**
             *
             */
-            vector<vcflib::Variant> get_variants(string region_name);
+            vector<vcflib::Variant> get_variants(string region_name, int start, int end);
+
             /**
-             * Build a vcf record from two paths, with the
-             * second path argument taken as the reference.
+             * Build a vcf record from a mapping.
              */
-            vcflib::Variant path_to_variants(Path variant, Path ref);
-            vcflib::Variant pathname_to_variants(string variant, Path ref);
+            vcflib::Variant mapping_to_variant(Mapping m);
+
+            list<Mapping> get_mappings_off_reference(Path& ref);
+            list<Mapping> get_mappings_off_reference(string pathname);
+
             /**
              * Turn a vector of variants into a proper VCF.
              */
             void write_variants(string filename, vector<vcflib::Variant> variants);
+
         private:
             // TODO Should be able to handle XG or VG indices
             string index_file;

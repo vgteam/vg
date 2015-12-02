@@ -990,7 +990,7 @@ int main_msga(int argc, char** argv) {
             // the edit needs to cut nodes at mapping starts and ends
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
-            
+
             // check that all is well
             rebuild(graph);
             bool included = true;
@@ -1562,7 +1562,7 @@ int main_mod(int argc, char** argv) {
         case 'C':
             compact_ranks = true;
             break;
-            
+
         case 'k':
             path_name = optarg;
             break;
@@ -4880,8 +4880,12 @@ int main_deconstruct(int argc, char** argv){
     decon.set_index(index_file);
   }
 
-  decon.enumerate_path_names_in_index();
-  vector<vcflib::Variant> vars = decon.get_variants("");
+  //TODO allow a list of paths to project into as input.
+
+  // TODO allow specifying a certain region for variant extraction.
+  // TODO Super-convenience function - retrieves all variants for a particular
+  // path. TODO it would be great to also allow coordinates.
+  vector<vcflib::Variant> vars = decon.get_variants("", 0, 0);
   decon.write_variants(output_file, vars);
   return 1;
 }
