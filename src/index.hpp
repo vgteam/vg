@@ -310,7 +310,7 @@ public:
     int64_t get_path_id(const string& name);
     void load_paths(VG& graph);
     void store_paths(VG& graph); // of graph
-    void store_path(VG& graph, Path& path); // path of graph
+    void store_path(VG& graph, const Path& path); // path of graph
     map<string, int64_t> paths_by_id(void);
 
     // alignments and mappings
