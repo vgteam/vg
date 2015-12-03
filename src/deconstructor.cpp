@@ -193,7 +193,7 @@ namespace vg {
               //Index ix;
               //ix.open_read_only(index_file);
               map<string, int64_t> paths = ix.paths_by_id();
-              bool backward = true;
+              bool backward = false;
 
               // Alright, here's the meat of it.
               // Get the previous node in the path and the next node in the path
@@ -213,9 +213,13 @@ namespace vg {
                                                 ref_id, path_pos, rel, 4);
               next_node_in_named_path = ix.get_nearest_node_next_path_member((int64_t) n->id(), backward,
                                                 ref_id, path_pos,rel, 4);
+              cerr << "prev node: " << prev_node_in_named_path.second.first << endl;
+              cerr << "current node: " << n->id() << endl;
+              cerr << "next node: " << next_node_in_named_path.second.first << endl;
               m = ix.path_relative_mapping((int64_t) n->id(), backward, ref_id,
                                         prev_node_in_named_path.first, prev_node_in_named_path.second.first, prev_node_in_named_path.second.second,
                                         next_node_in_named_path.first, next_node_in_named_path.second.first, next_node_in_named_path.second.second);
+              cerr << "Mapping node pos: " << m.position().node_id() << " and edit size: " << m.edit().size() << endl;
               mapping_list.push_back(m);
             }
     });
@@ -237,8 +241,8 @@ namespace vg {
       Node* n = (*vgraph).get_node(n_id);
       const string x = mapping_sequence(m, *n);
       //cerr << (*n).sequence();
-      cerr << (int64_t) m.position().node_id() << " " << endl;
-      cerr << m.edit(0).sequence() << " " << m.edit(0).from_length() << " " << m.edit(0).to_length() << endl;
+      //cerr << (int64_t) m.position().node_id() << " " << endl;
+      //cerr << m.edit(0).sequence() << " " << m.edit(0).from_length() << " " << m.edit(0).to_length() << endl;
       //cerr << x << " " << m.position().node_id() << endl;
       //int64_t prenode = (((*vgraph).edges_on_start[ (int64_t) m.position().node_id()])[0]).first;
 

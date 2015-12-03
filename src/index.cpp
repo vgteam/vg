@@ -1193,9 +1193,14 @@ Mapping Index::path_relative_mapping(int64_t node_id, bool backward, int64_t pat
         int32_t from_length = in_path ? to_length : max(next_pos, prev_pos) - min(next_pos, prev_pos);
         if (from_length == to_length) {
             edit->set_from_length(from_length);
+            edit->set_to_length(to_length);
+            // TODO set sequence
+            edit->set_sequence("");
         } else {
             edit->set_from_length(from_length);
             edit->set_to_length(to_length);
+            //TODO set sequence
+            edit->set_sequence("");
         }
     }
     return mapping;
