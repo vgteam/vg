@@ -4335,6 +4335,8 @@ void help_view(char** argv) {
          << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
          << "                         Alignment/Map)" << endl
          << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
+         << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
+        
          << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
          
@@ -4504,8 +4506,9 @@ int main_view(int argc, char** argv) {
         case 't':
             output_type = "turtle";
             break;
-         case 'r':
-            output_type = optarg;
+       
+        case 'r':
+            rdf_base_uri = optarg;
             break;
                 
         case 'a':
