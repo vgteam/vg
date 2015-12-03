@@ -4380,6 +4380,7 @@ int main_view(int argc, char** argv) {
 
     string output_type;
     string input_type;
+    string rdf_base_uri;
     bool input_json = false;
     string alignments;
     string fastq1, fastq2;
@@ -4401,6 +4402,7 @@ int main_view(int argc, char** argv) {
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
                 {"turtle", no_argument, 0, 't'},
+                {"rdf-base-uri", no_argument, 0, 'r'},
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
                 {"json-in",  no_argument, 0, 'J'},
@@ -4425,7 +4427,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMc",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
@@ -4502,6 +4504,9 @@ int main_view(int argc, char** argv) {
         case 't':
             output_type = "turtle";
             break;
+         case 'r':
+            output_type = optarg;
+            break;
                 
         case 'a':
             input_type = "gam";
@@ -4569,6 +4574,9 @@ int main_view(int argc, char** argv) {
     }
     if (output_type.empty()) {
         output_type = "gfa";
+    }
+    if (rdf_base_uri.empty()) {
+        rdf_base_uri = "http://example.org/vg/";
     }
     vector<Alignment> alns;
     if (!alignments.empty()) {
@@ -4785,7 +4793,7 @@ int main_view(int argc, char** argv) {
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
     } else if (output_type == "turtle") {
-        graph->to_turtle(std::cout);
+        graph->to_turtle(std::cout, rdf_base_uri);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
     } else {
