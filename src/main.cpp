@@ -4425,7 +4425,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMc",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMct",
                          long_options, &option_index);
         
         /* Detect the end of the options. */
