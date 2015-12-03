@@ -9,7 +9,7 @@ before_install:
   - sudo apt-get install -qq gcc-4.9 g++-4.9
   - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9
   - gcc --version && g++ --version
-  - sudo apt-get install -qq bc jq samtools
+  - sudo apt-get install -qq bc jq samtools raptor2-utils
   - echo "yes" | sudo add-apt-repository ppa:kalakris/cmake
   - sudo apt-get update -qq
   - sudo apt-get install cmake
