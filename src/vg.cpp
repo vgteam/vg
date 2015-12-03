@@ -4983,6 +4983,71 @@ void VG::to_gfa(ostream& out) {
     }
 }
 
+void VG::to_turtle(ostream& out) {
+    map<int64_t, vector<string> > sorted_output;
+    out << "@base :<http://example.org/vg/>" << "\n";
+    out << "@prefix n:<http://example.org/vg/node/>" << "\n";
+    out << "@prefix p:<http://example.org/vg/path/>" << "\n";
+    out << "@prefix s:<http://example.org/vg/step/>" << "\n";
+    out << "@prefix r:<http://www.w3.org/1999/02/22-rdf-syntax-ns#>" << "\n";
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        stringstream s;
+        s << "n:" << n->id() << " r:value \"" << n->sequence() << "\" . \n" 
+        auto& node_mapping = paths.get_node_mapping(n->id());
+        set<Mapping*> seen;
+        for (auto& p : node_mapping) {
+            for (auto* m : p.second) {
+                if (seen.count(m)) continue;
+                else seen.insert(m);
+                const Mapping& mapping = *m;
+                string cigar;
+                if (mapping.edit_size() > 0) {
+                    vector<pair<int, char> > cigarv;
+                    mapping_cigar(mapping, cigarv);
+                    cigar = cigar_string(cigarv);
+                } else {
+                    // empty mapping edit implies perfect match
+                    stringstream cigarss;
+                    cigarss << n->sequence().size() << "M";
+                    cigar = cigarss.str();
+                }
+//                string orientation = mapping.position().is_reverse() ? "-" : "+";
+//                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
+//                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
+                  s << "s:" << p.first << "#" << mapping.rank() << " <rank> " << mapping.rank() << " ; \n"  ;
+                  string orientation = mapping.position().is_reverse() ? "<Reverse>" : "<Forward>";
+                  s << "\t a " << orientation <<" ; \n";                
+                  s << "\t<node> n:" << n->id() << " ; \n";
+                  s << "\t<path> p:" << p.first << " . \n";
+                
+//                s << "n:" << n->id() << " r:value \"" << n->sequence() << "\" . \n" 
+            }
+        }
+        sorted_output[n->id()].push_back(s.str());
+    }
+    for (int i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        stringstream s;
+        s << "n:" << e->from();
+        if (e->from_start() && e->to_end()) {
+          s << " <linksReverseToReverse> " ; // <--
+        } else if (e->from_start() && !e->to_end()) {
+          s << " <linksReverseToForward> " ; // -+
+        } else if (e->to_end()) {
+          s << " <linksForwardToReverse> " ; //+-
+        } else {
+          s << " <linksForwardToForward> " ; //++
+        }
+        s << "n:" << e->to() << " . ";
+        sorted_output[e->from()].push_back(s.str());
+    }
+    for (auto& chunk : sorted_output) {
+        for (auto& line : chunk.second) {
+            out << line;
+        }
+    }
+}
 void VG::destroy_alignable_graph(void) {
     if (gssw_aligner != NULL) {
         delete gssw_aligner;
