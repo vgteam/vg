@@ -4334,6 +4334,7 @@ void help_view(char** argv) {
          << "                         (this cannot be loaded directly via -J)" << endl
          << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
          << "                         Alignment/Map)" << endl
+         << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
          << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
          
