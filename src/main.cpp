@@ -588,7 +588,7 @@ void help_msga(char** argv) {
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
-         << "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 10)" << endl
+        //<< "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 1)" << endl
          << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
@@ -637,7 +637,7 @@ int main_msga(int argc, char** argv) {
     int subgraph_prune = 0;
     bool normalize = true;
     bool allow_nonpath = false;
-    int iter_max = 10;
+    int iter_max = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -955,9 +955,9 @@ int main_msga(int argc, char** argv) {
             paths.push_back(aln.path());
             paths.back().set_name(name); // cache name to trigger inclusion of path elements in graph by edit
             /*
-              ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
-              stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-              f.close();
+            ofstream f(name + "-pre-edit-" + convert(j) + ".gam");
+            stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+            f.close();
             */
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
@@ -986,8 +986,10 @@ int main_msga(int argc, char** argv) {
             incomplete = !(path_seq == seq);
             if (incomplete) {
                 cerr << "[vg msga] failed to include alignment, retrying " << endl
+                     << "expected " << seq << endl
+                     << "got " << path_seq << endl
                      << pb2json(aln.path()) << endl;
-                graph->serialize_to_file(name + "-post-edit.vg");
+                //graph->serialize_to_file(name + "-post-edit.vg");
             }
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;

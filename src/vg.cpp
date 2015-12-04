@@ -4350,14 +4350,14 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     : e.sequence());
 
                 if (!path.name().empty()) {
-                    Mapping m;
-                    m.mutable_position()->set_node_id(new_node->id());
-                    m.mutable_position()->set_is_reverse(m.position().is_reverse());
-                    Edit* e = m.add_edit();
+                    Mapping nm;
+                    nm.mutable_position()->set_node_id(new_node->id());
+                    nm.mutable_position()->set_is_reverse(m.position().is_reverse());
+                    Edit* e = nm.add_edit();
                     size_t l = new_node->sequence().size();
                     e->set_from_length(l);
                     e->set_to_length(l);
-                    paths.append_mapping(path.name(), m);
+                    paths.append_mapping(path.name(), nm);
                 }
                 
                 if(dangling.node) {
