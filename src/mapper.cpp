@@ -333,6 +333,10 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     //               --------
     //                   --------
     //                     --------
+    // Afterwards, we align each fragment, trim the overlaps implied by the layout
+    // and concatenate the alignments. The result is a split read alignment that
+    // can describe large indels, CNVs, and inversions natively, even though our
+    // local alignment algorithm is only aware of alignment against DAGs.
     for (int i = 0; i < div; ++i) {
         size_t off = i*segment_size;
         auto aln = read;
