@@ -320,26 +320,49 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     //cerr << "Segment size be " << segment_size << endl;
     // and overlap them too
     size_t to_align = div * 2 - 1; // number of alignments we'll do
-    vector<size_t> overlaps; overlaps.resize(to_align);
+    vector<pair<size_t, size_t>> to_strip; to_strip.resize(to_align);
     vector<Alignment> bands; bands.resize(to_align);
-    
+
+    // scan across the read choosing bands
+    // these bands are hard coded to overlap by 50%
+    // the last band is guaranteed to be segment_size long
+    // overlap scheme example
+    // read: ----------------------
+    //       --------
+    //           --------
+    //               --------
+    //                   --------
+    //                     --------
     for (int i = 0; i < div; ++i) {
         size_t off = i*segment_size;
         auto aln = read;
+        size_t addl_seq = 0;
         if (i+1 == div) {
-            // ensure we get all the sequence and the end
-            aln.set_sequence(read.sequence().substr(off));
+            // ensure we have a full-length segment for the last alignment
+            // otherwise we run the risk of trying to align a very tiny band
+            size_t last_off = read.sequence().size() - segment_size;
+            if (off > last_off) {
+                // looks wrawng
+                addl_seq = (off - last_off);
+                aln.set_sequence(read.sequence().substr(last_off));
+                //assert(aln.sequence().size() == segment_size);
+            } else {
+                aln.set_sequence(read.sequence().substr(off));
+            }
         } else {
             aln.set_sequence(read.sequence().substr(off, segment_size));
         }
         size_t idx = 2*i;
-        overlaps[idx] = (i == 0 ? 0 : segment_size/2);
+        to_strip[idx].first = (i == 0 ? 0 : segment_size/4 + addl_seq);
+        to_strip[idx].second = (i+1 == div ? 0 : segment_size/4);
         bands[idx] = aln;
         if (i != div-1) { // if we're not at the last sequence
             aln.set_sequence(read.sequence().substr(off+segment_size/2,
                                                     segment_size));
             idx = 2*i+1;
-            overlaps[idx] = segment_size/2;
+            to_strip[idx].first = segment_size/4;
+            // record second but take account of case where we run off end
+            to_strip[idx].second = segment_size/4 - (segment_size - aln.sequence().size());
             bands[idx] = aln;
         }
     }
@@ -365,8 +388,9 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                         // treat as unmapped
                         aln = bands[i];
                     }
-                    if (i > 0) aln = strip_from_start(aln, overlaps[i]/2);
-                    if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
+                    // strip overlaps
+                    aln = strip_from_start(aln, to_strip[i].first);
+                    aln = strip_from_end(aln, to_strip[i].second);
                 }
             } else {
                 Alignment& aln = alns[i];
@@ -377,8 +401,8 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                     aln = bands[i]; // unmapped
                 }
                 // strip overlaps
-                if (i > 0) aln = strip_from_start(aln, overlaps[i]/2);
-                if (i < bands.size()-1) aln = strip_from_end(aln, overlaps[i+1]/2);
+                aln = strip_from_start(aln, to_strip[i].first);
+                aln = strip_from_end(aln, to_strip[i].second);
             }
         }
     }

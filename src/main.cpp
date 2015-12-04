@@ -934,10 +934,10 @@ int main_msga(int argc, char** argv) {
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
-    for (auto& group : strings) {
+    for (auto& sp : strings) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        auto& name = group.first;
+        auto& name = sp.first;
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
@@ -945,7 +945,7 @@ int main_msga(int argc, char** argv) {
             vector<Alignment> alns;
             int j = 0;
             // TODO we should use just one seq
-            auto& seq = group.second;
+            auto& seq = sp.second;
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                            graph->node_count() << " nodes" << endl;
@@ -984,14 +984,18 @@ int main_msga(int argc, char** argv) {
             // verfy validity of path
             auto path_seq = graph->path_string(graph->paths.path(name));
             incomplete = !(path_seq == seq);
+            if (incomplete) {
+                cerr << "[vg msga] failed to include alignment, retrying " << endl
+                     << pb2json(aln.path()) << endl;
+                graph->serialize_to_file(name + "-post-edit.vg");
+            }
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        if (iter >= iter_max) {
+        if (incomplete && iter >= iter_max) {
             cerr << "[vg msga] Error: failed to include path " << name << endl;
             exit(1);
         }
     }
-    //graph->serialize_to_file("pre-include.vg");
 
     auto include_paths = [&mapper,
                           kmer_size,
@@ -1017,32 +1021,40 @@ int main_msga(int argc, char** argv) {
         }
     };
 
-    //rebuild(graph);
-    //include_paths(graph);
-
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;
-        // use this step to simplify the graph so we can efficiently normalize it
         graph->remove_non_path();
-        //graph->clear_paths();
         graph->normalize();
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
-        //graph->clear_paths();
-        // rebuild
-        //rebuild(graph);
-        // and re-include paths now that we've normalized
-        //include_paths(graph);
     }
 
-    //if (debug) graph->serialize_to_file("msga-pre-label.vg");
-
-    //if (debug) graph->serialize_to_file("msga-post-label.vg");
     // remove nodes in the graph that have no assigned paths
     // this should be pretty minimal now that we've made one iteration
     if (!allow_nonpath) {
         graph->remove_non_path();
+    }
+
+    // finally, validate the included paths
+    set<string> failures;
+    for (auto& sp : strings) {
+        auto& name = sp.first;
+        auto& seq = sp.second;
+        if (seq != graph->path_string(graph->paths.path(name))) {
+            failures.insert(name);
+        }
+    }
+    if (!failures.empty()) {
+        stringstream ss;
+        ss << "vg-msga-failed-include_";
+        for (auto& s : failures) {
+            cerr << "[vg msga] Error: failed to include path " << s << endl;
+            ss << s << "_";
+        }
+        ss << ".vg";
+        graph->serialize_to_file(ss.str());
+        exit(1);
     }
 
     // return the graph
