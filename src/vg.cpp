@@ -4034,8 +4034,8 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
     // TODO: add the new path to the graph, with perfect match mappings to all
     // the new and old stuff it visits.
     
-    // Rebuild path ranks
-    paths.rebuild_mapping_aux();
+    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
+    paths.compact_ranks();
     
 }
 
@@ -4344,6 +4344,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
             //get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
             get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
 
+//#define debug_edit true
 #ifdef debug_edit
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
             cerr << pb2json(e) << endl;
@@ -4369,6 +4370,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     size_t l = new_node->sequence().size();
                     e->set_from_length(l);
                     e->set_to_length(l);
+                    // insert the mapping at the right place
                     paths.append_mapping(path.name(), nm);
                 }
                 
