@@ -183,6 +183,43 @@ void Paths::append_mapping(const string& name, int64_t id, size_t rank, bool is_
     append_mapping(name, m);
 }
 
+void Paths::prepend_mapping(const string& name, const Mapping& m) {
+    // get or create the path with this name
+    list<Mapping>& pt = get_create_path(name);
+    // now if we haven't already supplied a mapping
+    // add it
+    if (!has_mapping(name, m)) {
+        pt.push_front(m);
+        Mapping* mp = &pt.front();
+        // add it to the node mappings
+        auto& ms = get_node_mapping(m.position().node_id());
+        ms[name].insert(mp);
+        // and record its position in this list
+        list<Mapping>::iterator mi = pt.begin();
+        mapping_itr[mp] = mi;
+        mapping_path[mp] = name;
+        mapping_path_order[mp] = m.rank();
+    }
+}
+
+void Paths::prepend_mapping(const string& name, int64_t id, size_t rank, bool is_reverse) {
+    Mapping m;
+    m.mutable_position()->set_node_id(id);
+    m.mutable_position()->set_is_reverse(is_reverse);
+    if (rank) {
+        m.set_rank(rank);
+    } else {
+        m.set_rank(get_path(name).size()+1); // rank is 1-based
+    }
+    prepend_mapping(name, m);
+}
+
+size_t Paths::get_next_rank(const string& name) {
+    auto& p = get_path(name);
+    //cerr << "next rank be " << p.size()+1 << " or " << (size_t) p.rend()->rank()+1 << endl;
+    return max(p.size()+1, (size_t) (p.size() ? p.rend()->rank()+1 : 0));
+}
+
 // these will split a mapping into two
 // NB: each submapping ends up with the same rank as the parent
 // however, they will be ordered correctly in the path
@@ -212,15 +249,25 @@ pair<Mapping*, Mapping*> Paths::replace_mapping(Mapping* m, pair<Mapping, Mappin
     n.first.set_rank(m->rank());
     n.second.set_rank(m->rank());
     // remove the mapping, getting an iterator pointing to the element that was after it
-    auto i = remove_mapping(m);
-    // the insertion will happen in reverse order
-    // because insert puts the position before the iterator it's given
-    // so we first insert the second element
-    auto j = insert_mapping(i, path_name, n.second);
-    // and then the first
-    auto k = insert_mapping(j, path_name, n.first);
-    // and we return them in proper order
-    return make_pair(&*j, &*k);
+    if (!m->position().is_reverse()) {
+        auto i = remove_mapping(m);
+        // the insertion will happen in reverse order
+        // because insert puts the position before the iterator it's given
+        // so we first insert the second element
+        auto j = insert_mapping(i, path_name, n.second);
+        // and then the first
+        auto k = insert_mapping(j, path_name, n.first);
+        // and we return them in proper order
+        return make_pair(&*j, &*k);
+    } else {
+        auto i = remove_mapping(m);
+        // things get flipped around for reversed mappings
+        auto j = insert_mapping(i, path_name, n.first);
+        // and then the first
+        auto k = insert_mapping(j, path_name, n.second);
+        // and we return them in proper order
+        return make_pair(&*k, &*j);
+    }
 }
 
 bool Paths::has_path(const string& name) {

@@ -954,22 +954,24 @@ int main_msga(int argc, char** argv) {
             //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             paths.back().set_name(name); // cache name to trigger inclusion of path elements in graph by edit
-            /*
+
             ofstream f(name + "-pre-edit-" + convert(j) + ".gam");
             stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
             f.close();
-            */
+
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
             ++j;
 
             if (debug) cerr << name << ": editing graph" << endl;
-            //graph->serialize_to_file(name + "-pre-edit.vg");
+            graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
+            graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
             graph->dice_nodes(node_max);
+            graph->serialize_to_file(name + "-post-norm.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
@@ -989,7 +991,7 @@ int main_msga(int argc, char** argv) {
                      << "expected " << seq << endl
                      << "got " << path_seq << endl
                      << pb2json(aln.path()) << endl;
-                //graph->serialize_to_file(name + "-post-edit.vg");
+                graph->serialize_to_file(name + "-post-edit.vg");
             }
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
@@ -1044,9 +1046,15 @@ int main_msga(int argc, char** argv) {
         auto& name = sp.first;
         auto& seq = sp.second;
         if (seq != graph->path_string(graph->paths.path(name))) {
+            /*
+            cerr << "failed inclusion" << endl
+                 << "expected " << graph->path_string(graph->paths.path(name)) << endl
+                 << "got      " << seq << endl;
+            */
             failures.insert(name);
         }
     }
+
     if (!failures.empty()) {
         stringstream ss;
         ss << "vg-msga-failed-include_";

@@ -1027,18 +1027,22 @@ map<string, map<int, Mapping>>
             auto rank = r.first;
             auto& m = r.second;
             auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
+            //cerr << "seeking " << rank+(!m.position().is_reverse()? 1 : -1) << endl;
             assert(f != ranked2.end());
             auto& o = f->second;
             assert(m.position().is_reverse() == o.position().is_reverse());
             // make the new mapping for this pair of nodes
             Mapping n;
             if (!m.position().is_reverse()) {
+                // in the forward orientation, we merge from left to right
+                // and keep the right's rank
                 n = merge_mappings(m, o);
-                // merge right criteria
                 n.set_rank(o.rank());
             } else {
+                // in the reverse orientation, we merge from left to right
+                // but we keep the lower rank
                 n = merge_mappings(o, m);
-                n.set_rank(m.rank());
+                n.set_rank(o.rank());
             }
             new_mappings[name][n.rank()] = n;
             ranked2.erase(f); // remove so we can verify that we have fully matched
@@ -1069,13 +1073,14 @@ map<string, vector<Mapping>>
     // store the first base
     // we will use this to drive the merge
     auto base = paths.get_node_mapping_copies_by_rank(np->id());
-    
+
     while (!ns.empty()) {
         // merge
         auto op = ns.front();
         ns.pop_front();
         // if this is our first batch, just keep them
         auto next = paths.get_node_mapping_copies_by_rank(op->id());
+        // then merge the next in
         base = merge_mapping_groups(base, next);
     }
 
@@ -1117,12 +1122,17 @@ void VG::merge_nodes(const list<Node*>& nodes) {
     }
 
     // change the position of the new mappings to point to the new node
+    // and store them in the path
     for (map<string, vector<Mapping>>::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
         vector<Mapping>& ms = nm->second;
         for (vector<Mapping>::iterator m = ms.begin(); m != ms.end(); ++m) {
             m->mutable_position()->set_node_id(node->id());
             m->mutable_position()->set_offset(0); // uhhh
-            paths.append_mapping(nm->first, *m);
+            if (m->position().is_reverse()) {
+                paths.prepend_mapping(nm->first, *m);
+            } else {
+                paths.append_mapping(nm->first, *m);
+            }
         }
     }
 
@@ -4333,14 +4343,15 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
             pos_t edit_last_position = edit_first_position;
             //get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
             get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
-#ifdef debug
+
+#ifdef debug_edit
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
             cerr << pb2json(e) << endl;
 #endif    
         
             if(edit_is_insertion(e) || edit_is_sub(e)) {
                 // This edit introduces new sequence.
-#ifdef debug
+#ifdef debug_edit
                 cerr << "Handling ins/sub relative to " << node_id << endl;
 #endif
                 // Create the new node, reversing it if we are reversed
@@ -4353,6 +4364,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     Mapping nm;
                     nm.mutable_position()->set_node_id(new_node->id());
                     nm.mutable_position()->set_is_reverse(m.position().is_reverse());
+                    nm.set_rank(m.rank());
                     Edit* e = nm.add_edit();
                     size_t l = new_node->sequence().size();
                     e->set_from_length(l);
@@ -4362,7 +4374,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                 
                 if(dangling.node) {
                     // This actually referrs to a node.
-#ifdef debug
+#ifdef debug_edit
                     cerr << "Connecting " << dangling << " and " << NodeSide(new_node->id(), m.position().is_reverse()) << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
@@ -4394,17 +4406,21 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                 // and use the lengths of each to create new mappings
                 // and append them to the path we are including
                 if (!path.name().empty()) {
-                    for (auto& nm : create_new_mappings(edit_first_position, edit_last_position, m.position().is_reverse())) {
+                    for (auto nm : create_new_mappings(edit_first_position, edit_last_position, m.position().is_reverse())) {
+                        //cerr << "in match, adding " << pb2json(nm) << endl;
+                        // no rank has been established, so get the next available
+                        // otherwise we'll fail to include looping paths
+                        nm.set_rank(m.rank());
                         paths.append_mapping(path.name(), nm);
                     }
                 }
                 
-#ifdef debug
+#ifdef debug_edit
                 cerr << "Handling match relative to " << node_id << endl;
 #endif
                 
                 if(dangling.node) {
-#ifdef debug
+#ifdef debug_edit
                     cerr << "Connecting " << dangling << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
 #endif
                 
@@ -4417,7 +4433,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
             } else {
                 // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
                 // Also, simplify() simplifies them out.
-#ifdef debug
+#ifdef debug_edit
                 cerr << "Skipping other edit relative to " << node_id << endl;
 #endif
             }
