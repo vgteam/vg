@@ -806,19 +806,14 @@ void VG::unchop(void) {
 
 void VG::normalize(void) {
     // combine diced/chopped nodes (subpaths with no branching)
-    cerr << "unchop" << endl;
     unchop();
     // merge redundancy across multiple nodes into single nodes
-    cerr << "simplify sibs" << endl;
     simplify_siblings();
     // compact node ranks
-    cerr << "compact ids" << endl;
     paths.compact_ranks();
     // there may now be some cut nodes that can be simplified
-    cerr << "unchop again" << endl;
     unchop();
     // compact node ranks (again)
-    cerr << "compact ranks again" << endl;
     paths.compact_ranks();
 }
 
