@@ -4036,6 +4036,26 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
     
     // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
     paths.compact_ranks();
+
+    // with the paths sorted, let's double-check that the edges are here
+    paths.for_each([&](const Path& path) {
+            for (size_t i = 1; i < path.mapping_size(); ++i) {
+                auto& m1 = path.mapping(i-1);
+                auto& m2 = path.mapping(i);
+                if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
+                auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
+                // check that we always have an edge between the two nodes in the correct direction
+                if (!has_edge(s1, s2)) {
+                    /*
+                    cerr << "graph path '" << path.name() << "' invalid: edge from "
+                         << s1 << " to " << s2 << " does not exist" << endl;
+                    cerr << "creating edge" << endl;
+                    */
+                    create_edge(s1, s2);
+                }
+            }
+        });
     
 }
 
@@ -4408,7 +4428,9 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                 // and use the lengths of each to create new mappings
                 // and append them to the path we are including
                 if (!path.name().empty()) {
-                    for (auto nm : create_new_mappings(edit_first_position, edit_last_position, m.position().is_reverse())) {
+                    for (auto nm : create_new_mappings(edit_first_position,
+                                                       edit_last_position,
+                                                       m.position().is_reverse())) {
                         //cerr << "in match, adding " << pb2json(nm) << endl;
                         // no rank has been established, so get the next available
                         // otherwise we'll fail to include looping paths
