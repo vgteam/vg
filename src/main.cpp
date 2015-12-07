@@ -4836,8 +4836,9 @@ int main_deconstruct(int argc, char** argv){
   // TODO allow specifying a certain region for variant extraction.
   // TODO Super-convenience function - retrieves all variants for a particular
   // path. TODO it would be great to also allow coordinates.
-  vector<vcflib::Variant> vars = decon.get_variants("", 0, 0);
-  decon.write_variants(output_file, vars);
+  //vector<vcflib::Variant> vars = decon.get_variants("", 0, 0);
+  decon.print_using_edges("x");
+  //decon.write_variants(output_file, vars);
   return 1;
 }
 

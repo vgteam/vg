@@ -36,6 +36,11 @@ namespace vg{
              */
              //list<Mapping> relative_mapping(Path& p1, Path& p2);
 
+             void print_using_edges(string pathname);
+
+            vector<int64_t> get_variant_node_ids(string pathname);
+            //vector<Mapping> get_mappings_for_variant(int64_t variant_node_id);
+
             // bool surject_alignment(Alignment& source,
             //                         set<string> path_names,
             //                         Alignment& surjection,
@@ -52,11 +57,12 @@ namespace vg{
             /**
              * Build a vcf record from a mapping.
              */
-            vcflib::Variant mapping_to_variant(Mapping m);
+            vcflib::Variant mapping_to_simple_variant(Mapping m, int64_t alt_id);
 
             list<Mapping> get_mappings_off_reference(Path& ref);
             list<Mapping> get_mappings_off_reference(string pathname);
 
+            Mapping node_id_to_mapping(int64_t node_id);
             /**
              * Turn a vector of variants into a proper VCF.
              */
