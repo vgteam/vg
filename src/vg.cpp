@@ -806,14 +806,19 @@ void VG::unchop(void) {
 
 void VG::normalize(void) {
     // combine diced/chopped nodes (subpaths with no branching)
+    cerr << "unchop" << endl;
     unchop();
     // merge redundancy across multiple nodes into single nodes
+    cerr << "simplify sibs" << endl;
     simplify_siblings();
     // compact node ranks
+    cerr << "compact ids" << endl;
     paths.compact_ranks();
     // there may now be some cut nodes that can be simplified
+    cerr << "unchop again" << endl;
     unchop();
     // compact node ranks (again)
+    cerr << "compact ranks again" << endl;
     paths.compact_ranks();
 }
 
@@ -937,8 +942,11 @@ bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
 set<list<Node*>> VG::simple_components(int min_size) {
 
     // go around and establish groupings
+    set<Node*> seen;
     set<list<Node*>> components;
-    for_each_node([this, min_size, &components](Node* n) {
+    for_each_node([this, min_size, &components, &seen](Node* n) {
+            if (seen.count(n)) return;
+            seen.insert(n);
             // go left and right through each as far as we have only single edges connecting us
             // to nodes that have only single edges coming in or out
             // and these edges are "normal" in that they go from the tail to the head
@@ -953,6 +961,7 @@ set<list<Node*>> VG::simple_components(int min_size) {
                        && sides.begin()->is_end) {
                     id_t last_id = l->id();
                     l = get_node(sides.begin()->node);
+                    seen.insert(l);
                     // avoid merging if it breaks stored paths
                     if (!nodes_are_perfect_path_neighbors(l->id(), last_id)) break;
                     sides = sides_to(NodeSide(l->id(), false));
@@ -970,6 +979,7 @@ set<list<Node*>> VG::simple_components(int min_size) {
                        && start_degree(get_node(sides.begin()->node)) == 1
                        && !sides.begin()->is_end) {
                     id_t last_id = r->id();
+                    seen.insert(r);
                     r = get_node(sides.begin()->node);
                     // avoid merging if it breaks stored paths
                     if (!nodes_are_perfect_path_neighbors(last_id, r->id())) break;
