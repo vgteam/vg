@@ -55,7 +55,7 @@ do
     then
         vg find -x $xg -r $s:$e -c $context \
             | vg mod -z - \
-            | vg view -dn - \
+            | vg view -dpn - \
             | dot -Tpdf -o $out.tmp.$s
     elif [ "$renderer" == "dotnopath" ];
     then

@@ -727,7 +727,7 @@ public:
     Path create_path(const vector<NodeTraversal>& nodes);
     string path_string(const list<NodeTraversal>& nodes);
     // Assumes the path covers the entirety of any nodes visited. Handles backward nodes.
-    string path_string(Path& path);
+    string path_string(const Path& path);
     void expand_path(const list<NodeTraversal>& path, vector<NodeTraversal>& expanded);
     // Fill in the node_start map with the first index along the path at which each node appears.
     // Caller is responsible for dealing with orientations.

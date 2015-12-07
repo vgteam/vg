@@ -827,13 +827,13 @@ int64_t Index::get_path_id(const string& name) {
 }
 
 void Index::store_paths(VG& graph) {
-    function<void(Path&)> lambda = [this, &graph](Path& path) {
+    function<void(const Path&)> lambda = [this, &graph](const Path& path) {
         store_path(graph, path);
     };
     graph.paths.for_each(lambda);
 }
 
-void Index::store_path(VG& graph, Path& path) {
+void Index::store_path(VG& graph, const Path& path) {
     // get a new path id
     // if there is no name, cry
     if (path.name().empty()) {

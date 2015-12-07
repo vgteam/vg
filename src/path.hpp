@@ -115,14 +115,19 @@ public:
     void load(istream& in);
     void write(ostream& out);
     void to_graph(Graph& g);
+    // get a path
+    Path path(const string& name);
     // add mappings, use rank to sort later
     void append_mapping(const string& name, const Mapping& m);
     void append_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
+    void prepend_mapping(const string& name, const Mapping& m);
+    void prepend_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
+    size_t get_next_rank(const string& name);
     void append(Paths& p);
     void append(Graph& g);
     void extend(Paths& p);
     void extend(const Path& p);
-    void for_each(const function<void(Path&)>& lambda);
+    void for_each(const function<void(const Path&)>& lambda);
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(int64_t inc);
     // Replace the node IDs used as keys with those used as values.

@@ -574,8 +574,6 @@ void help_msga(char** argv) {
          << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
-         << "    -F, --fragment N        break apart input sequences and sample sequences from input graphs of" << endl
-         << "                            no more than this length" << endl
          << "    -k, --map-kmer-size N   use kmers of size N when mapping (default: 16)" << endl
          << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold (default: 5)" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
@@ -590,7 +588,7 @@ void help_msga(char** argv) {
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
-         << "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 10)" << endl
+        //<< "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 1)" << endl
          << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
@@ -632,7 +630,6 @@ int main_msga(int argc, char** argv) {
     size_t doubling_steps = 2;
     bool debug = false;
     bool debug_align = false;
-    size_t fragment_size = 0;
     size_t node_max = 0;
     size_t kmer_min = 5;
     int alignment_threads = 1;
@@ -640,7 +637,7 @@ int main_msga(int argc, char** argv) {
     int subgraph_prune = 0;
     bool normalize = true;
     bool allow_nonpath = false;
-    int iter_max = 10;
+    int iter_max = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -659,7 +656,6 @@ int main_msga(int argc, char** argv) {
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
-                {"fragment", required_argument, 0, 'F'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"max-attempts", required_argument, 0, 'M'},
@@ -676,7 +672,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:c:C:X:m:K:l:P:t:E:Q:NzI:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAS:j:M:c:C:X:m:K:l:P:t:E:Q:NzI:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -755,10 +751,6 @@ int main_msga(int argc, char** argv) {
             debug_align = true;
             break;
 
-        case 'F':
-            fragment_size = atoi(optarg);
-            break;
-
         case 'X':
             doubling_steps = atoi(optarg);
             break;
@@ -828,7 +820,7 @@ int main_msga(int argc, char** argv) {
     // TODO refactor into class
 
     // map from name to sequence, just a transformation of FASTA records
-    map<string, set<string> > strings;
+    map<string, string> strings;
 
     // open the fasta files, read in the sequences
     vector<string> names_in_order;
@@ -840,22 +832,14 @@ int main_msga(int argc, char** argv) {
         for (auto& name : ref.index->sequenceNames) {
             // only use the sequence if we have whitelisted it
             string seq = ref.getSequence(name);
-            if (!fragment_size) {
-                if (seq_names.empty() || seq_names.count(name)) {
-                    strings[name].insert(seq);
-                }
-            } else {
-                for (size_t i = 0; i < seq.size(); i += fragment_size/2) {
-                    strings[name].insert(seq.substr(i, fragment_size));
-                }
-            }
+            strings[name] = seq;
         }
     }
 
     // give a null label to sequences passed on the command line
     // thus far there is no way to specify these (use fasta instead)
     for (auto& s : sequences) {
-        strings[""].insert(s);
+        strings[sha1head(s, 8)] = s;
     }
 
     // align, include, repeat
@@ -866,10 +850,10 @@ int main_msga(int argc, char** argv) {
     if (graph->empty()) {
         // what's the first sequence?
         if (base_seq_name.empty()) {
-            graph->create_node(*strings.begin()->second.begin());
+            graph->create_node(strings.begin()->second);
         } else {
             // we specified one we wanted to use as the first
-            graph->create_node(*strings[base_seq_name].begin());
+            graph->create_node(strings[base_seq_name]);
         }
     }
 
@@ -950,40 +934,46 @@ int main_msga(int argc, char** argv) {
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
-    for (auto& group : strings) {
+    for (auto& sp : strings) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        auto& name = group.first;
+        auto& name = sp.first;
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
             vector<Path> paths;
             vector<Alignment> alns;
             int j = 0;
-            for (auto& seq : group.second) {
-                // align to the graph
-                if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
-                               graph->node_count() << " nodes" << endl;
-                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                alns.push_back(aln);
-                //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
-                paths.push_back(aln.path());
-                /*
-                ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
-                stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-                f.close();
-                */
-                // note that the addition of paths is a second step
-                // now take the alignment and modify the graph with it
-                ++j;
-            }
+            // TODO we should use just one seq
+            auto& seq = sp.second;
+            // align to the graph
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
+                           graph->node_count() << " nodes" << endl;
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            alns.push_back(aln);
+            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+            paths.push_back(aln.path());
+            paths.back().set_name(name); // cache name to trigger inclusion of path elements in graph by edit
+
+            /*
+            ofstream f(name + "-pre-edit-" + convert(j) + ".gam");
+            stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+            f.close();
+            */
+
+            // note that the addition of paths is a second step
+            // now take the alignment and modify the graph with it
+            ++j;
+
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
-            graph->clear_paths();
+            //graph->serialize_to_file(name + "-immed-post-edit.vg");
+            //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
             graph->dice_nodes(node_max);
+            //graph->serialize_to_file(name + "-post-norm.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
@@ -994,54 +984,25 @@ int main_msga(int argc, char** argv) {
             
             // check that all is well
             rebuild(graph);
-            bool included = true;
-            for (auto& seq : group.second) {
-                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                if (debug) cerr << "testing inclusion of " << group.first << endl;
-                // check for connectivity
-                for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
-                    auto& m = aln.path().mapping(i);
-                    if (!mapping_is_simple_match(m)) {
-                        //|| mapping_from_length(m)
-                        //!= graph->get_node(m.position().node_id())->sequence().size()) {
-                        if (debug) cerr << "edit failed! "
-                                        << pb2json(aln.path().mapping(i)) << " is not a simple match!" << endl;
-                        included = false;
-                        /*
-                          graph->serialize_to_file(group.first + "-failed-edit.vg");
-                          ofstream f(group.first + "-failed-edit.gam");
-                          stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-                          f.close();
-                        */
-                    } else if (i > 0) {
-                        auto& p1 = aln.path().mapping(i-1).position();
-                        auto& p2 = aln.path().mapping(i).position();
-                        // are we at the end of the node before we jump?
-                        if (p1.node_id() != p2.node_id()
-                            && !graph->has_edge(NodeSide(p1.node_id(), !p1.is_reverse()),
-                                                NodeSide(p2.node_id(), p2.is_reverse()))) {
-                            if (debug) cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i-1))
-                                            << " to " << pb2json(aln.path().mapping(i)) << endl;
-                            included = false;
-                            /*
-                            graph->serialize_to_file(group.first + "-failed-edit-no-edge.vg");
-                            ofstream f(group.first + "-failed-edit-no-edge.gam");
-                            stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-                            f.close();
-                            */
-                        }
-                    }
-                }
+
+            // verfy validity of path
+            auto path_seq = graph->path_string(graph->paths.path(name));
+            incomplete = !(path_seq == seq);
+            if (incomplete) {
+                cerr << "[vg msga] failed to include alignment, retrying " << endl
+                     << "expected " << seq << endl
+                     << "got " << path_seq << endl
+                     << pb2json(aln.path()) << endl
+                     << pb2json(graph->paths.path(name)) << endl;
+                graph->serialize_to_file(name + "-post-edit.vg");
             }
-            incomplete = !included;
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        if (iter >= iter_max) {
+        if (incomplete && iter >= iter_max) {
             cerr << "[vg msga] Error: failed to include path " << name << endl;
             exit(1);
         }
     }
-    //graph->serialize_to_file("pre-include.vg");
 
     auto include_paths = [&mapper,
                           kmer_size,
@@ -1054,46 +1015,59 @@ int main_msga(int argc, char** argv) {
         for (auto& group : strings) {
             auto& name = group.first;
             if (debug) cerr << name << ": tracing path through graph" << endl;
-            for (auto& seq : group.second) {
-                if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
-                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                //if (debug) cerr << "alignment score: " << aln.score() << endl;
-                aln.mutable_path()->set_name(name);
-                //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
-                // todo simplify in the mapper itself when merging the banded bits
-                if (debug) cerr << name << ": labeling" << endl;
-                graph->include(aln.path());
-                // now repeat back the path
-            }
+            auto& seq = group.second;
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            //if (debug) cerr << "alignment score: " << aln.score() << endl;
+            aln.mutable_path()->set_name(name);
+            //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
+            // todo simplify in the mapper itself when merging the banded bits
+            if (debug) cerr << name << ": labeling" << endl;
+            graph->include(aln.path());
+            // now repeat back the path
         }
     };
 
-    rebuild(graph);
-    include_paths(graph);
-
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;
-        // use this step to simplify the graph so we can efficiently normalize it
         graph->remove_non_path();
-        graph->clear_paths();
         graph->normalize();
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
-        graph->clear_paths();
-        // rebuild
-        rebuild(graph);
-        // and re-include paths now that we've normalized
-        include_paths(graph);
     }
 
-    //if (debug) graph->serialize_to_file("msga-pre-label.vg");
-
-    //if (debug) graph->serialize_to_file("msga-post-label.vg");
     // remove nodes in the graph that have no assigned paths
     // this should be pretty minimal now that we've made one iteration
     if (!allow_nonpath) {
         graph->remove_non_path();
+    }
+
+    // finally, validate the included paths
+    set<string> failures;
+    for (auto& sp : strings) {
+        auto& name = sp.first;
+        auto& seq = sp.second;
+        if (seq != graph->path_string(graph->paths.path(name))) {
+            /*
+            cerr << "failed inclusion" << endl
+                 << "expected " << graph->path_string(graph->paths.path(name)) << endl
+                 << "got      " << seq << endl;
+            */
+            failures.insert(name);
+        }
+    }
+
+    if (!failures.empty()) {
+        stringstream ss;
+        ss << "vg-msga-failed-include_";
+        for (auto& s : failures) {
+            cerr << "[vg msga] Error: failed to include path " << s << endl;
+            ss << s << "_";
+        }
+        ss << ".vg";
+        graph->serialize_to_file(ss.str());
+        exit(1);
     }
 
     // return the graph
