@@ -968,7 +968,7 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
-            graph->serialize_to_file(name + "-immed-post-edit.vg");
+            //graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
