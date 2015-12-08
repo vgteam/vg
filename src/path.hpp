@@ -120,6 +120,9 @@ public:
     // add mappings, use rank to sort later
     void append_mapping(const string& name, const Mapping& m);
     void append_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
+    void prepend_mapping(const string& name, const Mapping& m);
+    void prepend_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
+    size_t get_next_rank(const string& name);
     void append(Paths& p);
     void append(Graph& g);
     void extend(Paths& p);

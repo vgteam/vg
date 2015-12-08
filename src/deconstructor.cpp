@@ -101,13 +101,14 @@ namespace vg {
   // TODO
   /**
   *
-  */
+  *
   vector<vcflib::Variant> Deconstructor::get_variants(string region_file){
     vector<vcflib::Variant> vars;
     cerr << "Not implemented" << endl;
     exit(1);
     return vars;
   }
+  */
 
   /**
   * If a region name is given, extract variants for that path in the reference.
@@ -118,7 +119,7 @@ namespace vg {
   * Next, transform this information into a vcf record, append it to a vector,
   * and return.
   *
-  */
+  *
   vector<vcflib::Variant> Deconstructor::get_variants(string region_name, int start, int end){
     vector<vcflib::Variant> variants;
     //This function must be called, as it takes the intersection of paths in
@@ -167,37 +168,7 @@ namespace vg {
     return variants;
 
   }
-
-  vector<int64_t> Deconstructor::get_variant_node_ids(string pathname){
-    Path path = (*vgraph).paths.path(pathname);
-    vector<int64_t> ret;
-
-    Index ix;
-    ix.open_read_only(index_file);
-
-    int i;
-    list<Mapping> m_list = (*vgraph).paths._paths[pathname];
-    list<Mapping>::iterator it;
-    for (it = m_list.begin(); it != m_list.end(); it++){
-      //get the node id of the mapping we've retrieved.
-      int64_t n_id = (*it).position().node_id();
-      bool orientation = false;
-      // get the node's neighbors and check if they are path members
-      vector<pair<int64_t, bool>> destinations;
-      ix.get_nodes_next(n_id, orientation, destinations);
-      int j;
-      for (j = 0; j < destinations.size(); j++){
-        int64_t neighbor_id = destinations[j].first;
-        if (! (*vgraph).paths.has_node_mapping(neighbor_id)){
-          ret.push_back(neighbor_id);
-        }
-        else{
-          continue;
-        }
-      }
-    }
-    return ret;
-  }
+  */
 
   void Deconstructor::print_using_edges(string pathname){
     Path path = (*vgraph).paths.path(pathname);
@@ -311,102 +282,6 @@ namespace vg {
     }
   }
 
-  // stack<int64_t> Deconstructor::find_next_path_branch(int64_t c_id, Index ix, string pathname, int steps=4){
-  //   int64_t path_id = ix.paths_by_id().at(pathname);
-  //   if(backward) {
-  //     // "next" = right = start
-  //     ix.get_edges_on_end(c_id, edges_ahead);
-  //   } else {
-  //     // "next" = right = end
-  //     ix.get_edges_on_start(c_id, edges_ahead);
-  //   }
-  //
-  // }
-
-
-
-  Mapping Deconstructor::node_id_to_mapping(int64_t alt_id){
-    Mapping ret;
-    return ret;
-
-  }
-
-  list<Mapping> Deconstructor::get_mappings_off_reference(string pathname){
-    Index vindex;
-    //vindex.open_read_only(index_file);
-    //map<string, int64_t> path_ids = vindex.paths_by_id();
-    //int64_t path_id = path_ids.at(pathname);
-    Path ref = (*vgraph).paths.path(pathname);
-    //vindex.close();
-    list<Mapping> m = get_mappings_off_reference(ref);
-    return m;
-  }
-
-
-
-  /**
-  * Returns a path, which is a list of mappings.
-  * A mapping is a list of edits that transform a position
-  * within a path to another path at that same position.
-  *
-  * So, for each position in the returns list of mappings, it's
-  * possible to reconstruct the variant at that position by transforming
-  * the edits.
-  */
-  list<Mapping> Deconstructor::get_mappings_off_reference(Path& ref){
-    Index ix;
-    ix.open_read_only(index_file);
-    std::list<Mapping> mapping_list;
-    (*vgraph).for_each_node([this, &mapping_list, ref, &ix](Node* n) mutable {
-      //cerr << n->id() << endl;
-      if ((*vgraph).paths.has_node_mapping(n->id())){
-        //cerr << "In mapping" << endl;
-      }
-      else{
-        //pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> (*index)
-        //Index ix;
-        //ix.open_read_only(index_file);
-        map<string, int64_t> paths = ix.paths_by_id();
-        bool backward = false;
-
-        // Alright, here's the meat of it.
-        // Get the previous node in the path and the next node in the path
-        // Then get a relative mapping using these.
-        // Then devise a way to translate this to a vcf record.
-        pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_node_in_named_path;
-        pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_node_in_named_path;
-        int64_t path_pos;
-        bool rel;
-        Mapping m; //mapping = {edits} + position, where position P is
-        //
-
-        auto ref_id = paths.at(ref.name());
-        //auto alt_id = paths.at(alt.name());
-
-        prev_node_in_named_path = ix.get_nearest_node_prev_path_member((int64_t) n->id(), backward,
-        ref_id, path_pos, rel, 4);
-        next_node_in_named_path = ix.get_nearest_node_next_path_member((int64_t) n->id(), backward,
-        ref_id, path_pos,rel, 4);
-        //cerr << "prev node: " << prev_node_in_named_path.second.first << endl;
-        //cerr << "current node: " << n->id() << " and its sequence: " << n->sequence() << endl;
-        //cerr << "next node: " << next_node_in_named_path.second.first << endl;
-        m = ix.path_relative_mapping((int64_t) n->id(), backward, ref_id,
-        prev_node_in_named_path.first, prev_node_in_named_path.second.first, prev_node_in_named_path.second.second,
-        next_node_in_named_path.first, next_node_in_named_path.second.first, next_node_in_named_path.second.second);
-        //cerr << "Mapping node pos: " << m.position().node_id() << " and edit size: " << m.edit().size() << " " << m.edit(0).sequence() << endl;
-        //cerr << "Edit lens; from: " << m.edit(0).from_length() << " and to: " << m.edit(0).to_length() << endl;
-        mapping_list.push_back(m);
-      }
-    });
-
-    int i;
-    for (int i = 0; i < mapping_list.size(); i++){
-      cerr << "Maps on maps." << endl;
-    }
-
-    return mapping_list;
-
-  }
 
 
 

@@ -589,7 +589,7 @@ void help_msga(char** argv) {
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
-         << "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 10)" << endl
+        //<< "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 1)" << endl
          << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
@@ -638,7 +638,7 @@ int main_msga(int argc, char** argv) {
     int subgraph_prune = 0;
     bool normalize = true;
     bool allow_nonpath = false;
-    int iter_max = 10;
+    int iter_max = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -935,10 +935,10 @@ int main_msga(int argc, char** argv) {
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
-    for (auto& group : strings) {
+    for (auto& sp : strings) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        auto& name = group.first;
+        auto& name = sp.first;
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
@@ -946,7 +946,7 @@ int main_msga(int argc, char** argv) {
             vector<Alignment> alns;
             int j = 0;
             // TODO we should use just one seq
-            auto& seq = group.second;
+            auto& seq = sp.second;
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                            graph->node_count() << " nodes" << endl;
@@ -955,11 +955,13 @@ int main_msga(int argc, char** argv) {
             //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
             paths.back().set_name(name); // cache name to trigger inclusion of path elements in graph by edit
+
             /*
-              ofstream f(group.first + "-pre-edit-" + convert(j) + ".gam");
-              stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
-              f.close();
+            ofstream f(name + "-pre-edit-" + convert(j) + ".gam");
+            stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+            f.close();
             */
+
             // note that the addition of paths is a second step
             // now take the alignment and modify the graph with it
             ++j;
@@ -967,10 +969,12 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
+            //graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
             graph->dice_nodes(node_max);
+            //graph->serialize_to_file(name + "-post-norm.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
@@ -985,14 +989,21 @@ int main_msga(int argc, char** argv) {
             // verfy validity of path
             auto path_seq = graph->path_string(graph->paths.path(name));
             incomplete = !(path_seq == seq);
+            if (incomplete) {
+                cerr << "[vg msga] failed to include alignment, retrying " << endl
+                     << "expected " << seq << endl
+                     << "got " << path_seq << endl
+                     << pb2json(aln.path()) << endl
+                     << pb2json(graph->paths.path(name)) << endl;
+                graph->serialize_to_file(name + "-post-edit.vg");
+            }
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        if (iter >= iter_max) {
+        if (incomplete && iter >= iter_max) {
             cerr << "[vg msga] Error: failed to include path " << name << endl;
             exit(1);
         }
     }
-    //graph->serialize_to_file("pre-include.vg");
 
     auto include_paths = [&mapper,
                           kmer_size,
@@ -1018,32 +1029,46 @@ int main_msga(int argc, char** argv) {
         }
     };
 
-    //rebuild(graph);
-    //include_paths(graph);
-
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;
-        // use this step to simplify the graph so we can efficiently normalize it
         graph->remove_non_path();
-        //graph->clear_paths();
         graph->normalize();
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
-        //graph->clear_paths();
-        // rebuild
-        //rebuild(graph);
-        // and re-include paths now that we've normalized
-        //include_paths(graph);
     }
 
-    //if (debug) graph->serialize_to_file("msga-pre-label.vg");
-
-    //if (debug) graph->serialize_to_file("msga-post-label.vg");
     // remove nodes in the graph that have no assigned paths
     // this should be pretty minimal now that we've made one iteration
     if (!allow_nonpath) {
         graph->remove_non_path();
+    }
+
+    // finally, validate the included paths
+    set<string> failures;
+    for (auto& sp : strings) {
+        auto& name = sp.first;
+        auto& seq = sp.second;
+        if (seq != graph->path_string(graph->paths.path(name))) {
+            /*
+            cerr << "failed inclusion" << endl
+                 << "expected " << graph->path_string(graph->paths.path(name)) << endl
+                 << "got      " << seq << endl;
+            */
+            failures.insert(name);
+        }
+    }
+
+    if (!failures.empty()) {
+        stringstream ss;
+        ss << "vg-msga-failed-include_";
+        for (auto& s : failures) {
+            cerr << "[vg msga] Error: failed to include path " << s << endl;
+            ss << s << "_";
+        }
+        ss << ".vg";
+        graph->serialize_to_file(ss.str());
+        exit(1);
     }
 
     // return the graph
@@ -4284,6 +4309,9 @@ void help_view(char** argv) {
          << "                         (this cannot be loaded directly via -J)" << endl
          << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
          << "                         Alignment/Map)" << endl
+         << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
+         << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
+        
          << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
@@ -4329,6 +4357,7 @@ int main_view(int argc, char** argv) {
 
     string output_type;
     string input_type;
+    string rdf_base_uri;
     bool input_json = false;
     string alignments;
     string fastq1, fastq2;
@@ -4349,6 +4378,8 @@ int main_view(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
+                {"turtle", no_argument, 0, 't'},
+                {"rdf-base-uri", no_argument, 0, 'r'},
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
                 {"json-in",  no_argument, 0, 'J'},
@@ -4373,7 +4404,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMc",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4446,7 +4477,15 @@ int main_view(int argc, char** argv) {
         case 'G':
             output_type = "gam";
             break;
-
+         
+        case 't':
+            output_type = "turtle";
+            break;
+       
+        case 'r':
+            rdf_base_uri = optarg;
+            break;
+                
         case 'a':
             input_type = "gam";
             if(output_type.empty()) {
@@ -4513,6 +4552,9 @@ int main_view(int argc, char** argv) {
     }
     if (output_type.empty()) {
         output_type = "gfa";
+    }
+    if (rdf_base_uri.empty()) {
+        rdf_base_uri = "http://example.org/vg/";
     }
     vector<Alignment> alns;
     if (!alignments.empty()) {
@@ -4728,6 +4770,8 @@ int main_view(int argc, char** argv) {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
+    } else if (output_type == "turtle") {
+        graph->to_turtle(std::cout, rdf_base_uri);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
     } else {

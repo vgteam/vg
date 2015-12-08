@@ -937,8 +937,11 @@ bool VG::nodes_are_perfect_path_neighbors(id_t id1, id_t id2) {
 set<list<Node*>> VG::simple_components(int min_size) {
 
     // go around and establish groupings
+    set<Node*> seen;
     set<list<Node*>> components;
-    for_each_node([this, min_size, &components](Node* n) {
+    for_each_node([this, min_size, &components, &seen](Node* n) {
+            if (seen.count(n)) return;
+            seen.insert(n);
             // go left and right through each as far as we have only single edges connecting us
             // to nodes that have only single edges coming in or out
             // and these edges are "normal" in that they go from the tail to the head
@@ -953,6 +956,7 @@ set<list<Node*>> VG::simple_components(int min_size) {
                        && sides.begin()->is_end) {
                     id_t last_id = l->id();
                     l = get_node(sides.begin()->node);
+                    seen.insert(l);
                     // avoid merging if it breaks stored paths
                     if (!nodes_are_perfect_path_neighbors(l->id(), last_id)) break;
                     sides = sides_to(NodeSide(l->id(), false));
@@ -970,6 +974,7 @@ set<list<Node*>> VG::simple_components(int min_size) {
                        && start_degree(get_node(sides.begin()->node)) == 1
                        && !sides.begin()->is_end) {
                     id_t last_id = r->id();
+                    seen.insert(r);
                     r = get_node(sides.begin()->node);
                     // avoid merging if it breaks stored paths
                     if (!nodes_are_perfect_path_neighbors(last_id, r->id())) break;
@@ -1027,18 +1032,22 @@ map<string, map<int, Mapping>>
             auto rank = r.first;
             auto& m = r.second;
             auto f = ranked2.find(rank+(!m.position().is_reverse()? 1 : -1));
+            //cerr << "seeking " << rank+(!m.position().is_reverse()? 1 : -1) << endl;
             assert(f != ranked2.end());
             auto& o = f->second;
             assert(m.position().is_reverse() == o.position().is_reverse());
             // make the new mapping for this pair of nodes
             Mapping n;
             if (!m.position().is_reverse()) {
+                // in the forward orientation, we merge from left to right
+                // and keep the right's rank
                 n = merge_mappings(m, o);
-                // merge right criteria
                 n.set_rank(o.rank());
             } else {
+                // in the reverse orientation, we merge from left to right
+                // but we keep the lower rank
                 n = merge_mappings(o, m);
-                n.set_rank(m.rank());
+                n.set_rank(o.rank());
             }
             new_mappings[name][n.rank()] = n;
             ranked2.erase(f); // remove so we can verify that we have fully matched
@@ -1069,13 +1078,14 @@ map<string, vector<Mapping>>
     // store the first base
     // we will use this to drive the merge
     auto base = paths.get_node_mapping_copies_by_rank(np->id());
-    
+
     while (!ns.empty()) {
         // merge
         auto op = ns.front();
         ns.pop_front();
         // if this is our first batch, just keep them
         auto next = paths.get_node_mapping_copies_by_rank(op->id());
+        // then merge the next in
         base = merge_mapping_groups(base, next);
     }
 
@@ -1117,12 +1127,17 @@ void VG::merge_nodes(const list<Node*>& nodes) {
     }
 
     // change the position of the new mappings to point to the new node
+    // and store them in the path
     for (map<string, vector<Mapping>>::iterator nm = new_mappings.begin(); nm != new_mappings.end(); ++nm) {
         vector<Mapping>& ms = nm->second;
         for (vector<Mapping>::iterator m = ms.begin(); m != ms.end(); ++m) {
             m->mutable_position()->set_node_id(node->id());
             m->mutable_position()->set_offset(0); // uhhh
-            paths.append_mapping(nm->first, *m);
+            if (m->position().is_reverse()) {
+                paths.prepend_mapping(nm->first, *m);
+            } else {
+                paths.append_mapping(nm->first, *m);
+            }
         }
     }
 
@@ -4024,8 +4039,28 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
     // TODO: add the new path to the graph, with perfect match mappings to all
     // the new and old stuff it visits.
     
-    // Rebuild path ranks
-    paths.rebuild_mapping_aux();
+    // Rebuild path ranks, aux mapping, etc. by compacting the path ranks
+    paths.compact_ranks();
+
+    // with the paths sorted, let's double-check that the edges are here
+    paths.for_each([&](const Path& path) {
+            for (size_t i = 1; i < path.mapping_size(); ++i) {
+                auto& m1 = path.mapping(i-1);
+                auto& m2 = path.mapping(i);
+                if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+                auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
+                auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
+                // check that we always have an edge between the two nodes in the correct direction
+                if (!has_edge(s1, s2)) {
+                    /*
+                    cerr << "graph path '" << path.name() << "' invalid: edge from "
+                         << s1 << " to " << s2 << " does not exist" << endl;
+                    cerr << "creating edge" << endl;
+                    */
+                    create_edge(s1, s2);
+                }
+            }
+        });
     
 }
 
@@ -4333,14 +4368,16 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
             pos_t edit_last_position = edit_first_position;
             //get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
             get_offset(edit_last_position) += (e.from_length()?e.from_length()-1:0);
-#ifdef debug
+
+//#define debug_edit true
+#ifdef debug_edit
             cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
             cerr << pb2json(e) << endl;
 #endif    
         
             if(edit_is_insertion(e) || edit_is_sub(e)) {
                 // This edit introduces new sequence.
-#ifdef debug
+#ifdef debug_edit
                 cerr << "Handling ins/sub relative to " << node_id << endl;
 #endif
                 // Create the new node, reversing it if we are reversed
@@ -4350,19 +4387,21 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     : e.sequence());
 
                 if (!path.name().empty()) {
-                    Mapping m;
-                    m.mutable_position()->set_node_id(new_node->id());
-                    m.mutable_position()->set_is_reverse(m.position().is_reverse());
-                    Edit* e = m.add_edit();
+                    Mapping nm;
+                    nm.mutable_position()->set_node_id(new_node->id());
+                    nm.mutable_position()->set_is_reverse(m.position().is_reverse());
+                    nm.set_rank(m.rank());
+                    Edit* e = nm.add_edit();
                     size_t l = new_node->sequence().size();
                     e->set_from_length(l);
                     e->set_to_length(l);
-                    paths.append_mapping(path.name(), m);
+                    // insert the mapping at the right place
+                    paths.append_mapping(path.name(), nm);
                 }
                 
                 if(dangling.node) {
                     // This actually referrs to a node.
-#ifdef debug
+#ifdef debug_edit
                     cerr << "Connecting " << dangling << " and " << NodeSide(new_node->id(), m.position().is_reverse()) << endl;
 #endif
                     // Add an edge from the dangling NodeSide to the start of this new node
@@ -4394,17 +4433,23 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                 // and use the lengths of each to create new mappings
                 // and append them to the path we are including
                 if (!path.name().empty()) {
-                    for (auto& nm : create_new_mappings(edit_first_position, edit_last_position, m.position().is_reverse())) {
+                    for (auto nm : create_new_mappings(edit_first_position,
+                                                       edit_last_position,
+                                                       m.position().is_reverse())) {
+                        //cerr << "in match, adding " << pb2json(nm) << endl;
+                        // no rank has been established, so get the next available
+                        // otherwise we'll fail to include looping paths
+                        nm.set_rank(m.rank());
                         paths.append_mapping(path.name(), nm);
                     }
                 }
                 
-#ifdef debug
+#ifdef debug_edit
                 cerr << "Handling match relative to " << node_id << endl;
 #endif
                 
                 if(dangling.node) {
-#ifdef debug
+#ifdef debug_edit
                     cerr << "Connecting " << dangling << " and " << NodeSide(left_node->id(), m.position().is_reverse()) << endl;
 #endif
                 
@@ -4417,7 +4462,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
             } else {
                 // We don't need to deal with deletions since we'll deal with the actual match/insert edits on either side
                 // Also, simplify() simplifies them out.
-#ifdef debug
+#ifdef debug_edit
                 cerr << "Skipping other edit relative to " << node_id << endl;
 #endif
             }
@@ -5033,6 +5078,60 @@ void VG::to_gfa(ostream& out) {
     }
 }
 
+void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
+    map<int64_t, vector<string> > sorted_output;
+    out << "@base <http://example.org/vg/> . " << endl;
+    out << "@prefix n:<" <<  rdf_base_uri <<"/node/> . " << endl;
+    out << "@prefix p:<" <<  rdf_base_uri <<"/path/> . " << endl;
+    out << "@prefix s:<" <<  rdf_base_uri <<"/step/> . " << endl;
+    out << "@prefix r:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    for (int i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        stringstream s;
+        s << "n:" << n->id() << " r:value \"" << n->sequence() << "\" . " << endl ;
+        auto& node_mapping = paths.get_node_mapping(n->id());
+        set<Mapping*> seen;
+        for (auto& p : node_mapping) {
+            for (auto* m : p.second) {
+                if (seen.count(m)) continue;
+                else seen.insert(m);
+                const Mapping& mapping = *m;
+//                string orientation = mapping.position().is_reverse() ? "-" : "+";
+//                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
+//                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
+                  s << "s:" << p.first << "#" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
+                  string orientation = mapping.position().is_reverse() ? "<Reverse>" : "<Forward>";
+                  s << "\t a " << orientation <<" ; " << endl;                
+                  s << "\t<node> n:" << n->id() << " ; " << endl;
+                  s << "\t<path> p:" << p.first << " . " << endl;
+                
+//                s << "n:" << n->id() << " r:value \"" << n->sequence() << "\" . \n" 
+            }
+        }
+        sorted_output[n->id()].push_back(s.str());
+    }
+    for (int i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        stringstream s;
+        s << "n:" << e->from();
+        if (e->from_start() && e->to_end()) {
+          s << " <linksReverseToReverse> " ; // <--
+        } else if (e->from_start() && !e->to_end()) {
+          s << " <linksReverseToForward> " ; // -+
+        } else if (e->to_end()) {
+          s << " <linksForwardToReverse> " ; //+-
+        } else {
+          s << " <linksForwardToForward> " ; //++
+        }
+        s << "n:" << e->to() << " . " << endl;
+        sorted_output[e->from()].push_back(s.str());
+    }
+    for (auto& chunk : sorted_output) {
+        for (auto& line : chunk.second) {
+            out << line;
+        }
+    }
+}
 void VG::destroy_alignable_graph(void) {
     if (gssw_aligner != NULL) {
         delete gssw_aligner;
