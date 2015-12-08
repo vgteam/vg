@@ -36,8 +36,9 @@ namespace vg{
              * much like a projection of p2 onto p1 in space.
              */
              //list<Mapping> relative_mapping(Path& p1, Path& p2);
-
-             void print_using_edges(string pathname);
+             
+            void get_variants_using_edges_from_file(string pathfile);
+            void get_variants_using_edges(string pathname);
            /**
              * Build a vcf record from a mapping.
              */
