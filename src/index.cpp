@@ -1175,9 +1175,11 @@ Mapping Index::path_relative_mapping(int64_t node_id, bool backward, int64_t pat
                                      list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation) {
     Mapping mapping;
     // TODO: shouldn't this point to the node(s?) we're changing, not the one we changed to?
+    // TODO: yes it should, but it does not...
     mapping.mutable_position()->set_node_id(node_id);
     mapping.mutable_position()->set_is_reverse(backward);
     // what about offset?
+    // TODO I assume this condition works for now, but I do so with a whole salt lick of salt.
     if (get_node_path_relative_position(node_id, backward, path_id,
                                         path_prev, prev_pos, prev_orientation, path_next, next_pos, next_orientation)) {
         // We found a way to the path.
@@ -1191,16 +1193,39 @@ Mapping Index::path_relative_mapping(int64_t node_id, bool backward, int64_t pat
         // the distance between where we meet the path on our right and our left
         // otherwise. We need to account for being backwards relative to path coordinates though.
         int32_t from_length = in_path ? to_length : max(next_pos, prev_pos) - min(next_pos, prev_pos);
+        //Case to_len == from_len: we're working with a SNP or an exact match. Kinda the base case.
         if (from_length == to_length) {
             edit->set_from_length(from_length);
             edit->set_to_length(to_length);
             // TODO set sequence
-            edit->set_sequence("");
+            // TODO path_prev is a lost of <node_id, bool> pairs
+            // so accessing the front of it is like accessing the nearest node on the ref path
+            int64_t p_id = (path_prev.front()).first;
+            Node p; get_node(p_id, p);
+            Node n; get_node((path_next.front()).first, n);
+            string seq = "";
+            // Now that we have the alternate node and its neighbors on the path, get
+            // nodes in the path that are across from the alt node
+            // (i.e. between the next and prev nodes on path).
+            vector<pair<int64_t, bool>> level_nodes_prev;
+            get_nodes_next(p.id(), (path_prev.front()).second, level_nodes_prev);
+            Mapping m;
+            int i;
+            for (i = 0; i < level_nodes_prev.size(); i++){
+                pair<int64_t, bool> n_id_and_backward = level_nodes_prev[i];
+                //TODO I'm suspicious the position argument here is incorrect. We should be using the position
+                //of the level node.
+                if (get_node_path(n_id_and_backward.first, path_id, prev_pos, n_id_and_backward.second, m) <= 0){
+                    Node n_id_node; get_node(n_id_and_backward.first, n_id_node);
+                    seq = n_id_node.sequence();
+                }
+            }
+            edit->set_sequence(seq);
         } else {
             edit->set_from_length(from_length);
             edit->set_to_length(to_length);
             //TODO set sequence
-            edit->set_sequence("");
+            edit->set_sequence(node.sequence());
         }
     }
     return mapping;

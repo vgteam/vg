@@ -6,6 +6,7 @@
 #include <iostream>
 #include <unordered_map>
 #include <queue>
+#include <stack>
 #include "Variant.h"
 #include "index.hpp"
 #include "path.hpp"

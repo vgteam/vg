@@ -204,6 +204,7 @@ namespace vg {
     Index ix;
     ix.open_read_only(index_file);
     bool backward = false;
+    int64_t path_id = ix.paths_by_id().at(pathname);
 
     //int i;
     int j;
@@ -219,56 +220,132 @@ namespace vg {
         // "next" = right = end
         ix.get_edges_on_end(current_node_id, edges_ahead);
       }
-      cerr << current_node_id << endl;
+      //cerr << current_node_id << endl;
 
-      // if (edges_ahead.size() == 1){
-      //   continue;
-      // }
-      // else{
-      for(j = 0; j < edges_ahead.size(); j++){
-        Edge e = edges_ahead[j];
-        cerr << e.to() << endl;
-        // Get the node that the edge connects to.
-        int64_t next_node_id = (e.to() == current_node_id ? e.from() : e.to());
-        //Check if edge is a cycle to the node itself.
-        if (e.to() == current_node_id && e.from() == current_node_id){
-          cerr << "Self cycle found." << endl;
-        }
-        // Catch SNPs and insertions by locating nodes that do not fall on the mapping
-        else if (! (*vgraph).paths.has_node_mapping(next_node_id)){
-          cerr << "Snps on snps." << endl;
-          //Get path members on either side
-          pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_node_in_named_path;
-          pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_node_in_named_path;
-          int64_t path_pos;
-          bool rel;
-          Mapping m;
-
-          int64_t path_id = ix.paths_by_id().at(pathname);
-          prev_node_in_named_path = ix.get_nearest_node_prev_path_member(next_node_id, backward,
-          path_id, path_pos, rel, 4);
-          next_node_in_named_path = ix.get_nearest_node_next_path_member(next_node_id, backward,
-          path_id, path_pos,rel, 4);
-          // Get a relative mapping.
-          m = ix.path_relative_mapping(next_node_id, backward, path_id,
-          prev_node_in_named_path.first, prev_node_in_named_path.second.first, prev_node_in_named_path.second.second,
-          next_node_in_named_path.first, next_node_in_named_path.second.first, next_node_in_named_path.second.second);
-          cerr << m.position().node_id() << " " << m.edit(0).sequence() << endl;
-        }
-        // Catch deletions - nodes that have reference neighbors
-        // that are out of order with the mapping.
-        else if ((*vgraph).paths.has_node_mapping(next_node_id)){
-            cerr << "Reference or deletion!" << endl;
-            // Check if node is next in mapping as well.
-            // TODO How can we do so
-        }
-        else{
-          continue;
-        }
+      // base case: no variation, reference has simply been split up.
+      // We ignore self-cycling as a possibility.
+      if (edges_ahead.size() == 1){
+         continue;
       }
-    //}
+      // Otherwise, we have found an n-furcation of the graph,
+      // indicating that variation has been inserted.
+      else{
+        // We need to cross the variation simultaneously along all paths
+        // to reach the next common node.
+        //
+        // TODO this should really use recursive backtracking but I'm not feeling that quite yet.
+
+        //update edges.
+        vector<pair<list<pair<int64_t, bool>>, pair<int64_t, bool>>> paths_to_common_node_on_path (edges_ahead.size());
+        stack<int64_t> farthest;
+        // int max_iters = 8;
+        // int steps = 0;
+        //while (steps < max_iters){
+          // for (int edge_ind = 0; edge_ind < edges_ahead.size(); edge_ind++){
+          //   Edge e = edges_ahead[edge_ind];
+          //   int64_t next_n_id = e.to();
+          //   Node n;
+          //   vector<Edge> n_edges_ahead;
+          //   ix.get_node(next_n_id, n);
+          //
+          //   int64_t path_pos; Mapping m; bool n_backward;
+          //   if (ix.get_node_path(next_n_id, path_id, path_pos, n_backward, m) <= 0){
+          //     if(!n_backward) {
+          //       // "next" = right = start
+          //       ix.get_edges_on_start(next_n_id, n_edges_ahead);
+          //     } else {
+          //       // "next" = right = end
+          //       ix.get_edges_on_end(next_n_id, n_edges_ahead);
+          //     }
+          //   }
+          //   if (n_edges_ahead.size() > 1){
+          //     farthest.push(next_n_id);
+          //     cerr << next_n_id << endl;
+          //   }
+          // }
+          //steps++;
+        //}
+        list<Mapping> alts;
+        Mapping ref;
+        for (int edge_ind = 0; edge_ind < edges_ahead.size(); edge_ind++){
+            // base case: from_node for each path is the same
+            // and to_node for each path is the same.
+            Edge e = edges_ahead[edge_ind];
+            int64_t next_n_id = e.to();
+            Node n;
+            ix.get_node(next_n_id, n);
+
+            // Node is not part of graph yet, so it must represent a variant
+            if (!(*vgraph).paths.has_node_mapping(next_n_id)){
+              pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_on_path;
+              pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_on_path;
+              int64_t path_pos;
+              bool rel;
+              next_on_path = ix.get_nearest_node_next_path_member(next_n_id, backward,
+                              path_id, path_pos, rel, 4);
+              prev_on_path = ix.get_nearest_node_prev_path_member(next_n_id, backward,
+                              path_id, path_pos, rel, 4);
+              Mapping m = ix.path_relative_mapping(next_n_id, backward, path_id,
+              prev_on_path.first, prev_on_path.second.first, prev_on_path.second.second,
+              next_on_path.first, next_on_path.second.first, next_on_path.second.second);
+              //cerr << "Alt node: " << m.position().node_id() << " " << m.edit(0).sequence() << endl;
+              alts.push_back(m);
+            }
+            else {
+              vector<Edge> n_e_in;
+              vector<Edge> n_e_out;
+              ix.get_edges_on_start(next_n_id, n_e_in);
+              ix.get_edges_on_end(next_n_id, n_e_out);
+              //if ((n_e_in.size() == 1 && n_e_out.size() == 1)){
+                // Reference equivalent of a snp
+                pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_on_path;
+                pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_on_path;
+                int64_t path_pos;
+                bool rel;
+                next_on_path = ix.get_nearest_node_next_path_member(next_n_id, backward,
+                                path_id, path_pos, rel, 4);
+                prev_on_path = ix.get_nearest_node_prev_path_member(next_n_id, backward,
+                                path_id, path_pos, rel, 4);
+                Mapping m = ix.path_relative_mapping(next_n_id, backward, path_id,
+                prev_on_path.first, prev_on_path.second.first, prev_on_path.second.second,
+                next_on_path.first, next_on_path.second.first, next_on_path.second.second);
+                ref = m;
+                //TODO currently captures the correct reference node but yields an incorrect
+                //sequence.
+                Node ref_seq_n; ix.get_node((int64_t) m.position().node_id(), ref_seq_n);
+                //cerr << "Ref node: " << m.position().node_id() << " " << ref_seq_n.sequence() << endl;
+              // }
+              // else if (n_e_in.size() > 1 && n_e_out.size() == 1){
+              //   // This represents a deletion TODO I think?
+              //   cerr << "Deletion case " << next_n_id << endl;
+              // }
+              // else{
+              //   cerr << "Highly complex case. " << next_n_id << endl;
+              // }
+            }
+        }
+        if (alts.size() > 0){
+          Node ii;
+          ix.get_node((int64_t) ref.position().node_id(), ii);
+          cerr << "CHROM: " << pathname << " Pos: " << ref.position().node_id() <<
+          " REF: " << ii.sequence() << " Alt: " << alts.front().edit(0).sequence() << endl;
+        }
+
+    }
     }
   }
+
+  // stack<int64_t> Deconstructor::find_next_path_branch(int64_t c_id, Index ix, string pathname, int steps=4){
+  //   int64_t path_id = ix.paths_by_id().at(pathname);
+  //   if(backward) {
+  //     // "next" = right = start
+  //     ix.get_edges_on_end(c_id, edges_ahead);
+  //   } else {
+  //     // "next" = right = end
+  //     ix.get_edges_on_start(c_id, edges_ahead);
+  //   }
+  //
+  // }
 
 
 
