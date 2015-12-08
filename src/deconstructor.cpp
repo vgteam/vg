@@ -230,41 +230,16 @@ namespace vg {
       // Otherwise, we have found an n-furcation of the graph,
       // indicating that variation has been inserted.
       else{
-        // We need to cross the variation simultaneously along all paths
-        // to reach the next common node.
-        //
-        // TODO this should really use recursive backtracking but I'm not feeling that quite yet.
+        // TODO this should really use recursive backtracking or something clever
 
         //update edges.
-        vector<pair<list<pair<int64_t, bool>>, pair<int64_t, bool>>> paths_to_common_node_on_path (edges_ahead.size());
-        stack<int64_t> farthest;
-        // int max_iters = 8;
-        // int steps = 0;
-        //while (steps < max_iters){
-          // for (int edge_ind = 0; edge_ind < edges_ahead.size(); edge_ind++){
-          //   Edge e = edges_ahead[edge_ind];
-          //   int64_t next_n_id = e.to();
-          //   Node n;
-          //   vector<Edge> n_edges_ahead;
-          //   ix.get_node(next_n_id, n);
-          //
-          //   int64_t path_pos; Mapping m; bool n_backward;
-          //   if (ix.get_node_path(next_n_id, path_id, path_pos, n_backward, m) <= 0){
-          //     if(!n_backward) {
-          //       // "next" = right = start
-          //       ix.get_edges_on_start(next_n_id, n_edges_ahead);
-          //     } else {
-          //       // "next" = right = end
-          //       ix.get_edges_on_end(next_n_id, n_edges_ahead);
-          //     }
-          //   }
-          //   if (n_edges_ahead.size() > 1){
-          //     farthest.push(next_n_id);
-          //     cerr << next_n_id << endl;
-          //   }
-          // }
-          //steps++;
-        //}
+        //vector<pair<list<pair<int64_t, bool>>, pair<int64_t, bool>>> paths_to_common_node_on_path (edges_ahead.size());
+        //stack<int64_t> farthest;
+        
+        /**
+         * This should catch multi-allelic snps as-is,
+         * but it seems to be a bit off for INDELS.
+         */
         list<Mapping> alts;
         Mapping ref;
         for (int edge_ind = 0; edge_ind < edges_ahead.size(); edge_ind++){
@@ -275,7 +250,7 @@ namespace vg {
             Node n;
             ix.get_node(next_n_id, n);
 
-            // Node is not part of graph yet, so it must represent a variant
+            // Case: SNPs and Deletions.
             if (!(*vgraph).paths.has_node_mapping(next_n_id)){
               pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_on_path;
               pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_on_path;
@@ -291,12 +266,13 @@ namespace vg {
               //cerr << "Alt node: " << m.position().node_id() << " " << m.edit(0).sequence() << endl;
               alts.push_back(m);
             }
+            // Case: reference half of snps, deletions.
             else {
               vector<Edge> n_e_in;
               vector<Edge> n_e_out;
               ix.get_edges_on_start(next_n_id, n_e_in);
               ix.get_edges_on_end(next_n_id, n_e_out);
-              //if ((n_e_in.size() == 1 && n_e_out.size() == 1)){
+              //if ((n_e_in.size() == 1)){
                 // Reference equivalent of a snp
                 pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_on_path;
                 pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_on_path;
@@ -310,12 +286,11 @@ namespace vg {
                 prev_on_path.first, prev_on_path.second.first, prev_on_path.second.second,
                 next_on_path.first, next_on_path.second.first, next_on_path.second.second);
                 ref = m;
-                //TODO currently captures the correct reference node but yields an incorrect
-                //sequence.
+                //TODO Not happy with indels
                 Node ref_seq_n; ix.get_node((int64_t) m.position().node_id(), ref_seq_n);
                 //cerr << "Ref node: " << m.position().node_id() << " " << ref_seq_n.sequence() << endl;
-              // }
-              // else if (n_e_in.size() > 1 && n_e_out.size() == 1){
+              //}
+              // else if (n_e_in.size() > 1){
               //   // This represents a deletion TODO I think?
               //   cerr << "Deletion case " << next_n_id << endl;
               // }
@@ -327,6 +302,7 @@ namespace vg {
         if (alts.size() > 0){
           Node ii;
           ix.get_node((int64_t) ref.position().node_id(), ii);
+          //TODO Need to cut sequence using node offset.
           cerr << "CHROM: " << pathname << " Pos: " << ref.position().node_id() <<
           " REF: " << ii.sequence() << " Alt: " << alts.front().edit(0).sequence() << endl;
         }
