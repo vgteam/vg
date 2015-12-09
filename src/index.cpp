@@ -1794,9 +1794,22 @@ void Index::get_path(VG& graph, const string& name, int64_t start, int64_t end) 
     // get these and drop them into the graph
 }
 
+
 void node_path_position(int64_t id, string& path_name, int64_t& position, bool backward, int64_t& offset) {
     // if we are in the path, trivial
     // if not, run a BFS back to the nearest node in the path
+    // if (get_node_path_relative_position()){
+    //   Node n; // find the path start.
+    //   // iterate over nodes in path until you arrive at this one,
+    //   // and sum all sequence lengths from said traversal.
+    // }
+    // else{
+    //   // Not on the path, so get previous member.
+    //   get_nearest_node_prev_path_member();
+    //   // iterate over nodes in path until you arrive at this one,
+    //   // and sum all sequence lengths from said traversal.
+    //   // add this node's sequence as well IE add offset
+    // }
 
     throw runtime_error("node_path_position not yet implemented");
 

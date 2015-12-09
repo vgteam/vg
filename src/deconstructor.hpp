@@ -28,15 +28,17 @@ namespace vg{
             void set_xg(string xg);
             void enumerate_path_names_in_index();
             void set_reference(string ref_file);
-            void set_index(string index_file);
+            void set_index(string ref_index);
             void set_graph(VG* v);
+            void b_call(string pathname);
+            void indel_caller(string pathname);
 
             /**
              * Project a path onto another path,
              * much like a projection of p2 onto p1 in space.
              */
              //list<Mapping> relative_mapping(Path& p1, Path& p2);
-             
+
             void get_variants_using_edges_from_file(string pathfile);
             void get_variants_using_edges(string pathname);
            /**
@@ -53,12 +55,19 @@ namespace vg{
 
         private:
             // TODO Should be able to handle XG or VG indices
-            string index_file;
+            string ref_index;
             string reference;
             string xg_file;
             VG* vgraph;
             vector<string> ref_paths;
             map<string, int64_t> inter_ref_and_index;
+            int in_degree(Node n);
+            bool on_ref(Node n, int64_t path);
+            Node get_anchor_node(Node current, int64_t path);
+            int inDegree(Node n);
+            bool beenVisited(Node n, map<int64_t, int> node_to_level);
+            Node get_alleles(Node n, int64_t path_id, map<int64_t, int>& node_to_level);
+            Mapping map_between_nodes(Node a, Node b);
 
     };
 }

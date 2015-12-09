@@ -4311,7 +4311,7 @@ void help_view(char** argv) {
          << "                         Alignment/Map)" << endl
          << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
          << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
-        
+
          << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
@@ -4477,15 +4477,15 @@ int main_view(int argc, char** argv) {
         case 'G':
             output_type = "gam";
             break;
-         
+
         case 't':
             output_type = "turtle";
             break;
-       
+
         case 'r':
             rdf_base_uri = optarg;
             break;
-                
+
         case 'a':
             input_type = "gam";
             if(output_type.empty()) {
@@ -4881,7 +4881,9 @@ int main_deconstruct(int argc, char** argv){
   // TODO Super-convenience function - retrieves all variants for a particular
   // path. TODO it would be great to also allow coordinates.
   //vector<vcflib::Variant> vars = decon.get_variants("", 0, 0);
-  decon.get_variants_using_edges("");
+  //decon.get_variants_using_edges("");
+  decon.indel_caller("");
+  //decon.b_call("");
   //decon.write_variants(output_file, vars);
   return 1;
 }

@@ -3,7 +3,7 @@
 using namespace std;
 
 namespace vg {
-    Deconstructor::Deconstructor() : index_file(""), reference(""), xg_file(""), vgraph(nullptr) {
+    Deconstructor::Deconstructor() : ref_index(""), reference(""), xg_file(""), vgraph(nullptr) {
     }
 
     Deconstructor::~Deconstructor(){
@@ -17,7 +17,7 @@ namespace vg {
      */
     void Deconstructor::clear(){
         vgraph = nullptr;
-        index_file = "";
+        ref_index = "";
         reference = "";
         xg_file = "";
 
@@ -46,7 +46,7 @@ namespace vg {
      */
     void Deconstructor::set_index(string i){
         cerr << "Setting index to " << i << "." << endl;
-        index_file = i;
+        ref_index = i;
     }
 
 
@@ -78,9 +78,9 @@ namespace vg {
         if (this->xg_file != ""){
 
         }
-        else if (this->index_file != ""){
+        else if (this->ref_index != ""){
             Index ind;
-            ind.open_read_only(index_file);
+            ind.open_read_only(ref_index);
             map<string, int64_t> path_ids = ind.paths_by_id();
             map<string, int64_t> ::iterator it;
             for (it = path_ids.begin(); it != path_ids.end(); it++){
@@ -98,80 +98,213 @@ namespace vg {
 
     }
 
-    // TODO
-    /**
-     *
-     *
-     vector<vcflib::Variant> Deconstructor::get_variants(string region_file){
-     vector<vcflib::Variant> vars;
-     cerr << "Not implemented" << endl;
-     exit(1);
-     return vars;
-     }
-     */
 
-    /**
-     * If a region name is given, extract variants for that path in the reference.
-     * Otherwise, try to get variants for all paths. If a pathname is not in the
-     * reference, skip it.
-     * First, locate list<Mapping> for nodes that connect to reference paths but
-     * that lie off of them.
-     * Next, transform this information into a vcf record, append it to a vector,
-     * and return.
-     *
-     *
-     vector<vcflib::Variant> Deconstructor::get_variants(string region_name, int start, int end){
-     vector<vcflib::Variant> variants;
-//This function must be called, as it takes the intersection of paths in
-// the reference and index, which is used a few lines later.
-enumerate_path_names_in_index();
-// Just argument handling here - either take the single region given
-// or the entire intersection of the reference and index
-vector<string> paths_to_project;
-if (region_name != ""){
-    //TODO check if region in reference paths TODO
-    paths_to_project.push_back(region_name);
-    }
-    else{
-    map<string, int64_t>::iterator it;
-    for (it = inter_ref_and_index.begin(); it != inter_ref_and_index.end(); it++){
-    paths_to_project.push_back(it->first);
-    }
-    }
-
-    int i;
-    int j;
-    vcflib::Variant v;
-    for (i = 0; i < paths_to_project.size(); i++){
-// Get a mapping for each node in the graph that lies attached, but not on,
-// a reference path.
-string p = paths_to_project.at(i);
-//list<Mapping> m = get_mappings_off_reference(p);
-vector<int64_t> variant_node_ids = get_variant_node_ids(p);
-int j;
-//#pragma omp parallel for
-for (j = 0; j < variant_node_ids.size(); j++){
-cerr << variant_node_ids[j] << endl;
-//Mapping m = node_id_to_mapping(variant_node_ids[j]);
-//v = mapping_to_simple_variant(m, variant_node_ids[j]);
-//#pragma omp critical
-//variants.push_back(v);
-}
-cerr << "Retrieved mappings of non-reference nodes. Converting to VCF..." << endl;
-//cerr << "There are " << m_list.size() << " mappings to convert." << endl;
-//list<Mapping>::iterator it;
-//for (it = m_list.begin(); it != m_list.end(); it++){
-//v = mapping_to_variant(*it);
-//  variants.push_back(v);
-//}
-}
-return variants;
-
-}
-*/
 
 void get_variants_using_edges_from_file(string pathfile){
 
+}
+
+void Deconstructor::b_call(string pathname){
+  vector<string> paths_to_project;
+  if (pathname != ""){
+      //TODO check if region in reference paths TODO
+      paths_to_project.push_back(pathname);
+  }
+  else{
+      map<string, int64_t>::iterator it;
+      for (it = inter_ref_and_index.begin(); it != inter_ref_and_index.end(); it++){
+          paths_to_project.push_back(it->first);
+      }}
+      for (auto pathname : paths_to_project){
+          Path path = (*vgraph).paths.path(pathname);
+          Index ix;
+          ix.open_read_only(ref_index);
+          bool backward = false;
+          int64_t path_id = ix.paths_by_id().at(pathname);
+
+          //int i;
+          int j;
+          list<Mapping> m_list = (*vgraph).paths._paths[pathname];
+          list<Mapping>::iterator it;
+          for(it = m_list.begin(); it != m_list.end(); it++){
+              int64_t current_node_id = (*it).position().node_id();
+              vector<Edge> edges_ahead;
+              if(backward) {
+                  // "next" = right = start
+                  ix.get_edges_on_start(current_node_id, edges_ahead);
+              } else {
+                  // "next" = right = end
+                  ix.get_edges_on_end(current_node_id, edges_ahead);
+              }
+
+              // base case: no variation, reference has simply been split up.
+              // We ignore self-cycling as a possibility.
+              if (edges_ahead.size() <= 1){
+                  continue;
+              }
+              // Otherwise, we have found an n-furcation of the graph,
+              // indicating that variation has been inserted.
+              else{
+                Node current;
+                ix.get_node(current_node_id, current);
+                //cerr << "busted here " << endl;
+                Node n = get_anchor_node(current, path_id);
+                cerr << "Anchor: " << current_node_id << " Bow: " << n.id() << endl;
+                  /**
+                   * This should catch multi-allelic snps as-is,
+                   * but it seems to be a bit off for INDELS.
+                   */
+
+                  // if (alts.size() > 0){
+                  //     Node ii;
+                  //     ix.get_node((int64_t) ref.position().node_id(), ii);
+                  //     //TODO Need to cut sequence using node offset.
+                  //     cerr << "CHROM: " << pathname << " Pos: " << ref.position().node_id() <<
+                  //         " REF: " << ii.sequence() << " Alt: " << alts.front().edit(0).sequence() << ", " << alts.front().position().offset() <<
+                  //         ", from_len: " << alts.front().edit(0).from_length() << ", to_len: " << alts.front().edit(0).to_length() << endl;
+                  // }
+
+              }
+          }
+      }
+
+
+}
+
+int Deconstructor::inDegree(Node n){
+    return (*vgraph).edges_on_start[n.id()].size();
+    // Index ix;
+    // ix.open_read_only( ref_index);
+    // vector<Edge> edges_ahead;
+    // ix.get_edges_on_start(n.id(), edges_ahead);
+    // return edges_ahead.size();
+}
+
+bool Deconstructor::on_ref(Node n, int64_t path){
+    return (*vgraph).paths.has_node_mapping(n.id());
+    // Index ix;
+    // ix.open_read_only(ref_index);
+    // Mapping m;
+    // int64_t pp;
+    // bool b;
+    // return (ix.get_node_path(n.id(), path, pp, b, m) > 0);
+}
+
+bool Deconstructor::beenVisited(Node n, map<int64_t, int> node_to_level){
+  return (node_to_level.find(n.id()) != node_to_level.end());
+}
+
+
+/**
+* Uses a BFS to find "Anchor" nodes, nodes on the reference which
+* bring branches (variation) back to the reference path.
+*
+*/
+Node Deconstructor::get_alleles(Node n, int64_t path_id, map<int64_t, int>& node_to_level){
+    Node current;
+    queue<Node> nq;
+    nq.push(n);
+    int level = 0;
+    //cerr << "here " << endl;
+
+    while (!nq.empty()){
+        current = nq.front(); nq.pop();
+        vector<pair<int64_t, bool>> edges;
+        edges = (*vgraph).edges_on_end[(int64_t) current.id()];
+        for (int i = 0; i < edges.size(); i++){
+            Node n;
+            n = *((*vgraph).get_node(edges[i].first));
+            if ((inDegree(n) >= 2) && on_ref(n, path_id) && beenVisited(n, node_to_level)){
+                //cerr << "Found anchor " << n.id() << endl;
+                return n;
+            }
+            if (!beenVisited(n, node_to_level)){
+                node_to_level[n.id()] = level;
+                nq.push(n);
+            }
+
+            if (level > 4){
+              break;
+            }
+            //cerr << n.id() <<  "level" << level << endl;
+        }
+        level += 1;
+    }
+}
+
+Node Deconstructor::get_anchor_node(Node current, int64_t path){
+    /** Start at the node which begins the xfurcation
+      * Traverse along all branches
+      *
+      */
+      map<int64_t, int> node_to_level;
+      Node n = get_alleles(current, path, node_to_level);
+      return n;
+}
+
+/**
+* Assumes a is before b in the path.
+* Takes two nodes and returns a Mapping for the
+* mutation that occured between them.
+*/
+Mapping map_between_nodes(Node a, Node b){
+  Mapping m; // Pos Edit(s) Rank
+  Position p; // NodeID OffSet IsReverse
+  Edit e; // ToLen FromLen Seq
+  // BFS between the nodes.
+  // Keep track of the sequences along the edges.
+  // two nodes at the same level, immediately before the anchor: SNP
+  // One node, ref: Deletion
+  // One node, alt: Insertion
+
+}
+
+void Deconstructor::indel_caller(string pathname){
+  enumerate_path_names_in_index();
+  //Just argument handling here - either take the single region given
+  // or the entire intersection of the reference and index
+  vector<string> paths_to_project;
+  if (pathname != ""){
+    //TODO check if region in reference paths TODO
+    paths_to_project.push_back(pathname);
+  }
+  else{
+    map<string, int64_t>::iterator it;
+    for (it = inter_ref_and_index.begin(); it != inter_ref_and_index.end(); it++){
+      paths_to_project.push_back(it->first);
+    }
+  }
+  for (auto pathname : paths_to_project){
+    Path path = (*vgraph).paths.path(pathname);
+    bool backward = false;
+    list<Mapping> m_list = (*vgraph).paths._paths[pathname];
+    list<Mapping>::iterator it;
+    for(it = m_list.begin(); it != m_list.end(); it++){
+        int64_t current_node_id = (*it).position().node_id();
+        vector<pair<int64_t, bool>> edges_ahead;
+        if(backward) {
+            // "next" = right = start
+            edges_ahead = (*vgraph).edges_on_start[current_node_id];
+        } else {
+            // "next" = right = end
+            edges_ahead = (*vgraph).edges_on_end[current_node_id];
+        }
+
+        // base case: no variation, reference has simply been split up.
+        // We ignore self-cycling as a possibility.
+        if (edges_ahead.size() < 2){
+            continue;
+        }
+        else{
+          //cerr << "nfurc" << endl;
+          Node n = (*(*vgraph).get_node(current_node_id));
+          //cerr << "Retrieved node: " << n.id() << endl;
+          Node anchor = get_anchor_node(n, 100L);
+          cerr << "Base: " << n.id() << " Anchor: " << anchor.id() << endl;
+        }
+      }
+
+  }
 }
 
 void Deconstructor::get_variants_using_edges(string pathname){
@@ -179,6 +312,7 @@ void Deconstructor::get_variants_using_edges(string pathname){
     //Just argument handling here - either take the single region given
     // or the entire intersection of the reference and index
     vector<string> paths_to_project;
+    Index ix;
     if (pathname != ""){
         //TODO check if region in reference paths TODO
         paths_to_project.push_back(pathname);
@@ -187,11 +321,11 @@ void Deconstructor::get_variants_using_edges(string pathname){
         map<string, int64_t>::iterator it;
         for (it = inter_ref_and_index.begin(); it != inter_ref_and_index.end(); it++){
             paths_to_project.push_back(it->first);
-        }}
+        }
+      }
         for (auto pathname : paths_to_project){
             Path path = (*vgraph).paths.path(pathname);
-            Index ix;
-            ix.open_read_only(index_file);
+            ix.open_read_only(ref_index);
             bool backward = false;
             int64_t path_id = ix.paths_by_id().at(pathname);
 
@@ -234,7 +368,7 @@ void Deconstructor::get_variants_using_edges(string pathname){
                         Node n;
                         ix.get_node(next_n_id, n);
 
-                        // Case: SNPs and Deletions.
+                        // Case: SNPs and Insertions.
                         if (!(*vgraph).paths.has_node_mapping(next_n_id)){
                             pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_on_path;
                             pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_on_path;
@@ -250,7 +384,7 @@ void Deconstructor::get_variants_using_edges(string pathname){
                             //cerr << "Alt node: " << m.position().node_id() << " " << m.edit(0).sequence() << endl;
                             alts.push_back(m);
                         }
-                        // Case: reference half of snps, deletions.
+                        // Case: reference sequence for SNPs, deletions and insertions.
                         else {
                             vector<Edge> n_e_in;
                             vector<Edge> n_e_out;
@@ -287,7 +421,14 @@ void Deconstructor::get_variants_using_edges(string pathname){
                         Node ii;
                         ix.get_node((int64_t) ref.position().node_id(), ii);
                         //TODO Need to cut sequence using node offset.
-                        cerr << "CHROM: " << pathname << " Pos: " << ref.position().node_id() <<
+                        // Pos: get_node_path_relative_position(int64_t node_id, bool backward, int64_t path_id,
+                        // list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
+                        // list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation)
+                        list<pair<int64_t, bool>> pp; int64_t ppos; bool p_or;
+                        list<pair<int64_t, bool>> nn; int64_t npos; bool n_or;
+                        // ref.position().node_id()
+                        string pos = "POS NOT IMPLEMENTED";
+                        cerr << "CHROM: " << pathname << " Pos: " <<  pos <<
                             " REF: " << ii.sequence() << " Alt: " << alts.front().edit(0).sequence() << ", " << alts.front().position().offset() <<
                             ", from_len: " << alts.front().edit(0).from_length() << ", to_len: " << alts.front().edit(0).to_length() << endl;
                     }
