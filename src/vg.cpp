@@ -1599,7 +1599,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
-                std::string name = var.sequenceName + "_" + std::to_string(var.position) + "_" + var.ref.size() + "_" + allele.alt;
+                std::string name = var.sequenceName + "_" + std::to_string(var.position) + "_" + std::to_string(var.ref.size()) + "_" + allele.alt;
                 altp[allele.position].insert(allele);
                 alleleNames[allele].insert(name);
                 if (i % 10000 == 0) {
@@ -1849,7 +1849,7 @@ void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
             if (alt_node != NULL) {
                 auto nameIter = alleleNames.find(allele);
                 if (nameIter != alleleNames.end()) {
-                    for (auto& name : nameIter.second) {
+                    for (auto& name : nameIter->second) {
                         paths.append_mapping(name, alt_node->id());
                     }
                 }
