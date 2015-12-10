@@ -176,6 +176,12 @@ $(OBJ_DIR)/position.o: $(SRC_DIR)/position.cpp $(SRC_DIR)/position.hpp $(CPP_DIR
 	if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
 	touch .pre-build
 
+# for rebuilding just vg
+clean-vg:
+	$(RM) -r $(BIN_DIR)/vg
+	$(RM) -r $(OBJ_DIR)/*
+	$(RM) -r $(CPP_DIR)/*
+
 clean:
 	$(RM) -r $(BIN_DIR)
 	$(RM) -r $(LIB_DIR)
