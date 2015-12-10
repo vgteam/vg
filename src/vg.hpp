@@ -265,9 +265,11 @@ public:
        bool showprog = false);
     void from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,
-                      string& chrom);
+                      string& chrom,
+                      const map< vcflib::VariantAllele, set< std::string > >& alleleNames);
     void vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, set<vcflib::VariantAllele> >& altp,
+                                map< vcflib::VariantAllele, set< std::string > >& alleleNames,
                                 int start_pos,
                                 int stop_pos,
                                 int max_node_size = 0,
