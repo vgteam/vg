@@ -3996,6 +3996,7 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
     remove_null_nodes_forwarding_edges();
 }
 
+// The correct way to edit the graph
 void VG::edit_both_directions(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<int64_t, set<pos_t>> breakpoints;
@@ -4061,7 +4062,9 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
                 }
             }
         });
-    
+
+    // execute a semi partial order sort on the nodes
+    sort();
 }
 
 map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints) {
