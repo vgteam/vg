@@ -67,7 +67,8 @@ namespace vg{
             int inDegree(Node n);
             bool beenVisited(Node n, map<int64_t, int> node_to_level);
             Node get_alleles(Node n, int64_t path_id, map<int64_t, int>& node_to_level);
-            Mapping map_between_nodes(Node a, Node b);
+            pair<Node, Mapping> map_between_nodes(Node a, Node b);
+            bool on_ref(int64_t node_id, int64_t path);
 
     };
 }

@@ -190,6 +190,16 @@ bool Deconstructor::on_ref(Node n, int64_t path){
     // return (ix.get_node_path(n.id(), path, pp, b, m) > 0);
 }
 
+bool Deconstructor::on_ref(int64_t node_id, int64_t path){
+    return (*vgraph).paths.has_node_mapping(node_id);
+    // Index ix;
+    // ix.open_read_only(ref_index);
+    // Mapping m;
+    // int64_t pp;
+    // bool b;
+    // return (ix.get_node_path(n.id(), path, pp, b, m) > 0);
+}
+
 bool Deconstructor::beenVisited(Node n, map<int64_t, int> node_to_level){
   return (node_to_level.find(n.id()) != node_to_level.end());
 }
@@ -242,20 +252,170 @@ Node Deconstructor::get_anchor_node(Node current, int64_t path){
       return n;
 }
 
+// TODO map<int64_t, int64_t> cache_path_positions(){
+//
+// }
+
+//TODO
+pair< string, map<string, list<int64_t>>> parse_node_level_to_mutation(map<int64_t, int> node_to_level, Node anchor){
+  map<string, list<int64_t>> ret;
+  ret["ref"] = list<int64_t>;
+  ret["alt"] = list<int64_t>;
+  bool snp = false;
+  bool ins = false;
+  bool del = false;
+  bool complex = false;
+
+  map<int64_t, int>::iterator it;
+  for(it = node_to_level.begin(); it != node_to_level.end(); it++){
+    // Ref part of SNP
+    if (it->first != anchor.id() &&
+     it->second < node_to_level[anchor.id() &&
+     on_ref(it->first, 100L)]){
+       ret["ref"].push_back(it->first);
+       snp = true;
+    }
+    // Alt portion of snp
+    else if (it->first != anchor.id() &&
+     it->second < node_to_level[anchor.id() &&
+     !on_ref(it->first, 100L)){
+       ret["alt"].push_back(it->first);
+       snp = true;
+       complex = (ins || del) ? true : false;
+    }
+    // Deletion, del portion
+    else if (it->first != anchor.id() &&
+      it->second == node_to_level[anchor.id()] &&
+      on_ref(it->first, 100L)){
+        ret["ref"].push_back(it->first);
+        del = true;
+        complex = (ins || snp) ? true : false;
+      }
+      //Insertion, inserted portion
+    else if (it->first != anchor.id() &&
+      it->second == node_to_level[anchor.id()] &&
+      !on_ref(it->first, 100L)){
+        ret["alt"].push_back(it->first);
+        ins = true;
+        complex = (snp || del) ? true : false;
+      }
+    else if (it->first == anchor.id()){
+      continue;
+    }
+    else{
+      complex = true;
+    }
+  }
+
+  if (complex){
+    return pair<"complex", ret>;
+  }
+  else if (snp){
+    return pair<"snp", ret>
+  }
+  else if (del){
+    return pair<"del", ret>
+  }
+  else if (ins){
+    return pair<"ins", ret>
+  }
+  else{
+    cerr << "Unknown variation found." << endl;
+    return pair<"unknown", ret>;
+  }
+  // SNP case, three or more nodes, same level,
+  // neither is anchor (which is up a level), one Ref
+
+
+  // Del case, two nodes or more, all on the same level as anchor
+  // all nodes are reference.
+
+  // Ins case, two nodes or more, all on the same level as anchor,
+  // at least one alternate sequence.
+
+}
+
+
 /**
 * Assumes a is before b in the path.
-* Takes two nodes and returns a Mapping for the
+* Takes two nodes and returns a pair with the reference node
+* and a Mapping for the
 * mutation that occured between them.
 */
-Mapping map_between_nodes(Node a, Node b){
-  Mapping m; // Pos Edit(s) Rank
-  Position p; // NodeID OffSet IsReverse
-  Edit e; // ToLen FromLen Seq
+pair<Node, Mapping> Deconstructor::map_between_nodes(Node a, Node b){
+  Mapping mapping; // Pos Edit(s) Rank
+  //Position p; // NodeID OffSet IsReverse
+  //Edit e; // ToLen FromLen Seq
+  bool isBackward = false;
+  // *matches* from_length == to_length
+  // *snps* from_length == to_length; sequence = alt
+  // *deletions* from_length > to_length; sequence may be unset or empty
+  // *insertions* from_length < to_length; sequence contains relative insertion
+  // *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
+  //
   // BFS between the nodes.
   // Keep track of the sequences along the edges.
   // two nodes at the same level, immediately before the anchor: SNP
   // One node, ref: Deletion
   // One node, alt: Insertion
+  map<int64_t, int> node_to_level;
+  int level = 0;
+  queue<Node> nq;
+  nq.push(a);
+
+  while (!nq.empty()){
+    Node current;
+    current = nq.front(); nq.pop();
+    vector<pair<int64_t, bool>> edges;
+    edges = (*vgraph).edges_on_end[(int64_t) current.id()];
+    for (int i = 0; i < edges.size(); i++){
+      current = *((*vgraph).get_node(edges[i].first));
+      if (!beenVisited(current, node_to_level)){
+        node_to_level[current.id()] = level;
+        nq.push(current);
+      }
+      if (current.id() == b.id() && beenVisited(b, node_to_level)){
+        map<int64_t, int>::iterator it;
+        for (it = node_to_level.begin(); it != node_to_level.end(); it++){
+          cerr << it->first << " lev: " << it->second << endl;
+        }
+        mapping.mutable_position()->set_node_id(node_id);
+        mapping.mutable_position()->set_is_reverse(isBackward);
+        Edit e = mapping.add_edit();
+        // SNP
+        if (){
+          e->set_from_length(0);
+          e->set_to_length(0);
+          e->set_sequence()
+        }
+
+        // Insertion
+        else if (){
+          e->set_from_length();
+          e->set_to_length(0);
+          e->set_sequence();
+        }
+
+        // Deletion
+        else if (){
+          e->set_from_length(0);
+          e->set_to_length();
+          e->set_sequence();
+        }
+        // TODO translocations
+
+        // Unknown???? TODO
+        else{
+          cerr << "You've called a really complex variant." <<
+          endl << "We're not sure what to tell you. We'll return " <<
+          "an empty mapping." << endl;
+        }
+
+        return mapping;
+      }
+    }
+    level += 1;
+  }
 
 }
 
@@ -301,6 +461,7 @@ void Deconstructor::indel_caller(string pathname){
           //cerr << "Retrieved node: " << n.id() << endl;
           Node anchor = get_anchor_node(n, 100L);
           cerr << "Base: " << n.id() << " Anchor: " << anchor.id() << endl;
+          map_between_nodes(n, anchor);
         }
       }
 
@@ -452,25 +613,10 @@ void Deconstructor::get_variants_using_edges(string pathname){
         int64_t n_id = (int64_t) m.position().node_id();
         Node* n = (*vgraph).get_node(n_id);
         const string x = mapping_sequence(m, *n);
-        // Need: ref, alt
-        // Quality, Genotype, etc
-        //cerr << (*n).sequence();
-        //cerr << (int64_t) m.position().node_id() << " " << endl;
-        //cerr << m.edit(0).sequence() << " " << m.edit(0).from_length() << " " << m.edit(0).to_length() << endl;
-        //cerr << x << " " << m.position().node_id() << endl;
-        //int64_t prenode = (((*vgraph).edges_on_start[ (int64_t) m.position().node_id()])[0]).first;
 
 
         return v;
     }
-
-
-
-    // vcflib::Variant Deconstructor::pathname_to_variants(string ref_path){
-    //   Path alt;
-    //
-    //   //list<Mapping> mapping_list = relative_mapping()
-    // }
 
     void Deconstructor::write_variants(string filename, vector<vcflib::Variant> variants){
         cerr << "writing variants." << endl;
