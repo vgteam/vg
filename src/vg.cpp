@@ -4077,6 +4077,11 @@ map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t
         for (auto& pos : bp) {
             pos_t x = pos;
             if (offset(pos) == node_length) continue;
+            if (offset(pos) > node_length) {
+                cerr << "VG::forwardize_breakpoints error: failure, position " << pos << " is not inside node "
+                     << pb2json(*get_node(node_id)) << endl;
+                assert(false);
+            }
             if (is_rev(pos)) {
                 fwd[node_id].insert(reverse(pos, node_length));
             } else {
@@ -4208,6 +4213,8 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
         for(auto breakpoint : kv.second) {
             // For every point at which we need to make a new node, in ascending
             // order (due to the way sets store ints)...
+
+            // ensure that we're on the forward strand (should be the case due to forwardize_breakpoints)
             assert(!is_rev(breakpoint));
 
             // This breakpoint already exists, because the node starts or ends here
@@ -4219,12 +4226,13 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             // How far in do we need to break the remaining right part? And how
             // many bases will be in this new left part?
             int64_t divide_offset = offset(breakpoint) - current_offset;
-            
-#ifdef debug
+
+#ifdef debug_edit
             cerr << "Need to divide original " << original_node_id << " at " << breakpoint << "/" << 
                 original_node_length << endl;
             cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" << 
                 right_part->sequence().size() << endl;
+            cerr << "divide offset is " << divide_offset << endl;
 #endif
 
             if (offset(breakpoint) <= 0) { cerr << "breakpoint is " << breakpoint << endl; }
@@ -4236,7 +4244,7 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             // existing perfect match paths in the graph.
             divide_node(right_part, divide_offset, left_part, right_part);
             
-#ifdef debug
+#ifdef debug_edit
             cerr << "Produced " << left_part->id() << " (" << left_part->sequence().size() << " bp)" << endl;
             cerr << "Left " << right_part->id() << " (" << right_part->sequence().size() << " bp)" << endl;
 #endif
@@ -4262,7 +4270,6 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
         // and record the start and end of the node
         toReturn[make_pos_t(original_node_id, true, original_node_length)] = nullptr;
         toReturn[make_pos_t(original_node_id, false, original_node_length)] = nullptr;
-        
 
     }
     
