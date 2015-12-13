@@ -474,11 +474,11 @@ set<NodeTraversal> VG::full_siblings_to(const NodeTraversal& trav) {
 set<NodeTraversal> VG::full_siblings_from(const NodeTraversal& trav) {
     // get the siblings of
     auto sibs_from = siblings_from(trav);
-    // and filter them for nodes with the same inbound sides
-    auto from_sides = sides_from(NodeSide(trav.node->id(), trav.backward));
+    // and filter them for nodes with the same outbound sides
+    auto from_sides = sides_from(NodeSide(trav.node->id(), !trav.backward));
     set<NodeTraversal> full_sibs_from;
     for (auto& sib : sibs_from) {
-        auto sib_from_sides = sides_from(NodeSide(sib.node->id(), sib.backward));
+        auto sib_from_sides = sides_from(NodeSide(sib.node->id(), !sib.backward));
         if (sib_from_sides == from_sides) {
             full_sibs_from.insert(sib);
         }
@@ -1692,37 +1692,6 @@ void VG::dice_nodes(int max_node_size) {
     // Set the ranks again
     paths.rebuild_mapping_aux();
 }
-
-/*
-void VG::simplify_node(int64_t id) {
-    // do we share our incoming edges with another node?
-    // for each to-sibling
-    // does it have the same set of edges as this node?
-    // does it start with the same sequence?
-    // if so merge it into this one
-    // 
-    // does that node have the same start sequence as us?
-    // if so, pick a node to keep, step through until we're to the end of the identical sequence
-    // or we have exhausted sequence in the other node(s)
-    // cut, and forward edges from the end of the redundant node
-}
-*/
-
-/*
-void VG::normalize(size_t node_max_size) {
-    // remove nodes that repeat something another node says at the same location in the graph
-    remove_redundancy();
-    // where a single edge lies between two nodes, combine them
-    simplify_nodes();
-    // cut up the nodes to a target size
-    dice_nodes(max_node_size);
-    // sort the graph in a stable way
-    sort();
-    // and give ids based on the sort
-    compact_ids();
-}
-*/
-
 
 void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,

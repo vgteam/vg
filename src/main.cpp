@@ -987,7 +987,7 @@ int main_msga(int argc, char** argv) {
 
             // verfy validity of path
             auto path_seq = graph->path_string(graph->paths.path(name));
-            incomplete = !(path_seq == seq);
+            incomplete = !(path_seq == seq) || !graph->is_valid();
             if (incomplete) {
                 cerr << "[vg msga] failed to include alignment, retrying " << endl
                      << "expected " << seq << endl
