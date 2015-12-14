@@ -2994,7 +2994,6 @@ void VG::keep_path(string& path_name) {
     keep_paths(s, k);
 }
 
-
 // utilities
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 

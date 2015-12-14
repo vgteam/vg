@@ -1436,6 +1436,7 @@ void help_mod(char** argv) {
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -d, --drop-paths        remove the paths of the graph" << endl
+         << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -1483,6 +1484,7 @@ int main_mod(int argc, char** argv) {
     bool compact_ranks = false;
     bool drop_paths = false;
     bool force_path_match = false;
+    set<string> paths_to_retain;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1512,11 +1514,12 @@ int main_mod(int argc, char** argv) {
                 {"remove-non-path", no_argument, 0, 'N'},
                 {"orient-forward", no_argument, 0, 'f'},
                 {"force-path-match", no_argument, 0, 'F'},
+                {"retain-path", required_argument, 0, 'r'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdF",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1540,6 +1543,10 @@ int main_mod(int argc, char** argv) {
             
         case 'k':
             path_name = optarg;
+            break;
+
+        case 'r':
+            paths_to_retain.insert(optarg);
             break;
 
         case 'o':
@@ -1637,6 +1644,10 @@ int main_mod(int argc, char** argv) {
 
     if (!path_name.empty()) {
         graph->keep_path(path_name);
+    }
+
+    if (!paths_to_retain.empty()) {
+        graph->paths.keep_paths(paths_to_retain);
     }
 
     if (drop_paths) {
