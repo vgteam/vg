@@ -44,7 +44,7 @@ namespace vg{
            /**
              * Build a vcf record from a mapping.
              */
-            vcflib::Variant mapping_to_simple_variant(Mapping m, int64_t alt_id);
+            vector<vcflib::Variant> mapping_to_simple_variant(int64_t ref_id, list<Mapping> mappings);
 
 
             Mapping node_id_to_mapping(int64_t node_id);
@@ -61,13 +61,14 @@ namespace vg{
             VG* vgraph;
             vector<string> ref_paths;
             map<string, int64_t> inter_ref_and_index;
+            map<int64_t, long> node_to_pos;
             int in_degree(Node n);
             bool on_ref(Node n, int64_t path);
             Node get_anchor_node(Node current, int64_t path);
             int inDegree(Node n);
             bool beenVisited(Node n, map<int64_t, int> node_to_level);
             Node get_alleles(Node n, int64_t path_id, map<int64_t, int>& node_to_level);
-            map<Node, list<Mapping>> map_between_nodes(Node a, Node b);
+            map<int64_t, list<Mapping>> map_between_nodes(Node a, Node b);
             bool on_ref(int64_t node_id, int64_t path);
             map<int64_t, long> cache_path_positions(string pathname);
             pair< string, map<string, list<int64_t>>> parse_node_level_to_mutation(map<int64_t, int> node_to_level, Node anchor);
