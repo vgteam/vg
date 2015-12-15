@@ -820,17 +820,16 @@ void VG::normalize(void) {
 void VG::remove_non_path(void) {
     set<Edge*> path_edges;
     function<void(const Path&)> lambda = [this, &path_edges](const Path& path) {
-        for (int i = 0; i < path.mapping_size(); ++i) {
-            const Mapping& m1 = path.mapping(i);
-            if (i < path.mapping_size()-1) {
-                const Mapping& m2 = path.mapping(i+1);
-                // Find the Edge connecting the mappings in the order they occur in the path.
-                Edge* edge = get_edge(NodeTraversal(get_node(m1.position().node_id()),
-                                                    m1.position().is_reverse()),
-                                      NodeTraversal(get_node(m2.position().node_id()),
-                                                    m2.position().is_reverse()));
-                path_edges.insert(edge);
-            }
+        for (size_t i = 1; i < path.mapping_size(); ++i) {
+            auto& m1 = path.mapping(i-1);
+            auto& m2 = path.mapping(i);
+            if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+            auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
+            auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
+            // check that we always have an edge between the two nodes in the correct direction
+            assert(has_edge(s1, s2));
+            Edge* edge = get_edge(s1, s2);
+            path_edges.insert(edge);
         }
     };
     paths.for_each(lambda);
