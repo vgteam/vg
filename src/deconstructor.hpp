@@ -44,7 +44,7 @@ namespace vg{
            /**
              * Build a vcf record from a mapping.
              */
-            vector<vcflib::Variant> mapping_to_simple_variant(int64_t ref_id, list<Mapping> mappings);
+            vector<vcflib::Variant> mapping_to_simple_variant(string pathname, int64_t ref_id, list<Mapping> mappings);
 
 
             Mapping node_id_to_mapping(int64_t node_id);

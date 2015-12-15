@@ -252,7 +252,7 @@ Node Deconstructor::get_anchor_node(Node current, int64_t path){
       return n;
 }
 
-//TODO
+//TODO straight up wrong.
 map<int64_t, long> Deconstructor::cache_path_positions(string path){
     map <int64_t, long> node_to_position;
     long position = 0;
@@ -266,23 +266,25 @@ map<int64_t, long> Deconstructor::cache_path_positions(string path){
 
     // Start at first node.
     nq.push(n);
+    long t_len = 0;
     // BFS forward.
     while (!nq.empty()){
       // For each node, add the length of the nodes previously found.
       n = nq.front(); nq.pop();
       vector<pair<int64_t, bool>> edges;
       edges = (*vgraph).edges_on_end[(int64_t) n.id()];
-      long t_len = 0;
+      //long t_len = 0;
       //TODO t_len is added at the wrong time as the moment
+      t_len = (long) n.sequence().size();
       position += t_len;
       for (int i = 0; i < edges.size(); i++){
         n = *((*vgraph).get_node(edges[i].first));
         if (!beenVisited(n, node_to_level)){
-          t_len = (long) n.sequence().size();
           node_to_position[n.id()] = position;
           node_to_level[n.id()] = level;
           nq.push(n);
         }
+        //t_len = 0;
     }
 
     ++level;
@@ -458,6 +460,7 @@ map<int64_t, list<Mapping>> Deconstructor::map_between_nodes(Node a, Node b){
              complex = (ins || del) ? true : false;
              //ref_to_mutations[n] =
           }
+          //Deletion
           else if (it->first != b.id() &&
             it->second == node_to_level[b.id()] &&
             on_ref(it->first, 100L)){
@@ -578,8 +581,9 @@ void Deconstructor::indel_caller(string pathname){
 
           map<int64_t, list<Mapping>>::iterator nm;
           //cerr << "Map size" << node_to_mappings.size();
+          vector<vcflib::Variant> variants;
           for (nm = node_to_mappings.begin(); nm != node_to_mappings.end(); nm++){
-            mapping_to_simple_variant(nm->first, nm->second);
+            mapping_to_simple_variant(pathname, nm->first, nm->second);
           }
         }
       }
@@ -727,14 +731,24 @@ void Deconstructor::get_variants_using_edges(string pathname){
      * The reference path that the variant originates from can be grabbed
      * from the Mapping's position.
      */
-    vector<vcflib::Variant> Deconstructor::mapping_to_simple_variant(int64_t ref_id, list<Mapping> mappings){
+    vector<vcflib::Variant> Deconstructor::mapping_to_simple_variant(string pathname, int64_t ref_id, list<Mapping> mappings){
         vector<vcflib::Variant> variants;
         Node ref = *((*vgraph).get_node(ref_id));
         map<string, vector<vcflib::VariantAllele> > variantAlleles;
+        long pos;
+        vector<string> alleles;
         // map<int64_t, long> node_to_pos = Deconstructor::cache_path_positions
+        vcflib::Variant v;
+        v.alt = vector<string>();
+        v.sequenceName = pathname;
+        v.position = node_to_pos[ref_id];
         // REF
         vcflib::VariantAllele ref_var(ref.sequence(), ref.sequence(), 1);
         string seq;
+        string flank;
+        flank = ref.sequence().substr(ref.sequence().length() - 1, ref.sequence().length());
+        //v.ref = flank;
+
         list<Mapping>::iterator it;
         if (mappings.size() == 0){
           cerr << "Mapping size 0" << endl;
@@ -749,20 +763,32 @@ void Deconstructor::get_variants_using_edges(string pathname){
           //cerr << m.edit(0).to_length();
           if (m.edit(0).to_length() == m.edit(0).from_length()){
             seq = m.edit(0).sequence();
+            v.alt.push_back(seq);
+            v.ref = flank;
+            node_to_pos[ref.id()];
             vcflib::VariantAllele alt_var(ref.sequence(), seq, node_to_pos[ref.id()]);
-            cerr << alt_var << endl;
+            //cerr << alt_var << endl;
           }
           //Ins
           else if (m.edit(0).to_length() > m.edit(0).from_length()){
             seq = m.edit(0).sequence();
-            vcflib::VariantAllele alt_var(ref.sequence(), seq, 1);
-            cerr << alt_var << endl;
+            // grab a flanking base from the tail of the ref.
+            flank = ref.sequence().substr(ref.sequence().length() - 1, ref.sequence().length());
+            v.ref = flank;
+            pos = node_to_pos[ref.id()] + ref.sequence().length() - 1;
+            v.alt.push_back(flank + seq);
+            vcflib::VariantAllele alt_var(flank, flank + seq, pos);
+            //cerr << alt_var << endl;
           }
           //Del
           else if (m.edit(0).to_length() < m.edit(0).from_length()){
             seq = m.edit(0).sequence();
-            vcflib::VariantAllele alt_var(ref.sequence(), seq, 1);
-            cerr << alt_var << endl;
+            flank = ref.sequence().substr(ref.sequence().length() - 1, ref.sequence().length());
+            pos = node_to_pos[ref.id()] + ref.sequence().length() - 1;
+            v.ref = flank + seq;
+            v.alt.push_back(flank + seq);
+            vcflib::VariantAllele alt_var(flank + seq, seq, node_to_pos[ref.id()]);
+            //cerr << alt_var << endl;
           }
           //complex TODO unimplemented
           else{
@@ -770,7 +796,12 @@ void Deconstructor::get_variants_using_edges(string pathname){
           }
 
         }
-
+        //v.alt = alts;
+        //v.alleles = vector<string>(alts);
+        //vector<string>::iterator vit;
+        //v.alleles.insert(vit, ref.sequence());
+        variants.push_back(v);
+        cerr << v << endl;
 
         return variants;
     }
