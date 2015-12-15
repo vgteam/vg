@@ -474,9 +474,9 @@ map<int64_t, list<Mapping>> Deconstructor::map_between_nodes(Node a, Node b){
               int32_t to_length = 0;
               e->set_from_length(from_length);
               //Node t = *((*vgraph).get_node(ret));
-              ret = n.id();
+              ret = a.id();
               e->set_to_length(to_length);
-              e->set_sequence("");
+              e->set_sequence(n.sequence());
               m_list.push_back(m);
               del = true;
               complex = (ins || snp) ? true : false;
@@ -786,7 +786,7 @@ void Deconstructor::get_variants_using_edges(string pathname){
             flank = ref.sequence().substr(ref.sequence().length() - 1, ref.sequence().length());
             pos = node_to_pos[ref.id()] + ref.sequence().length() - 1;
             v.ref = flank + seq;
-            v.alt.push_back(flank + seq);
+            v.alt.push_back(seq);
             vcflib::VariantAllele alt_var(flank + seq, seq, node_to_pos[ref.id()]);
             //cerr << alt_var << endl;
           }
