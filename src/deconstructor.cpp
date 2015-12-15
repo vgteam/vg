@@ -801,7 +801,7 @@ void Deconstructor::get_variants_using_edges(string pathname){
         //vector<string>::iterator vit;
         //v.alleles.insert(vit, ref.sequence());
         variants.push_back(v);
-        cerr << v << endl;
+        cout << v << endl;
 
         return variants;
     }
