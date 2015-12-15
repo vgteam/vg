@@ -915,8 +915,9 @@ Path simplify(const Path& p) {
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = simplify(p.mapping(i));
-        // remove wholly-deleted mappings as these are redundant
-        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) continue;
+        // remove wholly-deleted or empty mappings as these are redundant
+        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))
+            || m.edit_size() == 0) continue;
         // if this isn't the first mapping
         if (i > 0) {
             // refer to the last mapping
@@ -1062,7 +1063,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     // then edit in the forward direction (easier)
     // and, if the mapping is reversed, finally reverse-complement the result
     size_t t = 0;
-    size_t f = 0;
+    size_t f = m.position().offset();
     for (size_t i = 0; i < m.edit_size(); ++i) {
         auto& e = m.edit(i);
         if (edit_is_match(e)) {
@@ -1075,8 +1076,11 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
             // no-op
         }
         t += e.to_length();
-        f += e.to_length();
+        f += e.from_length();
     }
+    // TODO: we must resolve these semantics
+    // probably we shouldn't have perfect matches be represented this way
+    // it is better to be explicit
     // perfect match
     if (m.edit_size() == 0) {
         seq = node_seq;

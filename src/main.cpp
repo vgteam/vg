@@ -950,6 +950,17 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                            graph->node_count() << " nodes" << endl;
             Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            auto aln_seq = graph->path_string(aln.path());
+            if (aln_seq != seq) {
+                cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
+                cerr << "expected " << seq << endl;
+                cerr << "got      " << aln_seq << endl;
+                ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
+                stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                f.close();
+                graph->serialize_to_file(name + "-corrupted-alignment.vg");
+                exit(1);
+            }
             alns.push_back(aln);
             //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
             paths.push_back(aln.path());
