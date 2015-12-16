@@ -1690,6 +1690,7 @@ void VG::dice_nodes(int max_node_size) {
     
     // Set the ranks again
     paths.rebuild_mapping_aux();
+    paths.compact_ranks();
 }
 
 void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
