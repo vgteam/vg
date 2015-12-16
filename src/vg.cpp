@@ -2993,10 +2993,13 @@ void VG::keep_path(string& path_name) {
     keep_paths(s, k);
 }
 
-// utilities
+// divide a node into two pieces at the given offset
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
-    //cerr << "dividing node " << node->id() << " at " << pos << endl;
+#ifdef debug_divide
+#pragma omp critical (cerr)
+    cerr << "dividing node " << node->id() << " at " << pos << endl;
+#endif
 
     if (pos < 0 || pos > node->sequence().size()) {
 #pragma omp critical (cerr)
@@ -3008,30 +3011,50 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         }
     }
 
-#ifdef debug
+#ifdef debug_divide
 #pragma omp critical (cerr)
     cerr << omp_get_thread_num() << ": in divide_node " << pos << " of " << node->sequence().size() << endl;
 #endif
 
-
     // make our left node
     left = create_node(node->sequence().substr(0,pos));
+    
+    // make our right node
+    right = create_node(node->sequence().substr(pos));
 
-    hash_map<int64_t, vector<int64_t> >::const_iterator e;
     // Create edges between the left node (optionally its start) and the right node (optionally its end)
     set<pair<pair<int64_t, bool>, pair<int64_t, bool>>> edges_to_create;
 
     // replace the connections to the node's start
-    for(auto& e : edges_start(node)) {
+    for(auto e : edges_start(node)) {
+        // We have to check for self loops, as these will be clobbered by the division of the node
+        if (e.first == node->id()) {
+            // if it's a reversed edge, it would be from the start of this node
+            if (e.second) {
+                // so set it to the left node
+                e.first = left->id();
+            } else {
+                // otherwise, it's from the end, so set it to the right side
+                e.first = right->id();
+            }
+        }
         // Make an edge to the left node's start from wherever this edge went.
         edges_to_create.emplace(make_pair(e.first, e.second), make_pair(left->id(), false));
     }
 
-    // make our right node
-    right = create_node(node->sequence().substr(pos));
-
     // replace the connections to the node's end
-    for(auto& e : edges_end(node)) {
+    for(auto e : edges_end(node)) {
+        // We have to check for self loops, as these will be clobbered by the division of the node
+        if (e.first == node->id()) {
+            // if it's a reversed edge, it would be to the end of this node
+            if (e.second) {
+                // so set it to the right node
+                e.first = right->id();
+            } else {
+                // otherwise, it's to the start, so set it to the left side
+                e.first = left->id();
+            }
+        }
         // Make an edge from the right node's end to wherever this edge went.
         edges_to_create.emplace(make_pair(right->id(), false), make_pair(e.first, e.second));
     }
@@ -3062,7 +3085,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         for (auto m : to_divide) {
             // we have to divide the mapping
             
-#ifdef debug
+#ifdef debug_divide
 #pragma omp critical (cerr)
             cerr << omp_get_thread_num() << ": dividing mapping " << pb2json(*m) << endl;
 #endif
@@ -3094,7 +3117,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
                 
             
 
-#ifdef debug
+#ifdef debug_divide
 #pragma omp critical (cerr)
             cerr << omp_get_thread_num() << ": produced mappings " << pb2json(l) << " and " << pb2json(r) << endl;
 #endif
@@ -4020,11 +4043,9 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
                 auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
                 // check that we always have an edge between the two nodes in the correct direction
                 if (!has_edge(s1, s2)) {
-                    /*
                     cerr << "graph path '" << path.name() << "' invalid: edge from "
                          << s1 << " to " << s2 << " does not exist" << endl;
                     cerr << "creating edge" << endl;
-                    */
                     create_edge(s1, s2);
                 }
             }
