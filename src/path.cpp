@@ -960,13 +960,22 @@ Path simplify(const Path& p) {
             *s.add_mapping() = m;
         }
     }
-    // now set ranks
+    // we will return this path after a final cleanup
+    Path r;
+    r.set_name(p.name());
+    // remove any edit-less mappings that may have resulted from left-shifting indels
     for (size_t i = 0; i < s.mapping_size(); ++i) {
-        auto* m = s.mutable_mapping(i);
+        auto& m = s.mapping(i);
+        if (!m.edit_size()) continue; // skips empty mappings
+        *r.add_mapping() = m;
+    }
+    // now set ranks
+    for (size_t i = 0; i < r.mapping_size(); ++i) {
+        auto* m = r.mutable_mapping(i);
         m->set_rank(i+1);
     }
     //cerr << "simplified " << pb2json(s) << endl;
-    return s;
+    return r;
 }
 
 // simple merge
