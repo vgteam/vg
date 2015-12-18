@@ -417,7 +417,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
         multi_alns.clear(); // clean up
     }
     // merge the resulting alignments
-    Alignment merged = simplify(merge_alignments(alns, debug));
+    Alignment merged = merge_alignments(alns, debug);
 
     if(debug) {
         for(int i = 0; i < merged.path().mapping_size(); i++) {
@@ -721,11 +721,6 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
         }
     }
 
-    // Simplify the alignments
-    for(size_t i = 0; i < merged.size(); i++) {
-        merged[i] = simplify(merged[i]);
-    }
-    
     // Set all but the first alignment secondary.
     for(size_t i = 1; i < merged.size(); i++) {
         merged[i].set_is_secondary(true);
