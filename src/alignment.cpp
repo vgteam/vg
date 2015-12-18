@@ -847,5 +847,11 @@ const string hash_alignment(const Alignment& aln) {
     return sha1sum(data);
 }
 
+Alignment simplify(const Alignment& a) {
+    auto aln = a;
+    *aln.mutable_path() = simplify(aln.path());
+    return aln;
+}
+
 
 }
