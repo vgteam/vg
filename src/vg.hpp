@@ -290,6 +290,8 @@ public:
     void normalize(void);
     // removes pieces of the graph which are not part of any path
     void remove_non_path(void);
+    // converts edges that are both from_start and to_end to "regular" ones from end to start
+    void flip_doubly_reversed_edges(void);
 
     void from_gfa(istream& in, bool showp = false);
 
@@ -336,11 +338,18 @@ public:
     }
 
     void build_indexes(void);
+    void build_node_indexes(void);
+    void build_edge_indexes(void);
     void index_paths(void);
+    void clear_node_indexes(void);
+    void clear_node_indexes_no_resize(void);
+    void clear_edge_indexes(void);
+    void clear_edge_indexes_no_resize(void);
     void clear_indexes(void);
     void clear_indexes_no_resize(void);
     void resize_indexes(void);
     void rebuild_indexes(void);
+    void rebuild_edge_indexes(void);
 
     // literally merge protobufs
     void merge(Graph& g);

@@ -588,6 +588,7 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         if (shared_start == 0) continue;
         bool self_ancestors = false;
         bool common_ancestor = true;
+        // determine if we are a self ancestor or have a common ancestor
         for (auto& sib1 : sibs) {
             for (auto& sib2 : sibs) {
                 if (sib1 != sib2) {
@@ -600,6 +601,7 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
                 }
             }
         }
+        // if so, skip ahead
         if (self_ancestors || !common_ancestor) continue;
 
         // make a new node with the shared sequence
@@ -701,6 +703,7 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
         // check if any of the nodes is an ancester of the others
         bool self_ancestors = false;
         bool common_ancestor = true;
+        // determine if we are a self ancestor or have a common ancestor
         for (auto& sib1 : sibs) {
             for (auto& sib2 : sibs) {
                 if (sib1 != sib2) {
@@ -713,6 +716,7 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
                 }
             }
         }
+        // if so, skip ahead
         if (self_ancestors || !common_ancestor) continue;
         
         // make a new node with the shared sequence
@@ -793,6 +797,22 @@ bool VG::adjacent(const Position& pos1, const Position& pos2) {
     }
 }
 
+// edges which are both from_start and to_end can be represented naturally as
+// a regular edge, from end to start, so we flip these as part of normalization
+void VG::flip_doubly_reversed_edges(void) {
+    for_each_edge([this](Edge* e) {
+            if (e->from_start() && e->to_end()) {
+                e->set_from_start(false);
+                e->set_to_end(false);
+                int64_t f = e->to();
+                int64_t t = e->from();
+                e->set_to(t);
+                e->set_from(f);
+            }
+        });
+    rebuild_edge_indexes();
+}
+
 // by definition, we can merge nodes that are a "simple component"
 // without affecting the sequence or path space of the graph
 // so we don't unchop nodes when they have mismatched path sets
@@ -805,9 +825,11 @@ void VG::unchop(void) {
 }
 
 void VG::normalize(void) {
+    // convert edges that go from_start -> to_end to the equivalent "regular" edge
+    flip_doubly_reversed_edges();
     // combine diced/chopped nodes (subpaths with no branching)
     unchop();
-    // merge redundancy across multiple nodes into single nodes
+    // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
     simplify_siblings();
     // compact node ranks
     paths.compact_ranks();
@@ -1181,12 +1203,15 @@ int64_t VG::total_length_of_nodes(void) {
     return length;
 }
 
-void VG::build_indexes(void) {
+void VG::build_node_indexes(void) {
     for (int64_t i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         node_index[n] = i;
         node_by_id[n->id()] = n;
     }
+}
+
+void VG::build_edge_indexes(void) {
     for (int64_t i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
@@ -1194,23 +1219,52 @@ void VG::build_indexes(void) {
     }
 }
 
-void VG::clear_indexes(void) {
+void VG::build_indexes(void) {
+    build_node_indexes();
+    build_edge_indexes();
+}
+
+void VG::clear_node_indexes(void) {
     node_index.clear();
     node_by_id.clear();
+}
+
+void VG::clear_node_indexes_no_resize(void) {
+#ifdef USE_DENSE_HASH
+    node_index.clear_no_resize();
+    node_by_id.clear_no_resize();
+#else
+    clear_node_indexes();
+#endif
+}
+
+void VG::clear_edge_indexes(void) {
     edge_by_sides.clear();
     edge_index.clear();
     edges_on_start.clear();
     edges_on_end.clear();
 }
 
-void VG::clear_indexes_no_resize(void) {
+void VG::clear_edge_indexes_no_resize(void) {
 #ifdef USE_DENSE_HASH
-    node_index.clear_no_resize();
-    node_by_id.clear_no_resize();
     edge_by_sides.clear_no_resize();
     edge_index.clear_no_resize();
     edges_on_start.clear_no_resize();
     edges_on_end.clear_no_resize();
+#else
+    clear_edge_indexes();
+#endif
+}
+
+void VG::clear_indexes(void) {
+    clear_node_indexes();
+    clear_edge_indexes();
+}
+
+void VG::clear_indexes_no_resize(void) {
+#ifdef USE_DENSE_HASH
+    clear_node_indexes_no_resize();
+    clear_edge_indexes_no_resize();
 #else
     clear_indexes();
 #endif
@@ -1226,11 +1280,14 @@ void VG::resize_indexes(void) {
 }
 
 void VG::rebuild_indexes(void) {
-    //clear_indexes();
-    //resize_indexes();
     clear_indexes_no_resize();
     build_indexes();
     paths.rebuild_node_mapping();
+}
+
+void VG::rebuild_edge_indexes(void) {
+    clear_edge_indexes_no_resize();
+    build_edge_indexes();
 }
 
 bool VG::empty(void) {
