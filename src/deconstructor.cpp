@@ -104,72 +104,6 @@ void get_variants_using_edges_from_file(string pathfile){
 
 }
 
-void Deconstructor::b_call(string pathname){
-  vector<string> paths_to_project;
-  if (pathname != ""){
-      //TODO check if region in reference paths TODO
-      paths_to_project.push_back(pathname);
-  }
-  else{
-      map<string, int64_t>::iterator it;
-      for (it = inter_ref_and_index.begin(); it != inter_ref_and_index.end(); it++){
-          paths_to_project.push_back(it->first);
-      }}
-      for (auto pathname : paths_to_project){
-          Path path = (*vgraph).paths.path(pathname);
-          Index ix;
-          ix.open_read_only(ref_index);
-          bool backward = false;
-          int64_t path_id = ix.paths_by_id().at(pathname);
-
-          //int i;
-          int j;
-          list<Mapping> m_list = (*vgraph).paths._paths[pathname];
-          list<Mapping>::iterator it;
-          for(it = m_list.begin(); it != m_list.end(); it++){
-              int64_t current_node_id = (*it).position().node_id();
-              vector<Edge> edges_ahead;
-              if(backward) {
-                  // "next" = right = start
-                  ix.get_edges_on_start(current_node_id, edges_ahead);
-              } else {
-                  // "next" = right = end
-                  ix.get_edges_on_end(current_node_id, edges_ahead);
-              }
-
-              // base case: no variation, reference has simply been split up.
-              // We ignore self-cycling as a possibility.
-              if (edges_ahead.size() <= 1){
-                  continue;
-              }
-              // Otherwise, we have found an n-furcation of the graph,
-              // indicating that variation has been inserted.
-              else{
-                Node current;
-                ix.get_node(current_node_id, current);
-                //cerr << "busted here " << endl;
-                Node n = get_anchor_node(current, path_id);
-                cerr << "Anchor: " << current_node_id << " Bow: " << n.id() << endl;
-                  /**
-                   * This should catch multi-allelic snps as-is,
-                   * but it seems to be a bit off for INDELS.
-                   */
-
-                  // if (alts.size() > 0){
-                  //     Node ii;
-                  //     ix.get_node((int64_t) ref.position().node_id(), ii);
-                  //     //TODO Need to cut sequence using node offset.
-                  //     cerr << "CHROM: " << pathname << " Pos: " << ref.position().node_id() <<
-                  //         " REF: " << ii.sequence() << " Alt: " << alts.front().edit(0).sequence() << ", " << alts.front().position().offset() <<
-                  //         ", from_len: " << alts.front().edit(0).from_length() << ", to_len: " << alts.front().edit(0).to_length() << endl;
-                  // }
-
-              }
-          }
-      }
-
-
-}
 
 int Deconstructor::inDegree(Node n){
     return (*vgraph).edges_on_start[n.id()].size();
@@ -552,6 +486,7 @@ map<string, vector<vcflib::Variant>> Deconstructor::indel_caller(string pathname
   map<string, vector<vcflib::Variant>> pathname_to_variants;
 
   for (auto pathname : paths_to_project){
+    vector<vcflib::Variant> variants;
     map<int64_t, long> node_id_to_pos = cache_path_positions(pathname);
     Path path = (*vgraph).paths.path(pathname);
     bool backward = false;
@@ -584,7 +519,7 @@ map<string, vector<vcflib::Variant>> Deconstructor::indel_caller(string pathname
 
           map<int64_t, list<Mapping>>::iterator nm;
           //cerr << "Map size" << node_to_mappings.size();
-          vector<vcflib::Variant> variants;
+
           for (nm = node_to_mappings.begin(); nm != node_to_mappings.end(); nm++){
             mapping_to_simple_variant(pathname, nm->first, nm->second, variants);
           }
@@ -599,138 +534,6 @@ map<string, vector<vcflib::Variant>> Deconstructor::indel_caller(string pathname
   return pathname_to_variants;
 }
 
-void Deconstructor::get_variants_using_edges(string pathname){
-    //enumerate_path_names_in_index();
-    //Just argument handling here - either take the single region given
-    // or the entire intersection of the reference and index
-    vector<string> paths_to_project;
-    Index ix;
-    if (pathname != ""){
-        //TODO check if region in reference paths TODO
-        paths_to_project.push_back(pathname);
-    }
-    else{
-        map<string, int64_t>::iterator it;
-        for (it = inter_ref_and_index.begin(); it != inter_ref_and_index.end(); it++){
-            paths_to_project.push_back(it->first);
-        }
-      }
-        for (auto pathname : paths_to_project){
-            Path path = (*vgraph).paths.path(pathname);
-            ix.open_read_only(ref_index);
-            bool backward = false;
-            int64_t path_id = ix.paths_by_id().at(pathname);
-
-            //int i;
-            int j;
-            list<Mapping> m_list = (*vgraph).paths._paths[pathname];
-            list<Mapping>::iterator it;
-            for(it = m_list.begin(); it != m_list.end(); it++){
-                int64_t current_node_id = (*it).position().node_id();
-                vector<Edge> edges_ahead;
-                if(backward) {
-                    // "next" = right = start
-                    ix.get_edges_on_start(current_node_id, edges_ahead);
-                } else {
-                    // "next" = right = end
-                    ix.get_edges_on_end(current_node_id, edges_ahead);
-                }
-
-                // base case: no variation, reference has simply been split up.
-                // We ignore self-cycling as a possibility.
-                if (edges_ahead.size() == 1){
-                    continue;
-                }
-                // Otherwise, we have found an n-furcation of the graph,
-                // indicating that variation has been inserted.
-                else{
-                    // TODO this should really use recursive backtracking or something clever
-
-                    /**
-                     * This should catch multi-allelic snps as-is,
-                     * but it seems to be a bit off for INDELS.
-                     */
-                    list<Mapping> alts;
-                    Mapping ref;
-                    for (int edge_ind = 0; edge_ind < edges_ahead.size(); edge_ind++){
-                        // base case: from_node for each path is the same
-                        // and to_node for each path is the same.
-                        Edge e = edges_ahead[edge_ind];
-                        int64_t next_n_id = e.to();
-                        Node n;
-                        ix.get_node(next_n_id, n);
-
-                        // Case: SNPs and Insertions.
-                        if (!(*vgraph).paths.has_node_mapping(next_n_id)){
-                            pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_on_path;
-                            pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_on_path;
-                            int64_t path_pos;
-                            bool rel;
-                            next_on_path = ix.get_nearest_node_next_path_member(next_n_id, backward,
-                                    path_id, path_pos, rel, 4);
-                            prev_on_path = ix.get_nearest_node_prev_path_member(next_n_id, backward,
-                                    path_id, path_pos, rel, 4);
-                            Mapping m = ix.path_relative_mapping(next_n_id, backward, path_id,
-                                    prev_on_path.first, prev_on_path.second.first, prev_on_path.second.second,
-                                    next_on_path.first, next_on_path.second.first, next_on_path.second.second);
-                            //cerr << "Alt node: " << m.position().node_id() << " " << m.edit(0).sequence() << endl;
-                            alts.push_back(m);
-                        }
-                        // Case: reference sequence for SNPs, deletions and insertions.
-                        else {
-                            vector<Edge> n_e_in;
-                            vector<Edge> n_e_out;
-                            ix.get_edges_on_start(next_n_id, n_e_in);
-                            ix.get_edges_on_end(next_n_id, n_e_out);
-                            //if ((n_e_in.size() == 1)){
-                            // Reference equivalent of a snp
-                            pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> next_on_path;
-                            pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> prev_on_path;
-                            int64_t path_pos;
-                            bool rel;
-                            next_on_path = ix.get_nearest_node_next_path_member(next_n_id, backward,
-                                    path_id, path_pos, rel, 4);
-                            prev_on_path = ix.get_nearest_node_prev_path_member(next_n_id, backward,
-                                    path_id, path_pos, rel, 4);
-                            Mapping m = ix.path_relative_mapping(next_n_id, backward, path_id,
-                                    prev_on_path.first, prev_on_path.second.first, prev_on_path.second.second,
-                                    next_on_path.first, next_on_path.second.first, next_on_path.second.second);
-                            ref = m;
-                            //TODO Not happy with indels
-                            Node ref_seq_n; ix.get_node((int64_t) m.position().node_id(), ref_seq_n);
-                            //cerr << "Ref node: " << m.position().node_id() << " " << ref_seq_n.sequence() << endl;
-                            //}
-                            // else if (n_e_in.size() > 1){
-                            //   // This represents a deletion TODO I think?
-                            //   cerr << "Deletion case " << next_n_id << endl;
-                            // }
-                            // else{
-                            //   cerr << "Highly complex case. " << next_n_id << endl;
-                            // }
-                        }
-                    }
-                    if (alts.size() > 0){
-                        Node ii;
-                        ix.get_node((int64_t) ref.position().node_id(), ii);
-                        //TODO Need to cut sequence using node offset.
-                        // Pos: get_node_path_relative_position(int64_t node_id, bool backward, int64_t path_id,
-                        // list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
-                        // list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation)
-                        list<pair<int64_t, bool>> pp; int64_t ppos; bool p_or;
-                        list<pair<int64_t, bool>> nn; int64_t npos; bool n_or;
-                        // ref.position().node_id()
-                        string pos = "POS NOT IMPLEMENTED";
-                        cerr << "CHROM: " << pathname << " Pos: " <<  pos <<
-                            " REF: " << ii.sequence() << " Alt: " << alts.front().edit(0).sequence() << ", " << alts.front().position().offset() <<
-                            ", from_len: " << alts.front().edit(0).from_length() << ", to_len: " << alts.front().edit(0).to_length() << endl;
-                    }
-
-                }
-            }
-        }
-
-  }
-
 
 
     /**
@@ -739,7 +542,7 @@ void Deconstructor::get_variants_using_edges(string pathname){
      * The reference path that the variant originates from can be grabbed
      * from the Mapping's position.
      */
-    vector<vcflib::Variant> Deconstructor::mapping_to_simple_variant(string pathname,
+    void Deconstructor::mapping_to_simple_variant(string pathname,
                             int64_t ref_id, list<Mapping> mappings,
                             vector<vcflib::Variant>& variants){
         //vector<vcflib::Variant> variants;
@@ -813,12 +616,25 @@ void Deconstructor::get_variants_using_edges(string pathname){
         variants.push_back(v);
         //cout << v << endl;
 
-        return variants;
+      //  return variants;
     }
 
-    void Deconstructor::write_variants(string filename, vector<vcflib::Variant> variants){
-        cerr << "writing variants." << endl;
+    void Deconstructor::write_variants(string filename, map<string, vector<vcflib::Variant>> pathname_to_variants){
+        Header h;
+        h.set_date();
+        h.set_version("VCF4.1");
+        h.set_reference(reference);
+        h.set_contig("");
+        h.set_source("VG");
+        //TODO use a var call file instead of just an ostream...
         vcflib::VariantCallFile v;
+        cout << h << endl;
+        map<string, vector<vcflib::Variant>>::iterator it;
+        for (it = pathname_to_variants.begin(); it != pathname_to_variants.end(); it++){
+          for (auto v : it->second){
+            cout << v << endl;
+          }
+        }
 
     }
 

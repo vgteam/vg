@@ -20,6 +20,7 @@
 
 namespace vg{
     using namespace std;
+    using namespace vcfh;
     class Deconstructor{
         public:
 
@@ -41,11 +42,11 @@ namespace vg{
              //list<Mapping> relative_mapping(Path& p1, Path& p2);
 
             void get_variants_using_edges_from_file(string pathfile);
-            void get_variants_using_edges(string pathname);
+            
            /**
              * Build a vcf record from a mapping.
              */
-            vector<vcflib::Variant> mapping_to_simple_variant(string pathname, int64_t ref_id,
+            void mapping_to_simple_variant(string pathname, int64_t ref_id,
                                     list<Mapping> mappings, vector<vcflib::Variant>& variants);
 
 
@@ -53,7 +54,7 @@ namespace vg{
             /**
              * Turn a vector of variants into a proper VCF.
              */
-            void write_variants(string filename, vector<vcflib::Variant> variants);
+            void write_variants(string filename, map<string, vector<vcflib::Variant>> pathname_to_variants);
 
         private:
             // TODO Should be able to handle XG or VG indices

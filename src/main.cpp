@@ -4882,9 +4882,9 @@ int main_deconstruct(int argc, char** argv){
   // path. TODO it would be great to also allow coordinates.
   //vector<vcflib::Variant> vars = decon.get_variants("", 0, 0);
   //decon.get_variants_using_edges("");
-  decon.indel_caller("");
+  map<string, vector<vcflib::Variant>> pathname_to_variants = decon.indel_caller("");
   //decon.b_call("");
-  //decon.write_variants(output_file, vars);
+  decon.write_variants(output_file, pathname_to_variants);
   return 1;
 }
 
