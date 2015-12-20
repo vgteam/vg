@@ -100,8 +100,46 @@ namespace vg {
 
 
 
-void get_variants_using_edges_from_file(string pathfile){
+map<string, vector<vcflib::Variant>> Deconstructor::get_variants_on_paths_from_file(string pathfile){
+  map<string, vector<vcflib::Variant>> pathname_to_variants;
+  ifstream pfi(pathfile);
+  string line;
+  while(getline(pfi, line)){
+    //TODO probably need to strip the input lines.
+    map<string, vector<vcflib::Variant>> t = indel_caller(line);
+    map<string, vector<vcflib::Variant>>::iterator it;
+    for (it = t.begin(); it != t.end(); it++){
+      pathname_to_variants[it->first] = it->second;
+    }
+  }
 
+  return pathname_to_variants;
+}
+
+map<string, vector<vcflib::Variant>> Deconstructor::get_variants_on_path(string pathname){
+  map<string, vector<vcflib::Variant>> pathname_to_variants;
+  //TODO check if path on reference.
+  if (pathname == ""){
+    FastaReference fr;
+    fr.open(reference);
+    vector<string> paths_in_ref;
+    for (auto& seq : fr.index->sequenceNames){
+        //cout << seq << endl;
+        if ((*vgraph).paths.has_path(seq)){
+          map<string, vector<vcflib::Variant>> t = indel_caller(seq);
+          map<string, vector<vcflib::Variant>>::iterator it;
+          for (it = t.begin(); it != t.end(); it++){
+            pathname_to_variants[it->first] = it->second;
+          }
+        }
+    }
+  }
+  else{
+    if ((*vgraph).paths.has_path(pathname)){
+      pathname_to_variants = indel_caller(pathname);
+    }
+  }
+  return pathname_to_variants;
 }
 
 
@@ -467,21 +505,22 @@ map<int64_t, list<Mapping>> Deconstructor::map_between_nodes(Node a, Node b){
 }
 
 map<string, vector<vcflib::Variant>> Deconstructor::indel_caller(string pathname){
-  enumerate_path_names_in_index();
+  //enumerate_path_names_in_index();
 
   //Just argument handling here - either take the single region given
   // or the entire intersection of the reference and index
   vector<string> paths_to_project;
-  if (pathname != ""){
-    //TODO check if region in reference paths TODO
-    paths_to_project.push_back(pathname);
-  }
-  else{
-    map<string, int64_t>::iterator it;
-    for (it = inter_ref_and_index.begin(); it != inter_ref_and_index.end(); it++){
-      paths_to_project.push_back(it->first);
-    }
-  }
+  // if (pathname != ""){
+  //   //TODO check if region in reference paths TODO
+  //   paths_to_project.push_back(pathname);
+  // }
+  // else{
+  //   map<string, int64_t>::iterator it;
+  //   for (it = inter_ref_and_index.begin(); it != inter_ref_and_index.end(); it++){
+  //     paths_to_project.push_back(it->first);
+  //   }
+  // }
+  paths_to_project.push_back(pathname);
 
   map<string, vector<vcflib::Variant>> pathname_to_variants;
 
@@ -624,8 +663,8 @@ map<string, vector<vcflib::Variant>> Deconstructor::indel_caller(string pathname
         h.set_date();
         h.set_version("VCF4.1");
         h.set_reference(reference);
-        h.set_contig("");
-        h.set_source("VG");
+        h.set_contig("NA");
+        h.set_source("vg_deconstruct");
         //TODO use a var call file instead of just an ostream...
         vcflib::VariantCallFile v;
         cout << h << endl;

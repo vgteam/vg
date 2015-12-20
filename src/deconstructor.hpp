@@ -41,8 +41,9 @@ namespace vg{
              */
              //list<Mapping> relative_mapping(Path& p1, Path& p2);
 
-            void get_variants_using_edges_from_file(string pathfile);
-            
+             map<string, vector<vcflib::Variant>> get_variants_on_paths_from_file(string pathfile);
+
+             map<string, vector<vcflib::Variant>> get_variants_on_path(string pathname);
            /**
              * Build a vcf record from a mapping.
              */
