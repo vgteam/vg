@@ -532,7 +532,7 @@ map<int64_t, list<Mapping>> Deconstructor::map_between_nodes(Node a, Node b){
 
 }
 
-void Deconstructor::indel_caller(string pathname){
+map<string, vector<vcflib::Variant>> Deconstructor::indel_caller(string pathname){
   enumerate_path_names_in_index();
 
   //Just argument handling here - either take the single region given
@@ -548,6 +548,9 @@ void Deconstructor::indel_caller(string pathname){
       paths_to_project.push_back(it->first);
     }
   }
+
+  map<string, vector<vcflib::Variant>> pathname_to_variants;
+
   for (auto pathname : paths_to_project){
     map<int64_t, long> node_id_to_pos = cache_path_positions(pathname);
     Path path = (*vgraph).paths.path(pathname);
@@ -583,12 +586,17 @@ void Deconstructor::indel_caller(string pathname){
           //cerr << "Map size" << node_to_mappings.size();
           vector<vcflib::Variant> variants;
           for (nm = node_to_mappings.begin(); nm != node_to_mappings.end(); nm++){
-            mapping_to_simple_variant(pathname, nm->first, nm->second);
+            mapping_to_simple_variant(pathname, nm->first, nm->second, variants);
           }
+          pathname_to_variants[pathname] = variants;
+          // for (int k = 0; k < variants.size(); k++){
+          //   cerr << variants[k] << endl;
+          // }
         }
       }
 
   }
+  return pathname_to_variants;
 }
 
 void Deconstructor::get_variants_using_edges(string pathname){
@@ -731,8 +739,10 @@ void Deconstructor::get_variants_using_edges(string pathname){
      * The reference path that the variant originates from can be grabbed
      * from the Mapping's position.
      */
-    vector<vcflib::Variant> Deconstructor::mapping_to_simple_variant(string pathname, int64_t ref_id, list<Mapping> mappings){
-        vector<vcflib::Variant> variants;
+    vector<vcflib::Variant> Deconstructor::mapping_to_simple_variant(string pathname,
+                            int64_t ref_id, list<Mapping> mappings,
+                            vector<vcflib::Variant>& variants){
+        //vector<vcflib::Variant> variants;
         Node ref = *((*vgraph).get_node(ref_id));
         map<string, vector<vcflib::VariantAllele> > variantAlleles;
         long pos;
@@ -801,7 +811,7 @@ void Deconstructor::get_variants_using_edges(string pathname){
         //vector<string>::iterator vit;
         //v.alleles.insert(vit, ref.sequence());
         variants.push_back(v);
-        cout << v << endl;
+        //cout << v << endl;
 
         return variants;
     }

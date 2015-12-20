@@ -15,6 +15,7 @@
 #include "Fasta.h"
 #include "xg.hpp"
 #include "position.hpp"
+#include "vcfheader.hpp"
 
 
 namespace vg{
@@ -31,7 +32,7 @@ namespace vg{
             void set_index(string ref_index);
             void set_graph(VG* v);
             void b_call(string pathname);
-            void indel_caller(string pathname);
+            map<string, vector<vcflib::Variant>> indel_caller(string pathname);
 
             /**
              * Project a path onto another path,
@@ -44,7 +45,8 @@ namespace vg{
            /**
              * Build a vcf record from a mapping.
              */
-            vector<vcflib::Variant> mapping_to_simple_variant(string pathname, int64_t ref_id, list<Mapping> mappings);
+            vector<vcflib::Variant> mapping_to_simple_variant(string pathname, int64_t ref_id,
+                                    list<Mapping> mappings, vector<vcflib::Variant>& variants);
 
 
             Mapping node_id_to_mapping(int64_t node_id);
