@@ -474,11 +474,11 @@ set<NodeTraversal> VG::full_siblings_to(const NodeTraversal& trav) {
 set<NodeTraversal> VG::full_siblings_from(const NodeTraversal& trav) {
     // get the siblings of
     auto sibs_from = siblings_from(trav);
-    // and filter them for nodes with the same inbound sides
-    auto from_sides = sides_from(NodeSide(trav.node->id(), trav.backward));
+    // and filter them for nodes with the same outbound sides
+    auto from_sides = sides_from(NodeSide(trav.node->id(), !trav.backward));
     set<NodeTraversal> full_sibs_from;
     for (auto& sib : sibs_from) {
-        auto sib_from_sides = sides_from(NodeSide(sib.node->id(), sib.backward));
+        auto sib_from_sides = sides_from(NodeSide(sib.node->id(), !sib.backward));
         if (sib_from_sides == from_sides) {
             full_sibs_from.insert(sib);
         }
@@ -588,6 +588,7 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         if (shared_start == 0) continue;
         bool self_ancestors = false;
         bool common_ancestor = true;
+        // determine if we are a self ancestor or have a common ancestor
         for (auto& sib1 : sibs) {
             for (auto& sib2 : sibs) {
                 if (sib1 != sib2) {
@@ -600,6 +601,7 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
                 }
             }
         }
+        // if so, skip ahead
         if (self_ancestors || !common_ancestor) continue;
 
         // make a new node with the shared sequence
@@ -701,6 +703,7 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
         // check if any of the nodes is an ancester of the others
         bool self_ancestors = false;
         bool common_ancestor = true;
+        // determine if we are a self ancestor or have a common ancestor
         for (auto& sib1 : sibs) {
             for (auto& sib2 : sibs) {
                 if (sib1 != sib2) {
@@ -713,6 +716,7 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
                 }
             }
         }
+        // if so, skip ahead
         if (self_ancestors || !common_ancestor) continue;
 
         // make a new node with the shared sequence
@@ -793,6 +797,22 @@ bool VG::adjacent(const Position& pos1, const Position& pos2) {
     }
 }
 
+// edges which are both from_start and to_end can be represented naturally as
+// a regular edge, from end to start, so we flip these as part of normalization
+void VG::flip_doubly_reversed_edges(void) {
+    for_each_edge([this](Edge* e) {
+            if (e->from_start() && e->to_end()) {
+                e->set_from_start(false);
+                e->set_to_end(false);
+                int64_t f = e->to();
+                int64_t t = e->from();
+                e->set_to(t);
+                e->set_from(f);
+            }
+        });
+    rebuild_edge_indexes();
+}
+
 // by definition, we can merge nodes that are a "simple component"
 // without affecting the sequence or path space of the graph
 // so we don't unchop nodes when they have mismatched path sets
@@ -805,9 +825,11 @@ void VG::unchop(void) {
 }
 
 void VG::normalize(void) {
+    // convert edges that go from_start -> to_end to the equivalent "regular" edge
+    flip_doubly_reversed_edges();
     // combine diced/chopped nodes (subpaths with no branching)
     unchop();
-    // merge redundancy across multiple nodes into single nodes
+    // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
     simplify_siblings();
     // compact node ranks
     paths.compact_ranks();
@@ -820,17 +842,16 @@ void VG::normalize(void) {
 void VG::remove_non_path(void) {
     set<Edge*> path_edges;
     function<void(const Path&)> lambda = [this, &path_edges](const Path& path) {
-        for (int i = 0; i < path.mapping_size(); ++i) {
-            const Mapping& m1 = path.mapping(i);
-            if (i < path.mapping_size()-1) {
-                const Mapping& m2 = path.mapping(i+1);
-                // Find the Edge connecting the mappings in the order they occur in the path.
-                Edge* edge = get_edge(NodeTraversal(get_node(m1.position().node_id()),
-                                                    m1.position().is_reverse()),
-                                      NodeTraversal(get_node(m2.position().node_id()),
-                                                    m2.position().is_reverse()));
-                path_edges.insert(edge);
-            }
+        for (size_t i = 1; i < path.mapping_size(); ++i) {
+            auto& m1 = path.mapping(i-1);
+            auto& m2 = path.mapping(i);
+            if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+            auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
+            auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
+            // check that we always have an edge between the two nodes in the correct direction
+            assert(has_edge(s1, s2));
+            Edge* edge = get_edge(s1, s2);
+            path_edges.insert(edge);
         }
     };
     paths.for_each(lambda);
@@ -1182,12 +1203,15 @@ int64_t VG::total_length_of_nodes(void) {
     return length;
 }
 
-void VG::build_indexes(void) {
+void VG::build_node_indexes(void) {
     for (int64_t i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         node_index[n] = i;
         node_by_id[n->id()] = n;
     }
+}
+
+void VG::build_edge_indexes(void) {
     for (int64_t i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         edge_index[e] = i;
@@ -1195,23 +1219,52 @@ void VG::build_indexes(void) {
     }
 }
 
-void VG::clear_indexes(void) {
+void VG::build_indexes(void) {
+    build_node_indexes();
+    build_edge_indexes();
+}
+
+void VG::clear_node_indexes(void) {
     node_index.clear();
     node_by_id.clear();
+}
+
+void VG::clear_node_indexes_no_resize(void) {
+#ifdef USE_DENSE_HASH
+    node_index.clear_no_resize();
+    node_by_id.clear_no_resize();
+#else
+    clear_node_indexes();
+#endif
+}
+
+void VG::clear_edge_indexes(void) {
     edge_by_sides.clear();
     edge_index.clear();
     edges_on_start.clear();
     edges_on_end.clear();
 }
 
-void VG::clear_indexes_no_resize(void) {
+void VG::clear_edge_indexes_no_resize(void) {
 #ifdef USE_DENSE_HASH
-    node_index.clear_no_resize();
-    node_by_id.clear_no_resize();
     edge_by_sides.clear_no_resize();
     edge_index.clear_no_resize();
     edges_on_start.clear_no_resize();
     edges_on_end.clear_no_resize();
+#else
+    clear_edge_indexes();
+#endif
+}
+
+void VG::clear_indexes(void) {
+    clear_node_indexes();
+    clear_edge_indexes();
+}
+
+void VG::clear_indexes_no_resize(void) {
+#ifdef USE_DENSE_HASH
+    clear_node_indexes_no_resize();
+    clear_edge_indexes_no_resize();
 #else
     clear_indexes();
 #endif
@@ -1227,11 +1280,14 @@ void VG::resize_indexes(void) {
 }
 
 void VG::rebuild_indexes(void) {
-    //clear_indexes();
-    //resize_indexes();
     clear_indexes_no_resize();
     build_indexes();
     paths.rebuild_node_mapping();
+}
+
+void VG::rebuild_edge_indexes(void) {
+    clear_edge_indexes_no_resize();
+    build_edge_indexes();
 }
 
 bool VG::empty(void) {
@@ -1691,38 +1747,8 @@ void VG::dice_nodes(int max_node_size) {
 
     // Set the ranks again
     paths.rebuild_mapping_aux();
+    paths.compact_ranks();
 }
-
-/*
-void VG::simplify_node(int64_t id) {
-    // do we share our incoming edges with another node?
-    // for each to-sibling
-    // does it have the same set of edges as this node?
-    // does it start with the same sequence?
-    // if so merge it into this one
-    //
-    // does that node have the same start sequence as us?
-    // if so, pick a node to keep, step through until we're to the end of the identical sequence
-    // or we have exhausted sequence in the other node(s)
-    // cut, and forward edges from the end of the redundant node
-}
-*/
-
-/*
-void VG::normalize(size_t node_max_size) {
-    // remove nodes that repeat something another node says at the same location in the graph
-    remove_redundancy();
-    // where a single edge lies between two nodes, combine them
-    simplify_nodes();
-    // cut up the nodes to a target size
-    dice_nodes(max_node_size);
-    // sort the graph in a stable way
-    sort();
-    // and give ids based on the sort
-    compact_ids();
-}
-*/
-
 
 void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,
@@ -3025,11 +3051,13 @@ void VG::keep_path(string& path_name) {
     keep_paths(s, k);
 }
 
-
-// utilities
+// divide a node into two pieces at the given offset
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
-    //cerr << "dividing node " << node->id() << " at " << pos << endl;
+#ifdef debug_divide
+#pragma omp critical (cerr)
+    cerr << "dividing node " << node->id() << " at " << pos << endl;
+#endif
 
     if (pos < 0 || pos > node->sequence().size()) {
 #pragma omp critical (cerr)
@@ -3041,30 +3069,50 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         }
     }
 
-#ifdef debug
+#ifdef debug_divide
 #pragma omp critical (cerr)
     cerr << omp_get_thread_num() << ": in divide_node " << pos << " of " << node->sequence().size() << endl;
 #endif
 
-
     // make our left node
     left = create_node(node->sequence().substr(0,pos));
-
-    hash_map<int64_t, vector<int64_t> >::const_iterator e;
-    // Create edges between the left node (optionally its start) and the right node (optionally its end)
-    set<pair<pair<int64_t, bool>, pair<int64_t, bool>>> edges_to_create;
-
-    // replace the connections to the node's start
-    for(auto& e : edges_start(node)) {
-        // Make an edge to the left node's start from wherever this edge went.
-        edges_to_create.emplace(make_pair(e.first, e.second), make_pair(left->id(), false));
-    }
 
     // make our right node
     right = create_node(node->sequence().substr(pos));
 
+    // Create edges between the left node (optionally its start) and the right node (optionally its end)
+    set<pair<pair<int64_t, bool>, pair<int64_t, bool>>> edges_to_create;
+
+    // replace the connections to the node's start
+    for(auto e : edges_start(node)) {
+        // We have to check for self loops, as these will be clobbered by the division of the node
+        if (e.first == node->id()) {
+            // if it's a reversed edge, it would be from the start of this node
+            if (e.second) {
+                // so set it to the left node
+                e.first = left->id();
+            } else {
+                // otherwise, it's from the end, so set it to the right side
+                e.first = right->id();
+            }
+        }
+        // Make an edge to the left node's start from wherever this edge went.
+        edges_to_create.emplace(make_pair(e.first, e.second), make_pair(left->id(), false));
+    }
+
     // replace the connections to the node's end
-    for(auto& e : edges_end(node)) {
+    for(auto e : edges_end(node)) {
+        // We have to check for self loops, as these will be clobbered by the division of the node
+        if (e.first == node->id()) {
+            // if it's a reversed edge, it would be to the end of this node
+            if (e.second) {
+                // so set it to the right node
+                e.first = right->id();
+            } else {
+                // otherwise, it's to the start, so set it to the left side
+                e.first = left->id();
+            }
+        }
         // Make an edge from the right node's end to wherever this edge went.
         edges_to_create.emplace(make_pair(right->id(), false), make_pair(e.first, e.second));
     }
@@ -3096,6 +3144,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
             // we have to divide the mapping
 
 #ifdef debug
+
 #pragma omp critical (cerr)
             cerr << omp_get_thread_num() << ": dividing mapping " << pb2json(*m) << endl;
 #endif
@@ -3127,7 +3176,7 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
 
 
-#ifdef debug
+#ifdef debug_divide
 #pragma omp critical (cerr)
             cerr << omp_get_thread_num() << ": produced mappings " << pb2json(l) << " and " << pb2json(r) << endl;
 #endif
@@ -3996,6 +4045,7 @@ void VG::edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings
     remove_null_nodes_forwarding_edges();
 }
 
+// The correct way to edit the graph
 void VG::edit_both_directions(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<int64_t, set<pos_t>> breakpoints;
@@ -4052,16 +4102,16 @@ void VG::edit_both_directions(const vector<Path>& paths_to_add) {
                 auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
                 // check that we always have an edge between the two nodes in the correct direction
                 if (!has_edge(s1, s2)) {
-                    /*
                     cerr << "graph path '" << path.name() << "' invalid: edge from "
                          << s1 << " to " << s2 << " does not exist" << endl;
                     cerr << "creating edge" << endl;
-                    */
                     create_edge(s1, s2);
                 }
             }
         });
 
+    // execute a semi partial order sort on the nodes
+    sort();
 }
 
 map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints) {
@@ -4074,6 +4124,11 @@ map<int64_t, set<pos_t>> VG::forwardize_breakpoints(const map<int64_t, set<pos_t
         for (auto& pos : bp) {
             pos_t x = pos;
             if (offset(pos) == node_length) continue;
+            if (offset(pos) > node_length) {
+                cerr << "VG::forwardize_breakpoints error: failure, position " << pos << " is not inside node "
+                     << pb2json(*get_node(node_id)) << endl;
+                assert(false);
+            }
             if (is_rev(pos)) {
                 fwd[node_id].insert(reverse(pos, node_length));
             } else {
@@ -4205,6 +4260,8 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
         for(auto breakpoint : kv.second) {
             // For every point at which we need to make a new node, in ascending
             // order (due to the way sets store ints)...
+
+            // ensure that we're on the forward strand (should be the case due to forwardize_breakpoints)
             assert(!is_rev(breakpoint));
 
             // This breakpoint already exists, because the node starts or ends here
@@ -4217,11 +4274,14 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             // many bases will be in this new left part?
             int64_t divide_offset = offset(breakpoint) - current_offset;
 
+
 #ifdef debug
             cerr << "Need to divide original " << original_node_id << " at " << breakpoint << "/" <<
+
                 original_node_length << endl;
             cerr << "Translates to " << right_part->id() << " at " << divide_offset << "/" <<
                 right_part->sequence().size() << endl;
+            cerr << "divide offset is " << divide_offset << endl;
 #endif
 
             if (offset(breakpoint) <= 0) { cerr << "breakpoint is " << breakpoint << endl; }
@@ -4234,6 +4294,7 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
             divide_node(right_part, divide_offset, left_part, right_part);
 
 #ifdef debug
+
             cerr << "Produced " << left_part->id() << " (" << left_part->sequence().size() << " bp)" << endl;
             cerr << "Left " << right_part->id() << " (" << right_part->sequence().size() << " bp)" << endl;
 #endif
@@ -4259,7 +4320,6 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpo
         // and record the start and end of the node
         toReturn[make_pos_t(original_node_id, true, original_node_length)] = nullptr;
         toReturn[make_pos_t(original_node_id, false, original_node_length)] = nullptr;
-
 
     }
 

@@ -746,6 +746,7 @@ Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int ban
     return best[0];
 }
 
+// core alignment algorithm that handles both kinds of sequence indexes
 vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_count, int kmer_size, int stride, int attempt) {
 
     // parameters, some of which should probably be modifiable

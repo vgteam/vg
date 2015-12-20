@@ -165,3 +165,8 @@ message NodePileup {
     repeated BasePileup base_pileup = 2;
 }
 
+message Genotype {
+    repeated Path allele = 1;
+    Position start = 2;
+    Position end = 3;
+}

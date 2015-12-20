@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 21
+plan tests 24
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -68,3 +68,10 @@ is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -J
 
 vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCT$(revcomp AACTACTCCACATCAAAGCTAC)CCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -k 16 -B 16 -Nz | vg mod -u - >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
+
+is $(vg msga -B 20 -f msgas/s.fa  | vg mod -r s1 - | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
+
+is $(vg msga -B 20 -f msgas/s.fa | vg mod -r s1 - | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) $(vg msga -B 20 -f msgas/s.fa  | vg view - | grep -v ^P | md5sum | cut -f 1 -d\ ) "path filtering does not modify the graph"
+
+vg msga -f msgas/l.fa -k 8 -b a1 -B 8 | vg mod -X 8 - | vg validate -
+is $? 0 "chopping self-cycling nodes retains the cycle"
