@@ -39,7 +39,7 @@
 	url = https://github.com/jltsiren/gcsa2.git
 [submodule "xg"]
 	path = deps/xg
-	url = https://github.com/edawson/xg.git
+	url = https://github.com/ekg/xg.git
 [submodule "sdsl-lite"]
 	path = deps/sdsl-lite
     url = https://github.com/simongog/sdsl-lite
