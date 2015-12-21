@@ -477,6 +477,10 @@ public:
     set<NodeSide> sides_to(NodeSide side);
     // Sides on the other side of edges from this side of the node
     set<NodeSide> sides_from(NodeSide side);
+    // All sides connecting to this node
+    set<pair<NodeSide, bool>> sides_context(int64_t node_id);
+    // Use sides_from an sides_to to determine if both nodes have the same context
+    bool same_context(int64_t id1, int64_t id2);
     // determine if the node is an ancestor of this one by trying to find it in a given number of steps
     bool is_ancestor_prev(int64_t node_id, int64_t candidate_id);
     bool is_ancestor_prev(int64_t node_id, int64_t candidate_id, set<int64_t>& seen, size_t steps = 64);

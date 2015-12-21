@@ -293,6 +293,34 @@ void VG::edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges) {
     }
 }
 
+set<pair<NodeSide, bool>> VG::sides_context(int64_t node_id) {
+    // return the side we're going to and if we go from the start or end to get there
+    set<pair<NodeSide, bool>> all;
+    for (auto& s : sides_to(NodeSide(node_id, false))) {
+        all.insert(make_pair(s, false));
+    }
+    for (auto& s : sides_to(NodeSide(node_id, true))) {
+        all.insert(make_pair(s, true));
+    }
+    for (auto& s : sides_from(NodeSide(node_id, false))) {
+        all.insert(make_pair(s, false));
+    }
+    for (auto& s : sides_from(NodeSide(node_id, true))) {
+        all.insert(make_pair(s, true));
+    }
+    return all;
+}
+
+bool VG::same_context(int64_t n1, int64_t n2) {
+    auto c1 = sides_context(n1);
+    auto c2 = sides_context(n2);
+    bool same = true;
+    for (auto& s : c1) {
+        if (!c2.count(s)) { same = false; break; }
+    }
+    return same;
+}
+
 bool VG::is_ancestor_prev(int64_t node_id, int64_t candidate_id) {
     set<int64_t> seen;
     return is_ancestor_prev(node_id, candidate_id, seen);
@@ -584,25 +612,8 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         }
         size_t shared_start = j;
         //cerr << "sharing is " << shared_start << " for to-sibs of "
-        //     << sibs.begin()->node->id() << endl;
+        //<< sibs.begin()->node->id() << endl;
         if (shared_start == 0) continue;
-        bool self_ancestors = false;
-        bool common_ancestor = true;
-        // determine if we are a self ancestor or have a common ancestor
-        for (auto& sib1 : sibs) {
-            for (auto& sib2 : sibs) {
-                if (sib1 != sib2) {
-                    if (is_ancestor_next(sib1.node->id(), sib2.node->id())) {
-                        self_ancestors = true;
-                    }
-                    if (!common_ancestor_next(sib1.node->id(), sib2.node->id())) {
-                        common_ancestor = false;
-                    }
-                }
-            }
-        }
-        // if so, skip ahead
-        if (self_ancestors || !common_ancestor) continue;
 
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(0,shared_start);
@@ -692,33 +703,9 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
         }
         size_t shared_end = j;
         //cerr << "sharing is " << shared_end << " for from-sibs of "
-        //     << sibs.begin()->node->id() << endl;
+        //<< sibs.begin()->node->id() << endl;
         if (shared_end == 0) continue;
-        // we will only use this normalization method if:
-        // 1) none of the nodes is an ancestor of any of the others
-        // 2) we can identify common ancestors within a given number of steps in the graph
-        //    thus verifying that our determination of ancestorship (or not) is approximately sound
-        // ... yes this can also fail, but at worst we add cycles into the graph
 
-        // check if any of the nodes is an ancester of the others
-        bool self_ancestors = false;
-        bool common_ancestor = true;
-        // determine if we are a self ancestor or have a common ancestor
-        for (auto& sib1 : sibs) {
-            for (auto& sib2 : sibs) {
-                if (sib1 != sib2) {
-                    if (is_ancestor_prev(sib1.node->id(), sib2.node->id())) {
-                        self_ancestors = true;
-                    }
-                    if (!common_ancestor_prev(sib1.node->id(), sib2.node->id())) {
-                        common_ancestor = false;
-                    }
-                }
-            }
-        }
-        // if so, skip ahead
-        if (self_ancestors || !common_ancestor) continue;
-        
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(seqs.front()->size()-shared_end);
         auto new_node = create_node(seq);
