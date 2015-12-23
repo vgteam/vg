@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 14
+plan tests 16
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -k 16 -t 1 | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 549b183e90036f767acdd10e7d5ba125 "MSGA produces the expected graph for GRCh38 HLA-V"
 
@@ -35,6 +35,12 @@ is $? 0 "HLA K-3138 correctly includes all input paths"
 
 vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg validate -
 is $? 0 "a difficult cyclic path can be included to produce a valid graph"
+
+is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg view - | grep ^S | wc -l) 6 "a cyclic path can be normalized"
+
+is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg view - | md5sum | cut -f 1 -d\ ) \
+   $(vg msga -f msgas/cycle.fa -b s1 -B 16 -t 1 | vg view - | md5sum | cut -f 1 -d\ ) \
+   "bandwidth does not affect a cyclic graph, meaning normalization is correct"
 
 vg msga -f msgas/l.fa -k 8 -b a1 -B 8 -m 8 | vg validate -
 is $? 0 "edges in cycles with two nodes are correctly included"
