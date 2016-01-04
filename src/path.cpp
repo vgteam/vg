@@ -499,18 +499,18 @@ map<string, map<int, Mapping>> Paths::get_node_mapping_copies_by_rank(int64_t id
 Mapping* Paths::traverse_left(Mapping* mapping) {
     // Get the iterator for this Mapping*
     list<Mapping>::iterator place = mapping_itr.at(mapping);
-    
+
     // Get the path name for this Mapping*
     string path_name = mapping_path_name(mapping);
-    
+
     // Get the list that the iterator is in
     list<Mapping>& path_list = _paths.at(path_name);
-    
+
     // If we're already the beginning, return null.
     if(place == path_list.begin()) {
         return nullptr;
     }
-    
+
     // Else walk left and return the address of the stored Mapping. std::list
     // iterators are bidirectional, so we will be able to do it.
     place--;
@@ -520,21 +520,21 @@ Mapping* Paths::traverse_left(Mapping* mapping) {
 Mapping* Paths::traverse_right(Mapping* mapping) {
     // Get the iterator for this Mapping*
     list<Mapping>::iterator place = mapping_itr.at(mapping);
-    
+
     // Get the path name for this Mapping*
     string path_name = mapping_path_name(mapping);
-    
+
     // Get the list that the iterator is in
     list<Mapping>& path_list = _paths.at(path_name);
-    
+
     // Advance the iterator right.
     place++;
-    
+
     // If we're at the end, return null
     if(place == path_list.end()) {
         return nullptr;
     }
-    
+
     // Else return the address of the stored Mapping.
     return &(*place);
 }
@@ -869,7 +869,7 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
             *m->add_edit() = e;
             kept_path2 += e.to_length();
         }
-        
+
         for (int i = 0; i < p2m.edit_size(); ++i) {
             if (to_skip > skipped + p2m.edit(i).to_length()) {
             } else {
@@ -1116,25 +1116,25 @@ Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node
             = make_position(reverse(make_pos_t(p),
                                     node_length(m.position().node_id())));
     }
-    
+
     // Clear out all the edits. TODO: we wasted time copying them
     reversed.clear_edit();
-    
+
     for(size_t i = m.edit_size() - 1; i != (size_t) -1; i--) {
         // For each edit in reverse order, put it in reverse complemented
         *reversed.add_edit() = reverse_edit(m.edit(i));
     }
-    
+
     return reversed;
 }
 
 Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_length) {
     // Make a new reversed path
     Path reversed = path;
-    
+
     // Clear out all the mappings. TODO: we wasted time copying them
     reversed.clear_mapping();
-    
+
     for(size_t i = path.mapping_size() - 1; i != (size_t) -1; i--) {
         // For each mapping in reverse order, put it in reverse complemented and
         // measured from the other end of the node.
@@ -1143,7 +1143,7 @@ Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_lengt
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         reversed.mutable_mapping(i)->set_rank(i+1);
     }
-    
+
     return reversed;
 }
 
@@ -1155,10 +1155,10 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
     // the two mappings get the same rank
     left.set_rank(m.rank());
     right.set_rank(m.rank());
-    
+
     // TODO: support reverse mappings
     assert(!m.position().is_reverse());
-    
+
     //cerr << "cutting mapping " << pb2json(m) << " at pos " << pb2json(pos) << endl;
     // left always has the position of the input mapping
     *left.mutable_position() = m.position();
@@ -1222,7 +1222,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     right.mutable_position()->set_is_reverse(m.position().is_reverse());
     left.set_rank(m.rank());
     right.set_rank(m.rank());
-    
+
     //assert(m.has_position() && m.position().node_id());
     // left always has the position of the input mapping
     if (m.has_position()) *left.mutable_position() = m.position();
@@ -1235,7 +1235,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         left = m;
     } else {
         // we need to cut the mapping
-        
+
         // find the cut point and build the two mappings
         size_t seen = 0;
         size_t j = 0;

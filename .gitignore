@@ -2,6 +2,8 @@ bin/
 lib/
 include/
 obj/
+cpp/
+.pre-build
 *.o
 vg
 *.a
