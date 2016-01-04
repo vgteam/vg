@@ -1063,6 +1063,10 @@ bool mapping_is_simple_match(const Mapping& m) {
 }
 
 const string mapping_sequence(const Mapping& mp, const Node& n) {
+    if (!mp.has_position()) {
+        assert(mp.edit_size()==1);
+        return mp.edit(0).sequence();
+    }
     assert(mp.position().node_id() == n.id());
     auto& node_seq = n.sequence();
     string seq;
