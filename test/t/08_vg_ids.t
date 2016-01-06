@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../bash-tap
 
 PATH=..:$PATH # for vg
 
-plan tests 7
+plan tests 8
 
 num_nodes=$(vg construct -r small/x.fa -v small/x.vcf.gz | vg ids -c - | vg view -g - | grep ^S | wc -l)
 
@@ -37,3 +37,6 @@ is $(vg ids -s ids/mixed.json | vg view -j - | jq -c '.edge[] | select(.from > .
 rm sorted.vg
 
 is $(vg ids -s ids/unordered.vg | vg view -j - | jq -c '.node[1] == {"id":2,"sequence":"T"}') "true" "sorting assigns node IDs in topological order"
+
+vg ids -s graphs/snp1kg-brca2-unsorted.vg | vg validate -
+is $? 0 "can sort ids without invalidating graph"
