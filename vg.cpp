@@ -27,6 +27,12 @@ VG::VG(istream& in, bool showp) {
 
     stream::for_each(in, lambda, handle_count);
 
+    // Collate all the path mappings we got from all the different chunks. A
+    // mapping from any chunk might fall anywhere in a path (because paths may
+    // loop around cycles), so we need to sort on ranks.
+    paths.sort_by_mapping_rank();
+    paths.rebuild_mapping_aux();
+
     // store paths in graph
     paths.to_graph(graph);
 
@@ -1068,7 +1074,7 @@ void VG::extend(VG& g, bool warn_on_duplicates) {
                  << e->to() << (e->to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
         }
     }
-    // todo breaks on cycles!
+    // Append the path mappings from this graph, and sort based on rank.
     paths.append(g.paths);
 }
 
@@ -1093,6 +1099,7 @@ void VG::extend(Graph& graph, bool warn_on_duplicates) {
                  << e->to() << (e->to_end() ? " end" : " start") << " appears multiple times. Skipping." << endl;
         }
     }
+    // Append the path mappings from this graph, but don't sort by rank
     paths.append(graph);
 }
 

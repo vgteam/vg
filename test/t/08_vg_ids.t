@@ -39,4 +39,4 @@ rm sorted.vg
 is $(vg ids -s ids/unordered.vg | vg view -j - | jq -c '.node[1] == {"id":2,"sequence":"T"}') "true" "sorting assigns node IDs in topological order"
 
 vg ids -s graphs/snp1kg-brca2-unsorted.vg | vg validate -
-is $? 0 "can sort ids without invalidating graph"
+is $? 0 "can handle graphs with out-of-order mappings"

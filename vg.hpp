@@ -388,7 +388,13 @@ public:
     // many overlaps. TODO: If you are using this with warn on duplicates on,
     // and you know there shouldn't be any duplicates, maybe you should use
     // merge instead.
+    
+    // This version sorts paths on rank after adding in the path mappings from
+    // the other graph.
     void extend(VG& g, bool warn_on_duplicates = false);
+    // This version does not sort path mappings by rank. In order to preserve
+    // paths, call paths.sort_by_mapping_rank() and paths.rebuild_mapping_aux()
+    // after you are done adding in graphs to this graph.
     void extend(Graph& graph, bool warn_on_duplicates = false);
 
     // modify ids of the second graph to ensure we don't have conflicts
