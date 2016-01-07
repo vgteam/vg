@@ -166,12 +166,17 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
             last_rank = (*pt.rbegin()).rank();
         }
 
+        // Add this mapping at the end of the path. Note that this may not
+        // actually be where it belongs according to its rank; if that is the
+        // case, sort_by_mapping_rank() and rebuild_mapping_aux() need to be
+        // called, after all the mappings are loaded, in order to put them in
+        // order by rank.
         pt.push_back(m);
         Mapping* mp = &pt.back();
         
         if(mp->rank() == 0) {
             // 0 rank defaults to being ranked at the end of what's already
-            // there. After all, that's where we add it.
+            // there. After all, that's where we just added it.
             if(&pt.front() != mp) {
                 // There are other things on the path
                 if(last_rank && !mappings_by_rank[name].count(last_rank + 1)) {
