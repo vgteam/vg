@@ -283,6 +283,12 @@ void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
     }
 }
 
+vector<Edge*> VG::edges_of(Node* node) {
+    vector<Edge*> edges;
+    edges_of_node(node, edges);
+    return edges;
+}
+
 void VG::edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges) {
     for (set<Node*>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
         vector<Edge*> ev;
@@ -407,6 +413,13 @@ int64_t VG::common_ancestor_next(int64_t id1, int64_t id2, size_t steps) {
     }
 }
 
+set<NodeSide> VG::sides_of(NodeSide side) {
+    set<NodeSide> v1 = sides_to(side);
+    set<NodeSide> v2 = sides_from(side);
+    for (auto s : v2) v1.insert(s);
+    return v1;
+}
+
 set<NodeSide> VG::sides_to(NodeSide side) {
     set<NodeSide> other_sides;
     vector<Edge*> edges;
@@ -514,6 +527,7 @@ set<NodeTraversal> VG::full_siblings_from(const NodeTraversal& trav) {
     return full_sibs_from;
 }
 
+// returns sets of sibling nodes that are only in one set of sibling nodes
 set<set<NodeTraversal>> VG::transitive_sibling_sets(const set<set<NodeTraversal>>& sibs) {
     set<set<NodeTraversal>> trans_sibs;
     map<Node*, int> membership;
@@ -545,6 +559,26 @@ set<set<NodeTraversal>> VG::transitive_sibling_sets(const set<set<NodeTraversal>
     return trans_sibs;
 }
 
+set<set<NodeTraversal>> VG::identically_oriented_sibling_sets(const set<set<NodeTraversal>>& sibs) {
+    set<set<NodeTraversal>> iosibs;
+    for (auto& s : sibs) {
+        int forward = 0;
+        int reverse = 0;
+        for (auto& t : s) {
+            if (t.backward) {
+                ++reverse;
+            } else {
+                ++forward;
+            }
+        }
+        // if they are all forward or all reverse
+        if (forward == 0 || reverse == 0) {
+            iosibs.insert(s);
+        }
+    }
+    return iosibs;
+}
+
 void VG::simplify_siblings(void) {
     // make a list of all the sets of siblings
     set<set<NodeTraversal>> to_sibs;
@@ -559,7 +593,9 @@ void VG::simplify_siblings(void) {
     // make the sibling sets transitive
     // by removing any that are intransitive
     // then simplify
-    simplify_to_siblings(transitive_sibling_sets(to_sibs));
+    simplify_to_siblings(
+        identically_oriented_sibling_sets(
+            transitive_sibling_sets(to_sibs)));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
 
@@ -574,9 +610,12 @@ void VG::simplify_siblings(void) {
             }
         });
     // then do the from direction
-    simplify_from_siblings(transitive_sibling_sets(from_sibs));
+    simplify_from_siblings(
+        identically_oriented_sibling_sets(
+            transitive_sibling_sets(from_sibs)));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
+    
 }
 
 void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
@@ -646,13 +685,8 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
             }
         }
 
-        // give it the mappings from the other nodes
-        // wtf is the rank
-        // it's the same as it was before
-        // no worries
+        // connect the new node to the common *context* (the union of sides of the old nodes)
 
-
-        // connect the new node to the common parents
         // by definition we are only working with nodes that have exactly the same set of parents
         // so we just use the first node in the set to drive the reconnection
         auto new_left_side = NodeSide(new_node->id(), false);
@@ -702,15 +736,12 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
             ++j;
         }
         size_t shared_end = j;
-        //cerr << "sharing is " << shared_end << " for from-sibs of "
-        //<< sibs.begin()->node->id() << endl;
         if (shared_end == 0) continue;
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(seqs.front()->size()-shared_end);
         auto new_node = create_node(seq);
         // chop it off of the old nodes
         for (auto& sib : sibs) {
-            //cerr << "from sib " << pb2json(*sib.node) << endl;
             *sib.node->mutable_sequence()
                 = sib.node->sequence().substr(0, sib.node->sequence().size()-shared_end);
 
@@ -751,6 +782,50 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
             // connect the new node to the old nodes
             create_edge(old_side, new_left_side);
         }
+    }
+}
+
+// expand the context of the subgraph g by this many steps
+// it's like a neighborhood function
+void VG::expand_context(VG& g, size_t steps, bool add_paths) {
+    set<int64_t> to_visit;
+    // start with the nodes in the subgraph
+    g.for_each_node([&](Node* n) { to_visit.insert(n->id()); });
+    g.for_each_edge([&](Edge* e) {
+            to_visit.insert(e->from());
+            to_visit.insert(e->to()); });
+    // and expand
+    for (size_t i = 0; i < steps; ++i) {
+        set<int64_t> to_visit_next;
+        for (auto id : to_visit) {
+            // build out the graph
+            // if we have nodes we haven't seeen
+            if (!g.has_node(id)) {
+                g.add_node(*get_node(id));
+            }
+            for (auto& e : edges_of(get_node(id))) {
+                g.add_edge(*e);
+                if (e->from() == id) {
+                    to_visit_next.insert(e->to());
+                } else {
+                    to_visit_next.insert(e->from());
+                }
+            }
+        }
+        to_visit = to_visit_next;
+    }
+    // then remove orphans
+    g.remove_orphan_edges();
+    // and add paths
+    if (add_paths) {
+        g.for_each_node([&](Node* n) {
+                for (auto& path : paths.get_node_mapping(n)) {
+                    for (auto& m : path.second) {
+                        g.paths.append_mapping(path.first, *m);
+                    }
+                }
+            });
+        g.sync_paths();
     }
 }
 
@@ -817,6 +892,7 @@ void VG::normalize(void) {
     unchop();
     // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
     simplify_siblings();
+    if (!is_valid()) cerr << "invalid after simplify_siblings" << endl;
     // compact node ranks
     paths.compact_ranks();
     // there may now be some cut nodes that can be simplified
@@ -3545,6 +3621,7 @@ string VG::path_string(const Path& path) {
     string seq;
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& m = path.mapping(i);
+        //cerr << pb2json(m) << endl;
         Node* n = node_by_id[m.position().node_id()];
         seq.append(mapping_sequence(m, *n));
     }
@@ -4784,7 +4861,7 @@ bool VG::is_valid(bool check_nodes,
                     return;
                 }
             }
-            
+
             for (size_t i = 1; i < path.mapping_size(); ++i) {
                 auto& m1 = path.mapping(i-1);
                 auto& m2 = path.mapping(i);
@@ -4808,7 +4885,7 @@ bool VG::is_valid(bool check_nodes,
                     cerr << "graph path '" << path.name() << "' invalid: edge from "
                          << s1 << " to " << s2 << " does not exist" << endl;
                     paths_ok = false;
-                    return;
+                    //return;;
                 }
 
                 // in the four cases below, we check that edges always incident the tips of nodes
@@ -4844,6 +4921,36 @@ bool VG::is_valid(bool check_nodes,
                         return;
                 }
             }
+
+            // check that the mappings have the right length
+            for (size_t i = 0; i < path.mapping_size(); ++i) {
+                auto& m = path.mapping(i);
+                // get the node
+                auto n = get_node(m.position().node_id());
+                if (mapping_from_length(m) + m.position().offset() > n->sequence().size()) {
+                    cerr << "graph path " << path.name() << " has a mapping which "
+                         << "matches sequence outside of the node it maps to "
+                         << pb2json(m)
+                         << " vs "
+                         << pb2json(*n) << endl;
+                    paths_ok = false;
+                    return;
+                }
+            }
+
+            // check that the mappings all match the graph
+            /*
+            for (size_t i = 0; i < path.mapping_size(); ++i) {
+                auto& m = path.mapping(i);
+                if (!mapping_is_total_match(m)) {
+                    cerr << "graph path " << path.name() << " has an imperfect mapping "
+                         << pb2json(m) << endl;
+                    paths_ok = false;
+                    return;
+                }
+            }
+            */
+
         };
         paths.for_each(lambda);
         if (!paths_ok) return false;

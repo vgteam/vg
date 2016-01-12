@@ -978,29 +978,35 @@ int main_msga(int argc, char** argv) {
             ++j;
 
             if (debug) cerr << name << ": editing graph" << endl;
-            //graph->serialize_to_file(name + "-pre-edit.vg");
+            graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
-            //graph->serialize_to_file(name + "-immed-post-edit.vg");
+            if (!graph->is_valid()) cerr << "invalid after edit" << endl;
+            graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
+            if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
             graph->dice_nodes(node_max);
+            if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-norm.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
+            if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // xg can't work unless IDs are compacted.
+            if (!graph->is_valid()) cerr << "invalid after compact" << endl;
 
             // the edit needs to cut nodes at mapping starts and ends
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
 
             // check that all is well
-            //graph->serialize_to_file(name + "-pre-index.vg");
+            graph->serialize_to_file(name + "-pre-index.vg");
             rebuild(graph);
 
             // verfy validity of path
+            bool is_valid = graph->is_valid();
             auto path_seq = graph->path_string(graph->paths.path(name));
-            incomplete = !(path_seq == seq) || !graph->is_valid();
+            incomplete = !(path_seq == seq) || !is_valid;
             if (incomplete) {
                 cerr << "[vg msga] failed to include alignment, retrying " << endl
                      << "expected " << seq << endl
@@ -1453,6 +1459,9 @@ void help_mod(char** argv) {
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
+         << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
+         << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
+         << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
          << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
          << "                            cross more than --edge-max edges" << endl
          << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
@@ -1498,6 +1507,9 @@ int main_mod(int argc, char** argv) {
     bool drop_paths = false;
     bool force_path_match = false;
     set<string> paths_to_retain;
+    vector<int64_t> root_nodes;
+    int32_t context_steps;
+    bool remove_null;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1528,11 +1540,14 @@ int main_mod(int argc, char** argv) {
                 {"orient-forward", no_argument, 0, 'f'},
                 {"force-path-match", no_argument, 0, 'F'},
                 {"retain-path", required_argument, 0, 'r'},
+                {"subgraph", required_argument, 0, 'g'},
+                {"context", required_argument, 0, 'x'},
+                {"remove-null", no_argument, 0, 'R'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:g:x:R",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1634,6 +1649,18 @@ int main_mod(int argc, char** argv) {
             sort_graph = true;
             break;
 
+        case 'g':
+            root_nodes.push_back(atoi(optarg));
+            break;
+
+        case 'x':
+            context_steps = atoi(optarg);
+            break;
+
+        case 'R':
+            remove_null = true;
+            break;
+
         case 'h':
         case '?':
             help_mod(argv);
@@ -1696,8 +1723,23 @@ int main_mod(int argc, char** argv) {
         graph->orient_nodes_forward(flipped);
     }
 
+    if (remove_null) {
+        graph->remove_null_nodes_forwarding_edges();
+    }
+
     if (sort_graph) {
         graph->sort();
+    }
+
+    // to subset the graph
+    if (!root_nodes.empty()) {
+        VG g;
+        for (auto root : root_nodes) {
+            graph->nonoverlapping_node_context_without_paths(graph->get_node(root), g);
+            graph->expand_context(g, max(context_steps, 1));
+            g.remove_orphan_edges();
+        }
+        *graph = g;
     }
 
     if (!aln_file.empty()) {

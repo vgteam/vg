@@ -260,10 +260,9 @@ pair<Mapping*, Mapping*> Paths::replace_mapping(Mapping* m, pair<Mapping, Mappin
         // and we return them in proper order
         return make_pair(&*j, &*k);
     } else {
-        auto i = remove_mapping(m);
         // things get flipped around for reversed mappings
+        auto i = remove_mapping(m);
         auto j = insert_mapping(i, path_name, n.first);
-        // and then the first
         auto k = insert_mapping(j, path_name, n.second);
         // and we return them in proper order
         return make_pair(&*k, &*j);

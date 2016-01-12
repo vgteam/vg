@@ -1117,8 +1117,8 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
             // Topologically sort the graph, breaking cycles and orienting all edges end to start.
             // This flips some nodes around, so we need to translate alignments back.
-            set<int64_t> flipped_nodes;
-            graph->orient_nodes_forward(flipped_nodes);
+            //set<int64_t> flipped_nodes;
+            //graph->orient_nodes_forward(flipped_nodes);
 
             // align
             //graph->serialize_to_file("align2.vg");

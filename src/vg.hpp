@@ -1,4 +1,5 @@
 #ifndef VG_H
+
 #define VG_H
 
 #include <vector>
@@ -471,12 +472,15 @@ public:
     // Get the edges of the specified node, and add them to the given vector.
     // Guaranteed to add each edge only once per call.
     void edges_of_node(Node* node, vector<Edge*>& edges);
+    vector<Edge*> edges_of(Node* node);
     // Get the edges of the specified set of nodes, and add them to the given set of edge pointers.
     void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
     // Sides on the other side of edges to this side of the node
     set<NodeSide> sides_to(NodeSide side);
     // Sides on the other side of edges from this side of the node
     set<NodeSide> sides_from(NodeSide side);
+    // union of sides_to and sides_from
+    set<NodeSide> sides_of(NodeSide side);
     // All sides connecting to this node
     set<pair<NodeSide, bool>> sides_context(int64_t node_id);
     // Use sides_from an sides_to to determine if both nodes have the same context
@@ -509,6 +513,8 @@ public:
     void simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs);
     // removes intransitive sibling sets, such as where (A, B, C) = S1 but C ∊ S2
     set<set<NodeTraversal>> transitive_sibling_sets(const set<set<NodeTraversal>>& sibs);
+    // removes sibling sets which don't have identical orientation
+    set<set<NodeTraversal>> identically_oriented_sibling_sets(const set<set<NodeTraversal>>& sibs);
     // determines of pos1 occurs directly before pos2
     bool adjacent(const Position& pos1, const Position& pos2);
 
@@ -519,6 +525,7 @@ public:
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
+    void expand_context(VG& g, size_t steps, bool add_paths = true);
     
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);

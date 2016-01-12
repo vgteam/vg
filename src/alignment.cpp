@@ -783,20 +783,11 @@ Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug)
 void flip_nodes(Alignment& a, set<int64_t> ids, const std::function<size_t(int64_t)>& node_length) {
     Path* path = a.mutable_path();
     for(size_t i = 0; i < path->mapping_size(); i++) {
-        // Grab each mapping
+        // Grab each mapping (includes its position)
         Mapping* mapping = path->mutable_mapping(i);
-        // Grab the position of each mapping
-        Position* pos = mapping->mutable_position();
-        
-        if(ids.count(pos->node_id())) {
+        if(ids.count(mapping->position().node_id())) {
             // We need to flip this mapping
-            
-            // Flip its orientation
-            *pos = reverse(*pos, node_length(pos->node_id()));
-            
-            // We leave all the edits the same, because in reality this node has
-            // the oriented sequence we attributed to it. It just has a
-            // different node orientation.
+            *mapping = reverse_mapping(*mapping, node_length);
         } 
     }
 }
