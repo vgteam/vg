@@ -13,9 +13,6 @@
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git
-[submodule "sparsehash"]
-	path = deps/sparsehash
-	url = https://github.com/ekg/sparsehash.git
 [submodule "progress_bar"]
 	path = deps/progress_bar
 	url = https://github.com/ekg/cpp_progress_bar.git
