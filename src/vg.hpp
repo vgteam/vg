@@ -82,11 +82,11 @@ inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
 // indexing edges.
 class NodeSide {
 public:
-    int64_t node;
+    id_t node;
     bool is_end;
     
     // We need this to be a converting constructor so we can represent the empty and deleted item keys in a pair_hash_map.
-    inline NodeSide(int64_t node, bool is_end = false): node(node), is_end(is_end) {
+    inline NodeSide(id_t node, bool is_end = false): node(node), is_end(is_end) {
         // Nothing to do
     }
     
@@ -118,14 +118,14 @@ public:
     
     // Make a canonically ordered pair of NodeSides from an edge off of the
     // start of a node, to another node in the given relative orientation.
-    static inline pair<NodeSide, NodeSide> pair_from_start_edge(int64_t start_id, const pair<int64_t, bool>& oriented_other) {
+    static inline pair<NodeSide, NodeSide> pair_from_start_edge(id_t start_id, const pair<id_t, bool>& oriented_other) {
         // If it's in the same relative orientation, we go to its end.
         return minmax(NodeSide(start_id, false), NodeSide(oriented_other.first, !oriented_other.second));
     }
     
     // Make a canonically ordered pair of NodeSides from an edge off of the
     // end of a node, to another node in the given relative orientation.
-    static inline pair<NodeSide, NodeSide> pair_from_end_edge(int64_t end_id, const pair<int64_t, bool>& oriented_other) {
+    static inline pair<NodeSide, NodeSide> pair_from_end_edge(id_t end_id, const pair<id_t, bool>& oriented_other) {
         // If it's in the same relative orientation, we go to its start.
         return minmax(NodeSide(end_id, true), NodeSide(oriented_other.first, oriented_other.second));
     }
@@ -155,7 +155,7 @@ template <> struct hash<vg::NodeSide>
     size_t operator()(const vg::NodeSide& item) const
     {
         // Hash it just as we would a pair.
-        return hash<pair<int64_t, bool>>()(make_pair(item.node, item.is_end));
+        return hash<pair<id_t, bool>>()(make_pair(item.node, item.is_end));
     }
 };
 }
@@ -192,13 +192,13 @@ public:
     string name;
 
     // current id
-    int64_t current_id;
+    id_t current_id;
     // todo
-    //int64_t min_id;
-    //int64_t max_id;
+    //id_t min_id;
+    //id_t max_id;
 
     // nodes by id
-    hash_map<int64_t, Node*> node_by_id;
+    hash_map<id_t, Node*> node_by_id;
 
     // edges by sides of nodes they connect
     // Since duplicate edges are not permitted, two edges cannot connect the same pair of node sides.
@@ -215,9 +215,9 @@ public:
 
     // edges indexed by nodes they connect
     // Stores the destinations and backward flags for edges attached to the starts of nodes (whether that node is "from" or "to").
-    hash_map<int64_t, vector<pair<int64_t, bool>>> edges_on_start;
+    hash_map<id_t, vector<pair<id_t, bool>>> edges_on_start;
     // Stores the destinations and backward flags for edges attached to the ends of nodes (whether that node is "from" or "to").
-    hash_map<int64_t, vector<pair<int64_t, bool>>> edges_on_end;
+    hash_map<id_t, vector<pair<id_t, bool>>> edges_on_end;
 
     // Set the edge indexes through this function. Picks up the sides being
     // connected by the edge automatically, and silently drops the edge if they
@@ -227,11 +227,11 @@ public:
 
     // access the edge indexes through these functions
     // Get nodes and backward flags following edges that attach to this node's start
-    vector<pair<int64_t, bool>>& edges_start(Node* node);
-    vector<pair<int64_t, bool>>& edges_start(int64_t id);
+    vector<pair<id_t, bool>>& edges_start(Node* node);
+    vector<pair<id_t, bool>>& edges_start(id_t id);
     // Get nodes and backward flags following edges that attach to this node's end
-    vector<pair<int64_t, bool>>& edges_end(Node* node);
-    vector<pair<int64_t, bool>>& edges_end(int64_t id);
+    vector<pair<id_t, bool>>& edges_end(Node* node);
+    vector<pair<id_t, bool>>& edges_end(id_t id);
     
     // properties of the graph
     size_t size(void); // number of nodes
@@ -247,7 +247,7 @@ public:
 
     // construct from protobufs
     VG(istream& in, bool showp = false);
-    
+
     // construct from an arbitrary source of Graph protobuf messages (which
     // populates the given Graph and returns a flag for whether it's valid).
     VG(function<bool(Graph&)>& get_next_graph, bool showp = false);
@@ -285,6 +285,12 @@ public:
     // changing the path space of the graph
     set<list<Node*>> simple_components(int min_size = 1);
     set<list<Node*>> simple_multinode_components(void);
+    // strongly connected components of the graph
+    set<set<id_t> > strongly_connected_components(void);
+    // only multi-node components
+    set<set<id_t> > multinode_strongly_connected_components(void);
+    // removes all elements which are not in a strongly connected component
+    void keep_multinode_strongly_connected_components(void);
     // combines the nodes into a new node that has the same external linkage as the provided component
     void merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
@@ -373,28 +379,28 @@ public:
     void prune_short_subgraphs(size_t min_size);
 
     // write to a stream in chunked graphs
-    void serialize_to_ostream(ostream& out, int64_t chunk_size = 1000);
-    void serialize_to_file(const string& file_name, int64_t chunk_size = 1000);
+    void serialize_to_ostream(ostream& out, id_t chunk_size = 1000);
+    void serialize_to_file(const string& file_name, id_t chunk_size = 1000);
 
     // can we handle this with merge?
     //void concatenate(VG& g);
 
-    int64_t max_node_id(void);
-    int64_t min_node_id(void);
+    id_t max_node_id(void);
+    id_t min_node_id(void);
     // Squish the node IDs down into as small a space as possible. Fixes up paths itself.
     void compact_ids(void);
     // Add the given value to all node IDs. Preserves the paths.
-    void increment_node_ids(int64_t increment);
+    void increment_node_ids(id_t increment);
     // Subtract the given value from all the node IDs. Must not create a node with 0 or negative IDs. Invalidates the paths.
-    void decrement_node_ids(int64_t decrement);
+    void decrement_node_ids(id_t decrement);
     // Change the ID of the node with the first id to the second, new ID not
     // used by any node. Invalidates any paths containing the node, since they
     // are not updated.
-    void swap_node_id(int64_t node_id, int64_t new_id);
+    void swap_node_id(id_t node_id, id_t new_id);
     // Change the ID of the given node to the second, new ID not used by any
     // node. Invalidates the paths. Invalidates any paths containing the node,
     // since they are not updated.
-    void swap_node_id(Node* node, int64_t new_id);
+    void swap_node_id(Node* node, id_t new_id);
 
     // Iteratively add when nodes and edges are novel. Good when there are very
     // many overlaps. TODO: If you are using this with warn on duplicates on,
@@ -414,14 +420,14 @@ public:
     // edit the graph to include the path
     void include(const Path& path);
     // or a set of mappings against one node
-    void edit_node(int64_t node_id,
+    void edit_node(id_t node_id,
                    const vector<tuple<Mapping, bool, bool> >& mappings,
-                   map<pair<int64_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans);
+                   map<pair<id_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans);
     // for each node, modify it with the associated mappings
-    void edit(const map<int64_t, vector<tuple<Mapping, bool, bool> > >& mappings,
-              map<pair<int64_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans,
-              map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_f,
-              map<pair<int64_t, size_t>, pair<int64_t, size_t> >& del_t);
+    void edit(const map<id_t, vector<tuple<Mapping, bool, bool> > >& mappings,
+              map<pair<id_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans,
+              map<pair<id_t, size_t>, pair<id_t, size_t> >& del_f,
+              map<pair<id_t, size_t>, pair<id_t, size_t> >& del_t);
     void edit(const vector<Path>& paths);
     // Edit the graph to include all the sequence and edges added by the given
     // paths. Can handle paths that visit nodes in any orientation.
@@ -430,7 +436,7 @@ public:
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need
     // to become the starts of new nodes.
-    void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints);
+    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
     
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
@@ -438,10 +444,10 @@ public:
     // ID to a map from old node start position to new node pointer in the
     // graph. Note that the caller will have to crear and rebuild path rank
     // data.
-    map<pos_t, Node*> ensure_breakpoints(const map<int64_t, set<pos_t>>& breakpoints);
+    map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // flips the breakpoints onto the forward strand
-    map<int64_t, set<pos_t>> forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints);
+    map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
     
     // Given a path on nodes that may or may not exist, and a map from node ID
     // in the path's node ID space to a table of offset and actual node, add in
@@ -458,9 +464,9 @@ public:
     void add_nodes(set<Node*>& nodes);
     void add_edges(set<Edge*>& edges);
 
-    int64_t node_count(void);
-    int64_t edge_count(void);
-    int64_t total_length_of_nodes(void);
+    id_t node_count(void);
+    id_t edge_count(void);
+    id_t total_length_of_nodes(void);
     // Number of edges attached to the start of a node
     int start_degree(Node* node);
     // Number of edges attached to the end of a node
@@ -479,22 +485,26 @@ public:
     set<NodeSide> sides_to(NodeSide side);
     // Sides on the other side of edges from this side of the node
     set<NodeSide> sides_from(NodeSide side);
+    // Sides from both sides of the node
+    set<NodeSide> sides_from(id_t id);
+    // Sides to both sides of the node
+    set<NodeSide> sides_to(id_t id);
     // union of sides_to and sides_from
     set<NodeSide> sides_of(NodeSide side);
     // All sides connecting to this node
-    set<pair<NodeSide, bool>> sides_context(int64_t node_id);
+    set<pair<NodeSide, bool>> sides_context(id_t node_id);
     // Use sides_from an sides_to to determine if both nodes have the same context
-    bool same_context(int64_t id1, int64_t id2);
+    bool same_context(id_t id1, id_t id2);
     // determine if the node is an ancestor of this one by trying to find it in a given number of steps
-    bool is_ancestor_prev(int64_t node_id, int64_t candidate_id);
-    bool is_ancestor_prev(int64_t node_id, int64_t candidate_id, set<int64_t>& seen, size_t steps = 64);
+    bool is_ancestor_prev(id_t node_id, id_t candidate_id);
+    bool is_ancestor_prev(id_t node_id, id_t candidate_id, set<id_t>& seen, size_t steps = 64);
     // the same but in the other direction
-    bool is_ancestor_next(int64_t node_id, int64_t candidate_id);
-    bool is_ancestor_next(int64_t node_id, int64_t candidate_id, set<int64_t>& seen, size_t steps = 64);
+    bool is_ancestor_next(id_t node_id, id_t candidate_id);
+    bool is_ancestor_next(id_t node_id, id_t candidate_id, set<id_t>& seen, size_t steps = 64);
     // try to find a common ancestor by walking back up to steps from the first node
-    int64_t common_ancestor_prev(int64_t id1, int64_t id2, size_t steps = 64);
+    id_t common_ancestor_prev(id_t id1, id_t id2, size_t steps = 64);
     // try to find a common ancestor by walking forward up to steps from the first node
-    int64_t common_ancestor_next(int64_t id1, int64_t id2, size_t steps = 64);
+    id_t common_ancestor_next(id_t id1, id_t id2, size_t steps = 64);
     // to-siblings are nodes which also have edges to them from the same nodes as this one
     set<NodeTraversal> siblings_to(const NodeTraversal& traversal);
     // from-siblings are nodes which also have edges to them from the same nodes as this one
@@ -519,9 +529,9 @@ public:
     bool adjacent(const Position& pos1, const Position& pos2);
 
     // use the VG class to generate ids
-    Node* create_node(string seq, int64_t id = 0);
+    Node* create_node(string seq, id_t id = 0);
     // find a particular node
-    Node* get_node(int64_t id);
+    Node* get_node(id_t id);
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
@@ -530,8 +540,8 @@ public:
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     // destroy the node with the given ID.
-    void destroy_node(int64_t id);
-    bool has_node(int64_t id);
+    void destroy_node(id_t id);
+    bool has_node(id_t id);
     bool has_node(Node* node);
     bool has_node(Node& node);
     void for_each_node(function<void(Node*)> lambda);
@@ -581,7 +591,7 @@ public:
     // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.
     Edge* create_edge(Node* from, Node* to, bool from_start = false, bool to_end = false);
-    Edge* create_edge(int64_t from, int64_t to, bool from_start = false, bool to_end = false);
+    Edge* create_edge(id_t from, id_t to, bool from_start = false, bool to_end = false);
     // Makes a left-to-right edge from the left NodeTraversal to the right one, respecting orientations.
     Edge* create_edge(NodeTraversal left, NodeTraversal right);
     // Makes an edge connecting the given sides of nodes.
@@ -635,7 +645,7 @@ public:
     // re-calculated by the caller.
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
     // Divide a path at a position. Also invalidates stored rank information.
-    void divide_path(map<long, int64_t>& path, long pos, Node*& left, Node*& right);
+    void divide_path(map<long, id_t>& path, long pos, Node*& left, Node*& right);
     //void node_replace_prev(Node* node, Node* before, Node* after);
     //void node_replace_next(Node* node, Node* before, Node* after);
 
@@ -660,7 +670,7 @@ public:
     // Populates nodes_flipped with the ids of the nodes that have had their
     // orientations changed. TODO: update the paths that touch nodes that
     // flipped around
-    void orient_nodes_forward(set<int64_t>& nodes_flipped);
+    void orient_nodes_forward(set<id_t>& nodes_flipped);
 
     // for each path assigns edits that describe a total match of the mapping to the node
     void force_path_match(void);
@@ -711,7 +721,7 @@ public:
     void kpaths_of_node(Node* node, vector<Path>& paths,
                         int length, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
-    void kpaths_of_node(int64_t node_id, vector<Path>& paths, int length, int edge_max,
+    void kpaths_of_node(id_t node_id, vector<Path>& paths, int length, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
     // Given an oriented start node, a length in bp, a maximum number of edges
     // to cross, and a stack of nodes visited so far, fill in the set of paths
@@ -729,7 +739,7 @@ public:
                                function<void(NodeTraversal)>& maxed_nodes);
 
     void paths_between(Node* from, Node* to, vector<Path>& paths);
-    void paths_between(int64_t from, int64_t to, vector<Path>& paths);
+    void paths_between(id_t from, id_t to, vector<Path>& paths);
     void likelihoods(vector<Alignment>& alignments, vector<Path>& paths, vector<long double>& likelihoods);
 
     // traversal
@@ -816,8 +826,8 @@ public:
                       int32_t start_offset,
                       list<NodeTraversal>::iterator& end_node,
                       int32_t& end_offset,
-                      set<tuple<char, int64_t, bool, int32_t>>& prev_positions,
-                      set<tuple<char, int64_t, bool, int32_t>>& next_positions);
+                      set<tuple<char, id_t, bool, int32_t>>& prev_positions,
+                      set<tuple<char, id_t, bool, int32_t>>& next_positions);
 
     // Do the GCSA2 kmers for a node. head_node and tail_node must both be non-
     // null, but only one of those nodes actually needs to be in the graph. They
@@ -842,13 +852,13 @@ public:
     // start/end node before lambda is ever called.
     void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
-                                              int64_t& head_id, int64_t& tail_id,
+                                              id_t& head_id, id_t& tail_id,
                                               function<void(KmerPosition&)> lambda);
 
     void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
                         bool forward_only,
                         vector<gcsa::KMer>& kmers_out,
-                        int64_t& head_id, int64_t& tail_id);
+                        id_t& head_id, id_t& tail_id);
 
     gcsa::GCSA* build_gcsa_index(int kmer_size, bool forward_only,
                                  size_t doubling_steps = 2,
@@ -881,25 +891,25 @@ public:
     // reads
     // note that even if either_strand is false, having backward nodes in the
     // graph will result in some reads from the global reverse strand.
-    pair<string, Alignment> random_read(size_t read_len, mt19937& rng, int64_t min_id, int64_t max_id, bool either_strand);
+    pair<string, Alignment> random_read(size_t read_len, mt19937& rng, id_t min_id, id_t max_id, bool either_strand);
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);
     // Get the head nodes (nodes with edges only to their right sides). These are required to be oriented forward.
     void head_nodes(vector<Node*>& nodes);
     vector<Node*> head_nodes(void);
-    bool is_head_node(int64_t id);
+    bool is_head_node(id_t id);
     bool is_head_node(Node* node);
     // distance from head of node to beginning of graph, or -1 if limit exceeded
-    int distance_to_head(int64_t id, size_t limit = 1000);
+    int distance_to_head(id_t id, size_t limit = 1000);
     int distance_to_head(Node* node, size_t limit = 1000);
     // Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
     vector<Node*> tail_nodes(void);
     void tail_nodes(vector<Node*>& nodes);
-    bool is_tail_node(int64_t id);
+    bool is_tail_node(id_t id);
     bool is_tail_node(Node* node);
     // distance from tail of node to end of graph, or -1 if limit exceeded
-    int distance_to_tail(int64_t id, size_t limit = 1000);
+    int distance_to_tail(id_t id, size_t limit = 1000);
     int distance_to_tail(Node* node, size_t limit = 1000);
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
@@ -925,7 +935,7 @@ public:
     void add_start_end_markers(int length,
                                char start_char, char end_char,
                                Node*& start_node, Node*& end_node,
-                               int64_t start_id = 0, int64_t end_id = 0);
+                               id_t start_id = 0, id_t end_id = 0);
 
     bool show_progress;
     string progress_message;
@@ -959,8 +969,8 @@ private:
 
     void init(void); // setup, ensures that gssw == NULL on startup
     // placeholders for empty
-    vector<int64_t> empty_ids;
-    vector<pair<int64_t, bool>> empty_edge_ends;
+    vector<id_t> empty_ids;
+    vector<pair<id_t, bool>> empty_edge_ends;
 };
 
 } // end namespace vg
