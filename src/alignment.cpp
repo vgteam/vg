@@ -844,5 +844,11 @@ Alignment simplify(const Alignment& a) {
     return aln;
 }
 
+void write_alignment_to_file(const Alignment& aln, const string& filename) {
+    ofstream out(filename);
+    vector<Alignment> alnz = { aln };
+    stream::write_buffered(out, alnz, 1);
+    out.close();
+}
 
 }
