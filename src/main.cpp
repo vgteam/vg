@@ -1454,6 +1454,7 @@ void help_mod(char** argv) {
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
          << "    -d, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
@@ -1510,6 +1511,7 @@ int main_mod(int argc, char** argv) {
     vector<int64_t> root_nodes;
     int32_t context_steps;
     bool remove_null;
+    bool strong_connect = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1543,11 +1545,12 @@ int main_mod(int argc, char** argv) {
                 {"subgraph", required_argument, 0, 'g'},
                 {"context", required_argument, 0, 'x'},
                 {"remove-null", no_argument, 0, 'R'},
+                {"strong-connect", no_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:g:x:R",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:g:x:RT",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1645,6 +1648,10 @@ int main_mod(int argc, char** argv) {
             remove_non_path = true;
             break;
 
+        case 'T':
+            strong_connect = true;
+            break;
+
         case 'z':
             sort_graph = true;
             break;
@@ -1708,6 +1715,10 @@ int main_mod(int argc, char** argv) {
 
     if (normalize_graph) {
         graph->normalize();
+    }
+
+    if (strong_connect) {
+        graph->keep_multinode_strongly_connected_components();
     }
 
     if (remove_non_path) {
@@ -2444,7 +2455,8 @@ void help_stats(char** argv) {
          << "    -s, --subgraphs       describe subgraphs of graph" << endl
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
-         << "    -S, --siblings        describe the siblings of each node" << endl;
+         << "    -S, --siblings        describe the siblings of each node" << endl
+         << "    -c, --components      print the strongly connected components of the graph" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -2460,6 +2472,7 @@ int main_stats(int argc, char** argv) {
     bool stats_heads = false;
     bool stats_tails = false;
     bool show_sibs = false;
+    bool show_components = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2473,11 +2486,12 @@ int main_stats(int argc, char** argv) {
                 {"tails", no_argument, 0, 'T'},
                 {"help", no_argument, 0, 'h'},
                 {"siblings", no_argument, 0, 'S'},
+                {"components", no_argument, 0, 'c'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTS",
+        c = getopt_long (argc, argv, "hzlsHTSc",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2508,6 +2522,10 @@ int main_stats(int argc, char** argv) {
 
         case 'S':
             show_sibs = true;
+            break;
+
+        case 'c':
+            show_components = true;
             break;
 
         case 'h':
@@ -2585,6 +2603,15 @@ int main_stats(int argc, char** argv) {
                     cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
                 }
             });
+    }
+
+    if (show_components) {
+        for (auto& c : graph->strongly_connected_components()) {
+            for (auto& id : c) {
+                cerr << id << ", ";
+            }
+            cout << endl;
+        }
     }
 
     delete graph;
@@ -4191,16 +4218,16 @@ int main_map(int argc, char** argv) {
 
     if (!read_file.empty()) {
         ifstream in(read_file);
-        bool more_data = true;
-#pragma omp parallel shared(in, more_data)
+        bool more_data = in.good();
+#pragma omp parallel shared(in)
         {
             string line;
             int tid = omp_get_thread_num();
-            while (more_data) {
+            while (in.good()) {
                 line.clear();
 #pragma omp critical (readq)
                 {
-                    more_data = std::getline(in,line);
+                    std::getline(in,line);
                 }
                 if (!line.empty()) {
                     // Make an alignment
