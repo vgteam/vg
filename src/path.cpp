@@ -284,7 +284,7 @@ void Paths::increment_node_ids(int64_t inc) {
     rebuild_node_mapping();
 }
 
-void Paths::swap_node_ids(hash_map<int64_t, int64_t> id_mapping) {
+void Paths::swap_node_ids(hash_map<int64_t, int64_t>& id_mapping) {
     for (auto& p : _paths) {
         const string& name = p.first;
         list<Mapping>& path = p.second;
