@@ -4775,10 +4775,31 @@ bool VG::is_valid(bool check_nodes,
                 paths_ok = false;
                 return;
             }
-
+            if (path.mapping_size() == 1) {
+                // handle the single-entry case
+                if (!path.mapping(0).has_position()) {
+                    cerr << "graph path " << path.name() << " has no position in mapping "
+                         << pb2json(path.mapping(0)) << endl;
+                    paths_ok = false;
+                    return;
+                }
+            }
+            
             for (size_t i = 1; i < path.mapping_size(); ++i) {
                 auto& m1 = path.mapping(i-1);
                 auto& m2 = path.mapping(i);
+                if (!m1.has_position()) {
+                    cerr << "graph path " << path.name() << " has no position in mapping "
+                         << pb2json(m1) << endl;
+                    paths_ok = false;
+                    return;
+                }
+                if (!m2.has_position()) {
+                    cerr << "graph path " << path.name() << " has no position in mapping "
+                         << pb2json(m2) << endl;
+                    paths_ok = false;
+                    return;
+                }
                 if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
                 auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
                 auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));

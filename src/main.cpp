@@ -995,6 +995,7 @@ int main_msga(int argc, char** argv) {
             // XXX
 
             // check that all is well
+            //graph->serialize_to_file(name + "-pre-index.vg");
             rebuild(graph);
 
             // verfy validity of path
