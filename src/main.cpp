@@ -4092,7 +4092,7 @@ int main_map(int argc, char** argv) {
             auto& output_buf = output_buffer[tid];
             // Copy all the alignments over to the output buffer
             copy(alignments.begin(), alignments.end(), back_inserter(output_buf));
-            stream::write_buffered(cout, output_buf, 1000);
+            stream::write_buffered(cout, output_buf, 10);
         }
     };
 
