@@ -6,6 +6,7 @@
 #include <sstream>
 #include <omp.h>
 #include <cstring>
+#include <algorithm>
 #include "vg.pb.h"
 #include "sha1.hpp"
 
@@ -35,6 +36,33 @@ set<T> map_keys_to_set(const map<T, V>& m) {
     set<T> r;
     for (auto p : m) r.insert(p.first);
     return r;
+}
+
+// pairwise maximum
+template<typename T>
+vector<T> pmax(const std::vector<T>& a, const std::vector<T>& b) {
+    std::vector<T> c;
+    cerr << a.size() << " vs " << b.size() << endl;
+    assert(a.size() == b.size());
+    c.reserve(a.size());
+    std::transform(a.begin(), a.end(), b.begin(),
+                   std::back_inserter(c),
+                   [](T a, T b) { return std::max<T>(a, b); });
+    return c;
+}
+
+// maximum of all vectors
+template<typename T>
+vector<T> vpmax(const std::vector<std::vector<T>>& vv) {
+    std::vector<T> c;
+    if (vv.empty()) return c;
+    c = vv.front();
+    typename std::vector<std::vector<T> >::const_iterator v = vv.begin();
+    ++v; // skip the first element
+    for ( ; v != vv.end(); ++v) {
+        c = pmax(c, *v);
+    }
+    return c;
 }
 
 }

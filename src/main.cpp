@@ -1455,6 +1455,7 @@ void help_mod(char** argv) {
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
+         << "    -U, --unroll N          unroll cycles in the graph, preserving paths of length N" << endl
          << "    -d, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
@@ -1512,6 +1513,7 @@ int main_mod(int argc, char** argv) {
     int32_t context_steps;
     bool remove_null;
     bool strong_connect = false;
+    uint32_t unroll_to = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1546,11 +1548,12 @@ int main_mod(int argc, char** argv) {
                 {"context", required_argument, 0, 'x'},
                 {"remove-null", no_argument, 0, 'R'},
                 {"strong-connect", no_argument, 0, 'T'},
+                {"unroll", required_argument, 0, 'U'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:g:x:RT",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:g:x:RTU:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1652,6 +1655,10 @@ int main_mod(int argc, char** argv) {
             strong_connect = true;
             break;
 
+        case 'U':
+            unroll_to = atoi(optarg);
+            break;
+
         case 'z':
             sort_graph = true;
             break;
@@ -1732,6 +1739,11 @@ int main_mod(int argc, char** argv) {
     if (orient_forward) {
         set<int64_t> flipped;
         graph->orient_nodes_forward(flipped);
+    }
+
+    if (unroll_to) {
+        map<int64_t, pair<int64_t, bool> > node_translation;
+        *graph = graph->unroll(unroll_to, node_translation);
     }
 
     if (remove_null) {

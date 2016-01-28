@@ -84,7 +84,7 @@ class NodeSide {
 public:
     id_t node;
     bool is_end;
-    
+
     // We need this to be a converting constructor so we can represent the empty and deleted item keys in a pair_hash_map.
     inline NodeSide(id_t node, bool is_end = false): node(node), is_end(is_end) {
         // Nothing to do
@@ -291,10 +291,15 @@ public:
     set<set<id_t> > multinode_strongly_connected_components(void);
     // removes all elements which are not in a strongly connected component
     void keep_multinode_strongly_connected_components(void);
-    // combines the nodes into a new node that has the same external linkage as the provided component
-    void merge_nodes(const list<Node*>& nodes);
+    // concatenates the nodes into a new node with the same external linkage as the provided component
+    Node* concat_nodes(const list<Node*>& nodes);
+    // merge the nodes into a single node, preserving external linkages
+    // use the sequence of the first node as the basis
+    Node* merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
+    // generate a new graph that unrolls the current one
+    VG unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translation);
     // removes pieces of the graph which are not part of any path
     void remove_non_path(void);
     // converts edges that are both from_start and to_end to "regular" ones from end to start
@@ -768,14 +773,14 @@ public:
     bool nodes_are_perfect_path_neighbors(id_t id1, id_t id2);
     // true if the mapping completely covers the node it maps to and is a perfect match
     bool mapping_is_total_match(const Mapping& m);
-    // merge the mappings for a pair of nodes; handles multiple mappings per path
-    map<string, vector<Mapping>> merged_mappings_for_node_pair(id_t id1, id_t id2);
-    // for a list of nodes that we want to merge
-    map<string, vector<Mapping>> merged_mappings_for_nodes(const list<Node*>& nodes);
+    // concatenate the mappings for a pair of nodes; handles multiple mappings per path
+    map<string, vector<Mapping>> concat_mappings_for_node_pair(id_t id1, id_t id2);
+    // for a list of nodes that we want to concatenate
+    map<string, vector<Mapping>> concat_mappings_for_nodes(const list<Node*>& nodes);
     // helper function
     map<string, map<int, Mapping>>
-        merge_mapping_groups(map<string, map<int, Mapping>>& r1,
-                             map<string, map<int, Mapping>>& r2);
+        concat_mapping_groups(map<string, map<int, Mapping>>& r1,
+                              map<string, map<int, Mapping>>& r2);
 
     // These versions handle paths in which nodes can be traversed multiple
     // times. Unfortunately since we're throwing non-const iterators around, we
