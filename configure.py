@@ -33,6 +33,9 @@ def set_compiler():
             o_line = "export" + " " + i + "=" + "$(which " + compiler_dict[i] + ")\n"
             ofi.write(o_line)
 
+def check_deps():
+    return
+
 ## pulled these out with this line: for i in `cat source_me.sh | cut -f 2 -d " " | cut -f 1 -d "="`; do echo "\"\$$i\":\"\","; done
 if __name__ == "__main__":
     make_source_me() 

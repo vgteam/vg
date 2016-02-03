@@ -106,7 +106,10 @@ $(INC_DIR)/sparsehash/sparse_hash_map: .pre-build
 	+cd $(SPARSEHASH_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
 $(LIB_DIR)/libvcfh.a: .pre-build
-	+cd $(DEP_DIR)/libVCFH && make && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
+	+cd $(DEP_DIR)/libVCFH && $(MAKE) && cp libvcfh.a $(CWD)/$(LIB_DIR)/ && cp vcfheader.hpp $(CWD)/$(INC_DIR)/
+
+$(LIB_DIR)/libgfakluge.a: .pre-build
+	+cd $(DEP_DIR)/gfaKluge && $(MAKE) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/ && cp gfakluge.hpp $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
