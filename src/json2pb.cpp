@@ -126,7 +126,8 @@ static json_t * _pb2json(const Message& msg)
 	for (size_t i = 0; i != fields.size(); i++)
 	{
 		const FieldDescriptor *field = fields[i];
-
+        
+        
 		json_t *jf = 0;
 		if(field->is_repeated()) {
 			size_t count = ref->FieldSize(msg, field);
