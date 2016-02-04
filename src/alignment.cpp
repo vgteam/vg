@@ -121,6 +121,7 @@ bool get_next_alignment_from_fastq(gzFile fp, char* buffer, size_t len, Alignmen
     if (0!=gzgets(fp,buffer,len)) {
         buffer[strlen(buffer)-1] = '\0';
         string quality = string_quality_char_to_short(buffer);
+        //cerr << string_quality_short_to_char(quality) << endl;
         alignment.set_quality(quality);
     } else {
         cerr << "[vg::alignment.cpp] error: incomplete fastq record" << endl; exit(1);

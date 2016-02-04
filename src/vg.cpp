@@ -4784,7 +4784,7 @@ bool VG::is_valid(bool check_nodes,
                     return;
                 }
             }
-            
+
             for (size_t i = 1; i < path.mapping_size(); ++i) {
                 auto& m1 = path.mapping(i-1);
                 auto& m2 = path.mapping(i);
@@ -5420,6 +5420,7 @@ Alignment VG::align(const Alignment& alignment) {
 
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(aln);
+
     delete gssw_aligner;
     gssw_aligner = NULL;
 

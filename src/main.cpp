@@ -4080,19 +4080,25 @@ int main_map(int argc, char** argv) {
     // We have one function to dump alignments into
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer, &output_json](vector<Alignment>& alignments) {
+			// for(auto& alignment : alignments){
+			// 		cerr << "This is in output_alignments" << alignment.DebugString() << endl;
+			// }
+
         if (output_json) {
             // If we want to convert to JSON, convert them all to JSON and dump them to cout.
             for(auto& alignment : alignments) {
                 string json = pb2json(alignment);
-#pragma omp critical (cout)
+								#pragma omp critical (cout)
                 cout << json << "\n";
             }
         } else {
             // Otherwise write them through the buffer for our thread
             int tid = omp_get_thread_num();
             auto& output_buf = output_buffer[tid];
+
             // Copy all the alignments over to the output buffer
             copy(alignments.begin(), alignments.end(), back_inserter(output_buf));
+
             stream::write_buffered(cout, output_buf, 1000);
         }
     };
@@ -4176,6 +4182,7 @@ int main_map(int argc, char** argv) {
                         if (!read_group.empty()) alignment.set_read_group(read_group);
                     }
 
+
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments);
                 }
@@ -4257,6 +4264,7 @@ int main_map(int argc, char** argv) {
                     alignments.push_back(alignment);
                 }
 
+								//cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                 output_alignments(alignments);
             };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
@@ -4636,7 +4644,7 @@ int main_view(int argc, char** argv) {
             if (output_type == "json") {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
-                    //alignment_quality_short_to_char(a);
+                    alignment_quality_short_to_char(a);
                     cout << pb2json(a) << "\n";
                 };
                 if (file_name == "-") {
