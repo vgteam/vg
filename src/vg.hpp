@@ -129,7 +129,17 @@ public:
         // If it's in the same relative orientation, we go to its start.
         return minmax(NodeSide(end_id, true), NodeSide(oriented_other.first, oriented_other.second));
     }
+    
+    // reverse complement the node side
+    inline NodeSide flip(void) const {
+        return NodeSide(node, !is_end);
+    }
+
 };
+
+// helpers to be more clear
+NodeSide node_start(id_t id);
+NodeSide node_end(id_t id);
 
 // We create a struct that represents each kmer record we want to send to gcsa2
 struct KmerPosition {
@@ -279,7 +289,7 @@ public:
                        int max_node_size);
     // chops up the nodes
     void dice_nodes(int max_node_size);
-    // does the reverse
+    // does the reverse --- combines nodes by removing edges where doing so has no effect on the graph labels
     void unchop(void);
     // the set of components that could be merged into single nodes without
     // changing the path space of the graph
@@ -601,7 +611,6 @@ public:
     Edge* create_edge(NodeTraversal left, NodeTraversal right);
     // Makes an edge connecting the given sides of nodes.
     Edge* create_edge(NodeSide side1, NodeSide side2);
-    
     // This can take sides in any order
     Edge* get_edge(const NodeSide& side1, const NodeSide& side2);
     // This can take sides in any order

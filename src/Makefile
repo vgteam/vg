@@ -22,7 +22,7 @@ region.o: region.cpp region.hpp $(LIBPROTOBUF) $(SPARSEHASH)
 index.o: index.cpp index.hpp $(LIBPROTOBUF) $(SPARSEHASH) $(ROCKSDB)
         $(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
-utility.o: utility.cpp utility.hpp $(LIBPROTOBUF) $(SPARSEHASH)
+utility.o: utility.cpp utility.hpp vg.hpp $(LIBPROTOBUF) $(SPARSEHASH)
         $(CXX) $(CXXFLAGS) -c -o utility.o utility.cpp $(INCLUDES)
 
 path.o: path.cpp path.hpp $(LIBPROTOBUF) $(SPARSEHASH)
