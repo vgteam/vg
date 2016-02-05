@@ -1395,4 +1395,30 @@ bool adjacent_mappings(const Mapping& m1, const Mapping& m2) {
     return abs(m1.rank() - m2.rank()) == 1;
 }
 
+// assumes complete description of mapped node by the edits
+double divergence(const Mapping& m) {
+    double from_length = 0;
+    double to_length = 0;
+    double matches = 0;
+    double mismatches = 0;
+    double insertions = 0;
+    double deletions = 0;
+    for (size_t i = 0; i < m.edit_size(); ++i) {
+        auto& edit = m.edit(i);
+        // what is the length
+        from_length += edit.from_length();
+        to_length += edit.to_length();
+        if (edit_is_match(edit)) {
+            matches += edit.to_length();
+        } else if (edit_is_sub(edit)) {
+            mismatches += edit.to_length();
+        } else if (edit_is_insertion(edit)) {
+            insertions += edit.to_length();
+        } else if (edit_is_deletion(edit)) {
+            deletions += edit.from_length();
+        }
+    }
+    return 1 - (matches*2.0 / (from_length + to_length));
+}
+
 }

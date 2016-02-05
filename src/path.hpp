@@ -187,7 +187,7 @@ bool maps_to_node(const Path& p, int64_t id);
 Position path_start(const Path& path);
 Position path_end(const Path& path);
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
-
+double divergence(const Mapping& m);
 
 }
 
