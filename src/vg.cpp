@@ -7765,12 +7765,13 @@ VG VG::unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translatio
                 for (auto& s : sides_to(NodeSide(old_id, false))) {
                     // if we are not in the component
                     if (!component.count(s.node)) {
+                        // if we aren't flipped, we just make the connection
                         if (!is_flipped) {
                             unrolled.create_edge(s, NodeSide(i, false));
                         } else {
                             // the new node is flipped in unrolled relative to the other graph
-                            // so flip the side we connect to
-                            unrolled.create_edge(s.flip(), NodeSide(i, false));
+                            // so we need to connect from the opposite side
+                            unrolled.create_edge(s, NodeSide(i, true));
                         }
                     }
                 }
@@ -7781,7 +7782,7 @@ VG VG::unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translatio
                         if (!is_flipped) {
                             unrolled.create_edge(s, NodeSide(i, true));
                         } else {
-                            unrolled.create_edge(s.flip(), NodeSide(i, true));
+                            unrolled.create_edge(s, NodeSide(i, false));
                         }
                     }
                 }
@@ -7792,7 +7793,7 @@ VG VG::unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translatio
                         if (!is_flipped) {
                             unrolled.create_edge(NodeSide(i, true), s);
                         } else {
-                            unrolled.create_edge(NodeSide(i, true), s.flip());
+                            unrolled.create_edge(NodeSide(i, false), s);
                         }
                     }
                 }
@@ -7803,7 +7804,7 @@ VG VG::unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translatio
                         if (!is_flipped) {
                             unrolled.create_edge(NodeSide(i, false), s);
                         } else {
-                            unrolled.create_edge(NodeSide(i, false), s.flip());
+                            unrolled.create_edge(NodeSide(i, true), s);
                         }
                     }
                 }
