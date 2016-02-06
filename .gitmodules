@@ -42,4 +42,13 @@
 	url = https://github.com/ekg/xg.git
 [submodule "sdsl-lite"]
 	path = deps/sdsl-lite
-	url = https://github.com/simongog/sdsl-lite
+    url = https://github.com/simongog/sdsl-lite
+[submodule "libVCFH"]
+    path = deps/libvcfh/
+    url = https://github.com/edawson/libvcfh
+[submodule "deps/libVCFH"]
+	path = deps/libVCFH
+    url = https://github.com/edawson/libVCFH
+[submodule "deps/gfakluge"]
+	path = deps/gfakluge
+	url = https://github.com/edawson/gfaKluge.git

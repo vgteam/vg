@@ -58,13 +58,13 @@ namespace vg {
   -=\xff is our 'end' separator --- this makes it easy to do range queries
 
   ids are stored as raw int64_t
-  
+
   bools are stored a '0' or '1', not as sizeof(bool) bytes, since sizeof(bool) can vary.
-  
+
   Note that all the graph keys have a node ID and then a "type" character.
-  
+
   Also note that "pos" in path-related keys is the base-pair coordinate along the path, not the rank of the node.
-  
+
   Note that we store the edge data for self loops twice.
 
   // key                                // value
@@ -223,7 +223,7 @@ public:
     // relative to a path (using a BFS to find the nearest previous path node)
     // if not actually in the path.
     void node_path_position(int64_t id, string& path_name, int64_t& position, bool& backward, int64_t& offset);
-    
+
     // Given a node ID and orientation, and the ID of a path, fill in path_pos
     // with the position along the path of the nearest node left of the node
     // specified that is on that path. Fill in relative_orientation with the
@@ -231,7 +231,7 @@ public:
     // of the starting node. Returns the path taken by the breadth-first search,
     // and the ID and orientation of the node on the target path that was
     // reached.
-    pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> 
+    pair<list<pair<int64_t, bool>>, pair<int64_t, bool>>
     get_nearest_node_prev_path_member(int64_t node_id, bool backward, int64_t path_id,
                                       int64_t& path_pos, bool& relative_orientation,
                                       int max_steps = 4);
@@ -242,7 +242,7 @@ public:
     // of the starting node. Returns the path taken by the breadth-first search,
     // and the ID and orientation of the node on the target path that was
     // reached.
-    pair<list<pair<int64_t, bool>>, pair<int64_t, bool>> 
+    pair<list<pair<int64_t, bool>>, pair<int64_t, bool>>
     get_nearest_node_next_path_member(int64_t node_id, bool backward, int64_t path_id,
                                       int64_t& path_pos, bool& relative_orientation,
                                       int max_steps = 4);
@@ -254,7 +254,7 @@ public:
     Mapping path_relative_mapping(int64_t node_id, bool backward, int64_t path_id,
                                   list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
                                   list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
-                                  
+
     bool surject_alignment(const Alignment& source,
                            set<string>& path_names,
                            Alignment& surjection,
@@ -310,7 +310,7 @@ public:
     int64_t get_path_id(const string& name);
     void load_paths(VG& graph);
     void store_paths(VG& graph); // of graph
-    void store_path(VG& graph, Path& path); // path of graph
+    void store_path(VG& graph, const Path& path); // path of graph
     map<string, int64_t> paths_by_id(void);
 
     // alignments and mappings

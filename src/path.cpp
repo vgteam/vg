@@ -49,17 +49,25 @@ void Paths::to_graph(Graph& g) {
     }
 }
 
-void Paths::for_each(const function<void(Path&)>& lambda) {
+Path Paths::path(const string& name) {
+    Path path;
+    auto p = _paths.find(name);
+    if (p == _paths.end()) {
+        return path;
+    }
+    list<Mapping>& mappings = p->second;
+    path.set_name(name);
+    for (auto& m : mappings) {
+        Mapping* nm = path.add_mapping();
+        *nm = m;
+    }
+    return path;
+}
+
+void Paths::for_each(const function<void(const Path&)>& lambda) {
     for (auto& p : _paths) {
         const string& name = p.first;
-        list<Mapping>& mappings = p.second;
-        Path path;
-        path.set_name(name);
-        for (auto& m : mappings) {
-            Mapping* nm = path.add_mapping();
-            *nm = m;
-        }
-        lambda(path);
+        lambda(path(name));
     }
 }
 
@@ -175,6 +183,93 @@ void Paths::append_mapping(const string& name, int64_t id, size_t rank, bool is_
     append_mapping(name, m);
 }
 
+void Paths::prepend_mapping(const string& name, const Mapping& m) {
+    // get or create the path with this name
+    list<Mapping>& pt = get_create_path(name);
+    // now if we haven't already supplied a mapping
+    // add it
+    if (!has_mapping(name, m)) {
+        pt.push_front(m);
+        Mapping* mp = &pt.front();
+        // add it to the node mappings
+        auto& ms = get_node_mapping(m.position().node_id());
+        ms[name].insert(mp);
+        // and record its position in this list
+        list<Mapping>::iterator mi = pt.begin();
+        mapping_itr[mp] = mi;
+        mapping_path[mp] = name;
+        mapping_path_order[mp] = m.rank();
+    }
+}
+
+void Paths::prepend_mapping(const string& name, int64_t id, size_t rank, bool is_reverse) {
+    Mapping m;
+    m.mutable_position()->set_node_id(id);
+    m.mutable_position()->set_is_reverse(is_reverse);
+    if (rank) {
+        m.set_rank(rank);
+    } else {
+        m.set_rank(get_path(name).size()+1); // rank is 1-based
+    }
+    prepend_mapping(name, m);
+}
+
+size_t Paths::get_next_rank(const string& name) {
+    auto& p = get_path(name);
+    //cerr << "next rank be " << p.size()+1 << " or " << (size_t) p.rend()->rank()+1 << endl;
+    return max(p.size()+1, (size_t) (p.size() ? p.rend()->rank()+1 : 0));
+}
+
+// these will split a mapping into two
+// NB: each submapping ends up with the same rank as the parent
+// however, they will be ordered correctly in the path
+// we will need to normalize path ranks to make this right
+pair<Mapping*, Mapping*> Paths::divide_mapping(Mapping* m, const Position& pos) {
+    // this is needed to split mappinsg during e.g. normalization
+    // but still ensure that the mappings are out there
+    // what do we do?
+    // first we take the mapping and divide it as we do
+    auto n = cut_mapping(*m, pos);
+    return replace_mapping(m, n);
+}
+
+pair<Mapping*, Mapping*> Paths::divide_mapping(Mapping* m, size_t offset) {
+    auto n = cut_mapping(*m, offset);
+    return replace_mapping(m, n);
+}
+
+pair<Mapping*, Mapping*> Paths::replace_mapping(Mapping* m, pair<Mapping, Mapping> n) {
+    // then we remove it from the node it's pointing to
+    // and replace it with the other two mappings
+    // we'll give them the same rank, but record them in the right order
+    // this leaves an invalid graph
+    // there are a few ways to fix this--- they involve changing the way we record ranks
+    // but for now it's going to be simplest if the calling context manages this
+    auto& path_name = mapping_path_name(m);
+    n.first.set_rank(m->rank());
+    n.second.set_rank(m->rank());
+    // remove the mapping, getting an iterator pointing to the element that was after it
+    if (!m->position().is_reverse()) {
+        auto i = remove_mapping(m);
+        // the insertion will happen in reverse order
+        // because insert puts the position before the iterator it's given
+        // so we first insert the second element
+        auto j = insert_mapping(i, path_name, n.second);
+        // and then the first
+        auto k = insert_mapping(j, path_name, n.first);
+        // and we return them in proper order
+        return make_pair(&*j, &*k);
+    } else {
+        auto i = remove_mapping(m);
+        // things get flipped around for reversed mappings
+        auto j = insert_mapping(i, path_name, n.first);
+        // and then the first
+        auto k = insert_mapping(j, path_name, n.second);
+        // and we return them in proper order
+        return make_pair(&*k, &*j);
+    }
+}
+
 bool Paths::has_path(const string& name) {
     return _paths.find(name) != _paths.end();
 }
@@ -197,7 +292,6 @@ void Paths::swap_node_ids(hash_map<int64_t, int64_t> id_mapping) {
         for (auto& m : path) {
             // Look up the replacement ID
             auto replacement = id_mapping.find(m.position().node_id());
-        
             if(replacement != id_mapping.end()) {
                 // If there is a replacement, use it.
                 m.mutable_position()->set_node_id((*replacement).second);
@@ -205,6 +299,15 @@ void Paths::swap_node_ids(hash_map<int64_t, int64_t> id_mapping) {
         }
     }
     rebuild_node_mapping();
+}
+
+void Paths::reassign_node(int64_t new_id, Mapping* m) {
+    // erase the old node id
+    node_mapping[m->position().node_id()][mapping_path_name(m)].erase(m);
+    // set the new node id
+    m->mutable_position()->set_node_id(new_id);
+    // and record it in the new node record
+    node_mapping[m->position().node_id()][mapping_path_name(m)].insert(m);
 }
 
 void Paths::rebuild_node_mapping(void) {
@@ -227,6 +330,17 @@ void Paths::sort_by_mapping_rank(void) {
                 return m1.rank() < m2.rank();
             });
     }
+}
+
+// compact the ranks preserving the relative rank order
+void Paths::compact_ranks(void) {
+    // first ensure the storage order of the mappings is correct
+    sort_by_mapping_rank();
+    // clear the ranks
+    clear_mapping_ranks();
+    // and rebuild them and other aux data structures
+    rebuild_node_mapping();
+    rebuild_mapping_aux();
 }
 
 void Paths::rebuild_mapping_aux(void) {
@@ -291,7 +405,7 @@ list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const s
 }
 
 void Paths::to_json(ostream& out) {
-    function<void(Path&)> lambda = [this, &out](Path& p) {
+    function<void(const Path&)> lambda = [this, &out](const Path& p) {
         out << pb2json(p) <<endl;
     };
     for_each(lambda);
@@ -308,14 +422,16 @@ bool Paths::empty(void) const {
 void Paths::clear(void) {
     _paths.clear();
     node_mapping.clear();
+    mapping_path.clear();
+    mapping_path_order.clear();
 }
 
-void Paths::clear_node_ranks(void) {
+void Paths::clear_mapping_ranks(void) {
     for (auto p = _paths.begin(); p != _paths.end(); ++p) {
         list<Mapping>& path = p->second;
         for (auto m = path.begin(); m != path.end(); ++m) {
             Mapping& mapping = *m;
-            mapping.clear_rank();
+            mapping.set_rank(0);
         }
     }
 }
@@ -370,21 +486,31 @@ map<string, set<Mapping*>>& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
 }
 
+map<string, map<int, Mapping>> Paths::get_node_mapping_copies_by_rank(int64_t id) {
+    map<string, map<int, Mapping>> by_ranks;
+    for (auto& p : get_node_mapping(id)) {
+        auto& name = p.first;
+        auto& mp = p.second;
+        for (auto* m : mp) by_ranks[name][m->rank()] = *m;
+    }
+    return by_ranks;
+}
+
 Mapping* Paths::traverse_left(Mapping* mapping) {
     // Get the iterator for this Mapping*
     list<Mapping>::iterator place = mapping_itr.at(mapping);
-    
+
     // Get the path name for this Mapping*
     string path_name = mapping_path_name(mapping);
-    
+
     // Get the list that the iterator is in
     list<Mapping>& path_list = _paths.at(path_name);
-    
+
     // If we're already the beginning, return null.
     if(place == path_list.begin()) {
         return nullptr;
     }
-    
+
     // Else walk left and return the address of the stored Mapping. std::list
     // iterators are bidirectional, so we will be able to do it.
     place--;
@@ -394,26 +520,26 @@ Mapping* Paths::traverse_left(Mapping* mapping) {
 Mapping* Paths::traverse_right(Mapping* mapping) {
     // Get the iterator for this Mapping*
     list<Mapping>::iterator place = mapping_itr.at(mapping);
-    
+
     // Get the path name for this Mapping*
     string path_name = mapping_path_name(mapping);
-    
+
     // Get the list that the iterator is in
     list<Mapping>& path_list = _paths.at(path_name);
-    
+
     // Advance the iterator right.
     place++;
-    
+
     // If we're at the end, return null
     if(place == path_list.end()) {
         return nullptr;
     }
-    
+
     // Else return the address of the stored Mapping.
     return &(*place);
 }
 
-string Paths::mapping_path_name(Mapping* m) {
+const string Paths::mapping_path_name(Mapping* m) {
     auto n = mapping_path.find(m);
     if (n == mapping_path.end()) {
         return "";
@@ -422,13 +548,13 @@ string Paths::mapping_path_name(Mapping* m) {
     }
 }
 
-set<string> Paths::of_node(int64_t id) {
-    set<string> path_names;
+map<string, int> Paths::of_node(int64_t id) {
+    map<string, int> path_counts;
     auto& node_mapping = get_node_mapping(id);
     for (auto& p : node_mapping) {
-        path_names.insert(p.first);
+        path_counts[p.first]++;
     }
-    return path_names;
+    return path_counts;
 }
 
 bool Paths::are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name) {
@@ -743,7 +869,7 @@ Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kep
             *m->add_edit() = e;
             kept_path2 += e.to_length();
         }
-        
+
         for (int i = 0; i < p2m.edit_size(); ++i) {
             if (to_skip > skipped + p2m.edit(i).to_length()) {
             } else {
@@ -789,8 +915,9 @@ Path simplify(const Path& p) {
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = simplify(p.mapping(i));
-        // remove wholly-deleted mappings as these are redundant
-        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))) continue;
+        // remove wholly-deleted or empty mappings as these are redundant
+        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))
+            || m.edit_size() == 0) continue;
         // if this isn't the first mapping
         if (i > 0) {
             // refer to the last mapping
@@ -820,10 +947,12 @@ Path simplify(const Path& p) {
             // if our last mapping has no position, but we do, merge
             if (!l->has_position() && m.has_position()) {
                 *l->mutable_position() = m.position();
+            // otherwise, if we end at exactly the start position of the next mapping, we can merge
             } else if (l->has_position() && m.has_position()
-                       && l->position().node_id() == m.position().node_id()) {
+                       && l->position().node_id() == m.position().node_id()
+                       && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
                 // we can merge the current mapping onto the old one
-                *l = merge(*l, m);
+                *l = merge_mappings(*l, m);
             } else {
                 *s.add_mapping() = m;
             }
@@ -831,17 +960,26 @@ Path simplify(const Path& p) {
             *s.add_mapping() = m;
         }
     }
-    // now set ranks
+    // we will return this path after a final cleanup
+    Path r;
+    r.set_name(p.name());
+    // remove any edit-less mappings that may have resulted from left-shifting indels
     for (size_t i = 0; i < s.mapping_size(); ++i) {
-        auto* m = s.mutable_mapping(i);
+        auto& m = s.mapping(i);
+        if (!m.edit_size()) continue; // skips empty mappings
+        *r.add_mapping() = m;
+    }
+    // now set ranks
+    for (size_t i = 0; i < r.mapping_size(); ++i) {
+        auto* m = r.mutable_mapping(i);
         m->set_rank(i+1);
     }
     //cerr << "simplified " << pb2json(s) << endl;
-    return s;
+    return r;
 }
 
 // simple merge
-Mapping merge(const Mapping& m, const Mapping& n) {
+Mapping merge_mappings(const Mapping& m, const Mapping& n) {
     Mapping c = m;
     // add the edits on
     for (size_t i = 0; i < n.edit_size(); ++i) {
@@ -853,6 +991,8 @@ Mapping merge(const Mapping& m, const Mapping& n) {
 
 Mapping simplify(const Mapping& m) {
     Mapping n;
+    if (m.rank()) n.set_rank(m.rank());
+    //cerr << "pre simplify " << pb2json(m) << endl;
     // get the position
     if (!m.has_position() || m.position().node_id()==0) {
         // do nothing
@@ -862,15 +1002,17 @@ Mapping simplify(const Mapping& m) {
     }
 
     size_t j = 0;
-    // to simplify, we skip deletions
-    // these are implied by jumps in the path
-    for ( ; j < m.edit_size(); ++j) {
-        if (!edit_is_deletion(m.edit(j))) {
-            break;
-        } else {
-            // Adjust the offset by the size of the deletion.
-            n.mutable_position()->set_offset(n.position().offset()
-                                             + m.edit(j).from_length());
+    // to simplify, we skip deletions at the very start of the node
+    // these are implied by jumps in the path from other nodes
+    if (m.has_position() && m.position().offset() == 0) {
+        for ( ; j < m.edit_size(); ++j) {
+            if (!edit_is_deletion(m.edit(j))) {
+                break;
+            } else {
+                // Adjust the offset by the size of the deletion.
+                n.mutable_position()->set_offset(n.position().offset()
+                                                 + m.edit(j).from_length());
+            }
         }
     }
 
@@ -900,7 +1042,7 @@ Mapping simplify(const Mapping& m) {
         // if it isn't a deletion
         if (!edit_is_deletion(e)) *n.add_edit() = e;
     }
-    
+    //cerr << "post simplify " << pb2json(n) << endl;
     return n;
 }
 
@@ -921,6 +1063,10 @@ bool mapping_is_simple_match(const Mapping& m) {
 }
 
 const string mapping_sequence(const Mapping& mp, const Node& n) {
+    if (!mp.has_position()) {
+        assert(mp.edit_size()==1);
+        return mp.edit(0).sequence();
+    }
     assert(mp.position().node_id() == n.id());
     auto& node_seq = n.sequence();
     string seq;
@@ -930,7 +1076,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     // then edit in the forward direction (easier)
     // and, if the mapping is reversed, finally reverse-complement the result
     size_t t = 0;
-    size_t f = 0;
+    size_t f = m.position().offset();
     for (size_t i = 0; i < m.edit_size(); ++i) {
         auto& e = m.edit(i);
         if (edit_is_match(e)) {
@@ -943,8 +1089,11 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
             // no-op
         }
         t += e.to_length();
-        f += e.to_length();
+        f += e.from_length();
     }
+    // TODO: we must resolve these semantics
+    // probably we shouldn't have perfect matches be represented this way
+    // it is better to be explicit
     // perfect match
     if (m.edit_size() == 0) {
         seq = node_seq;
@@ -967,25 +1116,25 @@ Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node
             = make_position(reverse(make_pos_t(p),
                                     node_length(m.position().node_id())));
     }
-    
+
     // Clear out all the edits. TODO: we wasted time copying them
     reversed.clear_edit();
-    
+
     for(size_t i = m.edit_size() - 1; i != (size_t) -1; i--) {
         // For each edit in reverse order, put it in reverse complemented
         *reversed.add_edit() = reverse_edit(m.edit(i));
     }
-    
+
     return reversed;
 }
 
 Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_length) {
     // Make a new reversed path
     Path reversed = path;
-    
+
     // Clear out all the mappings. TODO: we wasted time copying them
     reversed.clear_mapping();
-    
+
     for(size_t i = path.mapping_size() - 1; i != (size_t) -1; i--) {
         // For each mapping in reverse order, put it in reverse complemented and
         // measured from the other end of the node.
@@ -994,18 +1143,22 @@ Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_lengt
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         reversed.mutable_mapping(i)->set_rank(i+1);
     }
-    
+
     return reversed;
 }
 
 // ref-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
     Mapping left, right;
+    //cerr << "cutting mapping " << pb2json(m) << " at " << pb2json(pos) << endl;
     assert(m.has_position() && m.position().node_id());
-    
+    // the two mappings get the same rank
+    left.set_rank(m.rank());
+    right.set_rank(m.rank());
+
     // TODO: support reverse mappings
     assert(!m.position().is_reverse());
-    
+
     //cerr << "cutting mapping " << pb2json(m) << " at pos " << pb2json(pos) << endl;
     // left always has the position of the input mapping
     *left.mutable_position() = m.position();
@@ -1063,11 +1216,13 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos) {
 // mapping-relative
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
     Mapping left, right;
-    
+    //cerr << ".cutting mapping " << pb2json(m) << " at " << offset << endl;
     // both result mappings will be in the same orientation as the original
     left.mutable_position()->set_is_reverse(m.position().is_reverse());
     right.mutable_position()->set_is_reverse(m.position().is_reverse());
-    
+    left.set_rank(m.rank());
+    right.set_rank(m.rank());
+
     //assert(m.has_position() && m.position().node_id());
     // left always has the position of the input mapping
     if (m.has_position()) *left.mutable_position() = m.position();
@@ -1080,7 +1235,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         left = m;
     } else {
         // we need to cut the mapping
-        
+
         // find the cut point and build the two mappings
         size_t seen = 0;
         size_t j = 0;
@@ -1118,7 +1273,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
                && right.has_position()
                && right.position().node_id()));
     //cerr << "cut mappings " << endl
-    //     << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+    //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
     return make_pair(left, right);
 }
 
@@ -1217,107 +1372,6 @@ bool maps_to_node(const Path& p, int64_t id) {
         if (p.mapping(i).position().node_id() == id) return true;
     }
     return false;
-}
-
-// returns breakpoints on the forward strand of the nodes
-void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints) {
-    // We need to work out what offsets we will need to break each node at, if
-    // we want to add in all the new material and edges in this path.
-    
-    // TODO: Move into graph or give access to graph, so we can avoid making extra breakpoints
-    
-#ifdef debug
-    cerr << "Processing path..." << endl;
-#endif
-    
-    for (size_t i = 0; i < path.mapping_size(); ++i) {
-        // For each Mapping in the path
-        const Mapping& m = path.mapping(i);
-        
-        // What node are we on?
-        int64_t node_id = m.position().node_id();
-        
-        if(node_id == 0) {
-            // Skip Mappings that aren't actually to nodes.
-            continue;
-        }
-        
-        // And in what direction we are moving (+1 or -1)
-        int64_t direction = m.position().is_reverse() ? -1 : 1;
-
-        // See where the next edit starts in the node. It is always included
-        // (even when the edit runs backward), unless the edit has 0 length in
-        // the reference.
-        pos_t edit_first_position = make_pos_t(m.position());
-        
-#ifdef debug
-    cerr << "Processing mapping " << i << " to node " << node_id << " in direction " << direction <<
-        " from " << edit_first_position << endl;
-#endif
-        
-        for(size_t j = 0; j < m.edit_size(); ++j) {
-            // For each Edit in the mapping
-            const Edit& e = m.edit(j);
-            
-            // We know where the mapping starts in its node. But where does it
-            // end (inclusive)? Note that if the edit has 0 reference length,
-            // this may not actually be included in the edit (and
-            // edit_first_position will be further along than
-            // edit_last_position).
-            pos_t edit_last_position = edit_first_position;
-            if (e.from_length()) {
-                get_offset(edit_last_position) += e.from_length();
-            }
-            
-#ifdef debug
-            cerr << "Edit on " << node_id << " from " << edit_first_position << " to " << edit_last_position << endl;
-            cerr << pb2json(e) << endl;
-#endif 
-            
-            if(!edit_is_match(e) || (j == 0 && i > 0)) {
-                // If this edit is not a perfect match, or if this is the first
-                // edit in this mapping and we had a previous mapping we may
-                // need to connect to, we need to make sure we have a breakpoint
-                // at the start of this edit.
-                
-#ifdef debug
-                cerr << "Need to break " << node_id << " at edit lower end " <<
-                    edit_first_position << endl;
-#endif
-                
-                // We need to snip between edit_first_position and edit_first_position - direction.
-                // Note that it doesn't matter if we put breakpoints at 0 and 1-past-the-end; those will be ignored.
-                breakpoints[node_id].insert(edit_first_position);
-            }
-            
-            if(!edit_is_match(e) || (j == m.edit_size() - 1 && i < path.mapping_size() - 1)) {
-                // If this edit is not a perfect match, or if it is the last
-                // edit in a mapping and we have a subsequent mapping we might
-                // need to connect to, make sure we have a breakpoint at the end
-                // of this edit.
-                
-#ifdef debug
-                cerr << "Need to break " << node_id << " at past edit upper end " <<
-                    edit_last_position << endl;
-#endif
-                
-                // We also need to snip between edit_last_position and edit_last_position + direction.
-                breakpoints[node_id].insert(edit_last_position);
-            }
-            
-            // TODO: for an insertion or substitution, note that we need a new
-            // node and two new edges.
-            
-            // TODO: for a deletion, note that we need an edge. TODO: Catch
-            // and complain about some things we can't handle (like a path with
-            // a leading/trailing deletion)? Or just skip deletions when wiring.
-            
-            // Use up the portion of the node taken by this mapping, so we know
-            // where the next mapping will start.
-            edit_first_position = edit_last_position;
-        }
-    }
-    
 }
 
 // returns the start position, or an empty position if the path has no mappings with positions

@@ -290,6 +290,8 @@ public:
     void normalize(void);
     // removes pieces of the graph which are not part of any path
     void remove_non_path(void);
+    // converts edges that are both from_start and to_end to "regular" ones from end to start
+    void flip_doubly_reversed_edges(void);
 
     void from_gfa(istream& in, bool showp = false);
 
@@ -336,11 +338,18 @@ public:
     }
 
     void build_indexes(void);
+    void build_node_indexes(void);
+    void build_edge_indexes(void);
     void index_paths(void);
+    void clear_node_indexes(void);
+    void clear_node_indexes_no_resize(void);
+    void clear_edge_indexes(void);
+    void clear_edge_indexes_no_resize(void);
     void clear_indexes(void);
     void clear_indexes_no_resize(void);
     void resize_indexes(void);
     void rebuild_indexes(void);
+    void rebuild_edge_indexes(void);
 
     // literally merge protobufs
     void merge(Graph& g);
@@ -416,6 +425,11 @@ public:
     // Edit the graph to include all the sequence and edges added by the given
     // paths. Can handle paths that visit nodes in any orientation.
     void edit_both_directions(const vector<Path>& paths);
+
+    // Find all the points at which a Path enters or leaves nodes in the graph. Adds
+    // them to the given map by node ID of sets of bases in the node that will need
+    // to become the starts of new nodes.
+    void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints);
     
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
@@ -463,6 +477,10 @@ public:
     set<NodeSide> sides_to(NodeSide side);
     // Sides on the other side of edges from this side of the node
     set<NodeSide> sides_from(NodeSide side);
+    // All sides connecting to this node
+    set<pair<NodeSide, bool>> sides_context(int64_t node_id);
+    // Use sides_from an sides_to to determine if both nodes have the same context
+    bool same_context(int64_t id1, int64_t id2);
     // determine if the node is an ancestor of this one by trying to find it in a given number of steps
     bool is_ancestor_prev(int64_t node_id, int64_t candidate_id);
     bool is_ancestor_prev(int64_t node_id, int64_t candidate_id, set<int64_t>& seen, size_t steps = 64);
@@ -615,8 +633,9 @@ public:
     //void node_replace_next(Node* node, Node* before, Node* after);
 
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                bool annotate_paths = false, bool invert_edge_ports = false, int random_seed = 0);
+                bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0);
     void to_gfa(ostream& out);
+    void to_turtle(ostream& out, const string& rdf_base_uri);
     bool is_valid(bool check_nodes = true,
                   bool check_edges = true,
                   bool check_paths = true,
@@ -635,6 +654,9 @@ public:
     // orientations changed. TODO: update the paths that touch nodes that
     // flipped around
     void orient_nodes_forward(set<int64_t>& nodes_flipped);
+
+    // for each path assigns edits that describe a total match of the mapping to the node
+    void force_path_match(void);
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
@@ -718,13 +740,26 @@ public:
     Path create_path(const vector<NodeTraversal>& nodes);
     string path_string(const list<NodeTraversal>& nodes);
     // Assumes the path covers the entirety of any nodes visited. Handles backward nodes.
-    string path_string(Path& path);
+    string path_string(const Path& path);
     void expand_path(const list<NodeTraversal>& path, vector<NodeTraversal>& expanded);
     // Fill in the node_start map with the first index along the path at which each node appears.
     // Caller is responsible for dealing with orientations.
     void node_starts_in_path(const list<NodeTraversal>& path,
                              map<Node*, int>& node_start);
-                             
+    // true if nodes share all paths and the mappings they share in these paths
+    // are adjacent
+    bool nodes_are_perfect_path_neighbors(id_t id1, id_t id2);
+    // true if the mapping completely covers the node it maps to and is a perfect match
+    bool mapping_is_total_match(const Mapping& m);
+    // merge the mappings for a pair of nodes; handles multiple mappings per path
+    map<string, vector<Mapping>> merged_mappings_for_node_pair(id_t id1, id_t id2);
+    // for a list of nodes that we want to merge
+    map<string, vector<Mapping>> merged_mappings_for_nodes(const list<Node*>& nodes);
+    // helper function
+    map<string, map<int, Mapping>>
+        merge_mapping_groups(map<string, map<int, Mapping>>& r1,
+                             map<string, map<int, Mapping>>& r2);
+
     // These versions handle paths in which nodes can be traversed multiple
     // times. Unfortunately since we're throwing non-const iterators around, we
     // can't take the input path as const.

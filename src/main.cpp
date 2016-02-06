@@ -19,6 +19,7 @@
 #include "convert.hpp"
 #include "pileup.hpp"
 #include "caller.hpp"
+#include "deconstructor.hpp"
 #include "google/protobuf/stubs/common.h"
 
 using namespace std;
@@ -204,7 +205,7 @@ int main_compare(int argc, char** argv) {
         db_name2 = file_name2 + ".index";
     }
 
-    // Note: only supporting rocksdb index for now.  
+    // Note: only supporting rocksdb index for now.
 
     Index index1;
     index1.open_read_only(db_name1);
@@ -374,8 +375,8 @@ int main_call(int argc, char** argv) {
             exit(1);
         }
         graph = new VG(in);
-    }    
-    
+    }
+
     // setup pileup stream
     if (optind >= argc) {
         help_call(argv);
@@ -561,7 +562,7 @@ int main_pileup(int argc, char** argv) {
     delete graph;
     return 0;
 }
-  
+
 void help_msga(char** argv) {
     cerr << "usage: " << argv[0] << " msga [options] >graph.vg" << endl
          << "Multiple sequence / graph aligner." << endl
@@ -574,8 +575,6 @@ void help_msga(char** argv) {
          << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
-         << "    -F, --fragment N        break apart input sequences and sample sequences from input graphs of" << endl
-         << "                            no more than this length" << endl
          << "    -k, --map-kmer-size N   use kmers of size N when mapping (default: 16)" << endl
          << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold (default: 5)" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
@@ -590,6 +589,7 @@ void help_msga(char** argv) {
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
          << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
+        //<< "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 1)" << endl
          << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
@@ -631,7 +631,6 @@ int main_msga(int argc, char** argv) {
     size_t doubling_steps = 2;
     bool debug = false;
     bool debug_align = false;
-    size_t fragment_size = 0;
     size_t node_max = 0;
     size_t kmer_min = 5;
     int alignment_threads = 1;
@@ -639,6 +638,7 @@ int main_msga(int argc, char** argv) {
     int subgraph_prune = 0;
     bool normalize = true;
     bool allow_nonpath = false;
+    int iter_max = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -657,7 +657,6 @@ int main_msga(int argc, char** argv) {
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
-                {"fragment", required_argument, 0, 'F'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"max-attempts", required_argument, 0, 'M'},
@@ -669,11 +668,12 @@ int main_msga(int argc, char** argv) {
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"allow-nonpath", no_argument, 0, 'z'},
+                {"iter-max", required_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAF:S:j:M:c:C:X:m:K:l:P:t:E:Q:Nz",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAS:j:M:c:C:X:m:K:l:P:t:E:Q:NzI:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -695,6 +695,10 @@ int main_msga(int argc, char** argv) {
             max_attempts = atoi(optarg);
             break;
 
+        case 'I':
+            iter_max = atoi(optarg);
+            break;
+
         case 'c':
             context_depth = atoi(optarg);
             break;
@@ -702,7 +706,7 @@ int main_msga(int argc, char** argv) {
         case 'C':
             cluster_min = atoi(optarg);
             break;
-            
+
         case 'f':
             fasta_files.push_back(optarg);
             break;
@@ -746,10 +750,6 @@ int main_msga(int argc, char** argv) {
 
         case 'A':
             debug_align = true;
-            break;
-
-        case 'F':
-            fragment_size = atoi(optarg);
             break;
 
         case 'X':
@@ -821,7 +821,7 @@ int main_msga(int argc, char** argv) {
     // TODO refactor into class
 
     // map from name to sequence, just a transformation of FASTA records
-    map<string, set<string> > strings;
+    map<string, string> strings;
 
     // open the fasta files, read in the sequences
     vector<string> names_in_order;
@@ -833,36 +833,28 @@ int main_msga(int argc, char** argv) {
         for (auto& name : ref.index->sequenceNames) {
             // only use the sequence if we have whitelisted it
             string seq = ref.getSequence(name);
-            if (!fragment_size) {
-                if (seq_names.empty() || seq_names.count(name)) {
-                    strings[name].insert(seq);
-                }
-            } else {
-                for (size_t i = 0; i < seq.size(); i += fragment_size/2) {
-                    strings[name].insert(seq.substr(i, fragment_size));
-                }
-            }
+            strings[name] = seq;
         }
     }
 
     // give a null label to sequences passed on the command line
     // thus far there is no way to specify these (use fasta instead)
     for (auto& s : sequences) {
-        strings[""].insert(s);
+        strings[sha1head(s, 8)] = s;
     }
 
     // align, include, repeat
-    
+
     if (debug) cerr << "preparing initial graph" << endl;
 
     // if our graph is empty, we need to take the first sequence and build a graph from it
     if (graph->empty()) {
         // what's the first sequence?
         if (base_seq_name.empty()) {
-            graph->create_node(*strings.begin()->second.begin());
+            graph->create_node(strings.begin()->second);
         } else {
             // we specified one we wanted to use as the first
-            graph->create_node(*strings[base_seq_name].begin());
+            graph->create_node(strings[base_seq_name]);
         }
     }
 
@@ -901,11 +893,11 @@ int main_msga(int argc, char** argv) {
                     min_score_per_bp,
                     alignment_threads](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
-        
+
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
         if (gcsaidx) delete gcsaidx;
-        
+
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
         if (debug) cerr << "building GCSA2 index" << endl;
@@ -943,78 +935,87 @@ int main_msga(int argc, char** argv) {
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
-    for (auto& group : strings) {
+    for (auto& sp : strings) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        int iter_max = 1;
+        auto& name = sp.first;
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
-            auto& name = group.first;
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
             vector<Path> paths;
             vector<Alignment> alns;
-            for (auto& seq : group.second) {
-                // align to the graph
-                if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
-                               graph->node_count() << " nodes" << endl;
-                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                alns.push_back(aln);
-                //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
-                paths.push_back(aln.path());
-                // note that the addition of paths is a second step
-                // now take the alignment and modify the graph with it
+            int j = 0;
+            // TODO we should use just one seq
+            auto& seq = sp.second;
+            // align to the graph
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
+                           graph->node_count() << " nodes" << endl;
+            Alignment aln = simplify(mapper->align(seq, kmer_size, kmer_stride, band_width));
+            auto aln_seq = graph->path_string(aln.path());
+            if (aln_seq != seq) {
+                cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
+                cerr << "expected " << seq << endl;
+                cerr << "got      " << aln_seq << endl;
+                ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
+                stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+                f.close();
+                graph->serialize_to_file(name + "-corrupted-alignment.vg");
+                exit(1);
             }
-            // save a rendering of the graph
-            //ofstream gv(name + "-" + iterstr + ".gv");
-            //graph->to_dot(gv, alns);
-            //gv.close();
+            alns.push_back(aln);
+            //if (debug) cerr << pb2json(aln) << endl; // huge in some cases
+            paths.push_back(aln.path());
+            paths.back().set_name(name); // cache name to trigger inclusion of path elements in graph by edit
+
+            /*
+            ofstream f(name + "-pre-edit-" + convert(j) + ".gam");
+            stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
+            f.close();
+            */
+
+            // note that the addition of paths is a second step
+            // now take the alignment and modify the graph with it
+            ++j;
+
             if (debug) cerr << name << ": editing graph" << endl;
+            //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
-            graph->clear_paths();
-            if (debug) cerr << name << ": normalizing node size" << endl;
+            //graph->serialize_to_file(name + "-immed-post-edit.vg");
+            //graph->clear_paths();
+            if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
             graph->dice_nodes(node_max);
+            //graph->serialize_to_file(name + "-post-norm.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
             graph->compact_ids(); // xg can't work unless IDs are compacted.
 
+            // the edit needs to cut nodes at mapping starts and ends
+            // thus allowing paths to be included that map directly to entire nodes
+            // XXX
+
             // check that all is well
+            //graph->serialize_to_file(name + "-pre-index.vg");
             rebuild(graph);
-            bool included = true;
-            for (auto& seq : group.second) {
-                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                if (debug) cerr << "testing inclusion of " << pb2json(aln) << endl;
-                // check for connectivity
-                for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
-                    if (!mapping_is_simple_match(aln.path().mapping(i))) {
-                        cerr << "edit failed! " << pb2json(aln.path().mapping(i)) << " is not a match!" << endl;
-                        included = false;
-                    } else if (i > 0) {
-                        auto& p1 = aln.path().mapping(i-1).position();
-                        auto& p2 = aln.path().mapping(i).position();
-                        // are we at the end of the node before we jump?
-                        if (p1.node_id() != p2.node_id()
-                            &&
-                            mapping_from_length(aln.path().mapping(i))
-                            != graph->get_node(p2.node_id())->sequence().size()) {
-                            cerr << "edit failed! no edge from " << pb2json(aln.path().mapping(i))
-                                 << " to " << pb2json(aln.path().mapping(i-1)) << endl;
-                            included = false;
-                        }
-                    }
-                }
+
+            // verfy validity of path
+            auto path_seq = graph->path_string(graph->paths.path(name));
+            incomplete = !(path_seq == seq) || !graph->is_valid();
+            if (incomplete) {
+                cerr << "[vg msga] failed to include alignment, retrying " << endl
+                     << "expected " << seq << endl
+                     << "got " << path_seq << endl
+                     << pb2json(aln.path()) << endl
+                     << pb2json(graph->paths.path(name)) << endl;
+                graph->serialize_to_file(name + "-post-edit.vg");
             }
-            incomplete = !included;
         }
         // if (debug && !graph->is_valid()) cerr << "graph is invalid" << endl;
-        /*
-        if (iter == iter_max) {
-            cerr << "failed to include path" << endl;
+        if (incomplete && iter >= iter_max) {
+            cerr << "[vg msga] Error: failed to include path " << name << endl;
             exit(1);
         }
-        */
     }
-    //graph->serialize_to_file("pre-include.vg");
 
     auto include_paths = [&mapper,
                           kmer_size,
@@ -1027,46 +1028,59 @@ int main_msga(int argc, char** argv) {
         for (auto& group : strings) {
             auto& name = group.first;
             if (debug) cerr << name << ": tracing path through graph" << endl;
-            for (auto& seq : group.second) {
-                if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
-                Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                //if (debug) cerr << "alignment score: " << aln.score() << endl;
-                aln.mutable_path()->set_name(name);
-                //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
-                // todo simplify in the mapper itself when merging the banded bits
-                if (debug) cerr << name << ": labeling" << endl;
-                graph->include(aln.path());
-                // now repeat back the path
-            }
+            auto& seq = group.second;
+            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+            //if (debug) cerr << "alignment score: " << aln.score() << endl;
+            aln.mutable_path()->set_name(name);
+            //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
+            // todo simplify in the mapper itself when merging the banded bits
+            if (debug) cerr << name << ": labeling" << endl;
+            graph->include(aln.path());
+            // now repeat back the path
         }
     };
 
-    rebuild(graph);
-    include_paths(graph);
-
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;
-        // use this step to simplify the graph so we can efficiently normalize it
         graph->remove_non_path();
-        graph->clear_paths();
         graph->normalize();
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
-        graph->clear_paths();
-        // rebuild
-        rebuild(graph);
-        // and re-include paths now that we've normalized
-        include_paths(graph);
     }
 
-    //if (debug) graph->serialize_to_file("msga-pre-label.vg");
-
-    //if (debug) graph->serialize_to_file("msga-post-label.vg");
     // remove nodes in the graph that have no assigned paths
     // this should be pretty minimal now that we've made one iteration
     if (!allow_nonpath) {
         graph->remove_non_path();
+    }
+
+    // finally, validate the included paths
+    set<string> failures;
+    for (auto& sp : strings) {
+        auto& name = sp.first;
+        auto& seq = sp.second;
+        if (seq != graph->path_string(graph->paths.path(name))) {
+            /*
+            cerr << "failed inclusion" << endl
+                 << "expected " << graph->path_string(graph->paths.path(name)) << endl
+                 << "got      " << seq << endl;
+            */
+            failures.insert(name);
+        }
+    }
+
+    if (!failures.empty()) {
+        stringstream ss;
+        ss << "vg-msga-failed-include_";
+        for (auto& s : failures) {
+            cerr << "[vg msga] Error: failed to include path " << s << endl;
+            ss << s << "_";
+        }
+        ss << ".vg";
+        graph->serialize_to_file(ss.str());
+        exit(1);
     }
 
     // return the graph
@@ -1386,7 +1400,7 @@ int main_surject(int argc, char** argv) {
                 if (!surj.path().mapping_size()) {
                     surj = src;
                 }
-                // record 
+                // record
                 if (!hdr && !surj.read_group().empty() && !surj.sample_name().empty()) {
 #pragma omp critical (hts_header)
                     rg_sample[surj.read_group()] = surj.sample_name();
@@ -1427,12 +1441,15 @@ void help_mod(char** argv) {
          << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
          << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
          << "    -z, --sort              sort the graph using an approximate topological sort" << endl
          << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
          << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -d, --drop-paths        remove the paths of the graph" << endl
+         << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
@@ -1448,6 +1465,7 @@ void help_mod(char** argv) {
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
          << "    -f, --orient-forward    orient the nodes in the graph forward" << endl
+         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -1476,6 +1494,10 @@ int main_mod(int argc, char** argv) {
     bool sort_graph = false;
     bool remove_non_path = false;
     bool orient_forward = false;
+    bool compact_ranks = false;
+    bool drop_paths = false;
+    bool force_path_match = false;
+    set<string> paths_to_retain;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1485,6 +1507,8 @@ int main_mod(int argc, char** argv) {
                 {"help", no_argument, 0, 'h'},
                 {"include-aln", required_argument, 0, 'i'},
                 {"compact-ids", no_argument, 0, 'c'},
+                {"compact-ranks", no_argument, 0, 'C'},
+                {"drop-paths", no_argument, 0, 'd'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {"prune-complex", no_argument, 0, 'p'},
@@ -1502,11 +1526,13 @@ int main_mod(int argc, char** argv) {
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
                 {"orient-forward", no_argument, 0, 'f'},
+                {"force-path-match", no_argument, 0, 'F'},
+                {"retain-path", required_argument, 0, 'r'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1524,8 +1550,16 @@ int main_mod(int argc, char** argv) {
             compact_ids = true;
             break;
 
+        case 'C':
+            compact_ranks = true;
+            break;
+
         case 'k':
             path_name = optarg;
+            break;
+
+        case 'r':
+            paths_to_retain.insert(optarg);
             break;
 
         case 'o':
@@ -1572,8 +1606,16 @@ int main_mod(int argc, char** argv) {
             orient_forward = true;
             break;
 
+        case 'F':
+            force_path_match = true;
+            break;
+
         case 'P':
             label_paths = true;
+            break;
+
+        case 'd':
+            drop_paths = true;
             break;
 
         case 's':
@@ -1617,6 +1659,14 @@ int main_mod(int argc, char** argv) {
         graph->keep_path(path_name);
     }
 
+    if (!paths_to_retain.empty()) {
+        graph->paths.keep_paths(paths_to_retain);
+    }
+
+    if (drop_paths) {
+        graph->paths.clear();
+    }
+
     if (remove_orphans) {
         graph->remove_orphan_edges();
     }
@@ -1635,6 +1685,10 @@ int main_mod(int argc, char** argv) {
 
     if (remove_non_path) {
         graph->remove_non_path();
+    }
+
+    if (force_path_match) {
+        graph->force_path_match();
     }
 
     if (orient_forward) {
@@ -1664,17 +1718,22 @@ int main_mod(int argc, char** argv) {
         if (!label_paths) {
             // execute the edits
             graph->edit_both_directions(paths);
-            // and optionally compact ids
-            if (compact_ids) {
-                graph->sort();
-                graph->compact_ids();
-            }
         } else {
             // just add the path labels to the graph
             for (auto& path : paths) {
                 graph->paths.extend(path);
             }
         }
+    }
+
+    // and optionally compact ids
+    if (compact_ids) {
+        graph->sort();
+        graph->compact_ids();
+    }
+
+    if (compact_ranks) {
+        graph->paths.compact_ranks();
     }
 
     if (prune_complex) {
@@ -1691,6 +1750,7 @@ int main_mod(int argc, char** argv) {
 
     if (chop_to) {
         graph->dice_nodes(chop_to);
+        graph->paths.compact_ranks();
     }
 
     if (kill_labels) {
@@ -1948,11 +2008,11 @@ int main_kmers(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:FB",
                          long_options, &option_index);
-        
+
         // Detect the end of the options.
         if (c == -1)
             break;
- 
+
         switch (c)
         {
 
@@ -2009,7 +2069,7 @@ int main_kmers(int argc, char** argv) {
             help_kmers(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -2050,7 +2110,7 @@ int main_kmers(int argc, char** argv) {
             // We encode orientation by negating the IDs for backward nodes.
             // Their offsets are from the end of the node in its local forward
             // orientation, and are negated in the output.
-            int sign = (*n).backward ? -1 : 1;            
+            int sign = (*n).backward ? -1 : 1;
 #pragma omp critical (cout)
             cout << kmer << '\t' << (*n).node->id() * sign << '\t' << p * sign << '\n';
         };
@@ -2087,11 +2147,11 @@ int main_concat(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "h",
                          long_options, &option_index);
-        
+
         // Detect the end of the options.
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 'h':
@@ -2099,7 +2159,7 @@ int main_concat(int argc, char** argv) {
             help_concat(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -2195,7 +2255,7 @@ int main_ids(int argc, char** argv) {
         case 'j':
             join = true;
             break;
-            
+
         case 's':
             sort = true;
             break;
@@ -2286,11 +2346,11 @@ int main_join(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "h",
                          long_options, &option_index);
-        
+
         // Detect the end of the options.
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 'h':
@@ -2298,7 +2358,7 @@ int main_join(int argc, char** argv) {
             help_join(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -2377,11 +2437,11 @@ int main_stats(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "hzlsHTS",
                          long_options, &option_index);
-        
+
         // Detect the end of the options.
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 'z':
@@ -2413,7 +2473,7 @@ int main_stats(int argc, char** argv) {
             help_stats(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -2532,11 +2592,11 @@ int main_paths(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "n:l:hse:x",
                          long_options, &option_index);
-        
+
         // Detect the end of the options.
         if (c == -1)
             break;
- 
+
         switch (c)
         {
 
@@ -2565,7 +2625,7 @@ int main_paths(int argc, char** argv) {
             help_paths(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -2589,7 +2649,7 @@ int main_paths(int argc, char** argv) {
         delete graph;
         return 0;
     }
-    
+
     if (max_length == 0) {
         cerr << "error:[vg paths] a --max-length is required when generating paths" << endl;
     }
@@ -2715,11 +2775,11 @@ int main_find(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:",
                          long_options, &option_index);
-        
+
         // Detect the end of the options.
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 'd':
@@ -2803,7 +2863,7 @@ int main_find(int argc, char** argv) {
             help_find(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -2937,11 +2997,11 @@ int main_find(int argc, char** argv) {
                 if (vindex.get_node_path_relative_position(node_id, false, path_id,
                                                           path_prev, prev_pos, prev_backward,
                                                           path_next, next_pos, next_backward)) {
-                    
+
                     // Negate IDs for backward nodes
                     cout << node_id << "\t" << path_prev.front().first * (path_prev.front().second ? -1 : 1) << "\t" << prev_pos
                          << "\t" << path_next.back().first * (path_next.back().second ? -1 : 1) << "\t" << next_pos << "\t";
-                    
+
                     Mapping m = vindex.path_relative_mapping(node_id, false, path_id,
                                                             path_prev, prev_pos, prev_backward,
                                                             path_next, next_pos, next_backward);
@@ -2981,7 +3041,7 @@ int main_find(int argc, char** argv) {
     }
 
     // todo cleanup if/else logic to allow only one function
-    
+
     if (!sequence.empty()) {
         if (gcsa_in.empty()) {
             set<int> kmer_sizes = vindex.stored_kmer_sizes();
@@ -3059,7 +3119,7 @@ int main_find(int argc, char** argv) {
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
          << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
-         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl 
+         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl
          << "must come first." << endl
          << "xg options:" << endl
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
@@ -3092,7 +3152,7 @@ void help_index(char** argv) {
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
          << "    -C, --compact          compact the index into a single level (improves performance)" << endl
          << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl;
-         
+
 }
 
 int main_index(int argc, char** argv) {
@@ -3161,11 +3221,11 @@ int main_index(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:VFZ:",
                          long_options, &option_index);
-        
+
         // Detect the end of the options.
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 'd':
@@ -3243,7 +3303,7 @@ int main_index(int argc, char** argv) {
         case 't':
             omp_set_num_threads(atoi(optarg));
             break;
-            
+
         case 'g':
             gcsa_name = optarg;
             break;
@@ -3263,13 +3323,13 @@ int main_index(int argc, char** argv) {
         case 'Z':
             size_limit = atoi(optarg);
             break;
- 
+
         case 'h':
         case '?':
             help_index(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -3301,12 +3361,12 @@ int main_index(int argc, char** argv) {
         cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
         return 1;
     }
-    
+
     if(kmer_size < 0) {
         cerr << "error:[vg index] kmer size cannot be negative" << endl;
         return 1;
     }
-    
+
     if(kmer_stride <= 0) {
         // kmer strides of 0 (or negative) are silly.
         cerr << "error:[vg index] kmer stride must be positive and nonzero" << endl;
@@ -3322,7 +3382,7 @@ int main_index(int argc, char** argv) {
 
     if(!gcsa_name.empty()) {
         // We need to make a gcsa index.
-    
+
         // Load up the graphs
         VGset graphs(file_names);
 
@@ -3331,7 +3391,7 @@ int main_index(int argc, char** argv) {
         // Go get the kmers of the correct size
         vector<gcsa::KMer> kmers;
         graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, forward_only, kmers, 0);
-        
+
         // Handle finding the sink node
         size_t sink_node_id = 0;
         for(auto kmer : kmers) {
@@ -3341,7 +3401,7 @@ int main_index(int argc, char** argv) {
                 break;
             }
         }
-        
+
         for(auto& kmer : kmers) {
             // Mark kmers that go to the sink node as "sorted", since they have stop
             // characters in them and can't be extended.
@@ -3349,10 +3409,10 @@ int main_index(int argc, char** argv) {
             if(gcsa::Node::id(kmer.to) == sink_node_id && gcsa::Node::offset(kmer.to) > 0) {
                 kmer.makeSorted();
             }
-            
+
             //cout << kmer << std::endl;
         }
-        
+
         if(show_progress) {
             cerr << "Found " << kmers.size() << " kmer instances" << endl;
         }
@@ -3370,7 +3430,7 @@ int main_index(int argc, char** argv) {
         if (verify_index) {
             kmers_copy = kmers;
         }
-        
+
         // Make the index with the kmers
         gcsa::GCSA gcsa_index(kmers, kmer_size, doubling_steps, size_limit);
 
@@ -3378,14 +3438,14 @@ int main_index(int argc, char** argv) {
             //cerr << "verifying index" << endl;
             gcsa_index.verifyIndex(kmers_copy, kmer_size);
         }
-        
+
         // Save it to the index filename
         sdsl::store_to_file(gcsa_index, gcsa_name);
-        
+
         // Skip all the Snappy stuff we can't do (yet).
         return 0;
     }
-    
+
 
     Index index;
     index.use_snappy = use_snappy;
@@ -3524,7 +3584,7 @@ int main_index(int argc, char** argv) {
         index.path_layout(layout, length);
         for (auto& p : layout) {
             // Negate IDs for backward nodes
-            cout << p.first << " " << p.second.first.first * (p.second.first.second ? -1 : 1) << " " 
+            cout << p.first << " " << p.second.first.first * (p.second.first.second ? -1 : 1) << " "
                  << p.second.second.first * (p.second.second.second ? -1 : 1) << " " << length[p.first] << endl;
         }
         index.close();
@@ -3571,11 +3631,11 @@ int main_align(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "s:jhQ:",
                          long_options, &option_index);
-        
+
         /* Detect the end of the options. */
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 's':
@@ -3589,14 +3649,14 @@ int main_align(int argc, char** argv) {
         case 'j':
             output_json = true;
             break;
- 
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
             help_align(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -3660,7 +3720,7 @@ void help_map(char** argv) {
          << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
          << "    -P, --score-per-bp N  accept alignment only if the alignment score per base is > N" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 7)" << endl
-         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl 
+         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
          << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default: 100)" << endl
@@ -3767,11 +3827,11 @@ int main_map(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:V",
                          long_options, &option_index);
-        
+
         /* Detect the end of the options. */
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 's':
@@ -3789,11 +3849,11 @@ int main_map(int argc, char** argv) {
         case 'd':
             db_name = optarg;
             break;
-            
+
         case 'x':
             xg_name = optarg;
             break;
-            
+
         case 'g':
             gcsa_name = optarg;
             break;
@@ -3829,7 +3889,7 @@ int main_map(int argc, char** argv) {
         case 'm':
             hit_max = atoi(optarg);
             break;
-            
+
         case 'M':
             max_multimaps = atoi(optarg);
             break;
@@ -3837,7 +3897,7 @@ int main_map(int argc, char** argv) {
         case 'e':
             thread_ex = atoi(optarg);
             break;
-            
+
         case 'n':
             context_depth = atoi(optarg);
             break;
@@ -3922,7 +3982,7 @@ int main_map(int argc, char** argv) {
             help_map(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -3946,7 +4006,7 @@ int main_map(int argc, char** argv) {
     if (xg_name.empty() && !file_name.empty()) {
         xg_name = file_name + ".xg";
     }
-    
+
     if (gcsa_name.empty() && !file_name.empty()) {
         gcsa_name = file_name + gcsa::GCSA::EXTENSION;
     }
@@ -3954,7 +4014,7 @@ int main_map(int argc, char** argv) {
     // Load up our indexes.
     xg::XG* xindex = nullptr;
     gcsa::GCSA* gcsa = nullptr;
-    
+
     // for testing, we sometimes want to run the mapper on indexes we build in memory
     if (build_in_memory) {
         VG* graph;
@@ -3973,7 +4033,7 @@ int main_map(int argc, char** argv) {
     } else {
         // We try opening the file, and then see if it worked
         ifstream xg_stream(xg_name);
-    
+
         if(xg_stream) {
             // We have an xg index!
             if(debug) {
@@ -3981,7 +4041,7 @@ int main_map(int argc, char** argv) {
             }
             xindex = new xg::XG(xg_stream);
         }
-    
+
         ifstream gcsa_stream(gcsa_name);
         if(gcsa_stream) {
             // We have a GCSA index too!
@@ -3992,9 +4052,9 @@ int main_map(int argc, char** argv) {
             gcsa->load(gcsa_stream);
         }
     }
-    
+
     Index* idx = nullptr;
-    
+
     if(!xindex || !gcsa) {
         // We only need a Rocksdb index if we don't have the others.
         if(debug) {
@@ -4003,36 +4063,42 @@ int main_map(int argc, char** argv) {
         idx = new Index();
         idx->open_read_only(db_name);
     }
-    
+
     if(gcsa && ! idx && kmer_size <= 0) {
         // The user needs to give us a kmer size since we aren't loading it from the RocksDB kmers.
         cerr << "error:[vg map] positive kmer size required when not loading from RocksDB" << endl;
-        exit(1); 
+        exit(1);
     }
-    
+
     thread_count = get_thread_count();
 
     vector<Mapper*> mapper;
     mapper.resize(thread_count);
     vector<vector<Alignment> > output_buffer;
     output_buffer.resize(thread_count);
-    
+
     // We have one function to dump alignments into
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer, &output_json](vector<Alignment>& alignments) {
+			// for(auto& alignment : alignments){
+			// 		cerr << "This is in output_alignments" << alignment.DebugString() << endl;
+			// }
+
         if (output_json) {
             // If we want to convert to JSON, convert them all to JSON and dump them to cout.
             for(auto& alignment : alignments) {
                 string json = pb2json(alignment);
-#pragma omp critical (cout)
+								#pragma omp critical (cout)
                 cout << json << "\n";
             }
         } else {
             // Otherwise write them through the buffer for our thread
             int tid = omp_get_thread_num();
             auto& output_buf = output_buffer[tid];
+
             // Copy all the alignments over to the output buffer
             copy(alignments.begin(), alignments.end(), back_inserter(output_buf));
+
             stream::write_buffered(cout, output_buf, 1000);
         }
     };
@@ -4067,7 +4133,7 @@ int main_map(int argc, char** argv) {
 
     if (!seq.empty()) {
         int tid = omp_get_thread_num();
-        
+
         Alignment unaligned;
         unaligned.set_sequence(seq);
         vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
@@ -4075,14 +4141,14 @@ int main_map(int argc, char** argv) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
         }
-        
-        
+
+
         for(auto& alignment : alignments) {
             if (!sample_name.empty()) alignment.set_sample_name(sample_name);
             if (!read_group.empty()) alignment.set_read_group(read_group);
             if (!seq_name.empty()) alignment.set_name(seq_name);
         }
-        
+
         // Output the alignments in JSON or protobuf as appropriate.
         output_alignments(alignments);
     }
@@ -4104,18 +4170,19 @@ int main_map(int argc, char** argv) {
                     // Make an alignment
                     Alignment unaligned;
                     unaligned.set_sequence(line);
-                
+
                     vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
                     if(alignments.empty()) {
                         alignments.push_back(unaligned);
                     }
-                    
+
                     for(auto& alignment : alignments) {
                         // Set the alignment metadata
                         if (!sample_name.empty()) alignment.set_sample_name(sample_name);
                         if (!read_group.empty()) alignment.set_read_group(read_group);
                     }
-                    
+
+
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments);
                 }
@@ -4132,18 +4199,18 @@ int main_map(int argc, char** argv) {
              &kmer_stride,
              &band_width]
             (Alignment& alignment) {
-            
+
             if(alignment.is_secondary() && !keep_secondary) {
                 // Skip over secondary alignments in the input; we don't want several output mappings for each input *mapping*.
                 return;
             }
-            
+
             int tid = omp_get_thread_num();
             vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
             if(alignments.empty()) {
                 alignments.push_back(alignment);
             }
-            
+
             // Output the alignments in JSON or protobuf as appropriate.
             output_alignments(alignments);
         };
@@ -4165,7 +4232,7 @@ int main_map(int argc, char** argv) {
 
                 int tid = omp_get_thread_num();
                 auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
-                
+
                 // Make sure we have unaligned "alignments" for things that don't align.
                 if(alnp.first.empty()) {
                     alnp.first.push_back(aln1);
@@ -4173,7 +4240,7 @@ int main_map(int argc, char** argv) {
                 if(alnp.second.empty()) {
                     alnp.second.push_back(aln2);
                 }
-                
+
                 // Output the alignments in JSON or protobuf as appropriate.
                 output_alignments(alnp.first);
                 output_alignments(alnp.second);
@@ -4191,12 +4258,13 @@ int main_map(int argc, char** argv) {
 
                 int tid = omp_get_thread_num();
                 vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
-                
+
                 if(alignments.empty()) {
                     // Make sure we have a "no alignment" alignment
                     alignments.push_back(alignment);
                 }
-                
+
+								//cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                 output_alignments(alignments);
             };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
@@ -4213,7 +4281,7 @@ int main_map(int argc, char** argv) {
 
                 int tid = omp_get_thread_num();
                 auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
-                
+
                 // Make sure we have unaligned "alignments" for things that don't align.
                 if(alnp.first.empty()) {
                     alnp.first.push_back(aln1);
@@ -4221,7 +4289,7 @@ int main_map(int argc, char** argv) {
                 if(alnp.second.empty()) {
                     alnp.second.push_back(aln2);
                 }
-                
+
                 output_alignments(alnp.first);
                 output_alignments(alnp.second);
             };
@@ -4237,7 +4305,7 @@ int main_map(int argc, char** argv) {
             stream::write_buffered(cout, output_buf, 0);
         }
     }
-    
+
     if(idx)  {
         delete idx;
         idx = nullptr;
@@ -4262,27 +4330,32 @@ void help_view(char** argv) {
          << "options:" << endl
          << "    -g, --gfa            output GFA format (default)" << endl
          << "    -F, --gfa-in         input GFA format" << endl
-         
+
          << "    -v, --vg             output VG format (input defaults to GFA)" << endl
          << "    -V, --vg-in          input VG format (default)" << endl
-         
+
          << "    -j, --json           output JSON format" << endl
          << "    -J, --json-in        input JSON format" << endl
-         
+         << "    -c, --json-stream    streaming conversion of a VG format graph in line delimited JSON format" << endl
+         << "                         (this cannot be loaded directly via -J)" << endl
          << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
          << "                         Alignment/Map)" << endl
+         << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
+         << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
+
          << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
-         
+
          << "    -d, --dot            output dot format" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
          << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
+         << "    -M, --show-mappings  with -p print the mappings in each path in JSON" << endl
          << "    -I, --invert-ports   invert the edge ports in dot so that ne->nw is reversed" << endl
          << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
-         
+
          << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
-         
+
          << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
          << "                         positional file arguments if paired" << endl
          << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
@@ -4302,9 +4375,9 @@ int main_view(int argc, char** argv) {
     // Supported conversions:
     //      TO  vg  json    gfa gam bam fastq   dot
     // FROM
-    // vg       Y   Y       Y   N   N   N       Y       
+    // vg       Y   Y       Y   N   N   N       Y
     // json     Y   Y       Y   N   N   N       Y
-    // gfa      Y   Y       Y   N   N   N       Y  
+    // gfa      Y   Y       Y   N   N   N       Y
     // gam      N   Y       N   N   N   N       N
     // bam      N   N       N   Y   N   N       N
     // fastq    N   N       N   Y   N   N       N
@@ -4315,6 +4388,7 @@ int main_view(int argc, char** argv) {
 
     string output_type;
     string input_type;
+    string rdf_base_uri;
     bool input_json = false;
     string alignments;
     string fastq1, fastq2;
@@ -4323,6 +4397,7 @@ int main_view(int argc, char** argv) {
     bool walk_paths_in_dot = false;
     bool annotate_paths_in_dot = false;
     bool invert_edge_ports_in_dot = false;
+    bool show_mappings_in_dot = false;
     int seed_val = time(NULL);
 
     int c;
@@ -4334,9 +4409,12 @@ int main_view(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
+                {"turtle", no_argument, 0, 't'},
+                {"rdf-base-uri", no_argument, 0, 'r'},
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
                 {"json-in",  no_argument, 0, 'J'},
+                {"json-stream", no_argument, 0, 'c'},
                 {"vg", no_argument, 0, 'v'},
                 {"vg-in", no_argument, 0, 'V'},
                 {"align-in", no_argument, 0, 'a'},
@@ -4352,17 +4430,18 @@ int main_view(int argc, char** argv) {
                 {"pileup", no_argument, 0, 'L'},
                 {"pileup-in", no_argument, 0, 'l'},
                 {"invert-ports", no_argument, 0, 'I'},
+                {"show-mappings", no_argument, 0, 'M'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLI",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:",
                          long_options, &option_index);
-        
+
         /* Detect the end of the options. */
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 'd':
@@ -4373,10 +4452,14 @@ int main_view(int argc, char** argv) {
             show_paths_in_dot = true;
             break;
 
+        case 'M':
+            show_mappings_in_dot = true;
+            break;
+
         case 'w':
             walk_paths_in_dot = true;
             break;
-            
+
         case 'n':
             annotate_paths_in_dot = true;
             break;
@@ -4384,25 +4467,30 @@ int main_view(int argc, char** argv) {
         case 's':
             seed_val = atoi(optarg);
             break;
- 
+
         case 'g':
             output_type = "gfa";
             break;
-            
+
         case 'F':
             input_type = "gfa";
             break;
- 
+
         case 'j':
             output_type = "json";
             break;
-            
+
         case 'J':
-            // -J can complement input GAM/Pileup, hence the extra logic here. 
+            // -J can complement input GAM/Pileup, hence the extra logic here.
             if (input_type.empty()) {
                 input_type = "json";
             }
             input_json = true;
+            break;
+
+        case 'c':
+            input_type = "vg";
+            output_type = "stream";
             break;
 
         case 'v':
@@ -4412,7 +4500,7 @@ int main_view(int argc, char** argv) {
                 input_type = "gfa";
             }
             break;
-            
+
         case 'V':
             input_type = "vg";
             break;
@@ -4420,7 +4508,15 @@ int main_view(int argc, char** argv) {
         case 'G':
             output_type = "gam";
             break;
-            
+
+        case 't':
+            output_type = "turtle";
+            break;
+
+        case 'r':
+            rdf_base_uri = optarg;
+            break;
+
         case 'a':
             input_type = "gam";
             if(output_type.empty()) {
@@ -4475,18 +4571,21 @@ int main_view(int argc, char** argv) {
             help_view(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
     }
-    
+
     // If the user specified nothing else, we default to VG in and GFA out.
     if (input_type.empty()) {
         input_type = "vg";
     }
     if (output_type.empty()) {
         output_type = "gfa";
+    }
+    if (rdf_base_uri.empty()) {
+        rdf_base_uri = "http://example.org/vg/";
     }
     vector<Alignment> alns;
     if (!alignments.empty()) {
@@ -4503,12 +4602,24 @@ int main_view(int argc, char** argv) {
     }
     string file_name = argv[optind];
     if (input_type == "vg") {
-        if (file_name == "-") {
-            graph = new VG(std::cin);
+        if (output_type == "stream") {
+            function<void(Graph&)> lambda = [&](Graph& g) { cout << pb2json(g) << endl; };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+            return 0;
         } else {
-            ifstream in;
-            in.open(file_name.c_str());
-            graph = new VG(in);
+            if (file_name == "-") {
+                graph = new VG(std::cin);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                graph = new VG(in);
+            }
         }
         // VG can convert to any of the graph formats, so keep going
     } else if (input_type == "gfa") {
@@ -4527,13 +4638,13 @@ int main_view(int argc, char** argv) {
         JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false);
-        
+
     } else if (input_type == "gam") {
         if (input_json == false) {
             if (output_type == "json") {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
-                    //alignment_quality_short_to_char(a);
+                    alignment_quality_short_to_char(a);
                     cout << pb2json(a) << "\n";
                 };
                 if (file_name == "-") {
@@ -4587,7 +4698,7 @@ int main_view(int argc, char** argv) {
     } else if (input_type == "fastq") {
         fastq1 = argv[optind++];
         if (optind < argc) {
-            fastq2 = argv[optind];            
+            fastq2 = argv[optind];
         }
         if (output_type == "gam") {
             vector<Alignment> buf;
@@ -4678,12 +4789,20 @@ int main_view(int argc, char** argv) {
     // requested output format.
 
     if (output_type == "dot") {
-        graph->to_dot(std::cout, alns, show_paths_in_dot, walk_paths_in_dot,
-                      annotate_paths_in_dot, invert_edge_ports_in_dot, seed_val);
+        graph->to_dot(std::cout,
+                      alns,
+                      show_paths_in_dot,
+                      walk_paths_in_dot,
+                      annotate_paths_in_dot,
+                      show_mappings_in_dot,
+                      invert_edge_ports_in_dot,
+                      seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
+    } else if (output_type == "turtle") {
+        graph->to_turtle(std::cout, rdf_base_uri);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
     } else {
@@ -4691,11 +4810,139 @@ int main_view(int argc, char** argv) {
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
     }
-    
+
     cout.flush();
     delete graph;
 
     return 0;
+}
+
+void help_deconstruct(char** argv){
+  cerr << "usage: " << argv[0] << " deconstruct [options] -o <x>.vcf" << endl
+      << "options: " << endl
+      << "       -r, --reference FILE FASTA reference to use for path projection." << endl
+      << "       -p, --path <Pathname>   The path for which to extract variants." << endl
+      << "       -g, --graph <FILE>.vg  Variant graph to extract variants from."
+      << endl;
+}
+
+int main_deconstruct(int argc, char** argv){
+  if (argc == 2){
+    help_deconstruct(argv);
+    exit(1);
+  }
+
+  string reference_file = "";
+  //string xg_file = "";
+  string graph_file = "";
+  string output_file = "";
+  //string index_file = "";
+  string pathfile = "";
+  string path = "";
+  int c;
+  while (true){
+    static struct option long_options[] = {
+      {"output", required_argument, 0, 'o'},
+      {"reference", required_argument, 0, 'r'},
+      //{"xg", required_argument, 0, 'x'},
+      {"graph", required_argument, 0, 'g'},
+      {"path", required_argument, 0, 'p'},
+      {"pathfile", required_argument, 0, 'f'}
+      //{"index", required_argument, 0, 'i'}
+    };
+
+    int option_index = 0;
+    c = getopt_long (argc, argv, "o:i:r:x:p:f:g:h",
+                     long_options, &option_index);
+    if (c == -1){
+      break;
+    }
+    switch (c){
+      case 'r':
+          reference_file = optarg;
+          break;
+      case 'o':
+          output_file = optarg;
+          break;
+      // case 'x':
+      //     xg_file = optarg;
+      //     break;
+      case 'g':
+          graph_file = optarg;
+          break;
+      case 'p':
+          path = optarg;
+          break;
+      case 'f':
+          pathfile = optarg;
+          break;
+
+      case 'h':
+      case '?':
+          /* getopt_long already printed an error message. */
+          help_deconstruct(argv);
+          exit(1);
+          break;
+
+      default:
+          abort ();
+    }
+  }
+
+  if (reference_file.empty()){
+    cerr << "Error: A reference is needed for projection into vcf." << endl;
+    exit(1);
+  }
+  if ( graph_file.empty()){
+    cerr << "Error:  No graph provided." << endl;
+    exit(1);
+  }
+
+  Deconstructor decon = Deconstructor();
+  decon.set_reference(reference_file);
+
+  ifstream in;
+  in.open(graph_file.c_str());
+  VG v = VG(in);
+  decon.set_graph(&v);
+
+  map<string, vector<vcflib::Variant>> pathname_to_variants;
+  //Default: get all paths in graph
+  if (pathfile == "" && path == ""){
+    pathname_to_variants = decon.get_variants_on_path("");
+  }
+  else if (pathfile == ""){
+    // Get a specific path's variants.
+    pathname_to_variants = decon.get_variants_on_path(path);
+  }
+  else if (path == ""){
+    //Use a pathfile and get all paths in said file.
+    pathname_to_variants = decon.get_variants_on_paths_from_file(pathfile);
+
+  }
+  else {
+    cerr << "Both a path and a pathfile were specified. Please specify only one." << endl;
+    exit(0);
+  }
+  // if (index_file.empty()){
+  //   decon.set_xg(xg_file);
+  // }
+  // else if (xg_file.empty()){
+  //   decon.set_index(index_file);
+  // }
+
+  //TODO allow a list of paths to project into as input.
+
+  // TODO allow specifying a certain region for variant extraction.
+  // TODO Super-convenience function - retrieves all variants for a particular
+  // path. TODO it would be great to also allow coordinates.
+  //vector<vcflib::Variant> vars = decon.get_variants("", 0, 0);
+  //decon.get_variants_using_edges("");
+
+  // = decon.indel_caller();
+  //decon.b_call("");
+  decon.write_variants(output_file, pathname_to_variants);
+  return 1;
 }
 
 void help_construct(char** argv) {
@@ -4754,11 +5001,11 @@ int main_construct(int argc, char** argv) {
         int option_index = 0;
         c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:s:Cf",
                          long_options, &option_index);
-        
+
         /* Detect the end of the options. */
         if (c == -1)
             break;
- 
+
         switch (c)
         {
         case 'v':
@@ -4776,7 +5023,7 @@ int main_construct(int argc, char** argv) {
         case 'p':
             progress = true;
             break;
- 
+
         case 'z':
             vars_per_region = atoi(optarg);
             break;
@@ -4800,14 +5047,14 @@ int main_construct(int argc, char** argv) {
         case 'f':
             flat_alts = true;
             break;
-                        
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
             help_construct(argv);
             exit(1);
             break;
- 
+
         default:
             abort ();
         }
@@ -4851,8 +5098,9 @@ int main_construct(int argc, char** argv) {
 void vg_help(char** argv) {
     cerr << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
-         << "commands:" << endl 
+         << "commands:" << endl
          << "  -- construct     graph construction" << endl
+         << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
          << "  -- view          format conversions for graphs and alignments" << endl
          << "  -- index         index features of the graph in a disk-backed key/value store" << endl
          << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
@@ -4887,6 +5135,8 @@ int main(int argc, char *argv[])
     string command = argv[1];
     if (command == "construct") {
         return main_construct(argc, argv);
+    } else if (command == "deconstruct"){
+        return main_deconstruct(argc, argv);
     } else if (command == "view") {
         return main_view(argc, argv);
     } else if (command == "align") {
