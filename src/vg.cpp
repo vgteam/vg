@@ -5077,7 +5077,8 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool show_mappings,
                 bool simple_mode,
                 bool invert_edge_ports,
-                int random_seed) {
+                int random_seed,
+                bool color_variants) {
 
     // setup graphviz output
     out << "digraph graphname {" << endl;
@@ -5104,6 +5105,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
             }
         }
+        if (color_variants && node_paths.size() == 0){
+                        out << "color=red,";
+                                }
         out << "];" << endl;
     }
 
