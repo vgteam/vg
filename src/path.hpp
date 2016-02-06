@@ -132,7 +132,7 @@ public:
     void increment_node_ids(int64_t inc);
     // Replace the node IDs used as keys with those used as values.
     // This is only efficient to do in a batch.
-    void swap_node_ids(hash_map<int64_t, int64_t> id_mapping);
+    void swap_node_ids(hash_map<int64_t, int64_t>& id_mapping);
     // sets the mapping to the new id
     // erases current (old index information)
     void reassign_node(int64_t new_id, Mapping* m);
@@ -187,7 +187,7 @@ bool maps_to_node(const Path& p, int64_t id);
 Position path_start(const Path& path);
 Position path_end(const Path& path);
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
-
+double divergence(const Mapping& m);
 
 }
 

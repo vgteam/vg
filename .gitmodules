@@ -13,9 +13,6 @@
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git
-[submodule "sparsehash"]
-	path = deps/sparsehash
-	url = https://github.com/ekg/sparsehash.git
 [submodule "progress_bar"]
 	path = deps/progress_bar
 	url = https://github.com/ekg/cpp_progress_bar.git
@@ -46,9 +43,9 @@
 [submodule "libVCFH"]
     path = deps/libvcfh/
     url = https://github.com/edawson/libvcfh
-[submodule "deps/libVCFH"]
-	path = deps/libVCFH
-    url = https://github.com/edawson/libVCFH
 [submodule "deps/gfakluge"]
 	path = deps/gfakluge
 	url = https://github.com/edawson/gfaKluge.git
+[submodule "deps/sparsehash"]
+	path = deps/sparsehash
+	url = https://github.com/sparsehash/sparsehash.git

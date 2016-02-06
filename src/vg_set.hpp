@@ -6,7 +6,6 @@
 #include "gcsa.h"
 #include "vg.hpp"
 #include "index.hpp"
-#include "hash_map.hpp"
 #include "xg.hpp"
 
 

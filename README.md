@@ -20,17 +20,11 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 ### building
 
-Before you begin, you'll need to install some basic tools if they are not already installed.
+Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need jq and bc.
 
-    sudo apt-get install git cmake pkg-config libncurses-dev libbz2-dev
-
-You'll need the protobuf and jansson development libraries installed on your server.
-
-    sudo apt-get install protobuf-compiler libprotoc-dev libjansson-dev automake libtool
-    
-Additionally, to run the tests, you will need jq.
-
-    sudo apt-get install jq
+    sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev \
+                         protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
+                         jq bc curl unzip
 
 You can also run `make get-deps`.
 
