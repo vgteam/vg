@@ -4417,6 +4417,7 @@ void help_view(char** argv) {
 
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
+         << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
          << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
@@ -4470,6 +4471,7 @@ int main_view(int argc, char** argv) {
     bool show_mappings_in_dot = false;
     bool simple_dot = false;
     int seed_val = time(NULL);
+    bool color_variants = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -4503,11 +4505,12 @@ int main_view(int argc, char** argv) {
                 {"invert-ports", no_argument, 0, 'I'},
                 {"show-mappings", no_argument, 0, 'M'},
                 {"simple-dot", no_argument, 0, 'S'},
+                {"color", no_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:S",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:SC",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4516,6 +4519,10 @@ int main_view(int argc, char** argv) {
 
         switch (c)
         {
+        case 'C':
+            color_variants = true;
+            break;
+
         case 'd':
             output_type = "dot";
             break;
@@ -4873,7 +4880,8 @@ int main_view(int argc, char** argv) {
                       show_mappings_in_dot,
                       simple_dot,
                       invert_edge_ports_in_dot,
-                      seed_val);
+                      seed_val,
+                      color_variants);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {

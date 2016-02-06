@@ -52,15 +52,15 @@ class NodeTraversal {
 public:
     Node* node;
     bool backward;
-    
+
     inline NodeTraversal(Node* node, bool backward = false): node(node), backward(backward) {
         // Nothing to do
     }
-    
+
     inline NodeTraversal(): NodeTraversal(nullptr) {
         // Nothing to do
     }
-    
+
     inline bool operator==(const NodeTraversal& other) const {
         return node == other.node && backward == other.backward;
     }
@@ -68,7 +68,7 @@ public:
     inline bool operator!=(const NodeTraversal& other) const {
         return node != other.node || backward != other.backward;
     }
-    
+
     inline bool operator<(const NodeTraversal& other) const {
         return node < other.node || (node == other.node && backward < other.backward);
     }
@@ -84,16 +84,16 @@ class NodeSide {
 public:
     id_t node;
     bool is_end;
-    
+
     // We need this to be a converting constructor so we can represent the empty and deleted item keys in a pair_hash_map.
     inline NodeSide(id_t node, bool is_end = false): node(node), is_end(is_end) {
         // Nothing to do
     }
-    
+
     inline NodeSide(): NodeSide(0, false) {
         // Nothing to do
     }
-    
+
     inline bool operator==(const NodeSide& other) const {
         return node == other.node && is_end == other.is_end;
     }
@@ -105,24 +105,24 @@ public:
     inline bool operator<(const NodeSide& other) const {
         return node < other.node || (node == other.node && is_end < other.is_end);
     }
-    
+
     // Make an edge into a canonically ordered pair of NodeSides
     static inline pair<NodeSide, NodeSide> pair_from_edge(Edge* e) {
         return minmax(NodeSide(e->from(), !e->from_start()), NodeSide(e->to(), e->to_end()));
     }
-    
+
     // Make an edge into a canonically ordered pair of NodeSides
     static inline pair<NodeSide, NodeSide> pair_from_edge(Edge& e) {
         return pair_from_edge(&e);
     }
-    
+
     // Make a canonically ordered pair of NodeSides from an edge off of the
     // start of a node, to another node in the given relative orientation.
     static inline pair<NodeSide, NodeSide> pair_from_start_edge(id_t start_id, const pair<id_t, bool>& oriented_other) {
         // If it's in the same relative orientation, we go to its end.
         return minmax(NodeSide(start_id, false), NodeSide(oriented_other.first, !oriented_other.second));
     }
-    
+
     // Make a canonically ordered pair of NodeSides from an edge off of the
     // end of a node, to another node in the given relative orientation.
     static inline pair<NodeSide, NodeSide> pair_from_end_edge(id_t end_id, const pair<id_t, bool>& oriented_other) {
@@ -230,9 +230,15 @@ public:
     vector<pair<id_t, bool>>& edges_start(Node* node);
     vector<pair<id_t, bool>>& edges_start(id_t id);
     // Get nodes and backward flags following edges that attach to this node's end
+//<<<<<<< HEAD
     vector<pair<id_t, bool>>& edges_end(Node* node);
     vector<pair<id_t, bool>>& edges_end(id_t id);
     
+//=======
+  //  vector<pair<int64_t, bool>>& edges_end(Node* node);
+   // vector<pair<int64_t, bool>>& edges_end(int64_t id);
+//
+//>>>>>>> 5a4759f2aec10f81c752340f41804a43b8cdcf1d
     // properties of the graph
     size_t size(void); // number of nodes
     size_t length(void);
@@ -436,8 +442,13 @@ public:
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need
     // to become the starts of new nodes.
+//<<<<<<< HEAD
     void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
     
+//=======
+//    void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints);
+
+//>>>>>>> 5a4759f2aec10f81c752340f41804a43b8cdcf1d
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
     // break the specified nodes at those positions. Returns a map from old node
@@ -447,15 +458,20 @@ public:
     map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // flips the breakpoints onto the forward strand
+//<<<<<<< HEAD
     map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
     
+//=======
+  //  map<int64_t, set<pos_t>> forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints);
+
+//>>>>>>> 5a4759f2aec10f81c752340f41804a43b8cdcf1d
     // Given a path on nodes that may or may not exist, and a map from node ID
     // in the path's node ID space to a table of offset and actual node, add in
     // all the new sequence and edges required by the path. The given path must
     // not contain adjacent perfect match edits in the same mapping (the removal
-    // of which can be accomplished with the simplify() function). 
+    // of which can be accomplished with the simplify() function).
     void add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation);
-    
+
     // Add in the given node, by value
     void add_node(Node& node);
     void add_nodes(vector<Node>& nodes);
@@ -535,8 +551,12 @@ public:
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
+//<<<<<<< HEAD
     void expand_context(VG& g, size_t steps, bool add_paths = true);
     
+//=======
+
+//>>>>>>> 5a4759f2aec10f81c752340f41804a43b8cdcf1d
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     // destroy the node with the given ID.
@@ -558,14 +578,14 @@ public:
     // remove nodes with no sequence
     // these are created in some cases during the process of graph construction
     void remove_null_nodes(void);
-    // remove a node but connect all of its predecessor and successor nodes with new edges 
+    // remove a node but connect all of its predecessor and successor nodes with new edges
     void remove_node_forwarding_edges(Node* node);
     // remove null nodes but connect predecessors and successors, preserving structure
     void remove_null_nodes_forwarding_edges(void);
 
     // remove edges for which one of the nodes is not present
     void remove_orphan_edges(void);
-    
+
     // Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     // The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
     void keep_paths(set<string>& path_names, set<string>& kept_names);
@@ -596,7 +616,7 @@ public:
     Edge* create_edge(NodeTraversal left, NodeTraversal right);
     // Makes an edge connecting the given sides of nodes.
     Edge* create_edge(NodeSide side1, NodeSide side2);
-    
+
     // This can take sides in any order
     Edge* get_edge(const NodeSide& side1, const NodeSide& side2);
     // This can take sides in any order
@@ -639,7 +659,7 @@ public:
 
     // utilities
     // These only work on forward nodes.
-    
+
     // Divide a node at a given internal position. Inserts the new nodes in the
     // correct paths, but can't update the ranks, so they need to be cleared and
     // re-calculated by the caller.
@@ -649,6 +669,7 @@ public:
     //void node_replace_prev(Node* node, Node* before, Node* after);
     //void node_replace_next(Node* node, Node* before, Node* after);
 
+//<<<<<<< HEAD
     void to_dot(ostream& out,
                 vector<Alignment> alignments = {},
                 bool show_paths = false,
@@ -657,7 +678,14 @@ public:
                 bool show_mappings = false,
                 bool simple_mode = false,
                 bool invert_edge_ports = false,
-                int random_seed = 0);
+                int random_seed = 0,
+                bool color_variants = false);
+//=======
+//    void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
+//                bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0);
+                void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
+                            bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
+//>>>>>>> 5a4759f2aec10f81c752340f41804a43b8cdcf1d
     void to_gfa(ostream& out);
     void to_turtle(ostream& out, const string& rdf_base_uri);
     bool is_valid(bool check_nodes = true,
@@ -671,7 +699,7 @@ public:
     // helper function, not really meant for external use
     void topological_sort(deque<NodeTraversal>& l);
     void swap_nodes(Node* a, Node* b);
-    
+
     // Use a topological sort to order and orient the nodes, and then flip some
     // nodes around so that they are oriented the way they are in the sort.
     // Populates nodes_flipped with the ids of the nodes that have had their
@@ -928,7 +956,7 @@ public:
 
     // add singular head and tail null nodes to graph
     void wrap_with_null_nodes(void);
-    
+
     // Add a start node and an end node, where all existing heads in the graph
     // are connected to the start node, and all existing tails in the graph are
     // connected to the end node. Any connected components in the graph which do
