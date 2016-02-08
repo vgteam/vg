@@ -1266,11 +1266,25 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         right.mutable_position()->set_offset(left.position().offset()
                                              + mapping_from_length(left));
     }
-    assert(!m.has_position()
+    if (left.has_position()
+        && !left.position().node_id()) {
+        left.clear_position();
+    }
+    if (right.has_position()
+        && !right.position().node_id()) {
+        right.clear_position();
+    }
+    /*
+    if (!(!m.has_position()
            || (left.has_position()
                && left.position().node_id()
                && right.has_position()
-               && right.position().node_id()));
+               && right.position().node_id()))) {
+        cerr << "problem with cut alignment" << endl
+             << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+        assert(false);
+    }
+    */
     //cerr << "cut mappings " << endl
     //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
     return make_pair(left, right);
@@ -1379,6 +1393,8 @@ Position path_start(const Path& path) {
         auto& mapping = path.mapping(i);
         if (mapping.has_position()) return mapping.position();
     }
+    Position p;
+    return p; // empty
 }
 
 // determine the path end

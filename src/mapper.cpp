@@ -381,8 +381,11 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             // get the graph corresponding to the alignment path
             Graph sub;
             for (int i = 0; i < aln.path().mapping_size(); ++ i) {
-                auto id = aln.path().mapping(i).position().node_id();
-                xindex->neighborhood(id, 2, sub);
+                auto& m = aln.path().mapping(i);
+                if (m.has_position() && m.position().node_id()) {
+                    auto id = aln.path().mapping(i).position().node_id();
+                    xindex->neighborhood(id, 2, sub);
+                }
             }
             VG g; g.extend(sub);
             auto seq = g.path_string(aln.path());
