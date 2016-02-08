@@ -13,6 +13,7 @@
 #include <functional>
 #include <vector>
 #include <stream.hpp>
+#include <iostream>
 
 namespace google {
 namespace protobuf {
