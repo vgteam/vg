@@ -5077,6 +5077,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool show_mappings,
                 bool simple_mode,
                 bool invert_edge_ports,
+                bool color_variants,
                 int random_seed) {
 
     // setup graphviz output
@@ -5103,6 +5104,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             } else if (is_tail_node(n)) {
                 out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
             }
+        }
+        if (color_variants && node_paths.size() == 0){
+            out << "color=red,";
         }
         out << "];" << endl;
     }
@@ -5681,6 +5685,7 @@ Alignment VG::align(const Alignment& alignment) {
 
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(aln);
+
     delete gssw_aligner;
     gssw_aligner = NULL;
 

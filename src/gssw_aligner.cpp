@@ -46,7 +46,7 @@ GSSWAligner::GSSWAligner(
             gssw_nodes_add_edge(nodes[e->from()], nodes[e->to()]);
         } else if(e->from_start() && e->to_end()) {
             // This is a start to end edge, but isn't reversing and can be converted to a normal end to start edge.
-            
+
             // Flip the start and end
             gssw_nodes_add_edge(nodes[e->to()], nodes[e->from()]);
         } else {
@@ -61,7 +61,7 @@ GSSWAligner::GSSWAligner(
                 // exceptions in multiple threads at once, leading to C++ trying
                 // to run termiante in parallel. This doesn't make it safe, just
                 // slightly safer.
-                cerr << "Can't gssw over reversing edge " <<e->from() << (e->from_start() ? " start" : " end") << " -> " 
+                cerr << "Can't gssw over reversing edge " <<e->from() << (e->from_start() ? " start" : " end") << " -> "
                      << e->to() << (e->to_end() ? " end" : " start")  << endl;
                 // TODO: there's no safe way to kill the program without a way
                 // to signal the master to do it, via a shared variable in the
@@ -78,6 +78,7 @@ void GSSWAligner::align(Alignment& alignment) {
 
     const string& sequence = alignment.sequence();
 
+
     gssw_graph_fill(graph, sequence.c_str(),
                     nt_table, score_matrix,
                     gap_open, gap_extension, 15, 2);
@@ -90,7 +91,10 @@ void GSSWAligner::align(Alignment& alignment) {
                                                     gap_open,
                                                     gap_extension);
 
+
+
     gssw_mapping_to_alignment(gm, alignment);
+
 
     //gssw_print_graph_mapping(gm);
     gssw_graph_mapping_destroy(gm);
@@ -114,6 +118,8 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
     //cerr << "-------------" << endl;
 
     //gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
+		//cerr << alignment.DebugString() << endl;
+
 
     for (int i = 0; i < gc->length; ++i, ++nc) {
         if (i > 0) from_pos = 0; // reset for each node after the first
@@ -199,9 +205,12 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                 break;
 
             }
+
         }
         //cerr << "path to_length " << path_to_length(*path) << endl;
     }
+
+
 }
 
 string GSSWAligner::graph_cigar(gssw_graph_mapping* gm) {
