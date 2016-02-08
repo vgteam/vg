@@ -5281,11 +5281,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             if (i > 0) {
                 out << "    "
                     << alnid-1 << " -> "
-                    << alnid << "[dir=none,color=\"" << color << "\"];" << endl;
+                    << alnid << "[dir=none,color=\"black\"];" << endl;
             }
             out << "    "
                 << alnid << " -> " << m.position().node_id()
-                << "[dir=none,color=\"" << color << "\", style=invis];" << endl;
+                << "[dir=none,style=invis];" << endl;
             out << "    { rank = same; " << alnid << "; " << m.position().node_id() << "; };" << endl;
             //out << "    " << m.position().node_id() << " -- " << alnid << "[color=" << color << ", style=invis];" << endl;
             alnid++;
