@@ -7349,11 +7349,16 @@ void VG::force_path_match(void) {
 // to the original "rolled" and inverted graph.
 // The graph which is returned can be seen as a tree rooted at the source node, so proper
 // selection of the new root may be important for performance.
-// Paths cannot be maintained.
+// Paths cannot be maintained provided their current implementation.
+// Annotated collections of nodes, or subgraphs, may be a way to preserve the relationshp.
 VG VG::unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translation) {
     VG unrolled;
     // Find the strongly connected components in the graph.
     set<set<id_t>> strong_components = strongly_connected_components();
+    // add in bits where we have inversions that we'd reach from the forward direction
+    // we will "unroll" these regions as well to ensure that all is well
+    // ....
+    // 
     map<id_t, VG> trees;
     map<id_t, set<id_t> > components;
     // map from component root id to a translation
