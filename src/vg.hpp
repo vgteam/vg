@@ -232,9 +232,7 @@ public:
     // Get nodes and backward flags following edges that attach to this node's end
     vector<pair<id_t, bool>>& edges_end(Node* node);
     vector<pair<id_t, bool>>& edges_end(id_t id);
-    
-    
-   // properties of the graph
+    // properties of the graph
     size_t size(void); // number of nodes
     size_t length(void);
 
@@ -439,7 +437,7 @@ public:
     // to become the starts of new nodes.
    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
     
-   // Take a map from node ID to a set of offsets at which new nodes should
+    // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
     // break the specified nodes at those positions. Returns a map from old node
     // ID to a map from old node start position to new node pointer in the
@@ -448,9 +446,11 @@ public:
     map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // flips the breakpoints onto the forward strand
-   map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
     
    // Given a path on nodes that may or may not exist, and a map from node ID
+    map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
+
+    // Given a path on nodes that may or may not exist, and a map from node ID
     // in the path's node ID space to a table of offset and actual node, add in
     // all the new sequence and edges required by the path. The given path must
     // not contain adjacent perfect match edits in the same mapping (the removal
@@ -537,10 +537,8 @@ public:
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
    void expand_context(VG& g, size_t steps, bool add_paths = true);
-    
-//=======
 
-   // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
+    // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     // destroy the node with the given ID.
     void destroy_node(id_t id);
@@ -666,7 +664,7 @@ public:
     
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
                             bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
-    void to_gfa(ostream& out);
+   void to_gfa(ostream& out);
     void to_turtle(ostream& out, const string& rdf_base_uri);
     bool is_valid(bool check_nodes = true,
                   bool check_edges = true,
