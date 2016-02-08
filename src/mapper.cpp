@@ -418,6 +418,8 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     }
     // merge the resulting alignments
     Alignment merged = merge_alignments(alns, debug);
+		merged.set_quality(read.quality());
+		merged.set_name(read.name());
 
     if(debug) {
         for(int i = 0; i < merged.path().mapping_size(); i++) {
@@ -597,6 +599,7 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
 
     // This will hold the best forward alignment (or an alignment with no apth and 0 score if no alignment is found).
     Alignment best_f = aln;
+
     // This will hold all of the forward alignments up to max_multimaps
     vector<Alignment> alignments_f;
 
@@ -725,10 +728,14 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
     for(size_t i = 1; i < merged.size(); i++) {
         merged[i].set_is_secondary(true);
     }
+		//TODO So merged contains qualities up to this point.
+		// but once it returns to main_map, there will be no qualities...
 
     // Return the merged list of good alignments. Does not bother updating the input alignment.
     return merged;
 }
+
+
 
 Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int band_width) {
     // Do the multi-mapping
@@ -1107,6 +1114,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
             Alignment& ta = alignments[&thread];
             ta = alignment;
+
             // by default, expand the graph a bit so we are likely to map
             //index->get_connected_nodes(*graph);
             graph->remove_orphan_edges();
@@ -1124,8 +1132,8 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             //graph->serialize_to_file("align2.vg");
             ta.clear_path();
             ta.set_score(0);
-            ta = graph->align(ta);
 
+            ta = graph->align(ta);
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
             // expand in the direction where there were soft clips
@@ -1185,7 +1193,9 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 graph->remove_orphan_edges();
                 ta.clear_path();
                 ta.set_score(0);
+
                 ta = graph->align(ta);
+
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);
                 if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;

@@ -2,6 +2,7 @@
 
 using namespace std;
 
+
 namespace vg {
     Deconstructor::Deconstructor() : ref_index(""), reference(""), xg_file(""), vgraph(nullptr) {
     }

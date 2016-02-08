@@ -48,4 +48,7 @@
     url = https://github.com/edawson/libvcfh
 [submodule "deps/libVCFH"]
 	path = deps/libVCFH
-	url = https://github.com/edawson/libVCFH
+    url = https://github.com/edawson/libVCFH
+[submodule "deps/gfakluge"]
+	path = deps/gfakluge
+	url = https://github.com/edawson/gfaKluge.git
