@@ -4880,8 +4880,8 @@ int main_view(int argc, char** argv) {
                       show_mappings_in_dot,
                       simple_dot,
                       invert_edge_ports_in_dot,
-                      seed_val,
-                      color_variants);
+                      color_variants,
+                      seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
     } else if (output_type == "gfa") {

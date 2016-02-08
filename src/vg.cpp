@@ -5228,10 +5228,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     for (auto& aln : alignments) {
         // check direction
         if (!aln.has_path()) continue; // skip pathless alignments
-        out << "    " << alnid << " [label=\"" << aln.name() << "\"];" << endl;
-        out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=black];" << endl;
-        alnid++;
         if (!aln.path().mapping(0).position().is_reverse()) {
+            out << "    " << alnid << " [label=\"" << aln.name() << "\"];" << endl;
+            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=black];" << endl;
+            alnid++;
             out << "    " << alnid << " [label=\"+\",fontcolor=green];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
         } else {
@@ -5296,6 +5296,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         } else {
             out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
             out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=green];" << endl;
+            alnid++;
+            out << "    " << alnid << " [label=\"" << aln.name() << "\"];" << endl;
+            out << "    " << alnid << " -> " << alnid-1 << " [dir=none,color=black];" << endl;
         }
         alnid++;
     }
