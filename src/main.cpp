@@ -4416,6 +4416,7 @@ void help_view(char** argv) {
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
          << "    -d, --dot            output dot format" << endl
+         << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
@@ -4468,6 +4469,7 @@ int main_view(int argc, char** argv) {
     bool annotate_paths_in_dot = false;
     bool invert_edge_ports_in_dot = false;
     bool show_mappings_in_dot = false;
+    bool simple_dot = false;
     int seed_val = time(NULL);
     bool color_variants = false;
 
@@ -4502,12 +4504,13 @@ int main_view(int argc, char** argv) {
                 {"pileup-in", no_argument, 0, 'l'},
                 {"invert-ports", no_argument, 0, 'I'},
                 {"show-mappings", no_argument, 0, 'M'},
+                {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "CdgFjJhvVpaGbifA:s:wnlLIMctr:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:SC",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4522,6 +4525,10 @@ int main_view(int argc, char** argv) {
 
         case 'd':
             output_type = "dot";
+            break;
+
+        case 'S':
+            simple_dot = true;
             break;
 
         case 'p':
@@ -4871,6 +4878,7 @@ int main_view(int argc, char** argv) {
                       walk_paths_in_dot,
                       annotate_paths_in_dot,
                       show_mappings_in_dot,
+                      simple_dot,
                       invert_edge_ports_in_dot,
                       seed_val,
                       color_variants);

@@ -230,15 +230,9 @@ public:
     vector<pair<id_t, bool>>& edges_start(Node* node);
     vector<pair<id_t, bool>>& edges_start(id_t id);
     // Get nodes and backward flags following edges that attach to this node's end
-<<<<<<< HEAD
     vector<pair<id_t, bool>>& edges_end(Node* node);
     vector<pair<id_t, bool>>& edges_end(id_t id);
-    
-=======
-    vector<pair<int64_t, bool>>& edges_end(Node* node);
-    vector<pair<int64_t, bool>>& edges_end(int64_t id);
 
->>>>>>> f3ea02433822676203ea4fbe691f7df6631bbc8e
     // properties of the graph
     size_t size(void); // number of nodes
     size_t length(void);
@@ -442,13 +436,8 @@ public:
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need
     // to become the starts of new nodes.
-<<<<<<< HEAD
     void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
     
-=======
-    void find_breakpoints(const Path& path, map<int64_t, set<pos_t>>& breakpoints);
-
->>>>>>> f3ea02433822676203ea4fbe691f7df6631bbc8e
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
     // break the specified nodes at those positions. Returns a map from old node
@@ -458,13 +447,8 @@ public:
     map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // flips the breakpoints onto the forward strand
-<<<<<<< HEAD
     map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
-    
-=======
-    map<int64_t, set<pos_t>> forwardize_breakpoints(const map<int64_t, set<pos_t>>& breakpoints);
 
->>>>>>> f3ea02433822676203ea4fbe691f7df6631bbc8e
     // Given a path on nodes that may or may not exist, and a map from node ID
     // in the path's node ID space to a table of offset and actual node, add in
     // all the new sequence and edges required by the path. The given path must
@@ -551,12 +535,8 @@ public:
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
-<<<<<<< HEAD
     void expand_context(VG& g, size_t steps, bool add_paths = true);
-    
-=======
 
->>>>>>> f3ea02433822676203ea4fbe691f7df6631bbc8e
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     // destroy the node with the given ID.
@@ -669,10 +649,17 @@ public:
     //void node_replace_prev(Node* node, Node* before, Node* after);
     //void node_replace_next(Node* node, Node* before, Node* after);
 
-    void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0);
-                void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                            bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
+    void to_dot(ostream& out,
+                vector<Alignment> alignments = {},
+                bool show_paths = false,
+                bool walk_paths = false,
+                bool annotate_paths = false,
+                bool show_mappings = false,
+                bool simple_mode = false,
+                bool invert_edge_ports = false,
+                bool color_variants = false,
+                int random_seed = 0);
+
     void to_gfa(ostream& out);
     void to_turtle(ostream& out, const string& rdf_base_uri);
     bool is_valid(bool check_nodes = true,

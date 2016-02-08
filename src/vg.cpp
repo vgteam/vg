@@ -5075,7 +5075,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool walk_paths,
                 bool annotate_paths,
                 bool show_mappings,
+                bool simple_mode,
                 bool invert_edge_ports,
+                bool color_variants,
                 int random_seed) {
 
     // setup graphviz output
@@ -5090,256 +5092,18 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
+        if (!simple_mode) {
+            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
+        } else {
+            out << "    " << n->id() << " [label=\"" << n->id() << "\",penwidth=2,shape=circle,";
+        }
         // for neato output, which tends to randomly order the graph
-        if (is_head_node(n)) {
-            out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\"";
-        } else if (is_tail_node(n)) {
-            out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
-        }
-        out << "];" << endl;
-    }
-
-    // We're going to fill this in with all the path (symbol, color) label
-    // pairs that each edge should get, by edge pointer. If a path takes an
-    // edge multiple times, it will appear only once.
-    map<Edge*, set<pair<string, string>>> symbols_for_edge;
-
-    if(annotate_paths) {
-        // We're going to annotate the paths, so we need to give them symbols and colors.
-        Pictographs picts(random_seed);
-        Colors colors(random_seed);
-        // Work out what path symbols belong on what edges
-        function<void(const Path&)> lambda = [this, &picts, &colors, &symbols_for_edge](const Path& path) {
-            // Make up the path's label
-            string path_label = picts.hashed(path.name());
-            string color = colors.hashed(path.name());
-            for (int i = 0; i < path.mapping_size(); ++i) {
-                const Mapping& m1 = path.mapping(i);
-                if (i < path.mapping_size()-1) {
-                    const Mapping& m2 = path.mapping(i+1);
-                    // skip if they are not contiguous
-                    if (!adjacent_mappings(m1, m2)) continue;
-                    // Find the Edge connecting the mappings in the order they occur in the path.
-                    Edge* edge_used = get_edge(NodeTraversal(get_node(m1.position().node_id()), m1.position().is_reverse()),
-                                               NodeTraversal(get_node(m2.position().node_id()), m2.position().is_reverse()));
-
-                    // Say that edge should have this symbol
-                    symbols_for_edge[edge_used].insert(make_pair(path_label, color));
-                }
+        if (!simple_mode) {
+            if (is_head_node(n)) {
+                out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\"";
+            } else if (is_tail_node(n)) {
+                out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
             }
-        };
-        paths.for_each(lambda);
-    }
-
-    for (int i = 0; i < graph.edge_size(); ++i) {
-        Edge* e = graph.mutable_edge(i);
-        auto from_paths = map_keys_to_set(paths.of_node(e->from()));
-        auto to_paths = map_keys_to_set(paths.of_node(e->to()));
-        set<string> both_paths;
-        std::set_intersection(from_paths.begin(), from_paths.end(),
-                              to_paths.begin(), to_paths.end(),
-                              std::inserter(both_paths, both_paths.begin()));
-        // are both nodes in the same path?
-        /*
-        bool in_path = !(!paths.empty()
-                        && (both_paths.empty()
-                            || !paths.are_consecutive_nodes_in_path(e->from(), e->to(),
-                                                                    *both_paths.begin())));
-                                                                    */
-
-        // Grab the annotation symbols for this edge.
-        auto annotations = symbols_for_edge.find(e);
-
-        // Is the edge in the "wrong" direction for rank constraints?
-        bool is_backward = e->from_start() && e->to_end();
-
-        if(is_backward) {
-            // Flip the edge around and write it forward.
-            Edge* original = e;
-            e = new Edge();
-
-            e->set_from(original->to());
-            e->set_from_start(!original->to_end());
-
-            e->set_to(original->from());
-            e->set_to_end(!original->from_start());
-        }
-
-        // display what kind of edge we have using different edge head and tail styles
-        // depending on if the edge comes from the start or not
-        out << "    " << e->from() << " -> " << e->to();
-        out << " [dir=both,";
-        if (!invert_edge_ports && e->from_start()
-            || invert_edge_ports && !e->from_start()) {
-            out << "arrowtail=none,";
-            out << "tailport=sw,";
-        } else {
-            out << "arrowtail=none,";
-            out << "tailport=ne,";
-        }
-        if (!invert_edge_ports && e->to_end()
-            || invert_edge_ports && !e->to_end()) {
-            out << "arrowhead=none,";
-            out << "headport=se";
-        } else {
-            out << "arrowhead=none,";
-            out << "headport=nw";
-        }
-        out << ",penwidth=2";
-
-        if(annotations != symbols_for_edge.end()) {
-            // We need to put a label on the edge with all the colored
-            // characters for paths using it.
-            out << ",label=<";
-
-            for(auto& string_and_color : (*annotations).second) {
-                // Put every symbol in its font tag.
-                out << "<FONT COLOR=\"" << string_and_color.second << "\">" << string_and_color.first << "</FONT>";
-            }
-
-            out << ">";
-        }
-
-        out << "];" << endl;
-
-        if(is_backward) {
-            // We don't need this duplicate edge
-            delete e;
-        }
-    }
-
-    // add nodes for the alignments and link them to the nodes they match
-    int alnid = max_node_id()+1;
-    for (auto& aln : alignments) {
-        // check direction
-        if (!aln.has_path()) continue; // skip pathless alignments
-        if (!aln.path().mapping(0).position().is_reverse()) {
-            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
-            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
-        } else {
-            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
-            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=purple];" << endl;
-        }
-        alnid++;
-        for (int i = 0; i < aln.path().mapping_size(); ++i) {
-            const Mapping& m = aln.path().mapping(i);
-            //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
-            //string cigar_string(vector<pair<int, char> >& cigar);
-            stringstream mapid;
-            //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
-            //mapid << cigar_string(cigar) << ":"
-            //      << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
-            mapid << pb2json(m);
-            string mstr = mapid.str();
-            mstr.erase(std::remove_if(mstr.begin(), mstr.end(), [](char c) { return c == '"'; }), mstr.end());
-            mstr = wrap_text(mstr, 50);
-            // determine sequence of this portion of the alignment
-            // set color based on cigar/mapping relationship
-            // some mismatch, indicate with orange color
-            string color = mapping_is_simple_match(m) ? "blue" : "orange";
-            out << "    " << alnid << " [label=\"" << mstr << "\",fontcolor=" << color << ",fontsize=10];" << endl;
-            if (i > 0) {
-                out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
-            }
-            out << "    " << alnid << " -> " << m.position().node_id() << "[dir=none,color=" << color << ", style=invis];" << endl;
-            out << "    { rank = same; " << alnid << "; " << m.position().node_id() << "; };" << endl;
-            //out << "    " << m.position().node_id() << " -- " << alnid << "[color=" << color << ", style=invis];" << endl;
-            alnid++;
-        }
-        if (!aln.path().mapping(aln.path().mapping_size()-1).position().is_reverse()) {
-            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
-            out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=purple];" << endl;
-        } else {
-            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
-            out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=green];" << endl;
-        }
-        alnid++;
-    }
-
-    // include paths
-    if (show_paths || walk_paths) {
-        int pathid = alnid;
-        Pictographs picts(random_seed);
-        Colors colors(random_seed);
-        function<void(const Path&)> lambda =
-            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings]
-            (const Path& path) {
-            string path_label = picts.hashed(path.name());
-            string color = colors.hashed(path.name());
-            if (show_paths) {
-                for (int i = 0; i < path.mapping_size(); ++i) {
-                    const Mapping& m = path.mapping(i);
-                    stringstream mapid;
-                    mapid << path_label << " " << m.position().node_id();
-                    stringstream mappings;
-                    if (show_mappings) {
-                        mappings << pb2json(m);
-                    }
-                    string mstr = mappings.str();
-                    mstr.erase(std::remove_if(mstr.begin(), mstr.end(), [](char c) { return c == '"'; }), mstr.end());
-                    mstr = wrap_text(mstr, 50);
-
-                    if (i == 0) { // add the path name at the start
-                        out << "    " << pathid << " [label=\"" << path_label << " "
-                            << path.name() << "  " << m.position().node_id() << " "
-                            << mstr << "\",fontcolor=\"" << color << "\"];" << endl;
-                    } else {
-                        out << "    " << pathid << " [label=\"" << mapid.str() << " "
-                            << mstr
-                            << "\",fontcolor=\"" << color << "\"];" << endl;
-                    }
-                    if (i > 0 && adjacent_mappings(path.mapping(i-1), m)) {
-                        out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
-                    }
-                    out << "    " << pathid << " -> " << m.position().node_id() << " [dir=none,color=\"" << color << "\", style=invis];" << endl;
-                    //out << "    " << pathid << " -> " << m.position().node_id() << "[headport=n,tailport=s,color=\"" << color << "\"];" << endl;
-                    out << "    { rank = same; " << pathid << "; " << m.position().node_id() << "; };" << endl;
-                    pathid++;
-                }
-            }
-            if (walk_paths) {
-                for (int i = 0; i < path.mapping_size(); ++i) {
-                    const Mapping& m1 = path.mapping(i);
-                    if (i < path.mapping_size()-1) {
-                        const Mapping& m2 = path.mapping(i+1);
-                        out << m1.position().node_id() << " -> " << m2.position().node_id() << " [dir=none,tailport=ne,headport=nw,color=\"" << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\"];" << endl;
-                    }
-                }
-            }
-        };
-        paths.for_each(lambda);
-    }
-
-    out << "}" << endl;
-}
-void VG::to_dot(ostream& out, vector<Alignment> alignments,
-                bool show_paths,
-                bool walk_paths,
-                bool annotate_paths,
-                bool show_mappings,
-                bool invert_edge_ports,
-                int random_seed,
-                bool color_variants) {
-
-    // setup graphviz output
-    out << "digraph graphname {" << endl;
-    out << "    node [shape=plaintext];" << endl;
-    out << "    rankdir=LR;" << endl;
-    //out << "    fontsize=22;" << endl;
-    //out << "    colorscheme=paired12;" << endl;
-    //out << "    splines=line;" << endl;
-    //out << "    splines=true;" << endl;
-    //out << "    smoothType=spring;" << endl;
-    for (int i = 0; i < graph.node_size(); ++i) {
-        Node* n = graph.mutable_node(i);
-        auto node_paths = paths.of_node(n->id());
-        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
-        // for neato output, which tends to randomly order the graph
-        if (is_head_node(n)) {
-            out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\"";
-        } else if (is_tail_node(n)) {
-            out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
         }
         if (color_variants && node_paths.size() == 0){
             out << "color=red,";
@@ -5415,40 +5179,43 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 
         // display what kind of edge we have using different edge head and tail styles
         // depending on if the edge comes from the start or not
-        out << "    " << e->from() << " -> " << e->to();
-        out << " [dir=both,";
-        if (!invert_edge_ports && e->from_start()
-            || invert_edge_ports && !e->from_start()) {
-            out << "arrowtail=none,";
-            out << "tailport=sw,";
-        } else {
-            out << "arrowtail=none,";
-            out << "tailport=ne,";
-        }
-        if (!invert_edge_ports && e->to_end()
-            || invert_edge_ports && !e->to_end()) {
-            out << "arrowhead=none,";
-            out << "headport=se";
-        } else {
-            out << "arrowhead=none,";
-            out << "headport=nw";
-        }
-        out << ",penwidth=2";
-
-        if(annotations != symbols_for_edge.end()) {
-            // We need to put a label on the edge with all the colored
-            // characters for paths using it.
-            out << ",label=<";
-
-            for(auto& string_and_color : (*annotations).second) {
-                // Put every symbol in its font tag.
-                out << "<FONT COLOR=\"" << string_and_color.second << "\">" << string_and_color.first << "</FONT>";
+        if (!simple_mode) {
+            out << "    " << e->from() << " -> " << e->to();
+            out << " [dir=both,";
+            if (!invert_edge_ports && e->from_start()
+                || invert_edge_ports && !e->from_start()) {
+                out << "arrowtail=none,";
+                out << "tailport=sw,";
+            } else {
+                out << "arrowtail=none,";
+                out << "tailport=ne,";
             }
+            if (!invert_edge_ports && e->to_end()
+                || invert_edge_ports && !e->to_end()) {
+                out << "arrowhead=none,";
+                out << "headport=se";
+            } else {
+                out << "arrowhead=none,";
+                out << "headport=nw";
+            }
+            out << ",penwidth=2";
 
-            out << ">";
+            if(annotations != symbols_for_edge.end()) {
+                // We need to put a label on the edge with all the colored
+                // characters for paths using it.
+                out << ",label=<";
+
+                for(auto& string_and_color : (*annotations).second) {
+                    // Put every symbol in its font tag.
+                    out << "<FONT COLOR=\"" << string_and_color.second << "\">" << string_and_color.first << "</FONT>";
+                }
+
+                out << ">";
+            }
+            out << "];" << endl;
+        } else {
+            out << "    " << e->from() << " -> " << e->to() << endl;
         }
-
-        out << "];" << endl;
 
         if(is_backward) {
             // We don't need this duplicate edge
@@ -5461,11 +5228,14 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     for (auto& aln : alignments) {
         // check direction
         if (!aln.has_path()) continue; // skip pathless alignments
+        out << "    " << alnid << " [label=\"" << aln.name() << "\"];" << endl;
+        out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=black];" << endl;
+        alnid++;
         if (!aln.path().mapping(0).position().is_reverse()) {
-            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
+            out << "    " << alnid << " [label=\"+\",fontcolor=green];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
         } else {
-            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
+            out << "    " << alnid << " [label=\"-\",fontcolor=purple];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=purple];" << endl;
         }
         alnid++;
@@ -5473,23 +5243,49 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             const Mapping& m = aln.path().mapping(i);
             //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
             //string cigar_string(vector<pair<int, char> >& cigar);
-            stringstream mapid;
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
             //mapid << cigar_string(cigar) << ":"
             //      << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
-            mapid << pb2json(m);
-            string mstr = mapid.str();
-            mstr.erase(std::remove_if(mstr.begin(), mstr.end(), [](char c) { return c == '"'; }), mstr.end());
-            mstr = wrap_text(mstr, 50);
+            string mstr;
+            if (!simple_mode) {
+                stringstream mapid;
+                mapid << pb2json(m);
+                mstr = mapid.str();
+                mstr.erase(std::remove_if(mstr.begin(), mstr.end(),
+                                          [](char c) { return c == '"'; }), mstr.end());
+                mstr = wrap_text(mstr, 50);
+            }
             // determine sequence of this portion of the alignment
             // set color based on cigar/mapping relationship
             // some mismatch, indicate with orange color
-            string color = mapping_is_simple_match(m) ? "blue" : "orange";
-            out << "    " << alnid << " [label=\"" << mstr << "\",fontcolor=" << color << ",fontsize=10];" << endl;
-            if (i > 0) {
-                out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
+            string color;
+            if (!simple_mode) {
+                color = mapping_is_simple_match(m) ? "blue" : "orange";
+            } else {
+                color = "/rdylgn11/" + convert(round((1-divergence(m))*10)+1);
             }
-            out << "    " << alnid << " -> " << m.position().node_id() << "[dir=none,color=" << color << ", style=invis];" << endl;
+
+            if (simple_mode) {
+                out << "    "
+                    << alnid << " [label=\""
+                    << m.position().node_id() << "\"" << "shape=circle," //penwidth=2,"
+                    << "style=filled,"
+                    << "fillcolor=\"" << color << "\","
+                    << "color=\"" << color << "\"];" << endl;
+
+            } else {
+                out << "    "
+                    << alnid << " [label=\""
+                    << mstr << "\",fontcolor=" << color << ",fontsize=10];" << endl;
+            }
+            if (i > 0) {
+                out << "    "
+                    << alnid-1 << " -> "
+                    << alnid << "[dir=none,color=\"" << color << "\"];" << endl;
+            }
+            out << "    "
+                << alnid << " -> " << m.position().node_id()
+                << "[dir=none,color=\"" << color << "\", style=invis];" << endl;
             out << "    { rank = same; " << alnid << "; " << m.position().node_id() << "; };" << endl;
             //out << "    " << m.position().node_id() << " -- " << alnid << "[color=" << color << ", style=invis];" << endl;
             alnid++;
