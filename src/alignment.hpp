@@ -98,6 +98,7 @@ void flip_nodes(Alignment& a, set<int64_t> ids, const std::function<size_t(int64
 
 // simplifies the path in the alignment
 Alignment simplify(const Alignment& a);
+void write_alignment_to_file(const Alignment& aln, const string& filename);
 
 }
 

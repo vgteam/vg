@@ -978,29 +978,35 @@ int main_msga(int argc, char** argv) {
             ++j;
 
             if (debug) cerr << name << ": editing graph" << endl;
-            //graph->serialize_to_file(name + "-pre-edit.vg");
+            graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
-            //graph->serialize_to_file(name + "-immed-post-edit.vg");
+            if (!graph->is_valid()) cerr << "invalid after edit" << endl;
+            graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
+            if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
             graph->dice_nodes(node_max);
+            if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-norm.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
+            if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // xg can't work unless IDs are compacted.
+            if (!graph->is_valid()) cerr << "invalid after compact" << endl;
 
             // the edit needs to cut nodes at mapping starts and ends
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
 
             // check that all is well
-            //graph->serialize_to_file(name + "-pre-index.vg");
+            graph->serialize_to_file(name + "-pre-index.vg");
             rebuild(graph);
 
             // verfy validity of path
+            bool is_valid = graph->is_valid();
             auto path_seq = graph->path_string(graph->paths.path(name));
-            incomplete = !(path_seq == seq) || !graph->is_valid();
+            incomplete = !(path_seq == seq) || !is_valid;
             if (incomplete) {
                 cerr << "[vg msga] failed to include alignment, retrying " << endl
                      << "expected " << seq << endl
@@ -1448,11 +1454,15 @@ void help_mod(char** argv) {
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
          << "    -d, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
          << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
+         << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
+         << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
+         << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
          << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
          << "                            cross more than --edge-max edges" << endl
          << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
@@ -1498,6 +1508,10 @@ int main_mod(int argc, char** argv) {
     bool drop_paths = false;
     bool force_path_match = false;
     set<string> paths_to_retain;
+    vector<int64_t> root_nodes;
+    int32_t context_steps;
+    bool remove_null;
+    bool strong_connect = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1528,11 +1542,15 @@ int main_mod(int argc, char** argv) {
                 {"orient-forward", no_argument, 0, 'f'},
                 {"force-path-match", no_argument, 0, 'F'},
                 {"retain-path", required_argument, 0, 'r'},
+                {"subgraph", required_argument, 0, 'g'},
+                {"context", required_argument, 0, 'x'},
+                {"remove-null", no_argument, 0, 'R'},
+                {"strong-connect", no_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:g:x:RT",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1630,8 +1648,24 @@ int main_mod(int argc, char** argv) {
             remove_non_path = true;
             break;
 
+        case 'T':
+            strong_connect = true;
+            break;
+
         case 'z':
             sort_graph = true;
+            break;
+
+        case 'g':
+            root_nodes.push_back(atoi(optarg));
+            break;
+
+        case 'x':
+            context_steps = atoi(optarg);
+            break;
+
+        case 'R':
+            remove_null = true;
             break;
 
         case 'h':
@@ -1683,6 +1717,10 @@ int main_mod(int argc, char** argv) {
         graph->normalize();
     }
 
+    if (strong_connect) {
+        graph->keep_multinode_strongly_connected_components();
+    }
+
     if (remove_non_path) {
         graph->remove_non_path();
     }
@@ -1696,8 +1734,23 @@ int main_mod(int argc, char** argv) {
         graph->orient_nodes_forward(flipped);
     }
 
+    if (remove_null) {
+        graph->remove_null_nodes_forwarding_edges();
+    }
+
     if (sort_graph) {
         graph->sort();
+    }
+
+    // to subset the graph
+    if (!root_nodes.empty()) {
+        VG g;
+        for (auto root : root_nodes) {
+            graph->nonoverlapping_node_context_without_paths(graph->get_node(root), g);
+            graph->expand_context(g, max(context_steps, 1));
+            g.remove_orphan_edges();
+        }
+        *graph = g;
     }
 
     if (!aln_file.empty()) {
@@ -2402,7 +2455,8 @@ void help_stats(char** argv) {
          << "    -s, --subgraphs       describe subgraphs of graph" << endl
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
-         << "    -S, --siblings        describe the siblings of each node" << endl;
+         << "    -S, --siblings        describe the siblings of each node" << endl
+         << "    -c, --components      print the strongly connected components of the graph" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -2418,6 +2472,7 @@ int main_stats(int argc, char** argv) {
     bool stats_heads = false;
     bool stats_tails = false;
     bool show_sibs = false;
+    bool show_components = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2431,11 +2486,12 @@ int main_stats(int argc, char** argv) {
                 {"tails", no_argument, 0, 'T'},
                 {"help", no_argument, 0, 'h'},
                 {"siblings", no_argument, 0, 'S'},
+                {"components", no_argument, 0, 'c'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTS",
+        c = getopt_long (argc, argv, "hzlsHTSc",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2466,6 +2522,10 @@ int main_stats(int argc, char** argv) {
 
         case 'S':
             show_sibs = true;
+            break;
+
+        case 'c':
+            show_components = true;
             break;
 
         case 'h':
@@ -2543,6 +2603,15 @@ int main_stats(int argc, char** argv) {
                     cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
                 }
             });
+    }
+
+    if (show_components) {
+        for (auto& c : graph->strongly_connected_components()) {
+            for (auto& id : c) {
+                cerr << id << ", ";
+            }
+            cout << endl;
+        }
     }
 
     delete graph;
@@ -4155,16 +4224,16 @@ int main_map(int argc, char** argv) {
 
     if (!read_file.empty()) {
         ifstream in(read_file);
-        bool more_data = true;
-#pragma omp parallel shared(in, more_data)
+        bool more_data = in.good();
+#pragma omp parallel shared(in)
         {
             string line;
             int tid = omp_get_thread_num();
-            while (more_data) {
+            while (in.good()) {
                 line.clear();
 #pragma omp critical (readq)
                 {
-                    more_data = std::getline(in,line);
+                    std::getline(in,line);
                 }
                 if (!line.empty()) {
                     // Make an alignment
@@ -4347,6 +4416,7 @@ void help_view(char** argv) {
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
          << "    -d, --dot            output dot format" << endl
+         << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
@@ -4399,6 +4469,7 @@ int main_view(int argc, char** argv) {
     bool annotate_paths_in_dot = false;
     bool invert_edge_ports_in_dot = false;
     bool show_mappings_in_dot = false;
+    bool simple_dot = false;
     int seed_val = time(NULL);
     bool color_variants = false;
 
@@ -4433,12 +4504,13 @@ int main_view(int argc, char** argv) {
                 {"pileup-in", no_argument, 0, 'l'},
                 {"invert-ports", no_argument, 0, 'I'},
                 {"show-mappings", no_argument, 0, 'M'},
+                {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "CdgFjJhvVpaGbifA:s:wnlLIMctr:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:SC",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4453,6 +4525,10 @@ int main_view(int argc, char** argv) {
 
         case 'd':
             output_type = "dot";
+            break;
+
+        case 'S':
+            simple_dot = true;
             break;
 
         case 'p':
@@ -4802,6 +4878,7 @@ int main_view(int argc, char** argv) {
                       walk_paths_in_dot,
                       annotate_paths_in_dot,
                       show_mappings_in_dot,
+                      simple_dot,
                       invert_edge_ports_in_dot,
                       seed_val,
                       color_variants);

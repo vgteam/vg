@@ -260,10 +260,9 @@ pair<Mapping*, Mapping*> Paths::replace_mapping(Mapping* m, pair<Mapping, Mappin
         // and we return them in proper order
         return make_pair(&*j, &*k);
     } else {
-        auto i = remove_mapping(m);
         // things get flipped around for reversed mappings
+        auto i = remove_mapping(m);
         auto j = insert_mapping(i, path_name, n.first);
-        // and then the first
         auto k = insert_mapping(j, path_name, n.second);
         // and we return them in proper order
         return make_pair(&*k, &*j);
@@ -285,7 +284,7 @@ void Paths::increment_node_ids(int64_t inc) {
     rebuild_node_mapping();
 }
 
-void Paths::swap_node_ids(hash_map<int64_t, int64_t> id_mapping) {
+void Paths::swap_node_ids(hash_map<int64_t, int64_t>& id_mapping) {
     for (auto& p : _paths) {
         const string& name = p.first;
         list<Mapping>& path = p.second;
@@ -1267,11 +1266,25 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         right.mutable_position()->set_offset(left.position().offset()
                                              + mapping_from_length(left));
     }
-    assert(!m.has_position()
+    if (left.has_position()
+        && !left.position().node_id()) {
+        left.clear_position();
+    }
+    if (right.has_position()
+        && !right.position().node_id()) {
+        right.clear_position();
+    }
+    /*
+    if (!(!m.has_position()
            || (left.has_position()
                && left.position().node_id()
                && right.has_position()
-               && right.position().node_id()));
+               && right.position().node_id()))) {
+        cerr << "problem with cut alignment" << endl
+             << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+        assert(false);
+    }
+    */
     //cerr << "cut mappings " << endl
     //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
     return make_pair(left, right);
@@ -1380,6 +1393,8 @@ Position path_start(const Path& path) {
         auto& mapping = path.mapping(i);
         if (mapping.has_position()) return mapping.position();
     }
+    Position p;
+    return p; // empty
 }
 
 // determine the path end
@@ -1394,6 +1409,32 @@ Position path_end(const Path& path) {
 
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2) {
     return abs(m1.rank() - m2.rank()) == 1;
+}
+
+// assumes complete description of mapped node by the edits
+double divergence(const Mapping& m) {
+    double from_length = 0;
+    double to_length = 0;
+    double matches = 0;
+    double mismatches = 0;
+    double insertions = 0;
+    double deletions = 0;
+    for (size_t i = 0; i < m.edit_size(); ++i) {
+        auto& edit = m.edit(i);
+        // what is the length
+        from_length += edit.from_length();
+        to_length += edit.to_length();
+        if (edit_is_match(edit)) {
+            matches += edit.to_length();
+        } else if (edit_is_sub(edit)) {
+            mismatches += edit.to_length();
+        } else if (edit_is_insertion(edit)) {
+            insertions += edit.to_length();
+        } else if (edit_is_deletion(edit)) {
+            deletions += edit.from_length();
+        }
+    }
+    return 1 - (matches*2.0 / (from_length + to_length));
 }
 
 }

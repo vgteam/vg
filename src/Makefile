@@ -19,7 +19,7 @@ main.o: main.cpp $(LIBVCFLIB) $(fastahack/Fasta.o) $(LIBGSSW) stream.hpp  $(LIBP
 region.o: region.cpp region.hpp $(LIBPROTOBUF) $(SPARSEHASH)
         $(CXX) $(CXXFLAGS) -c -o region.o region.cpp $(INCLUDES)
 
-index.o: index.cpp index.hpp $(LIBPROTOBUF) $(SPARSEHASH)
+index.o: index.cpp index.hpp $(LIBPROTOBUF) $(SPARSEHASH) $(ROCKSDB)
         $(CXX) $(CXXFLAGS) -c -o index.o index.cpp $(INCLUDES)
 
 utility.o: utility.cpp utility.hpp $(LIBPROTOBUF) $(SPARSEHASH)
@@ -48,5 +48,4 @@ pileup.o: pileup.cpp pileup.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h $(LIBPRO
 
 caller.o: caller.cpp caller.hpp cpp/vg.pb.h vg.hpp stream.hpp json2pb.h pileup.hpp $(LIBPROTOBUF) $(SPARSEHASH)
         $(CXX) $(CXXFLAGS) -c -o caller.o caller.cpp $(INCLUDES)
-
 

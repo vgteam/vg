@@ -376,6 +376,41 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     if (max_multimaps > 1) multi_alns.resize(to_align);
     else alns.resize(to_align);
 
+    auto check_alignment = [&](const Alignment& aln) {
+        if (aln.path().mapping_size()) {
+            // get the graph corresponding to the alignment path
+            Graph sub;
+            for (int i = 0; i < aln.path().mapping_size(); ++ i) {
+                auto& m = aln.path().mapping(i);
+                if (m.has_position() && m.position().node_id()) {
+                    auto id = aln.path().mapping(i).position().node_id();
+                    xindex->neighborhood(id, 2, sub);
+                }
+            }
+            VG g; g.extend(sub);
+            auto seq = g.path_string(aln.path());
+            //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
+            if (seq != aln.sequence()) {
+                cerr << "alignment does not match graph " << endl
+                     << pb2json(aln) << endl
+                     << "expect:\t" << aln.sequence() << endl
+                     << "got:\t" << seq << endl;
+                // save alignment
+                ofstream out("fail.gam");
+                vector<Alignment> alnz = { aln };
+                stream::write_buffered(out, alnz, 1);
+                out.close();
+                // save graph, bigger fragment
+                xindex->expand_context(sub, 5, true);
+                VG gn; gn.extend(sub);
+                gn.serialize_to_file("fail.vg");
+                assert(false);
+            }
+        }
+        // use the graph to extract the sequence
+        // assert that this == the alignment
+    };
+
 #pragma omp parallel for
     for (int i = 0; i < bands.size(); ++i) {
         {
@@ -405,8 +440,13 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                     aln = bands[i]; // unmapped
                 }
                 // strip overlaps
+                //cerr << "checking before strip" << endl;
+                //check_alignment(aln);
                 aln = strip_from_start(aln, to_strip[i].first);
                 aln = strip_from_end(aln, to_strip[i].second);
+                //cerr << "checking after strip" << endl;
+                //check_alignment(aln);
+                //cerr << "OK" << endl;
             }
         }
     }
@@ -416,6 +456,12 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
         alns = resolve_banded_multi(multi_alns);
         multi_alns.clear(); // clean up
     }
+
+    // check that the alignments are valid
+    for (auto& aln : alns) {
+        check_alignment(aln);
+    }
+
     // merge the resulting alignments
     Alignment merged = merge_alignments(alns, debug);
 		merged.set_quality(read.quality());
@@ -1125,8 +1171,8 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
             // Topologically sort the graph, breaking cycles and orienting all edges end to start.
             // This flips some nodes around, so we need to translate alignments back.
-            set<int64_t> flipped_nodes;
-            graph->orient_nodes_forward(flipped_nodes);
+            //set<int64_t> flipped_nodes;
+            //graph->orient_nodes_forward(flipped_nodes);
 
             // align
             //graph->serialize_to_file("align2.vg");
