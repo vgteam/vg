@@ -1131,11 +1131,25 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
         right.mutable_position()->set_offset(left.position().offset()
                                              + mapping_from_length(left));
     }
-    assert(!m.has_position()
+    if (left.has_position()
+        && !left.position().node_id()) {
+        left.clear_position();
+    }
+    if (right.has_position()
+        && !right.position().node_id()) {
+        right.clear_position();
+    }
+    /*
+    if (!(!m.has_position()
            || (left.has_position()
                && left.position().node_id()
                && right.has_position()
-               && right.position().node_id()));
+               && right.position().node_id()))) {
+        cerr << "problem with cut alignment" << endl
+             << "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
+        assert(false);
+    }
+    */
     //cerr << "cut mappings " << endl
     //<< "------left " << pb2json(left) << endl << "------right " << pb2json(right) << endl;
     return make_pair(left, right);
@@ -1244,6 +1258,8 @@ Position path_start(const Path& path) {
         auto& mapping = path.mapping(i);
         if (mapping.has_position()) return mapping.position();
     }
+    Position p;
+    return p; // empty
 }
 
 // determine the path end
@@ -1258,6 +1274,32 @@ Position path_end(const Path& path) {
 
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2) {
     return abs(m1.rank() - m2.rank()) == 1;
+}
+
+// assumes complete description of mapped node by the edits
+double divergence(const Mapping& m) {
+    double from_length = 0;
+    double to_length = 0;
+    double matches = 0;
+    double mismatches = 0;
+    double insertions = 0;
+    double deletions = 0;
+    for (size_t i = 0; i < m.edit_size(); ++i) {
+        auto& edit = m.edit(i);
+        // what is the length
+        from_length += edit.from_length();
+        to_length += edit.to_length();
+        if (edit_is_match(edit)) {
+            matches += edit.to_length();
+        } else if (edit_is_sub(edit)) {
+            mismatches += edit.to_length();
+        } else if (edit_is_insertion(edit)) {
+            insertions += edit.to_length();
+        } else if (edit_is_deletion(edit)) {
+            deletions += edit.from_length();
+        }
+    }
+    return 1 - (matches*2.0 / (from_length + to_length));
 }
 
 }

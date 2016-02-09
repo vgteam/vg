@@ -4172,19 +4172,25 @@ int main_map(int argc, char** argv) {
     // We have one function to dump alignments into
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer, &output_json](vector<Alignment>& alignments) {
+			// for(auto& alignment : alignments){
+			// 		cerr << "This is in output_alignments" << alignment.DebugString() << endl;
+			// }
+
         if (output_json) {
             // If we want to convert to JSON, convert them all to JSON and dump them to cout.
             for(auto& alignment : alignments) {
                 string json = pb2json(alignment);
-#pragma omp critical (cout)
+								#pragma omp critical (cout)
                 cout << json << "\n";
             }
         } else {
             // Otherwise write them through the buffer for our thread
             int tid = omp_get_thread_num();
             auto& output_buf = output_buffer[tid];
+
             // Copy all the alignments over to the output buffer
             copy(alignments.begin(), alignments.end(), back_inserter(output_buf));
+
             stream::write_buffered(cout, output_buf, 1000);
         }
     };
@@ -4268,6 +4274,7 @@ int main_map(int argc, char** argv) {
                         if (!read_group.empty()) alignment.set_read_group(read_group);
                     }
 
+
                     // Output the alignments in JSON or protobuf as appropriate.
                     output_alignments(alignments);
                 }
@@ -4349,6 +4356,7 @@ int main_map(int argc, char** argv) {
                     alignments.push_back(alignment);
                 }
 
+								//cerr << "This is just before output_alignments" << alignment.DebugString() << endl;
                 output_alignments(alignments);
             };
             fastq_unpaired_for_each_parallel(fastq1, lambda);
@@ -4431,6 +4439,8 @@ void help_view(char** argv) {
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
          << "    -d, --dot            output dot format" << endl
+         << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
+         << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
          << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
@@ -4482,7 +4492,9 @@ int main_view(int argc, char** argv) {
     bool annotate_paths_in_dot = false;
     bool invert_edge_ports_in_dot = false;
     bool show_mappings_in_dot = false;
+    bool simple_dot = false;
     int seed_val = time(NULL);
+    bool color_variants = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -4515,11 +4527,13 @@ int main_view(int argc, char** argv) {
                 {"pileup-in", no_argument, 0, 'l'},
                 {"invert-ports", no_argument, 0, 'I'},
                 {"show-mappings", no_argument, 0, 'M'},
+                {"simple-dot", no_argument, 0, 'S'},
+                {"color", no_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:SC",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4528,8 +4542,16 @@ int main_view(int argc, char** argv) {
 
         switch (c)
         {
+        case 'C':
+            color_variants = true;
+            break;
+
         case 'd':
             output_type = "dot";
+            break;
+
+        case 'S':
+            simple_dot = true;
             break;
 
         case 'p':
@@ -4728,7 +4750,7 @@ int main_view(int argc, char** argv) {
             if (output_type == "json") {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
-                    //alignment_quality_short_to_char(a);
+                    alignment_quality_short_to_char(a);
                     cout << pb2json(a) << "\n";
                 };
                 if (file_name == "-") {
@@ -4879,7 +4901,9 @@ int main_view(int argc, char** argv) {
                       walk_paths_in_dot,
                       annotate_paths_in_dot,
                       show_mappings_in_dot,
+                      simple_dot,
                       invert_edge_ports_in_dot,
+                      color_variants,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;

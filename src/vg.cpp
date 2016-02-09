@@ -5179,7 +5179,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool walk_paths,
                 bool annotate_paths,
                 bool show_mappings,
+                bool simple_mode,
                 bool invert_edge_ports,
+                bool color_variants,
                 int random_seed) {
 
     // setup graphviz output
@@ -5194,12 +5196,21 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
+        if (!simple_mode) {
+            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
+        } else {
+            out << "    " << n->id() << " [label=\"" << n->id() << "\",penwidth=2,shape=circle,";
+        }
         // for neato output, which tends to randomly order the graph
-        if (is_head_node(n)) {
-            out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\"";
-        } else if (is_tail_node(n)) {
-            out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
+        if (!simple_mode) {
+            if (is_head_node(n)) {
+                out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\"";
+            } else if (is_tail_node(n)) {
+                out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
+            }
+        }
+        if (color_variants && node_paths.size() == 0){
+            out << "color=red,";
         }
         out << "];" << endl;
     }
@@ -5272,40 +5283,43 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 
         // display what kind of edge we have using different edge head and tail styles
         // depending on if the edge comes from the start or not
-        out << "    " << e->from() << " -> " << e->to();
-        out << " [dir=both,";
-        if (!invert_edge_ports && e->from_start()
-            || invert_edge_ports && !e->from_start()) {
-            out << "arrowtail=none,";
-            out << "tailport=sw,";
-        } else {
-            out << "arrowtail=none,";
-            out << "tailport=ne,";
-        }
-        if (!invert_edge_ports && e->to_end()
-            || invert_edge_ports && !e->to_end()) {
-            out << "arrowhead=none,";
-            out << "headport=se";
-        } else {
-            out << "arrowhead=none,";
-            out << "headport=nw";
-        }
-        out << ",penwidth=2";
-
-        if(annotations != symbols_for_edge.end()) {
-            // We need to put a label on the edge with all the colored
-            // characters for paths using it.
-            out << ",label=<";
-
-            for(auto& string_and_color : (*annotations).second) {
-                // Put every symbol in its font tag.
-                out << "<FONT COLOR=\"" << string_and_color.second << "\">" << string_and_color.first << "</FONT>";
+        if (!simple_mode) {
+            out << "    " << e->from() << " -> " << e->to();
+            out << " [dir=both,";
+            if (!invert_edge_ports && e->from_start()
+                || invert_edge_ports && !e->from_start()) {
+                out << "arrowtail=none,";
+                out << "tailport=sw,";
+            } else {
+                out << "arrowtail=none,";
+                out << "tailport=ne,";
             }
+            if (!invert_edge_ports && e->to_end()
+                || invert_edge_ports && !e->to_end()) {
+                out << "arrowhead=none,";
+                out << "headport=se";
+            } else {
+                out << "arrowhead=none,";
+                out << "headport=nw";
+            }
+            out << ",penwidth=2";
 
-            out << ">";
+            if(annotations != symbols_for_edge.end()) {
+                // We need to put a label on the edge with all the colored
+                // characters for paths using it.
+                out << ",label=<";
+
+                for(auto& string_and_color : (*annotations).second) {
+                    // Put every symbol in its font tag.
+                    out << "<FONT COLOR=\"" << string_and_color.second << "\">" << string_and_color.first << "</FONT>";
+                }
+
+                out << ">";
+            }
+            out << "];" << endl;
+        } else {
+            out << "    " << e->from() << " -> " << e->to() << endl;
         }
-
-        out << "];" << endl;
 
         if(is_backward) {
             // We don't need this duplicate edge
@@ -5319,10 +5333,13 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         // check direction
         if (!aln.has_path()) continue; // skip pathless alignments
         if (!aln.path().mapping(0).position().is_reverse()) {
-            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
+            out << "    " << alnid << " [label=\"" << aln.name() << "\"];" << endl;
+            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=black];" << endl;
+            alnid++;
+            out << "    " << alnid << " [label=\"+\",fontcolor=green];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
         } else {
-            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
+            out << "    " << alnid << " [label=\"-\",fontcolor=purple];" << endl;
             out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=purple];" << endl;
         }
         alnid++;
@@ -5330,23 +5347,49 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             const Mapping& m = aln.path().mapping(i);
             //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
             //string cigar_string(vector<pair<int, char> >& cigar);
-            stringstream mapid;
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);
             //mapid << cigar_string(cigar) << ":"
             //      << (m.is_reverse() ? "-" : "+") << m.position().offset() << ":"
-            mapid << pb2json(m);
-            string mstr = mapid.str();
-            mstr.erase(std::remove_if(mstr.begin(), mstr.end(), [](char c) { return c == '"'; }), mstr.end());
-            mstr = wrap_text(mstr, 50);
+            string mstr;
+            if (!simple_mode) {
+                stringstream mapid;
+                mapid << pb2json(m);
+                mstr = mapid.str();
+                mstr.erase(std::remove_if(mstr.begin(), mstr.end(),
+                                          [](char c) { return c == '"'; }), mstr.end());
+                mstr = wrap_text(mstr, 50);
+            }
             // determine sequence of this portion of the alignment
             // set color based on cigar/mapping relationship
             // some mismatch, indicate with orange color
-            string color = mapping_is_simple_match(m) ? "blue" : "orange";
-            out << "    " << alnid << " [label=\"" << mstr << "\",fontcolor=" << color << ",fontsize=10];" << endl;
-            if (i > 0) {
-                out << "    " << alnid-1 << " -> " << alnid << "[dir=none,color=" << color << "];" << endl;
+            string color;
+            if (!simple_mode) {
+                color = mapping_is_simple_match(m) ? "blue" : "orange";
+            } else {
+                color = "/rdylgn11/" + convert(round((1-divergence(m))*10)+1);
             }
-            out << "    " << alnid << " -> " << m.position().node_id() << "[dir=none,color=" << color << ", style=invis];" << endl;
+
+            if (simple_mode) {
+                out << "    "
+                    << alnid << " [label=\""
+                    << m.position().node_id() << "\"" << "shape=circle," //penwidth=2,"
+                    << "style=filled,"
+                    << "fillcolor=\"" << color << "\","
+                    << "color=\"" << color << "\"];" << endl;
+
+            } else {
+                out << "    "
+                    << alnid << " [label=\""
+                    << mstr << "\",fontcolor=" << color << ",fontsize=10];" << endl;
+            }
+            if (i > 0) {
+                out << "    "
+                    << alnid-1 << " -> "
+                    << alnid << "[dir=none,color=\"black\"];" << endl;
+            }
+            out << "    "
+                << alnid << " -> " << m.position().node_id()
+                << "[dir=none,style=invis];" << endl;
             out << "    { rank = same; " << alnid << "; " << m.position().node_id() << "; };" << endl;
             //out << "    " << m.position().node_id() << " -- " << alnid << "[color=" << color << ", style=invis];" << endl;
             alnid++;
@@ -5357,6 +5400,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         } else {
             out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
             out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=green];" << endl;
+            alnid++;
+            out << "    " << alnid << " [label=\"" << aln.name() << "\"];" << endl;
+            out << "    " << alnid << " -> " << alnid-1 << " [dir=none,color=black];" << endl;
         }
         alnid++;
     }
@@ -5746,6 +5792,7 @@ Alignment VG::align(const Alignment& alignment) {
 
     gssw_aligner = new GSSWAligner(graph);
     gssw_aligner->align(aln);
+
     delete gssw_aligner;
     gssw_aligner = NULL;
 
