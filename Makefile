@@ -122,9 +122,16 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
 include/stream.hpp: .pre-build
 	cp src/stream.hpp include/stream.hpp
 
+$(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
+
 $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h .pre-build
+<<<<<<< HEAD
+	. ./source_me.sh && g++ -O3 -msse4.1 -fopenmp -std=c++11 -c -o cpp/vg.pb.o cpp/vg.pb.cc $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+$(CPP_DIR)/vg.pb.h: $(SRC_DIR)/vg.proto $(LIB_DIR)/libprotobuf.a .pre-build
+=======
 	+. ./source_me.sh && g++ -O3 -msse4.1 -fopenmp -std=c++11 -c -o cpp/vg.pb.o cpp/vg.pb.cc $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a .pre-build
+>>>>>>> master
 	./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	cp $@ $(INC_DIR)
 
@@ -149,8 +156,13 @@ $(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(LIB_DIR)/libp
 $(OBJ_DIR)/index.o: $(SRC_DIR)/index.cpp $(SRC_DIR)/index.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/librocksdb.a $(LIB_DIR)/libxg.a $(LIB_DIR)/libsnappy.a $(CPP_DIR)/vg.pb.h
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
+<<<<<<< HEAD
+$(OBJ_DIR)/utility.o: $(SRC_DIR)/utility.cpp $(SRC_DIR)/utility.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+=======
 $(OBJ_DIR)/utility.o: $(SRC_DIR)/utility.cpp $(SRC_DIR)/utility.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(CPP_DIR)/vg.pb.h $(INC_DIR)/sha1.hpp
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+>>>>>>> master
 
 $(OBJ_DIR)/path.o: $(SRC_DIR)/path.cpp $(SRC_DIR)/path.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(CPP_DIR)/vg.pb.h $(OBJ_DIR)/utility.o $(LIB_DIR)/libgssw.a
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_LIB_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)

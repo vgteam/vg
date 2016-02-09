@@ -1455,6 +1455,9 @@ void help_mod(char** argv) {
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
+         << "    -U, --unroll N          unroll cycles in the graph, preserving paths of length N" << endl
+         << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
+         << "                            component of the graph" << endl
          << "    -d, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
@@ -1474,7 +1477,7 @@ void help_mod(char** argv) {
          << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
-         << "    -f, --orient-forward    orient the nodes in the graph forward" << endl
+        //<< "    -f, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
@@ -1512,6 +1515,8 @@ int main_mod(int argc, char** argv) {
     int32_t context_steps;
     bool remove_null;
     bool strong_connect = false;
+    uint32_t unroll_to = 0;
+    uint32_t unfold_to = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1539,18 +1544,20 @@ int main_mod(int argc, char** argv) {
                 {"normalize", no_argument, 0, 'n'},
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
-                {"orient-forward", no_argument, 0, 'f'},
+                //{"orient-forward", no_argument, 0, 'f'},
+                {"unfold", required_argument, 0, 'f'},
                 {"force-path-match", no_argument, 0, 'F'},
                 {"retain-path", required_argument, 0, 'r'},
                 {"subgraph", required_argument, 0, 'g'},
                 {"context", required_argument, 0, 'x'},
                 {"remove-null", no_argument, 0, 'R'},
                 {"strong-connect", no_argument, 0, 'T'},
+                {"unroll", required_argument, 0, 'U'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNfCdFr:g:x:RT",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CdFr:g:x:RTU:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1621,7 +1628,7 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'f':
-            orient_forward = true;
+            unfold_to = atoi(optarg);
             break;
 
         case 'F':
@@ -1650,6 +1657,10 @@ int main_mod(int argc, char** argv) {
 
         case 'T':
             strong_connect = true;
+            break;
+
+        case 'U':
+            unroll_to = atoi(optarg);
             break;
 
         case 'z':
@@ -1729,9 +1740,21 @@ int main_mod(int argc, char** argv) {
         graph->force_path_match();
     }
 
+    /*
     if (orient_forward) {
         set<int64_t> flipped;
         graph->orient_nodes_forward(flipped);
+    }
+    */
+
+    if (unroll_to) {
+        map<int64_t, pair<int64_t, bool> > node_translation;
+        *graph = graph->unroll(unroll_to, node_translation);
+    }
+
+    if (unfold_to) {
+        map<int64_t, pair<int64_t, bool> > node_translation;
+        *graph = graph->unfold(unfold_to, node_translation);
     }
 
     if (remove_null) {

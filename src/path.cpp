@@ -171,7 +171,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
     }
 }
 
-void Paths::append_mapping(const string& name, int64_t id, size_t rank, bool is_reverse) {
+void Paths::append_mapping(const string& name, id_t id, size_t rank, bool is_reverse) {
     Mapping m;
     m.mutable_position()->set_node_id(id);
     m.mutable_position()->set_is_reverse(is_reverse);
@@ -202,7 +202,7 @@ void Paths::prepend_mapping(const string& name, const Mapping& m) {
     }
 }
 
-void Paths::prepend_mapping(const string& name, int64_t id, size_t rank, bool is_reverse) {
+void Paths::prepend_mapping(const string& name, id_t id, size_t rank, bool is_reverse) {
     Mapping m;
     m.mutable_position()->set_node_id(id);
     m.mutable_position()->set_is_reverse(is_reverse);
@@ -273,7 +273,7 @@ bool Paths::has_path(const string& name) {
     return _paths.find(name) != _paths.end();
 }
 
-void Paths::increment_node_ids(int64_t inc) {
+void Paths::increment_node_ids(id_t inc) {
     for (auto& p : _paths) {
         const string& name = p.first;
         list<Mapping>& path = p.second;
@@ -284,7 +284,7 @@ void Paths::increment_node_ids(int64_t inc) {
     rebuild_node_mapping();
 }
 
-void Paths::swap_node_ids(hash_map<int64_t, int64_t>& id_mapping) {
+void Paths::swap_node_ids(hash_map<id_t, id_t>& id_mapping) {
     for (auto& p : _paths) {
         const string& name = p.first;
         list<Mapping>& path = p.second;
@@ -300,7 +300,7 @@ void Paths::swap_node_ids(hash_map<int64_t, int64_t>& id_mapping) {
     rebuild_node_mapping();
 }
 
-void Paths::reassign_node(int64_t new_id, Mapping* m) {
+void Paths::reassign_node(id_t new_id, Mapping* m) {
     // erase the old node id
     node_mapping[m->position().node_id()][mapping_path_name(m)].erase(m);
     // set the new node id
@@ -366,14 +366,14 @@ void Paths::rebuild_mapping_aux(void) {
     }
 }
 
-void Paths::remove_node(int64_t id) {
+void Paths::remove_node(id_t id) {
     node_mapping.erase(id);
 }
 
 list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     if (mapping_path.find(m) == mapping_path.end()) cerr << "no mapping" << endl;
     const string& path_name = mapping_path[m];
-    int64_t id = m->position().node_id();
+    id_t id = m->position().node_id();
     auto& x = _paths[path_name];
     list<Mapping>::iterator p = _paths[path_name].erase(mapping_itr[m]);
     if (has_node_mapping(id)) {
@@ -469,7 +469,7 @@ list<Mapping>& Paths::get_create_path(const string& name) {
     }
 }
 
-bool Paths::has_node_mapping(int64_t id) {
+bool Paths::has_node_mapping(id_t id) {
     return node_mapping.find(id) != node_mapping.end();
 }
 
@@ -477,7 +477,7 @@ bool Paths::has_node_mapping(Node* n) {
     return node_mapping.find(n->id()) != node_mapping.end();
 }
 
-map<string, set<Mapping*>>& Paths::get_node_mapping(int64_t id) {
+map<string, set<Mapping*>>& Paths::get_node_mapping(id_t id) {
     return node_mapping[id];
 }
 
@@ -485,7 +485,7 @@ map<string, set<Mapping*>>& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
 }
 
-map<string, map<int, Mapping>> Paths::get_node_mapping_copies_by_rank(int64_t id) {
+map<string, map<int, Mapping>> Paths::get_node_mapping_copies_by_rank(id_t id) {
     map<string, map<int, Mapping>> by_ranks;
     for (auto& p : get_node_mapping(id)) {
         auto& name = p.first;
@@ -547,7 +547,7 @@ const string Paths::mapping_path_name(Mapping* m) {
     }
 }
 
-map<string, int> Paths::of_node(int64_t id) {
+map<string, int> Paths::of_node(id_t id) {
     map<string, int> path_counts;
     auto& node_mapping = get_node_mapping(id);
     for (auto& p : node_mapping) {
@@ -556,7 +556,7 @@ map<string, int> Paths::of_node(int64_t id) {
     return path_counts;
 }
 
-bool Paths::are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name) {
+bool Paths::are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path_name) {
     if (of_node(id1).count(path_name) && of_node(id2).count(path_name)) {
         auto& p1 = get_node_mapping(id1);
         auto& p2 = get_node_mapping(id2);
@@ -580,7 +580,7 @@ bool Paths::are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string
     return false;
 }
 
-void parse_region(const string& target, string& name, int64_t& start, int64_t& end) {
+void parse_region(const string& target, string& name, id_t& start, id_t& end) {
     start = -1;
     end = -1;
     size_t foundFirstColon = target.find(":");
@@ -769,141 +769,6 @@ Path concat_paths(const Path& path1, const Path& path2) {
     return res;
 }
 
-// merge paths that overlap at a suitable position
-// TODO probably buggy, moved to concatenate paths above for banded alignment
-// this remains a useful method as it is Alignment-object independent and could work on graph paths
-Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2) {
-
-    // how much of each path do we keep?
-    // used when manipulating path sequences elsewhere
-    kept_path1 = 0;
-    kept_path2 = 0;
-
-    // todo.... handle edge case
-    // where we match positions that split a single node
-    // probably we are going to get bit by this
-
-    int64_t p1_start = path1.mapping(0).position().node_id();
-    int64_t p1_end = path1.mapping(path1.mapping_size()-1).position().node_id();
-    int64_t p2_start = path2.mapping(0).position().node_id();
-    int64_t p2_end = path2.mapping(path2.mapping_size()-1).position().node_id();
-
-    // scan through the second until we match the tail of the first
-    int p1 = path1.mapping_size()-1;
-    int p2 = 0; // and do the same for the first mapping
-    //int64_t p1_node, p2_node;
-    const Mapping* p1mp = &path1.mapping(p1);
-    const Mapping* p2mp = &path2.mapping(p2);
-    while (p2 < path2.mapping_size()) {
-        p2mp = &path2.mapping(p2);
-        if (p1mp->position().node_id() == p2mp->position().node_id()) break;
-        ++p2;
-        //cerr << p1mp->position().node_id() << " --- " << p2mp->position().node_id() << endl;
-    }
-
-    const Mapping& p1m = *p1mp;
-    const Mapping& p2m = *p2mp;
-
-    //assert(p1mp->position().node_id() == p2mp->position().node_id());
-    bool is_split = (p1mp->position().node_id() != p2mp->position().node_id());
-    //if (is_split) cerr << "we have a split read deletion or jump" << endl;
-
-    Path result;
-
-    for (int i = 0; i < p1; ++i) {
-        Mapping* m = result.add_mapping();
-        *m = path1.mapping(i);
-        kept_path1 += to_length(*m);
-    }
-
-    // we are now pointing at the same node
-    if (!is_split && p2m.position().offset()) {
-        // the mappings are against the same node
-        // make a new mapping that combines the two
-        Mapping* m = result.add_mapping();
-        *m->mutable_position() = p1m.position();
-        // now add the edits from the previous mapping to the next mapping
-        for (int i = 0; i < p1m.edit_size(); ++i) {
-            Edit* e = m->add_edit();
-            *e = p1m.edit(i);
-            kept_path1 += e->to_length();
-        }
-        // local deletion on this node
-        if ((from_length(p1m) < p2m.position().offset())) {
-            // add a deletion
-            Edit* e = m->add_edit();
-            e->set_from_length(p2m.position().offset() - from_length(p1m));
-        }
-        // and skip this length in the next mapping
-        // caution, this is based on graph, not alignment coordinates
-        int to_skip = max((int)0, (int)mapping_from_length(*m) - (int)p2m.position().offset());
-        //cerr << "to_skip = " << to_skip << endl;
-        size_t skipped = 0;
-        size_t j = 0;
-        for ( ; j < p2m.edit_size(); ++j) {
-            auto& f = p2m.edit(j);
-            if (f.from_length() + skipped > to_skip) {
-                break;
-            }
-            skipped += f.from_length();
-        }
-        // now we're pointing at the edit to divide
-        {
-            auto& f = p2m.edit(j++);
-            size_t skip_here = to_skip - skipped;
-            Edit* e = m->add_edit();
-            //cerr << "inner old " << pb2json(f) << endl;
-            *e = f;
-            e->set_to_length(e->to_length() - skip_here);
-            e->set_from_length(e->from_length() - skip_here);
-            if (!e->sequence().empty()) {
-                e->set_sequence(e->sequence().substr(skip_here));
-            }
-            //cerr << "inner new " << pb2json(*e) << endl;
-            kept_path2 += e->to_length();
-        }
-        // now let's add in the rest of the edits
-        for (size_t i = 0; i < p2m.edit_size(); ++i) {
-            auto& e = p2m.edit(i);
-            *m->add_edit() = e;
-            kept_path2 += e.to_length();
-        }
-
-        for (int i = 0; i < p2m.edit_size(); ++i) {
-            if (to_skip > skipped + p2m.edit(i).to_length()) {
-            } else {
-                // divide the edit
-                Edit* e = m->add_edit();
-                //cerr << "inner old " << pb2json(p2m.edit(i)) << endl;
-                *e = p2m.edit(i);
-                e->set_to_length(e->to_length() - to_skip);
-                e->set_from_length(e->from_length() - to_skip);
-                if (!e->sequence().empty()) {
-                    e->set_sequence(e->sequence().substr(to_skip));
-                }
-                //cerr << "inner new " << pb2json(*e) << endl;
-                kept_path2 += e->to_length();
-            }
-        }
-        // offset is 0
-        m->mutable_position()->set_offset(0);
-    } else {
-        kept_path2 += to_length(p2m);
-        Mapping* m = result.add_mapping();
-        *m = p2m;
-    }
-
-    if (p2+1 < path2.mapping_size()) {
-        for (int i = p2+1; i < path2.mapping_size(); ++i) {
-            Mapping* m = result.add_mapping();
-            *m = path2.mapping(i);
-            kept_path2 += to_length(*m);
-        }
-    }
-
-    return result;
-}
-
 Path simplify(const Path& p) {
     Path s;
     s.set_name(p.name());
@@ -951,7 +816,7 @@ Path simplify(const Path& p) {
                        && l->position().node_id() == m.position().node_id()
                        && l->position().offset() + mapping_from_length(*l) == m.position().offset()) {
                 // we can merge the current mapping onto the old one
-                *l = merge_mappings(*l, m);
+                *l = concat_mappings(*l, m);
             } else {
                 *s.add_mapping() = m;
             }
@@ -978,7 +843,7 @@ Path simplify(const Path& p) {
 }
 
 // simple merge
-Mapping merge_mappings(const Mapping& m, const Mapping& n) {
+Mapping concat_mappings(const Mapping& m, const Mapping& n) {
     Mapping c = m;
     // add the edits on
     for (size_t i = 0; i < n.edit_size(); ++i) {
@@ -1070,7 +935,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     auto& node_seq = n.sequence();
     string seq;
     // todo reverse the mapping
-    function<int64_t(int64_t)> lambda = [&node_seq](int64_t i){return node_seq.size();};
+    function<id_t(id_t)> lambda = [&node_seq](id_t i){return node_seq.size();};
     Mapping m = (mp.position().is_reverse() ? reverse_mapping(mp, lambda) : mp);
     // then edit in the forward direction (easier)
     // and, if the mapping is reversed, finally reverse-complement the result
@@ -1100,7 +965,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     return (mp.position().is_reverse() ? reverse_complement(seq) : seq);
 }
 
-Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node_length) {
+Mapping reverse_mapping(const Mapping& m, const function<id_t(id_t)>& node_length) {
     // Make a new reversed mapping
     Mapping reversed = m;
 
@@ -1127,7 +992,7 @@ Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node
     return reversed;
 }
 
-Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_length) {
+Path reverse_path(const Path& path, const function<id_t(id_t)>& node_length) {
     // Make a new reversed path
     Path reversed = path;
 
@@ -1380,7 +1245,7 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
     return make_pair(p1, p2);
 }
 
-bool maps_to_node(const Path& p, int64_t id) {
+bool maps_to_node(const Path& p, id_t id) {
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         if (p.mapping(i).position().node_id() == id) return true;
     }
