@@ -2479,7 +2479,10 @@ void help_stats(char** argv) {
          << "    -H, --heads           list the head nodes of the graph" << endl
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
-         << "    -c, --components      print the strongly connected components of the graph" << endl;
+         << "    -c, --components      print the strongly connected components of the graph" << endl
+         << "    -n, --node ID         consider node with the given id" << endl
+         << "    -d, --to-head         show distance to head for each provided node" << endl
+         << "    -t, --to-tail         show distance to head for each provided node" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -2496,6 +2499,9 @@ int main_stats(int argc, char** argv) {
     bool stats_tails = false;
     bool show_sibs = false;
     bool show_components = false;
+    bool distance_to_head = false;
+    bool distance_to_tail = false;
+    set<vg::id_t> ids;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2510,11 +2516,14 @@ int main_stats(int argc, char** argv) {
                 {"help", no_argument, 0, 'h'},
                 {"siblings", no_argument, 0, 'S'},
                 {"components", no_argument, 0, 'c'},
+                {"to-head", no_argument, 0, 'd'},
+                {"to-tail", no_argument, 0, 't'},
+                {"node", required_argument, 0, 'n'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTSc",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2549,6 +2558,18 @@ int main_stats(int argc, char** argv) {
 
         case 'c':
             show_components = true;
+            break;
+
+        case 'd':
+            distance_to_head = true;
+            break;
+
+        case 't':
+            distance_to_tail = true;
+            break;
+
+        case 'n':
+            ids.insert(atoi(optarg));
             break;
 
         case 'h':
@@ -2634,6 +2655,20 @@ int main_stats(int argc, char** argv) {
                 cerr << id << ", ";
             }
             cout << endl;
+        }
+    }
+
+    if (distance_to_head) {
+        for (auto id : ids) {
+            cout << id << " to head:\t"
+                 << graph->distance_to_head(NodeTraversal(graph->get_node(id), false)) << endl;
+        }
+    }
+
+    if (distance_to_tail) {
+        for (auto id : ids) {
+            cout << id << " to tail:\t"
+                 << graph->distance_to_tail(NodeTraversal(graph->get_node(id), false)) << endl;
         }
     }
 

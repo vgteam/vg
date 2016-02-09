@@ -951,16 +951,18 @@ public:
     bool is_head_node(id_t id);
     bool is_head_node(Node* node);
     // distance from head of node to beginning of graph, or -1 if limit exceeded
-    int distance_to_head(id_t id, size_t limit = 1000);
-    int distance_to_head(Node* node, size_t limit = 1000);
+    int32_t distance_to_head(NodeTraversal node, int32_t limit = 1000);
+    int32_t distance_to_head(NodeTraversal node, int32_t limit, int32_t dist);
     // Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
     vector<Node*> tail_nodes(void);
     void tail_nodes(vector<Node*>& nodes);
     bool is_tail_node(id_t id);
     bool is_tail_node(Node* node);
     // distance from tail of node to end of graph, or -1 if limit exceeded
-    int distance_to_tail(id_t id, size_t limit = 1000);
-    int distance_to_tail(Node* node, size_t limit = 1000);
+    int32_t distance_to_tail(NodeTraversal node, int32_t limit = 1000);
+    int32_t distance_to_tail(NodeTraversal node, int32_t limit, int32_t dist);
+
+    int32_t distance_to_tail(id_t id, int32_t limit = 1000);
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
     // join head nodes of graph to common null node, creating a new single head.

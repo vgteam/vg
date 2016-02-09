@@ -7120,24 +7120,32 @@ vector<Node*> VG::head_nodes(void) {
     return heads;
 }
 
-int VG::distance_to_head(id_t id, size_t limit) {
-    return distance_to_head(get_node(id), limit);
+/*
+// TODO item
+int32_t VG::distance_to_head(Position pos, int32_t limit) {
+}
+*/
+
+int32_t VG::distance_to_head(NodeTraversal node, int32_t limit) {
+    return distance_to_head(node, limit, 0);
 }
 
-int VG::distance_to_head(Node* node, size_t limit) {
-    int dist = 0;
-    Node* n = node;
-    while (!is_head_node(n) && dist < limit) {
-        for (auto& side : sides_to(n->id())) {
-            // take the first side that's in expected orientation
-            if (side.is_end) {
-                n = get_node(side.node);
-                break;
-            }
-        }
-        dist += n->sequence().size();
+int32_t VG::distance_to_head(NodeTraversal node, int32_t limit, int32_t dist) {
+    NodeTraversal n = node;
+    if (limit <= 0) {
+        return -1;
     }
-    return dist > limit ? -1 : dist;
+    if (is_head_node(n.node)) {
+        return dist;
+    }
+    for (auto& trav : nodes_prev(n)) {
+        size_t l = trav.node->sequence().size();
+        size_t t = distance_to_head(trav, limit-l, dist+l);
+        if (t != -1) {
+            return t;
+        }
+    }
+    return -1;
 }
 
 bool VG::is_tail_node(id_t id) {
@@ -7163,24 +7171,26 @@ vector<Node*> VG::tail_nodes(void) {
     return tails;
 }
 
-int VG::distance_to_tail(id_t id, size_t limit) {
-    return distance_to_tail(get_node(id), limit);
+int32_t VG::distance_to_tail(NodeTraversal node, int32_t limit) {
+    return distance_to_tail(node, limit, 0);
 }
 
-int VG::distance_to_tail(Node* node, size_t limit) {
-    int dist = 0;
-    Node* n = node;
-    while (!is_tail_node(n) && dist < limit) {
-        for (auto& side : sides_from(n->id())) {
-            // take the first side that's in expected orientation
-            if (!side.is_end) {
-                n = get_node(side.node);
-                break;
-            }
-        }
-        dist += n->sequence().size();
+int32_t VG::distance_to_tail(NodeTraversal node, int32_t limit, int32_t dist) {
+    NodeTraversal n = node;
+    if (limit <= 0) {
+        return -1;
     }
-    return dist > limit ? -1 : dist;
+    if (is_tail_node(n.node)) {
+        return dist;
+    }
+    for (auto& trav : nodes_next(n)) {
+        size_t l = trav.node->sequence().size();
+        size_t t = distance_to_tail(trav, limit-l, dist+l);
+        if (t != -1) {
+            return t;
+        }
+    }
+    return -1;
 }
 
 void VG::wrap_with_null_nodes(void) {
