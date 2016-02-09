@@ -43,9 +43,12 @@
 [submodule "libVCFH"]
     path = deps/libvcfh/
     url = https://github.com/edawson/libvcfh
-[submodule "deps/gfakluge"]
-	path = deps/gfakluge
-	url = https://github.com/edawson/gfaKluge.git
+[submodule "deps/libVCFH"]
+	path = deps/libVCFH
+	url = https://github.com/edawson/libVCFH
 [submodule "deps/sparsehash"]
 	path = deps/sparsehash
 	url = https://github.com/sparsehash/sparsehash.git
+[submodule "deps/gfakluge"]
+	path = deps/gfakluge
+	url = https://github.com/edawson/gfaKluge.git
