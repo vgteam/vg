@@ -629,10 +629,7 @@ public:
     Edge* create_edge(NodeTraversal left, NodeTraversal right);
     // Makes an edge connecting the given sides of nodes.
     Edge* create_edge(NodeSide side1, NodeSide side2);
-<<<<<<< HEAD
-=======
 
->>>>>>> master
     // This can take sides in any order
     Edge* get_edge(const NodeSide& side1, const NodeSide& side2);
     // This can take sides in any order
