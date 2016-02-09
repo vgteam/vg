@@ -3501,6 +3501,12 @@ void VG::nodes_prev(NodeTraversal node, vector<NodeTraversal>& nodes) {
     }
 }
 
+vector<NodeTraversal> VG::nodes_prev(NodeTraversal n) {
+    vector<NodeTraversal> nodes;
+    nodes_prev(n, nodes);
+    return nodes;
+}
+
 void VG::nodes_next(NodeTraversal node, vector<NodeTraversal>& nodes) {
     // Get the node IDs that attach to the right of this node, and whether we
     // are attached relatively forward (false) or backward (true)
@@ -3510,6 +3516,12 @@ void VG::nodes_next(NodeTraversal node, vector<NodeTraversal>& nodes) {
         // If we're backward, and it's in the same relative orientation as us, it needs to be backward too.
         nodes.emplace_back(get_node(next.first), next.second != node.backward);
     }
+}
+
+vector<NodeTraversal> VG::nodes_next(NodeTraversal n) {
+    vector<NodeTraversal> nodes;
+    nodes_next(n, nodes);
+    return nodes;
 }
 
 int VG::node_count_prev(NodeTraversal n) {

@@ -507,12 +507,6 @@ public:
     // Get the edges of the specified set of nodes, and add them to the given set of edge pointers.
     void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
 
-    // traversals before this node on the same strand
-    set<NodeTraversal> travs_to(NodeTraversal node);
-    // traversals after this node on the same strand
-    set<NodeTraversal> travs_from(NodeTraversal node);
-    // traversals before this node on the same strand
-    set<NodeTraversal> travs_of(NodeTraversal node);
     // Sides on the other side of edges to this side of the node
     set<NodeSide> sides_to(NodeSide side);
     // Sides on the other side of edges from this side of the node
@@ -790,8 +784,19 @@ public:
     // traversal
     // Get the nodes attached to the left side of the given NodeTraversal, in their proper orientations.
     void nodes_prev(NodeTraversal n, vector<NodeTraversal>& nodes);
+    vector<NodeTraversal> nodes_prev(NodeTraversal n);
+    // (same but using set) traversals before this node on the same strand
+    set<NodeTraversal> travs_to(NodeTraversal node);
+
     // Get the nodes attached to the right side of the given NodeTraversal, in their proper orientations.
     void nodes_next(NodeTraversal n, vector<NodeTraversal>& nodes);
+    vector<NodeTraversal> nodes_next(NodeTraversal n);
+    // (uses set) traversals after this node on the same strand
+    set<NodeTraversal> travs_from(NodeTraversal node);
+    
+    // traversals before this node on the same strand
+    set<NodeTraversal> travs_of(NodeTraversal node);
+    
     // Count the nodes attached to the left side of the given NodeTraversal
     int node_count_prev(NodeTraversal n);
     // Count the nodes attached to the right side of the given NodeTraversal
