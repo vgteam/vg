@@ -7462,9 +7462,7 @@ VG VG::unfold(uint32_t max_length,
                 if (!strongly_connected_nodes.count(trav.node->id())) {
                     if (trav.backward) {
                         edges_to_flip.insert(get_edge(curr, trav));
-                        walk(trav, length-1);
-                        // XXX switch back to this after testing
-                        //walk(trav, length-trav.node->sequence().size());
+                        walk(trav, length-trav.node->sequence().size());
                     } else {
                         // we would not continue, but we should retain this edge because it brings
                         // us back into the forward strand
@@ -7476,9 +7474,7 @@ VG VG::unfold(uint32_t max_length,
                 if (!strongly_connected_nodes.count(trav.node->id())) {
                     if (trav.backward) {
                         edges_to_flip.insert(get_edge(trav, curr));
-                        walk(trav, length-1);
-                        // XXX switch back to this after testing
-                        //walk(trav, length-trav.node->sequence().size());
+                        walk(trav, length-trav.node->sequence().size());
                     } else {
                         // we would not continue, but we should retain this edge because it brings
                         // us back into the forward strand
@@ -7499,20 +7495,16 @@ VG VG::unfold(uint32_t max_length,
     // our friend is map<id_t, pair<id_t, bool> >& node_translation;
     map<NodeTraversal, id_t> inv_translation;
     
-    // first adding nodes
-    cerr << endl;
-    cerr << "travs_to_flip " << endl;
+    // first adding nodes that we've flipped
     for (auto t : travs_to_flip) {
         // make a new node, add it to the flattened version
         // record it in the translation
-        id_t i = unfolded.create_node(t.node->sequence() + "-")->id();
-        cerr << t << " -> " << i << endl;
+        id_t i = unfolded.create_node(reverse_complement(t.node->sequence()))->id();
         node_translation[i] = make_pair(t.node->id(), t.backward);
         inv_translation[t] = i;
-    } cerr << endl;
-    cerr << endl;
+    }
+
     // then edges that we should translate into the reversed component
-    cerr << "edges_to_flip " << endl;
     for (auto e : edges_to_flip) {
         // both of the edges are now in nodes that have been flipped
         // we need to find the new nodes and add the natural edge
@@ -7520,31 +7512,26 @@ VG VG::unfold(uint32_t max_length,
         Edge f;
         f.set_from(inv_translation[NodeTraversal(get_node(e->to()), true)]);
         f.set_to(inv_translation[NodeTraversal(get_node(e->from()), true)]);
-        cerr << pb2json(*e) << " -> " << pb2json(f) << endl;
         unfolded.add_edge(f);
-    } cerr << endl;
-    cerr << endl;
+    }
+
     // finally the edges that take us from the reversed component back to the original graph
-    cerr << "edges_to_forward " << endl;
     for (auto e : edges_to_forward) {
         Edge f;
         f.set_from(inv_translation[NodeTraversal(get_node(e->from()), true)]);
         f.set_to(e->to());
-        cerr << pb2json(*e) << " -> " << pb2json(f) << endl;
         unfolded.add_edge(f);
-    } cerr << endl;
-    cerr << endl;
-    cerr << "edges_from_forward " << endl;
+    }
     for (auto e : edges_from_forward) {
         Edge f;
         f.set_from(e->from());
         f.set_to(inv_translation[NodeTraversal(get_node(e->to()), true)]);
-        cerr << pb2json(*e) << " -> " << pb2json(f) << endl;
         unfolded.add_edge(f);
-    } cerr << endl;
-    // now remove the edges which we were to flip
-    // (alternatively, remove all edges that invert)
+    }
+
+    // now remove all inverting edges, so we have no more folds in the graph
     unfolded.remove_inverting_edges();
+    
     return unfolded;
 }
 
@@ -7659,18 +7646,14 @@ VG VG::unroll(uint32_t max_length,
                                                                         uint32_t length) {
                 // i.   If the current node is outside the component,
                 //       terminate this branch and return to the previous branching point.
-                cerr << "on node " << curr.first << ":" << (curr.second?"-":"+") << " "
-                << (in_cycle?"in_cycle":"not in_cycle") << " " << length << endl;
                 if (!component.count(curr.first)) {
-                    cerr << "current component doesn't have node "
-                         << curr.first << ":" << (curr.second?"-":"+") << endl;
                     return;
                 }
                 // ii.  Create a new copy of the current node in the DAG
                 //       and use that copy for this branch.
                 string curr_node_seq = get_node(curr.first)->sequence();
-                curr_node_seq += (curr.second?"-":"+");
-                //if (curr.second) curr_node_seq = reverse_complement(curr_node_seq);
+                // if we've reversed, take the reverse complement of the node we're flipping
+                if (curr.second) curr_node_seq = reverse_complement(curr_node_seq);
                 // use the forward orientation by default
                 id_t cn = tree.create_node(curr_node_seq)->id();
                 // record the mapping from the new id to the old
@@ -7679,13 +7662,8 @@ VG VG::unroll(uint32_t max_length,
                 itrans[curr].insert(cn);
                 // and build the tree by connecting to our parent
                 if (parent) {
-                    cerr << "parent " << parent << " trans " << trans[parent].first
-                         << ":" << (trans[parent].second?"-":"+") << endl;
                     tree.create_edge(parent, cn);
                 }
-                cerr << "created new node " << cn << endl;
-                cerr << "translation is " << trans[cn].first
-                << ":" << (trans[cn].second?"-":"+") << endl;
 
                 // iii. If we have found the first cycle in the current branch
                 //       (the current node is the first one occurring twice in the path),
@@ -7693,18 +7671,13 @@ VG VG::unroll(uint32_t max_length,
                 //       (We need to find a k-path starting from the last offset of the previous node.)
                 // walk the path back to the root to determine if we are the first cycling node
                 id_t p = cn;
-                cerr << "starting walk back " << p << endl;
                 // check is borked
                 while (!in_cycle) { // && trans[p] != entrypoint) {
-                    cerr << "iii. walking the path back " << trans[p].first << " aka " << p << endl;
                     auto parents = tree.sides_to(NodeSide(p));
-                    for (auto f : parents) cerr << f << endl;
                     if (parents.size() < 1) { break; }
                     p = parents.begin()->node;
-                    cerr << "found " << p << endl;
                     // this node cycles
                     if (trans[p] == trans[cn]) {
-                        cerr << "which cycles!!!" << endl;
                         in_cycle = true;
                         length = 1;
                         break;
@@ -7714,15 +7687,12 @@ VG VG::unroll(uint32_t max_length,
                 // iv.  If we have found a cycle in the current branch,
                 //       increment path length by the length of the label of the current node.
                 if (in_cycle) {
-                    cerr << "we are in a cycle, adding " << curr_node_seq.length() << endl;
-                    //length += curr_node_seq.length();
-                    length += 1; // for testing XXXXX
+                    length += curr_node_seq.length();
                 }
 
                 // v.   If path length >= k, terminate this branch
                 //       and return to the previous branching point.
                 if (length >= max_length) {
-                    cerr << "length be more than max length" << endl;
                     return;
                 } else {
                     // for each next node
@@ -7762,11 +7732,6 @@ VG VG::unroll(uint32_t max_length,
                 
             // we start with the entrypoint and run backtracking search
             bt(make_pair(entrypoint, false), 0, false, 0);
-
-            stringstream s;
-            s << "tree-" << entrypoint << ".vg";
-            tree.serialize_to_file(s.str());
-                                
         }
     }
 
@@ -7794,14 +7759,7 @@ VG VG::unroll(uint32_t max_length,
         size_t i = 0;
         for (auto& j : itrans) {
             orig_off[j.first] = i;
-            cerr << "orig off "
-                 << j.first.first << (j.first.second?"-":"+")
-                 << ":" << get_node(j.first.first)->sequence() << " " << i << endl;
             ++i;
-        }
-        cerr << "offsets " << endl;
-        for (auto i : orig_off) {
-            cerr << i.first.first << (i.first.second?"-":"+") << " -> " << i.second << endl;
         }
         // set up the initial vector we'll use when we have no inputs
         vector<uint32_t> zeros(orig_off.size(), 0);
@@ -7816,33 +7774,24 @@ VG VG::unroll(uint32_t max_length,
             // the graph is sorted (and will stay so)
             // as such we can run across it in sorted order
             dag.for_each_node([&](Node* n) {
-                    cerr << "node: " << pb2json(*n) << endl;
-                });
-            dag.for_each_node([&](Node* n) {
                     // collect inbound vectors
                     vector<vector<uint32_t> > iv;
                     for (auto& side : dag.sides_to(n->id())) {
                         id_t in = side.node;
-                        cerr << "looking at inbound " << in << endl;
                         // should be satisfied by partial order property of DAG
                         assert(rankmap.find(in) != rankmap.end());
                         assert(!rankmap[in].empty());
                         iv.push_back(rankmap[in]);
-                        for (auto i : rankmap[in]) cerr << i << " ";
-                        cerr << endl;
                     }
                     // take their maximum
                     vector<uint32_t> ranks = (iv.empty() ? zeros : vpmax(iv));
                     // and increment this node so that the rankmap shows our ranks for each
                     // node in the original set at this point in the graph
-                    cerr << "trans " << n->id() << " -> "
-                         << trans[n->id()].first
-                         << (trans[n->id()].second?"-":"+") << endl;
-                    cerr << "orig off check " << orig_off[trans[n->id()]] << endl;
                     ++ranks[orig_off[trans[n->id()]]];
                     // then save it in the rankmap
                     rankmap[n->id()] = ranks;
                 });
+            /*
             for (auto& r : rankmap) {
                 cerr << r.first << ":" << dag.get_node(r.first)->sequence() << " [ ";
                 for (auto c : r.second) {
@@ -7850,6 +7799,7 @@ VG VG::unroll(uint32_t max_length,
                 }
                 cerr << "]" << endl;
             }
+            */
             
             // -------------------------
             // now establish the class relative ranks for each node
@@ -7862,11 +7812,13 @@ VG VG::unroll(uint32_t max_length,
                     rank_among_same[id] = make_pair(trans[id], rankmap[id][orig_off[trans[id]]]);
                 });
             // dump
+            /*
             for (auto& r : rank_among_same) {
                 cerr << r.first << ":" << dag.get_node(r.first)->sequence()
                      << " " << r.second.first.first << (r.second.first.second?"-":"+")
                      << ":" << r.second.second << endl;
             }
+            */
             // groups
             // populate group sizes
             // groups map from the 
@@ -7884,19 +7836,13 @@ VG VG::unroll(uint32_t max_length,
                 // -----------------------
                 // merge the nodes that are the same and in the largest group
                 // -----------------------
-                cerr << groups_by_size.size() << endl;
-                cerr << groups_by_size.begin()->second.size() << endl;
                 auto orig = groups_by_size.rbegin()->second.front();
-                cerr << "orig is " << orig.first.first << (orig.first.second?"-":"+") << " " << orig.second << endl;
                 auto& group = groups[orig];
                 list<Node*> to_merge;
                 for (auto id : group) {
-                    cerr << "to merge " << id << endl;
                     to_merge.push_back(dag.get_node(id));
                 }
-                cerr << "b4 merge" << endl;
                 auto merged = dag.merge_nodes(to_merge);
-                cerr << "merged!" << endl;
                 // we've now merged the redundant nodes
                 // now we need to update the translations to reflect the fact
                 // that we no longer have certain nodes in the dag
@@ -7921,9 +7867,6 @@ VG VG::unroll(uint32_t max_length,
             }
             // sort the graph
             dag.sort();
-            stringstream s;
-            s << "dag-" << entrypoint << "-" << iter++ << ".vg";
-            dag.serialize_to_file(s.str());
         } while (!stable);
     }
     

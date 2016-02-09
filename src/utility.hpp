@@ -42,7 +42,6 @@ set<T> map_keys_to_set(const map<T, V>& m) {
 template<typename T>
 vector<T> pmax(const std::vector<T>& a, const std::vector<T>& b) {
     std::vector<T> c;
-    cerr << a.size() << " vs " << b.size() << endl;
     assert(a.size() == b.size());
     c.reserve(a.size());
     std::transform(a.begin(), a.end(), b.begin(),

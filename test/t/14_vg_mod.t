@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 24
+plan tests 26
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -75,3 +75,9 @@ is $(vg msga -B 20 -f msgas/s.fa | vg mod -r s1 - | vg view - | grep -v ^P | md5
 
 vg msga -f msgas/l.fa -k 8 -b a1 -B 8 | vg mod -X 8 - | vg validate -
 is $? 0 "chopping self-cycling nodes retains the cycle"
+
+vg mod -U 3 graphs/atgclinv2.vg | vg validate -
+is $? 0 "unrolling works and produces a valid graph"
+
+vg mod -U 3 graphs/atgclinv2.vg | vg mod -f 50 - | vg validate -
+is $? 0 "unfolding works and produces a valid graph"
