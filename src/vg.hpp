@@ -72,6 +72,12 @@ public:
     inline bool operator<(const NodeTraversal& other) const {
         return node < other.node || (node == other.node && backward < other.backward);
     }
+
+    // reverse complement the node traversal
+    inline NodeTraversal reverse(void) const {
+        return NodeTraversal(node, !backward);
+    }
+
 };
 
 inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
@@ -309,7 +315,11 @@ public:
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
     // generate a new graph that unrolls the current one
-    VG unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translation);
+    VG unroll(uint32_t max_length,
+              map<id_t, pair<id_t, bool> >& node_translation);
+    // represents the whole graph up to max_length across an inversion on the forward strand
+    VG unfold(uint32_t max_length,
+              map<id_t, pair<id_t, bool> >& node_translation);
     // removes pieces of the graph which are not part of any path
     void remove_non_path(void);
     // converts edges that are both from_start and to_end to "regular" ones from end to start
@@ -496,6 +506,13 @@ public:
     vector<Edge*> edges_of(Node* node);
     // Get the edges of the specified set of nodes, and add them to the given set of edge pointers.
     void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
+
+    // traversals before this node on the same strand
+    set<NodeTraversal> travs_to(NodeTraversal node);
+    // traversals after this node on the same strand
+    set<NodeTraversal> travs_from(NodeTraversal node);
+    // traversals before this node on the same strand
+    set<NodeTraversal> travs_of(NodeTraversal node);
     // Sides on the other side of edges to this side of the node
     set<NodeSide> sides_to(NodeSide side);
     // Sides on the other side of edges from this side of the node
@@ -580,6 +597,8 @@ public:
 
     // remove edges for which one of the nodes is not present
     void remove_orphan_edges(void);
+    // removes edges representing an inversion and edges on the reverse complement
+    void remove_inverting_edges(void);
     
     // Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     // The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
@@ -637,6 +656,9 @@ public:
     bool has_edge(const pair<NodeSide, NodeSide>& sides);
     bool has_edge(Edge* edge);
     bool has_edge(Edge& edge);
+    bool has_inverting_edge(Node* n);
+    bool has_inverting_edge_from(Node* n);
+    bool has_inverting_edge_to(Node* n);
     void for_each_edge(function<void(Edge*)> lambda);
     void for_each_edge_parallel(function<void(Edge*)> lambda);
 

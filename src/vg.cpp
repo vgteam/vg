@@ -1450,6 +1450,38 @@ bool VG::has_edge(const pair<NodeSide, NodeSide>& sides) {
     return has_edge(sides.first, sides.second);
 }
 
+bool VG::has_inverting_edge(Node* n) {
+    for (auto e : edges_of(n)) {
+        if ((e->from_start() || e->to_end())
+            && !(e->from_start() && e->to_end())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool VG::has_inverting_edge_from(Node* n) {
+    for (auto e : edges_of(n)) {
+        if (e->from() == n->id()
+            && (e->from_start() || e->to_end())
+            && !(e->from_start() && e->to_end())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool VG::has_inverting_edge_to(Node* n) {
+    for (auto e : edges_of(n)) {
+        if (e->to() == n->id()
+            && (e->from_start() || e->to_end())
+            && !(e->from_start() && e->to_end())) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // remove duplicated nodes and edges that would occur if we merged the graphs
 void VG::remove_duplicated_in(VG& g) {
     vector<Node*> nodes_to_destroy;
@@ -3428,6 +3460,34 @@ void VG::divide_path(map<long, id_t>& path, long pos, Node*& left, Node*& right)
         // right
         path[pos] = right->id();
     }
+}
+
+set<NodeTraversal> VG::travs_of(NodeTraversal node) {
+    auto tos = travs_to(node);
+    auto froms = travs_from(node);
+    set<NodeTraversal> ofs;
+    std::set_union(tos.begin(), tos.end(),
+                   froms.begin(), froms.end(),
+                   std::inserter(ofs, ofs.begin()));
+    return ofs;
+}
+
+// traversals before this node on the same strand
+set<NodeTraversal> VG::travs_to(NodeTraversal node) {
+    set<NodeTraversal> tos;
+    vector<NodeTraversal> tov;
+    nodes_prev(node, tov);
+    for (auto& t : tov) tos.insert(t);
+    return tos;
+}
+
+// traversals after this node on the same strand
+set<NodeTraversal> VG::travs_from(NodeTraversal node) {
+    set<NodeTraversal> froms;
+    vector<NodeTraversal> fromv;
+    nodes_next(node, fromv);
+    for (auto& t : fromv) froms.insert(t);
+    return froms;
 }
 
 void VG::nodes_prev(NodeTraversal node, vector<NodeTraversal>& nodes) {
@@ -7342,6 +7402,164 @@ void VG::force_path_match(void) {
     });
 }
 
+// walks up to max_length away from nodes that are in acyclic regions of the graph
+// and have an inversion, replacing it with a forward link and
+// adding the sequence on the other side of the inversion to the graph
+// so as to ensure that sequences up to length max_length that cross the inversion
+// would align to the forward component of the resulting graph
+VG VG::unfold(uint32_t max_length,
+              map<id_t, pair<id_t, bool> >& node_translation) {
+    VG unfolded = *this;
+    // Find the strongly connected components in the graph.
+    set<set<id_t>> strong_components = strongly_connected_components();
+    // maps from entry id to the set of nodes
+    // map from component root id to a translation
+    // that maps the unrolled id to the original node and whether we've inverted or not
+    // TODO
+    // we need to first collect the components so we can ask quickly if a certain node is in one
+    // then we need to
+    set<id_t> strongly_connected_nodes;
+    set<NodeTraversal> travs_to_flip;
+    set<Edge*> edges_to_flip;
+    set<Edge*> edges_to_forward;
+    set<Edge*> edges_from_forward;
+    for (auto& component : strong_components) {
+        // collect them so we can check in traversal
+        // that we don't run into one
+        if (component.size() > 1) {
+            for (auto i : component) strongly_connected_nodes.insert(i);
+        }
+    }
+    for (auto& component : strong_components) {
+        
+        if (component.size() > 1
+            || (component.size() == 1
+                && !has_inverting_edge(get_node(*component.begin())))) {
+            continue;
+        }
+        // we are a node in an acyclic component
+        // that has an inversion coming to it or going from it
+        // so let's build the graph out to N bp away on the other side of the inversion
+        //....
+
+        // we only need to follow inverting
+        // collect the set to invert
+        // and we'll copy them over
+        // then link back in according to how the inbound links work
+        // so as to eliminate the reversing edges
+        map<NodeTraversal, int32_t> seen;
+        function<void(NodeTraversal,int32_t)> walk = [&](NodeTraversal curr,
+                                                         int32_t length) {
+
+            // check if we've busted through our length limit
+            // or if we've seen this node before at an earlier step
+            // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
+            set<NodeTraversal> next;
+            travs_to_flip.insert(curr);
+            if (length <= 0 || seen.find(curr) != seen.end() && seen[curr] < length) return;
+            seen[curr] = length;
+            for (auto& trav : travs_from(curr)) {
+                if (!strongly_connected_nodes.count(trav.node->id())) {
+                    if (trav.backward) {
+                        edges_to_flip.insert(get_edge(curr, trav));
+                        walk(trav, length-1);
+                        // XXX switch back to this after testing
+                        //walk(trav, length-trav.node->sequence().size());
+                    } else {
+                        // we would not continue, but we should retain this edge because it brings
+                        // us back into the forward strand
+                        edges_to_forward.insert(get_edge(curr, trav));
+                    }
+                }
+            }
+            for (auto& trav : travs_to(curr)) {
+                if (!strongly_connected_nodes.count(trav.node->id())) {
+                    if (trav.backward) {
+                        edges_to_flip.insert(get_edge(trav, curr));
+                        walk(trav, length-1);
+                        // XXX switch back to this after testing
+                        //walk(trav, length-trav.node->sequence().size());
+                    } else {
+                        // we would not continue, but we should retain this edge because it brings
+                        // us back into the forward strand
+                        edges_from_forward.insert(get_edge(trav, curr));
+                    }
+                }
+            }
+        };
+        // run over the inversions from the node
+        for (auto& trav : travs_of(NodeTraversal(get_node(*component.begin()), false))) {
+            if (trav.backward) {
+                walk(trav,  max_length);
+            }
+        }
+    }
+    // now build out the component of the graph that's reversed
+
+    // our friend is map<id_t, pair<id_t, bool> >& node_translation;
+    map<NodeTraversal, id_t> inv_translation;
+    
+    // first adding nodes
+    cerr << endl;
+    cerr << "travs_to_flip " << endl;
+    for (auto t : travs_to_flip) {
+        // make a new node, add it to the flattened version
+        // record it in the translation
+        id_t i = unfolded.create_node(t.node->sequence() + "-")->id();
+        cerr << t << " -> " << i << endl;
+        node_translation[i] = make_pair(t.node->id(), t.backward);
+        inv_translation[t] = i;
+    } cerr << endl;
+    cerr << endl;
+    // then edges that we should translate into the reversed component
+    cerr << "edges_to_flip " << endl;
+    for (auto e : edges_to_flip) {
+        // both of the edges are now in nodes that have been flipped
+        // we need to find the new nodes and add the natural edge
+        // the edge will also be reversed
+        Edge f;
+        f.set_from(inv_translation[NodeTraversal(get_node(e->to()), true)]);
+        f.set_to(inv_translation[NodeTraversal(get_node(e->from()), true)]);
+        cerr << pb2json(*e) << " -> " << pb2json(f) << endl;
+        unfolded.add_edge(f);
+    } cerr << endl;
+    cerr << endl;
+    // finally the edges that take us from the reversed component back to the original graph
+    cerr << "edges_to_forward " << endl;
+    for (auto e : edges_to_forward) {
+        Edge f;
+        f.set_from(inv_translation[NodeTraversal(get_node(e->from()), true)]);
+        f.set_to(e->to());
+        cerr << pb2json(*e) << " -> " << pb2json(f) << endl;
+        unfolded.add_edge(f);
+    } cerr << endl;
+    cerr << endl;
+    cerr << "edges_from_forward " << endl;
+    for (auto e : edges_from_forward) {
+        Edge f;
+        f.set_from(e->from());
+        f.set_to(inv_translation[NodeTraversal(get_node(e->to()), true)]);
+        cerr << pb2json(*e) << " -> " << pb2json(f) << endl;
+        unfolded.add_edge(f);
+    } cerr << endl;
+    // now remove the edges which we were to flip
+    // (alternatively, remove all edges that invert)
+    unfolded.remove_inverting_edges();
+    return unfolded;
+}
+
+void VG::remove_inverting_edges(void) {
+    set<pair<NodeSide, NodeSide>> edges;
+    for_each_edge([this,&edges](Edge* edge) {
+            if (edge->from_start() || edge->to_end()) {
+                edges.insert(NodeSide::pair_from_edge(edge));
+            }
+        });
+    for (auto edge : edges) {
+        destroy_edge(edge);
+    }
+}
+
 // Unrolls the graph into a tree in which loops are "unrolled" into new nodes
 // up to some max length away from the root node and orientations are flipped.
 // A translation between the new nodes that are introduced and the old nodes and graph
@@ -7351,7 +7569,8 @@ void VG::force_path_match(void) {
 // selection of the new root may be important for performance.
 // Paths cannot be maintained provided their current implementation.
 // Annotated collections of nodes, or subgraphs, may be a way to preserve the relationshp.
-VG VG::unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translation) {
+VG VG::unroll(uint32_t max_length,
+              map<id_t, pair<id_t, bool> >& node_translation) {
     VG unrolled;
     // Find the strongly connected components in the graph.
     set<set<id_t>> strong_components = strongly_connected_components();
@@ -7360,6 +7579,7 @@ VG VG::unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translatio
     // ....
     // 
     map<id_t, VG> trees;
+    // maps from entry id to the set of nodes
     map<id_t, set<id_t> > components;
     // map from component root id to a translation
     // that maps the unrolled id to the original node and whether we've inverted or not
@@ -7372,171 +7592,181 @@ VG VG::unroll(uint32_t max_length, map<id_t, pair<id_t, bool> >& node_translatio
     // Anything outside the strongly connected components can be copied directly into the DAG.
     // We can also reuse the entry nodes to the strongly connected components.
     for (auto& component : strong_components) {
+        // is this node a single component?
+        // does this have an inversion as a child?
+        // let's add in inversions
+
         if (component.size() == 1) {
             // copy into the new graph
             id_t id = *component.begin();
+            node_translation[id] = make_pair(id, false);
+            // we will handle this node if it has an inversion originating from it
+            //if (!has_inverting_edge(get_node(id))) {
             //nonoverlapping_node_context_without_paths(get_node(id), unrolled);
             unrolled.add_node(*get_node(id));
-            node_translation[id] = make_pair(id, false);
-        } else {
-            // we have a multi-node component
-            // first find the entry points
-            // entry points will be nodes that have connections outside of the component
-            set<id_t> entries;
-            set<id_t> exits;
-            for (auto& n : component) {
-                for (auto& e : edges_of(get_node(n))) {
-                    if (!component.count(e->from())) {
-                        entries.insert(n);
-                    }
-                    if (!component.count(e->to())) {
-                        exits.insert(n);
-                    }
+            continue;
+            //}
+            // otherwise we will consider it as a component
+            // and it will be unrolled max_length bp
+        }
+
+        // we have a multi-node component
+        // first find the entry points
+        // entry points will be nodes that have connections outside of the component
+        set<id_t> entries;
+        set<id_t> exits;
+        for (auto& n : component) {
+            for (auto& e : edges_of(get_node(n))) {
+                if (!component.count(e->from())) {
+                    entries.insert(n);
+                }
+                if (!component.count(e->to())) {
+                    exits.insert(n);
                 }
             }
+        }
 
-            // Use backtracking search starting from each entry node of each strongly
-            // connected component, keeping track of the nodes on the path from the
-            // entry node to the current node:
-            for (auto entrypoint : entries) {
-                // each entry point is going to make a tree
-                // we can merge them later with some tricks
-                // for now just make the tree
-                VG& tree = trees[entrypoint];
-                components[entrypoint] = component;
-                // maps from new ids to old ones
-                map<id_t, pair<id_t, bool> >& trans = translations[entrypoint];
-                // maps from old to new ids
-                map<pair<id_t, bool>, set<id_t> >& itrans = inv_translations[entrypoint];
+        // Use backtracking search starting from each entry node of each strongly
+        // connected component, keeping track of the nodes on the path from the
+        // entry node to the current node:
+        for (auto entrypoint : entries) {
+            // each entry point is going to make a tree
+            // we can merge them later with some tricks
+            // for now just make the tree
+            VG& tree = trees[entrypoint];
+            components[entrypoint] = component;
+            // maps from new ids to old ones
+            map<id_t, pair<id_t, bool> >& trans = translations[entrypoint];
+            // maps from old to new ids
+            map<pair<id_t, bool>, set<id_t> >& itrans = inv_translations[entrypoint];
 
-                /*
-                // backtracking search
+            /*
+            // backtracking search
 
-                procedure bt(c)
-                  if reject(P,c) then return
-                  if accept(P,c) then output(P,c)
-                  s ← first(P,c)
-                  while s ≠ Λ do
-                    bt(s)
-                    s ← next(P,s)
-                */
+            procedure bt(c)
+            if reject(P,c) then return
+            if accept(P,c) then output(P,c)
+            s ← first(P,c)
+            while s ≠ Λ do
+            bt(s)
+            s ← next(P,s)
+            */
 
                 
-                function<void(pair<id_t,bool>,id_t,bool,uint32_t)> bt = [&](pair<id_t, bool> curr,
-                                                                            id_t parent,
-                                                                            bool in_cycle,
-                                                                            uint32_t length) {
-                    // i.   If the current node is outside the component,
-                    //       terminate this branch and return to the previous branching point.
-                    cerr << "on node " << curr.first << ":" << (curr.second?"-":"+") << " "
-                         << (in_cycle?"in_cycle":"not in_cycle") << " " << length << endl;
-                    if (!component.count(curr.first)) {
-                        cerr << "current component doesn't have node "
-                             << curr.first << ":" << (curr.second?"-":"+") << endl;
-                        return;
-                    }
-                    // ii.  Create a new copy of the current node in the DAG
-                    //       and use that copy for this branch.
-                    string curr_node_seq = get_node(curr.first)->sequence();
-                    curr_node_seq += (curr.second?"-":"+");
-                    //if (curr.second) curr_node_seq = reverse_complement(curr_node_seq);
-                    // use the forward orientation by default
-                    id_t cn = tree.create_node(curr_node_seq)->id();
-                    // record the mapping from the new id to the old
-                    trans[cn] = curr;
-                    // and record the inverse mapping
-                    itrans[curr].insert(cn);
-                    // and build the tree by connecting to our parent
-                    if (parent) {
-                        cerr << "parent " << parent << " trans " << trans[parent].first
-                             << ":" << (trans[parent].second?"-":"+") << endl;
-                        tree.create_edge(parent, cn);
-                    }
-                    cerr << "created new node " << cn << endl;
-                    cerr << "translation is " << trans[cn].first
-                         << ":" << (trans[cn].second?"-":"+") << endl;
+            function<void(pair<id_t,bool>,id_t,bool,uint32_t)> bt = [&](pair<id_t, bool> curr,
+                                                                        id_t parent,
+                                                                        bool in_cycle,
+                                                                        uint32_t length) {
+                // i.   If the current node is outside the component,
+                //       terminate this branch and return to the previous branching point.
+                cerr << "on node " << curr.first << ":" << (curr.second?"-":"+") << " "
+                << (in_cycle?"in_cycle":"not in_cycle") << " " << length << endl;
+                if (!component.count(curr.first)) {
+                    cerr << "current component doesn't have node "
+                         << curr.first << ":" << (curr.second?"-":"+") << endl;
+                    return;
+                }
+                // ii.  Create a new copy of the current node in the DAG
+                //       and use that copy for this branch.
+                string curr_node_seq = get_node(curr.first)->sequence();
+                curr_node_seq += (curr.second?"-":"+");
+                //if (curr.second) curr_node_seq = reverse_complement(curr_node_seq);
+                // use the forward orientation by default
+                id_t cn = tree.create_node(curr_node_seq)->id();
+                // record the mapping from the new id to the old
+                trans[cn] = curr;
+                // and record the inverse mapping
+                itrans[curr].insert(cn);
+                // and build the tree by connecting to our parent
+                if (parent) {
+                    cerr << "parent " << parent << " trans " << trans[parent].first
+                         << ":" << (trans[parent].second?"-":"+") << endl;
+                    tree.create_edge(parent, cn);
+                }
+                cerr << "created new node " << cn << endl;
+                cerr << "translation is " << trans[cn].first
+                << ":" << (trans[cn].second?"-":"+") << endl;
 
-                    // iii. If we have found the first cycle in the current branch
-                    //       (the current node is the first one occurring twice in the path),
-                    //       initialize path length to 1 for this branch.
-                    //       (We need to find a k-path starting from the last offset of the previous node.)
-                    // walk the path back to the root to determine if we are the first cycling node
-                    id_t p = cn;
-                    cerr << "starting walk back " << p << endl;
-                    // check is borked
-                    while (!in_cycle) { // && trans[p] != entrypoint) {
-                        cerr << "iii. walking the path back " << trans[p].first << " aka " << p << endl;
-                        auto parents = tree.sides_to(NodeSide(p));
-                        for (auto f : parents) cerr << f << endl;
-                        if (parents.size() < 1) { break; }
-                        p = parents.begin()->node;
-                        cerr << "found " << p << endl;
-                        // this node cycles
-                        if (trans[p] == trans[cn]) {
-                            cerr << "which cycles!!!" << endl;
-                            in_cycle = true;
-                            length = 1;
-                            break;
-                        }
+                // iii. If we have found the first cycle in the current branch
+                //       (the current node is the first one occurring twice in the path),
+                //       initialize path length to 1 for this branch.
+                //       (We need to find a k-path starting from the last offset of the previous node.)
+                // walk the path back to the root to determine if we are the first cycling node
+                id_t p = cn;
+                cerr << "starting walk back " << p << endl;
+                // check is borked
+                while (!in_cycle) { // && trans[p] != entrypoint) {
+                    cerr << "iii. walking the path back " << trans[p].first << " aka " << p << endl;
+                    auto parents = tree.sides_to(NodeSide(p));
+                    for (auto f : parents) cerr << f << endl;
+                    if (parents.size() < 1) { break; }
+                    p = parents.begin()->node;
+                    cerr << "found " << p << endl;
+                    // this node cycles
+                    if (trans[p] == trans[cn]) {
+                        cerr << "which cycles!!!" << endl;
+                        in_cycle = true;
+                        length = 1;
+                        break;
                     }
+                }
                     
-                    // iv.  If we have found a cycle in the current branch,
-                    //       increment path length by the length of the label of the current node.
-                    if (in_cycle) {
-                        cerr << "we are in a cycle, adding " << curr_node_seq.length() << endl;
-                        //length += curr_node_seq.length();
-                        length += 1; // for testing XXXXX
-                    }
+                // iv.  If we have found a cycle in the current branch,
+                //       increment path length by the length of the label of the current node.
+                if (in_cycle) {
+                    cerr << "we are in a cycle, adding " << curr_node_seq.length() << endl;
+                    //length += curr_node_seq.length();
+                    length += 1; // for testing XXXXX
+                }
 
-                    // v.   If path length >= k, terminate this branch
-                    //       and return to the previous branching point.
-                    if (length >= max_length) {
-                        cerr << "length be more than max length" << endl;
-                        return;
-                    } else {
-                        // for each next node
-                        if (!curr.second) {
-                            // forward direction -- sides from end
-                            for (auto& side : sides_from(node_end(curr.first))) {
-                                // we enter the next node in the forward direction if the side is
-                                // the start, and the reverse if it is the end
-                                bt(make_pair(side.node, side.is_end), cn, in_cycle, length);
-                            }
-                            // this handles the case of doubly-inverted edges (from start to end)
-                            // which we can follow as if they are forward
-                            // we stay on the same strand
-                            for (auto& side : sides_to(node_end(curr.first))) {
-                                // we enter the next node in the forward direction if the side coming
-                                // from the start, and the reverse if it is the end
-                                bt(make_pair(side.node, !side.is_end), cn, in_cycle, length);
-                            }
-                        } else { // we've inverted already
-                            // so we look at the things that leave the node on the reverse strand
-                            // inverted
-                            for (auto& side : sides_from(node_start(curr.first))) {
-                                // here, sides from the start to the end maintain the flip
-                                // but if we go to the start of the next node, we invert back
-                                bt(make_pair(side.node, side.is_end), cn, in_cycle, length);
-                            }
-                            // odd, but important quirk
-                            // we also follow the normal edges, but in the reverse direction
-                            // because we store them in the forward orientation
-                            for (auto& side : sides_to(node_start(curr.first))) {
-                                bt(make_pair(side.node, side.is_end), cn, in_cycle, length);
-                            }
+                // v.   If path length >= k, terminate this branch
+                //       and return to the previous branching point.
+                if (length >= max_length) {
+                    cerr << "length be more than max length" << endl;
+                    return;
+                } else {
+                    // for each next node
+                    if (!curr.second) {
+                        // forward direction -- sides from end
+                        for (auto& side : sides_from(node_end(curr.first))) {
+                            // we enter the next node in the forward direction if the side is
+                            // the start, and the reverse if it is the end
+                            bt(make_pair(side.node, side.is_end), cn, in_cycle, length);
+                        }
+                        // this handles the case of doubly-inverted edges (from start to end)
+                        // which we can follow as if they are forward
+                        // we stay on the same strand
+                        for (auto& side : sides_to(node_end(curr.first))) {
+                            // we enter the next node in the forward direction if the side coming
+                            // from the start, and the reverse if it is the end
+                            bt(make_pair(side.node, !side.is_end), cn, in_cycle, length);
+                        }
+                    } else { // we've inverted already
+                        // so we look at the things that leave the node on the reverse strand
+                        // inverted
+                        for (auto& side : sides_from(node_start(curr.first))) {
+                            // here, sides from the start to the end maintain the flip
+                            // but if we go to the start of the next node, we invert back
+                            bt(make_pair(side.node, side.is_end), cn, in_cycle, length);
+                        }
+                        // odd, but important quirk
+                        // we also follow the normal edges, but in the reverse direction
+                        // because we store them in the forward orientation
+                        for (auto& side : sides_to(node_start(curr.first))) {
+                            bt(make_pair(side.node, side.is_end), cn, in_cycle, length);
                         }
                     }
+                }
 
-                };
+            };
                 
-                // we start with the entrypoint and run backtracking search
-                bt(make_pair(entrypoint, false), 0, false, 0);
+            // we start with the entrypoint and run backtracking search
+            bt(make_pair(entrypoint, false), 0, false, 0);
 
-                stringstream s;
-                s << "tree-" << entrypoint << ".vg";
-                tree.serialize_to_file(s.str());
+            stringstream s;
+            s << "tree-" << entrypoint << ".vg";
+            tree.serialize_to_file(s.str());
                                 
-            }
         }
     }
 
