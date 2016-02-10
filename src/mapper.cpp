@@ -1258,8 +1258,11 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 path = ta.mutable_path();
                 idf = path->mutable_mapping(0)->position().node_id();
                 idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
+                cerr << "before distance to head" << endl;
                 d_to_head = graph->distance_to_head(NodeTraversal(graph->get_node(idf), false), sc_start*3);
+                cerr << "before distance to tail" << endl;
                 d_to_tail = graph->distance_to_tail(NodeTraversal(graph->get_node(idl), false), sc_end*3);
+                cerr << "done" << endl;
             }
 
             delete graph;

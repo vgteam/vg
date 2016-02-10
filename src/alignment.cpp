@@ -781,7 +781,25 @@ Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug)
     return a3;
 }
 
-void flip_nodes(Alignment& a, set<int64_t> ids, const std::function<size_t(int64_t)>& node_length) {
+void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length) {
+    Path* path = a.mutable_path();
+    for(size_t i = 0; i < path->mapping_size(); i++) {
+        // Grab each mapping (includes its position)
+        Mapping* mapping = path->mutable_mapping(i);
+        auto pos = mapping->position();
+        auto oldp = ids.find(pos.node_id());
+        if (oldp != ids.end()) {
+            auto& old = oldp->second;
+            mapping->mutable_position()->set_node_id(old.first);
+            if (old.second) {
+                // We need to flip this mapping
+                *mapping = reverse_mapping(*mapping, node_length);
+            }
+        }
+    }
+}
+
+void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_t(int64_t)>& node_length) {
     Path* path = a.mutable_path();
     for(size_t i = 0; i < path->mapping_size(); i++) {
         // Grab each mapping (includes its position)

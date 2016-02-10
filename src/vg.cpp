@@ -5785,61 +5785,72 @@ void VG::add_start_end_markers(int length,
 
 }
 
+map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
+                                                           const map<id_t, pair<id_t, bool> >& under) {
+    map<id_t, pair<id_t, bool> > overlay = under;
+    // for each over, check if we should map to the under
+    // if so, adjust
+    for (auto& o : over) {
+        id_t new_id = o.first;
+        id_t old_id = o.second.first;
+        bool is_rev = o.second.second;
+        auto u = under.find(old_id);
+        if (u != under.end()) {
+            id_t oldest_id = u->second.first;
+            bool was_rev = u->second.second;
+            overlay[new_id] = make_pair(oldest_id,
+                                        is_rev ^ was_rev);
+            /*
+            cerr << "double trans "
+                 << new_id << " -> " << old_id
+                 << " -> " << oldest_id << endl;
+            */
+        } else {
+            overlay[o.first] = o.second;
+        }
+    }
+    /*
+    for (auto& o : overlay) {
+        cerr << o.first << " -> " << o.second.first
+             << (o.second.second?"-":"+") << endl;
+    }
+    */
+    return overlay;
+}
+
 Alignment VG::align(const Alignment& alignment) {
 
     // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
     auto aln = alignment;
-    //serialize_to_file("init-align.vg");
-//    Node* root = join_heads();
 
-    // we join first and then flip due to issue #116
-    set<id_t> flipped_nodes;
-    //VG pre = *this;
-    orient_nodes_forward(flipped_nodes);
-    //serialize_to_file("flip-align.vg");
-
-    Node* root = join_heads();
+    map<id_t, pair<id_t, bool> > unroll_trans;
+    map<id_t, pair<id_t, bool> > unfold_trans;
+    uint32_t max_length = alignment.sequence().size();
+    cerr << "unrolling" << endl;
+    VG dag = unroll(max_length, unroll_trans);
+    cerr << "unfolding" << endl;
+    dag = dag.unfold(max_length, unfold_trans);
+    cerr << "unfolded" << endl;
+    // overlay the translations
+    auto trans = overlay_node_translations(unfold_trans, unroll_trans);
+    // Join to a common root, so alignment covers the entire graph
+    Node* root = dag.join_heads();
     // Put the nodes in sort order within the graph
-    sort();
+    dag.sort();
 
-    gssw_aligner = new GSSWAligner(graph);
+    gssw_aligner = new GSSWAligner(dag.graph);
     gssw_aligner->align(aln);
 
     delete gssw_aligner;
     gssw_aligner = NULL;
 
-    destroy_node(root);
-
-    //serialize_to_file("before_flip.vg");
-    //write_alignment_to_file(aln, "before_flip.gam");
-
-    // is the alignment correct?
-    /*
-    if (aln.path().mapping_size() && path_sequence(aln.path()) != alignment.sequence()) {
-        cerr << "failure before flip" << endl;
-        assert(false);
-    }
-    */
-
-    flip_nodes(aln, flipped_nodes, [this](id_t node_id) {
+    serialize_to_file("graph-post-align.vg");
+    dag.serialize_to_file("dag-post-align.vg");
+    cerr << pb2json(aln) << endl;
+    translate_nodes(aln, trans, [&](id_t node_id) {
             // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
             return get_node(node_id)->sequence().size();
         });
-
-    // is the alignment correct?
-    /*
-    if (aln.path().mapping_size() && path_sequence(aln.path()) != alignment.sequence()) {
-        cerr << "failure after flip" << endl;
-        cerr << "flipped: ";
-        for (auto id : flipped_nodes) {
-            cerr << id << " ";
-        }
-        cerr << endl;
-        pre.serialize_to_file("fail_after_flip.vg");
-        write_alignment_to_file(aln, "fail_after_flip.gam");
-        assert(false);
-    }
-    */
 
     return aln;
 }

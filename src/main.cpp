@@ -959,7 +959,7 @@ int main_msga(int argc, char** argv) {
                 ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
                 stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                 f.close();
-                graph->serialize_to_file(name + "-corrupted-alignment.vg");
+                //graph->serialize_to_file(name + "-corrupted-alignment.vg");
                 exit(1);
             }
             alns.push_back(aln);
@@ -978,10 +978,10 @@ int main_msga(int argc, char** argv) {
             ++j;
 
             if (debug) cerr << name << ": editing graph" << endl;
-            graph->serialize_to_file(name + "-pre-edit.vg");
+            //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
             if (!graph->is_valid()) cerr << "invalid after edit" << endl;
-            graph->serialize_to_file(name + "-immed-post-edit.vg");
+            //graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
@@ -1000,7 +1000,7 @@ int main_msga(int argc, char** argv) {
             // XXX
 
             // check that all is well
-            graph->serialize_to_file(name + "-pre-index.vg");
+            //graph->serialize_to_file(name + "-pre-index.vg");
             rebuild(graph);
 
             // verfy validity of path

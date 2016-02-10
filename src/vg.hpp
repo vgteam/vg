@@ -320,6 +320,8 @@ public:
     // represents the whole graph up to max_length across an inversion on the forward strand
     VG unfold(uint32_t max_length,
               map<id_t, pair<id_t, bool> >& node_translation);
+    map<id_t, pair<id_t, bool> > overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
+                                                           const map<id_t, pair<id_t, bool> >& under);
     // removes pieces of the graph which are not part of any path
     void remove_non_path(void);
     // converts edges that are both from_start and to_end to "regular" ones from end to start
