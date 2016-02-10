@@ -36,6 +36,7 @@
 #include "colors.hpp"
 
 #include "types.hpp"
+#include "gfakluge.hpp"
 
 // uncomment to enable verbose debugging to stderr
 //#define debug
@@ -436,7 +437,7 @@ public:
     // them to the given map by node ID of sets of bases in the node that will need
     // to become the starts of new nodes.
    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
-    
+
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
     // break the specified nodes at those positions. Returns a map from old node
@@ -446,7 +447,7 @@ public:
     map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // flips the breakpoints onto the forward strand
-    
+
    // Given a path on nodes that may or may not exist, and a map from node ID
     map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
@@ -660,8 +661,8 @@ public:
                 bool invert_edge_ports = false,
                 int random_seed = 0,
                 bool color_variants = false);
-                
-    
+
+
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
                             bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
    void to_gfa(ostream& out);

@@ -637,7 +637,7 @@ void VG::simplify_siblings(void) {
             transitive_sibling_sets(from_sibs)));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
-    
+
 }
 
 void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
@@ -2050,89 +2050,112 @@ void VG::from_gfa(istream& in, bool showp) {
         exit(1);
     };
 
-    id_t id1, id2;
-    size_t rank;
-    string seq;
-    char side1, side2;
-    string cigar;
-    string path_name;
-    bool is_reverse = false;
-    while(std::getline(in, line)) {
-        stringstream ss(line);
-        string item;
-        int field = 0;
-        char type = '\0';
-        while(std::getline(ss, item, '\t')) {
-            switch (field++) {
-            case 0:
-                type = item[0];
-                switch (type) {
-                case 'L': break;
-                case 'S': break;
-                case 'H': break;
-                case 'P': break;
-                default:
-                    cerr << "[vg] error: unrecognized field type " << type << endl;
-                    exit(1);
-                    break;
-                }
-                break;
-            case 1: id1 = atol(item.c_str()); break;
-            case 2: {
-                switch (type) {
-                case 'S': seq = item; break;
-                case 'L': side1 = item[0]; break;
-                case 'P': path_name = item; break;
-                default: break;
-                }
-            } break;
-            case 3:
-                switch (type) {
-                case 'L': id2 = atol(item.c_str()); break;
-                case 'S': too_many_fields(); break;
-                case 'P': rank = atol(item.c_str());
-                default: break;
-                }
-                break;
-            case 4:
-                switch (type) {
-                case 'L': side2 = item[0]; break;
-                case 'S': too_many_fields(); break;
-                case 'P': is_reverse = (item == "+" ? false : true); break;
-                default: break;
-                }
-                break;
-            case 5:
-                switch (type) {
-                case 'L': cigar = item; break;
-                case 'S': too_many_fields(); break;
-                case 'P': cigar = item; break;
-                default: break;
-                }
-                break;
-            default:
-                too_many_fields();
-                break;
-            }
-        }
+		GFAKluge gg;
+		gg.parse_gfa_file(in);
 
-        // now that we've parsed, add to the graph
-        if (type == 'S') {
-            Node node;
-            node.set_sequence(seq);
-            node.set_id(id1);
-            add_node(node);
-        } else if (type == 'L') {
-            Edge edge;
-            edge.set_from(id1);
-            edge.set_to(id2);
-            if (side1 == '-') edge.set_from_start(true);
-            if (side2 == '-') edge.set_to_end(true);
-            add_edge(edge);
-        } else if (type == 'P') {
-            paths.append_mapping(path_name, id1, rank, is_reverse);
-        }
-    }
+
+
+		if (type == 'S') {
+				Node node;
+				node.set_sequence(seq);
+				node.set_id(id1);
+				add_node(node);
+		} else if (type == 'L') {
+				Edge edge;
+				edge.set_from(id1);
+				edge.set_to(id2);
+				if (side1 == '-') edge.set_from_start(true);
+				if (side2 == '-') edge.set_to_end(true);
+				add_edge(edge);
+		} else if (type == 'P') {
+				paths.append_mapping(path_name, id1, rank, is_reverse);
+		}
+
+
+
+    // id_t id1, id2;
+    // size_t rank;
+    // string seq;
+    // char side1, side2;
+    // string cigar;
+    // string path_name;
+    // bool is_reverse = false;
+    // while(std::getline(in, line)) {
+    //     stringstream ss(line);
+    //     string item;
+    //     int field = 0;
+    //     char type = '\0';
+    //     while(std::getline(ss, item, '\t')) {
+    //         switch (field++) {
+    //         case 0:
+    //             type = item[0];
+    //             switch (type) {
+    //             case 'L': break;
+    //             case 'S': break;
+    //             case 'H': break;
+    //             case 'P': break;
+    //             default:
+    //                 cerr << "[vg] error: unrecognized field type " << type << endl;
+    //                 exit(1);
+    //                 break;
+    //             }
+    //             break;
+    //         case 1: id1 = atol(item.c_str()); break;
+    //         case 2: {
+    //             switch (type) {
+    //             case 'S': seq = item; break;
+    //             case 'L': side1 = item[0]; break;
+    //             case 'P': path_name = item; break;
+    //             default: break;
+    //             }
+    //         } break;
+    //         case 3:
+    //             switch (type) {
+    //             case 'L': id2 = atol(item.c_str()); break;
+    //             case 'S': too_many_fields(); break;
+    //             case 'P': rank = atol(item.c_str());
+    //             default: break;
+    //             }
+    //             break;
+    //         case 4:
+    //             switch (type) {
+    //             case 'L': side2 = item[0]; break;
+    //             case 'S': too_many_fields(); break;
+    //             case 'P': is_reverse = (item == "+" ? false : true); break;
+    //             default: break;
+    //             }
+    //             break;
+    //         case 5:
+    //             switch (type) {
+    //             case 'L': cigar = item; break;
+    //             case 'S': too_many_fields(); break;
+    //             case 'P': cigar = item; break;
+    //             default: break;
+    //             }
+    //             break;
+    //         default:
+    //             too_many_fields();
+    //             break;
+    //         }
+    //     }
+		//
+    //     // now that we've parsed, add to the graph
+    //     if (type == 'S') {
+    //         Node node;
+    //         node.set_sequence(seq);
+    //         node.set_id(id1);
+    //         add_node(node);
+    //     } else if (type == 'L') {
+    //         Edge edge;
+    //         edge.set_from(id1);
+    //         edge.set_to(id2);
+    //         if (side1 == '-') edge.set_from_start(true);
+    //         if (side2 == '-') edge.set_to_end(true);
+    //         add_edge(edge);
+    //     } else if (type == 'P') {
+    //         paths.append_mapping(path_name, id1, rank, is_reverse);
+    //     }
+    // }
 }
 
 void VG::print_edges(void) {
