@@ -1449,6 +1449,7 @@ void help_mod(char** argv) {
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
          << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
          << "    -z, --sort              sort the graph using an approximate topological sort" << endl
+         << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
          << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
          << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
@@ -1456,6 +1457,7 @@ void help_mod(char** argv) {
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
          << "    -U, --unroll N          unroll cycles in the graph, preserving paths of length N" << endl
+         << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
          << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
          << "                            component of the graph" << endl
          << "    -d, --drop-paths        remove the paths of the graph" << endl
@@ -1517,6 +1519,8 @@ int main_mod(int argc, char** argv) {
     bool strong_connect = false;
     uint32_t unroll_to = 0;
     uint32_t unfold_to = 0;
+    uint32_t unroll_max_branch = 0;
+    bool break_cycles = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1544,7 +1548,7 @@ int main_mod(int argc, char** argv) {
                 {"normalize", no_argument, 0, 'n'},
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
-                //{"orient-forward", no_argument, 0, 'f'},
+                {"orient-forward", no_argument, 0, 'O'},
                 {"unfold", required_argument, 0, 'f'},
                 {"force-path-match", no_argument, 0, 'F'},
                 {"retain-path", required_argument, 0, 'r'},
@@ -1553,11 +1557,13 @@ int main_mod(int argc, char** argv) {
                 {"remove-null", no_argument, 0, 'R'},
                 {"strong-connect", no_argument, 0, 'T'},
                 {"unroll", required_argument, 0, 'U'},
+                {"max-branch", required_argument, 0, 'B'},
+                {"break-cycles", no_argument, 0, 'b'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CdFr:g:x:RTU:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CdFr:g:x:RTU:B:b",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1663,8 +1669,20 @@ int main_mod(int argc, char** argv) {
             unroll_to = atoi(optarg);
             break;
 
+        case 'B':
+            unroll_max_branch = atoi(optarg);
+            break;
+
+        case 'O':
+            orient_forward = true;
+            break;
+
         case 'z':
             sort_graph = true;
+            break;
+
+        case 'b':
+            break_cycles = true;
             break;
 
         case 'g':
@@ -1740,16 +1758,14 @@ int main_mod(int argc, char** argv) {
         graph->force_path_match();
     }
 
-    /*
     if (orient_forward) {
         set<int64_t> flipped;
         graph->orient_nodes_forward(flipped);
     }
-    */
 
     if (unroll_to) {
         map<int64_t, pair<int64_t, bool> > node_translation;
-        *graph = graph->unroll(unroll_to, node_translation);
+        *graph = graph->unroll(unroll_to, unroll_max_branch, node_translation);
     }
 
     if (unfold_to) {
@@ -1763,6 +1779,10 @@ int main_mod(int argc, char** argv) {
 
     if (sort_graph) {
         graph->sort();
+    }
+
+    if (break_cycles) {
+        graph->break_cycles();
     }
 
     // to subset the graph

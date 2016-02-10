@@ -936,7 +936,8 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     string seq;
     // todo reverse the mapping
     function<id_t(id_t)> lambda = [&node_seq](id_t i){return node_seq.size();};
-    Mapping m = (mp.position().is_reverse() ? reverse_mapping(mp, lambda) : mp);
+    Mapping m = (mp.position().is_reverse()
+                 ? reverse_complement_mapping(mp, lambda) : mp);
     // then edit in the forward direction (easier)
     // and, if the mapping is reversed, finally reverse-complement the result
     size_t t = 0;
@@ -965,7 +966,8 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     return (mp.position().is_reverse() ? reverse_complement(seq) : seq);
 }
 
-Mapping reverse_mapping(const Mapping& m, const function<id_t(id_t)>& node_length) {
+Mapping reverse_complement_mapping(const Mapping& m,
+                                   const function<id_t(id_t)>& node_length) {
     // Make a new reversed mapping
     Mapping reversed = m;
 
@@ -986,13 +988,14 @@ Mapping reverse_mapping(const Mapping& m, const function<id_t(id_t)>& node_lengt
 
     for(size_t i = m.edit_size() - 1; i != (size_t) -1; i--) {
         // For each edit in reverse order, put it in reverse complemented
-        *reversed.add_edit() = reverse_edit(m.edit(i));
+        *reversed.add_edit() = reverse_complement_edit(m.edit(i));
     }
 
     return reversed;
 }
 
-Path reverse_path(const Path& path, const function<id_t(id_t)>& node_length) {
+Path reverse_complement_path(const Path& path,
+                             const function<id_t(id_t)>& node_length) {
     // Make a new reversed path
     Path reversed = path;
 
@@ -1002,7 +1005,7 @@ Path reverse_path(const Path& path, const function<id_t(id_t)>& node_length) {
     for(size_t i = path.mapping_size() - 1; i != (size_t) -1; i--) {
         // For each mapping in reverse order, put it in reverse complemented and
         // measured from the other end of the node.
-        *reversed.add_mapping() = reverse_mapping(path.mapping(i), node_length);
+        *reversed.add_mapping() = reverse_complement_mapping(path.mapping(i), node_length);
     }
     for (size_t i = 0; i < path.mapping_size(); ++i) {
         reversed.mutable_mapping(i)->set_rank(i+1);

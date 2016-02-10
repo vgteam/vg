@@ -611,15 +611,16 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
     return res;
 }
 
-vector<Alignment> reverse_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length) {
+vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length) {
     vector<Alignment> revalns;
     for (auto& aln : alns) {
-        revalns.push_back(reverse_alignment(aln, node_length));
+        revalns.push_back(reverse_complement_alignment(aln, node_length));
     }
     return revalns;
 }
 
-Alignment reverse_alignment(const Alignment& aln, const function<int64_t(int64_t)>& node_length) {
+Alignment reverse_complement_alignment(const Alignment& aln,
+                                       const function<int64_t(int64_t)>& node_length) {
     // We're going to reverse the alignment and all its mappings.
     // TODO: should we/can we do this in place?
     
@@ -627,12 +628,11 @@ Alignment reverse_alignment(const Alignment& aln, const function<int64_t(int64_t
     reversed.set_sequence(reverse_complement(aln.sequence()));
     
     if(aln.has_path()) {
-    
         // Now invert the order of the mappings, and for each mapping, flip the
         // is_reverse flag. The edits within mappings also get put in reverse
         // order, get their positions corrected, and get their sequences get
         // reverse complemented.
-        *reversed.mutable_path() = reverse_path(aln.path(), node_length);
+        *reversed.mutable_path() = reverse_complement_path(aln.path(), node_length);
     }
     
     return reversed;
@@ -793,7 +793,7 @@ void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, cons
             mapping->mutable_position()->set_node_id(old.first);
             if (old.second) {
                 // We need to flip this mapping
-                *mapping = reverse_mapping(*mapping, node_length);
+                *mapping = reverse_complement_mapping(*mapping, node_length);
             }
         }
     }
@@ -806,7 +806,7 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
         Mapping* mapping = path->mutable_mapping(i);
         if(ids.count(mapping->position().node_id())) {
             // We need to flip this mapping
-            *mapping = reverse_mapping(*mapping, node_length);
+            *mapping = reverse_complement_mapping(*mapping, node_length);
         } 
     }
 }
