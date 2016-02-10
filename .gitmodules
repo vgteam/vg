@@ -40,15 +40,12 @@
 [submodule "sdsl-lite"]
 	path = deps/sdsl-lite
     url = https://github.com/simongog/sdsl-lite
-[submodule "deps/gfakluge"]
-	path = deps/gfakluge
-	url = https://github.com/edawson/gfaKluge.git
 [submodule "deps/libVCFH"]
 	path = deps/libVCFH
 	url = https://github.com/edawson/libVCFH.git
 [submodule "deps/sparsehash"]
 	path = deps/sparsehash
 	url = https://github.com/sparsehash/sparsehash.git
-[submodule "deps/gfakluge"]
-	path = deps/gfakluge
-	url = https://github.com/edawson/gfaKluge.git
+[submodule "gfakluge"]
+    path = deps/gfakluge
+    url = https://github.com/edawson/gfakluge.git

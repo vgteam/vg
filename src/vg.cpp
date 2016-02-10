@@ -4,6 +4,7 @@
 namespace vg {
 
 using namespace std;
+using namespace gfak;
 
 
 // construct from a stream of protobufs
@@ -2053,109 +2054,31 @@ void VG::from_gfa(istream& in, bool showp) {
 		GFAKluge gg;
 		gg.parse_gfa_file(in);
 
+		map<string, sequence_elem> name_to_seq = gg.get_name_to_seq();
+		map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
+		map<string, sequence_elem>::iterator it;
+		for (it = name_to_seq.begin(); it != name_to_seq.end(); it++){
+			auto source_id = atol((it->second).name.c_str());
+			//Make us some nodes
+			Node n;
+			n.set_sequence((it->second).sequence);
+			n.set_id(source_id);
+			add_node(n);
+			// Now some edges. Since they're placed in this map
+			// by their from_node, it's no big deal to just iterate
+			// over them.
+			for (link_elem l : seq_to_link[(it->second).name]){
+				auto sink_id = atol(l.sink_name.c_str());
+				Edge e;
+				e.set_from(source_id);
+				e.set_to(sink_id);
+				e.set_from_start(l.source_orientation_forward);
+				e.set_to_end(l.sink_orientation_forward);
+				add_edge(e);
+			}
 
-
-		if (type == 'S') {
-				Node node;
-				node.set_sequence(seq);
-				node.set_id(id1);
-				add_node(node);
-		} else if (type == 'L') {
-				Edge edge;
-				edge.set_from(id1);
-				edge.set_to(id2);
-				if (side1 == '-') edge.set_from_start(true);
-				if (side2 == '-') edge.set_to_end(true);
-				add_edge(edge);
-		} else if (type == 'P') {
-				paths.append_mapping(path_name, id1, rank, is_reverse);
 		}
 
-
-
-    // id_t id1, id2;
-    // size_t rank;
-    // string seq;
-    // char side1, side2;
-    // string cigar;
-    // string path_name;
-    // bool is_reverse = false;
-    // while(std::getline(in, line)) {
-    //     stringstream ss(line);
-    //     string item;
-    //     int field = 0;
-    //     char type = '\0';
-    //     while(std::getline(ss, item, '\t')) {
-    //         switch (field++) {
-    //         case 0:
-    //             type = item[0];
-    //             switch (type) {
-    //             case 'L': break;
-    //             case 'S': break;
-    //             case 'H': break;
-    //             case 'P': break;
-    //             default:
-    //                 cerr << "[vg] error: unrecognized field type " << type << endl;
-    //                 exit(1);
-    //                 break;
-    //             }
-    //             break;
-    //         case 1: id1 = atol(item.c_str()); break;
-    //         case 2: {
-    //             switch (type) {
-    //             case 'S': seq = item; break;
-    //             case 'L': side1 = item[0]; break;
-    //             case 'P': path_name = item; break;
-    //             default: break;
-    //             }
-    //         } break;
-    //         case 3:
-    //             switch (type) {
-    //             case 'L': id2 = atol(item.c_str()); break;
-    //             case 'S': too_many_fields(); break;
-    //             case 'P': rank = atol(item.c_str());
-    //             default: break;
-    //             }
-    //             break;
-    //         case 4:
-    //             switch (type) {
-    //             case 'L': side2 = item[0]; break;
-    //             case 'S': too_many_fields(); break;
-    //             case 'P': is_reverse = (item == "+" ? false : true); break;
-    //             default: break;
-    //             }
-    //             break;
-    //         case 5:
-    //             switch (type) {
-    //             case 'L': cigar = item; break;
-    //             case 'S': too_many_fields(); break;
-    //             case 'P': cigar = item; break;
-    //             default: break;
-    //             }
-    //             break;
-    //         default:
-    //             too_many_fields();
-    //             break;
-    //         }
-    //     }
-		//
-    //     // now that we've parsed, add to the graph
-    //     if (type == 'S') {
-    //         Node node;
-    //         node.set_sequence(seq);
-    //         node.set_id(id1);
-    //         add_node(node);
-    //     } else if (type == 'L') {
-    //         Edge edge;
-    //         edge.set_from(id1);
-    //         edge.set_to(id2);
-    //         if (side1 == '-') edge.set_from_start(true);
-    //         if (side2 == '-') edge.set_to_end(true);
-    //         add_edge(edge);
-    //     } else if (type == 'P') {
-    //         paths.append_mapping(path_name, id1, rank, is_reverse);
-    //     }
-    // }
 }
 
 void VG::print_edges(void) {
@@ -5379,6 +5302,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 }
 
 void VG::to_gfa(ostream& out) {
+
+
+	
     map<id_t, vector<string> > sorted_output;
     out << "H" << "\t" << "HVN:Z:1.0" << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
