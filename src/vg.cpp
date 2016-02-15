@@ -2054,7 +2054,7 @@ void VG::from_gfa(istream& in, bool showp) {
 		GFAKluge gg;
 		gg.parse_gfa_file(in);
 
-		map<string, sequence_elem> name_to_seq = gg.get_name_to_seq();
+		map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
 		map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
     map<string, vector<path_elem> > seq_to_paths = gg.get_seq_to_paths();
 		map<string, sequence_elem>::iterator it;
