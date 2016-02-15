@@ -790,10 +790,13 @@ void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, cons
         auto oldp = ids.find(pos.node_id());
         if (oldp != ids.end()) {
             auto& old = oldp->second;
+            cerr << "translating " << pos.node_id() << " -> " << old.first << (old.second?"-":"+") << endl;
             mapping->mutable_position()->set_node_id(old.first);
             if (old.second) {
-                // We need to flip this mapping
+                cerr << "flipping mapping " << pb2json(*mapping) << " -> ";
+                //mapping->mutable_position()->set_is_reverse(old.second);
                 *mapping = reverse_complement_mapping(*mapping, node_length);
+                cerr << pb2json(*mapping) << endl;
             }
         }
     }

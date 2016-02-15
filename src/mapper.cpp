@@ -398,10 +398,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                      << "expect:\t" << aln.sequence() << endl
                      << "got:\t" << seq << endl;
                 // save alignment
-                ofstream out("fail.gam");
-                vector<Alignment> alnz = { aln };
-                stream::write_buffered(out, alnz, 1);
-                out.close();
+                write_alignment_to_file(aln, "fail.gam");
                 // save graph, bigger fragment
                 xindex->expand_context(sub, 5, true);
                 VG gn; gn.extend(sub);

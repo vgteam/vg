@@ -1456,11 +1456,13 @@ void help_mod(char** argv) {
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
-         << "    -U, --unroll N          unroll cycles in the graph, preserving paths of length N" << endl
+         << "    -d, --dagify N          copy strongly connected components of the graph N times, forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
          << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
          << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
          << "                            component of the graph" << endl
-         << "    -d, --drop-paths        remove the paths of the graph" << endl
+         << "    -D, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
@@ -1521,6 +1523,7 @@ int main_mod(int argc, char** argv) {
     uint32_t unfold_to = 0;
     uint32_t unroll_max_branch = 0;
     bool break_cycles = false;
+    uint32_t dagify_to = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1531,7 +1534,7 @@ int main_mod(int argc, char** argv) {
                 {"include-aln", required_argument, 0, 'i'},
                 {"compact-ids", no_argument, 0, 'c'},
                 {"compact-ranks", no_argument, 0, 'C'},
-                {"drop-paths", no_argument, 0, 'd'},
+                {"drop-paths", no_argument, 0, 'D'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {"prune-complex", no_argument, 0, 'p'},
@@ -1556,6 +1559,7 @@ int main_mod(int argc, char** argv) {
                 {"context", required_argument, 0, 'x'},
                 {"remove-null", no_argument, 0, 'R'},
                 {"strong-connect", no_argument, 0, 'T'},
+                {"dagify", required_argument, 0, 'd'},
                 {"unroll", required_argument, 0, 'U'},
                 {"max-branch", required_argument, 0, 'B'},
                 {"break-cycles", no_argument, 0, 'b'},
@@ -1563,7 +1567,7 @@ int main_mod(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CdFr:g:x:RTU:B:b",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1645,7 +1649,7 @@ int main_mod(int argc, char** argv) {
             label_paths = true;
             break;
 
-        case 'd':
+        case 'D':
             drop_paths = true;
             break;
 
@@ -1667,6 +1671,10 @@ int main_mod(int argc, char** argv) {
 
         case 'U':
             unroll_to = atoi(optarg);
+            break;
+
+        case 'd':
+            dagify_to = atoi(optarg);
             break;
 
         case 'B':
@@ -1763,9 +1771,14 @@ int main_mod(int argc, char** argv) {
         graph->orient_nodes_forward(flipped);
     }
 
+    if (dagify_to) {
+        map<int64_t, NodeTraversal> node_translation;
+        *graph = graph->dagify(dagify_to, node_translation);
+    }
+
     if (unroll_to) {
         map<int64_t, pair<int64_t, bool> > node_translation;
-        *graph = graph->unroll(unroll_to, unroll_max_branch, node_translation);
+        *graph = graph->backtracking_unroll(unroll_to, unroll_max_branch, node_translation);
     }
 
     if (unfold_to) {
