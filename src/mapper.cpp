@@ -377,6 +377,8 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     else alns.resize(to_align);
 
     auto check_alignment = [&](const Alignment& aln) {
+        // use the graph to extract the sequence
+        // assert that this == the alignment
         if (aln.path().mapping_size()) {
             // get the graph corresponding to the alignment path
             Graph sub;
@@ -396,10 +398,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                      << "expect:\t" << aln.sequence() << endl
                      << "got:\t" << seq << endl;
                 // save alignment
-                ofstream out("fail.gam");
-                vector<Alignment> alnz = { aln };
-                stream::write_buffered(out, alnz, 1);
-                out.close();
+                write_alignment_to_file(aln, "fail.gam");
                 // save graph, bigger fragment
                 xindex->expand_context(sub, 5, true);
                 VG gn; gn.extend(sub);
@@ -407,8 +406,6 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                 assert(false);
             }
         }
-        // use the graph to extract the sequence
-        // assert that this == the alignment
     };
 
 #pragma omp parallel for
@@ -651,8 +648,8 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
 
     // This will similarly hold all the reverse alignments.
     // Right now we set it up to provide input to the actual alignment algorithm.
-    Alignment best_r = reverse_alignment(aln,
-                                         (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
+    Alignment best_r = reverse_complement_alignment(aln,
+                                                    (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
     // This will hold all of the reverse alignments up to max_multimaps
     vector<Alignment> alignments_r;
 
@@ -705,8 +702,8 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
             std::chrono::time_point<std::chrono::system_clock> start, end;
             if (debug) start = std::chrono::system_clock::now();
             auto alns =  align_threaded(best_r, kmer_count_r, kmer_size, stride, attempt);
-            alignments_r = reverse_alignments(alns,
-                                              (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
+            alignments_r = reverse_complement_alignments(alns,
+                                                         (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
             if (debug) {
                 end = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds = end-start;

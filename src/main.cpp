@@ -959,7 +959,7 @@ int main_msga(int argc, char** argv) {
                 ofstream f(name + "-failed-alignment-" + convert(j) + ".gam");
                 stream::write(f, 1, (std::function<Alignment(uint64_t)>)([&aln](uint64_t n) { return aln; }));
                 f.close();
-                graph->serialize_to_file(name + "-corrupted-alignment.vg");
+                //graph->serialize_to_file(name + "-corrupted-alignment.vg");
                 exit(1);
             }
             alns.push_back(aln);
@@ -978,10 +978,10 @@ int main_msga(int argc, char** argv) {
             ++j;
 
             if (debug) cerr << name << ": editing graph" << endl;
-            graph->serialize_to_file(name + "-pre-edit.vg");
+            //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
             if (!graph->is_valid()) cerr << "invalid after edit" << endl;
-            graph->serialize_to_file(name + "-immed-post-edit.vg");
+            //graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
@@ -1000,7 +1000,7 @@ int main_msga(int argc, char** argv) {
             // XXX
 
             // check that all is well
-            graph->serialize_to_file(name + "-pre-index.vg");
+            //graph->serialize_to_file(name + "-pre-index.vg");
             rebuild(graph);
 
             // verfy validity of path
@@ -1449,16 +1449,21 @@ void help_mod(char** argv) {
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
          << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
          << "    -z, --sort              sort the graph using an approximate topological sort" << endl
+         << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
          << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
          << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
-         << "    -U, --unroll N          unroll cycles in the graph, preserving paths of length N" << endl
+         << "    -d, --dagify N          copy strongly connected components of the graph N times, forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
+         << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
          << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
          << "                            component of the graph" << endl
-         << "    -d, --drop-paths        remove the paths of the graph" << endl
+         << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
+         << "    -D, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
          << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
@@ -1477,7 +1482,6 @@ void help_mod(char** argv) {
          << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
-        //<< "    -f, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
@@ -1506,7 +1510,6 @@ int main_mod(int argc, char** argv) {
     bool normalize_graph = false;
     bool sort_graph = false;
     bool remove_non_path = false;
-    bool orient_forward = false;
     bool compact_ranks = false;
     bool drop_paths = false;
     bool force_path_match = false;
@@ -1517,6 +1520,10 @@ int main_mod(int argc, char** argv) {
     bool strong_connect = false;
     uint32_t unroll_to = 0;
     uint32_t unfold_to = 0;
+    uint32_t unroll_max_branch = 0;
+    bool break_cycles = false;
+    uint32_t dagify_to = 0;
+    bool orient_forward = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1527,7 +1534,7 @@ int main_mod(int argc, char** argv) {
                 {"include-aln", required_argument, 0, 'i'},
                 {"compact-ids", no_argument, 0, 'c'},
                 {"compact-ranks", no_argument, 0, 'C'},
-                {"drop-paths", no_argument, 0, 'd'},
+                {"drop-paths", no_argument, 0, 'D'},
                 {"keep-path", required_argument, 0, 'k'},
                 {"remove-orphans", no_argument, 0, 'o'},
                 {"prune-complex", no_argument, 0, 'p'},
@@ -1544,7 +1551,7 @@ int main_mod(int argc, char** argv) {
                 {"normalize", no_argument, 0, 'n'},
                 {"sort", no_argument, 0, 'z'},
                 {"remove-non-path", no_argument, 0, 'N'},
-                //{"orient-forward", no_argument, 0, 'f'},
+                {"orient-forward", no_argument, 0, 'O'},
                 {"unfold", required_argument, 0, 'f'},
                 {"force-path-match", no_argument, 0, 'F'},
                 {"retain-path", required_argument, 0, 'r'},
@@ -1552,12 +1559,16 @@ int main_mod(int argc, char** argv) {
                 {"context", required_argument, 0, 'x'},
                 {"remove-null", no_argument, 0, 'R'},
                 {"strong-connect", no_argument, 0, 'T'},
+                {"dagify", required_argument, 0, 'd'},
                 {"unroll", required_argument, 0, 'U'},
+                {"max-branch", required_argument, 0, 'B'},
+                {"break-cycles", no_argument, 0, 'b'},
+                {"orient-forward", no_argument, 0, 'O'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CdFr:g:x:RTU:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:O",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1631,6 +1642,10 @@ int main_mod(int argc, char** argv) {
             unfold_to = atoi(optarg);
             break;
 
+        case 'O':
+            orient_forward = true;
+            break;
+
         case 'F':
             force_path_match = true;
             break;
@@ -1639,7 +1654,7 @@ int main_mod(int argc, char** argv) {
             label_paths = true;
             break;
 
-        case 'd':
+        case 'D':
             drop_paths = true;
             break;
 
@@ -1663,8 +1678,20 @@ int main_mod(int argc, char** argv) {
             unroll_to = atoi(optarg);
             break;
 
+        case 'd':
+            dagify_to = atoi(optarg);
+            break;
+
+        case 'B':
+            unroll_max_branch = atoi(optarg);
+            break;
+
         case 'z':
             sort_graph = true;
+            break;
+
+        case 'b':
+            break_cycles = true;
             break;
 
         case 'g':
@@ -1740,16 +1767,19 @@ int main_mod(int argc, char** argv) {
         graph->force_path_match();
     }
 
-    /*
     if (orient_forward) {
         set<int64_t> flipped;
         graph->orient_nodes_forward(flipped);
     }
-    */
+
+    if (dagify_to) {
+        map<int64_t, pair<int64_t, bool> > node_translation;
+        *graph = graph->dagify(dagify_to, node_translation);
+    }
 
     if (unroll_to) {
         map<int64_t, pair<int64_t, bool> > node_translation;
-        *graph = graph->unroll(unroll_to, node_translation);
+        *graph = graph->backtracking_unroll(unroll_to, unroll_max_branch, node_translation);
     }
 
     if (unfold_to) {
@@ -1763,6 +1793,10 @@ int main_mod(int argc, char** argv) {
 
     if (sort_graph) {
         graph->sort();
+    }
+
+    if (break_cycles) {
+        graph->break_cycles();
     }
 
     // to subset the graph
