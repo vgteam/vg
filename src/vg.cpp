@@ -7705,7 +7705,7 @@ void VG::remove_inverting_edges(void) {
 }
 
 VG VG::dagify(uint32_t expand_scc_steps,
-              map<id_t, NodeTraversal>& node_translation) {
+              map<id_t, pair<id_t, bool> >& node_translation) {
 
     VG dag;
     // Find the strongly connected components in the graph.
@@ -7724,7 +7724,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
             id_t id = *component.begin();
             Node* node = get_node(id);
             // this node translates to itself
-            node_translation[id] = NodeTraversal(node);
+            node_translation[id] = make_pair(node->id(), false);
             dag.add_node(*node);
             weak_components.insert(id);
         }
@@ -7756,7 +7756,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
             for (auto id : component) {
                 Node* node = dag.create_node(get_node(id)->sequence());
                 curr[id] = node;
-                node_translation[id] = NodeTraversal(node);
+                node_translation[id] = make_pair(node->id(), false);
             }
             // preserve the edges that connect these nodes to the rest of the graph
             // And connect to the nodes in the previous component using the original edges as guide

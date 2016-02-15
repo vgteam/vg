@@ -1773,7 +1773,7 @@ int main_mod(int argc, char** argv) {
     }
 
     if (dagify_to) {
-        map<int64_t, NodeTraversal> node_translation;
+        map<int64_t, pair<int64_t, bool> > node_translation;
         *graph = graph->dagify(dagify_to, node_translation);
     }
 
