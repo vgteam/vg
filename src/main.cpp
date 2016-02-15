@@ -1462,6 +1462,7 @@ void help_mod(char** argv) {
          << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
          << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
          << "                            component of the graph" << endl
+         << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -D, --drop-paths        remove the paths of the graph" << endl
          << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
          << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
@@ -1481,7 +1482,6 @@ void help_mod(char** argv) {
          << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
          << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
-        //<< "    -f, --orient-forward    orient the nodes in the graph forward" << endl
          << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
@@ -1510,7 +1510,6 @@ int main_mod(int argc, char** argv) {
     bool normalize_graph = false;
     bool sort_graph = false;
     bool remove_non_path = false;
-    bool orient_forward = false;
     bool compact_ranks = false;
     bool drop_paths = false;
     bool force_path_match = false;
@@ -1524,6 +1523,7 @@ int main_mod(int argc, char** argv) {
     uint32_t unroll_max_branch = 0;
     bool break_cycles = false;
     uint32_t dagify_to = 0;
+    bool orient_forward = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1563,11 +1563,12 @@ int main_mod(int argc, char** argv) {
                 {"unroll", required_argument, 0, 'U'},
                 {"max-branch", required_argument, 0, 'B'},
                 {"break-cycles", no_argument, 0, 'b'},
+                {"orient-forward", no_argument, 0, 'O'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:O",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1641,6 +1642,10 @@ int main_mod(int argc, char** argv) {
             unfold_to = atoi(optarg);
             break;
 
+        case 'O':
+            orient_forward = true;
+            break;
+
         case 'F':
             force_path_match = true;
             break;
@@ -1679,10 +1684,6 @@ int main_mod(int argc, char** argv) {
 
         case 'B':
             unroll_max_branch = atoi(optarg);
-            break;
-
-        case 'O':
-            orient_forward = true;
             break;
 
         case 'z':
