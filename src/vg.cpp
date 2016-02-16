@@ -5055,8 +5055,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             }
         }
         if (color_variants && node_paths.size() == 0){
+            out << "color=red,";
+        }
         out << "];" << endl;
-    }
+
+  }
 
     // We're going to fill this in with all the path (symbol, color) label
     // pairs that each edge should get, by edge pointer. If a path takes an
@@ -5302,7 +5305,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     }
 
     out << "}" << endl;
-}
+
 }
 
 
@@ -5344,7 +5347,7 @@ void VG::to_gfa(ostream& out) {
                     p_elem.cigar = cigar;
 
                     gg.add_sequence(s_elem);
-                    gg.add_path(p_elem.name, p_elem);
+                    gg.add_path(p_elem.source_name, p_elem);
                 }
             }
 
