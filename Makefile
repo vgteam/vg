@@ -122,6 +122,8 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
 include/stream.hpp: .pre-build
 	cp src/stream.hpp include/stream.hpp
 
+$(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
+
 $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h .pre-build
 	+. ./source_me.sh && g++ -O3 -msse4.1 -fopenmp -std=c++11 -c -o cpp/vg.pb.o cpp/vg.pb.cc $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a .pre-build

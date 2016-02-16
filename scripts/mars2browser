@@ -1,0 +1,3 @@
+#!/bin/bash
+
+mars -g -k 2000 -s 200 | neato -Tsvg -n -o x.svg && chromium-browser x.svg

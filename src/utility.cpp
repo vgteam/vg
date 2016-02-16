@@ -185,5 +185,4 @@ string cigar_string(vector<pair<int, char> >& cigar) {
     return cigarss.str();
 }
 
-
 }

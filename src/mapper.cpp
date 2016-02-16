@@ -1195,15 +1195,21 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             Path* path = ta.mutable_path();
             int64_t idf = path->mutable_mapping(0)->position().node_id();
             int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
+            int32_t d_to_head = graph->distance_to_head(NodeTraversal(graph->get_node(idf), false), sc_start*3);
+            int32_t d_to_tail = graph->distance_to_tail(NodeTraversal(graph->get_node(idl), false), sc_end*3);
             while (itr++ < 3
                    && ((sc_start > softclip_threshold
-                        && graph->distance_to_head(idf, sc_start*3) < sc_start)
+                        && d_to_head >= 0 && d_to_head < sc_start)
                        || (sc_end > softclip_threshold
-                           && graph->distance_to_tail(idl, sc_end*3) < sc_end))) {
+                           && d_to_tail >=0 && d_to_tail < sc_end))) {
                 if (debug) {
                     cerr << "softclip before " << sc_start << " " << sc_end << endl;
-                    cerr << "distance to head " << graph->distance_to_head(idf, sc_start*3) << endl;
-                    cerr << "distance to tail " << graph->distance_to_head(idl, sc_end*3) << endl;
+                    cerr << "distance to head "
+                         << graph->distance_to_head(NodeTraversal(graph->get_node(idf), false), sc_start*3)
+                         << endl;
+                    cerr << "distance to tail "
+                         << graph->distance_to_tail(NodeTraversal(graph->get_node(idl), false), sc_end*3)
+                         << endl;
                 }
                 double avg_node_size = graph->length() / graph->size();
                 if (debug) cerr << "average node size " << avg_node_size << endl;
@@ -1252,6 +1258,8 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 path = ta.mutable_path();
                 idf = path->mutable_mapping(0)->position().node_id();
                 idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
+                d_to_head = graph->distance_to_head(NodeTraversal(graph->get_node(idf), false), sc_start*3);
+                d_to_tail = graph->distance_to_tail(NodeTraversal(graph->get_node(idl), false), sc_end*3);
             }
 
             delete graph;
