@@ -5430,6 +5430,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 
 void VG::to_gfa(ostream& out) {
   GFAKluge gg;
+  gg.set_version();
 
     // TODO moving to GFAKluge
     // problem: protobuf longs don't easily go to strings....
@@ -5439,6 +5440,8 @@ void VG::to_gfa(ostream& out) {
         // Fill seq element for a node
         s_elem.name = to_string(n->id());
         s_elem.sequence = n->sequence();
+        gg.add_sequence(s_elem);
+
             auto& node_mapping = paths.get_node_mapping(n->id());
             set<Mapping*> seen;
             for (auto& p : node_mapping) {
@@ -5460,12 +5463,11 @@ void VG::to_gfa(ostream& out) {
                     bool orientation = mapping.position().is_reverse();
                     path_elem p_elem;
                     p_elem.name = p.first;
-                    p_elem.source_name = to_string( (long) n->id() );
+                    p_elem.source_name = to_string(n->id());
                     p_elem.rank = mapping.rank();
                     p_elem.is_reverse = orientation;
                     p_elem.cigar = cigar;
 
-                    gg.add_sequence(s_elem);
                     gg.add_path(p_elem.source_name, p_elem);
                 }
             }
@@ -7508,7 +7510,7 @@ VG VG::unfold(uint32_t max_length,
         }
     }
     for (auto& component : strong_components) {
-        
+
         if (component.size() > 1
             || (component.size() == 1
                 && !has_inverting_edge(get_node(*component.begin())))) {
@@ -7571,7 +7573,7 @@ VG VG::unfold(uint32_t max_length,
 
     // our friend is map<id_t, pair<id_t, bool> >& node_translation;
     map<NodeTraversal, id_t> inv_translation;
-    
+
     // first adding nodes that we've flipped
     for (auto t : travs_to_flip) {
         // make a new node, add it to the flattened version
@@ -7608,7 +7610,7 @@ VG VG::unfold(uint32_t max_length,
 
     // now remove all inverting edges, so we have no more folds in the graph
     unfolded.remove_inverting_edges();
-    
+
     return unfolded;
 }
 
@@ -7641,7 +7643,7 @@ VG VG::unroll(uint32_t max_length,
     // add in bits where we have inversions that we'd reach from the forward direction
     // we will "unroll" these regions as well to ensure that all is well
     // ....
-    // 
+    //
     map<id_t, VG> trees;
     // maps from entry id to the set of nodes
     map<id_t, set<id_t> > components;
@@ -7716,7 +7718,7 @@ VG VG::unroll(uint32_t max_length,
             s ← next(P,s)
             */
 
-                
+
             function<void(pair<id_t,bool>,id_t,bool,uint32_t)> bt = [&](pair<id_t, bool> curr,
                                                                         id_t parent,
                                                                         bool in_cycle,
@@ -7760,7 +7762,7 @@ VG VG::unroll(uint32_t max_length,
                         break;
                     }
                 }
-                    
+
                 // iv.  If we have found a cycle in the current branch,
                 //       increment path length by the length of the label of the current node.
                 if (in_cycle) {
@@ -7806,7 +7808,7 @@ VG VG::unroll(uint32_t max_length,
                 }
 
             };
-                
+
             // we start with the entrypoint and run backtracking search
             bt(make_pair(entrypoint, false), 0, false, 0);
         }
@@ -7831,7 +7833,7 @@ VG VG::unroll(uint32_t max_length,
         dag = tree; // copy
         map<id_t, pair<id_t, bool> >& trans = translations[entrypoint];
         map<pair<id_t, bool>, set<id_t> >& itrans = inv_translations[entrypoint];
-        // rank among nodes with same original identity labeling procedure        
+        // rank among nodes with same original identity labeling procedure
         map<pair<id_t, bool>, size_t> orig_off;
         size_t i = 0;
         for (auto& j : itrans) {
@@ -7877,7 +7879,7 @@ VG VG::unroll(uint32_t max_length,
                 cerr << "]" << endl;
             }
             */
-            
+
             // -------------------------
             // now establish the class relative ranks for each node
             // -------------------------
@@ -7898,7 +7900,7 @@ VG VG::unroll(uint32_t max_length,
             */
             // groups
             // populate group sizes
-            // groups map from the 
+            // groups map from the
             map<pair<pair<id_t, bool>, uint32_t>, vector<id_t> > groups;
             for (auto& r : rank_among_same) {
                 groups[r.second].push_back(r.first);
@@ -7946,7 +7948,7 @@ VG VG::unroll(uint32_t max_length,
             dag.sort();
         } while (!stable);
     }
-    
+
     // recover all the edges that link the nodes in the acyclic components of the graph
     unrolled.for_each_node([&](Node* n) {
             // get its edges in the original graph, and check if their endpoints are now
@@ -8066,7 +8068,7 @@ VG VG::unroll(uint32_t max_length,
             }
         }
     }
-    
+
     return unrolled;
 }
 
