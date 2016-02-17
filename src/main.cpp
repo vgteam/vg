@@ -4578,7 +4578,7 @@ int main_view(int argc, char** argv) {
         switch (c)
         {
         case 'C':
-            color_variants = false;
+            color_variants = true;
             break;
 
         case 'd':
