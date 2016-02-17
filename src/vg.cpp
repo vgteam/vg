@@ -7559,94 +7559,71 @@ void VG::force_path_match(void) {
     });
 }
 
-// walks up to max_length away from nodes that are in acyclic regions of the graph
-// and have an inversion, replacing it with a forward link and
-// adding the sequence on the other side of the inversion to the graph
+// for each inverting edge
+// we walk up to max_length across the inversion
+// adding the forward complement of nodes we reach
+// stopping if we reach an inversion back to the forward graph
 // so as to ensure that sequences up to length max_length that cross the inversion
 // would align to the forward component of the resulting graph
 VG VG::unfold(uint32_t max_length,
               map<id_t, pair<id_t, bool> >& node_translation) {
     VG unfolded = *this;
-    // Find the strongly connected components in the graph.
-    set<set<id_t>> strong_components = strongly_connected_components();
     // maps from entry id to the set of nodes
     // map from component root id to a translation
     // that maps the unrolled id to the original node and whether we've inverted or not
     // TODO
     // we need to first collect the components so we can ask quickly if a certain node is in one
     // then we need to
-    set<id_t> strongly_connected_nodes;
     set<NodeTraversal> travs_to_flip;
     set<Edge*> edges_to_flip;
     set<Edge*> edges_to_forward;
     set<Edge*> edges_from_forward;
-    for (auto& component : strong_components) {
-        // collect them so we can check in traversal
-        // that we don't run into one
-        if (component.size() > 1) {
-            for (auto i : component) strongly_connected_nodes.insert(i);
-        }
-    }
-    for (auto& component : strong_components) {
-        
-        if (component.size() > 1
-            || (component.size() == 1
-                && !has_inverting_edge(get_node(*component.begin())))) {
-            continue;
-        }
-        // we are a node in an acyclic component
-        // that has an inversion coming to it or going from it
-        // so let's build the graph out to N bp away on the other side of the inversion
-        //....
 
-        // we only need to follow inverting
-        // collect the set to invert
-        // and we'll copy them over
-        // then link back in according to how the inbound links work
-        // so as to eliminate the reversing edges
-        map<NodeTraversal, int32_t> seen;
-        function<void(NodeTraversal,int32_t)> walk = [&](NodeTraversal curr,
-                                                         int32_t length) {
+    // collect the set to invert
+    // and we'll copy them over
+    // then link back in according to how the inbound links work
+    // so as to eliminate the reversing edges
+    map<NodeTraversal, int32_t> seen;
+    function<void(NodeTraversal,int32_t)> walk = [&](NodeTraversal curr,
+                                                     int32_t length) {
 
-            // check if we've busted through our length limit
-            // or if we've seen this node before at an earlier step
-            // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
-            set<NodeTraversal> next;
-            travs_to_flip.insert(curr);
-            if (length <= 0 || seen.find(curr) != seen.end() && seen[curr] < length) return;
-            seen[curr] = length;
-            for (auto& trav : travs_from(curr)) {
-                if (!strongly_connected_nodes.count(trav.node->id())) {
-                    if (trav.backward) {
-                        edges_to_flip.insert(get_edge(curr, trav));
-                        walk(trav, length-trav.node->sequence().size());
-                    } else {
-                        // we would not continue, but we should retain this edge because it brings
-                        // us back into the forward strand
-                        edges_to_forward.insert(get_edge(curr, trav));
-                    }
-                }
-            }
-            for (auto& trav : travs_to(curr)) {
-                if (!strongly_connected_nodes.count(trav.node->id())) {
-                    if (trav.backward) {
-                        edges_to_flip.insert(get_edge(trav, curr));
-                        walk(trav, length-trav.node->sequence().size());
-                    } else {
-                        // we would not continue, but we should retain this edge because it brings
-                        // us back into the forward strand
-                        edges_from_forward.insert(get_edge(trav, curr));
-                    }
-                }
-            }
-        };
-        // run over the inversions from the node
-        for (auto& trav : travs_of(NodeTraversal(get_node(*component.begin()), false))) {
+        // check if we've passed our length limit
+        // or if we've seen this node before at an earlier step
+        // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
+        set<NodeTraversal> next;
+        travs_to_flip.insert(curr);
+        if (length <= 0 || seen.find(curr) != seen.end() && seen[curr] < length) return;
+        seen[curr] = length;
+        for (auto& trav : travs_from(curr)) {
             if (trav.backward) {
-                walk(trav,  max_length);
+                edges_to_flip.insert(get_edge(curr, trav));
+                walk(trav, length-trav.node->sequence().size());
+            } else {
+                // we would not continue, but we should retain this edge because it brings
+                // us back into the forward strand
+                edges_to_forward.insert(get_edge(curr, trav));
             }
         }
-    }
+        for (auto& trav : travs_to(curr)) {
+            if (trav.backward) {
+                edges_to_flip.insert(get_edge(trav, curr));
+                walk(trav, length-trav.node->sequence().size());
+            } else {
+                // we would not continue, but we should retain this edge because it brings
+                // us back into the forward strand
+                edges_from_forward.insert(get_edge(trav, curr));
+            }
+        }
+    };
+
+    // run over the inverting edges
+    for_each_node([&](Node* node) {
+            for (auto& trav : travs_of(NodeTraversal(node, false))) {
+                if (trav.backward) {
+                    walk(trav,  max_length);
+                }
+            }
+        });
     // now build out the component of the graph that's reversed
 
     // our friend is map<id_t, pair<id_t, bool> >& node_translation;
@@ -7656,7 +7633,9 @@ VG VG::unfold(uint32_t max_length,
     for (auto t : travs_to_flip) {
         // make a new node, add it to the flattened version
         // record it in the translation
-        id_t i = unfolded.create_node(reverse_complement(t.node->sequence()))->id();
+        //string seq = reverse_complement(t.node->sequence()) + ":" + convert(t.node->id());
+        string seq = reverse_complement(t.node->sequence());
+        id_t i = unfolded.create_node(seq)->id();
         node_translation[i] = make_pair(t.node->id(), t.backward);
         inv_translation[t] = i;
     }
@@ -7695,7 +7674,8 @@ VG VG::unfold(uint32_t max_length,
 void VG::remove_inverting_edges(void) {
     set<pair<NodeSide, NodeSide>> edges;
     for_each_edge([this,&edges](Edge* edge) {
-            if (edge->from_start() || edge->to_end()) {
+            if (!(edge->from_start() && edge->to_end())
+                && (edge->from_start() || edge->to_end())) {
                 edges.insert(NodeSide::pair_from_edge(edge));
             }
         });
@@ -7803,6 +7783,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
         }
     }
 
+    dag.flip_doubly_reversed_edges();
     return dag;
 }
     
