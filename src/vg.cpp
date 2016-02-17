@@ -2149,8 +2149,8 @@ void VG::from_gfa(istream& in, bool showp) {
 				Edge e;
 				e.set_from(source_id);
 				e.set_to(sink_id);
-				e.set_from_start(l.source_orientation_forward);
-				e.set_to_end(l.sink_orientation_forward);
+				e.set_from_start(!l.source_orientation_forward);
+				e.set_to_end(!l.sink_orientation_forward);
 				add_edge(e);
 			}
       for (path_elem p: seq_to_paths[(it->second).name]){
