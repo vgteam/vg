@@ -603,6 +603,8 @@ public:
     void remove_orphan_edges(void);
     // removes edges representing an inversion and edges on the reverse complement
     void remove_inverting_edges(void);
+    // true if the graph has inversions, false otherwise
+    bool has_inverting_edges(void);
     
     // Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     // The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.

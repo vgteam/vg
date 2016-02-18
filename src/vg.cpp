@@ -5843,23 +5843,19 @@ map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<
 
 Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
 
-    cerr << "aligning " << pb2json(alignment) << endl;
+    //cerr << "aligning " << pb2json(alignment) << endl;
     // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
     auto aln = alignment;
-    //serialize_to_file("graph-pre-unroll.vg");
+    serialize_to_file("graph-pre-unroll.vg");
 
-    map<id_t, pair<id_t, bool> > unroll_trans;
     map<id_t, pair<id_t, bool> > unfold_trans;
+    map<id_t, pair<id_t, bool> > dagify_trans;
     uint32_t max_length = alignment.sequence().size();
-    //cerr << "unrolling" << endl;
-    serialize_to_file("graph-pre-align.vg");
-    VG dag = backtracking_unroll(max_length, unroll_max_branch, unroll_trans);
-    //cerr << "unfolding" << endl;
-    dag = dag.unfold(max_length, unfold_trans);
-    //cerr << "unfolded" << endl;
+
+    VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans);
     // overlay the translations
-    ofstream out1("unroll_trans.txt");
-    for (auto t : unroll_trans) {
+    ofstream out1("dagify_trans.txt");
+    for (auto t : dagify_trans) {
         out1 << t.first << " -> " << t.second.first << (t.second.second?"-":"+") << endl;
     }
     out1.close();
@@ -5868,7 +5864,7 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
         out2 << t.first << " -> " << t.second.first << (t.second.second?"-":"+") << endl;
     }
     out2.close();
-    auto trans = overlay_node_translations(unfold_trans, unroll_trans);
+    auto trans = overlay_node_translations(dagify_trans, unfold_trans);
     // dump the translation
     ofstream out("trans.txt");
     for (auto t : trans) {
@@ -5878,8 +5874,9 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
     // Join to a common root, so alignment covers the entire graph
     // Put the nodes in sort order within the graph
     // and break any remaining cycles
+
+    dag.serialize_to_file("dag-pre-join.vg");
     dag.sort();
-    dag.break_cycles(); // hack to ensure acyclic state
     Node* root = dag.join_heads();
     dag.sort();
     dag.serialize_to_file("dag-pre-align.vg");
@@ -5891,7 +5888,7 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
     gssw_aligner = NULL;
 
     auto check_aln = [&](VG& graph, const Alignment& a) {
-        cerr << "checking alignment" << endl;
+        //cerr << "checking alignment" << endl;
         if (a.has_path()) {
             auto seq = graph.path_string(a.path());
             //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
@@ -5910,13 +5907,13 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
     //serialize_to_file("graph-post-align.vg");
     //dag.serialize_to_file("dag-post-align.vg");
     write_alignment_to_file(aln, "aln-pre-trans.gam");
-    cerr << "pre trans" << endl;
+    //cerr << "pre trans" << endl;
     check_aln(dag, aln);
     translate_nodes(aln, trans, [&](id_t node_id) {
             // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
             return get_node(node_id)->sequence().size();
         });
-    cerr << "post trans" << endl;
+    //cerr << "post trans" << endl;
     check_aln(*this, aln);
     write_alignment_to_file(aln, "aln-post-trans.gam");
 
@@ -7566,6 +7563,7 @@ VG VG::unfold(uint32_t max_length,
               map<id_t, pair<id_t, bool> >& node_translation) {
     VG unfolded = *this;
     unfolded.flip_doubly_reversed_edges();
+    if (!unfolded.has_inverting_edges()) return unfolded;
     // maps from entry id to the set of nodes
     // map from component root id to a translation
     // that maps the unrolled id to the original node and whether we've inverted or not
@@ -7674,6 +7672,17 @@ VG VG::unfold(uint32_t max_length,
     return unfolded;
 }
 
+bool VG::has_inverting_edges(void) {
+    for (id_t i = 0; i < graph.edge_size(); ++i) {
+        auto& edge = graph.edge(i);
+        if (!(edge.from_start() && edge.to_end())
+            && (edge.from_start() || edge.to_end())) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void VG::remove_inverting_edges(void) {
     set<pair<NodeSide, NodeSide>> edges;
     for_each_edge([this,&edges](Edge* edge) {
@@ -7722,7 +7731,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
             }
         }
     }
-    
+
     for (auto& component : strong_components) {
         if (component.size() == 1) {
             // not part of a SCC, already in the graph
@@ -7738,9 +7747,8 @@ VG VG::dagify(uint32_t expand_scc_steps,
             // for each iteration, add in a copy of the nodes of the component
             for (auto id : component) {
                 Node* node;
-                if (last.empty()) {
-                    // on the first iteration, use the original node ids
-                    // to ensure connectivity between separate SCCs
+                if (last.empty() && !dag.has_node(id)) {
+                    // create the node if we haven't already brought it over
                     node = dag.create_node(get_node(id)->sequence(), id);
                 } else {
                     node = dag.create_node(get_node(id)->sequence());
@@ -7793,6 +7801,8 @@ VG VG::dagify(uint32_t expand_scc_steps,
         }
     }
 
+    // ensure normalized edges in output; we may introduced flipped/flipped edges
+    // which are valid but can introduce problems for some algorithms
     dag.flip_doubly_reversed_edges();
     return dag;
 }
