@@ -2508,6 +2508,8 @@ void help_stats(char** argv) {
     cerr << "usage: " << argv[0] << " stats [options] <graph.vg>" << endl
          << "options:" << endl
          << "    -z, --size            size of graph" << endl
+         << "    -N, --node-count      number of nodes in graph" << endl
+         << "    -E, --edge-count      number of edges in graph" << endl
          << "    -l, --length          length of sequences in graph" << endl
          << "    -s, --subgraphs       describe subgraphs of graph" << endl
          << "    -H, --heads           list the head nodes of the graph" << endl
@@ -2535,6 +2537,8 @@ int main_stats(int argc, char** argv) {
     bool show_components = false;
     bool distance_to_head = false;
     bool distance_to_tail = false;
+    bool node_count = false;
+    bool edge_count = false;
     set<vg::id_t> ids;
 
     int c;
@@ -2543,6 +2547,8 @@ int main_stats(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"size", no_argument, 0, 'z'},
+                {"node-count", no_argument, 0, 'N'},
+                {"edge-count", no_argument, 0, 'E'},
                 {"length", no_argument, 0, 'l'},
                 {"subgraphs", no_argument, 0, 's'},
                 {"heads", no_argument, 0, 'H'},
@@ -2557,7 +2563,7 @@ int main_stats(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NE",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2568,6 +2574,14 @@ int main_stats(int argc, char** argv) {
         {
         case 'z':
             stats_size = true;
+            break;
+
+        case 'N':
+            node_count = true;
+            break;
+
+        case 'E':
+            edge_count = true;
             break;
 
         case 'l':
@@ -2632,6 +2646,14 @@ int main_stats(int argc, char** argv) {
              << "edges" << "\t" << graph->edge_count() << endl;
     }
 
+    if (node_count) {
+        cout << graph->node_count() << endl;
+    }
+
+    if (edge_count) {
+        cout << graph->edge_count() << endl;
+    }
+
     if (stats_length) {
         cout << "length" << "\t" << graph->total_length_of_nodes() << endl;
     }
@@ -2686,7 +2708,7 @@ int main_stats(int argc, char** argv) {
     if (show_components) {
         for (auto& c : graph->strongly_connected_components()) {
             for (auto& id : c) {
-                cerr << id << ", ";
+                cout << id << ", ";
             }
             cout << endl;
         }

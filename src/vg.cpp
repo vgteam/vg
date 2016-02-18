@@ -7737,9 +7737,16 @@ VG VG::dagify(uint32_t expand_scc_steps,
             map<id_t, Node*> curr;
             // for each iteration, add in a copy of the nodes of the component
             for (auto id : component) {
-                Node* node = dag.create_node(get_node(id)->sequence());
+                Node* node;
+                if (last.empty()) {
+                    // on the first iteration, use the original node ids
+                    // to ensure connectivity between separate SCCs
+                    node = dag.create_node(get_node(id)->sequence(), id);
+                } else {
+                    node = dag.create_node(get_node(id)->sequence());
+                }
                 curr[id] = node;
-                node_translation[id] = make_pair(node->id(), false);
+                node_translation[node->id()] = make_pair(id, false);
             }
             // preserve the edges that connect these nodes to the rest of the graph
             // And connect to the nodes in the previous component using the original edges as guide
