@@ -7696,6 +7696,13 @@ void VG::remove_inverting_edges(void) {
     }
 }
 
+bool VG::is_self_looping(NodeTraversal trav) {
+    for (auto t : nodes_next(trav)) {
+        if (t.node == trav.node) return true;
+    }
+    return false;
+}
+
 VG VG::dagify(uint32_t expand_scc_steps,
               map<id_t, pair<id_t, bool> >& node_translation) {
 
@@ -7710,7 +7717,9 @@ VG VG::dagify(uint32_t expand_scc_steps,
         // is this node a single component?
         // does this have an inversion as a child?
         // let's add in inversions
-        if (component.size() == 1) {
+        if (component.size() == 1
+            && !is_self_looping(NodeTraversal(get_node(*component.begin())))) {
+            
             // not part of a SCC
             // copy into the new graph
             id_t id = *component.begin();

@@ -309,6 +309,8 @@ public:
     bool is_acyclic(void);
     // removes all elements which are not in a strongly connected component
     void keep_multinode_strongly_connected_components(void);
+    // does the specified node traversal self-loop?
+    bool is_self_looping(NodeTraversal trav);
     // concatenates the nodes into a new node with the same external linkage as the provided component
     Node* concat_nodes(const list<Node*>& nodes);
     // merge the nodes into a single node, preserving external linkages
