@@ -5846,7 +5846,6 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
     //cerr << "aligning " << pb2json(alignment) << endl;
     // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
     auto aln = alignment;
-    serialize_to_file("graph-pre-unroll.vg");
 
     map<id_t, pair<id_t, bool> > unfold_trans;
     map<id_t, pair<id_t, bool> > dagify_trans;
@@ -5854,32 +5853,13 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
 
     VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans);
     // overlay the translations
-    ofstream out1("dagify_trans.txt");
-    for (auto t : dagify_trans) {
-        out1 << t.first << " -> " << t.second.first << (t.second.second?"-":"+") << endl;
-    }
-    out1.close();
-    ofstream out2("unfold_trans.txt");
-    for (auto t : unfold_trans) {
-        out2 << t.first << " -> " << t.second.first << (t.second.second?"-":"+") << endl;
-    }
-    out2.close();
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
-    // dump the translation
-    ofstream out("trans.txt");
-    for (auto t : trans) {
-        out << t.first << " -> " << t.second.first << (t.second.second?"-":"+") << endl;
-    }
-    out.close();
+
     // Join to a common root, so alignment covers the entire graph
     // Put the nodes in sort order within the graph
     // and break any remaining cycles
-
-    dag.serialize_to_file("dag-pre-join.vg");
-    dag.sort();
     Node* root = dag.join_heads();
     dag.sort();
-    dag.serialize_to_file("dag-pre-align.vg");
 
     gssw_aligner = new GSSWAligner(dag.graph);
     gssw_aligner->align(aln);
@@ -5887,6 +5867,7 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
     delete gssw_aligner;
     gssw_aligner = NULL;
 
+    /*
     auto check_aln = [&](VG& graph, const Alignment& a) {
         //cerr << "checking alignment" << endl;
         if (a.has_path()) {
@@ -5909,13 +5890,16 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
     write_alignment_to_file(aln, "aln-pre-trans.gam");
     //cerr << "pre trans" << endl;
     check_aln(dag, aln);
+    */
     translate_nodes(aln, trans, [&](id_t node_id) {
             // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
             return get_node(node_id)->sequence().size();
         });
     //cerr << "post trans" << endl;
+    /*
     check_aln(*this, aln);
     write_alignment_to_file(aln, "aln-post-trans.gam");
+    */
 
     return aln;
 }
