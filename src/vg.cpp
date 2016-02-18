@@ -3872,11 +3872,8 @@ string VG::path_string(const Path& path) {
     string seq;
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& m = path.mapping(i);
-        cerr << pb2json(m) << endl;
         Node* n = node_by_id[m.position().node_id()];
-        cerr << "getting mapping seq " << pb2json(*n) << " " << pb2json(m) << endl;
         seq.append(mapping_sequence(m, *n));
-        cerr << "ok" << endl;
     }
     return seq;
 }
@@ -7568,6 +7565,7 @@ void VG::force_path_match(void) {
 VG VG::unfold(uint32_t max_length,
               map<id_t, pair<id_t, bool> >& node_translation) {
     VG unfolded = *this;
+    unfolded.flip_doubly_reversed_edges();
     // maps from entry id to the set of nodes
     // map from component root id to a translation
     // that maps the unrolled id to the original node and whether we've inverted or not
@@ -7575,9 +7573,12 @@ VG VG::unfold(uint32_t max_length,
     // we need to first collect the components so we can ask quickly if a certain node is in one
     // then we need to
     set<NodeTraversal> travs_to_flip;
-    set<Edge*> edges_to_flip;
-    set<Edge*> edges_to_forward;
-    set<Edge*> edges_from_forward;
+    //set<Edge*> edges_to_flip;
+    set<pair<NodeTraversal, NodeTraversal> > edges_to_flip;
+    //set<Edge*> edges_to_forward;
+    set<pair<NodeTraversal, NodeTraversal> > edges_to_forward;
+    //set<Edge*> edges_from_forward;
+    set<pair<NodeTraversal, NodeTraversal> > edges_from_forward;
 
     // collect the set to invert
     // and we'll copy them over
@@ -7592,26 +7593,28 @@ VG VG::unfold(uint32_t max_length,
         // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
         set<NodeTraversal> next;
         travs_to_flip.insert(curr);
-        if (length <= 0 || seen.find(curr) != seen.end() && seen[curr] < length) return;
+        if (length <= 0 || seen.find(curr) != seen.end() && seen[curr] < length) {
+            return;
+        }
         seen[curr] = length;
         for (auto& trav : travs_from(curr)) {
             if (trav.backward) {
-                edges_to_flip.insert(get_edge(curr, trav));
+                edges_to_flip.insert(make_pair(curr, trav));
                 walk(trav, length-trav.node->sequence().size());
             } else {
                 // we would not continue, but we should retain this edge because it brings
                 // us back into the forward strand
-                edges_to_forward.insert(get_edge(curr, trav));
+                edges_to_forward.insert(make_pair(curr, trav));
             }
         }
         for (auto& trav : travs_to(curr)) {
             if (trav.backward) {
-                edges_to_flip.insert(get_edge(trav, curr));
+                edges_to_flip.insert(make_pair(trav, curr));
                 walk(trav, length-trav.node->sequence().size());
             } else {
                 // we would not continue, but we should retain this edge because it brings
                 // us back into the forward strand
-                edges_from_forward.insert(get_edge(trav, curr));
+                edges_from_forward.insert(make_pair(trav, curr));
             }
         }
     };
@@ -7646,22 +7649,22 @@ VG VG::unfold(uint32_t max_length,
         // we need to find the new nodes and add the natural edge
         // the edge will also be reversed
         Edge f;
-        f.set_from(inv_translation[NodeTraversal(get_node(e->to()), true)]);
-        f.set_to(inv_translation[NodeTraversal(get_node(e->from()), true)]);
+        f.set_from(inv_translation[e.first]);
+        f.set_to(inv_translation[e.second]);
         unfolded.add_edge(f);
     }
 
     // finally the edges that take us from the reversed component back to the original graph
     for (auto e : edges_to_forward) {
         Edge f;
-        f.set_from(inv_translation[NodeTraversal(get_node(e->from()), true)]);
-        f.set_to(e->to());
+        f.set_from(inv_translation[e.first]);//NodeTraversal(get_node(e->from()), true)]);
+        f.set_to(e.second.node->id());
         unfolded.add_edge(f);
     }
     for (auto e : edges_from_forward) {
         Edge f;
-        f.set_from(e->from());
-        f.set_to(inv_translation[NodeTraversal(get_node(e->to()), true)]);
+        f.set_from(e.first.node->id());
+        f.set_to(inv_translation[e.second]);
         unfolded.add_edge(f);
     }
 
