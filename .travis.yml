@@ -1,7 +1,9 @@
 # Control file for continuous integration testing at http://travis-ci.org/
 
 language: cpp
-compiler: gcc
+compiler: 
+        - gcc
+        - clang
 before_install:
   - git submodule update --init --recursive
   - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
