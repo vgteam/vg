@@ -55,7 +55,13 @@ VG can now be cloned and built as described above.
 [Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
 
 ```
-brew install automake Libtool jq rapper
+brew install automake libtool jq jansson rapper coreutils
+export PATH="$HOME/homebrew/opt/coreutils/libexec/gnubin:$PATH"
+
+export LD_LIBRARY_PATH=$HOME/homebrew/lib/;
+export LIBRARY_PATH=$LD_LIBRARY_PATH;
+
+. ./source_me.sh && make
 ```
 
 ### Variation graph construction
