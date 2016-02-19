@@ -4,6 +4,7 @@
 namespace vg {
 
 using namespace std;
+using namespace gfak;
 
 
 // construct from a stream of protobufs
@@ -637,7 +638,7 @@ void VG::simplify_siblings(void) {
             transitive_sibling_sets(from_sibs)));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
-    
+
 }
 
 void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
@@ -2126,89 +2127,38 @@ void VG::from_gfa(istream& in, bool showp) {
         exit(1);
     };
 
-    id_t id1, id2;
-    size_t rank;
-    string seq;
-    char side1, side2;
-    string cigar;
-    string path_name;
-    bool is_reverse = false;
-    while(std::getline(in, line)) {
-        stringstream ss(line);
-        string item;
-        int field = 0;
-        char type = '\0';
-        while(std::getline(ss, item, '\t')) {
-            switch (field++) {
-            case 0:
-                type = item[0];
-                switch (type) {
-                case 'L': break;
-                case 'S': break;
-                case 'H': break;
-                case 'P': break;
-                default:
-                    cerr << "[vg] error: unrecognized field type " << type << endl;
-                    exit(1);
-                    break;
-                }
-                break;
-            case 1: id1 = atol(item.c_str()); break;
-            case 2: {
-                switch (type) {
-                case 'S': seq = item; break;
-                case 'L': side1 = item[0]; break;
-                case 'P': path_name = item; break;
-                default: break;
-                }
-            } break;
-            case 3:
-                switch (type) {
-                case 'L': id2 = atol(item.c_str()); break;
-                case 'S': too_many_fields(); break;
-                case 'P': rank = atol(item.c_str());
-                default: break;
-                }
-                break;
-            case 4:
-                switch (type) {
-                case 'L': side2 = item[0]; break;
-                case 'S': too_many_fields(); break;
-                case 'P': is_reverse = (item == "+" ? false : true); break;
-                default: break;
-                }
-                break;
-            case 5:
-                switch (type) {
-                case 'L': cigar = item; break;
-                case 'S': too_many_fields(); break;
-                case 'P': cigar = item; break;
-                default: break;
-                }
-                break;
-            default:
-                too_many_fields();
-                break;
-            }
-        }
+		GFAKluge gg;
+		gg.parse_gfa_file(in);
 
-        // now that we've parsed, add to the graph
-        if (type == 'S') {
-            Node node;
-            node.set_sequence(seq);
-            node.set_id(id1);
-            add_node(node);
-        } else if (type == 'L') {
-            Edge edge;
-            edge.set_from(id1);
-            edge.set_to(id2);
-            if (side1 == '-') edge.set_from_start(true);
-            if (side2 == '-') edge.set_to_end(true);
-            add_edge(edge);
-        } else if (type == 'P') {
-            paths.append_mapping(path_name, id1, rank, is_reverse);
-        }
-    }
+		map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
+		map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
+    map<string, vector<path_elem> > seq_to_paths = gg.get_seq_to_paths();
+		map<string, sequence_elem>::iterator it;
+		for (it = name_to_seq.begin(); it != name_to_seq.end(); it++){
+			auto source_id = atol((it->second).name.c_str());
+			//Make us some nodes
+			Node n;
+			n.set_sequence((it->second).sequence);
+			n.set_id(source_id);
+			add_node(n);
+			// Now some edges. Since they're placed in this map
+			// by their from_node, it's no big deal to just iterate
+			// over them.
+			for (link_elem l : seq_to_link[(it->second).name]){
+				auto sink_id = atol(l.sink_name.c_str());
+				Edge e;
+				e.set_from(source_id);
+				e.set_to(sink_id);
+				e.set_from_start(!l.source_orientation_forward);
+				e.set_to_end(!l.sink_orientation_forward);
+				add_edge(e);
+			}
+      for (path_elem p: seq_to_paths[(it->second).name]){
+        paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
+      }
+
+		}
+
 }
 
 void VG::print_edges(void) {
@@ -5193,10 +5143,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool show_mappings,
                 bool simple_mode,
                 bool invert_edge_ports,
-                bool color_variants,
-                int random_seed) {
-
-    // setup graphviz output
+                int random_seed,
+                bool color_variants) {
+   // setup graphviz output
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;
@@ -5225,7 +5174,8 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             out << "color=red,";
         }
         out << "];" << endl;
-    }
+
+  }
 
     // We're going to fill this in with all the path (symbol, color) label
     // pairs that each edge should get, by edge pointer. If a path takes an
@@ -5474,55 +5424,115 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     }
 
     out << "}" << endl;
+
 }
 
+
 void VG::to_gfa(ostream& out) {
-    map<id_t, vector<string> > sorted_output;
-    out << "H" << "\t" << "HVN:Z:1.0" << endl;
-    for (int i = 0; i < graph.node_size(); ++i) {
+  GFAKluge gg;
+  gg.set_version();
+
+    // TODO moving to GFAKluge
+    // problem: protobuf longs don't easily go to strings....
+    for (int i = 0; i < graph.node_size(); ++i){
+        sequence_elem s_elem;
         Node* n = graph.mutable_node(i);
-        stringstream s;
-        s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
-        auto& node_mapping = paths.get_node_mapping(n->id());
-        set<Mapping*> seen;
-        for (auto& p : node_mapping) {
-            for (auto* m : p.second) {
-                if (seen.count(m)) continue;
-                else seen.insert(m);
-                const Mapping& mapping = *m;
-                string cigar;
-                if (mapping.edit_size() > 0) {
-                    vector<pair<int, char> > cigarv;
-                    mapping_cigar(mapping, cigarv);
-                    cigar = cigar_string(cigarv);
-                } else {
-                    // empty mapping edit implies perfect match
-                    stringstream cigarss;
-                    cigarss << n->sequence().size() << "M";
-                    cigar = cigarss.str();
+        // Fill seq element for a node
+        s_elem.name = to_string(n->id());
+        s_elem.sequence = n->sequence();
+        gg.add_sequence(s_elem);
+
+            auto& node_mapping = paths.get_node_mapping(n->id());
+            set<Mapping*> seen;
+            for (auto& p : node_mapping) {
+                for (auto* m : p.second) {
+                    if (seen.count(m)) continue;
+                    else seen.insert(m);
+                    const Mapping& mapping = *m;
+                    string cigar;
+                    if (mapping.edit_size() > 0) {
+                        vector<pair<int, char> > cigarv;
+                        mapping_cigar(mapping, cigarv);
+                        cigar = cigar_string(cigarv);
+                    } else {
+                        // empty mapping edit implies perfect match
+                        stringstream cigarss;
+                        cigarss << n->sequence().size() << "M";
+                        cigar = cigarss.str();
+                    }
+                    bool orientation = mapping.position().is_reverse();
+                    path_elem p_elem;
+                    p_elem.name = p.first;
+                    p_elem.source_name = to_string(n->id());
+                    p_elem.rank = mapping.rank();
+                    p_elem.is_reverse = orientation;
+                    p_elem.cigar = cigar;
+
+                    gg.add_path(p_elem.source_name, p_elem);
                 }
-                string orientation = mapping.position().is_reverse() ? "-" : "+";
-                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
-                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
             }
-        }
-        sorted_output[n->id()].push_back(s.str());
+
     }
+
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        stringstream s;
-        s << "L" << "\t" << e->from() << "\t"
-          << (e->from_start() ? "-" : "+") << "\t"
-          << e->to() << "\t"
-          << (e->to_end() ? "-" : "+") << "\t"
-          << "0M" << endl;
-        sorted_output[e->from()].push_back(s.str());
+        link_elem l;
+        l.source_name = to_string(e->from());
+        l.sink_name = to_string(e->to());
+        l.source_orientation_forward = ! e->from_start();
+        l.sink_orientation_forward =  ! e->to_end();
+        l.cigar = "0M";
+        gg.add_link(l.source_name, l);
     }
-    for (auto& chunk : sorted_output) {
-        for (auto& line : chunk.second) {
-            out << line;
-        }
-    }
+    out << gg;
+
+
+    // map<id_t, vector<string> > sorted_output;
+    // out << "H" << "\t" << "HVN:Z:1.0" << endl;
+    // for (int i = 0; i < graph.node_size(); ++i) {
+    //     Node* n = graph.mutable_node(i);
+    //     stringstream s;
+    //     s << "S" << "\t" << n->id() << "\t" << n->sequence() << "\n";
+    //     auto& node_mapping = paths.get_node_mapping(n->id());
+    //     set<Mapping*> seen;
+    //     for (auto& p : node_mapping) {
+    //         for (auto* m : p.second) {
+    //             if (seen.count(m)) continue;
+    //             else seen.insert(m);
+    //             const Mapping& mapping = *m;
+    //             string cigar;
+    //             if (mapping.edit_size() > 0) {
+    //                 vector<pair<int, char> > cigarv;
+    //                 mapping_cigar(mapping, cigarv);
+    //                 cigar = cigar_string(cigarv);
+    //             } else {
+    //                 // empty mapping edit implies perfect match
+    //                 stringstream cigarss;
+    //                 cigarss << n->sequence().size() << "M";
+    //                 cigar = cigarss.str();
+    //             }
+    //             string orientation = mapping.position().is_reverse() ? "-" : "+";
+    //             s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
+    //               << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
+    //         }
+    //     }
+    //     sorted_output[n->id()].push_back(s.str());
+    // }
+    // for (int i = 0; i < graph.edge_size(); ++i) {
+    //     Edge* e = graph.mutable_edge(i);
+    //     stringstream s;
+    //     s << "L" << "\t" << e->from() << "\t"
+    //       << (e->from_start() ? "-" : "+") << "\t"
+    //       << e->to() << "\t"
+    //       << (e->to_end() ? "-" : "+") << "\t"
+    //       << "0M" << endl;
+    //     sorted_output[e->from()].push_back(s.str());
+    // }
+    // for (auto& chunk : sorted_output) {
+    //     for (auto& line : chunk.second) {
+    //         out << line;
+    //     }
+    // }
 }
 
 void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
@@ -7500,7 +7510,7 @@ VG VG::unfold(uint32_t max_length,
         }
     }
     for (auto& component : strong_components) {
-        
+
         if (component.size() > 1
             || (component.size() == 1
                 && !has_inverting_edge(get_node(*component.begin())))) {
@@ -7563,7 +7573,7 @@ VG VG::unfold(uint32_t max_length,
 
     // our friend is map<id_t, pair<id_t, bool> >& node_translation;
     map<NodeTraversal, id_t> inv_translation;
-    
+
     // first adding nodes that we've flipped
     for (auto t : travs_to_flip) {
         // make a new node, add it to the flattened version
@@ -7600,7 +7610,7 @@ VG VG::unfold(uint32_t max_length,
 
     // now remove all inverting edges, so we have no more folds in the graph
     unfolded.remove_inverting_edges();
-    
+
     return unfolded;
 }
 
@@ -7633,7 +7643,7 @@ VG VG::unroll(uint32_t max_length,
     // add in bits where we have inversions that we'd reach from the forward direction
     // we will "unroll" these regions as well to ensure that all is well
     // ....
-    // 
+    //
     map<id_t, VG> trees;
     // maps from entry id to the set of nodes
     map<id_t, set<id_t> > components;
@@ -7708,7 +7718,7 @@ VG VG::unroll(uint32_t max_length,
             s ← next(P,s)
             */
 
-                
+
             function<void(pair<id_t,bool>,id_t,bool,uint32_t)> bt = [&](pair<id_t, bool> curr,
                                                                         id_t parent,
                                                                         bool in_cycle,
@@ -7752,7 +7762,7 @@ VG VG::unroll(uint32_t max_length,
                         break;
                     }
                 }
-                    
+
                 // iv.  If we have found a cycle in the current branch,
                 //       increment path length by the length of the label of the current node.
                 if (in_cycle) {
@@ -7798,7 +7808,7 @@ VG VG::unroll(uint32_t max_length,
                 }
 
             };
-                
+
             // we start with the entrypoint and run backtracking search
             bt(make_pair(entrypoint, false), 0, false, 0);
         }
@@ -7823,7 +7833,7 @@ VG VG::unroll(uint32_t max_length,
         dag = tree; // copy
         map<id_t, pair<id_t, bool> >& trans = translations[entrypoint];
         map<pair<id_t, bool>, set<id_t> >& itrans = inv_translations[entrypoint];
-        // rank among nodes with same original identity labeling procedure        
+        // rank among nodes with same original identity labeling procedure
         map<pair<id_t, bool>, size_t> orig_off;
         size_t i = 0;
         for (auto& j : itrans) {
@@ -7869,7 +7879,7 @@ VG VG::unroll(uint32_t max_length,
                 cerr << "]" << endl;
             }
             */
-            
+
             // -------------------------
             // now establish the class relative ranks for each node
             // -------------------------
@@ -7890,7 +7900,7 @@ VG VG::unroll(uint32_t max_length,
             */
             // groups
             // populate group sizes
-            // groups map from the 
+            // groups map from the
             map<pair<pair<id_t, bool>, uint32_t>, vector<id_t> > groups;
             for (auto& r : rank_among_same) {
                 groups[r.second].push_back(r.first);
@@ -7938,7 +7948,7 @@ VG VG::unroll(uint32_t max_length,
             dag.sort();
         } while (!stable);
     }
-    
+
     // recover all the edges that link the nodes in the acyclic components of the graph
     unrolled.for_each_node([&](Node* n) {
             // get its edges in the original graph, and check if their endpoints are now
@@ -8058,7 +8068,7 @@ VG VG::unroll(uint32_t max_length,
             }
         }
     }
-    
+
     return unrolled;
 }
 
