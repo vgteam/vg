@@ -42,7 +42,7 @@ Then build with `. ./source_me.sh && make static`, and run with `./vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
@@ -55,7 +55,7 @@ VG can now be cloned and built as described above.
 [Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
 
 ```
-brew install automake Libtool jq rapper
+brew install automake Libtool jq rapper coreutils
 ```
 
 ### Variation graph construction
