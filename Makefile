@@ -73,7 +73,7 @@ test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph
 	. ./source_me.sh && cd test && $(MAKE)
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS) -lrt
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS)
 
 deps: $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libgssw.a $(LIB_DIR)/libgcsa2.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/libvcflib.a $(INC_DIR)/sparsehash/sparse_hash_map $(OBJ_DIR)/sha1.o $(LIB_DIR)/librocksdb.a $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a
 
