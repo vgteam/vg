@@ -34,7 +34,7 @@ Now, obtain the repo and its submodules:
 
     git clone --recursive https://github.com/ekg/vg.git
 
-Then build with `. ./source_me.sh && make static`, and run with `./vg`.
+Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 #### building on Mac OS X
 
@@ -48,15 +48,21 @@ To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to r
 
     sudo port select gcc mp-gcc49
 
-VG can now be cloned and built as described above.
+VG can now be cloned and built:
+
+    git clone --recursive https://github.com/ekg/vg.git
+    cd vg
+    . ./source_me.sh && make
+    
+Note that static binaries cannot yet be built for Mac.
 
 ##### using Homebrew
 
 [Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
 
 ```
-brew install automake libtool jq jansson rapper coreutils
-export PATH="$HOME/homebrew/opt/coreutils/libexec/gnubin:$PATH"
+brew install automake libtool jq jansson rapper coreutils gcc49
+export PATH="$HOME/homebrew/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
 export LD_LIBRARY_PATH=$HOME/homebrew/lib/;
 export LIBRARY_PATH=$LD_LIBRARY_PATH;
