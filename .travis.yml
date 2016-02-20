@@ -15,6 +15,7 @@ before_install:
   - if [ "$CXX" = "clang++" ]; then sudo apt-get install clang-3.7 lldb-3.7;fi
   #- if [ "$CXX" = "clang++" ]; then sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.7 60 --slave /usr/bin/clang++ clang++ /usr/bin/clang++-3.7; fi
   - ${CXX} --version
+  - which ${CXX}
   - sudo apt-get install -qq bc jq samtools
   - echo "yes" | sudo add-apt-repository ppa:kalakris/cmake
   - sudo apt-get update -qq
