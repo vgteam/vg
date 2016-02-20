@@ -22,6 +22,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir ./bin; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which g++-4.9` ./bin/g++; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which gcc-4.9` ./bin/gcc; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which gshuf` ./bin/shuf; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
