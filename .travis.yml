@@ -7,7 +7,7 @@ compiler:
 before_install:
   - git submodule update --init --recursive
   - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-  - sudo add-apt-repository http://llvm.org/apt/precise/ llvm-toolchain-precise main -y
+  - sudo add-apt-repository 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise main' -y
   - sudo apt-get update -qq
   - if [ "$CXX" = "g++" ]; then sudo apt-get install -qq g++-4.9; fi
   - if [ "$CXX" = "g++" ]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9; fi
