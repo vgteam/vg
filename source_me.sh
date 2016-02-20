@@ -5,5 +5,11 @@ export C_INCLUDE_PATH=`pwd`/include:$C_INCLUDE_PATH
 export CPLUS_INCLUDE_PATH=`pwd`/include:$CPLUS_INCLUDE_PATH
 export INCLUDE_PATH=`pwd`/include:$INCLUDE_PATH
 export PATH=`pwd`/bin:$PATH
-export CC=$(which gcc)
-export CXX=$(which g++)
+if [ ! -z ${CC} ];
+then
+	export CC=$(which gcc)
+fi
+if [ ! -z ${CXX} ];
+then
+	export CXX=$(which g++)
+fi
