@@ -227,7 +227,7 @@ clean:
 	cd $(DEP_DIR) && cd gcsa2 && $(MAKE) clean
 	cd $(DEP_DIR) && cd gssw && $(MAKE) clean
 	cd $(DEP_DIR) && cd progress_bar && $(MAKE) clean
-	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh
+	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 ## TODO vg source code
 ## TODO LRU_CACHE
