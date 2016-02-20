@@ -66,7 +66,7 @@ is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -J
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 84138fe8bd1015fb6b80278c2ed8f7c6 "normalization works on a graph with an inversion"
 
-vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCT$(revcomp AACTACTCCACATCAAAGCTAC)CCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -k 16 -B 16 -Nz | vg mod -u - >/dev/null
+vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -k 16 -B 16 -Nz | vg mod -u - >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
 
 is $(vg msga -B 20 -f msgas/s.fa  | vg mod -r s1 - | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"
