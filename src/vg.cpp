@@ -5143,9 +5143,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool show_mappings,
                 bool simple_mode,
                 bool invert_edge_ports,
-                int random_seed,
-                bool color_variants) {
-   // setup graphviz output
+                bool color_variants,
+                int random_seed) {
+    // setup graphviz output
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
     out << "    rankdir=LR;" << endl;

@@ -689,8 +689,8 @@ public:
                 bool show_mappings = false,
                 bool simple_mode = false,
                 bool invert_edge_ports = false,
-                int random_seed = 0,
-                bool color_variants = false);
+                bool color_variants = false,
+                int random_seed = 0);
 
 
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
