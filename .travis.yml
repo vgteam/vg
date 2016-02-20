@@ -37,7 +37,3 @@ os:
 compiler:
   - gcc
 
-# Ignore OS X failures until we've shaken out the bugs
-matrix:
-  allow_failures:
-    - os: osx
