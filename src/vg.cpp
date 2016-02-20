@@ -5538,14 +5538,14 @@ void VG::to_gfa(ostream& out) {
 void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
     map<id_t, vector<string> > sorted_output;
     out << "@base <http://example.org/vg/> . " << endl;
-    out << "@prefix n:<" <<  rdf_base_uri <<"node/> . " << endl;
-    out << "@prefix p:<" <<  rdf_base_uri <<"path/> . " << endl;
-    out << "@prefix s:<" <<  rdf_base_uri <<"step/> . " << endl;
-    out << "@prefix r:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
+    out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
+    out << "@prefix step: <" <<  rdf_base_uri <<"step/> . " << endl;
+    out << "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         stringstream s;
-        s << "n:" << n->id() << " r:value \"" << n->sequence() << "\" . " << endl ;
+        s << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
         auto& node_mapping = paths.get_node_mapping(n->id());
         set<Mapping*> seen;
         for (auto& p : node_mapping) {
@@ -5556,13 +5556,13 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
 //                string orientation = mapping.position().is_reverse() ? "-" : "+";
 //                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
 //                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
-                  s << "s:" << p.first << "#" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
+                  s << "step:" << p.first << "#" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
                   string orientation = mapping.position().is_reverse() ? "<Reverse>" : "<Forward>";
                   s << "\t a " << orientation <<" ; " << endl;
-                  s << "\t<node> n:" << n->id() << " ; " << endl;
-                  s << "\t<path> p:" << p.first << " . " << endl;
+                  s << "\t<node> node:" << n->id() << " ; " << endl;
+                  s << "\t<path> path:" << p.first << " . " << endl;
 
-//                s << "n:" << n->id() << " r:value \"" << n->sequence() << "\" . \n"
+//                s << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . \n"
             }
         }
         sorted_output[n->id()].push_back(s.str());
@@ -5570,7 +5570,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
         stringstream s;
-        s << "n:" << e->from();
+        s << "node:" << e->from();
         if (e->from_start() && e->to_end()) {
           s << " <linksReverseToReverse> " ; // <--
         } else if (e->from_start() && !e->to_end()) {
@@ -5580,7 +5580,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
         } else {
           s << " <linksForwardToForward> " ; //++
         }
-        s << "n:" << e->to() << " . " << endl;
+        s << "node:" << e->to() << " . " << endl;
         sorted_output[e->from()].push_back(s.str());
     }
     for (auto& chunk : sorted_output) {
