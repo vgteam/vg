@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
+export LC_ALL="C" # force a consistent sort order 
 
 plan tests 1
 
