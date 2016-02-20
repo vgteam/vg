@@ -43,8 +43,8 @@ is $(vg map -K -b minigiab/NA12878.chr22.tiny.bam -k 27 -x giab.xg -g giab.gcsa 
 
 is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -k 27 | vg view -a - | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | grep ^@ | wc -l) "mapping from a fastq produces the expected number of alignments"
 
-count_prev=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam -o x | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa -k 27 | vg view -a - | jq .fragment_prev.name | grep null | wc -l)
-count_next=$(samtools sort -n minigiab/NA12878.chr22.tiny.bam -o x | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa -k 27 | vg view -a - | jq .fragment_next.name | grep null | wc -l)
+count_prev=$(samtools sort -no minigiab/NA12878.chr22.tiny.bam x | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa -k 27 | vg view -a - | jq .fragment_prev.name | grep null | wc -l)
+count_next=$(samtools sort -no minigiab/NA12878.chr22.tiny.bam x | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa -k 27 | vg view -a - | jq .fragment_next.name | grep null | wc -l)
 
 is $count_prev $count_next "vg connects paired-end reads in gam output"
 

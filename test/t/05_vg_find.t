@@ -17,10 +17,10 @@ is $? 0 "indexing nodes and edges of graph"
 vg index -n -k 11 x.vg
 is $? 0 "indexing 11mers"
 
-node_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^S" | cut -f 2 | grep '1$\|2$\|9$\|5$\|6$\|8$' | wc -l)
+node_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^S" | cut -f 2 | grep -E '1$|2$|9$|5$|6$|8$' | wc -l)
 is $node_matches 6 "all expected nodes found via kmer find"
 
-edge_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^L" | cut -f 2 | grep '1$\|2$\|8$\|5$\|6$' | wc -l)
+edge_matches=$(vg find -k TAAGGTTTGAA -c 0 x.vg | vg view -g - | grep "^L" | cut -f 2 | grep -E '1$|2$|8$|5$|6$' | wc -l)
 is $edge_matches 5 "all expected edges found via kmer find"
 
 is $(vg find -n 2 -n 3 -c 1 x.vg | vg view -g - | wc -l) 15 "multiple nodes can be picked using vg find"

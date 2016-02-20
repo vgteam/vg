@@ -42,7 +42,7 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
@@ -61,10 +61,11 @@ Note that static binaries cannot yet be built for Mac.
 [Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
 
 ```
-brew install automake libtool jq jansson rapper coreutils gcc49
-export PATH="$HOME/homebrew/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+brew tap homebrew/science
+brew install automake libtool jq jansson coreutils gcc49 samtools
+export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
-export LD_LIBRARY_PATH=$HOME/homebrew/lib/;
+export LD_LIBRARY_PATH=/usr/local/lib/;
 export LIBRARY_PATH=$LD_LIBRARY_PATH;
 
 . ./source_me.sh && make

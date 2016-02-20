@@ -32,7 +32,7 @@ is $? 0 "can sort and re-number a graph with self loops"
 vg ids -s cyclic/all.vg > sorted.vg
 is $? 0 "can sort and renumber a complex cyclic graph"
 
-is $(vg ids -s ids/mixed.json | vg view -j - | jq -c '.edge[] | select(.from > .to)' | wc -l) 0 "sorting removes back-edges in a DAG"
+is $(vg ids -s ids/unordered.vg | vg view -j - | jq -c '.edge[] | select(.from > .to)' | wc -l) 0 "sorting removes back-edges in a DAG"
 
 rm sorted.vg
 
