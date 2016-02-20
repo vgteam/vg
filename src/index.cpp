@@ -11,6 +11,9 @@ Index::Index(void) {
     write_options = rocksdb::WriteOptions();
     mem_env = false;
     use_snappy = false;
+    // We haven't opened the index yet. We don't get false by default on all platforms.
+    is_open = false;
+    db = nullptr;
     //block_cache_size = 1024 * 1024 * 10; // 10MB
 
     threads = 1;
