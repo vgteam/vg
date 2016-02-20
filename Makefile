@@ -75,9 +75,9 @@ test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf
 # Hack to use gshuf or shuf as appropriate to the platform when testing
 $(BIN_DIR)/shuf:
 ifeq ($(shell uname -s),Darwin)
-	ln `which gshuf` $(BIN_DIR)/shuf
+	ln -s `which gshuf` $(BIN_DIR)/shuf
 else
-	ln `which shuf` $(BIN_DIR)/shuf
+	ln -s `which shuf` $(BIN_DIR)/shuf
 endif
 
 
