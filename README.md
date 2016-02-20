@@ -61,7 +61,7 @@ Note that static binaries cannot yet be built for Mac.
 [Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
 
 ```
-brew install automake libtool jq jansson rapper coreutils gcc49
+brew install automake libtool jq jansson coreutils gcc49
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
 export LD_LIBRARY_PATH=/usr/local/lib/;
