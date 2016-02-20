@@ -62,9 +62,9 @@ Note that static binaries cannot yet be built for Mac.
 
 ```
 brew install automake libtool jq jansson rapper coreutils gcc49
-export PATH="$HOME/homebrew/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
-export LD_LIBRARY_PATH=$HOME/homebrew/lib/;
+export LD_LIBRARY_PATH=/usr/local/lib/;
 export LIBRARY_PATH=$LD_LIBRARY_PATH;
 
 . ./source_me.sh && make
