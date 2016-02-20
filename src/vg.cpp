@@ -5538,9 +5538,9 @@ void VG::to_gfa(ostream& out) {
 void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
     map<id_t, vector<string> > sorted_output;
     out << "@base <http://example.org/vg/> . " << endl;
-    out << "@prefix n:<" <<  rdf_base_uri <<"/node/> . " << endl;
-    out << "@prefix p:<" <<  rdf_base_uri <<"/path/> . " << endl;
-    out << "@prefix s:<" <<  rdf_base_uri <<"/step/> . " << endl;
+    out << "@prefix n:<" <<  rdf_base_uri <<"node/> . " << endl;
+    out << "@prefix p:<" <<  rdf_base_uri <<"path/> . " << endl;
+    out << "@prefix s:<" <<  rdf_base_uri <<"step/> . " << endl;
     out << "@prefix r:<http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
