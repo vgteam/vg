@@ -14,10 +14,11 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install cmake; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install automake libtool jq jansson coreutils gcc49; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install automake libtool jq jansson coreutils; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which g++-4.9 || (brew unlink gcc && brew install gcc49); fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which g++-4.9` ./bin/g++; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which gcc-4.9` ./bin/gcc; fi
   - python ./configure.py
