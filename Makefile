@@ -20,8 +20,12 @@ LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthr
 ifeq ($(shell uname -s),Darwin)
     # We may need libraries from Macports
     # TODO: where does Homebrew keep libraries?
-    LD_LIB_FLAGS += -L/opt/local/lib
-
+    ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
+       LD_LIB_FLAGS += -L/opt/local/lib
+    endif
+    ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
+       LD_LIB_FLAGS += -L/usr/local/lib
+    endif
     ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler options
 else
     # Not on OS X, we can have librt
