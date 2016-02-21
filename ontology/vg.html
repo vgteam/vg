@@ -239,6 +239,15 @@
 </td>
 </tr>
 <tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"Node"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
 					rdfs:subClassOf</a></td>
 <td><a href="http://www.w3.org/2002/07/owl#Thing">
@@ -260,7 +269,16 @@
 <td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
 					rdfs:comment</a></td>
 <td>
-						"A Path is a collection of steps from path to path that represent an assembled sequence integrated into the variant grap."
+						"A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant grap."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"Path"
 						<sup><a href=".">
 				xsd:string</a></sup>
 </td>
@@ -288,6 +306,15 @@
 					rdfs:comment</a></td>
 <td>
 						"A step along a path in the variant graph. A series of steps along a path represent an assembled sequence that was originally inserted into the the variant graph. A step points to a :Node or the reverse complement of a node and has a rank (step number)."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"Step"
 						<sup><a href=".">
 				xsd:string</a></sup>
 </td>
@@ -334,6 +361,24 @@
 				vg:Node</a></td>
 </tr>
 <tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"++"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linksForwardToForward"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
@@ -365,6 +410,24 @@
 					rdfs:domain</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"+-"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linksForwardToReverse"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
 </tr>
 <tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
@@ -400,6 +463,24 @@
 				vg:Node</a></td>
 </tr>
 <tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"-+"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linksReverseToForward"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
@@ -431,6 +512,24 @@
 					rdfs:domain</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Node">
 				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"--"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"linksReverseToReverse"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
 </tr>
 <tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
@@ -466,6 +565,15 @@
 				vg:Step</a></td>
 </tr>
 <tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"node"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
 					rdfs:range</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Step">
@@ -497,6 +605,15 @@
 					rdfs:domain</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Step">
 				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"reverseOfNode"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
 </tr>
 <tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
@@ -531,6 +648,15 @@
 					rdfs:domain</a></td>
 <td><a href="http://biohackathon.org/resource/vg#Step">
 				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#label">
+					rdfs:label</a></td>
+<td>
+						"rank"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
 </tr>
 <tr>
 <td><a href="http://www.w3.org/2000/01/rdf-schema#range">
