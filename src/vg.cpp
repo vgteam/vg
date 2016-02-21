@@ -5550,8 +5550,10 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
         Node* n = graph.mutable_node(i);
         stringstream s;
         s << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
+	//Ensure that mappings are sorted by ranks
+	paths.sort_by_mapping_rank();
         auto& node_mapping = paths.get_node_mapping(n->id());
-        set<Mapping*> seen;
+	set<Mapping*> seen;
         for (auto& p : node_mapping) {
             for (auto* m : p.second) {
                 if (seen.count(m)) continue;
@@ -5565,7 +5567,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
                   s << "\t a " << orientation <<" ; " << endl;
                   s << "\t<node> node:" << n->id() << " ; " << endl;
                   s << "\t<path> path:" << p.first << " . " << endl;
-
+		  int nodeLength = p-> 
 //                s << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . \n"
             }
         }
