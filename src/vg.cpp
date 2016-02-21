@@ -2163,6 +2163,18 @@ void VG::from_gfa(istream& in, bool showp) {
 
 }
 
+void VG::from_n_triples(istream& in, bool showp) {
+	string vg_ns = "http://example.org/vg/";
+	string step_type = vg_ns + "Step";
+	string path_type = vg_ns + "Path";
+	string node_type = vg_ns + "Node";
+	string node_predicate = vg_ns + "node";
+	string rank_predicate= vg_ns + "rank";
+	string reverseNodeOf_predicate= vg_ns + "reverseNodeOf";
+
+
+}
+
 void VG::print_edges(void) {
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
