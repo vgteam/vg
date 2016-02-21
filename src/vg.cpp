@@ -2164,13 +2164,16 @@ void VG::from_gfa(istream& in, bool showp) {
 
 }
     
-    static void
+    void
     print_triple(void* user_data, raptor_statement* triple)
     {
-        cerr << raptor_term_to_string(triple->subject) << " ";
-        cerr << raptor_term_to_string(triple->predicate) << " ";
-        cerr << raptor_term_to_string(triple->object) << " . ";
-        cerr << endl;
+//        if ((raptor_term_to_string(triple->subject()) == "") || (raptor_term_to_string(triple->predicate()) == "") || (raptor_term_to_string(triple->object()) == "")) {
+            cerr << raptor_term_to_string(triple->subject) << " ";
+            cerr << raptor_term_to_string(triple->predicate) << " ";
+            cerr << raptor_term_to_string(triple->object) << " . ";
+            cerr << endl;
+//        }
+        
     }
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
@@ -2196,7 +2199,6 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
     filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
 	uri_file = raptor_new_uri(world, filename_uri_string);
 	uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
-    cerr << uri_file << endl;
 	raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
 	raptor_free_uri(uri_base);
 	raptor_free_uri(uri_file);
@@ -5603,7 +5605,10 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
                 if (seen.count(m)) continue;
                 else seen.insert(m);
                 const Mapping& mapping = *m;
-                  out << "step:" << p.first << "#" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
+//                string orientation = mapping.position().is_reverse() ? "-" : "+";
+//                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
+//                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
+                  s << "step:" << p.first << "%23" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
                   string orientation = mapping.position().is_reverse() ? "<Reverse>" : "<Forward>";
                   out << "\t a " << orientation <<" ; " << endl;
                   out << "\t<node> node:" << n->id() << " ; " << endl;
