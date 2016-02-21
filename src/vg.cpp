@@ -5566,13 +5566,12 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
             }
         }
     }
-    function<void(const Path&)> lambda = [this, &out]
+    function<void(const Path&)> lambda = [&out]
         (const Path& path) {
-            int offset=0;
+            uint64_t offset=0; //We could have more than 2gigabases in a path
             for (auto &m : path.mapping()) {
-//                out << "step:" << path.name() << "#" << m.rank() << " <position> "  << offset<< endl;
-//                Node* node = get_node(m.position().node_id());
-////                offset +=  m.offset
+                out << "step:" << path.name() << "#" << m.rank() << " <position> "<< offset<<" . " << endl;
+                offset += mapping_to_length(m);
             }
         };
     paths.for_each(lambda);
