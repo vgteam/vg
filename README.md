@@ -66,10 +66,10 @@ brew tap homebrew/science  # for samtools
 brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
-# Make symlinks to use glibtool/ize
-ln -s glibtool /usr/local/bin/libtool
-ln -s glibtoolize /usr/local/bin/libtoolize
-# Make symlinks to use gxx-4.9 instead of builtin gxx
+# Use glibtool/ize
+export LIBTOOL=glibtool
+export LIBTOOLIZE=glibtoolize
+# Make symlinks to use gxx-4.9 instead of builtin gxx (CC and CXX not yet fully honored)
 ln -s gcc-4.9 /usr/local/bin/gcc
 ln -s g++-4.9 /usr/local/bin/g++
 
