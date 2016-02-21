@@ -2166,21 +2166,28 @@ void VG::from_gfa(istream& in, bool showp) {
     static void
     print_triple(void* user_data, raptor_statement* triple)
     {
-        raptor_statement_print_as_ntriples(triple, stdout);
-        fputc('\n', stdout);
+        cerr << raptor_term_to_string(triple->subject) << " ";
+        cerr << raptor_term_to_string(triple->predicate) << " ";
+        cerr << raptor_term_to_string(triple->object) << " . ";
+        cerr << endl;
     }
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
-    cerr << " parsing turtle ";
 	raptor_world* world;
+    world = raptor_new_world();
+    if(!world)
+    {
+        cerr << "we could not open the raptor_world!" << endl;
+        exit(1);
+    }
 	int st =  raptor_world_open (world);
+
 	if (st!=0)
 		exit(1);
 	raptor_parser* rdf_parser;
 	const unsigned char *filename_uri_string;
 	raptor_uri  *uri_base, *uri_file;
 	rdf_parser = raptor_new_parser(world, "turtle");
-    
     raptor_parser_set_statement_handler(rdf_parser, NULL, print_triple);
 
 
@@ -2188,6 +2195,7 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
     filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
 	uri_file = raptor_new_uri(world, filename_uri_string);
 	uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
+    cerr << uri_file << endl;
 	raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
 	raptor_free_uri(uri_base);
 	raptor_free_uri(uri_file);
