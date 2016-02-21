@@ -2183,8 +2183,9 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
     
     raptor_parser_set_statement_handler(rdf_parser, NULL, print_triple);
 
-	const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
-	filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
+
+    const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
+    filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
 	uri_file = raptor_new_uri(world, filename_uri_string);
 	uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
 	raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
