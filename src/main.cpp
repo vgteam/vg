@@ -4613,7 +4613,7 @@ int main_view(int argc, char** argv) {
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
                 {"turtle", no_argument, 0, 't'},
-				{"n-triples-in", no_argument, 0, 'R'},
+				{"turtle-in", no_argument, 0, 'T'},
                 {"rdf-base-uri", no_argument, 0, 'r'},
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
@@ -4641,7 +4641,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:RSC",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:TSC",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4726,8 +4726,8 @@ int main_view(int argc, char** argv) {
         case 'r':
             rdf_base_uri = optarg;
             break;
-        case 'r':
-			input_type= "n-triples";
+        case 'T':
+			input_type= "turtle-in";
             break;
         case 'a':
             input_type = "gam";
@@ -4850,15 +4850,13 @@ int main_view(int argc, char** argv) {
         JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false);
-    } else if(input_type == "n-triples") {
+    } else if(input_type == "turtle-in") {
 		if (file_name == "-") {
 					graph = new VG;
-					graph->from_n_triples(std::cin);
+					graph->from_turtle(NULL, rdf_base_uri);
 				} else {
-					ifstream in;
-					in.open(file_name.c_str());
 					graph = new VG;
-					graph->from_n_triples(in);
+					graph->from_turtle(file_name, rdf_base_uri);
 				}
     } else if (input_type == "gam") {
         if (input_json == false) {
