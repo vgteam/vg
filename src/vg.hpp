@@ -718,6 +718,9 @@ public:
 
     // for each path assigns edits that describe a total match of the mapping to the node
     void force_path_match(void);
+    // for each path, if a mapping has no edits then make it a perfect match against a node
+    // (the same as force_path_match, but only for empty mappings)
+    void fill_empty_path_mappings(void);
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
