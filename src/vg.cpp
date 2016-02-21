@@ -1815,51 +1815,51 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
-                 altp[allele.position].insert(allele);
-                 if (i % 10000 == 0) {
-                     update_progress(altp.size());
-                 }
-             }
-         }
-     }
-     destroy_progress();
- }
+                altp[allele.position].insert(allele);
+                if (i % 10000 == 0) {
+                    update_progress(altp.size());
+                }
+            }
+        }
+    }
+    destroy_progress();
+}
 
- void VG::slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
-                        int start_pos,
-                        int stop_pos,
-                        int max_node_size) {
+void VG::slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
+                       int start_pos,
+                       int stop_pos,
+                       int max_node_size) {
 
-     auto enforce_node_size_limit =
-         [this, max_node_size, &altp]
-         (int curr_pos, int& last_pos) {
-         int last_ref_size = curr_pos - last_pos;
-         update_progress(last_pos);
-         if (max_node_size && last_ref_size > max_node_size) {
-             int div = 2;
-             while (last_ref_size/div > max_node_size) {
-                 ++div;
-             }
-             int segment_size = last_ref_size/div;
-             int i = 0;
-             while (last_pos + i < curr_pos) {
-                 altp[last_pos+i];  // empty cut
-                 i += segment_size;
-                 update_progress(last_pos + i);
-             }
-         }
-     };
+    auto enforce_node_size_limit =
+        [this, max_node_size, &altp]
+        (int curr_pos, int& last_pos) {
+        int last_ref_size = curr_pos - last_pos;
+        update_progress(last_pos);
+        if (max_node_size && last_ref_size > max_node_size) {
+            int div = 2;
+            while (last_ref_size/div > max_node_size) {
+                ++div;
+            }
+            int segment_size = last_ref_size/div;
+            int i = 0;
+            while (last_pos + i < curr_pos) {
+                altp[last_pos+i];  // empty cut
+                i += segment_size;
+                update_progress(last_pos + i);
+            }
+        }
+    };
 
-     if (max_node_size > 0) {
-         create_progress("enforcing node size limit ", (altp.empty()? 0 : altp.rbegin()->first));
-         // break apart big nodes
-         int last_pos = start_pos;
-         for (auto& position : altp) {
-             auto& alleles = position.second;
-             enforce_node_size_limit(position.first, last_pos);
-             for (auto& allele : alleles) {
-                 // cut the last reference sequence into bite-sized pieces
-                 last_pos = max(position.first + allele.ref.size(), (long unsigned int) last_pos);
+    if (max_node_size > 0) {
+        create_progress("enforcing node size limit ", (altp.empty()? 0 : altp.rbegin()->first));
+        // break apart big nodes
+        int last_pos = start_pos;
+        for (auto& position : altp) {
+            auto& alleles = position.second;
+            enforce_node_size_limit(position.first, last_pos);
+            for (auto& allele : alleles) {
+                // cut the last reference sequence into bite-sized pieces
+                last_pos = max(position.first + allele.ref.size(), (long unsigned int) last_pos);
             }
         }
         enforce_node_size_limit(stop_pos, last_pos);
@@ -2112,6 +2112,8 @@ void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
     for (auto& p : seq_node_ids) {
         paths.append_mapping(name, p.second);
     }
+    // and set the mapping edits
+    force_path_match();
 
     sort();
     compact_ids();
@@ -7470,17 +7472,33 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
 }
 
 void VG::force_path_match(void) {
-    for_each_node([&](Node* node) {
-            for (auto p : paths.get_node_mapping(node)) {
+    for_each_node([&](Node* n) {
+            Edit match;
+            size_t seq_len = n->sequence().size();
+            match.set_from_length(seq_len);
+            match.set_to_length(seq_len);
+            for (auto& p : paths.get_node_mapping(n)) {
                 for (auto m : p.second) {
-                    // force the matching edit
-                    m->clear_edit();
-                    Edit* e = m->add_edit();
-                    e->set_from_length(node->sequence().size());
-                    e->set_to_length(node->sequence().size());
+                    *m->add_edit() = match;
                 }
             }
-    });
+        });
+}
+
+void VG::fill_empty_path_mappings(void) {
+    for_each_node([&](Node* n) {
+            Edit match;
+            size_t seq_len = n->sequence().size();
+            match.set_from_length(seq_len);
+            match.set_to_length(seq_len);
+            for (auto& p : paths.get_node_mapping(n)) {
+                for (auto m : p.second) {
+                    if (m->edit_size() == 0) {
+                        *m->add_edit() = match;
+                    }
+                }
+            }
+        });
 }
 
 // walks up to max_length away from nodes that are in acyclic regions of the graph
