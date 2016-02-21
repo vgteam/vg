@@ -1,0 +1,568 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<html xmlns:taxo="http://purl.org/rss/1.0/modules/taxonomy/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title></title>
+<style type="text/css">
+                                  .Class {padding:0.4em; width:99%; border-width: 1px; border-style: dashed; position:relative;
+					margin-top: 1.5em; border-style:solid; background:#e0e0e0}
+                                  .cp-type {font-weight: normal; font-size:90%; color:
+					maroon;} .nice-content td { width:50% }
+				  #header {
+                                        padding-top: 2px;
+                                        padding-left: 1px;
+                                        padding-right: 1px;
+					background-color: #333333;
+					
+					color: #ffffff;
+				  }
+				  #header a {
+                                        color: #ffffff;
+                                  }
+				  #header #logo {
+                                     padding-left: 20px;
+				  }
+				  #header #trail {
+                                     text-align: left;
+				  }
+				  #header #menu {
+                                     text-align: right;
+                                     padding-right: 20px;
+				  }
+				  body {
+                                    margin:0;
+                                    padding:0;
+                                    font-family: trebuchet ms,sans-serif!important;
+				  }
+				  table {
+                                    width:100%;
+                                    border-collapse: collapse;
+				  }
+				  #search {
+                                      margin-top:1em;
+                                      margin-left: 0.5em;
+                                      padding-left: 1px;
+                                      padding-right: 1px;
+                                      background-color: #F5F5F5;
+				  }
+				  h2, h3 {
+                                    border-bottom: 2px solid #ACBCD0;
+                                    color: #426490;
+                                    font-size: medium;
+                                    font-weight: bold;
+                                    margin-bottom: 0.5em;
+                                    margin-top: 1em;
+                                    padding: 0.25em 0;
+                                  }
+                                  .subsection {
+                                    margin-top: 0.5em;
+                                  }
+                                  th {
+                                     text-align: left;
+                                  }
+                                  .nice {
+                                    color: #000000;
+                                  }
+                                  .nice th, .nice td {
+                                      padding: 0.2em 0.3em;
+                                      vertical-align: top;
+                                  }
+                                  .nice tr td {
+                                    border-left: 1px solid #DEDEDE;
+                                  }
+                                  .nice tr td:first-child  {
+                                    border-left: 0px solid #DEDEDE;
+                                  }
+                                  .nice tr {
+                                    border-top: 1px solid #DEDEDE;
+                                  }
+                                  .nice tr:first-child {
+                                    border-top: 0px solid #DEDEDE;
+                                  }
+                                  #content {
+                                    margin-left:0.5em;
+                                    margin-right:0.5em;
+                                  }
+                                  .indent {
+                                    margin-left:2em;
+                                  }
+                                  #footer {
+                                    margin-top:1em;
+                                    padding-left:1px;
+                                    padding-right:1px;
+                                    background-color: #F5F5F5;
+                                    margin-bottom:0em;
+                                  }
+                                  #footer ul {
+                                     list-style: none outside none;
+                                  }
+				</style>
+</head>
+<body>
+<table id="header"><tr>
+<td id="logo"><a href="/" accesskey="1"><img src="http://www.biohackathon.org/bh-favicon.png" alt="" width="37px"></a></td>
+<td id="trail">
+					VG RDF: RDF properies and classes used to describe genomic variant graphs
+				</td>
+<td id="menu">
+<a href="http://biohackathon.org/resource/vg.ttl">Turtle</a>
+					· <a href="http://biohackathon.org/resource/vg.rdf">RDF/XML</a>
+                                        · <a href="https://gitter.im/ekg/vg" accesskey="9">Contact/Help</a>
+					· <a href="https://github.com/ekg/vg" rel="help">Documentation</a>
+</td>
+</tr></table>
+<table id="search">
+<tr><td style="width:20em;"><a href="#OntologyDescription">Ontology description</a></td></tr>
+<tr>
+<td><a href="#Classes">
+                                    Classes (
+                                    3
+                                    )
+                            </a></td>
+<td><select onChange="window.location.hash = document.getElementById('naviClass').value" id="naviClass"><option value="Node">
+				vg:Node</option>
+<option value="Path">
+				vg:Path</option>
+<option value="Step">
+				vg:Step</option></select></td>
+</tr>
+<tr><td><a href="#Properties">
+                                    Properties (
+                                    7
+                                    )
+                            </a></td></tr>
+<tr>
+<td><a style="objectPropertySearch" href="#ObjectProperties">
+                                    Object properties (
+                                    6
+                                    )
+                            </a></td>
+<td><select onChange="window.location.hash = document.getElementById('navi3').value" id="navi3"><option value="linksForwardToForward">
+				vg:linksForwardToForward</option>
+<option value="linksForwardToReverse">
+				vg:linksForwardToReverse</option>
+<option value="linksReverseToForward">
+				vg:linksReverseToForward</option>
+<option value="linksReverseToReverse">
+				vg:linksReverseToReverse</option>
+<option value="node">
+				vg:node</option>
+<option value="reverseOfNode">
+				vg:reverseOfNode</option></select></td>
+</tr>
+<tr>
+<td><a style="datatypePropertySearch" href="#DatatypeProperties">
+                                    Datatype properties (
+                                    1
+                                    )
+                            </a></td>
+<td><select onChange="window.location.hash = window.location.hash = document.getElementById('navi4').value" id="navi4"><option value="rank">
+				vg:rank</option></select></td>
+</tr>
+<tr>
+<td><a href="#InstanceData">
+                                    Instance data (
+                                    0
+                                    )
+                            </a></td>
+<td><select onChange="window.location.hash = window.location.hash = document.getElementById('navi5').value" id="navi5"></select></td>
+</tr>
+</table>
+<div id="content">
+<div id="sections">
+<div class="nice" id="section_OntologyDescription" style="position: relative;">
+<h2>
+						Ontology description
+					</h2>
+<div class="nice-content" id="OntologyDescription"><table>
+<tr><th colspan="2">
+<a></a><span class="cp-type">
+						(rdf:type
+						<a href="http://www.w3.org/2002/07/owl#Ontology">
+					owl:Ontology</a>
+						)
+					</span>
+</th></tr>
+<tr>
+<td><a href="http://purl.org/dc/terms/license">
+                                        dcterms:license</a></td>
+<td><a href="http://creativecommons.org/publicdomain/zero/1.0/">http://creativecommons.org/publicdomain/zero/1.0/</a></td>
+</tr>
+<tr>
+<td><a href="http://spinrdf.org/spin#imports">
+                                        spin:imports</a></td>
+<td><a href="http://topbraid.org/spin/owlrl-all">http://topbraid.org/spin/owlrl-all</a></td>
+</tr>
+<tr>
+<td><a href="http://spinrdf.org/spin#imports">
+                                        spin:imports</a></td>
+<td><a href="http://topbraid.org/spin/rdfsplus">http://topbraid.org/spin/rdfsplus</a></td>
+</tr>
+<tr>
+<td><a href="http://spinrdf.org/spin#imports">
+                                        spin:imports</a></td>
+<td><a href="http://topbraid.org/spin/spinowl">http://topbraid.org/spin/spinowl</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2002/07/owl#versionInfo">
+					owl:versionInfo</a></td>
+<td>
+						"Created at the DBCLS RDF Summit 2, Sendai Japan 20"
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+</table></div>
+</div>
+<div class="nice" id="section_Classes" style="position: relative;">
+<h2>
+						Classes
+					</h2>
+<div class="nice-content" id="Classes">
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Node"></a><tbody>
+<tr><th id="Node">
+				vg:Node<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A node in the variant graph, representing a sequence section."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://www.w3.org/2002/07/owl#Thing">
+				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Path"></a><tbody>
+<tr><th id="Path">
+				vg:Path<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A Path is a collection of steps from path to path that represent an assembled sequence integrated into the variant grap."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://www.w3.org/2002/07/owl#Thing">
+				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#Step"></a><tbody>
+<tr><th id="Step">
+				vg:Step<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#Class">
+					owl:Class</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"A step along a path in the variant graph. A series of steps along a path represent an assembled sequence that was originally inserted into the the variant graph. A step points to a :Node or the reverse complement of a node and has a rank (step number)."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#subClassOf">
+					rdfs:subClassOf</a></td>
+<td><a href="http://www.w3.org/2002/07/owl#Thing">
+				owl:Thing</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="nice" id="section_Properties" style="position: relative;">
+<h2>
+						Properties
+					</h2>
+<div class="nice-content" id="Properties">
+<h3 id="ObjectProperties">Object properties</h3>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linksForwardToForward"></a><tbody>
+<tr><th id="linksForwardToForward">
+				vg:linksForwardToForward<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This links a node from the forward (5' to 3') strand on the subject node to the forward (5' to 3') strand on the predicate node."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linksForwardToReverse"></a><tbody>
+<tr><th id="linksForwardToReverse">
+				vg:linksForwardToReverse<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This links a node from the forward (5' to 3') strand on the subject node to the reverse (3' to 5') strand on the predicate node."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linksReverseToForward"></a><tbody>
+<tr><th id="linksReverseToForward">
+				vg:linksReverseToForward<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This links a node from the reverse (3' to 5') strand on the subject node to the forward (5' to 3') strand on the predicate node."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#linksReverseToReverse"></a><tbody>
+<tr><th id="linksReverseToReverse">
+				vg:linksReverseToReverse<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This links a node from the reverse (3' to 5') strand on the subject node to the reverse (3' to 5') strand on the predicate node."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#node"></a><tbody>
+<tr><th id="node">
+				vg:node<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This means that this step occurs on the forward strand of the sequence attaced to the node (i.e. it is on the explicit encoded forward (5' to 3') strand) of the predicate node."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Step">
+				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Step">
+				vg:Step</a></td>
+</tr>
+</tbody>
+</table>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#reverseOfNode"></a><tbody>
+<tr><th id="reverseOfNode">
+				vg:reverseOfNode<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#ObjectProperty">
+					owl:ObjectProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"This means this step occurs on the revese complement of the sequence attaced to the node (i.e. it is on the implicit reverse (3' to 5') strand) of the predicate node."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Step">
+				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Node">
+				vg:Node</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="DatatypeProperties">Datatype properties</h3>
+<table class="subsection">
+<a name="http://biohackathon.org/resource/vg#rank"></a><tbody>
+<tr><th id="rank">
+				vg:rank<span class="cp-type">
+								(rdf:type
+								<a href="http://www.w3.org/2002/07/owl#DatatypeProperty">
+					owl:DatatypeProperty</a>
+								)
+							</span>
+</th></tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#comment">
+					rdfs:comment</a></td>
+<td>
+						"The rank records the step place along its path."
+						<sup><a href=".">
+				xsd:string</a></sup>
+</td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#domain">
+					rdfs:domain</a></td>
+<td><a href="http://biohackathon.org/resource/vg#Step">
+				vg:Step</a></td>
+</tr>
+<tr>
+<td><a href="http://www.w3.org/2000/01/rdf-schema#range">
+					rdfs:range</a></td>
+<td><a href="http://www.w3.org/2001/XMLSchema#positiveInteger">
+				xsd:positiveInteger</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="nice" id="section_InstanceData" style="position: relative;"><div class="nice-content" id="InstanceData"></div></div>
+</div>
+<script type="text/javascript"> <!-- UniProt.visibility.initSections('owl'); 
+			</script>
+</div>
+<div id="footer">
+<p>We would like to especially thank the organisers and funders of the <a href="http://www.biohackaton.org">BioHackathon</a> series of meetings for hosting the original discussions leading to VG RDF</p>
+<p>VG RDF is addittionaly supported by:</p>
+<ul>
+<li>
+<a href="http://biosciencedbc.jp/en/">National Bioscience Database Center (NBDC)</a> of <a href="http://www.jst.go.jp/">Japan Science and Technology Agency (JST)</a>
+</li>
+<li><a href="http://dbcls.rois.ac.jp/en/">Database Center for Life Science (DBCLS)</a></li>
+<li><a href="http://www.rois.ac.jp/">Research Organization of Information and Systems (ROIS)</a></li>
+<li>
+<a href="http://www.isb-sib.ch/groups/geneva/sp-xenarios.html">Swiss-Prot part of the SIB Swiss Institute of Bioinformatics</a> and supported by the <a href="http://www.sbfi.admin.ch/?lang=en">Swiss Federal Government through the The State Secretariat for Education, Research and Innovation SERI</a>.</li>
+<li><a href="http://www.nih.gov/">NIH under R24OD011883</a></li>
+<li><a href="http://www.ddbj.nig.ac.jp">DNA Databank of Japan (DDBJ)</a></li>
+<li><a href="http://www.sanger.ac.jp">Sanger centre</a></li>
+<li><a href="https://genomics.soe.ucsc.edu/haussler">University of California, Santa Cruz, David Haussler lab</a></li>
+</ul>
+</div>
+</body>
+</html>
