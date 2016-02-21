@@ -2165,18 +2165,21 @@ void VG::from_gfa(istream& in, bool showp) {
 }
     static
     void
-    print_triple(void* user_data, raptor_statement* triple)
+    triple_to_vg(void* user_data, raptor_statement* triple)
     {
+        VG* vg = (VG*) user_data;
         string vg_ns ="http://example.org/";
         string vg_node_p = vg_ns + "node" ;
         string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
         string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
         string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
         if (pred == ("<"+vg_node_p+">") ) {
-            cerr << raptor_term_to_string(triple->subject) << " ";
-            cerr << raptor_term_to_string(triple->predicate) << " ";
-            cerr << raptor_term_to_string(triple->object) << " . ";
-            cerr << endl;
+            if (vg->has_node(1)){
+                cerr << raptor_term_to_string(triple->subject) << " ";
+                cerr << raptor_term_to_string(triple->predicate) << " ";
+                cerr << raptor_term_to_string(triple->object) << " . ";
+                cerr << endl;
+            }
         }
         
     }
@@ -2197,7 +2200,7 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
 	const unsigned char *filename_uri_string;
 	raptor_uri  *uri_base, *uri_file;
 	rdf_parser = raptor_new_parser(world, "turtle");
-    raptor_parser_set_statement_handler(rdf_parser, NULL, print_triple);
+    raptor_parser_set_statement_handler(rdf_parser, this, triple_to_vg);
 
 
     const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
