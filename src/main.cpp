@@ -4853,7 +4853,7 @@ int main_view(int argc, char** argv) {
     } else if(input_type == "turtle-in") {
 		if (file_name == "-") {
 					graph = new VG;
-					graph->from_turtle(NULL, rdf_base_uri);
+					graph->from_turtle("/dev/stdin", rdf_base_uri);
 				} else {
 					graph = new VG;
 					graph->from_turtle(file_name, rdf_base_uri);
