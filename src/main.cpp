@@ -1990,10 +1990,10 @@ int main_sim(int argc, char** argv) {
 
     size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
-        auto perfect_read = graph->random_read(read_length, rng, min_id, max_id, true);
+        auto perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
         // avoid short reads at the end of the graph by retrying
         int iter = 0;
-        while (perfect_read.first.size() < read_length && ++iter < max_iter) {
+        while (perfect_read.sequence().size() < read_length && ++iter < max_iter) {
             perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
             // if we can't make a suitable read in 1000 tries, then maybe the graph is too small?
         }
@@ -2002,12 +2002,12 @@ int main_sim(int argc, char** argv) {
         } else {
             // apply errors
             if (!align_out) {
-                string readseq = introduce_read_errors(perfect_read.first);
+                string readseq = introduce_read_errors(perfect_read.sequence());
                 cout << readseq << endl;
             } else {
                 function<Alignment(uint64_t)> lambda =
                     [&perfect_read] (uint64_t n) {
-                    return perfect_read.second;
+                    return perfect_read;
                 };
                 stream::write(cout, 1, lambda);
             }

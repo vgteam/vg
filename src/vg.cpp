@@ -4812,7 +4812,7 @@ void VG::kpaths_of_node(id_t node_id, vector<Path>& paths, int length, int edge_
 }
 
 // todo record as an alignment rather than a string
-pair<string, Alignment> VG::random_read(size_t read_len,
+Alignment VG::random_read(size_t read_len,
                                         mt19937& rng,
                                         id_t min_id,
                                         id_t max_id,
@@ -4870,13 +4870,12 @@ pair<string, Alignment> VG::random_read(size_t read_len,
     uniform_int_distribution<int> binary_dist(0, 1);
     if (either_strand && binary_dist(rng) == 1) {
         // We can flip to the other strand (i.e. node's local reverse orientation).
-        *aln.mutable_path() = reverse_path(aln.path(),
-                                           (function<id_t(id_t)>) ([this](id_t id) {
-                                                   return get_node(id)->sequence().size();
-                                               }));
-        read = reverse_complement(read);
+        reverse_alignment(aln,
+                          (function<id_t(id_t)>) ([this](id_t id) {
+                                  return get_node(id)->sequence().size();
+                              }));
     }
-    return make_pair(read, aln);
+    return aln;
 }
 
 bool VG::is_valid(bool check_nodes,
