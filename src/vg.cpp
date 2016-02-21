@@ -2811,7 +2811,9 @@ void VG::destroy_edge(Edge* edge) {
     }
 
     // drop the last position, erasing the node
-    graph.mutable_edge()->RemoveLast();
+    // manually delete to free memory (RemoveLast does not free)
+    Edge* last_edge = graph.mutable_edge()->ReleaseLast();
+    delete last_edge;
 
     //if (!is_valid()) { cerr << "graph ain't valid" << endl; }
 
@@ -3064,7 +3066,9 @@ void VG::destroy_node(Node* node) {
     // remove this node (which is now the last one) and remove references from the indexes
     node_by_id.erase(node->id());
     node_index.erase(node);
-    graph.mutable_node()->RemoveLast();
+    // manually delete to free memory (RemoveLast does not free)
+    Node* last_node = graph.mutable_node()->ReleaseLast();
+    delete last_node;
     //if (!is_valid()) { cerr << "graph is invalid after destroy_node" << endl; exit(1); }
 }
 
