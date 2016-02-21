@@ -63,7 +63,7 @@ Note that static binaries cannot yet be built for Mac.
 ```
 brew tap homebrew/versions  # for gcc49
 brew tap homebrew/science  # for samtools
-brew install automake libtool jq jansson coreutils gcc49 samtools
+brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
 # Set nessary symlinks within /usr/local/bin
