@@ -1,6 +1,6 @@
 #include "vg.hpp"
 #include "stream.hpp"
-#include <raptor.h>
+#include <raptor2.h>
 
 namespace vg {
 
@@ -2171,6 +2171,7 @@ void VG::from_gfa(istream& in, bool showp) {
     }
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
+    cerr << " parsing turtle ";
 	raptor_world* world;
 	int st =  raptor_world_open (world);
 	if (st!=0)
