@@ -914,7 +914,6 @@ void VG::normalize(void) {
     unchop();
     // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
     simplify_siblings();
-    if (!is_valid()) cerr << "invalid after simplify_siblings" << endl;
     // compact node ranks
     paths.compact_ranks();
     // there may now be some cut nodes that can be simplified
@@ -2981,6 +2980,7 @@ Node* VG::get_node(id_t id) {
     if (n != node_by_id.end()) {
         return n->second;
     } else {
+        serialize_to_file("wtf.vg");
         throw runtime_error("No node " + to_string(id) + " in graph");
     }
 }
@@ -5869,7 +5869,7 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
 
     /*
     auto check_aln = [&](VG& graph, const Alignment& a) {
-        //cerr << "checking alignment" << endl;
+        cerr << "checking alignment" << endl;
         if (a.has_path()) {
             auto seq = graph.path_string(a.path());
             //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
@@ -5884,22 +5884,13 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
             }
         }
     };
-    
-    //serialize_to_file("graph-post-align.vg");
-    //dag.serialize_to_file("dag-post-align.vg");
-    write_alignment_to_file(aln, "aln-pre-trans.gam");
-    //cerr << "pre trans" << endl;
-    check_aln(dag, aln);
     */
+    //check_aln(dag, aln);
     translate_nodes(aln, trans, [&](id_t node_id) {
             // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
             return get_node(node_id)->sequence().size();
         });
-    //cerr << "post trans" << endl;
-    /*
-    check_aln(*this, aln);
-    write_alignment_to_file(aln, "aln-post-trans.gam");
-    */
+    //check_aln(*this, aln);
 
     return aln;
 }
@@ -7696,6 +7687,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
     // map from component root id to a translation
     // that maps the unrolled id to the original node and whether we've inverted or not
 
+    set<set<id_t>> strongly_connected_and_self_looping_components;
     set<id_t> weak_components;
     for (auto& component : strong_components) {
         // is this node a single component?
@@ -7712,6 +7704,8 @@ VG VG::dagify(uint32_t expand_scc_steps,
             node_translation[id] = make_pair(node->id(), false);
             dag.add_node(*node);
             weak_components.insert(id);
+        } else {
+            strongly_connected_and_self_looping_components.insert(component);
         }
     }
     // add in the edges between the weak components
@@ -7725,11 +7719,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
         }
     }
 
-    for (auto& component : strong_components) {
-        if (component.size() == 1) {
-            // not part of a SCC, already in the graph
-            continue;
-        }
+    for (auto& component : strongly_connected_and_self_looping_components) {
 
         // copy the SCC expand_scc_steps times, each time forwarding links from the old copy into the new
         // the result is a DAG even if the graph is initially cyclic
@@ -8270,7 +8260,6 @@ void VG::orient_nodes_forward(set<id_t>& nodes_flipped) {
     // First do the topological sort to order and orient
     deque<NodeTraversal> order_and_orientation;
     topological_sort(order_and_orientation);
-
 #ifdef debug
 #pragma omp critical (cerr)
     cerr << "+++++++++++++++++++++DOING REORIENTATION+++++++++++++++++++++++" << endl;

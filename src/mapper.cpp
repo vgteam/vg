@@ -1177,6 +1177,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             ta.set_score(0);
 
             ta = graph->align(ta);
+
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
             // expand in the direction where there were soft clips
