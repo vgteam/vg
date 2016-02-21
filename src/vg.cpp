@@ -2163,16 +2163,21 @@ void VG::from_gfa(istream& in, bool showp) {
 		}
 
 }
-    
+    static
     void
     print_triple(void* user_data, raptor_statement* triple)
     {
-//        if ((raptor_term_to_string(triple->subject()) == "") || (raptor_term_to_string(triple->predicate()) == "") || (raptor_term_to_string(triple->object()) == "")) {
+        string vg_ns ="http://example.org/";
+        string vg_node_p = vg_ns + "node" ;
+        string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
+        string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
+        string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
+        if (pred == ("<"+vg_node_p+">") ) {
             cerr << raptor_term_to_string(triple->subject) << " ";
             cerr << raptor_term_to_string(triple->predicate) << " ";
             cerr << raptor_term_to_string(triple->object) << " . ";
             cerr << endl;
-//        }
+        }
         
     }
 
