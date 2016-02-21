@@ -63,7 +63,7 @@ Note that static binaries cannot yet be built for Mac.
 ```
 brew tap homebrew/versions  # for gcc49
 brew tap homebrew/science  # for samtools
-brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config
+brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
 # Use glibtool/ize
