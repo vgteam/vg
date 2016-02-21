@@ -1801,6 +1801,7 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, set<vcflib::VariantAllele> >& altp,
+                                map< vcflib::VariantAllele, set< std::string > >& alleleNames,
                                 int start_pos,
                                 int stop_pos,
                                 int max_node_size,
@@ -1815,10 +1816,12 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
-                 altp[allele.position].insert(allele);
-                 if (i % 10000 == 0) {
-                     update_progress(altp.size());
-                 }
+                std::string name = var.sequenceName + "_" + std::to_string(var.position) + "_" + std::to_string(var.ref.size()) + "_" + allele.alt;
+                altp[allele.position].insert(allele);
+                alleleNames[allele].insert(name);
+                if (i % 10000 == 0) {
+                    update_progress(altp.size());
+                }
              }
          }
      }
@@ -1913,7 +1916,8 @@ void VG::dice_nodes(int max_node_size) {
 
 void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,
-                      string& name) {
+                      string& name,
+                      const map< vcflib::VariantAllele, set< std::string > >& alleleNames) {
 
     //init();
     this->name = name;
@@ -2027,6 +2031,15 @@ void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                 nodes_by_end_position[allele_end_pos].insert(left_seq_node);
                 nodes_by_start_position[allele_start_pos].insert(left_seq_node);
 
+            }
+
+            if (alt_node != NULL) {
+                auto nameIter = alleleNames.find(allele);
+                if (nameIter != alleleNames.end()) {
+                    for (auto& name : nameIter->second) {
+                        paths.append_mapping(name, alt_node->id());
+                    }
+                }
             }
 
 #ifdef debug
@@ -2313,8 +2326,9 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         destroy_progress();
 
         map<long,set<vcflib::VariantAllele> > alleles;
+        map< vcflib::VariantAllele, set< std::string > > alleleNames;
         // decompose records int alleles with offsets against our target sequence
-        vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size, flat_input_vcf);
+        vcf_records_to_alleles(records, alleles, alleleNames, start_pos, stop_pos, max_node_size, flat_input_vcf);
         records.clear(); // clean up
 
         // enforce a maximum node size
@@ -2467,7 +2481,8 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 
             plan->graph->from_alleles(*plan->alleles,
                                       plan->seq,
-                                      plan->name);
+                                      plan->name,
+                                      alleleNames);
 #pragma omp critical (graphq)
             {
                 update_progress(++graphs_completed);
