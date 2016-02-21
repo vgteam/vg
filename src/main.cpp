@@ -1090,7 +1090,7 @@ int main_msga(int argc, char** argv) {
     }
 
     // return the graph
-    graph->serialize_to_ostream(std::cout);
+    graph->serialize_to_stdout();
     delete graph;
 
     // todo....
@@ -1843,7 +1843,7 @@ int main_mod(int argc, char** argv) {
         graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
     }
 
-    graph->serialize_to_ostream(std::cout);
+    graph->serialize_to_stdout();
 
     delete graph;
 
@@ -2262,7 +2262,7 @@ int main_concat(int argc, char** argv) {
     }
 
     // output
-    merged.serialize_to_ostream(std::cout);
+    merged.serialize_to_stdout();
 
     return 0;
 }
@@ -2376,7 +2376,7 @@ int main_ids(int argc, char** argv) {
             graph->decrement_node_ids(decrement);
         }
 
-        graph->serialize_to_ostream(std::cout);
+        graph->serialize_to_stdout();
         delete graph;
     } else {
 
@@ -2465,7 +2465,7 @@ int main_join(int argc, char** argv) {
     joined.join_heads();
 
     // output
-    joined.serialize_to_ostream(std::cout);
+    joined.serialize_to_stdout();
 
     return 0;
 }
@@ -3042,7 +3042,7 @@ int main_find(int argc, char** argv) {
             }
             result_graph.remove_orphan_edges();
             // return it
-            result_graph.serialize_to_ostream(cout);
+            result_graph.serialize_to_stdout();
         } else if (end_id != 0) {
             for (auto& e : xindex.edges_on_end(end_id)) {
                 cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
@@ -3062,7 +3062,7 @@ int main_find(int argc, char** argv) {
                 xindex.expand_context(graph, context_size);
             }
             VG vgg; vgg.extend(graph); // removes dupes
-            vgg.serialize_to_ostream(cout);
+            vgg.serialize_to_stdout();
         }
         if (!range.empty()) {
             Graph graph;
@@ -3080,7 +3080,7 @@ int main_find(int argc, char** argv) {
             }
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();
-            vgg.serialize_to_ostream(cout);
+            vgg.serialize_to_stdout();
         }
     } else if (!db_name.empty()) {
         if (!node_ids.empty() && path_name.empty()) {
@@ -3101,7 +3101,7 @@ int main_find(int argc, char** argv) {
             }
             result_graph.remove_orphan_edges();
             // return it
-            result_graph.serialize_to_ostream(cout);
+            result_graph.serialize_to_stdout();
         } else if (end_id != 0) {
             vector<Edge> edges;
             vindex.get_edges_on_end(end_id, edges);
@@ -3146,7 +3146,7 @@ int main_find(int argc, char** argv) {
                 vindex.expand_context(graph, context_size);
             }
             graph.remove_orphan_edges();
-            graph.serialize_to_ostream(cout);
+            graph.serialize_to_stdout();
         }
         if (!range.empty()) {
             VG graph;
@@ -3163,7 +3163,7 @@ int main_find(int argc, char** argv) {
                 vindex.expand_context(graph, context_size);
             }
             graph.remove_orphan_edges();
-            graph.serialize_to_ostream(cout);
+            graph.serialize_to_stdout();
         }
     }
 
@@ -3235,7 +3235,7 @@ int main_find(int argc, char** argv) {
                 result_graph.extend(graph);
             }
             result_graph.remove_orphan_edges();
-            result_graph.serialize_to_ostream(cout);
+            result_graph.serialize_to_stdout();
         }
     }
 
@@ -4947,7 +4947,7 @@ int main_view(int argc, char** argv) {
     } else if (output_type == "turtle") {
         graph->to_turtle(std::cout, rdf_base_uri);
     } else if (output_type == "vg") {
-        graph->serialize_to_ostream(cout);
+        graph->serialize_to_stdout();
     } else {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
@@ -5229,7 +5229,7 @@ int main_construct(int argc, char** argv) {
         graph.paths.write(paths_out);
     }
 
-    graph.serialize_to_ostream(std::cout);
+    graph.serialize_to_stdout();
 
     // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
     // this would free all the memory used by protobuf:

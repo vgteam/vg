@@ -134,6 +134,15 @@ void VG::serialize_to_file(const string& file_name, id_t chunk_size) {
     f.close();
 }
 
+void VG::serialize_to_stdout() {
+    // If outputting to terminal, output in GFA rather than binary
+    if (isatty(fileno(stdout))) {
+        to_gfa(std::cout);
+    } else {
+        serialize_to_ostream(std::cout);
+    }
+}
+
 VG::~VG(void) {
     destroy_alignable_graph();
 }
