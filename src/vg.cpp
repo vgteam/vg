@@ -2911,7 +2911,7 @@ Node* VG::get_node(id_t id) {
     }
 }
 
-Node* VG::create_node(string seq, id_t id) {
+Node* VG::create_node(const string& seq, id_t id) {
     // create the node
     Node* node = graph.add_node();
     node->set_sequence(seq);

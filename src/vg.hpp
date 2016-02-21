@@ -557,7 +557,7 @@ public:
     bool adjacent(const Position& pos1, const Position& pos2);
 
     // use the VG class to generate ids
-    Node* create_node(string seq, id_t id = 0);
+    Node* create_node(const string& seq, id_t id = 0);
     // find a particular node
     Node* get_node(id_t id);
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
