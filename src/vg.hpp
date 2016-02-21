@@ -326,7 +326,7 @@ public:
     void flip_doubly_reversed_edges(void);
 
     void from_gfa(istream& in, bool showp = false);
-
+    void from_turtle(string filename, string baseuri, bool showp = false);
 
     // default constructor, destructor
     ~VG(void);
