@@ -5540,59 +5540,55 @@ void VG::to_gfa(ostream& out) {
 }
 
 void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
-    map<id_t, vector<string> > sorted_output;
     out << "@base <http://example.org/vg/> . " << endl;
     out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
     out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
     out << "@prefix step: <" <<  rdf_base_uri <<"step/> . " << endl;
     out << "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    //Ensure that mappings are sorted by ranks
+    paths.sort_by_mapping_rank();
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        stringstream s;
-        s << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
-	//Ensure that mappings are sorted by ranks
-	paths.sort_by_mapping_rank();
+        out << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
+
         auto& node_mapping = paths.get_node_mapping(n->id());
-	set<Mapping*> seen;
+	    set<Mapping*> seen;
         for (auto& p : node_mapping) {
             for (auto* m : p.second) {
                 if (seen.count(m)) continue;
                 else seen.insert(m);
                 const Mapping& mapping = *m;
-//                string orientation = mapping.position().is_reverse() ? "-" : "+";
-//                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
-//                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
-                  s << "step:" << p.first << "#" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
+                  out << "step:" << p.first << "#" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
                   string orientation = mapping.position().is_reverse() ? "<Reverse>" : "<Forward>";
-                  s << "\t a " << orientation <<" ; " << endl;
-                  s << "\t<node> node:" << n->id() << " ; " << endl;
-                  s << "\t<path> path:" << p.first << " . " << endl;
-		  int nodeLength = p-> 
-//                s << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . \n"
+                  out << "\t a " << orientation <<" ; " << endl;
+                  out << "\t<node> node:" << n->id() << " ; " << endl;
+                  out << "\t<path> path:" << p.first << " . " << endl;
             }
         }
-        sorted_output[n->id()].push_back(s.str());
     }
+    function<void(const Path&)> lambda = [this, &out]
+        (const Path& path) {
+            int offset=0;
+            for (auto &m : path.mapping()) {
+//                out << "step:" << path.name() << "#" << m.rank() << " <position> "  << offset<< endl;
+//                Node* node = get_node(m.position().node_id());
+////                offset +=  m.offset
+            }
+        };
+    paths.for_each(lambda);
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        stringstream s;
-        s << "node:" << e->from();
+        out << "node:" << e->from();
         if (e->from_start() && e->to_end()) {
-          s << " <linksReverseToReverse> " ; // <--
+          out << " <linksReverseToReverse> " ; // <--
         } else if (e->from_start() && !e->to_end()) {
-          s << " <linksReverseToForward> " ; // -+
+          out << " <linksReverseToForward> " ; // -+
         } else if (e->to_end()) {
-          s << " <linksForwardToReverse> " ; //+-
+          out << " <linksForwardToReverse> " ; //+-
         } else {
-          s << " <linksForwardToForward> " ; //++
+          out << " <linksForwardToForward> " ; //++
         }
-        s << "node:" << e->to() << " . " << endl;
-        sorted_output[e->from()].push_back(s.str());
-    }
-    for (auto& chunk : sorted_output) {
-        for (auto& line : chunk.second) {
-            out << line;
-        }
+        out << "node:" << e->to() << " . " << endl;
     }
 }
 void VG::destroy_alignable_graph(void) {
