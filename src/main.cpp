@@ -939,7 +939,7 @@ int main_msga(int argc, char** argv) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
         auto& name = sp.first;
-        graph->serialize_to_file("msga-pre-" + name + ".vg");
+        //graph->serialize_to_file("msga-pre-" + name + ".vg");
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
             if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
