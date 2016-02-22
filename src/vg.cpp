@@ -1437,11 +1437,10 @@ bool VG::has_node(id_t id) {
 }
     
 Node* VG::find_node_by_name_or_add_new(string name) {
-
+//TODO we need to have real names on id's;
   int namespace_end = name.find_last_of("/#");
 
 	string id_s = name.substr(namespace_end+1, name.length()-2);
-	cerr<<name << ":"<<namespace_end<<":"<< id_s<<endl;
 	id_t id = stoll(id_s);
 
 	if (has_node(id)){
@@ -1449,6 +1448,8 @@ Node* VG::find_node_by_name_or_add_new(string name) {
 	} else {
 		Node* new_node = graph.add_node();
 		new_node->set_id(id);
+        node_by_id[new_node->id()] = new_node;
+        node_index[new_node] = graph.node_size()-1;
 		return new_node;
 	}
 }
@@ -2193,9 +2194,10 @@ void VG::from_gfa(istream& in, bool showp) {
 
         
         if (pred == ("<"+vg_node_p+">") ) {
-
             Node* node = vg->find_node_by_name_or_add_new(obj);
-            cerr << pred << " " << vg_node_p <<  " " << node->id() << endl;
+        } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
+            Node* node = vg->find_node_by_name_or_add_new(sub);
+            node->set_sequence(obj.substr(1,obj.length()-2));
         }
         
     }
