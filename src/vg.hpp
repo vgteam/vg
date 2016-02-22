@@ -572,6 +572,7 @@ public:
     bool has_node(id_t id);
     bool has_node(Node* node);
     bool has_node(Node& node);
+    Node* find_node_by_name_or_add_new(string name);
     void for_each_node(function<void(Node*)> lambda);
     void for_each_node_parallel(function<void(Node*)> lambda);
     // Go through all the nodes in the same connected component as the given node. Ignores relative orientation.

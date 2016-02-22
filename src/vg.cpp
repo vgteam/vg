@@ -1435,6 +1435,23 @@ bool VG::has_node(Node& node) {
 bool VG::has_node(id_t id) {
     return node_by_id.find(id) != node_by_id.end();
 }
+    
+Node* VG::find_node_by_name_or_add_new(string name) {
+
+  int namespace_end = name.find_last_of("/#");
+
+	string id_s = name.substr(namespace_end+1, name.length()-2);
+	cerr<<name << ":"<<namespace_end<<":"<< id_s<<endl;
+	id_t id = stoll(id_s);
+
+	if (has_node(id)){
+	   return get_node(id);
+	} else {
+		Node* new_node = graph.add_node();
+		new_node->set_id(id);
+		return new_node;
+	}
+}
 
 bool VG::has_edge(Edge* edge) {
     return edge && has_edge(*edge);
@@ -2176,11 +2193,9 @@ void VG::from_gfa(istream& in, bool showp) {
 
         
         if (pred == ("<"+vg_node_p+">") ) {
-                    cerr << pred << " " << vg_node_p << endl;
-            if (vg->has_node(1)){
-        
-                
-            }
+
+            Node* node = vg->find_node_by_name_or_add_new(obj);
+            cerr << pred << " " << vg_node_p <<  " " << node->id() << endl;
         }
         
     }
