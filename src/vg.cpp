@@ -7679,7 +7679,8 @@ bool VG::is_self_looping(NodeTraversal trav) {
 }
 
 VG VG::dagify(uint32_t expand_scc_steps,
-              map<id_t, pair<id_t, bool> >& node_translation) {
+              map<id_t, pair<id_t, bool> >& node_translation,
+              size_t target_min_walk_length) {
 
     VG dag;
     // Find the strongly connected components in the graph.
@@ -7723,10 +7724,18 @@ VG VG::dagify(uint32_t expand_scc_steps,
 
         // copy the SCC expand_scc_steps times, each time forwarding links from the old copy into the new
         // the result is a DAG even if the graph is initially cyclic
-        // we can use this parameter to determine how long a sequence we can align against the graph
+
+        // we need to record the minimum distances back to the root(s) of the graph
+        // so we can (optionally) stop when we reach a given minimum minimum
+        // we derive these using dynamic programming; the new min return length is
+        // min(l_(i-1), \forall inbound links)
+        size_t min_min_return_length = 0;
+        map<Node*, size_t> min_return_length;
+        // pointers to the last copy of the graph in the DAG
         map<id_t, Node*> last;
         for (uint32_t i = 0; i < expand_scc_steps+1; ++i) {
             map<id_t, Node*> curr;
+            size_t curr_min_min_return_length = 0;
             // for each iteration, add in a copy of the nodes of the component
             for (auto id : component) {
                 Node* node;
@@ -7738,6 +7747,13 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 }
                 curr[id] = node;
                 node_translation[node->id()] = make_pair(id, false);
+                // record length to end of node to start min-min tracking
+                if (last.empty()) {
+                    size_t l = node->sequence().size();
+                    min_return_length[node] = l;
+                    curr_min_min_return_length = (curr_min_min_return_length
+                                                  ? min(l, curr_min_min_return_length) : l);
+                }
             }
             // preserve the edges that connect these nodes to the rest of the graph
             // And connect to the nodes in the previous component using the original edges as guide
@@ -7766,6 +7782,13 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             new_edge.set_to(curr[id]->id());
                             new_edge.set_from(last[e->from()]->id());
                             dag.add_edge(new_edge);
+                            // update the min-min length
+                            size_t& mm = min_return_length[curr[id]];
+                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[id]];
+                            mm = (mm ? min(mm, inmm) : inmm);
+                            curr_min_min_return_length = (curr_min_min_return_length ?
+                                                          min(mm, curr_min_min_return_length)
+                                                          : mm);
                         }
                     } else if (e->to() == id && e->from() == id) {
                         if (!last.empty()) {
@@ -7776,9 +7799,22 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             new_edge.set_to(curr[id]->id());
                             new_edge.set_from(last[id]->id());
                             dag.add_edge(new_edge);
+                            // update the min-min length
+                            size_t& mm = min_return_length[curr[id]];
+                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[id]];
+                            mm = (mm ? min(mm, inmm) : inmm);
+                            curr_min_min_return_length = (curr_min_min_return_length ?
+                                                          min(mm, curr_min_min_return_length)
+                                                          : mm);
                         }
                     }
                 }
+            }
+            min_min_return_length = curr_min_min_return_length;
+            // finish if we've reached our target min walk length
+            if (target_min_walk_length &&
+                min_min_return_length >= target_min_walk_length) {
+                break;
             }
             last = curr;
         }

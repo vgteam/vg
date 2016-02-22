@@ -1457,8 +1457,11 @@ void help_mod(char** argv) {
          << "                            nodes are merged)" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
-         << "    -d, --dagify N          copy strongly connected components of the graph N times, forwarding" << endl
+         << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
          << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "                            until the shortest path through each SCC is N bases long" << endl
          << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
          << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
          << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
@@ -1523,6 +1526,7 @@ int main_mod(int argc, char** argv) {
     uint32_t unfold_to = 0;
     uint32_t unroll_max_branch = 0;
     bool break_cycles = false;
+    uint32_t dagify_steps = 0;
     uint32_t dagify_to = 0;
     bool orient_forward = false;
 
@@ -1560,7 +1564,8 @@ int main_mod(int argc, char** argv) {
                 {"context", required_argument, 0, 'x'},
                 {"remove-null", no_argument, 0, 'R'},
                 {"strong-connect", no_argument, 0, 'T'},
-                {"dagify", required_argument, 0, 'd'},
+                {"dagify-steps", required_argument, 0, 'd'},
+                {"dagify-to", required_argument, 0, 'w'},
                 {"unroll", required_argument, 0, 'U'},
                 {"max-branch", required_argument, 0, 'B'},
                 {"break-cycles", no_argument, 0, 'b'},
@@ -1569,7 +1574,7 @@ int main_mod(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:O",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1680,6 +1685,10 @@ int main_mod(int argc, char** argv) {
             break;
 
         case 'd':
+            dagify_steps = atoi(optarg);
+            break;
+
+        case 'w':
             dagify_to = atoi(optarg);
             break;
 
@@ -1773,9 +1782,15 @@ int main_mod(int argc, char** argv) {
         graph->orient_nodes_forward(flipped);
     }
 
+    if (dagify_steps) {
+        map<int64_t, pair<int64_t, bool> > node_translation;
+        *graph = graph->dagify(dagify_steps, node_translation);
+    }
+
     if (dagify_to) {
         map<int64_t, pair<int64_t, bool> > node_translation;
-        *graph = graph->dagify(dagify_to, node_translation);
+        // use the walk as our maximum number of steps; it's the worst case
+        *graph = graph->dagify(dagify_to, node_translation, dagify_to);
     }
 
     if (unroll_to) {

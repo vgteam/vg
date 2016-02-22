@@ -311,6 +311,8 @@ public:
     void keep_multinode_strongly_connected_components(void);
     // does the specified node traversal self-loop?
     bool is_self_looping(NodeTraversal trav);
+    // simple cycles following Johnson's elementary cycles algorithm
+    set<list<NodeTraversal> > elementary_cycles(void);
     // concatenates the nodes into a new node with the same external linkage as the provided component
     Node* concat_nodes(const list<Node*>& nodes);
     // merge the nodes into a single node, preserving external linkages
@@ -321,7 +323,8 @@ public:
     // turn the graph into a dag by copying strongly connected components expand_scc_steps times
     // and translating the edges in the component to flow through the copies in one direction
     VG dagify(uint32_t expand_scc_steps,
-              map<id_t, pair<id_t, bool> >& node_translation);
+              map<id_t, pair<id_t, bool> >& node_translation,
+              size_t target_min_walk_length = 0);
     // generate a new graph that unrolls the current one using backtracking (caution: exponential in branching)
     VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
                            map<id_t, pair<id_t, bool> >& node_translation);
