@@ -2188,6 +2188,12 @@ void VG::from_gfa(istream& in, bool showp) {
         VG* vg = (VG*) user_data;
         string vg_ns ="http://example.org/vg/";
         string vg_node_p = vg_ns + "node" ;
+        string vg_rank_p = vg_ns + "rank" ;
+        string vg_path_p = vg_ns + "path" ;
+        string vg_linkrr_p = vg_ns + "linksReverseToReverse";
+        string vg_linkrf_p = vg_ns + "linksReverseToForward";
+        string vg_linkfr_p = vg_ns + "linksForwardToReverse";
+        string vg_linkff_p = vg_ns + "linksForwardToForward";
         string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
         string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
         string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
@@ -2198,6 +2204,16 @@ void VG::from_gfa(istream& in, bool showp) {
         } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
             Node* node = vg->find_node_by_name_or_add_new(sub);
             node->set_sequence(obj.substr(1,obj.length()-2));
+//        } else if (pred == "<"+vg_rank_p+">"){
+//            ;
+            
+        } else if (pred == "<"+vg_linkff_p+">"){
+            Node* from = vg->find_node_by_name_or_add_new(sub);
+            Node* to = vg->find_node_by_name_or_add_new(obj);
+            Edge* edge = new Edge();
+            edge->set_from(from->id());
+            edge->set_to(to->id());
+            vg->add_edge(*edge);
         }
         
     }
