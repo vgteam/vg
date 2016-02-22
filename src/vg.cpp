@@ -2185,10 +2185,12 @@ void VG::from_gfa(istream& in, bool showp) {
     void
     triple_to_vg(void* user_data, raptor_statement* triple)
     {
-        VG* vg = (VG*) user_data;
+        VG* vg = ((std::pair<VG*, Paths*>*) user_data)->first;
+        Paths* paths = ((std::pair<VG*, Paths*>*) user_data)->second;
         string vg_ns ="http://example.org/vg/";
         string vg_node_p = vg_ns + "node" ;
         string vg_rank_p = vg_ns + "rank" ;
+        string vg_reverse_of_node_p = vg_ns + "reverseOfNode" ;
         string vg_path_p = vg_ns + "path" ;
         string vg_linkrr_p = vg_ns + "linksReverseToReverse";
         string vg_linkrf_p = vg_ns + "linksReverseToForward";
@@ -2204,18 +2206,53 @@ void VG::from_gfa(istream& in, bool showp) {
         } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
             Node* node = vg->find_node_by_name_or_add_new(sub);
             node->set_sequence(obj.substr(1,obj.length()-2));
-//        } else if (pred == "<"+vg_rank_p+">"){
-//            ;
-            
+        } else if (pred == "<"+vg_rank_p+">"){
+            Mapping* mapping = new Mapping();
+            int rank = stoi(obj.substr(1, obj.length()-2));
+            mapping->set_rank(rank);
+            const string pathname = sub.substr(1, sub.find_last_of("/#"));
+            paths->append_mapping(pathname, *mapping);
+        } else if (pred == "<"+vg_linkrr_p+">"){
+            Node* from = vg->find_node_by_name_or_add_new(sub);
+            Node* to = vg->find_node_by_name_or_add_new(obj);
+            Edge* edge = new Edge();
+            edge->set_from(from->id());
+            edge->set_to(to->id());
+            edge->set_to_end(true);
+            edge->set_from_start(true);
+            vg->add_edge(*edge);
+        } else if (pred == "<"+vg_linkrf_p+">"){
+            Node* from = vg->find_node_by_name_or_add_new(sub);
+            Node* to = vg->find_node_by_name_or_add_new(obj);
+            Edge* edge = new Edge();
+            edge->set_from(from->id());
+            edge->set_to(to->id());
+            edge->set_to_end(false);
+            edge->set_from_start(true);
+            vg->add_edge(*edge);
+        } else if (pred == "<"+vg_linkfr_p+">"){
+            Node* from = vg->find_node_by_name_or_add_new(sub);
+            Node* to = vg->find_node_by_name_or_add_new(obj);
+            Edge* edge = new Edge();
+            edge->set_from(from->id());
+            edge->set_to(to->id());
+            edge->set_to_end(true);
+            edge->set_from_start(false);
+            vg->add_edge(*edge);
         } else if (pred == "<"+vg_linkff_p+">"){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
             Edge* edge = new Edge();
             edge->set_from(from->id());
             edge->set_to(to->id());
+            edge->set_to_end(false);
+            edge->set_from_start(false);
             vg->add_edge(*edge);
         }
-        
+        paths->sort_by_mapping_rank();
+        paths->for_each([vg](const Path& path){
+            vg->include(path);
+        });
     }
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
@@ -2234,7 +2271,10 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
 	const unsigned char *filename_uri_string;
 	raptor_uri  *uri_base, *uri_file;
 	rdf_parser = raptor_new_parser(world, "turtle");
-    raptor_parser_set_statement_handler(rdf_parser, this, triple_to_vg);
+    Paths* paths = new Paths();
+    std::pair<VG*, Paths*> user_data = make_pair(this, paths);
+    
+    raptor_parser_set_statement_handler(rdf_parser, &user_data, triple_to_vg);
 
 
     const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
