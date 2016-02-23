@@ -2203,14 +2203,27 @@ void VG::from_gfa(istream& in, bool showp) {
         
         if (pred == ("<"+vg_node_p+">") ) {
             Node* node = vg->find_node_by_name_or_add_new(obj);
+            Mapping* mapping = new Mapping();
+            const string pathname = sub.substr(1, sub.find_last_of("/#"));
+            int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
+            mapping->set_rank(rank);
+            Position* p = mapping->mutable_position();
+            p->set_offset(0);
+            p->set_node_id(node->id());
+            paths->append_mapping(pathname, *mapping);
         } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
             Node* node = vg->find_node_by_name_or_add_new(sub);
             node->set_sequence(obj.substr(1,obj.length()-2));
-        } else if (pred == "<"+vg_rank_p+">"){
+        } else if (pred == "<"+vg_reverse_of_node_p+">"){
+            Node* node = vg->find_node_by_name_or_add_new(obj);
             Mapping* mapping = new Mapping();
-            int rank = stoi(obj.substr(1, obj.length()-2));
-            mapping->set_rank(rank);
             const string pathname = sub.substr(1, sub.find_last_of("/#"));
+            int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
+            mapping->set_rank(rank);
+            Position* p = mapping->mutable_position();
+            p->set_offset(0);
+            p->set_node_id(node->id());
+            p->set_is_reverse(true);
             paths->append_mapping(pathname, *mapping);
         } else if (pred == "<"+vg_linkrr_p+">"){
             Node* from = vg->find_node_by_name_or_add_new(sub);
@@ -2249,10 +2262,7 @@ void VG::from_gfa(istream& in, bool showp) {
             edge->set_from_start(false);
             vg->add_edge(*edge);
         }
-        paths->sort_by_mapping_rank();
-        paths->for_each([vg](const Path& path){
-            vg->include(path);
-        });
+        
     }
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
@@ -2286,6 +2296,17 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
 	raptor_free_uri(uri_file);
 	raptor_free_parser(rdf_parser);
 	raptor_free_world(world);
+    paths->sort_by_mapping_rank();
+    paths->for_each_mapping([this](Mapping* mapping){
+        Node* node =this->get_node(mapping->position().node_id());
+        int l = node->sequence().length();
+        Edit* e = mapping->add_edit();
+        e->set_to_length(l);
+        e->set_from_length(l);
+    });
+    paths->for_each([this](const Path& path){
+        this->include(path);
+    });
 
 }
 
@@ -5690,7 +5711,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
 //                string orientation = mapping.position().is_reverse() ? "-" : "+";
 //                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
 //                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
-                  s << "step:" << p.first << "%23" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
+                  s << "step:" << p.first << "-s-" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
                   string orientation = mapping.position().is_reverse() ? "<Reverse>" : "<Forward>";
                   out << "\t a " << orientation <<" ; " << endl;
                   out << "\t<node> node:" << n->id() << " ; " << endl;
