@@ -1,12 +1,12 @@
 # vg
 
-[![Join the chat at https://gitter.im/ekg/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ekg/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[![Build Status](https://travis-ci.org/ekg/vg.svg)](https://travis-ci.org/ekg/vg)
+[![Build Status](https://travis-ci.org/vgteam/vg.svg)](https://travis-ci.org/vgteam/vg)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
-![Variation graph](https://raw.githubusercontent.com/ekg/vg/master/doc/figures/vg_logo.png)
+![Variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/vg_logo.png)
 
 _Variation graphs_ provide a succinct encoding of the sequences of many genomes. A variation graph (in particular as implemented in vg) is composed of:
 
@@ -32,9 +32,9 @@ Other libraries may be required. Please report any build difficulties.
 
 Now, obtain the repo and its submodules:
 
-    git clone --recursive https://github.com/ekg/vg.git
+    git clone --recursive https://github.com/vgteam/vg.git
 
-Then build with `. ./source_me.sh && make static`, and run with `./vg`.
+Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 #### building on Mac OS X
 
@@ -42,20 +42,45 @@ Then build with `. ./source_me.sh && make static`, and run with `./vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
     sudo port select gcc mp-gcc49
 
-VG can now be cloned and built as described above.
+VG can now be cloned and built:
+
+    git clone --recursive https://github.com/vgteam/vg.git
+    cd vg
+    . ./source_me.sh && make
+    
+Note that static binaries cannot yet be built for Mac.
 
 ##### using Homebrew
 
 [Homebrew](http://brew.sh/) provides another package management solution for OSX, and may be preferable to some users over MacPorts.
 
 ```
-brew install automake Libtool jq rapper
+brew tap homebrew/versions  # for gcc49
+brew tap homebrew/science  # for samtools
+brew install automake libtool jq jansson coreutils gcc49 samtools
+export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+
+# Set nessary symlinks within /usr/local/bin
+(
+  cd /usr/local/bin
+  # Make symlinks to use glibtool/ize
+  ln -s glibtool libtool
+  ln -s glibtoolize libtoolize
+  # Make symlinks to use gxx-4.9 instead of builtin gxx
+  ln -s gcc-4.9 gcc
+  ln -s g++-4.9 g++
+)
+
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
+export LIBRARY_PATH=$LD_LIBRARY_PATH;
+
+. ./source_me.sh && make
 ```
 
 ### Variation graph construction

@@ -9,7 +9,7 @@
 	url = https://github.com/ekg/gssw.git
 [submodule "snappy"]
 	path = deps/snappy
-	url = https://github.com/google/snappy.git
+	url = https://github.com/juanmaneo/snappy.git
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git

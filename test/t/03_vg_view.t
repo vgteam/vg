@@ -5,17 +5,21 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 11
+plan tests 12
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -d - | wc -l) 505 "view produces the expected number of lines of dot output"
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view -g - | wc -l) 641 "view produces the expected number of lines of GFA output"
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view - | head | vg view -v - | vg view - | wc -l) 10 "view converts back and forth between GFA and vg format"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg view - | head | vg view -Fv - | vg view - | wc -l) 10 "view converts back and forth between GFA and vg format"
 
 is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | wc -l) $(samtools view -u minigiab/NA12878.chr22.tiny.bam | samtools view - | wc -l) "view can convert BAM to GAM"
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg view -j x.vg | jq . | vg view -Jv - | diff x.vg -
 is $? 0 "view can reconstruct a VG graph from JSON"
+
+vg view -v x.vg | cmp -s - x.vg
+is $? 0 "view can pass through VG"
+
 rm -f x.vg
 
 is $(samtools view -u minigiab/NA12878.chr22.tiny.bam | vg view -bG - | vg view -a - | jq .sample_name | grep -v ^\"1\"$ | wc -l ) 0 "view parses sample names"

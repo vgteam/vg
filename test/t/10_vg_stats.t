@@ -27,7 +27,7 @@ is $subgraph_length $graph_length  "vg stats reports the correct subgraph length
 
 rm -f z.vg
 
-is $(vg view -v msgas/q_redundant.gfa | vg stats -S - | md5sum | cut -f 1 -d\ ) 01fadb6a004ddb87e5fc5d056b565218 "perfect to and from siblings are determined"
+is $(vg view -Fv msgas/q_redundant.gfa | vg stats -S - | md5sum | cut -f 1 -d\ ) 01fadb6a004ddb87e5fc5d056b565218 "perfect to and from siblings are determined"
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 is $(vg stats -n 13 -d t.vg | cut -f 2) 38 "distance to head is correct"

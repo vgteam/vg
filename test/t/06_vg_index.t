@@ -93,7 +93,7 @@ is $(vg index -D x.vg | grep +path_name | wc -l) 1 "path name recorded"
 rm -rf x.vg.index x.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-vg construct -v small/x.vcf.gz -r small/x.fa | vg view - | sed s/x/y/ | vg view -v - >y.vg
+vg construct -v small/x.vcf.gz -r small/x.fa | vg view - | sed s/x/y/ | vg view -Fv - >y.vg
 vg ids -j x.vg y.vg
 
 vg index -s -d q.idx x.vg y.vg
@@ -130,7 +130,7 @@ is $(vg index -D -d all.vg.aln | wc -l) ${NUM_UNIQUE_READS} "index can store ali
 
 rm -rf cyclic/all.vg.index all.vg.aln
 
-is $(vg index -g x.gcsa -k 16 -V <(vg view -v cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with heads and tails"
+is $(vg index -g x.gcsa -k 16 -V <(vg view -Fv cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with heads and tails"
 
 is $(vg index -g x.gcsa -k 16 -V cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with no heads or tails"
 

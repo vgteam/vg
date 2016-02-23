@@ -12,10 +12,12 @@ COPY Makefile /app/Makefile
 
 # Install vg dependencies and clear the package index
 RUN \
+    echo "deb http://archive.ubuntu.com/ubuntu trusty-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y \
         build-essential \
-        pkg-config
+        pkg-config \
+        jq/trusty-backports \
         sudo && \
     make get-deps && \
     rm -rf /var/lib/apt/lists/*
@@ -24,10 +26,12 @@ RUN \
 COPY . /app
     
 # Build vg
-RUN make -j8
+RUN . ./source_me.sh && make -j8
 
 # Make tests. We can't do it in parallel since it cleans up the test binary
 RUN make test
 
-ENTRYPOINT ["/app/vg"]
+ENV LD_LIBRARY_PATH=/app/lib
+
+ENTRYPOINT ["/app/bin/vg"]
 
