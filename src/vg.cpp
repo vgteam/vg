@@ -5708,7 +5708,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
                 if (seen.count(m)) continue;
                 else seen.insert(m);
                 const Mapping& mapping = *m;
-                out << "step:" << p.first << "-s-" << mapping.rank() << "a <Step> ;" << endl ;
+                out << "step:" << p.first << "-s-" << mapping.rank() << " a <Step> ;" << endl ;
                 out << " <rank> " << mapping.rank() << " ; "  << endl ;
                 string orientation = mapping.position().is_reverse() ? "<reverseOfNode>" : "<node>";
                 out << "\t" << orientation <<" node:" << n->id() << " ; " << endl;
@@ -5720,7 +5720,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
         (const Path& path) {
             uint64_t offset=0; //We could have more than 2gigabases in a path
             for (auto &m : path.mapping()) {
-                out << "step:" << path.name() << "#" << m.rank() << " <position> "<< offset<<" . " << endl;
+                out << "step:" << path.name() << "-s-" << m.rank() << " <position> "<< offset<<" . " << endl;
                 offset += mapping_to_length(m);
             }
         };
