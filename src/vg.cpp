@@ -1,6 +1,6 @@
 #include "vg.hpp"
 #include "stream.hpp"
-#include <raptor2.h>
+#include <raptor2/raptor2.h>
 
 namespace vg {
 
