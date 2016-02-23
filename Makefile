@@ -119,7 +119,7 @@ $(LIB_DIR)/libhts.a: .pre-build
 	+cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a
-	+. ./source_me.sh  && export PATH=$(CWD)/bin:$$PATH && cd $(XG_DIR) && $(MAKE) && cp obj/xg.o $(CWD)/$(OBJ_DIR)/ && cp lib/libxg.a $(CWD)/$(LIB_DIR)/ && cp src/*.hpp $(CWD)/$(INC_DIR)/ #&& cp include/* $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh  && export PATH=$(CWD)/bin:$$PATH && cd $(XG_DIR) && $(MAKE) && cp obj/xg.o $(CWD)/$(OBJ_DIR)/ && cp lib/libxg.a $(CWD)/$(LIB_DIR)/ && cp src/*.hpp $(CWD)/$(INC_DIR)/ && cp -r DYNAMIC/include/* $(CWD)/$(INC_DIR)/ && cp -r DYNAMIC/include/internal/* $(CWD)/$(INC_DIR)/ && cp -r DYNAMIC/include/algorithms/* $(CWD)/$(INC_DIR)/  #&& cp include/* $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libvcflib.a: .pre-build
 	+. ./source_me.sh && cd $(VCFLIB_DIR) && $(MAKE) libvcflib.a && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
