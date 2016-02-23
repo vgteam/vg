@@ -305,8 +305,14 @@ public:
     set<set<id_t> > strongly_connected_components(void);
     // only multi-node components
     set<set<id_t> > multinode_strongly_connected_components(void);
+    // true if the graph does not contain cycles
+    bool is_acyclic(void);
     // removes all elements which are not in a strongly connected component
     void keep_multinode_strongly_connected_components(void);
+    // does the specified node traversal self-loop?
+    bool is_self_looping(NodeTraversal trav);
+    // simple cycles following Johnson's elementary cycles algorithm
+    set<list<NodeTraversal> > elementary_cycles(void);
     // concatenates the nodes into a new node with the same external linkage as the provided component
     Node* concat_nodes(const list<Node*>& nodes);
     // merge the nodes into a single node, preserving external linkages
@@ -314,12 +320,22 @@ public:
     Node* merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
-    // generate a new graph that unrolls the current one
-    VG unroll(uint32_t max_length,
-              map<id_t, pair<id_t, bool> >& node_translation);
+    // turn the graph into a dag by copying strongly connected components expand_scc_steps times
+    // and translating the edges in the component to flow through the copies in one direction
+    VG dagify(uint32_t expand_scc_steps,
+              map<id_t, pair<id_t, bool> >& node_translation,
+              size_t target_min_walk_length = 0);
+    // generate a new graph that unrolls the current one using backtracking (caution: exponential in branching)
+    VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
+                           map<id_t, pair<id_t, bool> >& node_translation);
     // represents the whole graph up to max_length across an inversion on the forward strand
     VG unfold(uint32_t max_length,
               map<id_t, pair<id_t, bool> >& node_translation);
+    // assume two node translations, the over is based on the under; merge them
+    map<id_t, pair<id_t, bool> > overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
+                                                           const map<id_t, pair<id_t, bool> >& under);
+    // use our topological sort to quickly break cycles in the graph, return the edges which are removed
+    vector<Edge> break_cycles(void);
     // removes pieces of the graph which are not part of any path
     void remove_non_path(void);
     // converts edges that are both from_start and to_end to "regular" ones from end to start
@@ -594,6 +610,8 @@ public:
     void remove_orphan_edges(void);
     // removes edges representing an inversion and edges on the reverse complement
     void remove_inverting_edges(void);
+    // true if the graph has inversions, false otherwise
+    bool has_inverting_edges(void);
     
     // Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     // The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
@@ -960,7 +978,8 @@ public:
     bool is_head_node(Node* node);
     // distance from head of node to beginning of graph, or -1 if limit exceeded
     int32_t distance_to_head(NodeTraversal node, int32_t limit = 1000);
-    int32_t distance_to_head(NodeTraversal node, int32_t limit, int32_t dist);
+    int32_t distance_to_head(NodeTraversal node, int32_t limit,
+                             int32_t dist, set<NodeTraversal>& seen);
     // Get the tail nodes (nodes with edges only to their left sides). These are required to be oriented forward.
     vector<Node*> tail_nodes(void);
     void tail_nodes(vector<Node*>& nodes);
@@ -968,8 +987,8 @@ public:
     bool is_tail_node(Node* node);
     // distance from tail of node to end of graph, or -1 if limit exceeded
     int32_t distance_to_tail(NodeTraversal node, int32_t limit = 1000);
-    int32_t distance_to_tail(NodeTraversal node, int32_t limit, int32_t dist);
-
+    int32_t distance_to_tail(NodeTraversal node, int32_t limit,
+                             int32_t dist, set<NodeTraversal>& seen);
     int32_t distance_to_tail(id_t id, int32_t limit = 1000);
     void collect_subgraph(Node* node, set<Node*>& subgraph);
 
