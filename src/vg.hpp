@@ -36,6 +36,7 @@
 #include "colors.hpp"
 
 #include "types.hpp"
+#include "gfakluge.hpp"
 
 // uncomment to enable verbose debugging to stderr
 //#define debug
@@ -248,7 +249,6 @@ public:
     // Get nodes and backward flags following edges that attach to this node's end
     vector<pair<id_t, bool>>& edges_end(Node* node);
     vector<pair<id_t, bool>>& edges_end(id_t id);
-
     // properties of the graph
     size_t size(void); // number of nodes
     size_t length(void);
@@ -477,8 +477,8 @@ public:
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need
     // to become the starts of new nodes.
-    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
-    
+   void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
+
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
     // break the specified nodes at those positions. Returns a map from old node
@@ -488,6 +488,8 @@ public:
     map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // flips the breakpoints onto the forward strand
+
+   // Given a path on nodes that may or may not exist, and a map from node ID
     map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // Given a path on nodes that may or may not exist, and a map from node ID
@@ -571,13 +573,13 @@ public:
     bool adjacent(const Position& pos1, const Position& pos2);
 
     // use the VG class to generate ids
-    Node* create_node(string seq, id_t id = 0);
+    Node* create_node(const string& seq, id_t id = 0);
     // find a particular node
     Node* get_node(id_t id);
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
-    void expand_context(VG& g, size_t steps, bool add_paths = true);
+   void expand_context(VG& g, size_t steps, bool add_paths = true);
 
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
@@ -708,7 +710,10 @@ public:
                 bool color_variants = false,
                 int random_seed = 0);
 
-    void to_gfa(ostream& out);
+
+    void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
+                            bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
+   void to_gfa(ostream& out);
     void to_turtle(ostream& out, const string& rdf_base_uri);
     bool is_valid(bool check_nodes = true,
                   bool check_edges = true,
@@ -731,6 +736,9 @@ public:
 
     // for each path assigns edits that describe a total match of the mapping to the node
     void force_path_match(void);
+    // for each path, if a mapping has no edits then make it a perfect match against a node
+    // (the same as force_path_match, but only for empty mappings)
+    void fill_empty_path_mappings(void);
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
@@ -959,7 +967,7 @@ public:
     // reads
     // note that even if either_strand is false, having backward nodes in the
     // graph will result in some reads from the global reverse strand.
-    pair<string, Alignment> random_read(size_t read_len, mt19937& rng, id_t min_id, id_t max_id, bool either_strand);
+    Alignment random_read(size_t read_len, mt19937& rng, id_t min_id, id_t max_id, bool either_strand);
 
     // subgraphs
     void disjoint_subgraphs(list<VG>& subgraphs);

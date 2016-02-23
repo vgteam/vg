@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
+export LC_ALL="C" # force a consistent sort order 
 
 plan tests 32
 
@@ -30,7 +30,7 @@ is $(vg map -s CAAATAAGGCTTGGAAATTTTCTGCAGTTCTATTATATTCCAACTCTCTG t.vg | vg mod 
 rm t.vg
 rm -rf t.vg.index
 
-is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') a395b6f07549724b68f236dee5e0e084 "graph complexity reduction works as expected"
+is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 - | vg view -g - | sort | md5sum | awk '{ print $1 }') 7cd68c575e236202fab8522724d7e9df "graph complexity reduction works as expected"
 
 is $( vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -pl 10 -e 3 -t 16 - | vg mod -S -l 200 - | vg view - | grep ^S | wc -l) 186 "short subgraph pruning works"
 
@@ -50,7 +50,7 @@ is $? 0 "unchop produces a valid graph"
 
 is $(vg mod -n msgas/q_redundant.vg | vg stats -l - | cut -f 2) 154 "normalization removes redundant sequence in the graph"
 
-is $(vg view -v graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut -f 1 -d\ ) a38ac699119df12630ce747e3bf6b5fe "normalization doesn't introduce cycles and does remove redundancy in bubbles"
+is $(vg view -v graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut -f 1 -d\ ) 1dc872cf9cfa9bf110064b37afa25c7b "normalization doesn't introduce cycles and does remove redundancy in bubbles"
 
 # shows that after mod we have == numbers of path annotations and nodes
 # in this one-path graph
@@ -60,13 +60,13 @@ is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -N - | vg view - 
 
 is "$(vg view -Jv reversing/reversing_path.json | vg mod -X 3 - | vg validate - && echo 'Graph is valid')" "Graph is valid" "chopping a graph works correctly with reverse mappings"
 
-is $(vg msga -B 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -B 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | md5sum | cut -f 1 -d\ ) c37f97fe9103347b8d09f08b369055a1 "unchop correctly handles paths"
+is $(vg msga -B 20 -f msgas/s.fa | vg mod -X 5 -| vg mod -u - | vg validate - && vg msga -B 20 -f msgas/s.fa | vg mod -X 5 - | vg mod -u - | vg paths -x - | vg view -a - | jq '.sequence' | sort | md5sum | cut -f 1 -d\ ) 2f785068c91dbe84177c1fd679b6f133 "unchop correctly handles paths"
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -u - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -u - | md5sum | cut -f 1 -d\ ) 0e7a50bb7367d9f84fbc9bd78378d70f "unchop correctly handles a graph with an inversion"
 
 is $(vg view -Jv msgas/inv-mess.json | vg mod -n - | vg validate - && vg view -Jv msgas/inv-mess.json | vg mod -n - | md5sum | cut -f 1 -d\ ) 84138fe8bd1015fb6b80278c2ed8f7c6 "normalization works on a graph with an inversion"
 
-vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCT$(revcomp AACTACTCCACATCAAAGCTAC)CCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -k 16 -B 16 -Nz | vg mod -u - >/dev/null
+vg msga -g s.vg -s TCAGATTCTCATCCCTCCTCAAGGGCTTCTGTAGCTTTGATGTGGAGTAGTTCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -k 16 -B 16 -Nz | vg mod -u - >/dev/null
 is $? 0 "mod successfully unchops a difficult graph"
 
 is $(vg msga -B 20 -f msgas/s.fa  | vg mod -r s1 - | vg view - | grep ^P | cut -f 3 | sort | uniq | wc -l) 1 "a single path may be retained"

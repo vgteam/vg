@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
+export LC_ALL="C" # force a consistent sort order 
 
 plan tests 20
 
@@ -75,8 +75,8 @@ rm -f fail.vg
 cd ../deps/vcflib && make vcf2tsv && cd -
 cd ../deps/fastahack && make && cd -
 
-refbp=$(../deps/fastahack/fastahack -r x small/x.fa | tr '\n' ' ' | sed 's/ //' | wc -c)
-variantbp=$(zcat small/x.vcf.gz | ../deps/vcflib/bin/vcf2tsv \
+refbp=$(../deps/fastahack/fastahack -r x small/x.fa | tr -d '\n' | wc -c)
+variantbp=$(zcat < small/x.vcf.gz | ../deps/vcflib/bin/vcf2tsv \
     | cut -f 5,4 | tail -n+2 \
     | awk '{ x=length($2)-length($1); if (x > 0) { print x; } else if (x == 0) { print length($2); } }' \
         | awk '{ sum += $1 } END { print sum }')
