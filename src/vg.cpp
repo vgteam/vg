@@ -4897,18 +4897,10 @@ Alignment VG::random_read(size_t read_len,
     uniform_int_distribution<int> binary_dist(0, 1);
     if (either_strand && binary_dist(rng) == 1) {
         // We can flip to the other strand (i.e. node's local reverse orientation).
-<<<<<<< HEAD
-        *aln.mutable_path() = reverse_complement_path(aln.path(),
-                                           (function<id_t(id_t)>) ([this](id_t id) {
-                                                   return get_node(id)->sequence().size();
-                                               }));
-        read = reverse_complement(read);
-=======
-        reverse_alignment(aln,
-                          (function<id_t(id_t)>) ([this](id_t id) {
-                                  return get_node(id)->sequence().size();
-                              }));
->>>>>>> master
+        reverse_complement_alignment(aln,
+                                     (function<id_t(id_t)>) ([this](id_t id) {
+                                             return get_node(id)->sequence().size();
+                                         }));
     }
     return aln;
 }
@@ -7584,7 +7576,6 @@ VG VG::unfold(uint32_t max_length,
     // we need to first collect the components so we can ask quickly if a certain node is in one
     // then we need to
     set<NodeTraversal> travs_to_flip;
-<<<<<<< HEAD
     //set<Edge*> edges_to_flip;
     set<pair<NodeTraversal, NodeTraversal> > edges_to_flip;
     //set<Edge*> edges_to_forward;
@@ -7617,69 +7608,6 @@ VG VG::unfold(uint32_t max_length,
                 // we would not continue, but we should retain this edge because it brings
                 // us back into the forward strand
                 edges_to_forward.insert(make_pair(curr, trav));
-=======
-    set<Edge*> edges_to_flip;
-    set<Edge*> edges_to_forward;
-    set<Edge*> edges_from_forward;
-    for (auto& component : strong_components) {
-        // collect them so we can check in traversal
-        // that we don't run into one
-        if (component.size() > 1) {
-            for (auto i : component) strongly_connected_nodes.insert(i);
-        }
-    }
-    for (auto& component : strong_components) {
-
-        if (component.size() > 1
-            || (component.size() == 1
-                && !has_inverting_edge(get_node(*component.begin())))) {
-            continue;
-        }
-        // we are a node in an acyclic component
-        // that has an inversion coming to it or going from it
-        // so let's build the graph out to N bp away on the other side of the inversion
-        //....
-
-        // we only need to follow inverting
-        // collect the set to invert
-        // and we'll copy them over
-        // then link back in according to how the inbound links work
-        // so as to eliminate the reversing edges
-        map<NodeTraversal, int32_t> seen;
-        function<void(NodeTraversal,int32_t)> walk = [&](NodeTraversal curr,
-                                                         int32_t length) {
-
-            // check if we've busted through our length limit
-            // or if we've seen this node before at an earlier step
-            // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
-            set<NodeTraversal> next;
-            travs_to_flip.insert(curr);
-            if (length <= 0 || seen.find(curr) != seen.end() && seen[curr] < length) return;
-            seen[curr] = length;
-            for (auto& trav : travs_from(curr)) {
-                if (!strongly_connected_nodes.count(trav.node->id())) {
-                    if (trav.backward) {
-                        edges_to_flip.insert(get_edge(curr, trav));
-                        walk(trav, length-trav.node->sequence().size());
-                    } else {
-                        // we would not continue, but we should retain this edge because it brings
-                        // us back into the forward strand
-                        edges_to_forward.insert(get_edge(curr, trav));
-                    }
-                }
-            }
-            for (auto& trav : travs_to(curr)) {
-                if (!strongly_connected_nodes.count(trav.node->id())) {
-                    if (trav.backward) {
-                        edges_to_flip.insert(get_edge(trav, curr));
-                        walk(trav, length-trav.node->sequence().size());
-                    } else {
-                        // we would not continue, but we should retain this edge because it brings
-                        // us back into the forward strand
-                        edges_from_forward.insert(get_edge(trav, curr));
-                    }
-                }
->>>>>>> master
             }
         }
         for (auto& trav : travs_to(curr)) {
@@ -8019,8 +7947,6 @@ VG VG::backtracking_unroll(uint32_t max_length, uint32_t max_branch,
             s ← next(P,s)
             */
 
-<<<<<<< HEAD
-                
             function<void(pair<id_t,bool>,id_t,bool,uint32_t,uint32_t)>
                 bt = [&](pair<id_t, bool> curr,
                          id_t parent,
@@ -8029,13 +7955,6 @@ VG VG::backtracking_unroll(uint32_t max_length, uint32_t max_branch,
                          uint32_t branches) {
                 //cerr << "bt: curr: " << curr.first << " parent: " << parent << " len: " << length << " " << branches << " " << (in_cycle?"loop":"acyc") << endl;
 
-=======
-
-            function<void(pair<id_t,bool>,id_t,bool,uint32_t)> bt = [&](pair<id_t, bool> curr,
-                                                                        id_t parent,
-                                                                        bool in_cycle,
-                                                                        uint32_t length) {
->>>>>>> master
                 // i.   If the current node is outside the component,
                 //       terminate this branch and return to the previous branching point.
                 if (!component.count(curr.first)) {
