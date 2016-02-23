@@ -5711,7 +5711,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
 //                string orientation = mapping.position().is_reverse() ? "-" : "+";
 //                s << "P" << "\t" << n->id() << "\t" << p.first << "\t"
 //                  << mapping.rank() << "\t" << orientation << "\t" << cigar << "\n";
-                  s << "step:" << p.first << "-s-" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
+                  out << "step:" << p.first << "-s-" << mapping.rank() << " <rank> " << mapping.rank() << " ; "  << endl ;
                   string orientation = mapping.position().is_reverse() ? "<Reverse>" : "<Forward>";
                   out << "\t a " << orientation <<" ; " << endl;
                   out << "\t<node> node:" << n->id() << " ; " << endl;
