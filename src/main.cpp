@@ -4530,7 +4530,7 @@ void help_view(char** argv) {
          << "    -g, --gfa            output GFA format (default)" << endl
          << "    -F, --gfa-in         input GFA format" << endl
 
-         << "    -v, --vg             output VG format (input defaults to GFA)" << endl
+         << "    -v, --vg             output VG format" << endl
          << "    -V, --vg-in          input VG format (default)" << endl
 
          << "    -j, --json           output JSON format" << endl
@@ -4708,10 +4708,6 @@ int main_view(int argc, char** argv) {
 
         case 'v':
             output_type = "vg";
-            if(input_type.empty()) {
-                // Default to GFA -> VG
-                input_type = "gfa";
-            }
             break;
 
         case 'V':
