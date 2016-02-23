@@ -5841,7 +5841,7 @@ map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<
     return overlay;
 }
 
-Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
+Alignment VG::align(const Alignment& alignment) {
 
     //cerr << "aligning " << pb2json(alignment) << endl;
     // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
@@ -5851,7 +5851,7 @@ Alignment VG::align(const Alignment& alignment, uint32_t unroll_max_branch) {
     map<id_t, pair<id_t, bool> > dagify_trans;
     uint32_t max_length = alignment.sequence().size();
 
-    VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans);
+    VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length);
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
 
@@ -7747,13 +7747,9 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 }
                 curr[id] = node;
                 node_translation[node->id()] = make_pair(id, false);
-                // record length to end of node to start min-min tracking
-                if (last.empty()) {
-                    size_t l = node->sequence().size();
-                    min_return_length[node] = l;
-                    curr_min_min_return_length = (curr_min_min_return_length
-                                                  ? min(l, curr_min_min_return_length) : l);
-                }
+                // note that we don't record the lengths of these sequences
+                // because we are measuring our min walk back length back to the first edge in the path
+                // not the root of the graph
             }
             // preserve the edges that connect these nodes to the rest of the graph
             // And connect to the nodes in the previous component using the original edges as guide

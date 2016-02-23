@@ -734,7 +734,7 @@ public:
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
-    Alignment align(const Alignment& alignment, uint32_t unroll_max_branch = 20);
+    Alignment align(const Alignment& alignment);
     Alignment align(const string& sequence);
     void destroy_alignable_graph(void);
 
