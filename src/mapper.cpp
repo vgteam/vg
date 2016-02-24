@@ -796,9 +796,13 @@ Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int ban
     return best[0];
 }
 
-// use the GCSA2 index to find approximate mems starting from the end of the given sequence
-// when a match sequence is broken before we reach the order of the graph,
-// step forward one and start the next match
+// Use the GCSA2 index to find approximate maximal exact matches.
+// When finding maximal exact matches (MEMs) we run backwards search in the index
+// until we get a BWT range that's empty, or we exhaust the sequence or exceed the
+// order of the index. The matches are approximately maximal due to these limitations.
+// By converting the read to a series of MEMs we can leverage GCSA2 to determine the
+// matching sequences in the read. Perfect matches generate MEMs. Interruptions due to
+// errors and SNPs will tend to break MEMs, but may also generate shorter, spurious MEMs.
 vector<MaximalExactMatch>
 Mapper::find_mems(const string& seq) {
     string::const_iterator begin = seq.begin();
@@ -814,16 +818,51 @@ Mapper::find_mems(const string& seq) {
     // and searching until we break, then emitting a match
     while (end != begin) {
         --end;
-        matches.emplace_back(MaximalExactMatch(end+1, end,
+        matches.emplace_back(MaximalExactMatch(end, end+1,
                                                gcsa->charRange(gcsa->alpha.char2comp[*end])));
         MaximalExactMatch& match = matches.back();
-        while (!gcsa::Range::empty(match.range) && end != begin && end - match.end < gcsa->order()) {
+        // run the backward search
+        while (!gcsa::Range::empty(match.range) // until our BWT range is 0
+               && end != begin                  // or we run out of sequence
+               && match.end-end < gcsa->order()) { // or we exceed the order of the index
             --end;
             match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*end]);
         }
-        match.begin = end;
+        // record the mem range in the sequence
+        if (gcsa::Range::empty(match.range)) {
+            // if we exhausted the range, we don't count the last step in the MEM
+            // it represents a mismatch from the graph
+            match.begin = end+1;
+        } else {
+            // if we didn't exhaust the range, but ran out because our sequence ended
+            // then we count this base in the MEM
+            match.begin = end;
+        }
     }
+    // return the matches in natural order
+    std::reverse(matches.begin(), matches.end());
     return matches;
+}
+
+const string mems_to_json(const vector<MaximalExactMatch>& mems) {
+    stringstream s;
+    s << "[";
+    size_t j = 0;
+    for (auto& mem : mems) {
+        s << "[\"";
+        string::const_iterator c = mem.begin;
+        while (c != mem.end) s << *c++;
+        s << "\",[";
+        size_t i = 0;
+        for (auto& node : mem.nodes) {
+            s << "\"" << gcsa::Node::decode(node) << "\"";
+            if (++i < mem.nodes.size()) s << ",";
+        }
+        s << "]]";
+        if (++j < mems.size()) s << ",";
+    }
+    s << "]";
+    return s.str();
 }
 
 vector<Alignment> Mapper::align_mem(const Alignment& alignment) {

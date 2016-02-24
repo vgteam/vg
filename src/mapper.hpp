@@ -19,16 +19,26 @@ namespace vg {
 using namespace std;
 
 class MaximalExactMatch {
+
 public:
+
     string::const_iterator begin;
     string::const_iterator end;
     gcsa::range_type range;
-    size_t positions;
+    size_t matches;
+    std::vector<gcsa::node_type> nodes;
+
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
                       gcsa::range_type r,
-                      size_t p = 0)
-        : begin(b), end(e), range(r), positions(p) { }
+                      size_t m = 0)
+        : begin(b), end(e), range(r), matches(m) { }
+
+    // uses GCSA to get the positions matching the range
+    void fill_nodes(gcsa::GCSA* gcsa) {
+        gcsa->locate(range, nodes);
+    }
+    // TODO: add interface to efficient position counting when finished upstream
 };
 
 class Mapper {
@@ -147,6 +157,7 @@ public:
 
 // utility
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
+const string mems_to_json(const vector<MaximalExactMatch>& mems);
 
 }
 

@@ -2908,6 +2908,7 @@ void help_find(char** argv) {
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
+         << "    -M, --mems STR         describe the maximal exact matches of the STR (gcsa2) in JSON" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
@@ -2941,6 +2942,7 @@ int main_find(int argc, char** argv) {
     bool get_mappings = false;
     string gcsa_in;
     string xg_name;
+    bool get_mems = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2957,6 +2959,7 @@ int main_find(int argc, char** argv) {
                 {"kmer", required_argument, 0, 'k'},
                 {"table", no_argument, 0, 'T'},
                 {"sequence", required_argument, 0, 'S'},
+                {"mems", required_argument, 0, 'M'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
@@ -2971,7 +2974,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2998,6 +3001,11 @@ int main_find(int argc, char** argv) {
 
         case 'S':
             sequence = optarg;
+            break;
+
+        case 'M':
+            sequence = optarg;
+            get_mems = true;
             break;
 
         case 'j':
@@ -3242,6 +3250,10 @@ int main_find(int argc, char** argv) {
 
     if (!sequence.empty()) {
         if (gcsa_in.empty()) {
+            if (get_mems) {
+                cerr << "error:[vg find] a GCSA index must be passed to get MEMs" << endl;
+                return 1;
+            }
             set<int> kmer_sizes = vindex.stored_kmer_sizes();
             if (kmer_sizes.empty()) {
                 cerr << "error:[vg find] index does not include kmers, add with vg index -k" << endl;
@@ -3262,14 +3274,25 @@ int main_find(int argc, char** argv) {
             //range_type find(const char* pattern, size_type length) const;
             //void locate(size_type path, std::vector<node_type>& results, bool append = false, bool sort = true) const;
             //locate(i, results);
-            auto paths = gcsa_index.find(sequence.c_str(), sequence.length());
-            //cerr << paths.first << " - " << paths.second << endl;
-            for (gcsa::size_type i = paths.first; i <= paths.second; ++i) {
-                std::vector<gcsa::node_type> ids;
-                gcsa_index.locate(i, ids);
-                for (auto id : ids) {
-                    cout << gcsa::Node::decode(id) << endl;
+            if (!get_mems) {
+                auto paths = gcsa_index.find(sequence.c_str(), sequence.length());
+                //cerr << paths.first << " - " << paths.second << endl;
+                for (gcsa::size_type i = paths.first; i <= paths.second; ++i) {
+                    std::vector<gcsa::node_type> ids;
+                    gcsa_index.locate(i, ids);
+                    for (auto id : ids) {
+                        cout << gcsa::Node::decode(id) << endl;
+                    }
                 }
+            } else {
+                Mapper mapper;
+                mapper.gcsa = &gcsa_index;
+                // get the mems
+                auto mems = mapper.find_mems(sequence);
+                // then fill the nodes that they match
+                for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
+                // dump them to stdout
+                cout << mems_to_json(mems) << endl;
             }
         }
     }
