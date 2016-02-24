@@ -2203,8 +2203,11 @@ void VG::from_gfa(istream& in, bool showp) {
         
         if (pred == ("<"+vg_node_p+">") ) {
             Node* node = vg->find_node_by_name_or_add_new(obj);
-            Mapping* mapping = new Mapping();
+            Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
             const string pathname = sub.substr(1, sub.find_last_of("/#"));
+
+            //TODO we are using a nasty trick here, which needs to be fixed.
+	    //We are using knowledge about the uri format to determine the rank of the step.
             int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
             mapping->set_rank(rank);
             Position* p = mapping->mutable_position();
@@ -2246,44 +2249,57 @@ void VG::from_gfa(istream& in, bool showp) {
     }
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
-	raptor_world* world;
+    raptor_world* world;
     world = raptor_new_world();
     if(!world)
     {
-        cerr << "we could not open the raptor_world!" << endl;
+        cerr << "[vg view] we could not start the rdf environment needed for parsing" << endl;
         exit(1);
     }
-	int st =  raptor_world_open (world);
+    int st =  raptor_world_open (world);
 
-	if (st!=0)
-		exit(1);
-	raptor_parser* rdf_parser;
-	const unsigned char *filename_uri_string;
-	raptor_uri  *uri_base, *uri_file;
-	rdf_parser = raptor_new_parser(world, "turtle");
+    if (st!=0) {
+	cerr << "[vg view] we could not start the rdf parser " << endl;
+	exit(1);
+    }
+    raptor_parser* rdf_parser;
+    const unsigned char *filename_uri_string; 
+    raptor_uri  *uri_base, *uri_file;
+    rdf_parser = raptor_new_parser(world, "turtle");
+    //We use a paths object with its convience methods to build up path objects.
     Paths* paths = new Paths();
     std::pair<VG*, Paths*> user_data = make_pair(this, paths);
-    
+   
+    //The user_data is cast in the triple_to_vg method. 
     raptor_parser_set_statement_handler(rdf_parser, &user_data, triple_to_vg);
 
 
     const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
     filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
-	uri_file = raptor_new_uri(world, filename_uri_string);
-	uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
-	raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
-	raptor_free_uri(uri_base);
-	raptor_free_uri(uri_file);
-	raptor_free_parser(rdf_parser);
-	raptor_free_world(world);
+    uri_file = raptor_new_uri(world, filename_uri_string);
+    uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
+
+    // parse the file indicated by the uri, given an uir_base .
+    raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
+    // free the different C allocated structures
+    raptor_free_uri(uri_base);
+    raptor_free_uri(uri_file);
+    raptor_free_parser(rdf_parser);
+    raptor_free_world(world);
+    //sort the mappings in the path
     paths->sort_by_mapping_rank();
+    //we need to make sure that we don't have inner mappings
+    //we need to do this after collecting all node sequences
+    //that can only be ensured by doing this when parsing ended
     paths->for_each_mapping([this](Mapping* mapping){
         Node* node =this->get_node(mapping->position().node_id());
-        int l = node->sequence().length();
+        //every mapping in VG RDF matches a whole mapping
+	int l = node->sequence().length();
         Edit* e = mapping->add_edit();
         e->set_to_length(l);
         e->set_from_length(l);
     });
+    ///Add the paths that we parsed into the vg object
     paths->for_each([this](const Path& path){
         this->include(path);
     });
