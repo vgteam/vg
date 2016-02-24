@@ -137,9 +137,6 @@ public:
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
     
-    // not used
-    Alignment align_simple(const Alignment& alignment, int kmer_size = 0, int stride = 0);
-
     set<int> kmer_sizes;
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
