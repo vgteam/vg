@@ -5702,56 +5702,86 @@ void VG::to_gfa(ostream& out) {
     // }
 }
 
-void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
+void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
+    
     out << "@base <http://example.org/vg/> . " << endl;
-    out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
-    out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
-    out << "@prefix step: <" <<  rdf_base_uri <<"step/> . " << endl;
-    out << "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    if (precompress) {
+       out << "@prefix : <" <<  rdf_base_uri <<"node/> . " << endl;
+       out << "@prefix p: <" <<  rdf_base_uri <<"path/> . " << endl;
+       out << "@prefix s: <" <<  rdf_base_uri <<"step/> . " << endl;
+       out << "@prefix r: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    
+    } else {
+       out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
+       out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
+       out << "@prefix step: <" <<  rdf_base_uri <<"step/> . " << endl;
+       out << "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    }
     //Ensure that mappings are sorted by ranks
     paths.sort_by_mapping_rank();
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        out << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
-
-        auto& node_mapping = paths.get_node_mapping(n->id());
-	    set<Mapping*> seen;
-        for (auto& p : node_mapping) {
-            for (auto* m : p.second) {
-                if (seen.count(m)) continue;
-                else seen.insert(m);
-                const Mapping& mapping = *m;
-                out << "step:" << p.first << "-s-" << mapping.rank() << " a <Step> ;" << endl ;
-                out << " <rank> " << mapping.rank() << " ; "  << endl ;
-                string orientation = mapping.position().is_reverse() ? "<reverseOfNode>" : "<node>";
-                out << "\t" << orientation <<" node:" << n->id() << " ; " << endl;
-                out << "\t<path> path:" << p.first << " . " << endl;
-            }
+        if (precompress) {
+            out << ":" << n->id() << " r:value \"" << n->sequence() << "\" . " ;
+	    } else {
+            out << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
         }
     }
-    function<void(const Path&)> lambda = [&out]
+    function<void(const Path&)> lambda = [&out, &precompress]
         (const Path& path) {
             uint64_t offset=0; //We could have more than 2gigabases in a path
             for (auto &m : path.mapping()) {
-                out << "step:" << path.name() << "-s-" << m.rank() << " <position> "<< offset<<" . " << endl;
-                offset += mapping_to_length(m);
+                string orientation = m.position().is_reverse() ? "<reverseOfNode>" : "<node>";
+                if (precompress) {
+                	out << "s:" << path.name() << "-" << m.rank() << " <rank> " << m.rank() << " ; " ;
+                	out << orientation <<" :" << m.position().node_id() << " ;";
+                    out << " <path> p:" << path.name() << " ; ";
+                    out << " <position> "<< offset<<" . ";
+                } else {
+                    out << "step:" << path.name() << "-" << m.rank() << " <position> "<< offset<<" ; " << endl;
+                	out << " a <Step> ;" << endl ;
+                	out << " <rank> " << m.rank() << " ; "  << endl ;
+                	out << " " << orientation <<" node:" << m.position().node_id() << " ; " << endl;
+                	out << " <path> path:" << path.name() << " . " << endl;
+                }
+		        offset += mapping_to_length(m);
             }
         };
     paths.for_each(lambda);
+    id_t prev = -1;
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        out << "node:" << e->from();
-        if (e->from_start() && e->to_end()) {
-          out << " <linksReverseToReverse> " ; // <--
-        } else if (e->from_start() && !e->to_end()) {
-          out << " <linksReverseToForward> " ; // -+
-        } else if (e->to_end()) {
-          out << " <linksForwardToReverse> " ; //+-
+        if(precompress) {
+            if (prev == -1){
+    	        out << ":" << e->from();
+            } else if (prev ==e->from()) {
+                out << "; " ;
+            } else {
+                out << " . :" << e->from();
+            }
+            prev = e->from();
         } else {
-          out << " <linksForwardToForward> " ; //++
+            out << "node:" << e->from();
+	    }
+    
+        if (e->from_start() && e->to_end()) {
+            out << " <linksReverseToReverse> " ; // <--
+        } else if (e->from_start() && !e->to_end()) {
+            out << " <linksReverseToForward> " ; // -+
+        } else if (e->to_end()) {
+            out << " <linksForwardToReverse> " ; //+-
+        } else {
+            out << " <linksForwardToForward> " ; //++
         }
-        out << "node:" << e->to() << " . " << endl;
+        if (precompress) {
+             out << ":" << e->to();
+        } else {
+            out << "node:" << e->to() << " . " << endl;
+	    }
     }
+    if(precompress) {
+        out << " .";
+    }       
 }
 void VG::destroy_alignable_graph(void) {
     if (gssw_aligner != NULL) {

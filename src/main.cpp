@@ -4614,7 +4614,7 @@ int main_view(int argc, char** argv) {
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
                 {"turtle", no_argument, 0, 't'},
-				{"turtle-in", no_argument, 0, 'T'},
+                {"turtle-in", no_argument, 0, 'T'},
                 {"rdf-base-uri", no_argument, 0, 'r'},
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
@@ -4853,6 +4853,7 @@ int main_view(int argc, char** argv) {
         graph = new VG(get_next_graph, false);
     } else if(input_type == "turtle-in") {
         graph = new VG;
+        bool pre_compress=color_variants;
         if (file_name == "-") {
              graph->from_turtle("/dev/stdin", rdf_base_uri);
         } else {
@@ -5023,7 +5024,7 @@ int main_view(int argc, char** argv) {
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
     } else if (output_type == "turtle") {
-        graph->to_turtle(std::cout, rdf_base_uri);
+        graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
     } else {
