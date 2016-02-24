@@ -18,6 +18,19 @@ namespace vg {
 
 using namespace std;
 
+class MaximalExactMatch {
+public:
+    string::const_iterator begin;
+    string::const_iterator end;
+    gcsa::range_type range;
+    size_t positions;
+    MaximalExactMatch(string::const_iterator b,
+                      string::const_iterator e,
+                      gcsa::range_type r,
+                      size_t p = 0)
+        : begin(b), end(e), range(r), positions(p) { }
+};
+
 class Mapper {
 
 
@@ -99,6 +112,10 @@ public:
                                      int stride = 0,
                                      int attempt = 0);
 
+    // MEM-based mapping
+    vector<MaximalExactMatch> find_mems(const string& seq);
+    vector<Alignment> align_mem(const Alignment& alignment);
+    
     // not used
     Alignment align_simple(const Alignment& alignment, int kmer_size = 0, int stride = 0);
 
@@ -130,7 +147,6 @@ public:
 
 // utility
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
-
 
 }
 

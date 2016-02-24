@@ -796,6 +796,52 @@ Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int ban
     return best[0];
 }
 
+// use the GCSA2 index to find approximate mems starting from the end of the given sequence
+// when a match sequence is broken before we reach the order of the graph,
+// step forward one and start the next match
+vector<MaximalExactMatch>
+Mapper::find_mems(const string& seq) {
+    string::const_iterator begin = seq.begin();
+    string::const_iterator end = seq.end();
+    vector<MaximalExactMatch> matches;
+    // an empty sequence matches the entire bwt
+    if(begin == end) {
+        matches.emplace_back(MaximalExactMatch(begin, end, gcsa::range_type(0, gcsa->size() - 1)));
+        return matches;
+    }
+    // otherwise, step through the sequence generating MEMs
+    // running backward searching starting from end
+    // and searching until we break, then emitting a match
+    while (end != begin) {
+        --end;
+        matches.emplace_back(MaximalExactMatch(end+1, end,
+                                               gcsa->charRange(gcsa->alpha.char2comp[*end])));
+        MaximalExactMatch& match = matches.back();
+        while (!gcsa::Range::empty(match.range) && end != begin && end - match.end < gcsa->order()) {
+            --end;
+            match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*end]);
+        }
+        match.begin = end;
+    }
+    return matches;
+}
+
+vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
+
+    if (index == nullptr && (xindex == nullptr || gcsa == nullptr)) {
+        cerr << "error:[vg::Mapper] index(es) missing, cannot map alignment!" << endl;
+        exit(1);
+    }
+    if (!gcsa) {
+        cerr << "error:[vg::Mapper] a GCSA2 index is required for MEM mapping" << endl;
+        exit(1);
+    }
+    // use the GCSA index to determine the approximate MEMs of the read
+    // the basic idea is to run the search until our BWT range reaches 0
+    // or we hit the order of the GCSA index
+    
+}
+
 // core alignment algorithm that handles both kinds of sequence indexes
 vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_count, int kmer_size, int stride, int attempt) {
 
