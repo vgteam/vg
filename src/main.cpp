@@ -4541,8 +4541,9 @@ void help_view(char** argv) {
          << "                         Alignment/Map)" << endl
          << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
          << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
-		 << "    -R, --n-triples-in         read n-triples" << endl
-         << "    -a, --align-in       input GAM format" << endl
+         << "    -R, --n-triples-in   read n-triples" << endl
+    
+	 << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
          << "    -d, --dot            output dot format" << endl
@@ -4727,7 +4728,7 @@ int main_view(int argc, char** argv) {
             rdf_base_uri = optarg;
             break;
         case 'T':
-			input_type= "turtle-in";
+            input_type= "turtle-in";
             break;
         case 'a':
             input_type = "gam";
@@ -4851,13 +4852,12 @@ int main_view(int argc, char** argv) {
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false);
     } else if(input_type == "turtle-in") {
-		if (file_name == "-") {
-					graph = new VG;
-					graph->from_turtle("/dev/stdin", rdf_base_uri);
-				} else {
-					graph = new VG;
-					graph->from_turtle(file_name, rdf_base_uri);
-				}
+        graph = new VG;
+        if (file_name == "-") {
+             graph->from_turtle("/dev/stdin", rdf_base_uri);
+        } else {
+             graph->from_turtle(file_name, rdf_base_uri);
+	}
     } else if (input_type == "gam") {
         if (input_json == false) {
             if (output_type == "json") {

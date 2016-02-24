@@ -2186,123 +2186,113 @@ void VG::from_gfa(istream& in, bool showp) {
     {
         VG* vg = ((std::pair<VG*, Paths*>*) user_data)->first;
         Paths* paths = ((std::pair<VG*, Paths*>*) user_data)->second;
-        string vg_ns ="http://example.org/vg/";
-        string vg_node_p = vg_ns + "node" ;
-        string vg_rank_p = vg_ns + "rank" ;
-        string vg_reverse_of_node_p = vg_ns + "reverseOfNode" ;
-        string vg_path_p = vg_ns + "path" ;
-        string vg_linkrr_p = vg_ns + "linksReverseToReverse";
-        string vg_linkrf_p = vg_ns + "linksReverseToForward";
-        string vg_linkfr_p = vg_ns + "linksForwardToReverse";
-        string vg_linkff_p = vg_ns + "linksForwardToForward";
-        string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
-        string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
-        string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
+        const string vg_ns ="<http://example.org/vg/";
+        const string vg_node_p = vg_ns + "node>" ;
+        const string vg_rank_p = vg_ns + "rank>" ;
+        const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
+        const string vg_path_p = vg_ns + "path>" ;
+        const string vg_linkrr_p = vg_ns + "linksReverseToReverse>";
+        const string vg_linkrf_p = vg_ns + "linksReverseToForward>";
+        const string vg_linkfr_p = vg_ns + "linksForwardToReverse>";
+        const string vg_linkff_p = vg_ns + "linksForwardToForward>";
+        const string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
+        const string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
+        const string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
 
-        
-        if (pred == ("<"+vg_node_p+">") ) {
+        bool reverse = pred == vg_reverse_of_node_p; 
+        if (pred == (vg_node_p) || reverse) {
             Node* node = vg->find_node_by_name_or_add_new(obj);
-            Mapping* mapping = new Mapping();
+            Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
             const string pathname = sub.substr(1, sub.find_last_of("/#"));
-            int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
-            mapping->set_rank(rank);
+
+            //TODO we are using a nasty trick here, which needs to be fixed.
+	    //We are using knowledge about the uri format to determine the rank of the step.
+            try {
+	        int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
+	        mapping->set_rank(rank);
+	    } catch(exception& e) {
+	        cerr << "[vg view] assumption about rdf structure was wrong, parsing failed" << endl;
+		exit(1);
+	    }
             Position* p = mapping->mutable_position();
             p->set_offset(0);
             p->set_node_id(node->id());
+	    p->set_is_reverse(reverse);
             paths->append_mapping(pathname, *mapping);
         } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
             Node* node = vg->find_node_by_name_or_add_new(sub);
             node->set_sequence(obj.substr(1,obj.length()-2));
-        } else if (pred == "<"+vg_reverse_of_node_p+">"){
-            Node* node = vg->find_node_by_name_or_add_new(obj);
-            Mapping* mapping = new Mapping();
-            const string pathname = sub.substr(1, sub.find_last_of("/#"));
-            int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
-            mapping->set_rank(rank);
-            Position* p = mapping->mutable_position();
-            p->set_offset(0);
-            p->set_node_id(node->id());
-            p->set_is_reverse(true);
-            paths->append_mapping(pathname, *mapping);
-        } else if (pred == "<"+vg_linkrr_p+">"){
+        } else if (pred == vg_linkrr_p){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
-            Edge* edge = new Edge();
-            edge->set_from(from->id());
-            edge->set_to(to->id());
-            edge->set_to_end(true);
-            edge->set_from_start(true);
-            vg->add_edge(*edge);
-        } else if (pred == "<"+vg_linkrf_p+">"){
+            vg->create_edge(from, to, true, true);
+        } else if (pred == vg_linkrf_p){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
-            Edge* edge = new Edge();
-            edge->set_from(from->id());
-            edge->set_to(to->id());
-            edge->set_to_end(false);
-            edge->set_from_start(true);
-            vg->add_edge(*edge);
-        } else if (pred == "<"+vg_linkfr_p+">"){
+            vg->create_edge(from, to, false, true);
+        } else if (pred == vg_linkfr_p){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
-            Edge* edge = new Edge();
-            edge->set_from(from->id());
-            edge->set_to(to->id());
-            edge->set_to_end(true);
-            edge->set_from_start(false);
-            vg->add_edge(*edge);
-        } else if (pred == "<"+vg_linkff_p+">"){
+            vg->create_edge(from, to, true, false);
+        } else if (pred == vg_linkff_p){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
-            Edge* edge = new Edge();
-            edge->set_from(from->id());
-            edge->set_to(to->id());
-            edge->set_to_end(false);
-            edge->set_from_start(false);
-            vg->add_edge(*edge);
+            vg->create_edge(from, to, false, false);
         }
-        
     }
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
-	raptor_world* world;
+    raptor_world* world;
     world = raptor_new_world();
     if(!world)
     {
-        cerr << "we could not open the raptor_world!" << endl;
+        cerr << "[vg view] we could not start the rdf environment needed for parsing" << endl;
         exit(1);
     }
-	int st =  raptor_world_open (world);
+    int st =  raptor_world_open (world);
 
-	if (st!=0)
-		exit(1);
-	raptor_parser* rdf_parser;
-	const unsigned char *filename_uri_string;
-	raptor_uri  *uri_base, *uri_file;
-	rdf_parser = raptor_new_parser(world, "turtle");
+    if (st!=0) {
+	cerr << "[vg view] we could not start the rdf parser " << endl;
+	exit(1);
+    }
+    raptor_parser* rdf_parser;
+    const unsigned char *filename_uri_string; 
+    raptor_uri  *uri_base, *uri_file;
+    rdf_parser = raptor_new_parser(world, "turtle");
+    //We use a paths object with its convience methods to build up path objects.
     Paths* paths = new Paths();
     std::pair<VG*, Paths*> user_data = make_pair(this, paths);
-    
+   
+    //The user_data is cast in the triple_to_vg method. 
     raptor_parser_set_statement_handler(rdf_parser, &user_data, triple_to_vg);
 
 
     const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
     filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
-	uri_file = raptor_new_uri(world, filename_uri_string);
-	uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
-	raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
-	raptor_free_uri(uri_base);
-	raptor_free_uri(uri_file);
-	raptor_free_parser(rdf_parser);
-	raptor_free_world(world);
+    uri_file = raptor_new_uri(world, filename_uri_string);
+    uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
+
+    // parse the file indicated by the uri, given an uir_base .
+    raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
+    // free the different C allocated structures
+    raptor_free_uri(uri_base);
+    raptor_free_uri(uri_file);
+    raptor_free_parser(rdf_parser);
+    raptor_free_world(world);
+    //sort the mappings in the path
     paths->sort_by_mapping_rank();
+    //we need to make sure that we don't have inner mappings
+    //we need to do this after collecting all node sequences
+    //that can only be ensured by doing this when parsing ended
     paths->for_each_mapping([this](Mapping* mapping){
         Node* node =this->get_node(mapping->position().node_id());
-        int l = node->sequence().length();
+        //every mapping in VG RDF matches a whole mapping
+	int l = node->sequence().length();
         Edit* e = mapping->add_edit();
         e->set_to_length(l);
         e->set_from_length(l);
     });
+    ///Add the paths that we parsed into the vg object
     paths->for_each([this](const Path& path){
         this->include(path);
     });
