@@ -27,13 +27,20 @@ public:
     gcsa::range_type range;
     size_t matches;
     std::vector<gcsa::node_type> nodes;
-
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
                       gcsa::range_type r,
                       size_t m = 0)
         : begin(b), end(e), range(r), matches(m) { }
 
+    // construct the sequence of the MEM
+    string sequence(void) const {
+        string seq; seq.resize(end-begin);
+        string::const_iterator c = begin;
+        size_t i = 0;
+        while (c != end) seq[i] = *c++;
+        return seq;
+    }
     // uses GCSA to get the positions matching the range
     void fill_nodes(gcsa::GCSA* gcsa) {
         gcsa->locate(range, nodes);
@@ -123,8 +130,12 @@ public:
                                      int attempt = 0);
 
     // MEM-based mapping
+    // finds maximal exact matches of the sequence using the GCSA index
     vector<MaximalExactMatch> find_mems(const string& seq);
+    // alignment based on the MEM approach
     vector<Alignment> align_mem(const Alignment& alignment);
+    // use BFS to expand the graph in an attempt to resolve soft clips
+    void resolve_softclips(Alignment& aln, VG& graph);
     
     // not used
     Alignment align_simple(const Alignment& alignment, int kmer_size = 0, int stride = 0);

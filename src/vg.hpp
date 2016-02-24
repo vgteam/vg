@@ -119,8 +119,8 @@ public:
     }
 
     // Make an edge into a canonically ordered pair of NodeSides
-    static inline pair<NodeSide, NodeSide> pair_from_edge(Edge& e) {
-        return pair_from_edge(&e);
+    static inline pair<NodeSide, NodeSide> pair_from_edge(const Edge& e) {
+        return minmax(NodeSide(e.from(), !e.from_start()), NodeSide(e.to(), e.to_end()));
     }
 
     // Make a canonically ordered pair of NodeSides from an edge off of the
@@ -500,12 +500,12 @@ public:
     void add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation);
 
     // Add in the given node, by value
-    void add_node(Node& node);
-    void add_nodes(vector<Node>& nodes);
-    void add_edge(Edge& edge);
-    void add_edges(vector<Edge>& edges);
-    void add_nodes(set<Node*>& nodes);
-    void add_edges(set<Edge*>& edges);
+    void add_node(const Node& node);
+    void add_nodes(const vector<Node>& nodes);
+    void add_edge(const Edge& edge);
+    void add_edges(const vector<Edge>& edges);
+    void add_nodes(const set<Node*>& nodes);
+    void add_edges(const set<Edge*>& edges);
 
     id_t node_count(void);
     id_t edge_count(void);
@@ -587,7 +587,7 @@ public:
     void destroy_node(id_t id);
     bool has_node(id_t id);
     bool has_node(Node* node);
-    bool has_node(Node& node);
+    bool has_node(const Node& node);
     void for_each_node(function<void(Node*)> lambda);
     void for_each_node_parallel(function<void(Node*)> lambda);
     // Go through all the nodes in the same connected component as the given node. Ignores relative orientation.
@@ -669,7 +669,7 @@ public:
     // This can take sides in any order
     bool has_edge(const pair<NodeSide, NodeSide>& sides);
     bool has_edge(Edge* edge);
-    bool has_edge(Edge& edge);
+    bool has_edge(const Edge& edge);
     bool has_inverting_edge(Node* n);
     bool has_inverting_edge_from(Node* n);
     bool has_inverting_edge_to(Node* n);

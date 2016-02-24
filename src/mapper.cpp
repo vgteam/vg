@@ -850,8 +850,7 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
     size_t j = 0;
     for (auto& mem : mems) {
         s << "[\"";
-        string::const_iterator c = mem.begin;
-        while (c != mem.end) s << *c++;
+        s << mem.sequence();
         s << "\",[";
         size_t i = 0;
         for (auto& node : mem.nodes) {
@@ -867,18 +866,255 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
 
 vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
-    if (index == nullptr && (xindex == nullptr || gcsa == nullptr)) {
-        cerr << "error:[vg::Mapper] index(es) missing, cannot map alignment!" << endl;
+    if (!gcsa || !xindex) {
+        cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
         exit(1);
     }
-    if (!gcsa) {
-        cerr << "error:[vg::Mapper] a GCSA2 index is required for MEM mapping" << endl;
-        exit(1);
-    }
+
     // use the GCSA index to determine the approximate MEMs of the read
-    // the basic idea is to run the search until our BWT range reaches 0
-    // or we hit the order of the GCSA index
+    auto mems = find_mems(alignment.sequence());
+
+    // remove those mems which are shorter than our kmer_min (could use a new parameter)
+    // the short MEMs will have *many* hits, and we don't want to use them
+    mems.erase(std::remove_if(mems.begin(), mems.end(),
+                              [&](const MaximalExactMatch& m) { return m.end-m.begin < kmer_min; }));
+
+    // for the moment, we can just get the positions in all the mems
+    // but we may want to selectively use them
+    // such as by trying to use them as seeds in order from shortest to longest
+    for (auto& mem : mems) mem.fill_nodes(gcsa);
+
+    //map<MaximalExactMatch*, set<id_t> > mem_ids;
+    set<id_t> ids;
+    struct StrandCounts {
+        uint32_t forward;
+        uint32_t reverse;
+    };
+    // we will use these to determine the alignment strand for each subgraph
+    map<id_t, StrandCounts> node_strands;
+
+    // run through the mems, tabulating positional informationd
+    // and using the reverse complement of the mem to find the mem endpoint
+    for (auto& mem : mems) {
+
+        // collect ids and orienations of hits to them on the forward mem
+        for (auto& node : mem.nodes) {
+            id_t id = gcsa::Node::id(node);
+            ids.insert(id);
+            if (gcsa::Node::rc(node)) {
+                node_strands[id].reverse++;
+            } else {
+                node_strands[id].forward++;
+            }
+        }
+
+        // now handle the reverse complement mem to get the end position of the mem
+        string rc_mem = reverse_complement(mem.sequence());
+        auto rc_mems = find_mems(rc_mem);
+        // also filter to remove spurious sub-hits
+        // TODO: is it the case that the rc is definitively the same number as the forward?
+        rc_mems.erase(std::remove_if(rc_mems.begin(), rc_mems.end(),
+                                  [&](const MaximalExactMatch& m) { return m.end-m.begin < kmer_min; }));
+        for (auto& rc_mem : rc_mems) {
+            rc_mem.fill_nodes(gcsa);
+            for (auto& node : rc_mem.nodes) {
+                id_t id = gcsa::Node::id(node);
+                ids.insert(id);
+                // we are looking at the position of the end of the mem on the reverse strand
+                // so we flip it around when tabulating strands
+                if (!gcsa::Node::rc(node)) {
+                    node_strands[id].reverse++;
+                } else {
+                    node_strands[id].forward++;
+                }
+            }
+        }
+    }
+
+    // collect the graph implied by the mems and their reverse complements
+    VG* graph = new VG;
+    for (auto& id : ids) {
+        Node node = xindex->node(id);
+        graph->add_node(node);
+    }
+
+    // then expand the graph with our context depth to fill in nearby gaps
+    xindex->expand_context(graph->graph, context_depth, false);
+    graph->rebuild_indexes();
+
+    // determine subgraphs
+    list<VG> subgraphs;
+    graph->disjoint_subgraphs(subgraphs);
+
+    vector<Alignment> alns; // our alignments
     
+    // set up our forward and reverse base alignments (these are just sequences in bare alignment objs)
+    auto aln_fw = alignment;
+    aln_fw.clear_path();
+    aln_fw.set_score(0);
+    auto aln_rc = aln_fw;
+    aln_rc.set_sequence(reverse_complement(aln_fw.sequence()));
+
+    // generate an alignment for each subgraph/orientation combination for which we have hits
+    for (auto& subgraph : subgraphs) {
+        // determine the likely orientation
+        uint32_t fw_mems = 0;
+        uint32_t rc_mems = 0;
+        subgraph.for_each_node([&](Node* n) {
+                auto ns = node_strands.find(n->id());
+                if (ns != node_strands.end()) {
+                    fw_mems += ns->second.forward;
+                    rc_mems += ns->second.reverse;
+                }
+            });
+        if (fw_mems) {
+            Alignment aln = subgraph.align(aln_fw);
+            resolve_softclips(aln, subgraph);
+            alns.push_back(aln);
+        }
+        if (rc_mems) {
+            Alignment aln = subgraph.align(aln_rc);
+            resolve_softclips(aln, subgraph);
+            alns.push_back(aln);
+        }
+    }
+
+    // free memory; we don't need the graphs for the last bit
+    subgraphs.clear();
+    delete graph;
+    
+    // now find the best alignment
+    int sum_score = 0;
+    double mean_score = 0;
+    map<int, set<Alignment*> > alignment_by_score;
+    for (auto& aln : alns) {
+        alignment_by_score[aln.score()].insert(&aln);
+    }
+
+    // Collect all the good alignments
+    // TODO: Filter down subject to a minimum score per base or something?
+    set<Alignment*> good;
+    for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
+        // Iterating through a set keyed on ints backward is in descending order.
+        // This is going to let us deduplicate our alignments with this score,
+        // by storing them serialized to strings in this set.
+        set<string> serializedAlignmentsUsed;
+
+        for(Alignment* pointer : (*it).second) {
+            // We serialize the alignment to a string
+            string serialized;
+            pointer->SerializeToString(&serialized);
+
+            if(!serializedAlignmentsUsed.count(serialized)) {
+                // This alignment hasn't been produced yet. Produce it. The
+                // order in the alignment vector doesn't matter for things with
+                // the same score.
+                good.insert(pointer);
+
+                // Save it so we can avoid putting it in the vector again
+                serializedAlignmentsUsed.insert(serialized);
+            }
+
+            if(good.size() >= max_multimaps) {
+                // Don't report too many mappings
+                break;
+            }
+        }
+
+        if(good.size() >= max_multimaps) {
+            // Don't report too many mappings
+            break;
+        }
+    }
+
+    // filter the alignments for the good ones
+    alns.erase(std::remove_if(alns.begin(), alns.end(),
+                              [&](Alignment& aln) { return !good.count(&aln); }));
+
+    // get the best alignment
+    if (!alns.empty()) {
+        // TODO log best alignment score?
+    } else {
+        alns.emplace_back();
+        Alignment& aln = alns.back();
+        aln = alignment;
+        aln.clear_path();
+        aln.set_score(0);
+    }
+
+    // Return all the multimappings
+    return alns;
+    
+}
+
+void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
+
+    if (!xindex) {
+        cerr << "error:[vg::Mapper] xg index pair is required for dynamic softclip resolution" << endl;
+        exit(1);
+    }
+    
+    // we can be more precise about our handling of softclips due to the low cost
+    // of the fully in-memory xg index
+    int sc_start = softclip_start(aln);
+    int sc_end = softclip_end(aln);
+    int last_score = aln.score();
+    size_t itr = 0;
+    Path* path = aln.mutable_path();
+    int64_t idf = path->mutable_mapping(0)->position().node_id();
+    int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
+    int32_t d_to_head = graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3);
+    int32_t d_to_tail = graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3);
+    while (itr++ < 3
+           && ((sc_start > softclip_threshold
+                && d_to_head >= 0 && d_to_head < sc_start)
+               || (sc_end > softclip_threshold
+                   && d_to_tail >=0 && d_to_tail < sc_end))) {
+        if (debug) {
+            cerr << "softclip before " << sc_start << " " << sc_end << endl;
+            cerr << "distance to head "
+                 << graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3)
+                 << endl;
+            cerr << "distance to tail "
+                 << graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3)
+                 << endl;
+        }
+        double avg_node_size = graph.length() / graph.size();
+        if (debug) cerr << "average node size " << avg_node_size << endl;
+        // step towards the side where there were soft clips
+        if (sc_start) {
+            Graph flank;
+            xindex->get_id_range(idf-1, idf, flank);
+            xindex->expand_context(flank, max(context_depth,
+                                              (int)(sc_start/avg_node_size)));
+            graph.extend(flank);
+        }
+        if (sc_end) {
+            Graph flank;
+            xindex->get_id_range(idl, idl+1, flank);
+            xindex->expand_context(flank, max(context_depth,
+                                              (int)(sc_end/avg_node_size)));
+            graph.extend(flank);
+        }
+        graph.remove_orphan_edges();
+        aln.clear_path();
+        aln.set_score(0);
+
+        aln = graph.align(aln);
+
+        sc_start = softclip_start(aln);
+        sc_end = softclip_end(aln);
+        if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
+        // we are not improving, so increasing the window is unlikely to help
+        if (last_score == aln.score()) break;
+        // update tracking of path end
+        last_score = aln.score();
+        path = aln.mutable_path();
+        idf = path->mutable_mapping(0)->position().node_id();
+        idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
+        d_to_head = graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3);
+        d_to_tail = graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3);
+    }
 }
 
 // core alignment algorithm that handles both kinds of sequence indexes

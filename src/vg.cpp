@@ -159,31 +159,31 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
 
 // check for conflict (duplicate nodes and edges) occurs within add_* functions
 
-void VG::add_nodes(set<Node*>& nodes) {
+void VG::add_nodes(const set<Node*>& nodes) {
     for (auto node : nodes) {
         add_node(*node);
     }
 }
 
-void VG::add_edges(set<Edge*>& edges) {
+void VG::add_edges(const set<Edge*>& edges) {
     for (auto edge : edges) {
         add_edge(*edge);
     }
 }
 
-void VG::add_nodes(vector<Node>& nodes) {
+void VG::add_nodes(const vector<Node>& nodes) {
     for (auto& node : nodes) {
         add_node(node);
     }
 }
 
-void VG::add_edges(vector<Edge>& edges) {
+void VG::add_edges(const vector<Edge>& edges) {
     for (auto& edge : edges) {
         add_edge(edge);
     }
 }
 
-void VG::add_node(Node& node) {
+void VG::add_node(const Node& node) {
     if (!has_node(node)) {
         Node* new_node = graph.add_node(); // add it to the graph
         *new_node = node; // overwrite it with the value of the given node
@@ -192,7 +192,7 @@ void VG::add_node(Node& node) {
     }
 }
 
-void VG::add_edge(Edge& edge) {
+void VG::add_edge(const Edge& edge) {
     if (!has_edge(edge)) {
         Edge* new_edge = graph.add_edge(); // add it to the graph
         *new_edge = edge;
@@ -1426,7 +1426,7 @@ bool VG::has_node(Node* node) {
     return node && has_node(node->id());
 }
 
-bool VG::has_node(Node& node) {
+bool VG::has_node(const Node& node) {
     return has_node(node.id());
 }
 
@@ -1438,7 +1438,7 @@ bool VG::has_edge(Edge* edge) {
     return edge && has_edge(*edge);
 }
 
-bool VG::has_edge(Edge& edge) {
+bool VG::has_edge(const Edge& edge) {
     return edge_by_sides.find(NodeSide::pair_from_edge(edge)) != edge_by_sides.end();
 }
 
