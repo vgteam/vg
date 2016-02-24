@@ -172,9 +172,14 @@ Path reverse_complement_path(const Path& path,
 // type, strip leading and trailing deletion edits on mappings, and make sure no
 // mappings have missing positions.
 Path simplify(const Path& p);
+// does the same for a single mapping element
 Mapping simplify(const Mapping& m);
+// make a new mapping that concatenates the mappings
 Mapping concat_mappings(const Mapping& m, const Mapping& n);
+// make a new path that concatenates the two given paths
 Path concat_paths(const Path& path1, const Path& path2);
+// extend the first path by the second, avoiding copy operations
+Path& extend_path(Path& path1, const Path& path2);
 // divide mapping at reference-relative position
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos);
 // divide mapping at target-relative offset (as measured in to_length)

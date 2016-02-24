@@ -710,6 +710,44 @@ int from_length(const Mapping& m) {
     return l;
 }
 
+Path& extend_path(Path& path1, const Path& path2) {
+    auto& path1_back = path1.mapping(path1.mapping_size()-1);
+    auto& path2_front = path2.mapping(0);
+
+    // check if we have to splice the last mapping together
+    if (!path2_front.has_position() || !path1_back.has_position()) {
+        Mapping mapping;
+        // adapt unmapped paths (which look like insertions here)
+        if (!path2_front.has_position() && path1_back.has_position()) {
+            // If one mapping has no position, it can't reference reference sequence
+            assert(mapping_from_length(path2_front) == 0);
+            *mapping.mutable_position() = path1_back.position();
+            // Copy the reverse flag
+            mapping.mutable_position()->set_is_reverse(path1_back.position().is_reverse());
+        } else if (!path1_back.has_position() && path2_front.has_position()) {
+            // If one mapping has no position, it can't reference reference sequence
+            assert(mapping_from_length(path1_back) == 0);
+            *mapping.mutable_position() = path2_front.position();
+            // Copy the reverse flag
+            mapping.mutable_position()->set_is_reverse(path2_front.position().is_reverse());
+        }
+        // merge the edits from the second onto the last mapping
+        for (size_t i = 0; i < path2_front.edit_size(); ++i) {
+            *mapping.add_edit() = path2_front.edit(i);
+        }
+        *path1.add_mapping() = mapping;
+    } else {
+        // just tack it on, it's on the next node
+        *path1.add_mapping() = path2_front;
+    }
+    // add the rest of the mappings
+    for (size_t i = 1; i < path2.mapping_size(); ++i) {
+        *path1.add_mapping() = path2.mapping(i);
+    }
+    // and return a reference to the first path where we added the mappings of the second
+    return path1;
+}
+
 // concatenates paths
 Path concat_paths(const Path& path1, const Path& path2) {
     Path res = path1;
