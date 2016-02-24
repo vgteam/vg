@@ -2187,65 +2187,59 @@ void VG::from_gfa(istream& in, bool showp) {
     {
         VG* vg = ((std::pair<VG*, Paths*>*) user_data)->first;
         Paths* paths = ((std::pair<VG*, Paths*>*) user_data)->second;
-        string vg_ns ="http://example.org/vg/";
-        string vg_node_p = vg_ns + "node" ;
-        string vg_rank_p = vg_ns + "rank" ;
-        string vg_reverse_of_node_p = vg_ns + "reverseOfNode" ;
-        string vg_path_p = vg_ns + "path" ;
-        string vg_linkrr_p = vg_ns + "linksReverseToReverse";
-        string vg_linkrf_p = vg_ns + "linksReverseToForward";
-        string vg_linkfr_p = vg_ns + "linksForwardToReverse";
-        string vg_linkff_p = vg_ns + "linksForwardToForward";
-        string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
-        string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
-        string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
+        const string vg_ns ="<http://example.org/vg/";
+        const string vg_node_p = vg_ns + "node>" ;
+        const string vg_rank_p = vg_ns + "rank>" ;
+        const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
+        const string vg_path_p = vg_ns + "path>" ;
+        const string vg_linkrr_p = vg_ns + "linksReverseToReverse>";
+        const string vg_linkrf_p = vg_ns + "linksReverseToForward>";
+        const string vg_linkfr_p = vg_ns + "linksForwardToReverse>";
+        const string vg_linkff_p = vg_ns + "linksForwardToForward>";
+        const string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
+        const string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
+        const string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
 
-        
-        if (pred == ("<"+vg_node_p+">") ) {
+        bool reverse = pred == vg_reverse_of_node_p; 
+        if (pred == (vg_node_p) || reverse) {
             Node* node = vg->find_node_by_name_or_add_new(obj);
             Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
             const string pathname = sub.substr(1, sub.find_last_of("/#"));
 
             //TODO we are using a nasty trick here, which needs to be fixed.
 	    //We are using knowledge about the uri format to determine the rank of the step.
-            int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
-            mapping->set_rank(rank);
+            try {
+	        int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
+	        mapping->set_rank(rank);
+	    } catch(exception& e) {
+	        cerr << "[vg view] assumption about rdf structure was wrong, parsing failed" << endl;
+		exit(1);
+	    }
             Position* p = mapping->mutable_position();
             p->set_offset(0);
             p->set_node_id(node->id());
+	    p->set_is_reverse(reverse);
             paths->append_mapping(pathname, *mapping);
         } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
             Node* node = vg->find_node_by_name_or_add_new(sub);
             node->set_sequence(obj.substr(1,obj.length()-2));
-        } else if (pred == "<"+vg_reverse_of_node_p+">"){
-            Node* node = vg->find_node_by_name_or_add_new(obj);
-            Mapping* mapping = new Mapping();
-            const string pathname = sub.substr(1, sub.find_last_of("/#"));
-            int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
-            mapping->set_rank(rank);
-            Position* p = mapping->mutable_position();
-            p->set_offset(0);
-            p->set_node_id(node->id());
-            p->set_is_reverse(true);
-            paths->append_mapping(pathname, *mapping);
-        } else if (pred == "<"+vg_linkrr_p+">"){
+        } else if (pred == vg_linkrr_p){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
             vg->create_edge(from, to, true, true);
-        } else if (pred == "<"+vg_linkrf_p+">"){
+        } else if (pred == vg_linkrf_p){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
             vg->create_edge(from, to, false, true);
-        } else if (pred == "<"+vg_linkfr_p+">"){
+        } else if (pred == vg_linkfr_p){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
             vg->create_edge(from, to, true, false);
-        } else if (pred == "<"+vg_linkff_p+">"){
+        } else if (pred == vg_linkff_p){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
             vg->create_edge(from, to, false, false);
         }
-        
     }
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
