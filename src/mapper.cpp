@@ -461,8 +461,8 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
 
     // merge the resulting alignments
     Alignment merged = merge_alignments(alns, debug);
-		merged.set_quality(read.quality());
-		merged.set_name(read.name());
+    merged.set_quality(read.quality());
+    merged.set_name(read.name());
 
     if(debug) {
         for(int i = 0; i < merged.path().mapping_size(); i++) {
@@ -617,19 +617,29 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
 }
 
 vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width) {
-
+    // trigger a banded alignment if we need to
+    // note that this will in turn call align_multi on fragments of the read
     if (aln.sequence().size() > band_width) {
         if (debug) cerr << "switching to banded alignment" << endl;
         return vector<Alignment>{align_banded(aln, kmer_size, stride, band_width)};
     }
+    if (kmer_size) {
+        // if we've defined a kmer size, use the legacy style mapper
+        return align_multi_kmers(aln, kmer_size, stride, band_width);
+    } else {
+        // otherwise use the mem mapper, which is a multi mapper by default
+        return align_mem(aln);
+    }
+}
+
+vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size, int stride, int band_width) {
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
     if (debug) start_both = std::chrono::system_clock::now();
     const string& sequence = aln.sequence();
 
-    // if kmer size is not specified, pick it up from the index
-    // for simplicity, use the first available kmer size; this could change
-    if (kmer_size == 0) kmer_size = *kmer_sizes.begin();
+    // we assume a kmer size to be specified
+    assert(kmer_size);
     // and start with stride such that we barely cover the read with kmers
     if (stride == 0)
         stride = sequence.size()
@@ -872,17 +882,22 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     }
 
     // use the GCSA index to determine the approximate MEMs of the read
-    auto mems = find_mems(alignment.sequence());
 
     // remove those mems which are shorter than our kmer_min (could use a new parameter)
     // the short MEMs will have *many* hits, and we don't want to use them
-    mems.erase(std::remove_if(mems.begin(), mems.end(),
-                              [&](const MaximalExactMatch& m) { return m.end-m.begin < kmer_min; }));
 
     // for the moment, we can just get the positions in all the mems
     // but we may want to selectively use them
     // such as by trying to use them as seeds in order from shortest to longest
-    for (auto& mem : mems) mem.fill_nodes(gcsa);
+    vector<MaximalExactMatch> mems;
+    for (auto& mem: find_mems(alignment.sequence())) {
+        if (mem.end-mem.begin >= kmer_min) {
+            mems.push_back(mem);
+        }
+    }
+    for (auto& mem : mems) {
+        mem.fill_nodes(gcsa);
+    }
 
     //map<MaximalExactMatch*, set<id_t> > mem_ids;
     set<id_t> ids;
@@ -895,8 +910,8 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
     // run through the mems, tabulating positional informationd
     // and using the reverse complement of the mem to find the mem endpoint
+    //if (debug) cerr << mems_to_json(mems) << endl;
     for (auto& mem : mems) {
-
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
@@ -993,7 +1008,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
     // Collect all the good alignments
     // TODO: Filter down subject to a minimum score per base or something?
-    set<Alignment*> good;
+    vector<Alignment*> good;
     for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
         // Iterating through a set keyed on ints backward is in descending order.
         // This is going to let us deduplicate our alignments with this score,
@@ -1009,7 +1024,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
                 // This alignment hasn't been produced yet. Produce it. The
                 // order in the alignment vector doesn't matter for things with
                 // the same score.
-                good.insert(pointer);
+                good.push_back(pointer);
 
                 // Save it so we can avoid putting it in the vector again
                 serializedAlignmentsUsed.insert(serialized);
@@ -1027,23 +1042,28 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
         }
     }
 
-    // filter the alignments for the good ones
-    alns.erase(std::remove_if(alns.begin(), alns.end(),
-                              [&](Alignment& aln) { return !good.count(&aln); }));
+    // filter the alignments to only keep the good ones
+    vector<Alignment> alignments;
+    for (auto a : good) alignments.push_back(*a);
 
-    // get the best alignment
-    if (!alns.empty()) {
-        // TODO log best alignment score?
+    if (!alignments.empty()) {
+        // we're all right
     } else {
-        alns.emplace_back();
+        // we had no alignments passing our filtering, so we put an empty one back
+        alignments.emplace_back();
         Alignment& aln = alns.back();
         aln = alignment;
         aln.clear_path();
         aln.set_score(0);
     }
 
+    // set all but the first alignment as secondary
+    for (size_t i = 1; i < alignments.size(); ++i) {
+        alignments[i].set_is_secondary(true);
+    }
+
     // Return all the multimappings
-    return alns;
+    return alignments;
     
 }
 
