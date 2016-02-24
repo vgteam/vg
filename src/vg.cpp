@@ -2228,39 +2228,19 @@ void VG::from_gfa(istream& in, bool showp) {
         } else if (pred == "<"+vg_linkrr_p+">"){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
-            Edge* edge = new Edge();
-            edge->set_from(from->id());
-            edge->set_to(to->id());
-            edge->set_to_end(true);
-            edge->set_from_start(true);
-            vg->add_edge(*edge);
+            vg->create_edge(from, to, true, true);
         } else if (pred == "<"+vg_linkrf_p+">"){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
-            Edge* edge = new Edge();
-            edge->set_from(from->id());
-            edge->set_to(to->id());
-            edge->set_to_end(false);
-            edge->set_from_start(true);
-            vg->add_edge(*edge);
+            vg->create_edge(from, to, false, true);
         } else if (pred == "<"+vg_linkfr_p+">"){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
-            Edge* edge = new Edge();
-            edge->set_from(from->id());
-            edge->set_to(to->id());
-            edge->set_to_end(true);
-            edge->set_from_start(false);
-            vg->add_edge(*edge);
+            vg->create_edge(from, to, true, false);
         } else if (pred == "<"+vg_linkff_p+">"){
             Node* from = vg->find_node_by_name_or_add_new(sub);
             Node* to = vg->find_node_by_name_or_add_new(obj);
-            Edge* edge = new Edge();
-            edge->set_from(from->id());
-            edge->set_to(to->id());
-            edge->set_to_end(false);
-            edge->set_from_start(false);
-            vg->add_edge(*edge);
+            vg->create_edge(from, to, false, false);
         }
         
     }
