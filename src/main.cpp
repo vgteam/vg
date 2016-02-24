@@ -614,7 +614,6 @@ int main_msga(int argc, char** argv) {
     vector<string> sequences;
     vector<string> graph_files;
     string base_seq_name;
-    size_t max_fragment_length = 100000; // 100kb
     int idx_kmer_size = 16;
     int idx_doublings = 2;
     int kmer_size = 16;
