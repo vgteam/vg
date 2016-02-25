@@ -587,7 +587,7 @@ void help_msga(char** argv) {
          << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
          << "    -c, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
          << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
-         << "    -P, --score-per-bp N    accept alignment only if the alignment score per base is > N (default: 1.5)" << endl
+         << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
         //<< "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 1)" << endl
          << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
@@ -624,7 +624,7 @@ int main_msga(int argc, char** argv) {
     int max_attempts = 10;
     // if this is set too low, we may miss optimal alignments
     int context_depth = 3;
-    float min_score_per_bp = 1.5;
+    float min_norm_score = 0.75;
     float min_kmer_entropy = 0;
     int band_width = 1000;
     size_t doubling_steps = 2;
@@ -661,7 +661,7 @@ int main_msga(int argc, char** argv) {
                 {"max-attempts", required_argument, 0, 'M'},
                 {"context-depth", required_argument, 0, 'c'},
                 {"cluster-min", required_argument, 0, 'C'},
-                {"score-per-bp", required_argument, 0, 'P'},
+                {"min-score", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
@@ -768,7 +768,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'P':
-            min_score_per_bp = atof(optarg);
+            min_norm_score = atof(optarg);
             break;
 
         case 't':
@@ -889,7 +889,7 @@ int main_msga(int argc, char** argv) {
                     cluster_min,
                     context_depth,
                     max_attempts,
-                    min_score_per_bp,
+                    min_norm_score,
                     alignment_threads](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
 
@@ -923,7 +923,7 @@ int main_msga(int argc, char** argv) {
             mapper->context_depth = context_depth;
             mapper->max_attempts = max_attempts;
             //mapper->min_kmer_entropy = min_kmer_entropy;
-            mapper->min_score_per_bp = min_score_per_bp;
+            mapper->min_norm_score = min_norm_score;
             mapper->kmer_min = kmer_min;
             mapper->alignment_threads = alignment_threads;
         }
@@ -3922,6 +3922,7 @@ void help_map(char** argv) {
          << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "    -V, --in-memory       build the XG and GCSA2 indexes in-memory from the provided .vg file" << endl
+         << "input:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
@@ -3930,30 +3931,37 @@ void help_map(char** argv) {
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
          << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
          << "    -p, --pair-window N   align to a graph up to N ids away from the mapping location of one mate for the other" << endl
-        //<< "    -B, --try-both-mates  attempt to align both reads individually, then used paired end resolution to fix" << endl
          << "    -N, --sample NAME     for --reads input, add this sample" << endl
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
+         << "output:" << endl
+         << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
+         << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
+         << "    -D, --debug           print debugging information about alignment to stderr" << endl
+         << "generic mapping parameters:" << endl
+         << "    -P, --min-score N     accept alignment only if the normalized alignment score is > N (default: 0)" << endl
+         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl
+         << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
+         << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
+         << "    -m, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
+         << "maximal exact match (MEM) mapper:" << endl
+         << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
+         << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
+         << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "kmer-based mapper:" << endl
+         << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
-         << "    -P, --score-per-bp N  accept alignment only if the alignment score per base is > N" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 7)" << endl
-         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
-         << "    -m, --hit-max N       ignore kmers who have >N hits in our index (default: 100)" << endl
-         << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
          << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
-         << "    -X, --score-per-bp N  accept early alignment if the alignment score per base is > N and -F or -G is set" << endl
-         << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
-         << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
-         << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
-         << "    -D, --debug           print debugging information about alignment to stderr" << endl;
+         << "    -X, --accept-score N  accept early alignment if the normalized alignment score is > N and -F or -G is set" << endl;
 }
 
 int main_map(int argc, char** argv) {
@@ -3986,7 +3994,7 @@ int main_map(int argc, char** argv) {
     bool debug = false;
     bool prefer_forward = false;
     bool greedy_accept = false;
-    float score_per_bp = 0;
+    float min_score = 0;
     string sample_name;
     string read_group;
     string fastq1, fastq2;
@@ -3995,10 +4003,12 @@ int main_map(int argc, char** argv) {
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
     float min_kmer_entropy = 0;
-    float min_score_per_bp = 0;
+    float accept_score = 0;
     size_t kmer_min = 8;
     int softclip_threshold = 0;
     bool build_in_memory = false;
+    int max_mem_length = 0;
+    int min_mem_length = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4026,7 +4036,7 @@ int main_map(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"greedy-accept", no_argument, 0, 'G'},
-                {"score-per-bp", required_argument, 0, 'X'},
+                {"accept-score", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"thread-ex", required_argument, 0, 'e'},
                 {"context-depth", required_argument, 0, 'n'},
@@ -4037,16 +4047,18 @@ int main_map(int argc, char** argv) {
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},
-                {"score-per-bp", required_argument, 0, 'P'},
+                {"min-score", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
                 {"in-memory", no_argument, 0, 'V'},
                 {"debug", no_argument, 0, 'D'},
+                {"min-mem-length", required_argument, 0, 'L'},
+                {"max-mem-length", required_argument, 0, 'Y'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:V",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4178,7 +4190,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'X':
-            score_per_bp = atof(optarg);
+            accept_score = atof(optarg);
             break;
 
         case 'J':
@@ -4190,11 +4202,19 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'P':
-            min_score_per_bp = atof(optarg);
+            min_score = atof(optarg);
             break;
 
         case 'l':
             kmer_min = atoi(optarg);
+            break;
+
+        case 'L':
+            min_mem_length = atoi(optarg);
+            break;
+
+        case 'Y':
+            max_mem_length = atoi(optarg);
             break;
 
         case 'h':
@@ -4331,7 +4351,7 @@ int main_map(int argc, char** argv) {
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
         m->debug = debug;
-        if (score_per_bp) m->target_score_per_bp = score_per_bp;
+        if (accept_score) m->accept_norm_score = accept_score;
         if (sens_step) m->kmer_sensitivity_step = sens_step;
         m->prefer_forward = prefer_forward;
         m->greedy_accept = greedy_accept;
@@ -4341,8 +4361,10 @@ int main_map(int argc, char** argv) {
         m->max_attempts = max_attempts;
         m->min_kmer_entropy = min_kmer_entropy;
         m->kmer_min = kmer_min;
-        m->min_score_per_bp = min_score_per_bp;
+        m->min_norm_score = min_score;
         m->softclip_threshold = softclip_threshold;
+        m->min_mem_length = min_mem_length;
+        m->max_mem_length = max_mem_length;
         mapper[i] = m;
     }
 

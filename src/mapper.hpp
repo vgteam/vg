@@ -138,29 +138,41 @@ public:
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
     
-    set<int> kmer_sizes;
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
-    int best_clusters;
-    int cluster_min;
-    int hit_max;
-    // This is in bytes. TODO: Make it not in bytes, guessing at rocksdb records per byte.
-    int hit_size_threshold;
-    int kmer_min;
-    int kmer_threshold;
-    int max_thread_gap;
-    int kmer_sensitivity_step;
-    int thread_extension;
-    int thread_extension_max;
-    int context_depth;
+    int match_score; // the score of a match in the aligner (TODO expose this configuration to GSSW here)
+
+    // kmer/"threaded" mapper parameters
+    //
+    set<int> kmer_sizes; // taken from rocksdb index
+    int best_clusters; // use up to this many clusters to build threads
+    int cluster_min; // minimum number of hits nearby before we test local alignment
+    int hit_size_threshold; // This is in bytes. TODO: Make it not in bytes, guessing at rocksdb records per byte.
+    float min_kmer_entropy; // exclude kmers with less that this entropy/base
+    int kmer_min; // don't decrease kmer size below this level when trying shorter kmers
+    int max_thread_gap; // maximum number of nodes in id space to extend a thread (assumes semi partial order on graph ids)
+    int kmer_sensitivity_step; // size to decrease the kmer length if we fail alignment
+    int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
+    int max_attempts; // maximum number of times to try to increase sensitivity
+    bool prefer_forward; // attempt alignment of forward complement of the read against the graph (forward) first
+    bool greedy_accept; // if we make an OK forward alignment, accept it
+    float accept_norm_score; // for early bailout; target alignment score as a fraction of the score of a perfect match
+
+
+    // mem mapper parameters (it is _much_ simpler)
+    //
+    int max_mem_length; // a mem must be <= this length
+    int min_mem_length; // a mem must be >= this length
+
+    // general parameters, applying to both types of mapping
+    //
+    int hit_max; // ignore kmers or MEMs (TODO) with more than this many hits
+    int context_depth;    // how deeply the mapper will extend out the subgraph prior to alignment
+    // multimapping
     int max_multimaps;
-    int max_attempts;
-    int softclip_threshold;
-    float target_score_per_bp;
-    float min_score_per_bp;
-    bool prefer_forward;
-    bool greedy_accept;
-    float min_kmer_entropy;
+    // soft clip resolution
+    int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
+    float min_norm_score; // require that aln.score()/(aln.sequence().size()*match_score) is at least this much to accept alignment
 
 };
 

@@ -11,10 +11,8 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , hit_max(100)
     , hit_size_threshold(512)
     , kmer_min(0)
-    , kmer_threshold(1)
     , kmer_sensitivity_step(3)
     , thread_extension(7)
-    , thread_extension_max(80)
     , max_thread_gap(30)
     , context_depth(1)
     , max_multimaps(1)
@@ -22,11 +20,14 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     , softclip_threshold(0)
     , prefer_forward(false)
     , greedy_accept(false)
-    , target_score_per_bp(1.5)
-    , min_score_per_bp(0)
+    , accept_norm_score(0.75)
+    , min_norm_score(0)
     , min_kmer_entropy(0)
     , debug(false)
     , alignment_threads(1)
+    , match_score(2)
+    , max_mem_length(0)
+    , min_mem_length(0)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -418,8 +419,8 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                 malns.push_back(bands[i]);
                 for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
                     Alignment& aln = *a;
-                    bool above_threshold = ((float) aln.score() / (float) aln.sequence().size()
-                                            >= min_score_per_bp);
+                    bool above_threshold = ((float) aln.score() / ((float) aln.sequence().size() * match_score)
+                                            >= min_norm_score);
                     if (!above_threshold) {
                         // treat as unmapped
                         aln = bands[i];
@@ -431,8 +432,8 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             } else {
                 Alignment& aln = alns[i];
                 aln = align(bands[i], kmer_size, stride);
-                bool above_threshold = ((float) aln.score() / (float) aln.sequence().size()
-                                        >= min_score_per_bp);
+                bool above_threshold = ((float) aln.score() / ((float) aln.sequence().size() * match_score)
+                                        >= min_norm_score);
                 if (!above_threshold) {
                     aln = bands[i]; // unmapped
                 }
@@ -688,8 +689,8 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
     int kmer_count_f = 0;
     int kmer_count_r = 0;
 
-    while (!((float)best_f.score()/(float)sequence.size() > min_score_per_bp
-            || (float)best_r.score()/(float)sequence.size() > min_score_per_bp)
+    while (!((float)best_f.score()/((float)sequence.size()*match_score) > min_norm_score
+             || (float)best_r.score()/((float)sequence.size()*match_score) > min_norm_score)
            && attempt < max_attempts) {
 
         //cerr << "min score per bp " << min_score_per_bp << " " << (float)best_f.score()/(float)sequence.size()
@@ -706,7 +707,7 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
             }
         }
 
-        if (!(prefer_forward && (float)best_f.score() / (float)sequence.size() >= target_score_per_bp))
+        if (!(prefer_forward && (float)best_f.score() / ((float)sequence.size()*match_score) >= accept_norm_score))
         {
             // If we need to look on the reverse strand, do that too.
             std::chrono::time_point<std::chrono::system_clock> start, end;
@@ -831,17 +832,21 @@ Mapper::find_mems(const string& seq) {
         matches.emplace_back(MaximalExactMatch(end, end+1,
                                                gcsa->charRange(gcsa->alpha.char2comp[*end])));
         MaximalExactMatch& match = matches.back();
+        gcsa::range_type last_range = match.range;
         // run the backward search
         while (!gcsa::Range::empty(match.range) // until our BWT range is 0
                && end != begin                  // or we run out of sequence
+               && (max_mem_length && match.end-end < max_mem_length || true)
                && match.end-end < gcsa->order()) { // or we exceed the order of the index
             --end;
+            last_range = match.range;
             match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*end]);
         }
         // record the mem range in the sequence
         if (gcsa::Range::empty(match.range)) {
             // if we exhausted the range, we don't count the last step in the MEM
             // it represents a mismatch from the graph
+            match.range = last_range;
             match.begin = end+1;
         } else {
             // if we didn't exhaust the range, but ran out because our sequence ended
@@ -876,6 +881,7 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
 
 vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
+    if (debug) cerr << "aligning " << pb2json(alignment) << endl;
     if (!gcsa || !xindex) {
         cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
         exit(1);
@@ -891,13 +897,20 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     // such as by trying to use them as seeds in order from shortest to longest
     vector<MaximalExactMatch> mems;
     for (auto& mem: find_mems(alignment.sequence())) {
-        if (mem.end-mem.begin >= kmer_min) {
+        if (mem.end-mem.begin >= min_mem_length) {
             mems.push_back(mem);
         }
     }
     for (auto& mem : mems) {
         mem.fill_nodes(gcsa);
     }
+    if (debug) cerr << "mems before filtering " << mems_to_json(mems) << endl;
+    for (auto& mem : mems) {
+        if (mem.nodes.size() > hit_max) {
+            mem.nodes.clear();
+        }
+    }
+    if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
 
     //map<MaximalExactMatch*, set<id_t> > mem_ids;
     set<id_t> ids;
@@ -910,7 +923,6 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
     // run through the mems, tabulating positional informationd
     // and using the reverse complement of the mem to find the mem endpoint
-    if (debug) cerr << mems_to_json(mems) << endl;
     for (auto& mem : mems) {
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
@@ -929,9 +941,12 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
         // also filter to remove spurious sub-hits
         // TODO: is it the case that the rc is definitively the same number as the forward?
         rc_mems.erase(std::remove_if(rc_mems.begin(), rc_mems.end(),
-                                  [&](const MaximalExactMatch& m) { return m.end-m.begin < kmer_min; }));
+                                  [&](const MaximalExactMatch& m) { return m.end-m.begin < min_mem_length; }));
         for (auto& rc_mem : rc_mems) {
             rc_mem.fill_nodes(gcsa);
+            if (rc_mem.nodes.size() > hit_max) {
+                rc_mem.nodes.clear();
+            }
             for (auto& node : rc_mem.nodes) {
                 id_t id = gcsa::Node::id(node);
                 ids.insert(id);
@@ -971,6 +986,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     aln_rc.set_sequence(reverse_complement(aln_fw.sequence()));
 
     // generate an alignment for each subgraph/orientation combination for which we have hits
+    if (debug) cerr << "aligning to " << subgraphs.size() << " subgraphs" << endl;
     for (auto& subgraph : subgraphs) {
         // determine the likely orientation
         uint32_t fw_mems = 0;
@@ -982,6 +998,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
                     rc_mems += ns->second.reverse;
                 }
             });
+        if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
         if (fw_mems) {
             Alignment aln = subgraph.align(aln_fw);
             resolve_softclips(aln, subgraph);
@@ -990,7 +1007,9 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
         if (rc_mems) {
             Alignment aln = subgraph.align(aln_rc);
             resolve_softclips(aln, subgraph);
-            alns.push_back(aln);
+            alns.push_back(reverse_complement_alignment(aln,
+                                                        (function<int64_t(int64_t)>)
+                                                        ([&](int64_t id) { return get_node_length(id); })));
         }
     }
 
@@ -1223,8 +1242,6 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
         // Report the actual match count for the kmer
         if (debug) cerr << "\t=" << kmer_positions.size() << endl;
         kmer_count += kmer_positions.size();
-        // break when we get more than a threshold number of kmers to seed further alignment
-        //if (kmer_count >= kmer_threshold) break;
         ++i;
     }
 
@@ -1603,8 +1620,8 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
             delete graph;
 
-            if (debug) cerr << "score per bp is " << (float)ta.score() / (float)ta.sequence().size() << endl;
-            if (greedy_accept && (float)ta.score() / (float)ta.sequence().size() >= target_score_per_bp) {
+            if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*match_score) << endl;
+            if (greedy_accept && (float)ta.score() / ((float)ta.sequence().size()*match_score) >= accept_norm_score) {
                 if (debug) cerr << "greedy accept" << endl;
                 accepted = true;
                 break;
