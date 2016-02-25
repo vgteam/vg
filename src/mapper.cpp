@@ -624,7 +624,7 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
         if (debug) cerr << "switching to banded alignment" << endl;
         return vector<Alignment>{align_banded(aln, kmer_size, stride, band_width)};
     }
-    if (kmer_size) {
+    if (kmer_size || index != nullptr) {
         // if we've defined a kmer size, use the legacy style mapper
         return align_multi_kmers(aln, kmer_size, stride, band_width);
     } else {
@@ -640,6 +640,10 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
     const string& sequence = aln.sequence();
 
     // we assume a kmer size to be specified
+    if (!kmer_size && !kmer_sizes.empty()) {
+        // basically assumes one kmer size
+        kmer_size = *kmer_sizes.begin();
+    }
     assert(kmer_size);
     // and start with stride such that we barely cover the read with kmers
     if (stride == 0)
