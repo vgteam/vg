@@ -20,6 +20,7 @@
 #include "pileup.hpp"
 #include "caller.hpp"
 #include "deconstructor.hpp"
+#include "vectorizer.hpp"
 #include "google/protobuf/stubs/common.h"
 
 using namespace std;
@@ -124,6 +125,96 @@ int main_validate(int argc, char** argv) {
     } else {
         return 1;
     }
+}
+
+void help_vectorize(char** argv){
+  cerr << "usage: " << argv[0] << " vectorize [options] -x <index.xg> <alignments.gam>" << endl
+      << "Vectorize a set of alignments to a variety of vector formats." << endl
+      << endl
+      << "options: " << endl
+      << "  -x --xg-name FILE  An xg index for the graph of interest" << endl
+      << "  -f --format        Tab-delimit output so it can be used in R." << endl
+       << endl;
+}
+
+int main_vectorize(int argc, char** argv){
+
+  string xg_name;
+  bool format = false;
+  bool show_header = false;
+  bool map_alns = false;
+  if (argc <= 2) {
+      help_vectorize(argv);
+      return 1;
+  }
+
+  int c;
+  optind = 2; // force optind past command positional argument
+  while (true) {
+      static struct option long_options[] =
+          {
+              {"help", no_argument, 0, 'h'},
+              {"xg-name", required_argument,0, 'x'},
+              {"threads", required_argument, 0, 't'},
+              {"format", no_argument, 0, 'f'},
+              {0, 0, 0, 0}
+
+          };
+          int option_index = 0;
+          c = getopt_long (argc, argv, "hx:",
+                           long_options, &option_index);
+
+          // Detect the end of the options.
+          if (c == -1)
+              break;
+
+          switch (c)
+          {
+            case '?':
+            case 'h':
+              help_vectorize(argv);
+              return 1;
+            case 'x':
+              xg_name = optarg;
+              break;
+            case 'f':
+              format = true;
+              break;
+            default:
+              abort();
+          }
+        }
+        xg::XG xindex;
+        if (!xg_name.empty()) {
+            ifstream in(xg_name);
+            xindex.load(in);
+        }
+        Vectorizer vz(xindex);
+        string alignment_file = argv[optind];
+
+
+        //Generate a 1-hot coverage vector for graph entities.
+        function<void(Alignment&)> lambda = [&vz](Alignment a){
+          vz.add_bv(vz.alignment_to_onehot(a));
+        };
+        if (alignment_file == "-"){
+          stream::for_each_parallel(cin, lambda);
+        }
+        else{
+          ifstream in;
+          in.open(alignment_file);
+          if (in.good()){
+            stream::for_each_parallel(in, lambda);
+          }
+        }
+
+        //TODO handle custom scores settings.
+
+        vz.emit(cout, format);
+
+
+
+    return 0;
 }
 
 void help_compare(char** argv) {
@@ -5348,6 +5439,8 @@ int main(int argc, char *argv[])
         return main_construct(argc, argv);
     } else if (command == "deconstruct"){
         return main_deconstruct(argc, argv);
+    } else if (command == "vectorize"){
+      return main_vectorize(argc, argv);
     } else if (command == "view") {
         return main_view(argc, argv);
     } else if (command == "align") {
