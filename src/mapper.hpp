@@ -33,12 +33,12 @@ public:
                       size_t m = 0)
         : begin(b), end(e), range(r), matches(m) { }
 
-    // construct the sequence of the MEM
+    // construct the sequence of the MEM; useful in debugging
     string sequence(void) const {
-        string seq; seq.resize(end-begin);
+        string seq; //seq.resize(end-begin);
         string::const_iterator c = begin;
         size_t i = 0;
-        while (c != end) seq[i] = *c++;
+        while (c != end) seq += *c++;
         return seq;
     }
     // uses GCSA to get the positions matching the range
