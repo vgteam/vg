@@ -4956,7 +4956,7 @@ int main_view(int argc, char** argv) {
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
     } else if (output_type == "turtle") {
-        graph->to_turtle(std::cout, rdf_base_uri, true);
+        graph->to_turtle(std::cout, rdf_base_uri, false);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
     } else {
