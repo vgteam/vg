@@ -4541,8 +4541,9 @@ void help_view(char** argv) {
          << "                         Alignment/Map)" << endl
          << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
          << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
-
-         << "    -a, --align-in       input GAM format" << endl
+         << "    -R, --n-triples-in   read n-triples" << endl
+    
+	 << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
          << "    -d, --dot            output dot format" << endl
@@ -4613,6 +4614,7 @@ int main_view(int argc, char** argv) {
                 {"dot", no_argument, 0, 'd'},
                 {"gfa", no_argument, 0, 'g'},
                 {"turtle", no_argument, 0, 't'},
+                {"turtle-in", no_argument, 0, 'T'},
                 {"rdf-base-uri", no_argument, 0, 'r'},
                 {"gfa-in", no_argument, 0, 'F'},
                 {"json",  no_argument, 0, 'j'},
@@ -4640,7 +4642,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:SC",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:TSC",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4725,7 +4727,9 @@ int main_view(int argc, char** argv) {
         case 'r':
             rdf_base_uri = optarg;
             break;
-
+        case 'T':
+            input_type= "turtle-in";
+            break;
         case 'a':
             input_type = "gam";
             if(output_type.empty()) {
@@ -4847,7 +4851,14 @@ int main_view(int argc, char** argv) {
         JSONStreamHelper<Graph> json_helper(file_name);
         function<bool(Graph&)> get_next_graph = json_helper.get_read_fn();
         graph = new VG(get_next_graph, false);
-
+    } else if(input_type == "turtle-in") {
+        graph = new VG;
+        bool pre_compress=color_variants;
+        if (file_name == "-") {
+             graph->from_turtle("/dev/stdin", rdf_base_uri);
+        } else {
+             graph->from_turtle(file_name, rdf_base_uri);
+	}
     } else if (input_type == "gam") {
         if (input_json == false) {
             if (output_type == "json") {
@@ -5013,7 +5024,7 @@ int main_view(int argc, char** argv) {
     } else if (output_type == "gfa") {
         graph->to_gfa(std::cout);
     } else if (output_type == "turtle") {
-        graph->to_turtle(std::cout, rdf_base_uri);
+        graph->to_turtle(std::cout, rdf_base_uri, false);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
     } else {
