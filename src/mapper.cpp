@@ -910,7 +910,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
     // run through the mems, tabulating positional informationd
     // and using the reverse complement of the mem to find the mem endpoint
-    //if (debug) cerr << mems_to_json(mems) << endl;
+    if (debug) cerr << mems_to_json(mems) << endl;
     for (auto& mem : mems) {
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
@@ -1051,7 +1051,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     } else {
         // we had no alignments passing our filtering, so we put an empty one back
         alignments.emplace_back();
-        Alignment& aln = alns.back();
+        Alignment& aln = alignments.back();
         aln = alignment;
         aln.clear_path();
         aln.set_score(0);

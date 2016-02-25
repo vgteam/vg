@@ -669,7 +669,6 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
             extend_alignment(merged, aln);
         }
     }
-    // clean up the merged path
     *merged.mutable_path() = simplify(merged.path());
     return merged;
 }

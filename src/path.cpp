@@ -711,12 +711,21 @@ int from_length(const Mapping& m) {
 }
 
 Path& extend_path(Path& path1, const Path& path2) {
+
     auto& path1_back = path1.mapping(path1.mapping_size()-1);
     auto& path2_front = path2.mapping(0);
 
+    // move insertions from the front of the second path onto the back of the first
+    // this does not change positions or anything else
+
+    // We can merge two mappings to the same node only if they're in the same
+    // direction and at compatible positions on the node. TODO: determine that
+    // and merge mappings.
+
     // check if we have to splice the last mapping together
     if (!path2_front.has_position() || !path1_back.has_position()) {
-        Mapping mapping;
+        // we build up the last mapping
+        auto mapping = path1_back;
         // adapt unmapped paths (which look like insertions here)
         if (!path2_front.has_position() && path1_back.has_position()) {
             // If one mapping has no position, it can't reference reference sequence
@@ -735,7 +744,8 @@ Path& extend_path(Path& path1, const Path& path2) {
         for (size_t i = 0; i < path2_front.edit_size(); ++i) {
             *mapping.add_edit() = path2_front.edit(i);
         }
-        *path1.add_mapping() = mapping;
+        // replace the last mapping with the merged one
+        *path1.mutable_mapping(path1.mapping_size()-1) = mapping;
     } else {
         // just tack it on, it's on the next node
         *path1.add_mapping() = path2_front;
@@ -744,6 +754,17 @@ Path& extend_path(Path& path1, const Path& path2) {
     for (size_t i = 1; i < path2.mapping_size(); ++i) {
         *path1.add_mapping() = path2.mapping(i);
     }
+    /*
+    if (path_from_length(path1) != path_from_length(start) + path_from_length(path2)
+        || path_to_length(path1) != path_to_length(start) + path_to_length(path2)) {
+        cerr << "error:[vg::path.cpp] extend fails to produce a path with from_length and to_length "
+             << "equal to the sum of those of its inputs" << endl
+             << "path1  " << pb2json(start) << endl
+             << "path2  " << pb2json(path2) << endl
+             << "return " << pb2json(path1) << endl;
+        exit(1);
+    }
+    */
     // and return a reference to the first path where we added the mappings of the second
     return path1;
 }
@@ -794,7 +815,7 @@ Path concat_paths(const Path& path1, const Path& path2) {
     }
     if (path_from_length(res) != path_from_length(path1) + path_from_length(path2)
         || path_to_length(res) != path_to_length(path1) + path_to_length(path2)) {
-        cerr << "error: concatenate fails to produce a path with from_length and to_length "
+        cerr << "error:[vg::path.cpp] concatenate fails to produce a path with from_length and to_length "
              << "equal to the sum of those of its inputs" << endl
              << "path1  " << pb2json(path1) << endl
              << "path2  " << pb2json(path1) << endl
