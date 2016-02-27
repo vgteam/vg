@@ -335,6 +335,7 @@ public:
     map<id_t, pair<id_t, bool> > overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
                                                            const map<id_t, pair<id_t, bool> >& under);
     // use our topological sort to quickly break cycles in the graph, return the edges which are removed
+    // very non-optimal, but fast
     vector<Edge> break_cycles(void);
     // removes pieces of the graph which are not part of any path
     void remove_non_path(void);
@@ -510,6 +511,9 @@ public:
     id_t node_count(void);
     id_t edge_count(void);
     id_t total_length_of_nodes(void);
+    // returns the rank of the node in the protobuf array that backs the graph
+    int node_rank(Node* node);
+    int node_rank(id_t id);
     // Number of edges attached to the start of a node
     int start_degree(Node* node);
     // Number of edges attached to the end of a node

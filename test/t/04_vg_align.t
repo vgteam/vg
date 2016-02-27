@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 11
+plan tests 12
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "alignment traverses the correct path"
 
@@ -36,3 +36,6 @@ is $? 0 "node flipping doesn't destroy the alignment"
 
 vg align -s ATTTTTAACTCCATGTTTGAGAAACATTTAATAATGTAATGTGTTTGTGGCACAGCAGGAGTAC graphs/difficult-inv.vg >/dev/null
 is $? 0 "alignment correctly handles an inversion"
+
+vg align -s AAACATACATTTTC graphs/exploding.vg >/dev/null
+is $? 0 "the exploding graph doesn't blow up"

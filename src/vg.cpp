@@ -2657,6 +2657,16 @@ set<set<id_t> > VG::strongly_connected_components(void) {
     return components;
 }
 
+// returns the rank of the node in the protobuf array that backs the graph
+int VG::node_rank(Node* node) {
+    return node_index[node];
+}
+
+// returns the rank of the node in the protobuf array that backs the graph
+int VG::node_rank(id_t id) {
+    return node_index[get_node(id)];
+}
+    
 vector<Edge> VG::break_cycles(void) {
     // ensure we are sorted
     sort();
@@ -2664,7 +2674,7 @@ vector<Edge> VG::break_cycles(void) {
     vector<Edge*> to_remove;
     for_each_edge([&](Edge* e) {
             // if we cycle to this node or one before in the sort
-            if (node_index[get_node(e->from())] >= node_index[get_node(e->to())]) {
+            if (node_rank(e->from()) >= node_rank(e->to())) {
                 to_remove.push_back(e);
             }
         });
@@ -2674,6 +2684,7 @@ vector<Edge> VG::break_cycles(void) {
         removed.push_back(*edge);
         destroy_edge(edge);
     }
+    sort();
     return removed;
 }
 
@@ -7789,7 +7800,6 @@ VG VG::dagify(uint32_t expand_scc_steps,
         // let's add in inversions
         if (component.size() == 1
             && !is_self_looping(NodeTraversal(get_node(*component.begin())))) {
-            
             // not part of a SCC
             // copy into the new graph
             id_t id = *component.begin();
@@ -7813,6 +7823,14 @@ VG VG::dagify(uint32_t expand_scc_steps,
         }
     }
 
+    // add all of the nodes in the strongly connected components to the DAG
+    // but do not add their edges
+    for (auto& component : strongly_connected_and_self_looping_components) {
+        for (auto id : component) {
+            dag.create_node(get_node(id)->sequence(), id);
+        }
+    }
+
     for (auto& component : strongly_connected_and_self_looping_components) {
 
         // copy the SCC expand_scc_steps times, each time forwarding links from the old copy into the new
@@ -7824,18 +7842,24 @@ VG VG::dagify(uint32_t expand_scc_steps,
         // min(l_(i-1), \forall inbound links)
         size_t min_min_return_length = 0;
         map<Node*, size_t> min_return_length;
+        // the nodes in the component that are already copied in
+        map<id_t, Node*> base;
+        for (auto id : component) {
+            base[id] = dag.get_node(id);
+        }
         // pointers to the last copy of the graph in the DAG
-        map<id_t, Node*> last;
+        map<id_t, Node*> last = base;
+        // create the first copy of every node in the component
         for (uint32_t i = 0; i < expand_scc_steps+1; ++i) {
-            map<id_t, Node*> curr;
+            map<id_t, Node*> curr = base;
             size_t curr_min_min_return_length = 0;
             // for each iteration, add in a copy of the nodes of the component
             for (auto id : component) {
                 Node* node;
-                if (last.empty() && !dag.has_node(id)) {
-                    // create the node if we haven't already brought it over
-                    node = dag.create_node(get_node(id)->sequence(), id);
+                if (last.empty()) { // we've already made it
+                    node = dag.get_node(id);
                 } else {
+                    // get a new id for the node
                     node = dag.create_node(get_node(id)->sequence());
                 }
                 curr[id] = node;
@@ -7845,7 +7869,8 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 // not the root of the graph
             }
             // preserve the edges that connect these nodes to the rest of the graph
-            // And connect to the nodes in the previous component using the original edges as guide
+            // And connect to the nodes in this and the previous component using the original edges as guide
+            // We will break any cycles this introduces at each step
             for (auto id : component) {
                 for (auto e : edges_of(get_node(id))) {
                     if (e->from() == id && e->to() != id) {
@@ -7855,6 +7880,13 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             Edge new_edge = *e;
                             new_edge.set_from(curr[id]->id());
                             dag.add_edge(new_edge);
+                        } else {
+                            // otherwise, if it's in the component
+                            // link them together
+                            Edge new_edge = *e;
+                            new_edge.set_from(curr[id]->id());
+                            new_edge.set_to(curr[e->to()]->id());
+                            dag.add_edge(new_edge);
                         }
                     } else if (e->to() == id && e->from() != id) {
                         // if other end is not in the component
@@ -7863,8 +7895,14 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             Edge new_edge = *e;
                             new_edge.set_to(curr[id]->id());
                             dag.add_edge(new_edge);
-                        } else if (!last.empty()) {
-                            // but if we aren't in the first step
+                        } else {
+                            Edge new_edge = *e;
+                            new_edge.set_to(curr[id]->id());
+                            new_edge.set_from(curr[e->from()]->id());
+                            dag.add_edge(new_edge);
+                        }
+                        if (!last.empty() && component.count(e->from())) {
+                            // if we aren't in the first step
                             // and an edge is coming from a node in this component to this one
                             // add the edge that connects back to the previous node in the last copy
                             Edge new_edge = *e;
@@ -7880,7 +7918,8 @@ VG VG::dagify(uint32_t expand_scc_steps,
                                                           : mm);
                         }
                     } else if (e->to() == id && e->from() == id) {
-                        if (!last.empty()) {
+                        // we don't add the self loop because we would just need to remove it anyway
+                        if (!last.empty()) { // by definition, we are looking at nodes in this component
                             // but if we aren't in the first step
                             // and an edge is coming from a node in this component to this one
                             // add the edge that connects back to the previous node in the last copy
@@ -7900,6 +7939,9 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 }
             }
             min_min_return_length = curr_min_min_return_length;
+            // break cycles in the SCC that we may have added in this step
+            // by not removing all of the links between the edges in the SCC
+            dag.break_cycles();
             // finish if we've reached our target min walk length
             if (target_min_walk_length &&
                 min_min_return_length >= target_min_walk_length) {
@@ -7914,7 +7956,6 @@ VG VG::dagify(uint32_t expand_scc_steps,
     dag.flip_doubly_reversed_edges();
     return dag;
 }
-    
 
 // Unrolls the graph into a tree in which loops are "unrolled" into new nodes
 // up to some max length away from the root node and orientations are flipped.
