@@ -621,9 +621,6 @@ void VG::simplify_siblings(void) {
             transitive_sibling_sets(to_sibs)));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
-    if (!is_valid()) { cerr << "not valid after remove null" << endl;
-        serialize_to_file("corrupted.vg");
-        exit(1); }
 
     // make a list of the from-siblings
     set<set<NodeTraversal>> from_sibs;
@@ -943,22 +940,22 @@ void VG::unchop(void) {
 void VG::normalize(void) {
     // convert edges that go from_start -> to_end to the equivalent "regular" edge
     flip_doubly_reversed_edges();
-    if (!is_valid()) cerr << "invalid after doubly flip" << endl;
+    //if (!is_valid()) cerr << "invalid after doubly flip" << endl;
     // combine diced/chopped nodes (subpaths with no branching)
     unchop();
-    if (!is_valid()) cerr << "invalid after unchop" << endl;
+    //if (!is_valid()) cerr << "invalid after unchop" << endl;
     // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
     simplify_siblings();
-    if (!is_valid()) cerr << "invalid after simplify sibs" << endl;
+    //if (!is_valid()) cerr << "invalid after simplify sibs" << endl;
     // compact node ranks
     paths.compact_ranks();
-    if (!is_valid()) cerr << "invalid after compact ranks" << endl;
+    //if (!is_valid()) cerr << "invalid after compact ranks" << endl;
     // there may now be some cut nodes that can be simplified
     unchop();
-    if (!is_valid()) cerr << "invalid after unchop two" << endl;
+    //if (!is_valid()) cerr << "invalid after unchop two" << endl;
     // compact node ranks (again)
     paths.compact_ranks();
-    if (!is_valid()) cerr << "invalid after compact ranks two  " << endl;
+    //if (!is_valid()) cerr << "invalid after compact ranks two  " << endl;
 }
 
 void VG::remove_non_path(void) {

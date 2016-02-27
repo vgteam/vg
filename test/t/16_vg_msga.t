@@ -36,7 +36,7 @@ is $? 0 "HLA K-3138 correctly includes all input paths"
 vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg validate -
 is $? 0 "a difficult cyclic path can be included to produce a valid graph"
 
-is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg view - | grep ^S | wc -l) 6 "a cyclic path can be normalized"
+is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg view - | wc -l) 35 "a cyclic path can be normalized"
 
 is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg view - | md5sum | cut -f 1 -d\ ) \
    $(vg msga -f msgas/cycle.fa -b s1 -B 16 -t 1 | vg view - | md5sum | cut -f 1 -d\ ) \
