@@ -568,6 +568,7 @@ void help_msga(char** argv) {
          << "Multiple sequence / graph aligner." << endl
          << endl
          << "options:" << endl
+         << "inputs:" << endl
          << "    -f, --from FILE         use sequences in (fasta) FILE" << endl
          << "    -n, --name NAME         include this sequence" << endl
          << "                             (If any --name is specified, use only" << endl
@@ -575,21 +576,20 @@ void help_msga(char** argv) {
          << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
-         << "    -k, --map-kmer-size N   use kmers of size N when mapping (default: 16)" << endl
-         << "    -l, --kmer-min N        give up aligning if kmer size gets below this threshold (default: 5)" << endl
+         << "mem mapping:" << endl
+         << "    -L, --min-mem-length N  ignore MEMs shorter than this length (default: 0/unset)" << endl
+         << "    -Y, --max-mem-length N  ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "    -H, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
+         << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 5)" << endl
+         << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
+         << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
-         << "    -j, --kmer-stride N     step distance between succesive kmers to use for seeding (default: kmer size)" << endl
-         << "    -S, --sens-step N       decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
-         << "    -M, --max-attempts N    try to improve sensitivity and align this many times (default: 10)" << endl
-         << "    -c, --context-depth N   follow this many edges out from each thread for alignment (default: 3)" << endl
-         << "    -C, --cluster-min N     require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
-         << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
-         << "    -B, --band-width N      use this bandwidth when mapping" << endl
-        //<< "    -I, --iter-max N        if path inclusion fails (due to banding) try again up to this many times (default: 1)" << endl
+         << "graph normalization:" << endl
          << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
@@ -597,7 +597,7 @@ void help_msga(char** argv) {
          << "    -t, --threads N         number of threads to use" << endl
          << endl
          << "Construct a multiple sequence alignment from all sequences in the" << endl
-         << "input fasta-format files, graphs, and sequences." << endl
+         << "input fasta-format files, graphs, and sequences. Uses the MEM mapping algorithm." << endl
          << endl
          << "Emits the resulting MSA as a (vg-format) graph." << endl;
 }
@@ -616,28 +616,25 @@ int main_msga(int argc, char** argv) {
     string base_seq_name;
     int idx_kmer_size = 16;
     int idx_doublings = 2;
-    int kmer_size = 16;
-    int kmer_stride = 0;
-    int sens_step = 0;
     int best_clusters = 0;
-    int cluster_min = 1;
+    int hit_max = 100;
     int max_attempts = 10;
     // if this is set too low, we may miss optimal alignments
-    int context_depth = 3;
+    int context_depth = 5;
     float min_norm_score = 0.75;
-    float min_kmer_entropy = 0;
     int band_width = 1000;
     size_t doubling_steps = 2;
     bool debug = false;
     bool debug_align = false;
     size_t node_max = 0;
-    size_t kmer_min = 5;
     int alignment_threads = 1;
     int edge_max = 0;
     int subgraph_prune = 0;
     bool normalize = true;
     bool allow_nonpath = false;
     int iter_max = 1;
+    int max_mem_length = 0;
+    int min_mem_length = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -652,27 +649,25 @@ int main_msga(int argc, char** argv) {
                 {"base", required_argument, 0, 'b'},
                 {"idx-kmer-size", required_argument, 0, 'K'},
                 {"idx-doublings", required_argument, 0, 'X'},
-                {"map-kmer-size", required_argument, 0, 'k'},
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
-                {"sens-step", required_argument, 0, 'S'},
-                {"kmer-stride", required_argument, 0, 'j'},
-                {"max-attempts", required_argument, 0, 'M'},
                 {"context-depth", required_argument, 0, 'c'},
-                {"cluster-min", required_argument, 0, 'C'},
                 {"min-score", required_argument, 0, 'P'},
-                {"kmer-min", required_argument, 0, 'l'},
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"allow-nonpath", no_argument, 0, 'z'},
                 {"iter-max", required_argument, 0, 'I'},
+                {"min-mem-length", required_argument, 0, 'L'},
+                {"max-mem-length", required_argument, 0, 'Y'},
+                {"hit-max", required_argument, 0, 'H'},
+                {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:k:B:DAS:j:M:c:C:X:m:K:l:P:t:E:Q:NzI:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -682,12 +677,16 @@ int main_msga(int argc, char** argv) {
         switch (c)
         {
 
-        case 'S':
-            sens_step = atoi(optarg);
+        case 'L':
+            min_mem_length = atoi(optarg);
             break;
 
-        case 'j':
-            kmer_stride = atoi(optarg);
+        case 'Y':
+            max_mem_length = atoi(optarg);
+            break;
+
+        case 'H':
+            hit_max = atoi(optarg);
             break;
 
         case 'M':
@@ -700,10 +699,6 @@ int main_msga(int argc, char** argv) {
 
         case 'c':
             context_depth = atoi(optarg);
-            break;
-
-        case 'C':
-            cluster_min = atoi(optarg);
             break;
 
         case 'f':
@@ -729,14 +724,6 @@ int main_msga(int argc, char** argv) {
                 return 1;
             }
             graph_files.push_back(optarg);
-            break;
-
-        case 'k':
-            kmer_size = atoi(optarg);
-            break;
-
-        case 'l':
-            kmer_min = atoi(optarg);
             break;
 
         case 'B':
@@ -857,7 +844,6 @@ int main_msga(int argc, char** argv) {
         }
     }
 
-    assert(kmer_size > 0);
     size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
     // limit max node size
     if (!node_max) node_max = 2*idx_kmer_size;
@@ -874,23 +860,7 @@ int main_msga(int argc, char** argv) {
     xg::XG* xgidx = nullptr;
     size_t iter = 0;
 
-    auto rebuild = [&mapper,
-                    &gcsaidx,
-                    &xgidx,
-                    debug,
-                    debug_align,
-                    &iter,
-                    idx_kmer_size,
-                    edge_max,
-                    subgraph_prune,
-                    doubling_steps,
-                    kmer_min,
-                    sens_step,
-                    cluster_min,
-                    context_depth,
-                    max_attempts,
-                    min_norm_score,
-                    alignment_threads](VG* graph) {
+    auto rebuild = [&](VG* graph) {
         //stringstream s; s << iter++ << ".vg";
 
         if (mapper) delete mapper;
@@ -914,18 +884,13 @@ int main_msga(int argc, char** argv) {
         mapper = new Mapper(xgidx, gcsaidx);
         { // set mapper variables
             mapper->debug = debug_align;
-            //if (score_per_bp) mapper->target_score_per_bp = score_per_bp;
-            if (sens_step) mapper->kmer_sensitivity_step = sens_step;
-            //mapper->prefer_forward = prefer_forward;
-            //mapper->greedy_accept = greedy_accept;
-            //mapper->thread_extension = thread_ex;
-            mapper->cluster_min = cluster_min;
             mapper->context_depth = context_depth;
             mapper->max_attempts = max_attempts;
-            //mapper->min_kmer_entropy = min_kmer_entropy;
             mapper->min_norm_score = min_norm_score;
-            mapper->kmer_min = kmer_min;
             mapper->alignment_threads = alignment_threads;
+            mapper->max_mem_length = max_mem_length;
+            mapper->min_mem_length = min_mem_length;
+            mapper->hit_max = hit_max;
         }
     };
 
@@ -950,7 +915,7 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                            graph->node_count() << " nodes" << endl;
-            Alignment aln = simplify(mapper->align(seq, kmer_size, kmer_stride, band_width));
+            Alignment aln = simplify(mapper->align(seq, 0, 0, band_width));
             auto aln_seq = graph->path_string(aln.path());
             if (aln_seq != seq) {
                 cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
@@ -978,29 +943,29 @@ int main_msga(int argc, char** argv) {
             ++j;
 
             if (debug) cerr << name << ": editing graph" << endl;
-            //graph->serialize_to_file(name + "-pre-edit.vg");
+            graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
-            //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
-            //graph->serialize_to_file(name + "-immed-post-edit.vg");
+            if (!graph->is_valid()) cerr << "invalid after edit" << endl;
+            graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
-            //if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
+            if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
             graph->dice_nodes(node_max);
-            //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
-            //graph->serialize_to_file(name + "-post-norm.vg");
+            if (!graph->is_valid()) cerr << "invalid after dice" << endl;
+            graph->serialize_to_file(name + "-post-norm.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
-            //if (!graph->is_valid()) cerr << "invalid after sort" << endl;
+            if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // xg can't work unless IDs are compacted.
-            //if (!graph->is_valid()) cerr << "invalid after compact" << endl;
+            if (!graph->is_valid()) cerr << "invalid after compact" << endl;
 
             // the edit needs to cut nodes at mapping starts and ends
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
 
             // check that all is well
-            //graph->serialize_to_file(name + "-pre-index.vg");
+            graph->serialize_to_file(name + "-pre-index.vg");
             rebuild(graph);
 
             // verfy validity of path
@@ -1022,30 +987,6 @@ int main_msga(int argc, char** argv) {
             exit(1);
         }
     }
-
-    auto include_paths = [&mapper,
-                          kmer_size,
-                          kmer_stride,
-                          band_width,
-                          debug,
-                          &strings](VG* graph) {
-        // include the paths in the graph
-        if (debug) cerr << "including paths" << endl;
-        for (auto& group : strings) {
-            auto& name = group.first;
-            if (debug) cerr << name << ": tracing path through graph" << endl;
-            auto& seq = group.second;
-            if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
-            Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-            //if (debug) cerr << "alignment score: " << aln.score() << endl;
-            aln.mutable_path()->set_name(name);
-            //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
-            // todo simplify in the mapper itself when merging the banded bits
-            if (debug) cerr << name << ": labeling" << endl;
-            graph->include(aln.path());
-            // now repeat back the path
-        }
-    };
 
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;

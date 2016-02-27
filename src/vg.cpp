@@ -621,6 +621,9 @@ void VG::simplify_siblings(void) {
             transitive_sibling_sets(to_sibs)));
     // and remove any null nodes that result
     remove_null_nodes_forwarding_edges();
+    if (!is_valid()) { cerr << "not valid after remove null" << endl;
+        serialize_to_file("corrupted.vg");
+        exit(1); }
 
     // make a list of the from-siblings
     set<set<NodeTraversal>> from_sibs;
@@ -680,7 +683,18 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(0,shared_start);
         auto new_node = create_node(seq);
-
+        if (!is_valid()) cerr << "invalid before sibs iteration" << endl;
+        {
+            VG subgraph;
+            for (auto& sib : sibs) {
+                nonoverlapping_node_context_without_paths(sib.node, subgraph);
+            }
+            expand_context(subgraph, 5);
+            stringstream s;
+            for (auto& sib : sibs) s << sib.node->id() << "+";
+            subgraph.serialize_to_file(s.str() + "-before.vg");
+        }
+        
         // remove the sequence of the new node from the old nodes
         for (auto& sib : sibs) {
             //cerr << "to sib " << pb2json(*sib.node) << endl;
@@ -691,20 +705,24 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
             // and then switch the node assignment for the cut nodes
             // for each mapping of the node
             for (auto& p : paths.get_node_mapping(sib.node)) {
+                cerr << "handling path " << p.first << endl;
                 vector<Mapping*> v;
                 for (auto& m : p.second) {
                     v.push_back(m);
                 }
                 for (auto m : v) {
+                    cerr << "mapping before " << pb2json(*m) << endl;
                     auto mpts = paths.divide_mapping(m, shared_start);
+                    cerr << "after: " << pb2json(*mpts.first) << " " << pb2json(*mpts.second) << endl;
                     // and then assign the first part of the mapping to the new node
                     auto o = mpts.first;
                     o->mutable_position()->set_offset(0);
                     auto n = mpts.second;
                     n->mutable_position()->set_offset(0);
-                    paths.reassign_node(new_node->id(), n);
+                    paths.reassign_node(new_node->id(), (!m->position().is_reverse()?n:m));
                     // note that the other part now maps to the correct (old) node
                 }
+                if (!is_valid()) cerr << "invalid after handling path sibs iteration" << endl;
             }
         }
 
@@ -725,6 +743,20 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
             }
             // connect the new node to the old nodes
             create_edge(new_right_side, old_side);
+        }
+        if (!is_valid()) { cerr << "invalid after sibs simplify" << endl;
+            {
+                VG subgraph;
+                for (auto& sib : sibs) {
+                    nonoverlapping_node_context_without_paths(sib.node, subgraph);
+                }
+                expand_context(subgraph, 5);
+                stringstream s;
+                for (auto& sib : sibs) s << sib.node->id() << "+";
+                subgraph.serialize_to_file(s.str() + "-sub-after-corrupted.vg");
+                serialize_to_file(s.str() + "-all-after-corrupted.vg");
+                //exit(1);
+            }
         }
     }
 }
@@ -824,7 +856,7 @@ void VG::expand_context(VG& g, size_t steps, bool add_paths) {
             // build out the graph
             // if we have nodes we haven't seeen
             if (!g.has_node(id)) {
-                g.add_node(*get_node(id));
+                g.create_node(get_node(id)->sequence(), id);
             }
             for (auto& e : edges_of(get_node(id))) {
                 g.add_edge(*e);
@@ -911,16 +943,22 @@ void VG::unchop(void) {
 void VG::normalize(void) {
     // convert edges that go from_start -> to_end to the equivalent "regular" edge
     flip_doubly_reversed_edges();
+    if (!is_valid()) cerr << "invalid after doubly flip" << endl;
     // combine diced/chopped nodes (subpaths with no branching)
     unchop();
+    if (!is_valid()) cerr << "invalid after unchop" << endl;
     // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
     simplify_siblings();
+    if (!is_valid()) cerr << "invalid after simplify sibs" << endl;
     // compact node ranks
     paths.compact_ranks();
+    if (!is_valid()) cerr << "invalid after compact ranks" << endl;
     // there may now be some cut nodes that can be simplified
     unchop();
+    if (!is_valid()) cerr << "invalid after unchop two" << endl;
     // compact node ranks (again)
     paths.compact_ranks();
+    if (!is_valid()) cerr << "invalid after compact ranks two  " << endl;
 }
 
 void VG::remove_non_path(void) {
@@ -3127,28 +3165,49 @@ void VG::remove_null_nodes_forwarding_edges(void) {
 }
 
 void VG::remove_node_forwarding_edges(Node* node) {
-    // Grab all the nodes attached to our start, with true if the edge goes to their start
-    vector<pair<id_t, bool>>& start = edges_start(node);
-    // Grab all the nodes attached to our end, with true if the edge goes to their end
-    vector<pair<id_t, bool>>& end = edges_end(node);
 
+    id_t id = node->id();
+
+    auto to_fwd = travs_to(NodeTraversal(node, false));
+    auto from_fwd = travs_from(NodeTraversal(node, false));
+    auto to_rev = travs_to(NodeTraversal(node, true));
+    auto from_rev = travs_from(NodeTraversal(node, true));
+    
     // We instantiate the whole cross product first to avoid working on
-    // references to the contents of containers we are modifying. This holds the
-    // (node ID, relative orientation) pairs above.
-    set<pair<pair<id_t, bool>, pair<id_t, bool>>> edges_to_create;
+    // references to the contents of containers we are modifying.
+    set<pair<NodeTraversal, NodeTraversal>> edges_to_create;
 
-    // Make edges for the cross product of our start and end edges, making sure
-    // to maintain relative orientation.
-    for(auto& start_pair : start) {
-        for(auto& end_pair : end) {
-            // We already have the flags for from_start and to_end for the new edge.
-            edges_to_create.emplace(start_pair, end_pair);
+    // traversals of this node should be carried
+    for (auto& from : to_fwd) {
+        cerr << from << " to_fwd" << endl;
+        // forwards along outbound links
+        for (auto& to : from_fwd) {
+            if (from != to) edges_to_create.emplace(from, to);
+            cerr << from << " -> " << to << endl;
+        }
+        // and backwards along inbound links
+        for (auto& to : from_rev) {
+            if (from.reverse() != to) edges_to_create.emplace(from.reverse(), to);
+            cerr << from.reverse() << " -> " << to << endl;
+        }
+    }
+
+    for (auto& from : to_rev) {
+        cerr << from << " to_rev" << endl;
+        for (auto& to : from_rev) {
+            if (from != to) edges_to_create.emplace(from, to);
+            cerr << from << " -> " << to << endl;
+        }
+        for (auto& to : from_fwd) {
+            if (from.reverse() != to) edges_to_create.emplace(from.reverse(), to);
+            cerr << from.reverse() << " -> " << to << endl;
         }
     }
 
     for (auto& e : edges_to_create) {
         // make each edge we want to add
-        create_edge(e.first.first, e.second.first, e.first.second, e.second.second);
+        cerr << "creating edge " << e.first << " -> " << e.second << endl;
+        create_edge(e.first, e.second);
     }
 
     // remove the node from paths
@@ -5857,6 +5916,8 @@ map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<
 
 Alignment VG::align(const Alignment& alignment) {
 
+    serialize_to_file("align.vg");
+    write_alignment_to_file(alignment, "align.gam");
     //cerr << "aligning " << pb2json(alignment) << endl;
     // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
     auto aln = alignment;
@@ -5868,12 +5929,14 @@ Alignment VG::align(const Alignment& alignment) {
     VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length);
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
+    dag.serialize_to_file("align-dag.vg");
 
     // Join to a common root, so alignment covers the entire graph
     // Put the nodes in sort order within the graph
     // and break any remaining cycles
     Node* root = dag.join_heads();
     dag.sort();
+    dag.serialize_to_file("pre-gssw.vg");
 
     gssw_aligner = new GSSWAligner(dag.graph);
     gssw_aligner->align(aln);

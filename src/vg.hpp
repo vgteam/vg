@@ -579,7 +579,7 @@ public:
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
-   void expand_context(VG& g, size_t steps, bool add_paths = true);
+    void expand_context(VG& g, size_t steps, bool add_paths = true);
 
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);

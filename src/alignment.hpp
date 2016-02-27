@@ -72,7 +72,7 @@ void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
 int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
 // Adds a2 onto the end of a1, returns reference to a1
-Alignment& extend_alignment(Alignment& a1, const Alignment& a2);
+Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug);
 // Merge a set of alignments into one
 Alignment merge_alignments(const vector<Alignment>& alns, bool debug);
 // Merge two alignments end-to-end (could be "concat")

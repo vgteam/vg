@@ -1020,22 +1020,23 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     // free memory; we don't need the graphs for the last bit
     subgraphs.clear();
     delete graph;
-    
-    // now find the best alignment
+
     int sum_score = 0;
     double mean_score = 0;
     map<int, set<Alignment*> > alignment_by_score;
-    for (auto& aln : alns) {
-        alignment_by_score[aln.score()].insert(&aln);
+    for (auto& ta : alns) {
+        Alignment* aln = &ta;
+        alignment_by_score[aln->score()].insert(aln);
     }
 
     // Collect all the good alignments
     // TODO: Filter down subject to a minimum score per base or something?
-    vector<Alignment*> good;
+    vector<Alignment> good;
     for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
+        // Copy over all the alignments in descending score order (following the pointers into the "alignments" vector)
         // Iterating through a set keyed on ints backward is in descending order.
-        // This is going to let us deduplicate our alignments with this score,
-        // by storing them serialized to strings in this set.
+
+        // This is going to let us deduplicate our alignments with this score, by storing them serialized to strings in this set.
         set<string> serializedAlignmentsUsed;
 
         for(Alignment* pointer : (*it).second) {
@@ -1047,7 +1048,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
                 // This alignment hasn't been produced yet. Produce it. The
                 // order in the alignment vector doesn't matter for things with
                 // the same score.
-                good.push_back(pointer);
+                good.push_back(*pointer);
 
                 // Save it so we can avoid putting it in the vector again
                 serializedAlignmentsUsed.insert(serialized);
@@ -1065,28 +1066,19 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
         }
     }
 
-    // filter the alignments to only keep the good ones
-    vector<Alignment> alignments;
-    for (auto a : good) alignments.push_back(*a);
-
-    if (!alignments.empty()) {
-        // we're all right
+    // get the best alignment
+    if (!good.empty()) {
+        // TODO log best alignment score?
     } else {
-        // we had no alignments passing our filtering, so we put an empty one back
-        alignments.emplace_back();
-        Alignment& aln = alignments.back();
+        good.emplace_back();
+        Alignment& aln = good.back();
         aln = alignment;
         aln.clear_path();
         aln.set_score(0);
     }
 
-    // set all but the first alignment as secondary
-    for (size_t i = 1; i < alignments.size(); ++i) {
-        alignments[i].set_is_secondary(true);
-    }
-
     // Return all the multimappings
-    return alignments;
+    return good;
     
 }
 
