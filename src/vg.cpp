@@ -683,7 +683,8 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         // make a new node with the shared sequence
         string seq = seqs.front()->substr(0,shared_start);
         auto new_node = create_node(seq);
-        if (!is_valid()) cerr << "invalid before sibs iteration" << endl;
+        //if (!is_valid()) cerr << "invalid before sibs iteration" << endl;
+        /*
         {
             VG subgraph;
             for (auto& sib : sibs) {
@@ -694,7 +695,8 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
             for (auto& sib : sibs) s << sib.node->id() << "+";
             subgraph.serialize_to_file(s.str() + "-before.vg");
         }
-        
+        */
+
         // remove the sequence of the new node from the old nodes
         for (auto& sib : sibs) {
             //cerr << "to sib " << pb2json(*sib.node) << endl;
@@ -705,15 +707,12 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
             // and then switch the node assignment for the cut nodes
             // for each mapping of the node
             for (auto& p : paths.get_node_mapping(sib.node)) {
-                cerr << "handling path " << p.first << endl;
                 vector<Mapping*> v;
                 for (auto& m : p.second) {
                     v.push_back(m);
                 }
                 for (auto m : v) {
-                    cerr << "mapping before " << pb2json(*m) << endl;
                     auto mpts = paths.divide_mapping(m, shared_start);
-                    cerr << "after: " << pb2json(*mpts.first) << " " << pb2json(*mpts.second) << endl;
                     // and then assign the first part of the mapping to the new node
                     auto o = mpts.first;
                     o->mutable_position()->set_offset(0);
@@ -722,7 +721,6 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
                     paths.reassign_node(new_node->id(), (!m->position().is_reverse()?n:m));
                     // note that the other part now maps to the correct (old) node
                 }
-                if (!is_valid()) cerr << "invalid after handling path sibs iteration" << endl;
             }
         }
 
@@ -744,6 +742,7 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
             // connect the new node to the old nodes
             create_edge(new_right_side, old_side);
         }
+        /*
         if (!is_valid()) { cerr << "invalid after sibs simplify" << endl;
             {
                 VG subgraph;
@@ -755,9 +754,10 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
                 for (auto& sib : sibs) s << sib.node->id() << "+";
                 subgraph.serialize_to_file(s.str() + "-sub-after-corrupted.vg");
                 serialize_to_file(s.str() + "-all-after-corrupted.vg");
-                //exit(1);
+                exit(1);
             }
         }
+        */
     }
 }
 
@@ -3190,34 +3190,27 @@ void VG::remove_node_forwarding_edges(Node* node) {
 
     // traversals of this node should be carried
     for (auto& from : to_fwd) {
-        cerr << from << " to_fwd" << endl;
         // forwards along outbound links
         for (auto& to : from_fwd) {
             if (from != to) edges_to_create.emplace(from, to);
-            cerr << from << " -> " << to << endl;
         }
         // and backwards along inbound links
         for (auto& to : from_rev) {
             if (from.reverse() != to) edges_to_create.emplace(from.reverse(), to);
-            cerr << from.reverse() << " -> " << to << endl;
         }
     }
 
     for (auto& from : to_rev) {
-        cerr << from << " to_rev" << endl;
         for (auto& to : from_rev) {
             if (from != to) edges_to_create.emplace(from, to);
-            cerr << from << " -> " << to << endl;
         }
         for (auto& to : from_fwd) {
             if (from.reverse() != to) edges_to_create.emplace(from.reverse(), to);
-            cerr << from.reverse() << " -> " << to << endl;
         }
     }
 
     for (auto& e : edges_to_create) {
         // make each edge we want to add
-        cerr << "creating edge " << e.first << " -> " << e.second << endl;
         create_edge(e.first, e.second);
     }
 
@@ -5927,27 +5920,22 @@ map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<
 
 Alignment VG::align(const Alignment& alignment) {
 
-    serialize_to_file("align.vg");
-    write_alignment_to_file(alignment, "align.gam");
-    //cerr << "aligning " << pb2json(alignment) << endl;
-    // to be completely aligned, the graph's head nodes need to be fully-connected to a common root
     auto aln = alignment;
 
     map<id_t, pair<id_t, bool> > unfold_trans;
     map<id_t, pair<id_t, bool> > dagify_trans;
     uint32_t max_length = alignment.sequence().size();
 
+    // dagify the graph by unfolding inversions and then applying forward unroll
     VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length);
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
-    dag.serialize_to_file("align-dag.vg");
 
     // Join to a common root, so alignment covers the entire graph
     // Put the nodes in sort order within the graph
     // and break any remaining cycles
     Node* root = dag.join_heads();
     dag.sort();
-    dag.serialize_to_file("pre-gssw.vg");
 
     gssw_aligner = new GSSWAligner(dag.graph);
     gssw_aligner->align(aln);
@@ -7871,7 +7859,9 @@ VG VG::dagify(uint32_t expand_scc_steps,
             // preserve the edges that connect these nodes to the rest of the graph
             // And connect to the nodes in this and the previous component using the original edges as guide
             // We will break any cycles this introduces at each step
+            set<id_t> seen;
             for (auto id : component) {
+                seen.insert(id);
                 for (auto e : edges_of(get_node(id))) {
                     if (e->from() == id && e->to() != id) {
                         // if other end is not in the component
@@ -7880,13 +7870,14 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             Edge new_edge = *e;
                             new_edge.set_from(curr[id]->id());
                             dag.add_edge(new_edge);
-                        } else {
+                        } else if (!seen.count(e->to())) {
                             // otherwise, if it's in the component
                             // link them together
                             Edge new_edge = *e;
                             new_edge.set_from(curr[id]->id());
                             new_edge.set_to(curr[e->to()]->id());
                             dag.add_edge(new_edge);
+                            seen.insert(e->to());
                         }
                     } else if (e->to() == id && e->from() != id) {
                         // if other end is not in the component
@@ -7895,11 +7886,14 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             Edge new_edge = *e;
                             new_edge.set_to(curr[id]->id());
                             dag.add_edge(new_edge);
-                        } else {
+                        } else if (!seen.count(e->from())) {
+                            // adding the node to this component
+                            // can introduce self loops
                             Edge new_edge = *e;
                             new_edge.set_to(curr[id]->id());
                             new_edge.set_from(curr[e->from()]->id());
                             dag.add_edge(new_edge);
+                            seen.insert(e->from());
                         }
                         if (!last.empty() && component.count(e->from())) {
                             // if we aren't in the first step
@@ -7938,10 +7932,8 @@ VG VG::dagify(uint32_t expand_scc_steps,
                     }
                 }
             }
+            // update the minimum minimim return length
             min_min_return_length = curr_min_min_return_length;
-            // break cycles in the SCC that we may have added in this step
-            // by not removing all of the links between the edges in the SCC
-            dag.break_cycles();
             // finish if we've reached our target min walk length
             if (target_min_walk_length &&
                 min_min_return_length >= target_min_walk_length) {

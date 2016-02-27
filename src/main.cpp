@@ -938,34 +938,33 @@ int main_msga(int argc, char** argv) {
             f.close();
             */
 
-            // note that the addition of paths is a second step
-            // now take the alignment and modify the graph with it
             ++j;
 
+            // now take the alignment and modify the graph with it
             if (debug) cerr << name << ": editing graph" << endl;
-            graph->serialize_to_file(name + "-pre-edit.vg");
+            //graph->serialize_to_file(name + "-pre-edit.vg");
             graph->edit_both_directions(paths);
-            if (!graph->is_valid()) cerr << "invalid after edit" << endl;
-            graph->serialize_to_file(name + "-immed-post-edit.vg");
+            //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
+            //graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
-            if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
+            //if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
             graph->dice_nodes(node_max);
-            if (!graph->is_valid()) cerr << "invalid after dice" << endl;
-            graph->serialize_to_file(name + "-post-norm.vg");
+            //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
+            //graph->serialize_to_file(name + "-post-norm.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
-            if (!graph->is_valid()) cerr << "invalid after sort" << endl;
+            //if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // xg can't work unless IDs are compacted.
-            if (!graph->is_valid()) cerr << "invalid after compact" << endl;
+            //if (!graph->is_valid()) cerr << "invalid after compact" << endl;
 
             // the edit needs to cut nodes at mapping starts and ends
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
 
             // check that all is well
-            graph->serialize_to_file(name + "-pre-index.vg");
+            //graph->serialize_to_file(name + "-pre-index.vg");
             rebuild(graph);
 
             // verfy validity of path
