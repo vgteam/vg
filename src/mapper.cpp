@@ -1088,7 +1088,8 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         cerr << "error:[vg::Mapper] xg index pair is required for dynamic softclip resolution" << endl;
         exit(1);
     }
-    
+    // we can't resolve softclips on a read without a mapping
+    if (!aln.path().mapping_size()) return;
     // we can be more precise about our handling of softclips due to the low cost
     // of the fully in-memory xg index
     int sc_start = softclip_start(aln);
