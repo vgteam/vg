@@ -134,6 +134,7 @@ void help_vectorize(char** argv){
       << "options: " << endl
       << "  -x --xg-name FILE  An xg index for the graph of interest" << endl
       << "  -f --format        Tab-delimit output so it can be used in R." << endl
+      << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
        << endl;
 }
 
@@ -143,6 +144,7 @@ int main_vectorize(int argc, char** argv){
   bool format = false;
   bool show_header = false;
   bool map_alns = false;
+  bool annotate = false;
   if (argc <= 2) {
       help_vectorize(argv);
       return 1;
@@ -154,6 +156,7 @@ int main_vectorize(int argc, char** argv){
       static struct option long_options[] =
           {
               {"help", no_argument, 0, 'h'},
+              {"annotate", no_argument, 0, 'A'},
               {"xg-name", required_argument,0, 'x'},
               {"threads", required_argument, 0, 't'},
               {"format", no_argument, 0, 'f'},
@@ -161,7 +164,7 @@ int main_vectorize(int argc, char** argv){
 
           };
           int option_index = 0;
-          c = getopt_long (argc, argv, "hx:",
+          c = getopt_long (argc, argv, "Ahfx:",
                            long_options, &option_index);
 
           // Detect the end of the options.
@@ -180,6 +183,10 @@ int main_vectorize(int argc, char** argv){
             case 'f':
               format = true;
               break;
+            case 'A':
+              annotate = true;
+              format = true;
+              break;
             default:
               abort();
           }
@@ -196,6 +203,7 @@ int main_vectorize(int argc, char** argv){
         //Generate a 1-hot coverage vector for graph entities.
         function<void(Alignment&)> lambda = [&vz](Alignment a){
           vz.add_bv(vz.alignment_to_onehot(a));
+          vz.add_name(a.name());
         };
         if (alignment_file == "-"){
           stream::for_each_parallel(cin, lambda);
@@ -210,7 +218,7 @@ int main_vectorize(int argc, char** argv){
 
         //TODO handle custom scores settings.
 
-        vz.emit(cout, format);
+        vz.emit(cout, format, annotate);
 
 
 

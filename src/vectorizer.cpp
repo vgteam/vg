@@ -12,19 +12,41 @@ Vectorizer::~Vectorizer(){
 
 }
 
-void Vectorizer::emit(ostream &out, bool r_format=false){
+void Vectorizer::emit(ostream &out, bool r_format=false, bool annotate=false){
+    /**TODO print header
+    for i in xg.entities(){
+    out << e_id;
+  }
+
+  */
+
+    if (annotate){
+        r_format = true;
+        assert(my_names.size() == my_vectors.size());
+    }
+    //TODO Should have an assert or something here but they're slow, so I've left the check out.
+  int count = 0;
   for (auto v : my_vectors){
+    if (annotate){
+        out << my_names[count] << "\t";
+    }
     if (r_format){
       out << format(v) << endl;
     }
     else{
       out << v << endl;
     }
+
+    count += 1;
   }
 }
 
 void Vectorizer::add_bv(bit_vector v){
   my_vectors.push_back(v);
+}
+
+void Vectorizer::add_name(string n){
+    my_names.push_back(n);
 }
 
 string Vectorizer::format(bit_vector v){

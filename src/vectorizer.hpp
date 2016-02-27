@@ -24,16 +24,17 @@ class Vectorizer{
     Vectorizer(xg::XG x);
     ~Vectorizer();
     void add_bv(bit_vector v);
-    void emit(ostream& out, bool r_format);
+    void add_name(string n);
+    void emit(ostream& out, bool r_format, bool annotate);
     bit_vector alignment_to_onehot(Alignment a);
     vector<double> alignment_to_custom_score(Alignment a, std::function<double(Alignment)> lambda);
   private:
     string format(bit_vector v);
     xg::XG my_xg;
+    //We use vectors for both names and bit vectors because we want to allow the use of duplicate
+    // names. This allows things like generating simulated data with true cluster as the name.
     vector<bit_vector> my_vectors;
-    //TODO: need a universal container for vectors OR
-    // a better way to pass them around without exposing SDSL in a higher level
-    //map<Alignment, bit_vector> aln_to_onehot;
+    vector<string> my_names;
 
 };
 
