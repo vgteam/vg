@@ -3177,41 +3177,28 @@ void VG::remove_null_nodes_forwarding_edges(void) {
 
 void VG::remove_node_forwarding_edges(Node* node) {
 
-    id_t id = node->id();
-
-    auto to_fwd = travs_to(NodeTraversal(node, false));
-    auto from_fwd = travs_from(NodeTraversal(node, false));
-    auto to_rev = travs_to(NodeTraversal(node, true));
-    auto from_rev = travs_from(NodeTraversal(node, true));
-    
+    // Grab all the nodes attached to our start, with true if the edge goes to their start
+    vector<pair<id_t, bool>>& start = edges_start(node);
+    // Grab all the nodes attached to our end, with true if the edge goes to their end
+    vector<pair<id_t, bool>>& end = edges_end(node);
+        
     // We instantiate the whole cross product first to avoid working on
-    // references to the contents of containers we are modifying.
-    set<pair<NodeTraversal, NodeTraversal>> edges_to_create;
+    // references to the contents of containers we are modifying. This holds the
+    // (node ID, relative orientation) pairs above.
+    set<pair<pair<id_t, bool>, pair<id_t, bool>>> edges_to_create;
 
-    // traversals of this node should be carried
-    for (auto& from : to_fwd) {
-        // forwards along outbound links
-        for (auto& to : from_fwd) {
-            if (from != to) edges_to_create.emplace(from, to);
-        }
-        // and backwards along inbound links
-        for (auto& to : from_rev) {
-            if (from.reverse() != to) edges_to_create.emplace(from.reverse(), to);
-        }
-    }
-
-    for (auto& from : to_rev) {
-        for (auto& to : from_rev) {
-            if (from != to) edges_to_create.emplace(from, to);
-        }
-        for (auto& to : from_fwd) {
-            if (from.reverse() != to) edges_to_create.emplace(from.reverse(), to);
+    // Make edges for the cross product of our start and end edges, making sure
+    // to maintain relative orientation.
+    for(auto& start_pair : start) {
+        for(auto& end_pair : end) {
+            // We already have the flags for from_start and to_end for the new edge.
+            edges_to_create.emplace(start_pair, end_pair);
         }
     }
 
     for (auto& e : edges_to_create) {
         // make each edge we want to add
-        create_edge(e.first, e.second);
+        create_edge(e.first.first, e.second.first, e.first.second, e.second.second);
     }
 
     // remove the node from paths

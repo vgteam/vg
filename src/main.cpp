@@ -663,11 +663,12 @@ int main_msga(int argc, char** argv) {
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'H'},
                 {"threads", required_argument, 0, 't'},
+                {"node-max", required_argument, 0, 'm'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:",
                          long_options, &option_index);
 
         // Detect the end of the options.
