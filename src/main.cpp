@@ -951,9 +951,10 @@ int main_msga(int argc, char** argv) {
             if (debug) cerr << name << ": normalizing graph and node size" << endl;
             graph->normalize();
             //if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
+            //graph->serialize_to_file(name + "-post-norm.vg");
             graph->dice_nodes(node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
-            //graph->serialize_to_file(name + "-post-norm.vg");
+            //graph->serialize_to_file(name + "-post-dice.vg");
             if (debug) cerr << name << ": sorting and compacting ids" << endl;
             graph->sort();
             //if (!graph->is_valid()) cerr << "invalid after sort" << endl;

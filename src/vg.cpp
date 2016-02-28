@@ -756,6 +756,8 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
         }
         */
     }
+    // rebuild path ranks; these may have been affected in the process
+    paths.compact_ranks();
 }
 
 void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
@@ -835,6 +837,8 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
             create_edge(old_side, new_left_side);
         }
     }
+    // rebuild path ranks; these may have been affected in the process
+    paths.compact_ranks();
 }
 
 // expand the context of the subgraph g by this many steps
