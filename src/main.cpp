@@ -196,6 +196,10 @@ int main_vectorize(int argc, char** argv){
             ifstream in(xg_name);
             xindex.load(in);
         }
+        else{
+          cerr << "No XG index given. An XG index must be provided." << endl;
+          exit(1);
+        }
         Vectorizer vz(xindex);
         string alignment_file = argv[optind];
 
@@ -206,13 +210,13 @@ int main_vectorize(int argc, char** argv){
           vz.add_name(a.name());
         };
         if (alignment_file == "-"){
-          stream::for_each_parallel(cin, lambda);
+          stream::for_each(cin, lambda);
         }
         else{
           ifstream in;
           in.open(alignment_file);
           if (in.good()){
-            stream::for_each_parallel(in, lambda);
+            stream::for_each(in, lambda);
           }
         }
 

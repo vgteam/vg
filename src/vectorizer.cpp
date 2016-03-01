@@ -13,18 +13,28 @@ Vectorizer::~Vectorizer(){
 }
 
 void Vectorizer::emit(ostream &out, bool r_format=false, bool annotate=false){
-    /**TODO print header
-    for i in xg.entities(){
-    out << e_id;
-  }
-
-  */
+    /**TODO print header*/
+    //size_t ent_size = my_xg.node_count + my_xg.edge_count;
+    // if (annotate){
+    //   out << "Alignments" << "\t";
+    //   for (int i = 0; i < my_vectors[0].size(); i++){
+    //     if (my_xg.entity_is_node(i)){
+    //         out << my_xg.rank_to_id(my_xg.entity_rank_as_node_rank(i));
+    //     }
+    //     else{
+    //       out << "edge";
+    //     }
+    //       if (i < my_vectors[0].size() - 1){
+    //         out << "\t";
+    //       }
+    //   }
+    // }
 
     if (annotate){
         r_format = true;
         assert(my_names.size() == my_vectors.size());
     }
-    //TODO Should have an assert or something here but they're slow, so I've left the check out.
+
   int count = 0;
   for (auto v : my_vectors){
     if (annotate){
@@ -63,6 +73,7 @@ string Vectorizer::format(bit_vector v){
 
 bit_vector Vectorizer::alignment_to_onehot(Alignment a){
   // Make a vector as large as the | |nodes| + |edges| | space
+  // TODO handle edges
   size_t entity_size = my_xg.node_count + my_xg.edge_count;
   bit_vector ret(entity_size, 0);
   Path path = a.path();
