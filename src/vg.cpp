@@ -3174,6 +3174,8 @@ void VG::remove_null_nodes_forwarding_edges(void) {
         remove_node_forwarding_edges(*n);
         update_progress(i);
     }
+    // rebuild path ranks; these may have been affected by node removal
+    paths.compact_ranks();
 }
 
 void VG::remove_node_forwarding_edges(Node* node) {
