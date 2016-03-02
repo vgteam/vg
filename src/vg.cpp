@@ -1818,7 +1818,7 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 //
 
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
-                                map<long, set<vcflib::VariantAllele> >& altp,
+                                map<long, vector<vcflib::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
                                 int max_node_size,
@@ -1831,7 +1831,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
-                altp[allele.position].insert(allele);
+                altp[allele.position].push_back(allele);
                 if (i % 10000 == 0) {
                     update_progress(altp.size());
                 }
@@ -1840,7 +1840,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
     }
 }
 
-void VG::slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
+void VG::slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
                        int stop_pos,
                        int max_node_size) {
@@ -1926,7 +1926,7 @@ void VG::dice_nodes(int max_node_size) {
     paths.compact_ranks();
 }
 
-void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
+void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       string& seq,
                       string& name) {
 
@@ -1958,7 +1958,7 @@ void VG::from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
 
     for (auto& va : altp) {
 
-        const set<vcflib::VariantAllele>& alleles = va.second;
+        const vector<vcflib::VariantAllele>& alleles = va.second;
 
         // if alleles are empty, we just cut at this point
         if (alleles.empty()) {
@@ -2434,8 +2434,11 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         vector<vcflib::Variant> records;
         
         // This is going to hold the alleles that occur at certain reference
-        // positions, in addition to the reference allele.
-        map<long,set<vcflib::VariantAllele> > alleles;
+        // positions, in addition to the reference allele. We keep them ordered
+        // so we can refer to them by number.
+        map<long,vector<vcflib::VariantAllele> > alleles;
+        
+        // This is 
         
         // We don't want to load all the vcf records into memory at once, since
         // the vcflib internal data structures are big compared to the info we
@@ -2501,7 +2504,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         bool invariant_graph = alleles.empty();
         while (invariant_graph || !alleles.empty()) {
             invariant_graph = false;
-            auto* new_alleles = new map<long, set<vcflib::VariantAllele> >;
+            auto* new_alleles = new map<long, vector<vcflib::VariantAllele> >;
             // our start position is the "offset" we should subtract from the alleles
             // for correct construction
             //chunk_start = (!chunk_start ? 0 : alleles.begin()->first);
@@ -2521,7 +2524,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                         chunk_end = ref_end;
                     }
                     new_allele.position = pos;
-                    curr_pos.insert(new_allele);
+                    curr_pos.push_back(new_allele);
                 }
                 alleles.erase(alleles.begin());
                 // TODO here we need to see if we are neighboring another variant

@@ -281,16 +281,16 @@ public:
        bool flat_input_vcf = false,
        bool load_phasing_paths = false,
        bool showprog = false);
-    void from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
+    void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       string& seq,
                       string& chrom);
     void vcf_records_to_alleles(vector<vcflib::Variant>& records,
-                                map<long, set<vcflib::VariantAllele> >& altp,
+                                map<long, vector<vcflib::VariantAllele> >& altp,
                                 int start_pos,
                                 int stop_pos,
                                 int max_node_size = 0,
                                 bool flat_input_vcf = false);
-    void slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
+    void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
                        int stop_pos,
                        int max_node_size);
@@ -1031,11 +1031,11 @@ public:
     // for managing parallel construction
     struct Plan {
         VG* graph;
-        map<long, set<vcflib::VariantAllele> >* alleles;
+        map<long, vector<vcflib::VariantAllele> >* alleles;
         string seq;
         string name;
         Plan(VG* g,
-             map<long, set<vcflib::VariantAllele> >* a,
+             map<long, vector<vcflib::VariantAllele> >* a,
              string s,
              string n)
             : graph(g)
