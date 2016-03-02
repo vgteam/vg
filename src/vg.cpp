@@ -1819,22 +1819,20 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
-                                int start_pos,
-                                int stop_pos,
-                                int max_node_size,
                                 bool flat_input_vcf) {
 
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
         // decompose to alts
+        // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
         map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
         for (auto& alleles : alternates) {
             for (auto& allele : alleles.second) {
+                // For each of the alignment bubbles or matches, add it in as something we'll need for the graph.
+                // These may overlap between alleles, and not every allele will have one at all positions.
+                // In general it has to be that way, because the alleles themselves can overlap.
                 altp[allele.position].push_back(allele);
-                if (i % 10000 == 0) {
-                    update_progress(altp.size());
-                }
             }
         }
     }
@@ -2442,14 +2440,15 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         // so we can refer to them by number.
         map<long,vector<vcflib::VariantAllele> > alleles;
         
-        // This will hold phase blocks in progress, by sample name. Each sample
-        // has two (haplotype 0 and haplotype 1). Each phase block is stored as
-        // a map from position in the reference to the number of the alt to take
-        // (0 for ref).
-        map<string, array<map<long, char>, 2>> phase_blocks_in_progress;
         
-        // This will hold all the completed phase blocks
-        vector<map<long, char>> completedBlocks;
+        
+        // When building the phase blocks, we keep them in pairs under the name
+        // of the path they belong to.
+        auto* phase_blocks_in_progress = load_phasing_paths ? new map<string, pair<PhaseBlock>>() : nullptr;
+        
+        // When keeping completed phase blocks, we just keep them in a big map
+        // by assigned number.
+        auto* phase_blocks_completed = load_phasing_paths ? new map<int64_t, PhaseBlock>() : nullptr;
         
         // We don't want to load all the vcf records into memory at once, since
         // the vcflib internal data structures are big compared to the info we
@@ -2462,7 +2461,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             
             // decompose records into alleles with offsets against our target sequence
             // Dump the collections of alleles (which are ref, alt pairs) into the alleles map.
-            vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size, flat_input_vcf);
+            vcf_records_to_alleles(records, alleles, flat_input_vcf);
             records.clear(); // clean up
         };
         
@@ -2484,6 +2483,14 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         }
         // Finish up any remaining unparsed variants
         parse_loaded_variants();
+        
+        if(phase_blocks_in_progress != nullptr) {
+            // Finish any remaining phase blocks
+        
+            delete phase_blocks_in_progress;
+            phase_blocks_in_progress = nullptr;
+        }
+        
         destroy_progress();
 
         // store our construction plans
@@ -2563,6 +2570,13 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 #endif
         graphq_size = graphq.size();
         destroy_progress();
+        
+        if(phase_blocks_completed != nullptr) {
+            // Clean up the phase block storage. We gave partial blocks to every
+            // plan that needed them.
+            delete phase_blocks_completed;
+            phase_blocks_completed = nullptr;
+        }
 
         // this system is not entirely general
         // there will be a problem when the regions of overlapping deletions become too large

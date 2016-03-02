@@ -282,14 +282,16 @@ public:
        bool flat_input_vcf = false,
        bool load_phasing_paths = false,
        bool showprog = false);
+       
+    // We represent a phase block as a pair of a position at which it starts and
+    // a vector of allele indexes (in bytes, because 255 is too many alleles).
+    using PhaseBlock = pair<long, vector<uint8_t>>;    
+    
     void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       string& seq,
                       string& chrom);
     void vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
-                                int start_pos,
-                                int stop_pos,
-                                int max_node_size = 0,
                                 bool flat_input_vcf = false);
     void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
