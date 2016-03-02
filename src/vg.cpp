@@ -2486,15 +2486,6 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         parse_loaded_variants();
         destroy_progress();
 
-        
-        
-
-        // enforce a maximum reference node size by dividing reference nodes
-        // that are > than the max into the smallest number of even pieces that
-        // would be smaller than the max, by inserting empty lists of alleles at
-        // the positions where divisions should take place.
-        slice_alleles(alleles, start_pos, stop_pos, max_node_size);
-
         // store our construction plans
         deque<Plan*> construction;
         // so we can check which graphs we can safely append
@@ -2642,7 +2633,10 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                                       plan->seq,
                                       plan->name);
                                       
-            
+            // Break up the nodes ourselves
+            if(max_node_size > 0) {
+                plan->graph->dice_nodes(max_node_size);
+            }
                                       
 #pragma omp critical (graphq)
             {
