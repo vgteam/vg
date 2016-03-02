@@ -2441,15 +2441,6 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         map<long,vector<vcflib::VariantAllele> > alleles;
         
         
-        
-        // When building the phase blocks, we keep them in pairs under the name
-        // of the path they belong to.
-        auto* phase_blocks_in_progress = load_phasing_paths ? new map<string, pair<PhaseBlock>>() : nullptr;
-        
-        // When keeping completed phase blocks, we just keep them in a big map
-        // by assigned number.
-        auto* phase_blocks_completed = load_phasing_paths ? new map<int64_t, PhaseBlock>() : nullptr;
-        
         // We don't want to load all the vcf records into memory at once, since
         // the vcflib internal data structures are big compared to the info we
         // need.
@@ -2483,13 +2474,6 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         }
         // Finish up any remaining unparsed variants
         parse_loaded_variants();
-        
-        if(phase_blocks_in_progress != nullptr) {
-            // Finish any remaining phase blocks
-        
-            delete phase_blocks_in_progress;
-            phase_blocks_in_progress = nullptr;
-        }
         
         destroy_progress();
 
@@ -2571,13 +2555,6 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         graphq_size = graphq.size();
         destroy_progress();
         
-        if(phase_blocks_completed != nullptr) {
-            // Clean up the phase block storage. We gave partial blocks to every
-            // plan that needed them.
-            delete phase_blocks_completed;
-            phase_blocks_completed = nullptr;
-        }
-
         // this system is not entirely general
         // there will be a problem when the regions of overlapping deletions become too large
         // then the inter-dependence of each region will make parallel construction in this way difficult
