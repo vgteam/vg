@@ -7,6 +7,7 @@
 #include <string>
 #include <deque>
 #include <list>
+#include <array>
 #include <omp.h>
 #include <unistd.h>
 #include <limits.h>

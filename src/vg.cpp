@@ -1845,6 +1845,10 @@ void VG::slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int stop_pos,
                        int max_node_size) {
 
+    // Slice up only the *reference*. Leaves the actual alt sequences alone.
+    // Does *not* divide up the alt alleles into multiple pieces, despite its
+    // name.
+
     auto enforce_node_size_limit =
         [this, max_node_size, &altp]
         (int curr_pos, int& last_pos) {
@@ -2438,7 +2442,14 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         // so we can refer to them by number.
         map<long,vector<vcflib::VariantAllele> > alleles;
         
-        // This is 
+        // This will hold phase blocks in progress, by sample name. Each sample
+        // has two (haplotype 0 and haplotype 1). Each phase block is stored as
+        // a map from position in the reference to the number of the alt to take
+        // (0 for ref).
+        map<string, array<map<long, char>, 2>> phase_blocks_in_progress;
+        
+        // This will hold all the completed phase blocks
+        vector<map<long, char>> completedBlocks;
         
         // We don't want to load all the vcf records into memory at once, since
         // the vcflib internal data structures are big compared to the info we
@@ -2478,9 +2489,10 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         
         
 
-        // enforce a maximum node size
-        // by dividing nodes that are > than the max into the smallest number of
-        // even pieces that would be smaller than the max
+        // enforce a maximum reference node size by dividing reference nodes
+        // that are > than the max into the smallest number of even pieces that
+        // would be smaller than the max, by inserting empty lists of alleles at
+        // the positions where divisions should take place.
         slice_alleles(alleles, start_pos, stop_pos, max_node_size);
 
         // store our construction plans
@@ -2629,6 +2641,9 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             plan->graph->from_alleles(*plan->alleles,
                                       plan->seq,
                                       plan->name);
+                                      
+            
+                                      
 #pragma omp critical (graphq)
             {
                 update_progress(++graphs_completed);
