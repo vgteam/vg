@@ -1824,8 +1824,6 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 int max_node_size,
                                 bool flat_input_vcf) {
 
-    create_progress("parsing variants", records.size());
-
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
         // decompose to alts
@@ -1840,7 +1838,6 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
             }
         }
     }
-    destroy_progress();
 }
 
 void VG::slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
@@ -2358,6 +2355,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
        int vars_per_region,
        int max_node_size,
        bool flat_input_vcf,
+       bool load_phasing_paths,
        bool showprog) {
 
     init();
@@ -2434,7 +2432,27 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         create_progress("loading variants for " + target, stop_pos-start_pos);
         // get records
         vector<vcflib::Variant> records;
-        int i = 0;
+        
+        // This is going to hold the alleles that occur at certain reference
+        // positions, in addition to the reference allele.
+        map<long,set<vcflib::VariantAllele> > alleles;
+        
+        // We don't want to load all the vcf records into memory at once, since
+        // the vcflib internal data structures are big compared to the info we
+        // need.
+        int64_t variant_chunk_size = 1000;
+        
+        auto parse_loaded_variants = [&]() {
+            // Parse the variants we have loaded, and clear them out, so we can
+            // go back and load a new batch of variants.
+            
+            // decompose records into alleles with offsets against our target sequence
+            // Dump the collections of alleles (which are ref, alt pairs) into the alleles map.
+            vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size, flat_input_vcf);
+            records.clear(); // clean up
+        };
+        
+        int64_t i = 0;
         while (variantCallFile.is_open() && variantCallFile.getNextVariant(var)) {
             // this ... maybe we should remove it as for when we have calls against N
             bool isDNA = allATGC(var.ref);
@@ -2447,13 +2465,15 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                 records.push_back(var);
             }
             if (++i % 1000 == 0) update_progress(var.position-start_pos);
+            // Periodically parse the records down to what we need and throw away the rest.
+            if (i % variant_chunk_size == 0) parse_loaded_variants();
         }
+        // Finish up any remaining unparsed variants
+        parse_loaded_variants();
         destroy_progress();
 
-        map<long,set<vcflib::VariantAllele> > alleles;
-        // decompose records int alleles with offsets against our target sequence
-        vcf_records_to_alleles(records, alleles, start_pos, stop_pos, max_node_size, flat_input_vcf);
-        records.clear(); // clean up
+        
+        
 
         // enforce a maximum node size
         // by dividing nodes that are > than the max into the smallest number of

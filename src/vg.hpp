@@ -279,6 +279,7 @@ public:
        int vars_per_region,
        int max_node_size = 0,
        bool flat_input_vcf = false,
+       bool load_phasing_paths = false,
        bool showprog = false);
     void from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
                       string& seq,

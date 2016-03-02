@@ -5173,6 +5173,7 @@ void help_construct(char** argv) {
          << "    -v, --vcf FILE        input VCF" << endl
          << "    -r, --reference FILE  input FASTA reference" << endl
          << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
+         << "    -B, --phase-blocks    save paths for phased blocks with the ref paths" << endl
          << "    -R, --region REGION   specify a particular chromosome" << endl
          << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
          << "                          sequence name could be inadvertently parsed as a region)" << endl
@@ -5200,6 +5201,8 @@ int main_construct(int argc, char** argv) {
     int max_node_size = 0;
     string ref_paths_file;
     bool flat_alts = false;
+    // Should we make paths out of phasing blocks in the called samples?
+    bool load_phasing_paths = false;
 
     int c;
     while (true) {
@@ -5209,7 +5212,9 @@ int main_construct(int argc, char** argv) {
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"vcf", required_argument, 0, 'v'},
                 {"reference", required_argument, 0, 'r'},
+                // TODO: change the long option here?
                 {"ref-paths", required_argument, 0, 'P'},
+                {"phase-blocks", no_argument, 0, 'B'},
                 {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
                 {"threads", required_argument, 0, 't'},
@@ -5221,7 +5226,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:s:Cf",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bs:Cf",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -5240,6 +5245,10 @@ int main_construct(int argc, char** argv) {
 
         case 'P':
             ref_paths_file = optarg;
+            break;
+            
+        case 'B':
+            load_phasing_paths = true;
             break;
 
         case 'p':
@@ -5282,6 +5291,11 @@ int main_construct(int argc, char** argv) {
         }
     }
 
+    if(load_phasing_paths && ref_paths_file.empty()) {
+        cerr << "error:[vg construct] cannot save phasing paths without a paths file name" << endl;
+        return 1;
+    }
+
     vcflib::VariantCallFile variant_file;
     if (!vcf_file_name.empty()) {
         variant_file.open(vcf_file_name);
@@ -5299,13 +5313,21 @@ int main_construct(int argc, char** argv) {
     reference.open(fasta_file_name);
 
     // store our reference sequence paths
+    // TODO: use this. Maybe dump paths here instead of in the graph?
     Paths ref_paths;
 
-    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region, max_node_size, flat_alts, progress);
+    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region,
+        max_node_size, flat_alts, load_phasing_paths, progress);
 
     if (!ref_paths_file.empty()) {
         ofstream paths_out(ref_paths_file);
         graph.paths.write(paths_out);
+        if(load_phasing_paths) {
+            // TODO: keep the reference paths and throw out the phasing paths.
+            // We may need a way to get the reference path names, or some way to
+            // distinguish inside the Paths class.
+            graph.paths.clear();
+        }
     }
 
     graph.serialize_to_ostream(std::cout);
