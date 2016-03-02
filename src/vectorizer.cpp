@@ -82,6 +82,9 @@ bit_vector Vectorizer::alignment_to_onehot(Alignment a){
     Position pos = mapping.position();
     int64_t node_id = pos.node_id();
     size_t key = my_xg.node_rank_as_entity(node_id);
+		//TODO we're getting out of range errors??? How is that possible?
+		// OKAY, double weird - it's only with certain xg indices.
+		//TODO WHY???????
     ret[key] = 1;
   }
   //aln_to_onehot[a] = ret;

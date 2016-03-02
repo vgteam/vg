@@ -1,6 +1,7 @@
 #ifndef DECON_HPP
 #define DECON_HPP
 #include <vector>
+#include <array>
 #include <list>
 #include <string>
 #include <iostream>
@@ -43,18 +44,31 @@ namespace vg{
 
             Deconstructor();
             Deconstructor(xg::XG x);
+						Deconstructor(VG v);
             ~Deconstructor();
-            SuperBubble report_superbubble(int64_t start, int64_t end);
+            SuperBubble report_superbubble(int start, int end);
             vector<SuperBubble> get_all_superbubbles(VG v);
-            int64_t validate_super_bubble(int64_t start, int64_t end);
-            vector<int64_t> emit_nodes_on_path_through_superbubble(Path p, SuperBubble sb);
+            int validate_super_bubble(int start, int end);
+            vector<int64_t> emit_nodes_on_path_through_superbubble(Path p, vector<SuperBubble> sb);
             vector<int64_t> emit_nodes_off_path_through_superbubble(SuperBubble sb);
             vector<vcflib::Variant> sb_to_variants(SuperBubble sb);
 
         private:
           xg::XG my_xg;
-            int64_t rangemin(vector<int64_t> a, int i, int j);
-            int64_t rangemax(vector<int64_t> a, int i, int j);
+					VG my_vg;
+					//TODO Use arrays to save some memory.
+					vector<NodeTraversal> entrance_candidates;
+					vector<NodeTraversal> exit_candidates;
+					vector<NodeTraversal> previous_entrances;
+					vector<NodeTraversal> alt_entrances;
+					deque<NodeTraversal> candidates;
+					deque<NodeTraversal> ord_D;
+					bool is_exit(NodeTraversal n);
+					bool is_entrance(NodeTraversal n);
+          int rangemin(vector<int> a, int i, int j);
+          int rangemax(vector<int> a, int i, int j);
+					void insert_exit(NodeTraversal n);
+					void insert_entrance( NodeTraversal n);
 
     };
 }
