@@ -5132,130 +5132,13 @@ int main_view(int argc, char** argv) {
 }
 
 void help_deconstruct(char** argv){
-  cerr << "usage: " << argv[0] << " deconstruct [options] -o <x>.vcf" << endl
+  cerr << "usage: " << argv[0] << " deconstruct [options] -x <my_graph_index>.xg <my_graph>.vg" << endl
       << "options: " << endl
-      << "       -r, --reference FILE FASTA reference to use for path projection." << endl
-      << "       -p, --path <Pathname>   The path for which to extract variants." << endl
-      << "       -g, --graph <FILE>.vg  Variant graph to extract variants from."
       << endl;
 }
 
 int main_deconstruct(int argc, char** argv){
-  if (argc == 2){
-    help_deconstruct(argv);
-    exit(1);
-  }
 
-  string reference_file = "";
-  //string xg_file = "";
-  string graph_file = "";
-  string output_file = "";
-  //string index_file = "";
-  string pathfile = "";
-  string path = "";
-  int c;
-  while (true){
-    static struct option long_options[] = {
-      {"output", required_argument, 0, 'o'},
-      {"reference", required_argument, 0, 'r'},
-      //{"xg", required_argument, 0, 'x'},
-      {"graph", required_argument, 0, 'g'},
-      {"path", required_argument, 0, 'p'},
-      {"pathfile", required_argument, 0, 'f'}
-      //{"index", required_argument, 0, 'i'}
-    };
-
-    int option_index = 0;
-    c = getopt_long (argc, argv, "o:i:r:x:p:f:g:h",
-                     long_options, &option_index);
-    if (c == -1){
-      break;
-    }
-    switch (c){
-      case 'r':
-          reference_file = optarg;
-          break;
-      case 'o':
-          output_file = optarg;
-          break;
-      // case 'x':
-      //     xg_file = optarg;
-      //     break;
-      case 'g':
-          graph_file = optarg;
-          break;
-      case 'p':
-          path = optarg;
-          break;
-      case 'f':
-          pathfile = optarg;
-          break;
-
-      case 'h':
-      case '?':
-          /* getopt_long already printed an error message. */
-          help_deconstruct(argv);
-          exit(1);
-          break;
-
-      default:
-          abort ();
-    }
-  }
-
-  if (reference_file.empty()){
-    cerr << "Error: A reference is needed for projection into vcf." << endl;
-    exit(1);
-  }
-  if ( graph_file.empty()){
-    cerr << "Error:  No graph provided." << endl;
-    exit(1);
-  }
-
-  Deconstructor decon = Deconstructor();
-  decon.set_reference(reference_file);
-
-  ifstream in;
-  in.open(graph_file.c_str());
-  VG v = VG(in);
-  decon.set_graph(&v);
-
-  map<string, vector<vcflib::Variant>> pathname_to_variants;
-  //Default: get all paths in graph
-  if (pathfile == "" && path == ""){
-    pathname_to_variants = decon.get_variants_on_path("");
-  }
-  else if (pathfile == ""){
-    // Get a specific path's variants.
-    pathname_to_variants = decon.get_variants_on_path(path);
-  }
-  else if (path == ""){
-    //Use a pathfile and get all paths in said file.
-    pathname_to_variants = decon.get_variants_on_paths_from_file(pathfile);
-
-  }
-  else {
-    cerr << "Both a path and a pathfile were specified. Please specify only one." << endl;
-    exit(0);
-  }
-  // if (index_file.empty()){
-  //   decon.set_xg(xg_file);
-  // }
-  // else if (xg_file.empty()){
-  //   decon.set_index(index_file);
-  // }
-
-  //TODO allow a list of paths to project into as input.
-
-  // TODO allow specifying a certain region for variant extraction.
-  // TODO Super-convenience function - retrieves all variants for a particular
-  // path. TODO it would be great to also allow coordinates.
-  //vector<vcflib::Variant> vars = decon.get_variants("", 0, 0);
-  //decon.get_variants_using_edges("");
-
-  // = decon.indel_caller();
-  //decon.b_call("");
-  decon.write_variants(output_file, pathname_to_variants);
   return 1;
 }
 
