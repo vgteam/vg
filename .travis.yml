@@ -36,4 +36,5 @@ os:
   - osx
 compiler:
   - gcc
+osx_image: xcode7.2
 
