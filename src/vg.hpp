@@ -288,6 +288,7 @@ public:
                       string& chrom);
     void vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
+                                map<pair<long, int>, vector<bool>>* phase_visits,
                                 bool flat_input_vcf = false);
     void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,

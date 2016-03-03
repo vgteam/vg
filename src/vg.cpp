@@ -1819,6 +1819,7 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
+                                map<pair<long, int>, vector<bool>>* phase_visits,
                                 bool flat_input_vcf) {
 
     for (int i = 0; i < records.size(); ++i) {
@@ -1827,12 +1828,125 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
         map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
+            
+        // This holds a map from alt index (0 for ref) to the phase sets
+        // visiting it as a bool vector. No bit vector means no visits.
+        map<int, vector<bool>> alt_usages;
+            
+        if(phase_visits != nullptr) {
+        
+            // Parse out what alleles each sample uses in its phase sets at this
+            // VCF record.
+            
+            // Get all the sample names in order.
+            auto& sample_names = var.vcf->sampleNames;
+            
+            for(int64_t j = 0; j < sample_names.size(); j++) {
+                // For every sample, see if at this variant it uses this
+                // allele in one or both phase sets.
+                
+                // Grab the genotypes
+                string genotype = var.getGenotype(sample_names[i]);
+                
+                // Find the phasing bar
+                auto bar_pos = genotype.find('|');
+                
+                if(bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
+                    // Not phased here, or otherwise invalid
+                    continue;
+                }
+                
+                
+                // Parse out the two alt indexes.
+                // TODO: complain if there are more.
+                int alt1index = stoi(genotype.substr(0, bar_pos));
+                int alt2index = stoi(genotype.substr(bar_pos + 1));
+                
+                if(!alt_usages.count(alt1index)) {
+                    // Make a new bit vector for the alt visited by 1
+                    alt_usages[alt1index] = vector<bool>(var.getNumSamples() * 2, false);
+                }
+                // First phase of this phase set visits here.
+                alt_usages[alt1index][j * 2] = true;
+                
+                if(!alt_usages.count(alt2index)) {
+                    // Make a new bit vector for the alt visited by 2
+                    alt_usages[alt2index] = vector<bool>(var.getNumSamples() * 2, false);
+                }
+                // Second phase of this phase set visits here.
+                alt_usages[alt2index][j * 2 + 1] = true;
+            }
+        }
+            
         for (auto& alleles : alternates) {
+        
+            // We'll point this to a vector flagging all the visits to this alt
+            // (which may be the ref alt).
+            vector<bool>* visits = nullptr;
+            
+            if(phase_visits != nullptr) {
+                // We actually have visits to look for
+                
+                // We need to copy out the alt sequence to appease the vcflib API
+                string alt_sequence = alleles.first;
+                
+                if(alt_usages.count(var.getAltAlleleIndex(alt_sequence))) {
+                    // Something did indeed visit. Point the pointer at the
+                    // vector describing what visited.
+                    visits = &alt_usages[var.getAltAlleleIndex(alt_sequence)];
+                }
+            }
+        
             for (auto& allele : alleles.second) {
                 // For each of the alignment bubbles or matches, add it in as something we'll need for the graph.
                 // These may overlap between alleles, and not every allele will have one at all positions.
                 // In general it has to be that way, because the alleles themselves can overlap.
-                altp[allele.position].push_back(allele);
+                
+                // TODO: we need these to be unique but also ordered by addition
+                // order. For now we just check all previous entries before
+                // adding and suffer being n^2 in vcf alts per variant. We
+                // should use some kind of addition-ordered set.
+                int found_at = -1;
+                for(int j = 0; j < altp.size(); j++) {
+                    if(altp[allele.position][j].ref == allele.ref && altp[allele.position][j].alt == allele.alt) {
+                        // TODO: no equality for VariantAlleles for some reason.
+                        // We already have it at this index
+                        found_at = j;
+                        break;
+                    }
+                }
+                if(found_at == -1) {
+                    // We need to tack this on at the end.
+                    found_at = altp[allele.position].size();
+                    // Add the bubble made by this part of this alt at this
+                    // position.
+                    altp[allele.position].push_back(allele);
+                }
+                
+                if(visits != nullptr && phase_visits != nullptr) {
+                    // What position, allele index pair are we visiting when we
+                    // visit this alt?
+                    auto visited = make_pair(allele.position, found_at);
+                    
+                    if(!phase_visits->count(visited)) {
+                        // Make sure we have a vector for visits to this allele, not
+                        // just this alt. It needs an entry for each phase of each sample.
+                        (*phase_visits)[visited] = vector<bool>(var.getNumSamples() * 2, false);
+                    }
+                
+                    for(size_t j = 0; j < visits->size(); j++) {
+                        // We need to toggle on all the phase sets that visited
+                        // this alt as using this allele at this position.
+                        if(visits->at(i) && !(*phase_visits)[visited].at(i)) {
+                            // The bit needs to be set, because all the phases
+                            // visiting this alt visit this allele that appears
+                            // in it.
+                            (*phase_visits)[visited][i] = true;
+                        }
+                        
+                    }
+                }                
+                
             }
         }
     }
@@ -2440,6 +2554,13 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         // so we can refer to them by number.
         map<long,vector<vcflib::VariantAllele> > alleles;
         
+        // This is going to hold, for each position, allele combination, a
+        // vector of bools marking which phases of which samples visit that
+        // allele. Each sample is stored at (sample number * 2) for phase 0 and
+        // (sample number * 2 + 1) for phase 1. The reference may not always get
+        // an allele, but if anything is reference it will show up as an
+        // overlapping allele elsewhere.
+        auto* phase_visits = load_phasing_paths ? new map<pair<long, int>, vector<bool>>() : nullptr;
         
         // We don't want to load all the vcf records into memory at once, since
         // the vcflib internal data structures are big compared to the info we
@@ -2452,7 +2573,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             
             // decompose records into alleles with offsets against our target sequence
             // Dump the collections of alleles (which are ref, alt pairs) into the alleles map.
-            vcf_records_to_alleles(records, alleles, flat_input_vcf);
+            vcf_records_to_alleles(records, alleles, phase_visits, flat_input_vcf);
             records.clear(); // clean up
         };
         
@@ -2518,6 +2639,8 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                         chunk_end = ref_end;
                     }
                     new_allele.position = pos;
+                    // Copy the modified allele over.
+                    // No need to deduplicate.
                     curr_pos.push_back(new_allele);
                 }
                 alleles.erase(alleles.begin());
