@@ -3446,8 +3446,9 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
 
             //divide_mapping
             // with the mapping divided, insert the pieces where the old one was
+            bool is_rev = m->position().is_reverse();
             auto mpit = paths.remove_mapping(m);
-            if(m->position().is_reverse()) {
+            if (is_rev) {
                 // insert left then right in the path, snce we're going through
                 // this node backward (insert puts *before* the iterator)
                 mpit = paths.insert_mapping(mpit, path_name, l);
