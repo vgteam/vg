@@ -69,6 +69,10 @@ namespace vg{
           int rangemax(vector<int> a, int i, int j);
 					void insert_exit(NodeTraversal n);
 					void insert_entrance( NodeTraversal n);
+          NodeTraversal head(deque<NodeTraversal> cands);
+          NodeTraversal tail(deque<NodeTraversal> cands);
+          NodeTraversal delete_tail(deque<NodeTraversal> cands);
+          
 
     };
 }

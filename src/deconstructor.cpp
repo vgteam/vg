@@ -32,7 +32,8 @@ namespace vg {
 	* Returns: a SuperBubble struct if one is found. An empty one if
 	* no superbubbles are found.
 	* Modifies global variables!
-	*
+	* Should probably have a matching report function which actually returns a bloody superbubble
+    * and tosses it in the global namespace.
 	*/
 	SuperBubble Deconstructor::report_superbubble(int start_ind, int end_ind){
 		// This seems iffy, check it.
@@ -41,8 +42,26 @@ namespace vg {
 		}
 		int s = previous_entrances[end_ind];
 		while (ord_D[s] >= ord_D[start_ind]){
-
+            NodeTraversal valid = validate_superbubble(s, end_ind);
+            if (s == valid || valid == alternative_entrances[s] || valid = -1){
+                break
+            }
+            alternative_entrance[s] = valid;
+            s = valid;
 		}
+        candidates.pop_back();
+        if (valid == s){
+        //TODO MAke a superbubble obj and toss it up!
+        report(SuperBubble sb);
+        //March back from end to s in candidates
+        //  if is_exit(candidates.back()){
+        //      report_superbubble(candidates[candidates.size() - 2, candidates.back());
+        //  }
+        //  else{
+        //      candidates.pop_back()
+        //  }
+        }
+
 
 	}
 
@@ -123,6 +142,31 @@ namespace vg {
 
 	}
 
+	/** Checks whether a vertex V satisifes Lemma 3,
+	* that v has one parent vertex.
+	*/
+	bool Deconstructor::is_exit(NodeTraversal v){
+		if (v.backward){
+			vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v.node);
+			return edges_end.size() <= 1;
+		}
+		else{
+			vector<pair<id_t, bool>>& edges_start = my_vg.edges_start(v.node);
+			return edges_start.size() <= 1;
+		}
+	}
+
+	bool Deconstructor::is_entrance(NodeTraversal v){
+		if (!v.backward){
+			vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v.node);
+			return edges_end.size() <= 1;
+		}
+		else{
+			vector<pair<id_t, bool>>& edges_start = my_vg.edges_start(v.node);
+			return edges_start.size() <= 1;
+		}
+	}
+
 	int Deconstructor::rangemin(vector<int> a, int i, int j){
 
 	}
@@ -131,4 +175,22 @@ namespace vg {
 
 	}
 
+	void Deconstructor::insert_exit(NodeTraversal n){
+
+	}
+	void Deconstructor::insert_entrance( NodeTraversal n){
+
+	}
+
+	NodeTraversal Deconstructor::head(deque<NodeTraversal> cands){
+
+	}
+
+	NodeTraversal Deconstructor::tail(deque<NodeTraversal> cands){
+
+	}
+
+	NodeTraversal Deconstructor::delete_tail(deque<NodeTraversal> cands){
+
+	}
 }
