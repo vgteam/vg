@@ -12,7 +12,14 @@ namespace vg {
 
 	}
 
-	Deconstructor::Deconstructor(VG v) : my_vg(v){
+	Deconstructor::Deconstructor(VG v) {
+		my_vg = v;;
+  	vector<SuperBubble> my_super_bubbles;
+		vector<int64_t> previous_entrances;
+		vector<int64_t> alt_entrances;
+		deque<int64_t> candidates;
+		deque<NodeTraversal> nodes_in_topo_order;
+		vector<int64_t> ord_ID;
 		init();
 	}
 
@@ -51,6 +58,8 @@ SuperBubble Deconstructor::report_superbubble(int64_t start, int64_t end){
 	// This seems iffy, check it.
 	if ((start == -1 || end == -1) || ord_ID[start] >= ord_ID[end]){
 		delete_tail(candidates);
+		SuperBubble sb;
+		return sb;
 	}
 	int64_t s = previous_entrances[end];
 	int64_t valid;
@@ -78,8 +87,8 @@ SuperBubble Deconstructor::report_superbubble(int64_t start, int64_t end){
 			}
 		}
 	}
-
-
+	SuperBubble sb;
+	return sb;
 }
 
 /**
@@ -108,7 +117,6 @@ vector<SuperBubble> Deconstructor::get_all_superbubbles(){
 			prev_entr = vert_id;
 		}
 	}
-
 	while(!candidates.empty()){
 		if (is_entrance( tail(candidates) )){
 			delete_tail( candidates );
@@ -166,30 +174,34 @@ vector<vcflib::Variant> Deconstructor::sb_to_variants(SuperBubble sb){
 */
 bool Deconstructor::is_exit(int64_t i){
 	Node v = vertex(i);
-	if (v.backward){
-		vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v.node);
-		return edges_end.size() <= 1;
-	}
-	else{
-		vector<pair<id_t, bool>>& edges_start = my_vg.edges_start(v.node);
-		return edges_start.size() <= 1;
-	}
+	//TODO: this needs to handle reversed nodes
+	// if (v.backward){
+	// 	vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v);
+	// 	return edges_end.size() <= 1;
+	// }
+	// else{
+	// 	vector<pair<id_t, bool>>& edges_start = my_vg.edges_start(v);
+	// 	return edges_start.size() <= 1;
+	// }
+	return my_vg.edges_end(&v).size() <= 1;
 }
 
 bool Deconstructor::is_entrance(int64_t i){
 
 	Node v = vertex(i);
-	if (!v.backward){
-		vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v.node);
-		return edges_end.size() <= 1;
-	}
-	else{
-		vector<pair<id_t, bool>>& edges_start = my_vg.edges_start(v.node);
-		return edges_start.size() <= 1;
-	}
+	//TODO: same as above method
+	// if (!v.backward){
+	// 	vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v);
+	// 	return edges_start.size() <= 1;
+	// }
+	// else{
+	// 	vector<pair<id_t, bool>>& edges_start = my_vg.edges_start(v);
+	// 	return edges_start.size() <= 1;
+	// }
+	return my_vg.edges_start(&v).size() <= 1;
 }
 
-int64_t Deconstructor::rangemin(deque<int64_t> a, int i, int j){
+int64_t Deconstructor::rangemin(vector<int64_t> a, int i, int j){
 	int64_t min = INT64_MAX;
 	for (int ind = i; ind < j; ind++){
 		if (a[ind] < min){
@@ -199,11 +211,11 @@ int64_t Deconstructor::rangemin(deque<int64_t> a, int i, int j){
 	return min;
 }
 
-int next(int n){
+int Deconstructor::next(int n){
 	return n + 1;
 }
 
-int64_t Deconstructor::rangemax(deque<int64_t> a, int i, int j){
+int64_t Deconstructor::rangemax(vector<int64_t> a, int i, int j){
 	int64_t max = -1;
 	for (int ind = i; ind < j; ind++){
 		if (max < a[ind]){
@@ -216,15 +228,15 @@ int64_t Deconstructor::rangemax(deque<int64_t> a, int i, int j){
 void Deconstructor::insert_exit(int64_t n){
 	candidates.push_back(n);
 }
-void Deconstructor::insert_entrance( int64_t n){
+void Deconstructor::insert_entrance(int64_t n){
 	candidates.push_back(n);
 }
 
-int Deconstructor::head(deque<int>& cands){
+int64_t Deconstructor::head(deque<int64_t>& cands){
 	return cands.front();
 }
 
-int Deconstructor::tail(deque<int64_t>& cands){
+int64_t Deconstructor::tail(deque<int64_t>& cands){
 	return cands.back();
 }
 
@@ -237,7 +249,7 @@ Node Deconstructor::vertex(int64_t i){
 }
 
 vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal> nt){
-	deque<int64_t> ret = vector<int64_t>(nt.size(), 0);
+	vector<int64_t> ret = vector<int64_t>(nt.size(), 0);
 	int count = 0;
 	for (auto n: nt){
 		ret[n.node->id()] = count;
