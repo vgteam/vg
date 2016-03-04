@@ -1032,17 +1032,21 @@ public:
     struct Plan {
         VG* graph;
         map<long, vector<vcflib::VariantAllele> > alleles;
+        map<pair<long, int>, vector<bool>> phase_visits;
         string seq;
         string name;
-        // Make a new plan, moving the alleles map into the plan.
-        Plan(VG* g,
-             map<long, vector<vcflib::VariantAllele> >&& a,
-             string s,
-             string n)
-            : graph(g)
-            , alleles(a)
-            , seq(s)
-            , name(n) { };
+        // Make a new plan, moving the alleles map and phase visit vector map
+        // into the plan.
+        Plan(VG* graph,
+             map<long, vector<vcflib::VariantAllele> >&& alleles,
+             map<pair<long, int>, vector<bool>>&& phase_visits,
+             string seq,
+             string name)
+            : graph(graph)
+            , alleles(std::move(alleles))
+            , phase_visits(std::move(phase_visits))
+            , seq(seq)
+            , name(name) { };
     };
 
 

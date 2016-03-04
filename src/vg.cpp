@@ -2642,6 +2642,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         while (invariant_graph || !alleles.empty()) {
             invariant_graph = false;
             map<long, vector<vcflib::VariantAllele> > new_alleles;
+            map<pair<long, int>, vector<bool>> new_phase_visits;
             // our start position is the "offset" we should subtract from the
             // alleles and the phase visits for correct construction
             //chunk_start = (!chunk_start ? 0 : alleles.begin()->first);
@@ -2653,7 +2654,12 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                 auto& pos_alleles = alleles.begin()->second;
                 // apply offset when adding to the new alleles
                 auto& curr_pos = new_alleles[pos];
-                for (auto& allele : pos_alleles) {
+                for (int j = 0; j < pos_alleles.size(); j++) {
+                    // Go through every allele that occurs at this position, and
+                    // update it to the offset position in new_alleles
+                    auto& allele = pos_alleles[j];
+                    
+                    // We'll clone and modify it.
                     auto new_allele = allele;
                     int ref_end = new_allele.ref.size() + new_allele.position;
                     // look through the alleles to see if there is a longer chunk
@@ -2664,6 +2670,23 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                     // Copy the modified allele over.
                     // No need to deduplicate.
                     curr_pos.push_back(new_allele);
+                    
+                    // Also handle any visits to this allele
+                    // We need the key, consisting of the old position and the allele number there.
+                    auto old_allele_key = make_pair(alleles.begin()->first, j);
+                    if(phase_visits.count(old_allele_key)) {
+                        // We have some usages of this allele. We need to move them over.
+                        
+                        // Make the new key
+                        auto new_allele_key = make_pair(pos, j);
+                        // Move over the value and insert into the new map. See <http://stackoverflow.com/a/14816487/402891>
+                        // TODO: would it be clearer with the braces instead?
+                        new_phase_visits.insert(make_pair(new_allele_key, std::move(phase_visits.at(old_allele_key))));
+                        
+                        // Now we've emptied out/made-undefined the old vector,
+                        // so we probably should drop it from the old map.
+                        phase_visits.erase(old_allele_key);
+                    }
                 }
                 alleles.erase(alleles.begin());
                 // TODO here we need to see if we are neighboring another variant
@@ -2681,6 +2704,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             // make a construction plan
             Plan* plan = new Plan(graphq.empty() && targets.size() == 1 ? this : new VG,
                                   std::move(new_alleles),
+                                  std::move(new_phase_visits),
                                   reference.getSubSequence(seq_name,
                                                            chunk_start,
                                                            chunk_end - chunk_start),
