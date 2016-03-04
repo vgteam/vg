@@ -5326,7 +5326,7 @@ int main_construct(int argc, char** argv) {
             // TODO: keep the reference paths and throw out the phasing paths.
             // We may need a way to get the reference path names, or some way to
             // distinguish inside the Paths class.
-            graph.paths.clear();
+            //graph.paths.clear();
         }
     }
 

@@ -1817,7 +1817,6 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
 
-#define debug
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
                                 map<pair<long, int>, vector<bool>>* phase_visits,
@@ -1971,7 +1970,6 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         }
     }
 }
-#undef debug
 
 void VG::slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
@@ -2063,7 +2061,6 @@ void VG::dice_nodes(int max_node_size) {
     paths.compact_ranks();
 }
 
-#define debug
 void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
                       string& seq,
@@ -2098,6 +2095,19 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     // store it as a map for now, and add it in in the real Paths structure
     // later.
     seq_node_ids[0] = seq_node->id();
+    
+    // TODO: dice nodes now so we can work only with small ref nodes?
+    // But what if we then had a divided middle node?
+    
+    // We can't reasonably track visits to the "previous" bunch of alleles
+    // because they may really overlap this bunch of alleles and not be properly
+    // previous, path-wise. We'll just assume all the phasings visit all the
+    // non-variable nodes, and then break things up later. TODO: won't this
+    // artificially merge paths if we have an unphased deletion or something?
+
+    // Where did the last variant end? If it's right before this one starts,
+    // there might not be an intervening node.
+    long last_variant_end = -1;
 
     for (auto& va : altp) {
 
@@ -2126,7 +2136,9 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         }
         
 
-        for (auto& allele : alleles) {
+        for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
+            // Go through all the alleles with their numbers
+            auto& allele = alleles[allele_number];
             
             // 0/1 based conversion happens in offset
             long allele_start_pos = allele.position;
@@ -2230,6 +2242,56 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             }
 #endif
 
+            // How much intervening space is there between this set of alleles'
+            // start and the last one's end?
+            long intervening_space = allele.position - last_variant_end;
+            if(allele_number == 0 && !visits.empty() && left_seq_node && intervening_space > 0) {
+                // On the first pass through, if we are doing phasings, we make
+                // all of them visit the left node. We know the left node will
+                // be the same on subsequent passes for other alleles starting
+                // here, and we only want to make these left node visits once.
+                
+                // However, we can only do this if there actually is a node
+                // between the last set of alleles and here.
+                
+                // TODO: have an actual flag for whether we're doing phasings;
+                // what if we just don't happen to have any visits in here for
+                // some reason?
+                
+                // TODO: how should we know how many phasings there are?
+                
+                // TODO: what if some of these phasings aren't actually phased
+                // here? We'll need to break up their paths to just have some
+                // ref matching paths between variants where they aren't
+                // phased...
+                
+                size_t num_phases = (*visits.begin()).second.size();
+                for(size_t i = 0; i < num_phases; i++) {
+                    // Everything uses this node to our left, which won't be
+                    // broken again.
+                    paths.append_mapping("_phase" + to_string(i), left_seq_node->id());
+                }
+                
+            }
+
+            if(alt_node && visits.count(make_pair(va.first, allele_number))) {
+                // At least one phased path visits this allele, and we have a
+                // node to path it through.
+                
+                // Get the vector of bools for phat phasings visit
+                auto& visit_vector = visits.at(make_pair(va.first, allele_number));
+                
+                for(size_t i = 0; i < visit_vector.size(); i++) {
+                    // For each phasing
+                    if(visit_vector[i]) {
+                        // If we visited this allele, say we did. TODO: use a
+                        // nice rank/select thing here to make this not have to
+                        // be a huge loop.
+                        paths.append_mapping("_phase" + to_string(i), alt_node->id());
+                    }
+                }
+            }
+            
             if (allele_end_pos == seq.size()) {
                 // ensures that we can handle variation at last position (important when aligning)
                 Node* end = create_node("");
@@ -2294,10 +2356,28 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         while (!nodes_by_start_position.empty() && nodes_by_start_position.begin()->first < va.first) {
             nodes_by_start_position.erase(nodes_by_start_position.begin()->first);
         }
+        
+        // Now we just have to update where our end was, so the next group of
+        // alleles knows if there was any intervening sequence.
+        // The (past the) end position is equal to the number of bases not yet used.
+        last_variant_end = seq.size() - get_node((*seq_node_ids.rbegin()).second)->sequence().size();
 
     }
+    
+    // Now we're done breaking nodes. This means the node holding the end of the
+    // reference sequence can finally be given its mappings for phasings, if
+    // applicable.
+    if(!visits.empty()) {
+        // What's the last node on the reference path?
+        auto last_node_id = (*seq_node_ids.rbegin()).second;
+        size_t num_phases = (*visits.begin()).second.size();
+        for(size_t i = 0; i < num_phases; i++) {
+            // Everything visits this last reference node
+            paths.append_mapping("_phase" + to_string(i), last_node_id);
+        }
+    }
 
-    // serialize path
+    // Put the mapping to the primary path in the graph
     for (auto& p : seq_node_ids) {
         paths.append_mapping(name, p.second);
     }
@@ -2308,7 +2388,6 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     compact_ids();
 
 }
-#undef debug
 
 void VG::from_gfa(istream& in, bool showp) {
     // c++... split...
