@@ -1031,18 +1031,18 @@ public:
     // for managing parallel construction
     struct Plan {
         VG* graph;
-        map<long, vector<vcflib::VariantAllele> >* alleles;
+        map<long, vector<vcflib::VariantAllele> > alleles;
         string seq;
         string name;
+        // Make a new plan, moving the alleles map into the plan.
         Plan(VG* g,
-             map<long, vector<vcflib::VariantAllele> >* a,
+             map<long, vector<vcflib::VariantAllele> >&& a,
              string s,
              string n)
             : graph(g)
             , alleles(a)
             , seq(s)
             , name(n) { };
-        ~Plan(void) { delete alleles; }
     };
 
 

@@ -2640,7 +2640,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         bool invariant_graph = alleles.empty();
         while (invariant_graph || !alleles.empty()) {
             invariant_graph = false;
-            auto* new_alleles = new map<long, vector<vcflib::VariantAllele> >;
+            map<long, vector<vcflib::VariantAllele> > new_alleles;
             // our start position is the "offset" we should subtract from the alleles
             // for correct construction
             //chunk_start = (!chunk_start ? 0 : alleles.begin()->first);
@@ -2651,7 +2651,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                 chunk_end = max(chunk_end, (int)alleles.begin()->first);
                 auto& pos_alleles = alleles.begin()->second;
                 // apply offset when adding to the new alleles
-                auto& curr_pos = (*new_alleles)[pos];
+                auto& curr_pos = new_alleles[pos];
                 for (auto& allele : pos_alleles) {
                     auto new_allele = allele;
                     int ref_end = new_allele.ref.size() + new_allele.position;
@@ -2679,7 +2679,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             // we set the head graph to be this one, so we aren't obligated to copy the result into this object
             // make a construction plan
             Plan* plan = new Plan(graphq.empty() && targets.size() == 1 ? this : new VG,
-                                  new_alleles,
+                                  std::move(new_alleles),
                                   reference.getSubSequence(seq_name,
                                                            chunk_start,
                                                            chunk_end - chunk_start),
@@ -2760,11 +2760,11 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 #ifdef debug
 #pragma omp critical (cerr)
             cerr << tid << ": " << "constructing graph " << plan->graph << " over "
-                 << plan->alleles->size() << " variants in " <<plan->seq.size() << "bp "
+                 << plan->alleles.size() << " variants in " <<plan->seq.size() << "bp "
                  << plan->name << endl;
 #endif
 
-            plan->graph->from_alleles(*plan->alleles,
+            plan->graph->from_alleles(plan->alleles,
                                       plan->seq,
                                       plan->name);
                                       
