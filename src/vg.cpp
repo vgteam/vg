@@ -1957,11 +1957,11 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     for(size_t j = 0; j < visits->size(); j++) {
                         // We need to toggle on all the phase sets that visited
                         // this alt as using this allele at this position.
-                        if(visits->at(i) && !(*phase_visits)[visited].at(i)) {
+                        if(visits->at(j) && !(*phase_visits)[visited].at(j)) {
                             // The bit needs to be set, because all the phases
                             // visiting this alt visit this allele that appears
                             // in it.
-                            (*phase_visits)[visited][i] = true;
+                            (*phase_visits)[visited][j] = true;
                         }
                         
                     }
