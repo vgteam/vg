@@ -2581,7 +2581,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         // (sample number * 2 + 1) for phase 1. The reference may not always get
         // an allele, but if anything is reference it will show up as an
         // overlapping allele elsewhere.
-        auto* phase_visits = load_phasing_paths ? new map<pair<long, int>, vector<bool>>() : nullptr;
+        map<pair<long, int>, vector<bool>> phase_visits;
         
         // We don't want to load all the vcf records into memory at once, since
         // the vcflib internal data structures are big compared to the info we
@@ -2594,7 +2594,8 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             
             // decompose records into alleles with offsets against our target sequence
             // Dump the collections of alleles (which are ref, alt pairs) into the alleles map.
-            vcf_records_to_alleles(records, alleles, phase_visits, flat_input_vcf);
+            // Populate the phase visit map if we're loading phasing paths
+            vcf_records_to_alleles(records, alleles, load_phasing_paths ? &phase_visits : nullptr, flat_input_vcf);
             records.clear(); // clean up
         };
         
@@ -2641,8 +2642,8 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         while (invariant_graph || !alleles.empty()) {
             invariant_graph = false;
             map<long, vector<vcflib::VariantAllele> > new_alleles;
-            // our start position is the "offset" we should subtract from the alleles
-            // for correct construction
+            // our start position is the "offset" we should subtract from the
+            // alleles and the phase visits for correct construction
             //chunk_start = (!chunk_start ? 0 : alleles.begin()->first);
             int chunk_end = chunk_start;
             bool clean_end = true;
