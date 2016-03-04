@@ -1817,6 +1817,7 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
 
+#define debug
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
                                 map<pair<long, int>, vector<bool>>* phase_visits,
@@ -1846,7 +1847,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                 // allele in one or both phase sets.
                 
                 // Grab the genotypes
-                string genotype = var.getGenotype(sample_names[i]);
+                string genotype = var.getGenotype(sample_names[j]);
                 
                 // Find the phasing bar
                 auto bar_pos = genotype.find('|');
@@ -1884,16 +1885,35 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
             // (which may be the ref alt).
             vector<bool>* visits = nullptr;
             
+#ifdef debug
+            cerr << "Considering alt " << alleles.first << " at " << var.position << endl;
+            cerr << var << endl;
+#endif
+            
             if(phase_visits != nullptr) {
                 // We actually have visits to look for
                 
                 // We need to copy out the alt sequence to appease the vcflib API
                 string alt_sequence = alleles.first;
                 
-                if(alt_usages.count(var.getAltAlleleIndex(alt_sequence))) {
+                // What alt number are we looking at (0 for ref)
+                int alt_number;
+                if(alt_sequence == var.ref) {
+                    // This is the ref allele
+                    alt_number = 0;
+                } else {
+                    // This is an alternate allele
+                    alt_number = var.getAltAlleleIndex(alt_sequence) + 1;
+                }
+                
+#ifdef debug
+                cerr << "Alt is number " << alt_number << endl;
+#endif
+                
+                if(alt_usages.count(alt_number)) {
                     // Something did indeed visit. Point the pointer at the
                     // vector describing what visited.
-                    visits = &alt_usages[var.getAltAlleleIndex(alt_sequence)];
+                    visits = &alt_usages[alt_number];
                 }
             }
         
@@ -1907,7 +1927,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                 // adding and suffer being n^2 in vcf alts per variant. We
                 // should use some kind of addition-ordered set.
                 int found_at = -1;
-                for(int j = 0; j < altp.size(); j++) {
+                for(int j = 0; j < altp[allele.position].size(); j++) {
                     if(altp[allele.position][j].ref == allele.ref && altp[allele.position][j].alt == allele.alt) {
                         // TODO: no equality for VariantAlleles for some reason.
                         // We already have it at this index
@@ -1951,6 +1971,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         }
     }
 }
+#undef debug
 
 void VG::slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
