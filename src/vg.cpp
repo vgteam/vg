@@ -2063,7 +2063,9 @@ void VG::dice_nodes(int max_node_size) {
     paths.compact_ranks();
 }
 
+#define debug
 void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
+                      const map<pair<long, int>, vector<bool>>& visits,
                       string& seq,
                       string& name) {
 
@@ -2076,6 +2078,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     {
         cerr << tid << ": in from_alleles" << endl;
         cerr << tid << ": with " << altp.size() << " vars" << endl;
+        cerr << tid << ": and " << visits.size() << " visit records" << endl;
         cerr << tid << ": and " << seq.size() << "bp" << endl;
         cerr << seq << endl;
     }
@@ -2091,30 +2094,40 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
 
 
     Node* seq_node = create_node(seq);
+    // This path represents the primary path in this region of the graph. We
+    // store it as a map for now, and add it in in the real Paths structure
+    // later.
     seq_node_ids[0] = seq_node->id();
 
     for (auto& va : altp) {
 
         const vector<vcflib::VariantAllele>& alleles = va.second;
 
-        // if alleles are empty, we just cut at this point
+        // if alleles are empty, we just cut at this point. TODO: this should
+        // never happen with the node size enforcement refactoring.
         if (alleles.empty()) {
             Node* l = NULL; Node* r = NULL;
             divide_path(seq_node_ids, va.first, l, r);
         }
-
-        for (auto allele : alleles) {
-
-            // skip ref-matching alleles; these are not informative
-            if (allele.ref == allele.alt) {
-                continue;
+        
+        
+        // If all the alleles here are perfect reference matches, we'll have
+        // nothing to do.
+        bool all_perfect_matches = true;
+        for(auto& allele : alleles) {
+            if(allele.ref != allele.alt) {
+                all_perfect_matches = false;
+                break;
             }
+        }
+        if(all_perfect_matches) {
+            // No need to break anything here.
+            continue;
+        }
+        
 
-#ifdef debug
-#pragma omp critical (cerr)
-            cerr << tid << ": " << allele << endl;
-#endif
-
+        for (auto& allele : alleles) {
+            
             // 0/1 based conversion happens in offset
             long allele_start_pos = allele.position;
             long allele_end_pos = allele_start_pos + allele.ref.size();
@@ -2130,34 +2143,56 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 nodes_by_start_position[-1].insert(root);
                 nodes_by_end_position[0].insert(root);
             }
+            
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                cerr << "Handling variant at " << allele_start_pos << " allele " << allele.ref << " -> " << allele.alt << endl;
+            }
+#endif
 
             Node* left_seq_node = NULL;
             Node* middle_seq_node = NULL;
             Node* right_seq_node = NULL;
 
-            // make one cut at the ref-path relative start of the allele
+            // make one cut at the ref-path relative start of the allele, if it
+            // hasn't been cut there already. Grab the nodes on either side of
+            // that cut.
             divide_path(seq_node_ids,
                         allele_start_pos,
                         left_seq_node,
                         right_seq_node);
-
-            // if the ref portion of the allele is not empty, then we need to make another cut
+                        
+            // if the ref portion of the allele is not empty, then we may need
+            // to make another cut. If so, we'll have a non-NULL
+            // middle_seq_node.
             if (!allele.ref.empty()) {
                 divide_path(seq_node_ids,
                             allele_end_pos,
                             middle_seq_node,
                             right_seq_node);
             }
-
+            
             Node* alt_node = NULL;
             // create a new alt node and connect the pieces from before
             if (!allele.alt.empty() && !allele.ref.empty()) {
                 //cerr << "both alt and ref have sequence" << endl;
 
-                alt_node = create_node(allele.alt);
-                create_edge(left_seq_node, alt_node);
-                create_edge(alt_node, right_seq_node);
+                if (allele.ref == allele.alt) {
+                    // We don't really need to make a new node, just use the
+                    // existing one. We still needed to cut here, though, because we
+                    // can't have only a ref-matching allele at a place with
+                    // alleles; there must be some other different alleles here.
+                    alt_node = middle_seq_node;
+                } else {
+                    // We need a new node for this sequence
+                    alt_node = create_node(allele.alt);
+                    create_edge(left_seq_node, alt_node);
+                    create_edge(alt_node, right_seq_node);
+                }
 
+                // Stick both pointers (which may be the same) in the sets for
+                // indexing by start and end reference position.
                 nodes_by_end_position[allele_end_pos].insert(alt_node);
                 nodes_by_end_position[allele_end_pos].insert(middle_seq_node);
                 //nodes_by_end_position[allele_start_pos].insert(left_seq_node);
@@ -2173,14 +2208,14 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 nodes_by_end_position[allele_end_pos].insert(left_seq_node);
                 nodes_by_start_position[allele_start_pos].insert(alt_node);
 
-            } else {// otherwise, we have a deletion
+            } else {// otherwise, we have a deletion, or the empty reference alt of an insertion.
 
                 create_edge(left_seq_node, right_seq_node);
                 nodes_by_end_position[allele_end_pos].insert(left_seq_node);
                 nodes_by_start_position[allele_start_pos].insert(left_seq_node);
 
             }
-
+            
 #ifdef debug
 #pragma omp critical (cerr)
             {
@@ -2221,6 +2256,8 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
 
         }
 
+        // Now we need to connect up all the extra deges between variant alleles
+        // that abut each other.
         map<long, set<Node*> >::iterator ep
             = nodes_by_end_position.find(va.first);
         map<long, set<Node*> >::iterator sp
@@ -2271,6 +2308,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     compact_ids();
 
 }
+#undef debug
 
 void VG::from_gfa(istream& in, bool showp) {
     // c++... split...
@@ -2790,6 +2828,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 #endif
 
             plan->graph->from_alleles(plan->alleles,
+                                      plan->phase_visits,
                                       plan->seq,
                                       plan->name);
                                       
