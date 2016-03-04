@@ -5132,7 +5132,7 @@ int main_paths(int argc, char** argv) {
 				}
 
 				void help_deconstruct(char** argv){
-					cerr << "usage: " << argv[0] << " deconstruct [options] -x <my_graph_index>.xg <my_graph>.vg" << endl
+					cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
 					<< "options: " << endl
 					<< endl;
 				}
@@ -5167,7 +5167,7 @@ int main_paths(int argc, char** argv) {
 						{
 							case '?':
 							case 'h':
-							help_vectorize(argv);
+							help_deconstruct(argv);
 							return 1;
 							default:
 							abort();

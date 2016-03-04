@@ -82,7 +82,7 @@ namespace vg{
           int64_t tail(deque<int64_t>& cands);
           void delete_tail(deque<int64_t>& cands);
 					Node vertex(int64_t i);
-					vector<int64_t> nt_to_ids(deque<NodeTraversal> nt);
+					vector<int64_t> nt_to_ids(deque<NodeTraversal>& nt);
 					void init();
 
     };

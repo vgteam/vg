@@ -29,6 +29,7 @@ namespace vg {
 	void Deconstructor::init(){
 		my_vg.topological_sort(nodes_in_topo_order);
 		ord_ID = nt_to_ids(nodes_in_topo_order);
+
 		previous_entrances = vector<int64_t> (ord_ID.size(), -1);
 		alt_entrances = vector<int64_t> (ord_ID.size(), -1);
 	}
@@ -55,6 +56,7 @@ namespace vg {
 * and tosses it in the global namespace.
 */
 SuperBubble Deconstructor::report_superbubble(int64_t start, int64_t end){
+	cerr << "Report called" << endl;
 	// This seems iffy, check it.
 	if ((start == -1 || end == -1) || ord_ID[start] >= ord_ID[end]){
 		delete_tail(candidates);
@@ -106,7 +108,7 @@ vector<SuperBubble> Deconstructor::get_all_superbubbles(){
 	int prev_entr = -1;
 
 	for (int ind = 0; ind < nodes_in_topo_order.size(); ind++){
-		int64_t vert_id = nodes_in_topo_order[ind].node->id();
+		int64_t vert_id = (nodes_in_topo_order[ind].node->id() - 1);
 		alt_entrances[vert_id] = -1;
 		previous_entrances[vert_id] = prev_entr;
 		if (is_exit(vert_id)){
@@ -173,7 +175,7 @@ vector<vcflib::Variant> Deconstructor::sb_to_variants(SuperBubble sb){
 * that v has one parent vertex.
 */
 bool Deconstructor::is_exit(int64_t i){
-	Node v = vertex(i);
+	Node v = vertex(i + 1);
 	//TODO: this needs to handle reversed nodes
 	// if (v.backward){
 	// 	vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v);
@@ -188,7 +190,7 @@ bool Deconstructor::is_exit(int64_t i){
 
 bool Deconstructor::is_entrance(int64_t i){
 
-	Node v = vertex(i);
+	Node v = vertex(i + 1);
 	//TODO: same as above method
 	// if (!v.backward){
 	// 	vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v);
@@ -248,13 +250,14 @@ Node Deconstructor::vertex(int64_t i){
 	return *(my_vg.get_node(i));
 }
 
-vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal> nt){
+vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal>& nt){
 	vector<int64_t> ret = vector<int64_t>(nt.size(), 0);
-	int count = 0;
+	int64_t count = 0;
 	for (auto n: nt){
-		ret[n.node->id()] = count;
+		ret[(n.node->id() - 1)] = count;
 		count++;
 	}
+
 	return ret;
 }
 
