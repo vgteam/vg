@@ -138,6 +138,12 @@ T normal_pdf(T x, T m, T s)
     return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
 }
 
+// Emit a stack trace when something bad happens.
+void emit_stacktrace();
+
+// This is an internal function used by the above.
+string demangle_frame(string mangled);
+
 template<typename T, typename V>
 set<T> map_keys_to_set(const map<T, V>& m) {
     set<T> r;

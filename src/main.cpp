@@ -2,11 +2,13 @@
 #include <fstream>
 #include <ctime>
 #include <cstdio>
+#include <csignal>
 #include <getopt.h>
 #include <sys/stat.h>
 
 #include "google/protobuf/stubs/common.h"
 #include "version.hpp"
+#include "utility.hpp"
 
 // New subcommand system provides all the subcommands that used to live here
 #include "subcommand/subcommand.hpp"
@@ -37,6 +39,16 @@ void vg_help(char** argv) {
 
 int main(int argc, char *argv[])
 {
+
+    // Set up stack trace support
+    signal(SIGSEGV, [](int signalNumber) {
+        emit_stacktrace();
+    });
+    // We don't set_terminate because we still want the standard library's
+    // message about what the exception was.
+    signal(SIGABRT, [](int signalNumber) {
+        emit_stacktrace();
+    });
 
     // set a higher value for tcmalloc warnings
     setenv("TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD", "1000000000000000", 1);
