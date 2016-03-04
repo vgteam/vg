@@ -19,6 +19,11 @@ namespace vg {
 	Deconstructor::~Deconstructor(){
 	}
 
+	void Deconstructor::report(SuperBubble sb){
+		my_super_bubbles.push_back(sb);
+		cout << sb.start_node << "\t" << sb.end_node << endl;
+	}
+
 	/**
 	Use a basic BFS to find nodes on path
 	deconstruct(path p){
@@ -37,29 +42,33 @@ namespace vg {
 	*/
 	SuperBubble Deconstructor::report_superbubble(int start_ind, int end_ind){
 		// This seems iffy, check it.
-		if (start_ind == -1 || end_ind == -1 || start_ind >= end_ind){
-			candidates.pop_back();
+		if ((start_ind == -1 || end_ind == -1) || start_ind >= end_ind){
+			delete_tail(candidates);
 		}
 		int s = previous_entrances[end_ind];
 		while (ord_D[s] >= ord_D[start_ind]){
             NodeTraversal valid = validate_superbubble(s, end_ind);
+						//TODO check this
             if (s == valid || valid == alternative_entrances[s] || valid = -1){
-                break
+                break;
             }
             alternative_entrance[s] = valid;
             s = valid;
 		}
-        candidates.pop_back();
+        delete_tail(candidates);
         if (valid == s){
         //TODO MAke a superbubble obj and toss it up!
+				SuperBubble sb;
         report(SuperBubble sb);
         //March back from end to s in candidates
-        //  if is_exit(candidates.back()){
-        //      report_superbubble(candidates[candidates.size() - 2, candidates.back());
-        //  }
-        //  else{
-        //      candidates.pop_back()
-        //  }
+        while (tail(candidates) != s){
+					if(is_exit(tail(candidates))){
+						report_superbubble(next(s), tail(candidates));
+					}
+					else{
+						delete_tail(candidates);
+					}
+				}
         }
 
 
@@ -72,31 +81,36 @@ namespace vg {
 	* Makes a SuperBubble struct if one is found, and appends it to a vector which
 	* is returned. If none are found, the returned vector is empty.
 	* Modifies global variables!
+	* TODO need to call unroll/unfold/dagify first
+	* TODO should really use more pointers.
 	*/
 	vector<SuperBubble> Deconstructor::get_all_superbubbles(VG v){
 		vector<SuperBubble> ret;
 		//deque<NodeTraversal> ord_D;
 		v.topological_sort(ord_D);
 		NodeTraversal n;
-		const int size =  ord_D.size();
+		NodeTraversal nully;
+		int prev_entr;
 
-		NodeTraversal prev_entr;
 		for (int i = ord_D.size(); i >= 0; --i){
-			alt_entrances[i] = nullptr;
+			alt_entrances[i] = nully;
 			previous_entrances[i] = prev_entr;
 			if (is_exit(ord_D[i])){
 				insert_exit(ord_D[i]);
 			}
 			if (is_entrance(ord_D[i])){
 				insert_entrance(ord_D[i]);
+				prev_entr = i;
 			}
 		}
 
-		while(candidates.size() != 0){
-			if (is_entrance(candidates.back())){
-				candidates.pop_back();
+		while(!candidates.empty()){
+			if (is_entrance( tail(candidates) )){
+				delete_tail( candidates );
 			}
 			else{
+				// Could use pointers, but we use indices instead.
+				// Perhaps wiser to use iterators?? TODO
 				report_superbubble(0, candidates.size() - 1);
 			}
 		}
@@ -112,21 +126,21 @@ namespace vg {
 	* Modifies global variables!
 	*/
 	int Deconstructor::validate_super_bubble(int start, int end){
-			NodeTraversal s = ord_D[start];
-			NodeTraversal e = ord_D[end];
-			NodeTraversal outchild = rangemax(oc, start, end-1);
-			NodeTraversal outparent = rangemin(op, start+1, end);
-			if (outchild != e){
+			//NodeTraversal s = ord_D[start];
+			//NodeTraversal e = ord_D[end];
+			int ochild = rangemax(oc, start, end-1);
+			int oparent = rangemin(op, start+1, end);
+			if (outchild != end){
 				return -1;
 			}
-			if (outparent == start){
+			if (oparent == start){
 				return start;
 			}
-			else if (is_entrance(outparent)){
-				op;
+			else if (is_entrance(oparent)){
+				return oparent;
 			}
 			else{
-				return prev_entr[op];
+				return previous_entrances[oparent];
 			}
 	}
 
@@ -176,21 +190,21 @@ namespace vg {
 	}
 
 	void Deconstructor::insert_exit(NodeTraversal n){
-
+		candidates.push_back(n);
 	}
 	void Deconstructor::insert_entrance( NodeTraversal n){
-
+		candidates.push_back(n);
 	}
 
 	NodeTraversal Deconstructor::head(deque<NodeTraversal> cands){
-
+		return cands.front();
 	}
 
 	NodeTraversal Deconstructor::tail(deque<NodeTraversal> cands){
-
+		return cands.back();
 	}
 
 	NodeTraversal Deconstructor::delete_tail(deque<NodeTraversal> cands){
-
+		return cands.pop_back()
 	}
 }
