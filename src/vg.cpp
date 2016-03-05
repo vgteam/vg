@@ -5727,22 +5727,49 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
             out << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
         }
     }
-    function<void(const Path&)> lambda = [&out, &precompress]
+    function<void(const string&)> url_encode = [&out] 
+        (const string& value) {
+        out.fill('0');
+        for (string::const_iterator i = value.begin(), n = value.end(); i != n; ++i) {
+            string::value_type c = (*i);
+
+            // Keep alphanumeric and other accepted characters intact
+            if (c >= 0 && (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')) {
+                out << c;
+                continue;
+            }
+            // Any other characters are percent-encoded
+            out << uppercase;
+            out << hex;
+            out << '%' << setw(2) << int((unsigned char) c);
+            out << dec;
+            out << nouppercase;
+       }
+    };
+    function<void(const Path&)> lambda = [&out, &precompress, &url_encode]
         (const Path& path) {
             uint64_t offset=0; //We could have more than 2gigabases in a path
             for (auto &m : path.mapping()) {
                 string orientation = m.position().is_reverse() ? "<reverseOfNode>" : "<node>";
                 if (precompress) {
-                	out << "s:" << path.name() << "-" << m.rank() << " <rank> " << m.rank() << " ; " ;
+                	out << "s:";
+                    url_encode(path.name());
+                    out << "-" << m.rank() << " <rank> " << m.rank() << " ; " ;
                 	out << orientation <<" :" << m.position().node_id() << " ;";
-                    out << " <path> p:" << path.name() << " ; ";
+                    out << " <path> p:";
+                    url_encode(path.name());
+                    out << " ; ";
                     out << " <position> "<< offset<<" . ";
                 } else {
-                    out << "step:" << path.name() << "-" << m.rank() << " <position> "<< offset<<" ; " << endl;
+                    out << "step:";
+                    url_encode(path.name());
+                    out << "-" << m.rank() << " <position> "<< offset<<" ; " << endl;
                 	out << " a <Step> ;" << endl ;
                 	out << " <rank> " << m.rank() << " ; "  << endl ;
                 	out << " " << orientation <<" node:" << m.position().node_id() << " ; " << endl;
-                	out << " <path> path:" << path.name() << " . " << endl;
+                	out << " <path> path:";
+                    url_encode(path.name());
+                    out  << " . " << endl;
                 }
 		        offset += mapping_to_length(m);
             }
@@ -5781,8 +5808,9 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
     }
     if(precompress) {
         out << " .";
-    }       
+    }
 }
+
 void VG::destroy_alignable_graph(void) {
     if (gssw_aligner != NULL) {
         delete gssw_aligner;
