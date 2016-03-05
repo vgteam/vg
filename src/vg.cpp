@@ -2061,6 +2061,7 @@ void VG::dice_nodes(int max_node_size) {
     paths.compact_ranks();
 }
 
+#define debug
 void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
                       string& seq,
@@ -2337,11 +2338,11 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         && !(previous_nodes.count(*n) && current_nodes.count(*n)
                              && previous_nodes.count(*m) && current_nodes.count(*m))
                         ) {
-                        /*
+#ifdef deubg
                         cerr << "connecting previous "
                              << (*n)->id() << " @end=" << ep->first << " to current "
                              << (*m)->id() << " @start=" << sp->first << endl;
-                        */
+#endif
                         create_edge(*n, *m);
                     }
                 }
@@ -2388,6 +2389,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     compact_ids();
 
 }
+#undef debug
 
 void VG::from_gfa(istream& in, bool showp) {
     // c++... split...
