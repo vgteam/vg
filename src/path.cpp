@@ -371,10 +371,10 @@ void Paths::remove_node(id_t id) {
 }
 
 list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
-    if (mapping_path.find(m) == mapping_path.end()) cerr << "no mapping" << endl;
     const string& path_name = mapping_path[m];
     id_t id = m->position().node_id();
     auto& x = _paths[path_name];
+    // could this get messy?
     list<Mapping>::iterator p = _paths[path_name].erase(mapping_itr[m]);
     if (has_node_mapping(id)) {
         auto& node_path_mapping = get_node_mapping(id);
@@ -389,6 +389,7 @@ list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
 
 list<Mapping>::iterator Paths::insert_mapping(list<Mapping>::iterator w, const string& path_name, const Mapping& m) {
     auto px = _paths.find(path_name);
+    assert(px != _paths.end());
     list<Mapping>& path = px->second;
     list<Mapping>::iterator p;
     if (path.empty()) {

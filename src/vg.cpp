@@ -715,7 +715,7 @@ void VG::simplify_to_siblings(const set<set<NodeTraversal>>& to_sibs) {
                     o->mutable_position()->set_offset(0);
                     auto n = mpts.second;
                     n->mutable_position()->set_offset(0);
-                    paths.reassign_node(new_node->id(), (!m->position().is_reverse()?n:m));
+                    paths.reassign_node(new_node->id(), n);
                     // note that the other part now maps to the correct (old) node
                 }
             }
@@ -814,7 +814,6 @@ void VG::simplify_from_siblings(const set<set<NodeTraversal>>& from_sibs) {
                     paths.reassign_node(new_node->id(), o);
                     auto n = mpts.second;
                     n->mutable_position()->set_offset(0);
-
                     // note that the other part now maps to the correct (old) node
                 }
             }
