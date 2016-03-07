@@ -628,7 +628,7 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
         // if we've defined a kmer size, use the legacy style mapper
         return align_multi_kmers(aln, kmer_size, stride, band_width);
     } else {
-        // otherwise use the mem mapper, which is a multi mapper by default
+        // otherwise use the mem mapper, which is a banded multi mapper by default
         return align_mem(aln);
     }
 }
@@ -883,6 +883,129 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
     return s.str();
 }
 
+// these MEM walking functions are all rather inefficient
+// for instance, we are getting the node each time; not good
+// but my goal is to get them working before optimizing and this is clearer
+
+// get the character at the given position in the graph
+char Mapper::pos_char(pos_t pos) {
+    Node node = xindex->node(id(pos)); // could we pass this in optionally to avoid reconstructing it?
+    //cerr << "getting " << pos << " in " << pb2json(node) << endl;
+    if (!is_rev(pos)) {
+        return node.sequence().at(offset(pos));
+    } else {
+        return reverse_complement(node.sequence()).at(offset(pos));
+    }
+}
+
+map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
+    map<pos_t, char> nexts;
+    Node node = xindex->node(id(pos));
+    // if we are still in the node, return the next position and character
+    if (offset(pos) < node.sequence().size()-1) {
+        ++get_offset(pos);
+        nexts[pos] = pos_char(pos);
+    } else {
+        // look at the next positions we could reach
+        if (!is_rev(pos)) {
+            // we are on the forward strand, the next things from this node come off the end
+            for (auto& edge : xindex->edges_on_end(id(pos))) {
+                if (edge.from() == id(pos)) {
+                    pos_t p = make_pos_t(edge.to(), edge.to_end(), 0);
+                    nexts[p] = pos_char(p);
+                } else if (edge.from_start() && edge.to_end() && edge.to() == id(pos)) {
+                    // doubly inverted, should be normalized to forward but we handle here for safety
+                    pos_t p = make_pos_t(edge.from(), false, 0);
+                    nexts[p] = pos_char(p);
+                }
+            }
+        } else {
+            // we are on the reverse strand, the next things from this node come off the start
+            for (auto& edge : xindex->edges_on_start(id(pos))) {
+                if (edge.to() == id(pos)) {
+                    pos_t p = make_pos_t(edge.from(), !edge.from_start(), 0);
+                    nexts[p] = pos_char(p);
+                } else if (edge.from_start() && edge.to_end() && edge.from() == id(pos)) {
+                    // doubly inverted, should be normalized to forward but we handle here for safety
+                    pos_t p = make_pos_t(edge.to(), true, 0);
+                    nexts[p] = pos_char(p);
+                }
+            }
+        }
+    }
+    return nexts;
+}
+
+Alignment Mapper::walk_match(const string& seq, pos_t pos) {
+    // go to the position in the xg index
+    // and step in the direction given
+    // until we exhaust our sequence
+    // or hit another node
+    Alignment aln; aln.set_sequence(seq);
+    Path& path = *aln.mutable_path();
+    Mapping* mapping = path.add_mapping();
+    *mapping->mutable_position() = make_position(pos);
+    // get the first node we match
+    
+    size_t match_len = 0;
+    //cerr << "seq is " << seq << endl;
+    for (size_t i = 0; i < seq.size()-1; ++i) {
+        char c = seq[i];
+        //cerr << pos_char(pos) << " == " << c << endl;
+        auto nexts = next_pos_chars(pos);
+        assert(nexts.size());
+        if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
+            pos_t npos = nexts.begin()->first;
+            //cerr << pos_char(npos) << " vs " << seq[i+1] << " i+1= " << i+1 << endl;
+            assert(pos_char(npos) == seq[i+1]); // we must match
+            ++match_len;
+            ++get_offset(pos);
+        } else { //if (nexts.size() > 1 || id(nexts.begin()->first) != id(pos)) {
+            // we must be going into another node
+            // emit the mapping for this node
+            Edit* edit = mapping->add_edit();
+            edit->set_from_length(match_len);
+            edit->set_to_length(match_len);
+            // find the next node that matches our MEM
+            char n = seq[i+1];
+            bool found_next = false;
+            for (auto& p : nexts) {
+                //cerr << "next : " << p.first << " " << p.second << endl;
+                if (p.second == n) {
+                    pos = p.first;
+                    found_next = true;
+                    break;
+                }
+            }
+            assert(found_next);
+            // set up a new mapping
+            match_len = 0;
+            mapping = path.add_mapping();
+            *mapping->mutable_position() = make_position(pos);
+        }
+    }
+    // add the last edit
+    if (match_len) {
+        Edit* edit = mapping->add_edit();
+        edit->set_from_length(match_len);
+        edit->set_to_length(match_len);
+    }
+    return aln;
+}
+
+// convert one mem into a set of alignments, one for each exact match
+vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
+    vector<Alignment> alns;
+    const string seq = mem.sequence();
+    for (auto& node : mem.nodes) {
+        pos_t pos = make_pos_t(gcsa::Node::id(node),
+                               gcsa::Node::rc(node),
+                               gcsa::Node::offset(node));
+        alns.emplace_back(walk_match(seq, pos));
+    }
+    return alns;
+}
+
 vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
     if (debug) cerr << "aligning " << pb2json(alignment) << endl;
@@ -916,6 +1039,18 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     }
     if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
 
+    /*
+    cerr << "looking at mems to alignments" << endl;
+    for (auto& mem : mems) {
+        auto alns = mem_to_alignments(mem);
+        cerr << "mem : " << mem.sequence() << endl;
+        for (auto& aln : alns) {
+            cerr << pb2json(aln) << endl;
+        }
+        cerr << "-------------------" << endl;
+    }
+    */
+
     //map<MaximalExactMatch*, set<id_t> > mem_ids;
     set<id_t> ids;
     struct StrandCounts {
@@ -925,8 +1060,8 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     // we will use these to determine the alignment strand for each subgraph
     map<id_t, StrandCounts> node_strands;
 
-    // run through the mems, tabulating positional informationd
-    // and using the reverse complement of the mem to find the mem endpoint
+    // run through the mems, generating a set of alignments for each
+    
     for (auto& mem : mems) {
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {

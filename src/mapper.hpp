@@ -137,6 +137,14 @@ public:
     vector<Alignment> align_mem(const Alignment& alignment);
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
+    // use the xg index to get a character at a particular position (rc or foward)
+    char pos_char(pos_t pos);
+    // the next positions and their characters following the same strand of the graph
+    map<pos_t, char> next_pos_chars(pos_t pos);
+    // convert a single MEM hit into an alignment (by definition, a perfect one)
+    Alignment walk_match(const string& seq, pos_t pos);
+    // convert the set of hits of a MEM into a set of alignments
+    vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
     
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
