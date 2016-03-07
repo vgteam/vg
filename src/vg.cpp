@@ -2135,10 +2135,21 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             continue;
         }
         
+        // Is this allele the first one processed? Because the first one
+        // processed gets to handle adding mappings to the intervening sequence
+        // from the previous allele to here.
+        bool first_allele_processed = true;
 
         for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
             // Go through all the alleles with their numbers
             auto& allele = alleles[allele_number];
+            
+            if(allele.ref == allele.alt && !visits.count(make_pair(va.first, allele_number))) {
+                // This is a ref-only allele with no visits, which means we
+                // don't actually need any cuts if the allele is not visited. If
+                // other alleles here are visited, we'll get cuts from them.
+                continue;
+            }
             
             // 0/1 based conversion happens in offset
             long allele_start_pos = allele.position;
@@ -2293,7 +2304,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             // How much intervening space is there between this set of alleles'
             // start and the last one's end?
             long intervening_space = allele.position - last_variant_end;
-            if(allele_number == 0 && !visits.empty() && left_seq_node && intervening_space > 0) {
+            if(first_allele_processed && !visits.empty() && left_seq_node && intervening_space > 0) {
                 // On the first pass through, if we are doing phasings, we make
                 // all of them visit the left node. We know the left node will
                 // be the same on subsequent passes for other alleles starting
@@ -2320,8 +2331,9 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                     paths.append_mapping("_phase" + to_string(i), left_seq_node->id());
                 }
                 
+                // The next allele won't be the first one actually processed.
+                first_allele_processed = false;
             }
-
             if(alt_nodes.size() > 0 && visits.count(make_pair(va.first, allele_number))) {
                 // At least one phased path visits this allele, and we have some
                 // nodes to path it through.
