@@ -2063,6 +2063,7 @@ void VG::dice_nodes(int max_node_size) {
 
 void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
+                      size_t num_phasings,
                       string& seq,
                       string& name) {
 
@@ -2075,6 +2076,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     {
         cerr << tid << ": in from_alleles" << endl;
         cerr << tid << ": with " << altp.size() << " vars" << endl;
+        cerr << tid << ": and " << num_phasings << " phasings" << endl;
         cerr << tid << ": and " << visits.size() << " visit records" << endl;
         cerr << tid << ": and " << seq.size() << "bp" << endl;
         cerr << seq << endl;
@@ -2304,7 +2306,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             // How much intervening space is there between this set of alleles'
             // start and the last one's end?
             long intervening_space = allele.position - last_variant_end;
-            if(first_allele_processed && !visits.empty() && left_seq_node && intervening_space > 0) {
+            if(first_allele_processed && num_phasings > 0 && left_seq_node && intervening_space > 0) {
                 // On the first pass through, if we are doing phasings, we make
                 // all of them visit the left node. We know the left node will
                 // be the same on subsequent passes for other alleles starting
@@ -2324,8 +2326,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 // ref matching paths between variants where they aren't
                 // phased...
                 
-                size_t num_phases = (*visits.begin()).second.size();
-                for(size_t i = 0; i < num_phases; i++) {
+                for(size_t i = 0; i < num_phasings; i++) {
                     // Everything uses this node to our left, which won't be
                     // broken again.
                     paths.append_mapping("_phase" + to_string(i), left_seq_node->id());
@@ -2429,11 +2430,10 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     // Now we're done breaking nodes. This means the node holding the end of the
     // reference sequence can finally be given its mappings for phasings, if
     // applicable.
-    if(!visits.empty()) {
+    if(num_phasings > 0) {
         // What's the last node on the reference path?
         auto last_node_id = (*seq_node_ids.rbegin()).second;
-        size_t num_phases = (*visits.begin()).second.size();
-        for(size_t i = 0; i < num_phases; i++) {
+        for(size_t i = 0; i < num_phasings; i++) {
             // Everything visits this last reference node
             paths.append_mapping("_phase" + to_string(i), last_node_id);
         }
@@ -2691,6 +2691,10 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             targets.push_back(*r);
         }
     }
+
+    // How many phase paths do we want to load?
+    size_t num_phasings = load_phasing_paths ? variantCallFile.sampleNames.size() * 2 : 0;
+    // We'll later split these where you would have to take an edge that doesn't exist.
 
     // to scale up, we have to avoid big string memcpys
     // this could be accomplished by some deep surgery on the construction routines
@@ -2968,8 +2972,10 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                  << plan->name << endl;
 #endif
 
+            // Make the piece of graph, passing along the number of sample phases if we're making phase paths.
             plan->graph->from_alleles(plan->alleles,
                                       plan->phase_visits,
+                                      num_phasings,
                                       plan->seq,
                                       plan->name);
                                       
@@ -3053,6 +3059,63 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
     // rebuild the mapping ranks now that we've combined everything
     paths.clear_mapping_ranks();
     paths.rebuild_mapping_aux();
+    
+    if(load_phasing_paths) {
+        // Trace through all the phase paths, and, where they take edges that
+        // don't exist, break them. TODO: we still might get spurious phasing
+        // through a deletion where the two pahsed bits but up against each
+        // other.
+        
+        create_progress("dividing phasing paths", num_phasings);
+        for(size_t i = 0; i < num_phasings; i++) {
+            // What's the path we want to trace?
+            string original_path_name = "_phase" + to_string(i);
+            
+            list<Mapping>& path_mappings = paths.get_path(original_path_name);
+            
+            // What section of this phasing do we want to be outputting?
+            size_t subpath = 0;
+            // Make a name for it
+            string subpath_name = "_phase" + to_string(i) + "_" + to_string(subpath);
+            
+            // For each mapping, we want to be able to look at the previous
+            // mapping.
+            list<Mapping>::iterator prev_mapping = path_mappings.end();
+            for(list<Mapping>::iterator mapping = path_mappings.begin(); mapping != path_mappings.end(); ++mapping) {
+                // For each mapping in the path
+                if(prev_mapping != path_mappings.end()) {
+                    // We have the previous mapping and this one
+                    
+                    // Make the two sides of nodes that should be connected.
+                    auto s1 = NodeSide(prev_mapping->position().node_id(),
+                        (prev_mapping->position().is_reverse() ? false : true));
+                    auto s2 = NodeSide(mapping->position().node_id(),
+                        (mapping->position().is_reverse() ? true : false));
+                    // check that we always have an edge between the two nodes in the correct direction
+                    if (!has_edge(s1, s2)) {
+                        // We need to split onto a new subpath;
+                        subpath++;
+                        subpath_name = "_phase" + to_string(i) + "_" + to_string(subpath);
+                    }
+                }
+
+                // Now we just drop this node onto the current subpath
+                paths.append_mapping(subpath_name, *mapping);
+            
+                // Save this mapping as the prev one
+                prev_mapping = mapping;
+            }
+            
+            // Now delete the original full phase path.
+            // This invalidates the path_mappings reference!!!
+            paths.remove_paths({original_path_name});
+            
+            update_progress(i);
+        }
+        destroy_progress();
+        
+        
+    }
 }
 
 void VG::sort(void) {
