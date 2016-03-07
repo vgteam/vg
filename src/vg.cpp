@@ -2061,7 +2061,6 @@ void VG::dice_nodes(int max_node_size) {
     paths.compact_ranks();
 }
 
-#define debug
 void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
                       string& seq,
@@ -2160,13 +2159,16 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
 #ifdef debug
 #pragma omp critical (cerr)
             {
-                cerr << "Handling variant at " << allele_start_pos << " allele " << allele.ref << " -> " << allele.alt << endl;
+                cerr << tid << ": Handling variant at " << allele_start_pos 
+                     << " allele " << allele.ref << " -> " << allele.alt << endl;
             }
 #endif
 
-            Node* left_seq_node = NULL;
-            Node* middle_seq_node = NULL;
-            Node* right_seq_node = NULL;
+            // We grab all the nodes involved in this allele: before, being
+            // replaced, and after.
+            Node* left_seq_node = nullptr;
+            std::list<Node*> middle_seq_nodes;
+            Node* right_seq_node = nullptr;
 
             // make one cut at the ref-path relative start of the allele, if it
             // hasn't been cut there already. Grab the nodes on either side of
@@ -2177,52 +2179,93 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         right_seq_node);
                         
             // if the ref portion of the allele is not empty, then we may need
-            // to make another cut. If so, we'll have a non-NULL
-            // middle_seq_node.
+            // to make another cut. If so, we'll have some middle nodes.
             if (!allele.ref.empty()) {
+                Node* last_middle_node = nullptr;
                 divide_path(seq_node_ids,
                             allele_end_pos,
-                            middle_seq_node,
+                            last_middle_node,
                             right_seq_node);
+                 
+                 
+                // Now find all the middle nodes between left_seq_node and
+                // last_middle_node along the primary path.
+                         
+                // Find the node starting at or before, and including,
+                // allele_end_pos.
+                map<long, id_t>::iterator target = seq_node_ids.upper_bound(allele_end_pos);
+                --target;
+                
+                // That should be the node to the right of the variant
+                assert(target->second == right_seq_node->id());
+                
+                // Everything left of there, stopping (exclusive) at
+                // left_seq_node if set, should be middle nodes.
+                
+                while(target != seq_node_ids.begin()) {
+                    // Don't use the first node we start with, and do use the
+                    // begin node.
+                    target--;
+                    if(left_seq_node != nullptr && target->second == left_seq_node->id()) {
+                        // Don't put the left node in as a middle node
+                        break;
+                    }
+                    
+                    // If we get here we want to take this node as a middle node
+                    middle_seq_nodes.push_front(get_node(target->second));
+                }
+                
+                // There need to be some nodes in the list when we're done.
+                // Otherwise something has gone wrong.
+                assert(middle_seq_nodes.size() > 0);
             }
             
-            Node* alt_node = NULL;
+            // What nodes actually represent the alt allele?
+            std::list<Node*> alt_nodes;
             // create a new alt node and connect the pieces from before
             if (!allele.alt.empty() && !allele.ref.empty()) {
                 //cerr << "both alt and ref have sequence" << endl;
 
                 if (allele.ref == allele.alt) {
-                    // We don't really need to make a new node, just use the
-                    // existing one. We still needed to cut here, though, because we
-                    // can't have only a ref-matching allele at a place with
-                    // alleles; there must be some other different alleles here.
-                    alt_node = middle_seq_node;
+                    // We don't really need to make a new run of nodes, just use
+                    // the existing one. We still needed to cut here, though,
+                    // because we can't have only a ref-matching allele at a
+                    // place with alleles; there must be some other different
+                    // alleles here.
+                    alt_nodes = middle_seq_nodes;
                 } else {
                     // We need a new node for this sequence
-                    alt_node = create_node(allele.alt);
+                    Node* alt_node = create_node(allele.alt);
                     create_edge(left_seq_node, alt_node);
                     create_edge(alt_node, right_seq_node);
+                    alt_nodes.push_back(alt_node);
                 }
 
-                // Stick both pointers (which may be the same) in the sets for
-                // indexing by start and end reference position.
-                nodes_by_end_position[allele_end_pos].insert(alt_node);
-                nodes_by_end_position[allele_end_pos].insert(middle_seq_node);
+                // The ref and alt nodes may be the same, but neither will be an
+                // empty list.
+                nodes_by_end_position[allele_end_pos].insert(alt_nodes.back());
+                nodes_by_end_position[allele_end_pos].insert(middle_seq_nodes.back());
                 //nodes_by_end_position[allele_start_pos].insert(left_seq_node);
-                nodes_by_start_position[allele_start_pos].insert(alt_node);
-                nodes_by_start_position[allele_start_pos].insert(middle_seq_node);
+                nodes_by_start_position[allele_start_pos].insert(alt_nodes.front());
+                nodes_by_start_position[allele_start_pos].insert(middle_seq_nodes.front());
 
             } else if (!allele.alt.empty()) { // insertion
 
-                alt_node = create_node(allele.alt);
+                // Make a single node to represent the inserted sequence
+                Node* alt_node = create_node(allele.alt);
                 create_edge(left_seq_node, alt_node);
                 create_edge(alt_node, right_seq_node);
-                nodes_by_end_position[allele_end_pos].insert(alt_node);
+                alt_nodes.push_back(alt_node);
+                
+                // We know the alt nodes list isn't empty.
+                // We'rr immediately pulling the node out of the list again for consistency.
+                nodes_by_end_position[allele_end_pos].insert(alt_nodes.back());
                 nodes_by_end_position[allele_end_pos].insert(left_seq_node);
-                nodes_by_start_position[allele_start_pos].insert(alt_node);
+                nodes_by_start_position[allele_start_pos].insert(alt_nodes.front());
 
             } else {// otherwise, we have a deletion, or the empty reference alt of an insertion.
 
+                // No alt nodes should be present
                 create_edge(left_seq_node, right_seq_node);
                 nodes_by_end_position[allele_end_pos].insert(left_seq_node);
                 nodes_by_start_position[allele_start_pos].insert(left_seq_node);
@@ -2234,10 +2277,14 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             {
                 if (left_seq_node) cerr << tid << ": left_ref " << left_seq_node->id()
                                         << " " << left_seq_node->sequence() << endl;
-                if (middle_seq_node) cerr << tid << ": middle_ref " << middle_seq_node->id()
-                                          << " " << middle_seq_node->sequence() << endl;
-                if (alt_node) cerr << tid << ": alt_node " << alt_node->id()
-                                   << " " << alt_node->sequence() << endl;
+                for(Node* middle_seq_node : middle_seq_nodes) {
+                    cerr << tid << ": middle_ref " << middle_seq_node->id()
+                         << " " << middle_seq_node->sequence() << endl;
+                }
+                for(Node* alt_node : alt_nodes) {
+                    cerr << tid << ": alt_node " << alt_node->id()
+                                << " " << alt_node->sequence() << endl;
+                }
                 if (right_seq_node) cerr << tid << ": right_ref " << right_seq_node->id()
                                          << " " << right_seq_node->sequence() << endl;
             }
@@ -2275,11 +2322,11 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 
             }
 
-            if(alt_node && visits.count(make_pair(va.first, allele_number))) {
-                // At least one phased path visits this allele, and we have a
-                // node to path it through.
+            if(alt_nodes.size() > 0 && visits.count(make_pair(va.first, allele_number))) {
+                // At least one phased path visits this allele, and we have some
+                // nodes to path it through.
                 
-                // Get the vector of bools for phat phasings visit
+                // Get the vector of bools for that phasings visit
                 auto& visit_vector = visits.at(make_pair(va.first, allele_number));
                 
                 for(size_t i = 0; i < visit_vector.size(); i++) {
@@ -2288,7 +2335,9 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         // If we visited this allele, say we did. TODO: use a
                         // nice rank/select thing here to make this not have to
                         // be a huge loop.
-                        paths.append_mapping("_phase" + to_string(i), alt_node->id());
+                        for(Node* alt_node : alt_nodes) {
+                            paths.append_mapping("_phase" + to_string(i), alt_node->id());
+                        }
                     }
                 }
             }
@@ -2298,11 +2347,11 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 Node* end = create_node("");
                 seq_node_ids[allele_end_pos] = end->id();
                 // for consistency, this should be handled below in the start/end connections
-                if (alt_node) {
-                    create_edge(alt_node, end);
+                if (alt_nodes.size() > 0) {
+                    create_edge(alt_nodes.back(), end);
                 }
-                if (middle_seq_node) {
-                    create_edge(middle_seq_node, end);
+                if (middle_seq_nodes.size() > 0) {
+                    create_edge(middle_seq_nodes.back(), end);
                 }
             }
 
@@ -2339,9 +2388,9 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                              && previous_nodes.count(*m) && current_nodes.count(*m))
                         ) {
 #ifdef deubg
-                        cerr << "connecting previous "
-                             << (*n)->id() << " @end=" << ep->first << " to current "
-                             << (*m)->id() << " @start=" << sp->first << endl;
+                        cerr tid << ": connecting previous "
+                                 << (*n)->id() << " @end=" << ep->first << " to current "
+                                 << (*m)->id() << " @start=" << sp->first << endl;
 #endif
                         create_edge(*n, *m);
                     }
@@ -2389,7 +2438,6 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     compact_ids();
 
 }
-#undef debug
 
 void VG::from_gfa(istream& in, bool showp) {
     // c++... split...
