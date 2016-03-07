@@ -81,7 +81,12 @@ public:
     pair<Mapping*, Mapping*> divide_mapping(Mapping* m, size_t offset);
     // replace the mapping with two others in the order provided
     pair<Mapping*, Mapping*> replace_mapping(Mapping* m, pair<Mapping, Mapping> n);
+    // Note that this clears and rebuilds all the indexes
     void remove_paths(const set<string>& names);
+    // This one actually unthreads the path from the indexes. It's O(path
+    // length), but you can do several calls without thrashing the index
+    // clear and rebuild functions.
+    void remove_path(const string& name);
     void keep_paths(const set<string>& name);
     void remove_node(id_t id);
     bool has_path(const string& name);

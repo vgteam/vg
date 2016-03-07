@@ -155,7 +155,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
         
         // First figure out what the previous rank on the path is.
         size_t last_rank = 0;
-        if(pt.size()) {
+        if(!pt.empty()) {
             last_rank = (*pt.rbegin()).rank();
         }
 
@@ -165,7 +165,7 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
         if(mp->rank() == 0) {
             // 0 rank defaults to being ranked at the end of what's already
             // there. After all, that's where we add it.
-            if(pt.size() > 1) {
+            if(&pt.front() != mp) {
                 // There are other things on the path
                 if(last_rank && !mappings_by_rank[name].count(last_rank + 1)) {
                     // We can go right after the thing that we're physically
@@ -509,6 +509,27 @@ void Paths::remove_paths(const set<string>& names) {
     }
     rebuild_node_mapping();
     rebuild_mapping_aux();
+}
+
+void Paths::remove_path(const string& name) {
+    auto& path = _paths[name];
+    
+    for(auto& mapping : path) {
+        // Unindex all the mappings
+        mapping_itr.erase(&mapping);
+        mapping_path.erase(&mapping);
+        if(node_mapping.count(mapping.position().node_id())) {
+            // Throw out all the mappings for this path on this node
+            node_mapping[mapping.position().node_id()].erase(name);
+        }
+    }
+
+    // Delete the actual mappings
+    _paths.erase(name);
+    
+    // Delete the indexes that are by path name
+    mappings_by_rank.erase(name);
+
 }
 
 void Paths::keep_paths(const set<string>& names) {

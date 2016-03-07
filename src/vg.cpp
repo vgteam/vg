@@ -3109,7 +3109,8 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             
             // Now delete the original full phase path.
             // This invalidates the path_mappings reference!!!
-            paths.remove_paths({original_path_name});
+            // We use the variant that actually unthreads the path from the indexes and doesn't erase and rebuild them.
+            paths.remove_path(original_path_name);
             
             update_progress(i);
         }
