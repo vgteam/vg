@@ -145,6 +145,8 @@ public:
     void extend(Paths& p);
     void extend(const Path& p);
     void for_each(const function<void(const Path&)>& lambda);
+    // Loop over the names of paths without actually extracting the Path objects.
+    void for_each_name(const function<void(const string&)>& lambda);
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(id_t inc);
     // Replace the node IDs used as keys with those used as values.

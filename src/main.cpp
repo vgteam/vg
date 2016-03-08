@@ -5323,10 +5323,22 @@ int main_construct(int argc, char** argv) {
         ofstream paths_out(ref_paths_file);
         graph.paths.write(paths_out);
         if(load_phasing_paths) {
-            // TODO: keep the reference paths and throw out the phasing paths.
-            // We may need a way to get the reference path names, or some way to
-            // distinguish inside the Paths class.
-            //graph.paths.clear();
+            // Keep only the non-phasing paths in the graph. If you keep too
+            // many paths in a graph, you'll make chunks that are too large.
+            // TODO: dynamically deliniate the chunks in the serializer so you
+            // won't write vg files you can't read.
+            
+            set<string> non_phase_paths;
+            string phase_prefix = "_phase";
+            graph.paths.for_each_name([&](string path_name) {
+                if(!equal(phase_prefix.begin(), phase_prefix.end(), path_name.begin())) {
+                    // Path is not a phase path
+                    non_phase_paths.insert(path_name);
+                }
+            });
+            
+            // Keep only the non-phase paths
+            graph.paths.keep_paths(non_phase_paths);
         }
     }
 

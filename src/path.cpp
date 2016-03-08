@@ -71,6 +71,13 @@ void Paths::for_each(const function<void(const Path&)>& lambda) {
     }
 }
 
+void Paths::for_each_name(const function<void(const string&)>& lambda) {
+    for (auto& p : _paths) {
+        const string& name = p.first;
+        lambda(name);
+    }
+}
+
 void Paths::for_each_mapping(const function<void(Mapping*)>& lambda) {
     for (auto& p : _paths) {
         list<Mapping>& path = p.second;
