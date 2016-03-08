@@ -2973,8 +2973,6 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                     graph_end.erase(second);
                 }
                 delete second;
-                
-                assert(first->is_valid(true, true, true, false));
             }
         };
 
@@ -2999,9 +2997,6 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                                       num_phasings,
                                       plan->seq,
                                       plan->name);
-                                      
-            // Validate everything except the paths
-            assert(plan->graph->is_valid(true, true, true, false));
                                       
             // Break up the nodes ourselves
             if(max_node_size > 0) {
