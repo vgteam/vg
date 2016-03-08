@@ -2080,7 +2080,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         cerr << tid << ": and " << num_phasings << " phasings" << endl;
         cerr << tid << ": and " << visits.size() << " visit records" << endl;
         cerr << tid << ": and " << seq.size() << "bp" << endl;
-        cerr << seq << endl;
+        if(seq.size() < 100) cerr << seq << endl;
     }
 #endif
 
@@ -2290,7 +2290,9 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
 #pragma omp critical (cerr)
             {
                 if (left_seq_node) cerr << tid << ": left_ref " << left_seq_node->id()
-                                        << " " << left_seq_node->sequence() << endl;
+                                        << " " 
+                                        << (left_seq_node->sequence().size() < 100 ? left_seq_node->sequence() : "...")
+                                        << endl;
                 for(Node* middle_seq_node : middle_seq_nodes) {
                     cerr << tid << ": middle_ref " << middle_seq_node->id()
                          << " " << middle_seq_node->sequence() << endl;
@@ -2300,7 +2302,9 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                                 << " " << alt_node->sequence() << endl;
                 }
                 if (right_seq_node) cerr << tid << ": right_ref " << right_seq_node->id()
-                                         << " " << right_seq_node->sequence() << endl;
+                                         << " " 
+                                         << (right_seq_node->sequence().size() < 100 ? right_seq_node->sequence() : "...")
+                                         << endl;
             }
 #endif
 
@@ -2349,8 +2353,22 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         // If we visited this allele, say we did. TODO: use a
                         // nice rank/select thing here to make this not have to
                         // be a huge loop.
+                        
+                        string phase_name = "_phase" + to_string(i);
+                        
                         for(Node* alt_node : alt_nodes) {
-                            paths.append_mapping("_phase" + to_string(i), alt_node->id());
+                            // Problem: we may have visited other alleles that also used some of these nodes.
+                            // Solution: only add on the mappings for new nodes.
+                            
+                            // TODO: this assumes we'll not encounter
+                            // contradictory alleles, only things like "both
+                            // shorter ref match and longer ref match are
+                            // visited".
+                            
+                            if(!paths.get_node_mapping(alt_node).count(phase_name)) {
+                                // This node has not yet been visited on this path.
+                                paths.append_mapping(phase_name, alt_node->id());
+                            }
                         }
                     }
                 }
