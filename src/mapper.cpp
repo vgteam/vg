@@ -1211,9 +1211,31 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     auto aln_rc = aln_fw;
     aln_rc.set_sequence(reverse_complement(aln_fw.sequence()));
 
+    // order the subgraphs by number of hits
+    // and go through them until we have enough multi-maps
+    map<int, vector<VG*> > subgraphs_by_hits;
+    for (auto& subgraph : subgraphs) {
+        int hits = 0;
+        subgraph.for_each_node([&](Node* n) {
+                hits += ids.count(n->id());
+            });
+        subgraphs_by_hits[hits].push_back(&subgraph);
+    }
+    vector<VG*> ranked_subgraphs;
+    for (auto it = subgraphs_by_hits.rbegin(); it != subgraphs_by_hits.rend(); ++it) {
+        for (auto subgraph : it->second) {
+            ranked_subgraphs.push_back(subgraph);
+        }
+    }
+
     // generate an alignment for each subgraph/orientation combination for which we have hits
     if (debug) cerr << "aligning to " << subgraphs.size() << " subgraphs" << endl;
-    for (auto& subgraph : subgraphs) {
+
+    size_t attempts = 0;
+    for (auto s : ranked_subgraphs) {
+        VG& subgraph = *s;
+        // record our attempt count
+        ++attempts;
         // determine the likely orientation
         uint32_t fw_mems = 0;
         uint32_t rc_mems = 0;
@@ -1229,6 +1251,10 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             Alignment aln = subgraph.align(aln_fw);
             resolve_softclips(aln, subgraph);
             alns.push_back(aln);
+            if (attempts >= max_multimaps &&
+                greedy_accept && (float)aln.score() / (float)aln.sequence().size() >= accept_norm_score) {
+                break;
+            }
         }
         if (rc_mems) {
             Alignment aln = subgraph.align(aln_rc);
@@ -1236,6 +1262,10 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             alns.push_back(reverse_complement_alignment(aln,
                                                         (function<int64_t(int64_t)>)
                                                         ([&](int64_t id) { return get_node_length(id); })));
+            if (attempts >= max_multimaps &&
+                greedy_accept && (float)aln.score() / (float)aln.sequence().size() >= accept_norm_score) {
+                break;
+            }
         }
     }
 
