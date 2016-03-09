@@ -1346,15 +1346,17 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (sc_start) {
             Graph flank;
             xindex->get_id_range(idf-1, idf, flank);
-            xindex->expand_context(flank, max(context_depth,
-                                              (int)(sc_start/avg_node_size)));
+            xindex->expand_context(flank,
+                                   max(context_depth, (int)(sc_start/avg_node_size)),
+                                   false);
             graph.extend(flank);
         }
         if (sc_end) {
             Graph flank;
             xindex->get_id_range(idl, idl+1, flank);
-            xindex->expand_context(flank, max(context_depth,
-                                              (int)(sc_end/avg_node_size)));
+            xindex->expand_context(flank,
+                                   max(context_depth, (int)(sc_end/avg_node_size)),
+                                   false);
             graph.extend(flank);
         }
         graph.remove_orphan_edges();
@@ -1796,8 +1798,9 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                     if (xindex) {
                         Graph flank;
                         xindex->get_id_range(idf-1, idf, flank);
-                        xindex->expand_context(flank, max(context_depth,
-                                                          (int)(sc_start/avg_node_size)));
+                        xindex->expand_context(flank,
+                                               max(context_depth, (int)(sc_start/avg_node_size)),
+                                               false);
                         graph->extend(flank);
                     } else if (index) {
                         VG flank;
@@ -1810,8 +1813,9 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                     if (xindex) {
                         Graph flank;
                         xindex->get_id_range(idl, idl+1, flank);
-                        xindex->expand_context(flank, max(context_depth,
-                                                          (int)(sc_end/avg_node_size)));
+                        xindex->expand_context(flank,
+                                               max(context_depth, (int)(sc_end/avg_node_size)),
+                                               false);
                         graph->extend(flank);
                     } else if (index) {
                         VG flank;
