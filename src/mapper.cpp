@@ -387,6 +387,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
                 auto& m = aln.path().mapping(i);
                 if (m.has_position() && m.position().node_id()) {
                     auto id = aln.path().mapping(i).position().node_id();
+                    // XXXXXX this is single-threaded!
                     xindex->neighborhood(id, 2, sub);
                 }
             }
@@ -456,8 +457,10 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     }
 
     // check that the alignments are valid
-    for (auto& aln : alns) {
-        check_alignment(aln);
+    if (debug) {
+        for (auto& aln : alns) {
+            check_alignment(aln);
+        }
     }
 
     // merge the resulting alignments

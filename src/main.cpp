@@ -3888,7 +3888,7 @@ void help_map(char** argv) {
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "generic mapping parameters:" << endl
          << "    -P, --min-score N     accept alignment only if the normalized alignment score is > N (default: 0)" << endl
-         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 1)" << endl
+         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 5)" << endl
          << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
          << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
          << "    -m, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
@@ -3938,7 +3938,7 @@ int main_map(int argc, char** argv) {
     int max_multimaps = 1;
     int thread_count = 1;
     int thread_ex = 7;
-    int context_depth = 1;
+    int context_depth = 5;
     bool output_json = false;
     bool debug = false;
     bool prefer_forward = false;
