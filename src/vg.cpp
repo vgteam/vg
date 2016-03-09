@@ -2072,6 +2072,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     this->name = name;
 
     int tid = omp_get_thread_num();
+    
 #ifdef debug
 #pragma omp critical (cerr)
     {
@@ -2340,7 +2341,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 // The next allele won't be the first one actually processed.
                 first_allele_processed = false;
             }
-            if(alt_nodes.size() > 0 && visits.count(make_pair(va.first, allele_number))) {
+            if(!alt_nodes.empty() && visits.count(make_pair(va.first, allele_number))) {
                 // At least one phased path visits this allele, and we have some
                 // nodes to path it through.
                 
