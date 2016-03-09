@@ -498,6 +498,17 @@ vector<Alignment> Mapper::resolve_banded_multi(vector<vector<Alignment>>& multi_
     vector<vector<score_t>> scores;
     scores.resize(multi_alns.size());
     // start with the scores for the first alignments
+    if (debug) {
+        cerr << "resolving banded multi over:" << endl;
+        for (auto& alns : multi_alns) {
+            for (auto& aln : alns) {
+                if (aln.has_path()) {
+                    cerr << aln.score() << "@ " << make_pos_t(aln.path().mapping(0).position()) <<", ";
+                }
+            }
+            cerr << endl;
+        }
+    }
     for (auto& aln : multi_alns[0]) {
         scores.front().push_back(make_tuple(aln.score(), &aln, 0));
     }
@@ -819,7 +830,7 @@ Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int ban
 // matching sequences in the read. Perfect matches generate MEMs. Interruptions due to
 // errors and SNPs will tend to break MEMs, but may also generate shorter, spurious MEMs.
 vector<MaximalExactMatch>
-Mapper::find_mems(const string& seq) {
+Mapper::find_forward_mems(const string& seq, size_t step) {
     string::const_iterator begin = seq.begin();
     string::const_iterator end = seq.end();
     vector<MaximalExactMatch> matches;
@@ -848,10 +859,8 @@ Mapper::find_mems(const string& seq) {
         }
         // record the mem range in the sequence
         if (gcsa::Range::empty(match.range)) {
-            // if we exhausted the range, we don't count the last step in the MEM
-            // it represents a mismatch from the graph
             match.range = last_range;
-            match.begin = end+1;
+            match.begin = end+step;
         } else {
             // if we didn't exhaust the range, but ran out because our sequence ended
             // then we count this base in the MEM
@@ -936,7 +945,7 @@ map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
     return nexts;
 }
 
-Alignment Mapper::walk_match(const string& seq, pos_t pos) {
+Alignment Mapper::walk_match(const string& seq, pos_t pos, int match_score) {
     // go to the position in the xg index
     // and step in the direction given
     // until we exhaust our sequence
@@ -990,6 +999,7 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         edit->set_from_length(match_len);
         edit->set_to_length(match_len);
     }
+    aln.set_score(aln.sequence().size()*match_score);
     return aln;
 }
 
@@ -1023,7 +1033,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     // but we may want to selectively use them
     // such as by trying to use them as seeds in order from shortest to longest
     vector<MaximalExactMatch> mems;
-    for (auto& mem: find_mems(alignment.sequence())) {
+    for (auto& mem: find_forward_mems(alignment.sequence())) {
         if (mem.end-mem.begin >= min_mem_length) {
             mems.push_back(mem);
         }
@@ -1039,29 +1049,106 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     }
     if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
 
+    return align_mem_multi(alignment, mems);
+
     /*
-    cerr << "looking at mems to alignments" << endl;
-    for (auto& mem : mems) {
-        auto alns = mem_to_alignments(mem);
-        cerr << "mem : " << mem.sequence() << endl;
-        for (auto& aln : alns) {
-            cerr << pb2json(aln) << endl;
-        }
-        cerr << "-------------------" << endl;
+    // TODO
+    if (max_multimaps > 1) {
+        // align once per subgraph hit we get, take the best alignment
+        // uses full-length alignment
+        return align_mem_multi(alignment, mems);
+    } else {
+        // aligns only the regions of the read which aren't in the MEMs
+        // stitching together the results using the resolve_banded_multi function
+        // which presently only returns the optimal result
+        return { align_mem_optimal(alignment, mems) };
     }
     */
+}
 
-    //map<MaximalExactMatch*, set<id_t> > mem_ids;
+// Well, it's not really "optimal" yet
+// but the idea here is that we can thread back through multi-mappings
+// for each exact match
+// use dynamic programming to fix up the intermediate portions
+// and then thread back through with resolve_banded_multi
+// VERY VERY EXPERIMENTAL
+Alignment Mapper::align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems) {
+    int match_score = 2; // TODO XXXXX make a member of the alignment
+    // run through the mems, generating a set of alignments for each
+    vector<vector<Alignment> > alns;
+    // run through the exact matches
+    // if there are gaps between them, we need to fix them up using DP
+    MaximalExactMatch* last_exact_match = nullptr;
+    for (auto& mem : mems) {
+        // get the >16mer centered on the non-matching portion
+        if (last_exact_match) {
+            // what is the gap?
+            int gap_len = mem.begin - last_exact_match->end;
+            if (gap_len > 0) {
+                // stretch the gap
+                // if in the middle of the read we get a 16-mer
+                // if on the ends, we'll extend at least 8 opposite the end
+                auto start = last_exact_match->end;
+                auto end = mem.begin;
+                int to_start = start - alignment.sequence().begin();
+                int to_end = alignment.sequence().end() - end;
+                int to_add = 16 - gap_len;
+                int trim_from_start = 0;
+                int trim_from_end = 0;
+                if (to_add > 0) {
+                    // how much can we do on the left
+                    trim_from_start = min(to_add/2, to_start);
+                    start -= trim_from_start;
+                    // how much on the right
+                    trim_from_end = min(to_add/2, to_end);
+                    end += trim_from_end;
+                }
+                // get the sequence of the gap
+                MaximalExactMatch gap(start, end, gcsa::range_type(1, 0));
+                // now we need to align to all the possible paths from the ends of the last
+                // set of alignments to the ends of the current set
+
+                Alignment gapaln; gapaln.set_sequence(gap.sequence());
+                vector<MaximalExactMatch> flanking_mems = { *last_exact_match, mem };
+                int max_mem_gap_multi_mappings = 10;
+                // then trim them using the trim counts
+                auto malns = align_mem_multi(gapaln, flanking_mems, max_mem_gap_multi_mappings);
+                vector<Alignment> trimmed;
+                for (auto& aln : malns) {
+                    //cerr << "aln " << pb2json(aln) << endl;
+                    trimmed.push_back(simplify(strip_from_start(strip_from_end(aln, trim_from_end), trim_from_start)));
+                    //trimmed.back().set_score(trimmed.back().sequence().size()*match_score); // adjust the score
+                    trimmed.back().set_score(0); // dunno
+                    //cerr << "trimmed " << pb2json(trimmed.back()) << endl;
+                }
+                alns.emplace_back(trimmed);
+            }
+        }
+        // add in this mem
+        vector<Alignment> maln = mem_to_alignments(mem);
+        alns.emplace_back(maln);
+        last_exact_match = &mem;
+    }
+    auto optim_alns = resolve_banded_multi(alns);
+    // merge the resulting alignments
+    Alignment merged = merge_alignments(optim_alns, debug);
+    merged.set_quality(alignment.quality());
+    merged.set_name(alignment.name());
+    return merged;
+}
+
+vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int max_multi) {
+
     set<id_t> ids;
     struct StrandCounts {
         uint32_t forward;
         uint32_t reverse;
     };
+
     // we will use these to determine the alignment strand for each subgraph
     map<id_t, StrandCounts> node_strands;
 
     // run through the mems, generating a set of alignments for each
-    
     for (auto& mem : mems) {
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
@@ -1076,7 +1163,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
         // now handle the reverse complement mem to get the end position of the mem
         string rc_mem = reverse_complement(mem.sequence());
-        auto rc_mems = find_mems(rc_mem);
+        auto rc_mems = find_forward_mems(rc_mem);
         // also filter to remove spurious sub-hits
         // TODO: is it the case that the rc is definitively the same number as the forward?
         rc_mems.erase(std::remove_if(rc_mems.begin(), rc_mems.end(),
@@ -1164,6 +1251,9 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
         alignment_by_score[aln->score()].insert(aln);
     }
 
+    // set the max multimap count from the mapper object if we haven't been given it
+    if (!max_multi) max_multi = max_multimaps;
+
     // Collect all the good alignments
     // TODO: Filter down subject to a minimum score per base or something?
     vector<Alignment> good;
@@ -1189,13 +1279,13 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
                 serializedAlignmentsUsed.insert(serialized);
             }
 
-            if(good.size() >= max_multimaps) {
+            if(good.size() >= max_multi) {
                 // Don't report too many mappings
                 break;
             }
         }
 
-        if(good.size() >= max_multimaps) {
+        if(good.size() >= max_multi) {
             // Don't report too many mappings
             break;
         }

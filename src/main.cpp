@@ -2851,6 +2851,7 @@ void help_find(char** argv) {
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
          << "    -M, --mems STR         describe the maximal exact matches of the STR (gcsa2) in JSON" << endl
+         << "    -F, --mem-step N       output the forward MEMs using a step size of N between each (default 1)" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
@@ -2885,6 +2886,7 @@ int main_find(int argc, char** argv) {
     string gcsa_in;
     string xg_name;
     bool get_mems = false;
+    size_t mem_step = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2902,6 +2904,7 @@ int main_find(int argc, char** argv) {
                 {"table", no_argument, 0, 'T'},
                 {"sequence", required_argument, 0, 'S'},
                 {"mems", required_argument, 0, 'M'},
+                {"mem-step", required_argument, 0, 'F'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
@@ -2916,7 +2919,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:F:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2948,6 +2951,10 @@ int main_find(int argc, char** argv) {
         case 'M':
             sequence = optarg;
             get_mems = true;
+            break;
+
+        case 'F':
+            mem_step = atoi(optarg);
             break;
 
         case 'j':
@@ -3230,7 +3237,7 @@ int main_find(int argc, char** argv) {
                 Mapper mapper;
                 mapper.gcsa = &gcsa_index;
                 // get the mems
-                auto mems = mapper.find_mems(sequence);
+                auto mems = mapper.find_forward_mems(sequence, mem_step);
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout

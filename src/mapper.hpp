@@ -131,10 +131,13 @@ public:
                                      int attempt = 0);
 
     // MEM-based mapping
-    // finds maximal exact matches of the sequence using the GCSA index
-    vector<MaximalExactMatch> find_mems(const string& seq);
+    // finds "forward" maximal exact matches of the sequence using the GCSA index
+    // stepping step between each one
+    vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1);
     // alignment based on the MEM approach
     vector<Alignment> align_mem(const Alignment& alignment);
+    Alignment align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems);
+    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int max_multi = 0);
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
     // use the xg index to get a character at a particular position (rc or foward)
@@ -142,7 +145,7 @@ public:
     // the next positions and their characters following the same strand of the graph
     map<pos_t, char> next_pos_chars(pos_t pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
-    Alignment walk_match(const string& seq, pos_t pos);
+    Alignment walk_match(const string& seq, pos_t pos, int match_score = 2);
     // convert the set of hits of a MEM into a set of alignments
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
     
