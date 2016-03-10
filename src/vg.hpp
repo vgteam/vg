@@ -7,6 +7,7 @@
 #include <string>
 #include <deque>
 #include <list>
+#include <array>
 #include <omp.h>
 #include <unistd.h>
 #include <limits.h>
@@ -279,17 +280,19 @@ public:
        int vars_per_region,
        int max_node_size = 0,
        bool flat_input_vcf = false,
+       bool load_phasing_paths = false,
        bool showprog = false);
-    void from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
+       
+    void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
+                      const map<pair<long, int>, vector<bool>>& visits,
+                      size_t num_phasings,
                       string& seq,
                       string& chrom);
     void vcf_records_to_alleles(vector<vcflib::Variant>& records,
-                                map<long, set<vcflib::VariantAllele> >& altp,
-                                int start_pos,
-                                int stop_pos,
-                                int max_node_size = 0,
+                                map<long, vector<vcflib::VariantAllele> >& altp,
+                                map<pair<long, int>, vector<bool>>* phase_visits,
                                 bool flat_input_vcf = false);
-    void slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
+    void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
                        int stop_pos,
                        int max_node_size);
@@ -1034,18 +1037,22 @@ public:
     // for managing parallel construction
     struct Plan {
         VG* graph;
-        map<long, set<vcflib::VariantAllele> >* alleles;
+        map<long, vector<vcflib::VariantAllele> > alleles;
+        map<pair<long, int>, vector<bool>> phase_visits;
         string seq;
         string name;
-        Plan(VG* g,
-             map<long, set<vcflib::VariantAllele> >* a,
-             string s,
-             string n)
-            : graph(g)
-            , alleles(a)
-            , seq(s)
-            , name(n) { };
-        ~Plan(void) { delete alleles; }
+        // Make a new plan, moving the alleles map and phase visit vector map
+        // into the plan.
+        Plan(VG* graph,
+             map<long, vector<vcflib::VariantAllele> >&& alleles,
+             map<pair<long, int>, vector<bool>>&& phase_visits,
+             string seq,
+             string name)
+            : graph(graph)
+            , alleles(std::move(alleles))
+            , phase_visits(std::move(phase_visits))
+            , seq(seq)
+            , name(name) { };
     };
 
 
