@@ -71,6 +71,13 @@ void Paths::for_each(const function<void(const Path&)>& lambda) {
     }
 }
 
+void Paths::for_each_name(const function<void(const string&)>& lambda) {
+    for (auto& p : _paths) {
+        const string& name = p.first;
+        lambda(name);
+    }
+}
+
 void Paths::for_each_mapping(const function<void(Mapping*)>& lambda) {
     for (auto& p : _paths) {
         list<Mapping>& path = p.second;
@@ -138,18 +145,9 @@ Path& append_path(Path& a, const Path& b) {
     return a;
 }
 
-// problem, won't allow us to keep multiple identical mapping to the same node,
-// as will happen with looping paths
-bool Paths::has_mapping(const string& name, const Mapping& m) {
-    auto& node_mapping = get_node_mapping(m.position().node_id());
-    if (node_mapping.find(name) == node_mapping.end()) return false; // no mappings for path
-    for (auto* mp : node_mapping[name]) {
-        if (m.rank() == mp->rank()
-            && m.position().is_reverse() == mp->position().is_reverse()) {
-            return true;
-        }
-    }
-    return false;
+
+bool Paths::has_mapping(const string& name, size_t rank) {
+    return mappings_by_rank.count(name) && mappings_by_rank[name].count(rank);
 }
 
 void Paths::append_mapping(const string& name, const Mapping& m) {
@@ -157,17 +155,58 @@ void Paths::append_mapping(const string& name, const Mapping& m) {
     list<Mapping>& pt = get_create_path(name);
     // now if we haven't already supplied a mapping
     // add it
-    if (!has_mapping(name, m)) {
+    
+    if (!m.rank() || !has_mapping(name, m.rank())) {
+        // If we don't have a rank set or we don't have a mapping in this path
+        // with that rank, we need to add the mapping.
+        
+        // First figure out what the previous rank on the path is.
+        size_t last_rank = 0;
+        if(!pt.empty()) {
+            last_rank = (*pt.rbegin()).rank();
+        }
+
         pt.push_back(m);
         Mapping* mp = &pt.back();
+        
+        if(mp->rank() == 0) {
+            // 0 rank defaults to being ranked at the end of what's already
+            // there. After all, that's where we add it.
+            if(&pt.front() != mp) {
+                // There are other things on the path
+                if(last_rank && !mappings_by_rank[name].count(last_rank + 1)) {
+                    // We can go right after the thing that we're physically
+                    // after.
+                    mp->set_rank(last_rank + 1);
+                } else {
+                    // We're putting it after something which itself has no
+                    // rank, or the next rank is already occupied. Leave rank
+                    // unset; the caller will have to globally rebuild the rank
+                    // info later with rebuild_mapping_aux()
+                    
+                    // Really this is undefined ordering according to the
+                    // precondition, but this makes sense.
+                }
+            } else {
+                // This is the first mapping, so give it minimal rank. Ordering
+                // is undefined with respect to any pre-ranked mappings that may
+                // be added to the path later.
+                mp->set_rank(1);
+            }
+        }
+        
         // add it to the node mappings
-        auto& ms = get_node_mapping(m.position().node_id());
+        auto& ms = get_node_mapping(mp->position().node_id());
         ms[name].insert(mp);
         // and record its position in this list
         list<Mapping>::iterator mi = pt.end(); --mi;
         mapping_itr[mp] = mi;
         mapping_path[mp] = name;
-        mapping_path_order[mp] = m.rank();
+        if(mp->rank()) {
+            // Only if we actually end up with a rank (i.e. all the existing
+            // ranks weren't cleared) do we really index by rank.
+            mappings_by_rank[name][mp->rank()] = mp;
+        }
     }
 }
 
@@ -175,20 +214,28 @@ void Paths::append_mapping(const string& name, id_t id, size_t rank, bool is_rev
     Mapping m;
     m.mutable_position()->set_node_id(id);
     m.mutable_position()->set_is_reverse(is_reverse);
-    if (rank) {
-        m.set_rank(rank);
-    } else {
-        m.set_rank(get_path(name).size()+1); // rank is 1-based
-    }
+    // If the rank passed in is 0, it will get filled in by the other version of
+    // append_mapping.
+    m.set_rank(rank);
     append_mapping(name, m);
 }
 
 void Paths::prepend_mapping(const string& name, const Mapping& m) {
     // get or create the path with this name
     list<Mapping>& pt = get_create_path(name);
+    
+    // We can't prepend a mapping that doesn't have a rank set. We would like to
+    // generate ranks, but we can't keep decrementing the first rank
+    // indefinitely, and that might not be correct. Also, what rank would we use
+    // for the only mapping in a path?
+    assert(m.rank());
+    
     // now if we haven't already supplied a mapping
     // add it
-    if (!has_mapping(name, m)) {
+    if (!has_mapping(name, m.rank())) {
+        // If we don't have a rank set or we don't have a mapping in this path
+        // with that rank, we need to add the mapping.
+        
         pt.push_front(m);
         Mapping* mp = &pt.front();
         // add it to the node mappings
@@ -198,7 +245,7 @@ void Paths::prepend_mapping(const string& name, const Mapping& m) {
         list<Mapping>::iterator mi = pt.begin();
         mapping_itr[mp] = mi;
         mapping_path[mp] = name;
-        mapping_path_order[mp] = m.rank();
+        mappings_by_rank[name][mp->rank()] = mp;
     }
 }
 
@@ -345,7 +392,7 @@ void Paths::compact_ranks(void) {
 void Paths::rebuild_mapping_aux(void) {
     mapping_itr.clear();
     mapping_path.clear();
-    mapping_path_order.clear();
+    mappings_by_rank.clear();
     for (auto& p : _paths) {
         const string& path_name = p.first;
         list<Mapping>& path = p.second;
@@ -353,14 +400,26 @@ void Paths::rebuild_mapping_aux(void) {
         for (list<Mapping>::iterator i = path.begin(); i != path.end(); ++i) {
             mapping_itr[&*i] = i;
             mapping_path[&*i] = path_name;
-            // if we have a rank already, use it
-            if (i->rank()) {
-                mapping_path_order[&*i] = i->rank();
-            } else {
-                // otherwise we set the rank based on what we've built
-                mapping_path_order[&*i] = order_in_path;
+            
+            if(i->rank() > order_in_path + 1) {
+                // Make sure that if we have to assign a rank to a node after
+                // this one, it is greater than this node's rank. TODO: should
+                // we just uniformly re-rank all the nodes starting at 0? Or
+                // will we ever want to cut and paste things back together using
+                // the old preserved ranks?
+                order_in_path = i->rank() - 1;
+            }
+            
+            if (i->rank() == 0 || i->rank() < order_in_path + 1) {
+                // If we don't already have a rank, or if we see a rank that
+                // can't be correct given the ranks we have already seen, we set
+                // the rank based on what we've built
                 i->set_rank(order_in_path+1);
             }
+            
+            // Save the mapping as being at the given rank in its path.
+            mappings_by_rank[path_name][i->rank()] = &*i;
+            
             ++order_in_path;
         }
     }
@@ -371,10 +430,21 @@ void Paths::remove_node(id_t id) {
 }
 
 list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
-    if (mapping_path.find(m) == mapping_path.end()) cerr << "no mapping" << endl;
+    // The mapping has to exist
+    assert(mapping_path.find(m) != mapping_path.end());
     const string& path_name = mapping_path[m];
     id_t id = m->position().node_id();
     auto& x = _paths[path_name];
+    
+    // This gets tricky because we're going to deallocate the storage pointed to
+    // by m. We need to remove it from other things first.
+    if(m->rank() && mappings_by_rank[path_name].count(m->rank()) && 
+        mappings_by_rank[path_name][m->rank()] == m) {
+        // If we have this node stored for its path and rank, kick it out.
+        mappings_by_rank[path_name].erase(m->rank());
+    }
+    
+    // Actually deallocate the mapping
     list<Mapping>::iterator p = _paths[path_name].erase(mapping_itr[m]);
     if (has_node_mapping(id)) {
         auto& node_path_mapping = get_node_mapping(id);
@@ -383,7 +453,7 @@ list<Mapping>::iterator Paths::remove_mapping(Mapping* m) {
     }
     mapping_path.erase(m);
     mapping_itr.erase(m);
-    mapping_path_order.erase(m);
+    
     return p;
 }
 
@@ -422,7 +492,7 @@ void Paths::clear(void) {
     _paths.clear();
     node_mapping.clear();
     mapping_path.clear();
-    mapping_path_order.clear();
+    mappings_by_rank.clear();
 }
 
 void Paths::clear_mapping_ranks(void) {
@@ -433,6 +503,7 @@ void Paths::clear_mapping_ranks(void) {
             mapping.set_rank(0);
         }
     }
+    mappings_by_rank.clear();
 }
 
 list<Mapping>& Paths::get_path(const string& name) {
@@ -445,6 +516,27 @@ void Paths::remove_paths(const set<string>& names) {
     }
     rebuild_node_mapping();
     rebuild_mapping_aux();
+}
+
+void Paths::remove_path(const string& name) {
+    auto& path = _paths[name];
+    
+    for(auto& mapping : path) {
+        // Unindex all the mappings
+        mapping_itr.erase(&mapping);
+        mapping_path.erase(&mapping);
+        if(node_mapping.count(mapping.position().node_id())) {
+            // Throw out all the mappings for this path on this node
+            node_mapping[mapping.position().node_id()].erase(name);
+        }
+    }
+
+    // Delete the actual mappings
+    _paths.erase(name);
+    
+    // Delete the indexes that are by path name
+    mappings_by_rank.erase(name);
+
 }
 
 void Paths::keep_paths(const set<string>& names) {
