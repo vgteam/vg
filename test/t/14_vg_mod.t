@@ -50,7 +50,7 @@ is $? 0 "unchop produces a valid graph"
 
 is $(vg mod -n msgas/q_redundant.vg | vg stats -l - | cut -f 2) 154 "normalization removes redundant sequence in the graph"
 
-is $(vg view -v graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut -f 1 -d\ ) 1dc872cf9cfa9bf110064b37afa25c7b "normalization doesn't introduce cycles and does remove redundancy in bubbles"
+is $(vg view -Fv graphs/normalize_me.gfa | vg mod -n - | vg view - | md5sum | cut -f 1 -d\ ) 1dc872cf9cfa9bf110064b37afa25c7b "normalization doesn't introduce cycles and does remove redundancy in bubbles"
 
 # shows that after mod we have == numbers of path annotations and nodes
 # in this one-path graph

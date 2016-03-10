@@ -22,9 +22,9 @@ This model is similar to a number of sequence graphs that have been used in asse
 
 Before you begin, you'll need to install some basic tools if they are not already installed. You'll need the protobuf and jansson development libraries installed on your server. Additionally, to run the tests, you will need jq and bc.
 
-    sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev \
+    sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
-                         jq bc curl unzip
+                         jq bc curl unzip  redland-util librdf-devs
 
 You can also run `make get-deps`.
 
@@ -42,7 +42,7 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland-utils
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
@@ -63,19 +63,15 @@ Note that static binaries cannot yet be built for Mac.
 ```
 brew tap homebrew/versions  # for gcc49
 brew tap homebrew/science  # for samtools
-brew install automake libtool jq jansson coreutils gcc49 samtools
+brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake raptor
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
 
-# Set nessary symlinks within /usr/local/bin
-(
-  cd /usr/local/bin
-  # Make symlinks to use glibtool/ize
-  ln -s glibtool libtool
-  ln -s glibtoolize libtoolize
-  # Make symlinks to use gxx-4.9 instead of builtin gxx
-  ln -s gcc-4.9 gcc
-  ln -s g++-4.9 g++
-)
+# Use glibtool/ize
+export LIBTOOL=glibtool
+export LIBTOOLIZE=glibtoolize
+# Make symlinks to use gxx-4.9 instead of builtin gxx (CC and CXX not yet fully honored)
+ln -s gcc-4.9 /usr/local/bin/gcc
+ln -s g++-4.9 /usr/local/bin/g++
 
 export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH;
 export LIBRARY_PATH=$LD_LIBRARY_PATH;

@@ -1,5 +1,6 @@
 #include "vg.hpp"
 #include "stream.hpp"
+#include <raptor2/raptor2.h>
 
 namespace vg {
 
@@ -1471,6 +1472,24 @@ bool VG::has_node(const Node& node) {
 bool VG::has_node(id_t id) {
     return node_by_id.find(id) != node_by_id.end();
 }
+    
+Node* VG::find_node_by_name_or_add_new(string name) {
+//TODO we need to have real names on id's;
+  int namespace_end = name.find_last_of("/#");
+
+	string id_s = name.substr(namespace_end+1, name.length()-2);
+	id_t id = stoll(id_s);
+
+	if (has_node(id)){
+	   return get_node(id);
+	} else {
+		Node* new_node = graph.add_node();
+		new_node->set_id(id);
+        node_by_id[new_node->id()] = new_node;
+        node_index[new_node] = graph.node_size()-1;
+		return new_node;
+	}
+}
 
 bool VG::has_edge(Edge* edge) {
     return edge && has_edge(*edge);
@@ -2197,6 +2216,124 @@ void VG::from_gfa(istream& in, bool showp) {
       }
 
 		}
+
+}
+    static
+    void
+    triple_to_vg(void* user_data, raptor_statement* triple)
+    {
+        VG* vg = ((std::pair<VG*, Paths*>*) user_data)->first;
+        Paths* paths = ((std::pair<VG*, Paths*>*) user_data)->second;
+        const string vg_ns ="<http://example.org/vg/";
+        const string vg_node_p = vg_ns + "node>" ;
+        const string vg_rank_p = vg_ns + "rank>" ;
+        const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
+        const string vg_path_p = vg_ns + "path>" ;
+        const string vg_linkrr_p = vg_ns + "linksReverseToReverse>";
+        const string vg_linkrf_p = vg_ns + "linksReverseToForward>";
+        const string vg_linkfr_p = vg_ns + "linksForwardToReverse>";
+        const string vg_linkff_p = vg_ns + "linksForwardToForward>";
+        const string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
+        const string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
+        const string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
+
+        bool reverse = pred == vg_reverse_of_node_p; 
+        if (pred == (vg_node_p) || reverse) {
+            Node* node = vg->find_node_by_name_or_add_new(obj);
+            Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
+            const string pathname = sub.substr(1, sub.find_last_of("/#"));
+
+            //TODO we are using a nasty trick here, which needs to be fixed.
+	    //We are using knowledge about the uri format to determine the rank of the step.
+            try {
+	        int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
+	        mapping->set_rank(rank);
+	    } catch(exception& e) {
+	        cerr << "[vg view] assumption about rdf structure was wrong, parsing failed" << endl;
+		exit(1);
+	    }
+            Position* p = mapping->mutable_position();
+            p->set_offset(0);
+            p->set_node_id(node->id());
+	    p->set_is_reverse(reverse);
+            paths->append_mapping(pathname, *mapping);
+        } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
+            Node* node = vg->find_node_by_name_or_add_new(sub);
+            node->set_sequence(obj.substr(1,obj.length()-2));
+        } else if (pred == vg_linkrr_p){
+            Node* from = vg->find_node_by_name_or_add_new(sub);
+            Node* to = vg->find_node_by_name_or_add_new(obj);
+            vg->create_edge(from, to, true, true);
+        } else if (pred == vg_linkrf_p){
+            Node* from = vg->find_node_by_name_or_add_new(sub);
+            Node* to = vg->find_node_by_name_or_add_new(obj);
+            vg->create_edge(from, to, false, true);
+        } else if (pred == vg_linkfr_p){
+            Node* from = vg->find_node_by_name_or_add_new(sub);
+            Node* to = vg->find_node_by_name_or_add_new(obj);
+            vg->create_edge(from, to, true, false);
+        } else if (pred == vg_linkff_p){
+            Node* from = vg->find_node_by_name_or_add_new(sub);
+            Node* to = vg->find_node_by_name_or_add_new(obj);
+            vg->create_edge(from, to, false, false);
+        }
+    }
+
+void VG::from_turtle(string filename, string baseuri, bool showp) {
+    raptor_world* world;
+    world = raptor_new_world();
+    if(!world)
+    {
+        cerr << "[vg view] we could not start the rdf environment needed for parsing" << endl;
+        exit(1);
+    }
+    int st =  raptor_world_open (world);
+
+    if (st!=0) {
+	cerr << "[vg view] we could not start the rdf parser " << endl;
+	exit(1);
+    }
+    raptor_parser* rdf_parser;
+    const unsigned char *filename_uri_string; 
+    raptor_uri  *uri_base, *uri_file;
+    rdf_parser = raptor_new_parser(world, "turtle");
+    //We use a paths object with its convience methods to build up path objects.
+    Paths* paths = new Paths();
+    std::pair<VG*, Paths*> user_data = make_pair(this, paths);
+   
+    //The user_data is cast in the triple_to_vg method. 
+    raptor_parser_set_statement_handler(rdf_parser, &user_data, triple_to_vg);
+
+
+    const  char *file_name_string = reinterpret_cast<const char*>(filename.c_str());
+    filename_uri_string = raptor_uri_filename_to_uri_string(file_name_string);
+    uri_file = raptor_new_uri(world, filename_uri_string);
+    uri_base = raptor_new_uri(world, reinterpret_cast<const unsigned char*>(baseuri.c_str()));
+
+    // parse the file indicated by the uri, given an uir_base .
+    raptor_parser_parse_file(rdf_parser, uri_file, uri_base);
+    // free the different C allocated structures
+    raptor_free_uri(uri_base);
+    raptor_free_uri(uri_file);
+    raptor_free_parser(rdf_parser);
+    raptor_free_world(world);
+    //sort the mappings in the path
+    paths->sort_by_mapping_rank();
+    //we need to make sure that we don't have inner mappings
+    //we need to do this after collecting all node sequences
+    //that can only be ensured by doing this when parsing ended
+    paths->for_each_mapping([this](Mapping* mapping){
+        Node* node =this->get_node(mapping->position().node_id());
+        //every mapping in VG RDF matches a whole mapping
+	int l = node->sequence().length();
+        Edit* e = mapping->add_edit();
+        e->set_to_length(l);
+        e->set_from_length(l);
+    });
+    ///Add the paths that we parsed into the vg object
+    paths->for_each([this](const Path& path){
+        this->include(path);
+    });
 
 }
 
@@ -5618,57 +5755,115 @@ void VG::to_gfa(ostream& out) {
     // }
 }
 
-void VG::to_turtle(ostream& out, const string& rdf_base_uri) {
+void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
+    
     out << "@base <http://example.org/vg/> . " << endl;
-    out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
-    out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
-    out << "@prefix step: <" <<  rdf_base_uri <<"step/> . " << endl;
-    out << "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    if (precompress) {
+       out << "@prefix : <" <<  rdf_base_uri <<"node/> . " << endl;
+       out << "@prefix p: <" <<  rdf_base_uri <<"path/> . " << endl;
+       out << "@prefix s: <" <<  rdf_base_uri <<"step/> . " << endl;
+       out << "@prefix r: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    
+    } else {
+       out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
+       out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
+       out << "@prefix step: <" <<  rdf_base_uri <<"step/> . " << endl;
+       out << "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
+    }
     //Ensure that mappings are sorted by ranks
     paths.sort_by_mapping_rank();
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
-        out << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
-
-        auto& node_mapping = paths.get_node_mapping(n->id());
-	    set<Mapping*> seen;
-        for (auto& p : node_mapping) {
-            for (auto* m : p.second) {
-                if (seen.count(m)) continue;
-                else seen.insert(m);
-                const Mapping& mapping = *m;
-                out << "s:" << p.first << "#" << mapping.rank() << "a <Step> ;" << endl ;
-                out << " <rank> " << mapping.rank() << " ; "  << endl ;
-                string orientation = mapping.position().is_reverse() ? "<reverseOfNode>" : "<node>";
-                out << "\t" << orientation <<" n:" << n->id() << " ; " << endl;
-                out << "\t<path> p:" << p.first << " . " << endl;
-            }
+        if (precompress) {
+            out << ":" << n->id() << " r:value \"" << n->sequence() << "\" . " ;
+	    } else {
+            out << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
         }
     }
-    function<void(const Path&)> lambda = [&out]
+    function<void(const string&)> url_encode = [&out] 
+        (const string& value) {
+        out.fill('0');
+        for (string::const_iterator i = value.begin(), n = value.end(); i != n; ++i) {
+            string::value_type c = (*i);
+
+            // Keep alphanumeric and other accepted characters intact
+            if (c >= 0 && (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')) {
+                out << c;
+                continue;
+            }
+            // Any other characters are percent-encoded
+            out << uppercase;
+            out << hex;
+            out << '%' << setw(2) << int((unsigned char) c);
+            out << dec;
+            out << nouppercase;
+       }
+    };
+    function<void(const Path&)> lambda = [&out, &precompress, &url_encode]
         (const Path& path) {
             uint64_t offset=0; //We could have more than 2gigabases in a path
             for (auto &m : path.mapping()) {
-                out << "step:" << path.name() << "#" << m.rank() << " <position> "<< offset<<" . " << endl;
-                offset += mapping_to_length(m);
+                string orientation = m.position().is_reverse() ? "<reverseOfNode>" : "<node>";
+                if (precompress) {
+                	out << "s:";
+                    url_encode(path.name());
+                    out << "-" << m.rank() << " <rank> " << m.rank() << " ; " ;
+                	out << orientation <<" :" << m.position().node_id() << " ;";
+                    out << " <path> p:";
+                    url_encode(path.name());
+                    out << " ; ";
+                    out << " <position> "<< offset<<" . ";
+                } else {
+                    out << "step:";
+                    url_encode(path.name());
+                    out << "-" << m.rank() << " <position> "<< offset<<" ; " << endl;
+                	out << " a <Step> ;" << endl ;
+                	out << " <rank> " << m.rank() << " ; "  << endl ;
+                	out << " " << orientation <<" node:" << m.position().node_id() << " ; " << endl;
+                	out << " <path> path:";
+                    url_encode(path.name());
+                    out  << " . " << endl;
+                }
+		        offset += mapping_to_length(m);
             }
         };
     paths.for_each(lambda);
+    id_t prev = -1;
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        out << "node:" << e->from();
-        if (e->from_start() && e->to_end()) {
-          out << " <linksReverseToReverse> " ; // <--
-        } else if (e->from_start() && !e->to_end()) {
-          out << " <linksReverseToForward> " ; // -+
-        } else if (e->to_end()) {
-          out << " <linksForwardToReverse> " ; //+-
+        if(precompress) {
+            if (prev == -1){
+    	        out << ":" << e->from();
+            } else if (prev ==e->from()) {
+                out << "; " ;
+            } else {
+                out << " . :" << e->from();
+            }
+            prev = e->from();
         } else {
-          out << " <linksForwardToForward> " ; //++
+            out << "node:" << e->from();
+	    }
+    
+        if (e->from_start() && e->to_end()) {
+            out << " <linksReverseToReverse> " ; // <--
+        } else if (e->from_start() && !e->to_end()) {
+            out << " <linksReverseToForward> " ; // -+
+        } else if (e->to_end()) {
+            out << " <linksForwardToReverse> " ; //+-
+        } else {
+            out << " <linksForwardToForward> " ; //++
         }
-        out << "node:" << e->to() << " . " << endl;
+        if (precompress) {
+             out << ":" << e->to();
+        } else {
+            out << "node:" << e->to() << " . " << endl;
+	    }
+    }
+    if(precompress) {
+        out << " .";
     }
 }
+
 void VG::destroy_alignable_graph(void) {
     if (gssw_aligner != NULL) {
         delete gssw_aligner;

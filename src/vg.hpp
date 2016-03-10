@@ -343,7 +343,7 @@ public:
     void flip_doubly_reversed_edges(void);
 
     void from_gfa(istream& in, bool showp = false);
-
+    void from_turtle(string filename, string baseuri, bool showp = false);
 
     // default constructor, destructor
     ~VG(void);
@@ -592,6 +592,7 @@ public:
     bool has_node(id_t id);
     bool has_node(Node* node);
     bool has_node(const Node& node);
+    Node* find_node_by_name_or_add_new(string name);
     void for_each_node(function<void(Node*)> lambda);
     void for_each_node_parallel(function<void(Node*)> lambda);
     // Go through all the nodes in the same connected component as the given node. Ignores relative orientation.
@@ -718,7 +719,7 @@ public:
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
                             bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
    void to_gfa(ostream& out);
-    void to_turtle(ostream& out, const string& rdf_base_uri);
+    void to_turtle(ostream& out, const string& rdf_base_uri, bool precompress);
     bool is_valid(bool check_nodes = true,
                   bool check_edges = true,
                   bool check_paths = true,
