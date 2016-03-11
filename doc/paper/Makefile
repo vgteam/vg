@@ -12,3 +12,4 @@ clean:
 	rm -f main.log
 	rm -f main.pdf
 	rm -f main.out
+	rm -f texput.log

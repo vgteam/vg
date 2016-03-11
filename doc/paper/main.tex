@@ -37,10 +37,13 @@ We expect to infer new genomes most accurately when they are well-represented by
 As a linear reference genome is fundamentally unable to incorporate the full information we have available (many genomes), we are led to ask what structure could include this information.
 In bioinformatics, the natural model class for doing so is the sequence graph.
 These have a long history of application to problems which require the representation of multiple genomes or ambiguities in the same structure.
-Multiple sequence alignments which have a natural representation as partially ordered graphs \cite{lee2002POA}.
-The total information available in a sequencing data set can be compressed into a string graph, in which unique sequences are represented uniquely and repeated sequences unresolvable due to read lengths are collapsed into single entities. These were first proposed by \cite{myers2005}, and implemented at scale by \cite{simpson2010}.
+Multiple sequence alignments have a natural representation as partially ordered graphs \cite{lee2002POA}.
+The total information available in a sequencing data set can be compressed into a string graph, in which unique sequences are represented uniquely and repeated sequences unresolvable due to read lengths are collapsed into single entities.
+These were first proposed by \cite{myers2005}, and implemented at scale by \cite{simpson2010}.
 A similar structure which has good scaling properties when applied to the problem of genome assembly is the de Bruijn graph, which records the relationships between unique $k$-mers of a set of sequences in a graph in which an edge links each pair of $k$-mers for which the suffix of one sequence is the prefix of the next \cite{iqbal2012}.
+The variant call format (VCF) \cite{danecek2011}, which is a common data format for describing populations of genomes, does not explicitly define a graph model, but can be understood as defining a partially ordered graph similar to those used in multiple sequence alignment. 
 To serve as generalized reference system, we propose a general model which allows us to represent these different kinds of sequence graphs.
+This will allow us to consume and produce data compatible with methods based on such models.
 
 \subsection{Model}
 
@@ -58,7 +61,7 @@ Edges may describe inversions, by passing from the forward to reverse complement
 Each edge implies its own reverse complement, so we can avoid redundancy by only recording the edges of the forward graph except where we have inversions.
 
 We define paths as a series of ``mapping'' operations over a series of nodes $p = m_1, \ldots, m_{|p_i|}$.
-Each mapping $m = \{ l, e_i \ldots e_{|m_i|} \}$ has a start position, which is a tuple of a node id $n$, a strand $s$, and an offset $o$ relative to the start of the node on that strand, $l = \{ n, s, o \}$, and a series of edit operations which describe the transformation of the sequence in question into the sequence represented by the path.
+Each mapping $m = \{ l, e_i \ldots e_{|m_i|} \}$ has a start position, which is a tuple of a node id $n$, a strand $d$, and an offset $o$ relative to the start of the node on that strand, $l = \{ n, d, o \}$, and a series of edit operations which describe the transformation of the sequence in question into the sequence represented by the path.
 Edits $x = \{ f, t, s \}$ have a length in the graph $f$ (the ``from length''), a length in the derived sequence $t$ (the ``to length''), and a sequence which replaces the sequence in the source graph $s$.
 If they contain invariant edits, paths allow us to label sequences in the graph.
 Where they describe variation, they also provide a natural method to define the alignment of new sequences into the graph.
