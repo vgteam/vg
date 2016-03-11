@@ -1,0 +1,112 @@
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{graphicx}
+%\usepackage{algorithmicx}
+\usepackage{algorithm2e}
+
+\begin{document}
+
+\title{vg: the variation graph toolkit}
+
+\author{Erik Garrison}
+
+\maketitle
+
+\begin{abstract}
+Reference genomes provide a prior to guide our interpretation of new genomes from similar individuals.
+However, they have a fundamental limitation in that they may only represent one genome copy per locus.
+This prevents us from extending our prior to incorporate the additional information we gain by analyzing new genomes and results in bias towards an arbitrary genome sequence, causing pernicious, difficult problems in genomics.
+To allow the incorporation of many genomes into our reference system, we develop \emph{variation graphs}, which are bidirectional DNA sequence graphs with embedded paths that describe sequences of interest.
+We enable the use of variation graphs in resequencing and \emph{de novo} genomic analysis by building a toolkit of computational methods for the creation, manipulation, and utilization of these structures.
+Our approach generalizes fundamental aspects of resequencing analysis (assembly, alignment, variant calling, and genotyping) to operate on variation graphs.
+\end{abstract}
+
+\section{Introduction}
+
+Where genomes are small and sequences from different individuals can be reliably isolated, we can understand variation by assembling whole genomes and then comparing them via whole-genome comparison approaches \cite{mummer}.
+In practice, complete genomes are rare, and we require prior information to reduce the cost of our efforts.
+The genomes of organisms of interest (such as \emph{Homo sapiens}) are often large \cite{pmid11237011}, and would be costly to work with this way.
+Or, they may simply be difficult to completely assemble reliably using existing technology (for example, despite extensive efforts and its importance for public health, the current reference for \emph{Plasmodium falciparum} still contains 80 gaps in 250 megabases \cite{pfalciparum, pfalciparumweb}).
+
+We reduce the cost of inference of new genomes by using a suitable prior--- in most cases, a genome of a closely-related individual.
+We align sequence reads from the new sample against a single high-quality reference genome.
+While expedient, this approach biases our results towards a reference that may poorly-represent alleles present in the sample we are attempting to characterize.
+We would like to align to a genome that is as similar to our sample as possible, ideally a ``personalized'' reference genome \cite{Yuan_2012}.
+
+We expect to infer new genomes most accurately when they are well-represented by the prior represented by the reference genome.
+As a linear reference genome is fundamentally unable to incorporate the full information we have available (many genomes), we are led to ask what structure could include this information.
+In bioinformatics, the natural model class for doing so is the sequence graph.
+These have a long history of application to problems which require the representation of multiple genomes or ambiguities in the same structure.
+Multiple sequence alignments which have a natural representation as partially ordered graphs \cite{lee2002POA}.
+The total information available in a sequencing data set can be compressed into a string graph, in which unique sequences are represented uniquely and repeated sequences unresolvable due to read lengths are collapsed into single entities. These were first proposed by \cite{myers2005}, and implemented at scale by \cite{simpson2010}.
+A similar structure which has good scaling properties when applied to the problem of genome assembly is the de Bruijn graph, which records the relationships between unique $k$-mers of a set of sequences in a graph in which an edge links each pair of $k$-mers for which the suffix of one sequence is the prefix of the next \cite{iqbal2012}.
+To serve as generalized reference system, we propose a general model which allows us to represent these different kinds of sequence graphs.
+
+\subsection{Model}
+
+We define a variation graph to be a graph with embedded paths $G = ( N, E, P )$ comprised of a set of nodes $N = n_1 \ldots n_M$, a set of directed edges $E = e_1 \ldots e_L$, and a set of paths $P = p_1 \ldots p_Q$, which describe transformations from the graph space into a set of sequences.
+
+Each node $n_i$ represents a sequence $seq(n_i)$ which is built from an arbitrary alphabet $a$.
+For DNA sequences, we might use $a = \{ A, T, G, C, N \}$, but in principle the model can be based in any alphabet.
+Edges represent linkages between sequences that have been observed in a reference set of samples or other sequences.
+
+Edges link the ends of nodes. 
+We identify edges by the pairs of node ids that they conect: $e_{i \rightarrow j} = \{ i, j \}$.
+An edge $e_{i \rightarrow j}$ from $i$ to $j$ includes the sequence $n_i + n_j$ in our model.
+Edges may describe inversions, by passing from the forward to reverse complement.
+(TODO define further).
+Each edge implies its own reverse complement, so we can avoid redundancy by only recording the edges of the forward graph except where we have inversions.
+
+We define paths as a series of ``mapping'' operations over a series of nodes $p = m_1, \ldots, m_{|p_i|}$.
+Each mapping $m = \{ l, e_i \ldots e_{|m_i|} \}$ has a start position, which is a tuple of a node id $n$, a strand $s$, and an offset $o$ relative to the start of the node on that strand, $l = \{ n, s, o \}$, and a series of edit operations which describe the transformation of the sequence in question into the sequence represented by the path.
+Edits $x = \{ f, t, s \}$ have a length in the graph $f$ (the ``from length''), a length in the derived sequence $t$ (the ``to length''), and a sequence which replaces the sequence in the source graph $s$.
+If they contain invariant edits, paths allow us to label sequences in the graph.
+Where they describe variation, they also provide a natural method to define the alignment of new sequences into the graph.
+
+\section{constructing variation graphs}
+
+\subsection{from VCF}
+
+\subsection{from other sources (from long sequence alignment / assembly input)}
+
+
+\section{indexing variation graphs}
+
+\subsection{base graph (xg)}
+
+\subsection{queries (GCSA2)}
+
+
+\section{resequencing against the graph}
+
+\subsection{alignment (MEM approach)}
+
+\subsection{variant calling (novel alleles)}
+
+\subsection{genotyping (across things in the graph)}
+
+
+\section{experiments}
+
+\subsection{build the graph for 1000GP}
+
+\subsection{index the graph for 1000GP}
+
+\subsection{CHM1 / CHM13}
+%pseudodiploid!
+\subsubsection{align Illumina reads to graph}
+\subsubsection{use pacbio assembly contigs as truth set}
+%what is the divergence rate between the pacbio contigs and the sample graph for CHM1?
+%http://www.ncbi.nlm.nih.gov/assembly/706168/
+
+\subsection{realignment of large set of 1000GP samples against the graph}
+
+
+\section{discussion}
+
+\bibliography{references}{}
+
+\bibliographystyle{plain}
+
+
+\end{document}
