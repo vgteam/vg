@@ -157,6 +157,19 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     sort();
 }
 
+
+ SB_Input VG::vg_to_sb_input(){
+	//cout << this->edge_count() << endl;
+  SB_Input sbi;
+  sbi.num_vertices = this->edge_count();
+	function<void(Edge*)> lambda = [&sbi](Edge* e){
+		//cout << e->from() << " " << e->to() << endl;
+    pair<id_t, id_t> dat = make_pair(e->from(), e->to() );
+    sbi.edges.push_back(dat);
+	};
+	this->for_each_edge(lambda);
+  return sbi;
+}
 // check for conflict (duplicate nodes and edges) occurs within add_* functions
 
 void VG::add_nodes(set<Node*>& nodes) {
@@ -7726,7 +7739,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
         // let's add in inversions
         if (component.size() == 1
             && !is_self_looping(NodeTraversal(get_node(*component.begin())))) {
-            
+
             // not part of a SCC
             // copy into the new graph
             id_t id = *component.begin();
@@ -7851,7 +7864,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
     dag.flip_doubly_reversed_edges();
     return dag;
 }
-    
+
 
 // Unrolls the graph into a tree in which loops are "unrolled" into new nodes
 // up to some max length away from the root node and orientations are flipped.

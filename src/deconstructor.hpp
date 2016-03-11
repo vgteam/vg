@@ -18,6 +18,8 @@
 #include "xg.hpp"
 #include "position.hpp"
 #include "vcfheader.hpp"
+#include <fstream>
+#include <cstdlib>
 
 /**
 * Deconstruct is getting rewritten.
@@ -40,6 +42,11 @@ namespace vg{
       id_t end_node;
       bool isNested;
     };
+
+class CandList{
+
+
+};
     class Deconstructor{
         public:
 

@@ -171,6 +171,8 @@ vector<vcflib::Variant> Deconstructor::sb_to_variants(SuperBubble sb){
 
 }
 
+
+
 /** Checks whether a vertex V satisifes Lemma 3,
 * that v has one parent vertex.
 */
