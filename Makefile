@@ -118,7 +118,7 @@ $(LIB_DIR)/libhts.a: .pre-build
 	+cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.o $(INC_DIR)/dynamic.hpp .pre-build
-	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c $(XG_DIR)/src/xg.cpp -o obj/xg.o $(LD_INCLUDE_FLAGS) -I$(INC_DIR)/dynamic && cp $(XG_DIR)/obj/xg.o $(CWD)/$(OBJ_DIR)/ && ar rs $(CWD)/$(LIB_DIR)/libxg.a $(CWD)/$(OBJ_DIR)/xg.o $(CWD)/$(CPP_DIR)/vg.pb.o && cp $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)/
+	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c $(XG_DIR)/src/xg.cpp -o $(CWD)/$(OBJ_DIR)/xg.o $(LD_INCLUDE_FLAGS) -I$(INC_DIR)/dynamic && ar rs $(CWD)/$(LIB_DIR)/libxg.a $(CWD)/$(OBJ_DIR)/xg.o $(CWD)/$(CPP_DIR)/vg.pb.o && cp $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libvcflib.a: .pre-build
 	+. ./source_me.sh && cd $(VCFLIB_DIR) && $(MAKE) libvcflib.a && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
