@@ -146,9 +146,9 @@ $(INC_DIR)/gfakluge.hpp: .pre-build
 
 
 $(LIB_DIR)/libsupbub.a: $(LIB_DIR)/libsdsl.a .pre-build $(INC_DIR)/globalDefs.hpp
-	+cd $(DEP_DIR)/superbubbles && $(MAKE) && cp libsupbub.a $(CWD)/$(LIB_DIR)/
+	+. ./source_me.sh && cd $(DEP_DIR)/superbubbles && $(MAKE) && cp libsupbub.a $(CWD)/$(LIB_DIR)/
 
-$(INC_DIR)/globalDefs.hpp: .pre-build
+$(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a .pre-build
 	cp $(DEP_DIR)/superbubbles/*.hpp $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
