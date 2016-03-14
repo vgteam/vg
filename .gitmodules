@@ -7,9 +7,6 @@
 [submodule "gssw"]
 	path = deps/gssw
 	url = https://github.com/ekg/gssw.git
-[submodule "snappy"]
-	path = deps/snappy
-	url = https://github.com/juanmaneo/snappy.git
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git
@@ -55,3 +52,6 @@
 [submodule "deps/raptor"]
 	path = deps/raptor
 	url = https://github.com/vgteam/raptor.git
+[submodule "deps/snappy"]
+	path = deps/snappy
+	url = https://github.com/google/snappy.git
