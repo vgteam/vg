@@ -17,17 +17,14 @@ CWD:=$(shell pwd)
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic
 LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2
 
-RAPTOR_INCLUDE:=/usr/include/
 ifeq ($(shell uname -s),Darwin)
     # We may need libraries from Macports
     # TODO: where does Homebrew keep libraries?
     ifeq ($(shell if [ -d /opt/local/lib ];then echo 1;else echo 0;fi), 1)
        LD_LIB_FLAGS += -L/opt/local/lib
-       RAPTOR_INCLUDE=/opt/local/include/
     endif
     ifeq ($(shell if [ -d /usr/local/lib ];then echo 1;else echo 0;fi), 1)
        LD_LIB_FLAGS += -L/usr/local/lib
-       RAPTOR_INCLUDE=/usr/local/include/
     endif
     ROCKSDB_PORTABLE=PORTABLE=1 # needed to build rocksdb without weird assembler options
 else
@@ -37,7 +34,7 @@ endif
 
 OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o
 
-
+RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
 SDSL_DIR:=deps/sdsl-lite
 SNAPPY_DIR:=deps/snappy
@@ -66,7 +63,7 @@ $(LIB_DIR)/libvg.a: $(OBJ)
 	ar rs $@ $^
 
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools
 
 test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf
 	. ./source_me.sh && cd test && $(MAKE)
@@ -86,7 +83,7 @@ test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(S
 deps: $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libgssw.a $(LIB_DIR)/libgcsa2.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/libvcflib.a $(INC_DIR)/sparsehash/sparse_hash_map $(OBJ_DIR)/sha1.o $(LIB_DIR)/librocksdb.a $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a
 
 $(LIB_DIR)/libprotobuf.a: .pre-build
-	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && make && make install && export PATH=$(CWD)/bin:$$PATH
+	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
 $(LIB_DIR)/libsdsl.a: .pre-build
 	+. ./source_me.sh && cd $(SDSL_DIR) && ./install.sh $(CWD)
@@ -105,7 +102,7 @@ $(OBJ_DIR)/progress_bar.o: .pre-build
 	+cd $(PROGRESS_BAR_DIR) && $(MAKE) && cp progress_bar.o $(CWD)/$(OBJ_DIR) && cp *.h* $(CWD)/$(INC_DIR)
 
 $(OBJ_DIR)/Fasta.o: .pre-build
-	+cd $(FASTAHACK_DIR) && make && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
+	+cd $(FASTAHACK_DIR) && $(MAKE) && mv Fasta.o $(CWD)/$(OBJ_DIR) && cp Fasta.h $(CWD)/$(INC_DIR)
 
 $(LIB_DIR)/libhts.a: .pre-build
 	+cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
@@ -135,6 +132,9 @@ $(LIB_DIR)/libvcfh.a: .pre-build
 $(LIB_DIR)/libgfakluge.a: .pre-build
 	+cd $(DEP_DIR)/gfakluge && $(MAKE) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/ && cp gfakluge.hpp $(CWD)/$(INC_DIR)/
 
+$(LIB_DIR)/libraptor2.la: .pre-build
+	+cd $(RAPTOR_DIR)/ && ./autogen.sh --prefix=$(CWD) && $(MAKE) && $(MAKE) install
+
 $(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
@@ -154,8 +154,8 @@ $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a .pre-build
 	./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	cp $@ $(INC_DIR)
 
-$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/sparsehash/sparse_hash_map $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(OBJ_DIR)/progress_bar.o $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.hpp $(LIB_DIR)/libgfakluge.a
-	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS) -I$(RAPTOR_INCLUDE)
+$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/sparsehash/sparse_hash_map $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(OBJ_DIR)/progress_bar.o $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.hpp $(LIB_DIR)/libgfakluge.a $(LIB_DIR)/libraptor2.la
+	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 #$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/sparsehash/sparse_hash_map $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(OBJ_DIR)/progress_bar.o $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.hpp
 #	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
@@ -242,6 +242,7 @@ clean:
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
+	cd $(RAPTOR_DIR)  && $(MAKE) clean
 ## TODO vg source code
 ## TODO LRU_CACHE
 ## TODO bash-tap
