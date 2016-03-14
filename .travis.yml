@@ -28,7 +28,7 @@ before_install:
   - python ./configure.py
   - source ./source_me.sh
 install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;cd deps/raptor/scripts;./install-bison3.sh; fi
 script: make && make test
 
 os:
