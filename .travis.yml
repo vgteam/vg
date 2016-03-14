@@ -29,7 +29,7 @@ before_install:
   - source ./source_me.sh
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;cd deps/raptor/scripts;./install-bison3.sh; fi
-script: make && make test
+script: make && make test && make static
 
 os:
   - linux
