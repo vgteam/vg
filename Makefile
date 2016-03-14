@@ -15,7 +15,7 @@ CWD:=$(shell pwd)
 
 
 LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(CPP_DIR)
-LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge
+LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -lsdsl -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lsupbub
 
 ifeq ($(shell uname -s),Darwin)
     # We may need libraries from Macports
@@ -58,7 +58,7 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 #	$(shell ./source_me.sh)
 
 $(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 static: $(OBJ_DIR)/main.o $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
@@ -139,6 +139,18 @@ $(LIB_DIR)/libgfakluge.a: $(INC_DIR)/gfakluge.hpp .pre-build
 $(INC_DIR)/gfakluge.hpp: .pre-build
 	cp $(DEP_DIR)/gfakluge/gfakluge.hpp $(CWD)/$(INC_DIR)/
 
+#include "globalDefs.hpp"
+#include "Graph.hpp"
+#include "DetectSuperBubble.hpp"
+#include "helperDefs.hpp"
+
+
+$(LIB_DIR)/libsupbub.a: $(LIB_DIR)/libsdsl.a .pre-build $(INC_DIR)/globalDefs.hpp
+	+cd $(DEP_DIR)/superbubbles && $(MAKE) && cp libsupbub.a $(CWD)/$(LIB_DIR)/
+
+$(INC_DIR)/globalDefs.hpp: .pre-build
+	cp $(DEP_DIR)/superbubbles/*.hpp $(CWD)/$(INC_DIR)/
+
 $(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
@@ -158,7 +170,7 @@ $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a .pre-build
 	./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	cp $@ $(INC_DIR)
 
-$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/sparsehash/sparse_hash_map $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(OBJ_DIR)/progress_bar.o $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.hpp $(LIB_DIR)/libgfakluge.a $(INC_DIR)/gfakluge.hpp
+$(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/sparsehash/sparse_hash_map $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(OBJ_DIR)/progress_bar.o $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.hpp $(LIB_DIR)/libgfakluge.a $(INC_DIR)/gfakluge.hpp $(LIB_DIR)/libsupbub.a
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/gssw_aligner.o: $(SRC_DIR)/gssw_aligner.cpp $(SRC_DIR)/gssw_aligner.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libgssw.a $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libvcflib.a $(LIB_DIR)/libhts.a ${INC_DIR}/sha1.hpp
@@ -247,6 +259,7 @@ clean:
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
+	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
 ## TODO vg source code
 ## TODO LRU_CACHE
 ## TODO bash-tap

@@ -38,6 +38,12 @@
 #include "types.hpp"
 #include "gfakluge.hpp"
 
+#include "globalDefs.hpp"
+#include "Graph.hpp"
+#include "DetectSuperBubble.hpp"
+#include "helperDefs.hpp"
+
+
 // uncomment to enable verbose debugging to stderr
 //#define debug
 
@@ -641,6 +647,8 @@ public:
     const string path_sequence(const Path& path);
 
     SB_Input vg_to_sb_input();
+    vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
+    vector<pair<id_t, id_t> > get_superbubbles();
     // edges
     // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.
