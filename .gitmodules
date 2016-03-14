@@ -54,4 +54,4 @@
 	url = https://github.com/vgteam/DYNAMIC
 [submodule "deps/raptor"]
 	path = deps/raptor
-	url = https://github.com/dajobe/raptor.git
+	url = https://github.com/vgteam/raptor.git

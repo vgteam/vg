@@ -132,7 +132,7 @@ $(LIB_DIR)/libvcfh.a: .pre-build
 $(LIB_DIR)/libgfakluge.a: .pre-build
 	+cd $(DEP_DIR)/gfakluge && $(MAKE) && cp libgfakluge.a $(CWD)/$(LIB_DIR)/ && cp gfakluge.hpp $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libraptor2.la: .pre-build
+$(LIB_DIR)/libraptor2.a: .pre-build
 	+cd $(RAPTOR_DIR)/ && ./autogen.sh --prefix=$(CWD) && $(MAKE) && $(MAKE) install
 
 $(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
