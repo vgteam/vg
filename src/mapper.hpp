@@ -9,6 +9,7 @@
 #include "xg.hpp"
 #include "index.hpp"
 #include "gcsa.h"
+#include "lcp.h"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "json2pb.h"
@@ -56,18 +57,22 @@ private:
     // Private constructor to delegate everything to. It might have all these
     // indexing structures null, for example if being called from the default
     // constructor.
-    Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex);
+    Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
 
 public:
     // Make a Mapper that pulls from a RocksDB index and optionally a GCSA2 kmer index.
-    Mapper(Index* idex, gcsa::GCSA* g = nullptr);
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index.
-    Mapper(xg::XG* xidex, gcsa::GCSA* g);
+    Mapper(Index* idex, gcsa::GCSA* g = nullptr, gcsa::LCPArray* a = nullptr);
+    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
+    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     Mapper(void);
     ~Mapper(void);
+    // rocksdb index
     Index* index;
-    gcsa::GCSA* gcsa;
+    // xg index
     xg::XG* xindex;
+    // GCSA index and its LCP array
+    gcsa::GCSA* gcsa;
+    gcsa::LCPArray* lcp;
 
     // Align the given string and return an Alignment.
     Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
@@ -131,6 +136,10 @@ public:
                                      int attempt = 0);
 
     // MEM-based mapping
+    // finds absolute mems
+    vector<MaximalExactMatch> find_mems(const string& seq);
+    // the same but filters for only supra-maximal matches
+    vector<MaximalExactMatch> find_smems(const string& seq);
     // finds "forward" maximal exact matches of the sequence using the GCSA index
     // stepping step between each one
     vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1);

@@ -2,10 +2,14 @@
 
 namespace vg {
 
-Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
+Mapper::Mapper(Index* idex,
+               xg::XG* xidex,
+               gcsa::GCSA* g,
+               gcsa::LCPArray* a)
     : index(idex)
-    , gcsa(g)
     , xindex(xidex)
+    , gcsa(g)
+    , lcp(a)
     , best_clusters(0)
     , cluster_min(2)
     , hit_max(100)
@@ -32,7 +36,7 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex)
     // Nothing to do. We just hold the default parameter values.
 }
 
-Mapper::Mapper(Index* idex, gcsa::GCSA* g) : Mapper(idex, g, nullptr)
+Mapper::Mapper(Index* idex, gcsa::GCSA* g, gcsa::LCPArray* a) : Mapper(idex, nullptr, g, a)
 {
     if(idex == nullptr) {
         // With this constructor we need an index.
@@ -49,21 +53,21 @@ Mapper::Mapper(Index* idex, gcsa::GCSA* g) : Mapper(idex, g, nullptr)
     }
 }
 
-Mapper::Mapper(xg::XG* xidex, gcsa::GCSA* g) : Mapper(nullptr, g, xidex) {
+Mapper::Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a) : Mapper(nullptr, xidex, g, a) {
     if(xidex == nullptr) {
         // With this constructor we need an XG graph.
         cerr << "error:[vg::Mapper] cannot create an xg-based Mapper with null xg index" << endl;
         exit(1);
     }
 
-    if(g == nullptr) {
+    if(g == nullptr || a == nullptr) {
         // With this constructor we need a GCSA2 index too.
         cerr << "error:[vg::Mapper] cannot create an xg-based Mapper with null GCSA2 index" << endl;
         exit(1);
     }
 }
 
-Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr) {
+Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr, nullptr) {
     // Nothing to do. Default constructed and can't really do anything.
 }
 
@@ -823,6 +827,63 @@ Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int ban
 
     // Otherwise, just repoirt the best alignment, since we know one exists
     return best[0];
+}
+
+// Use the GCSA2 index to find maximal exact matches.
+vector<MaximalExactMatch>
+Mapper::find_mems(const string& seq) {
+    string::const_iterator begin = seq.begin();
+    string::const_iterator end = seq.end();
+    vector<MaximalExactMatch> mems;
+    // an empty sequence matches the entire bwt
+    if(begin == end) {
+        mems.emplace_back(MaximalExactMatch(begin, end, gcsa::range_type(0, gcsa->size() - 1)));
+        return mems;
+    }
+    // otherwise, step through the sequence generating MEMs
+    // running backward searching starting from end
+    // and searching until we break, then emitting a match
+    while (end != begin) {
+        --end;
+        mems.emplace_back(MaximalExactMatch(end, end+1,
+                                            gcsa->charRange(gcsa->alpha.char2comp[*end])));
+        MaximalExactMatch& match = mems.back();
+        gcsa::range_type last_range = match.range;
+        // run the backward search
+        while (!gcsa::Range::empty(match.range) // until our BWT range is 0
+               && end != begin                  // or we run out of sequence
+               && (max_mem_length && match.end-end < max_mem_length || true)
+               && match.end-end < gcsa->order()) { // or we exceed the order of the index
+            --end;
+            last_range = match.range;
+            match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*end]);
+        }
+        // record the mem range in the sequence
+        if (gcsa::Range::empty(match.range)) {
+            // move the end of the range using parent()
+            gcsa::STNode parent_res = lcp->parent(match.range);
+            size_t step_size = parent_res.lcp();
+            match.range = parent_res.range();
+            match.begin = end+step_size;
+        } else {
+            // if we didn't exhaust the range, but ran out because our sequence ended
+            // then we count this base in the MEM
+            match.begin = end;
+        }
+    }
+    // return the matches in natural order
+    std::reverse(mems.begin(), mems.end());
+    return mems;
+}
+
+// Use the GCSA2 index to find supra-maximal exact matches.
+vector<MaximalExactMatch>
+Mapper::find_smems(const string& seq) {
+    string::const_iterator begin = seq.begin();
+    string::const_iterator end = seq.end();
+    vector<MaximalExactMatch> mems = find_mems(seq);
+    // TODO filter for SMEM status
+    return mems;
 }
 
 // Use the GCSA2 index to find approximate maximal exact matches.

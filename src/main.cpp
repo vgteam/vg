@@ -858,6 +858,7 @@ int main_msga(int argc, char** argv) {
     // reverse complement?
     Mapper* mapper = nullptr;
     gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
     xg::XG* xgidx = nullptr;
     size_t iter = 0;
 
@@ -867,6 +868,7 @@ int main_msga(int argc, char** argv) {
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
         if (gcsaidx) delete gcsaidx;
+        if (lcpidx) delete lcpidx;
 
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
@@ -877,12 +879,12 @@ int main_msga(int argc, char** argv) {
             gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
             if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
             // then index
-            gcsaidx = gcsa_graph.build_gcsa_index(idx_kmer_size, false, doubling_steps);
+            gcsa_graph.build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, false, doubling_steps);
         } else {
             // if no complexity reduction is requested, just build the index
-            gcsaidx = graph->build_gcsa_index(idx_kmer_size, false, doubling_steps);
+            graph->build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, false, doubling_steps);
         }
-        mapper = new Mapper(xgidx, gcsaidx);
+        mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
             mapper->debug = debug_align;
             mapper->context_depth = context_depth;
@@ -3204,9 +3206,14 @@ int main_find(int argc, char** argv) {
         } else {
             // let's use the GCSA index
             // first open it
-            ifstream in(gcsa_in.c_str());
+            ifstream in_gcsa(gcsa_in.c_str());
             gcsa::GCSA gcsa_index;
-            gcsa_index.load(in);
+            gcsa_index.load(in_gcsa);
+            gcsa::LCPArray lcp_index;
+            // default LCP is the gcsa base name +.lcp
+            string lcp_in = gcsa_in + ".lcp";
+            ifstream in_lcp(lcp_in.c_str());
+            lcp_index.load(in_lcp);
             //range_type find(const char* pattern, size_type length) const;
             //void locate(size_type path, std::vector<node_type>& results, bool append = false, bool sort = true) const;
             //locate(i, results);
@@ -3221,10 +3228,12 @@ int main_find(int argc, char** argv) {
                     }
                 }
             } else {
+                // for mems we need to load up the gcsa and lcp structures into the mapper
                 Mapper mapper;
                 mapper.gcsa = &gcsa_index;
+                mapper.lcp = &lcp_index;
                 // get the mems
-                auto mems = mapper.find_forward_mems(sequence, mem_step);
+                auto mems = mapper.find_mems(sequence);
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
@@ -3563,14 +3572,22 @@ int main_index(int argc, char** argv) {
             }
         }
 
+        // build the LCP array
+        string lcp_name = gcsa_name + ".lcp";
+        gcsa::LCPArray* lcp_array = new gcsa::LCPArray(input_graph, params);
+
         // clean up input graph temp files
         for (auto& tfn : tmpfiles) {
             remove(tfn.c_str());
         }
 
-        // Save it to the index filename
+        // Save the GCSA2 index
         sdsl::store_to_file(*gcsa_index, gcsa_name);
         delete gcsa_index;
+
+        // Save the LCP array
+        sdsl::store_to_file(*lcp_array, lcp_name);
+        delete lcp_array;
 
         // Skip all the Snappy stuff we can't do (yet).
         return 0;
@@ -4164,6 +4181,7 @@ int main_map(int argc, char** argv) {
     // Load up our indexes.
     xg::XG* xindex = nullptr;
     gcsa::GCSA* gcsa = nullptr;
+    gcsa::LCPArray* lcp = nullptr;
 
     // for testing, we sometimes want to run the mapper on indexes we build in memory
     if (build_in_memory) {
@@ -4178,7 +4196,7 @@ int main_map(int argc, char** argv) {
         xindex = new xg::XG(graph->graph);
         assert(kmer_size);
         int doubling_steps = 2;
-        gcsa = graph->build_gcsa_index(kmer_size, false, 2);
+        graph->build_gcsa_lcp(gcsa, lcp, kmer_size, false, 2);
         delete graph;
     } else {
         // We try opening the file, and then see if it worked
@@ -4200,6 +4218,16 @@ int main_map(int argc, char** argv) {
             }
             gcsa = new gcsa::GCSA();
             gcsa->load(gcsa_stream);
+        }
+
+        string lcp_name = gcsa_name + ".lcp";
+        ifstream lcp_stream(lcp_name);
+        if (lcp_stream) {
+            if(debug) {
+                cerr << "Loading LCP index " << gcsa_name << "..." << endl;
+            }
+            lcp = new gcsa::LCPArray();
+            lcp->load(lcp_stream);
         }
     }
 
@@ -4249,9 +4277,9 @@ int main_map(int argc, char** argv) {
 
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m;
-        if(xindex && gcsa) {
+        if(xindex && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xindex, gcsa);
+            m = new Mapper(xindex, gcsa, lcp);
         } else {
             // Use the Rocksdb index and maybe the GCSA one
             m = new Mapper(idx, gcsa);
