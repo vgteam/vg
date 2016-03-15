@@ -241,7 +241,7 @@ clean:
 	cd $(DEP_DIR) && cd sdsl-lite && ./uninstall.sh || true
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
-	cd $(RAPTOR_DIR)  && $(MAKE) clean
+	rm -R $(RAPTOR_DIR)/build/*
 ## TODO vg source code
 ## TODO LRU_CACHE
 ## TODO bash-tap
