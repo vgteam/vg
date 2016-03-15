@@ -159,6 +159,29 @@ int Deconstructor::validate_superbubble(int start, int end){
 	}
 }
 
+vector<int64_t> emit_nodes_through_superbubble(vector<pair<id_t, id_t> > bubs){
+	vector<id_t> ret;
+	queue<id_t> nq;
+	int level = 0;
+//cerr << "here " << endl;
+	id_t begin;
+	int ind = 0;
+	begin = bubs[ind].first;
+	nq.push(begin);
+
+	// while (!nq.empty()){
+	// 	current = nq.front(); nq.pop();
+	// 	vector<pair<int64_t, bool>> edges;
+	// 	edges = (*vgraph).edges_on_end[];
+	// 	for (int i = 0; i < edges.size(); i++){
+	//
+	//
+	// 	}
+	// 	level += 1;
+	// }
+	return ret;
+}
+
 vector<int64_t> Deconstructor::emit_nodes_on_path_through_superbubble(Path p, vector<SuperBubble> subs){
 
 }

@@ -60,6 +60,7 @@ class CandList{
             vector<int64_t> emit_nodes_on_path_through_superbubble(Path p, vector<SuperBubble> sb);
             vector<int64_t> emit_nodes_off_path_through_superbubble(SuperBubble sb);
             vector<vcflib::Variant> sb_to_variants(SuperBubble sb);
+            vector<int64_t> emit_nodes_through_superbubble(vector<pair<id_t, id_t> > bubs);
 
         private:
           xg::XG my_xg;
