@@ -5121,6 +5121,7 @@ void help_construct(char** argv) {
          << "    -r, --reference FILE  input FASTA reference" << endl
          << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
          << "    -B, --phase-blocks    save paths for phased blocks with the ref paths" << endl
+         << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
          << "    -R, --region REGION   specify a particular chromosome" << endl
          << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
          << "                          sequence name could be inadvertently parsed as a region)" << endl
@@ -5150,6 +5151,8 @@ int main_construct(int argc, char** argv) {
     bool flat_alts = false;
     // Should we make paths out of phasing blocks in the called samples?
     bool load_phasing_paths = false;
+    // Should we make alt paths for variants?
+    bool load_alt_paths = false;
 
     int c;
     while (true) {
@@ -5162,6 +5165,7 @@ int main_construct(int argc, char** argv) {
                 // TODO: change the long option here?
                 {"ref-paths", required_argument, 0, 'P'},
                 {"phase-blocks", no_argument, 0, 'B'},
+                {"alt-paths", no_argument, 0, 'a'},
                 {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
                 {"threads", required_argument, 0, 't'},
@@ -5173,7 +5177,7 @@ int main_construct(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bs:Cf",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bas:Cf",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -5196,6 +5200,10 @@ int main_construct(int argc, char** argv) {
             
         case 'B':
             load_phasing_paths = true;
+            break;
+
+        case 'a':
+            load_alt_paths = true;
             break;
 
         case 'p':
@@ -5264,7 +5272,7 @@ int main_construct(int argc, char** argv) {
     Paths ref_paths;
 
     VG graph(variant_file, reference, region, region_is_chrom, vars_per_region,
-        max_node_size, flat_alts, load_phasing_paths, progress);
+        max_node_size, flat_alts, load_phasing_paths, load_alt_paths, progress);
 
     if (!ref_paths_file.empty()) {
         ofstream paths_out(ref_paths_file);

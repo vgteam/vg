@@ -1859,6 +1859,7 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
                                 map<pair<long, int>, vector<bool>>* phase_visits,
+                                map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
                                 bool flat_input_vcf) {
 
     for (int i = 0; i < records.size(); ++i) {
@@ -1919,23 +1920,27 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
             
         for (auto& alleles : alternates) {
         
-            // We'll point this to a vector flagging all the visits to this alt
-            // (which may be the ref alt).
+            // We'll point this to a vector flagging all the phase visits to
+            // this alt (which may be the ref alt), if we want to record those.
             vector<bool>* visits = nullptr;
+            
+            // What alt number is this alt? (0 for ref)
+            // -1 for nothing needs to visit it and we don't care.
+            int alt_number = -1;
             
 #ifdef debug
             cerr << "Considering alt " << alleles.first << " at " << var.position << endl;
             cerr << var << endl;
 #endif
             
-            if(phase_visits != nullptr) {
-                // We actually have visits to look for
+            if(phase_visits != nullptr || alt_allele_visits != nullptr) {
+                // We actually have visits to look for. We need to know what
+                // alt number we have here.
                 
                 // We need to copy out the alt sequence to appease the vcflib API
                 string alt_sequence = alleles.first;
                 
-                // What alt number are we looking at (0 for ref)
-                int alt_number;
+                // What alt number are we looking at 
                 if(alt_sequence == var.ref) {
                     // This is the ref allele
                     alt_number = 0;
@@ -1982,6 +1987,8 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                 }
                 
                 if(visits != nullptr && phase_visits != nullptr) {
+                    // We have to record a phase visit
+                
                     // What position, allele index pair are we visiting when we
                     // visit this alt?
                     auto visited = make_pair(allele.position, found_at);
@@ -2003,6 +2010,19 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                         }
                         
                     }
+                }
+                
+                if(alt_allele_visits != nullptr && alt_number != -1 && !var.id.empty() && var.id != ".") {
+                    // We have to record a visit of this alt of this variant to
+                    // this VariantAllele bubble/reference patch.
+                    
+                    // What position, allele index pair are we visiting when we
+                    // visit this alt?
+                    auto visited = make_pair(allele.position, found_at);
+                    
+                    // Say we visit this allele as part of this alt of this variant.
+                    // We assume all the actually filled in ID fields in the VCF are unique.
+                    (*alt_allele_visits)[visited].push_back(make_pair(var.id, alt_number));
                 }                
                 
             }
@@ -2103,6 +2123,7 @@ void VG::dice_nodes(int max_node_size) {
 void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
                       size_t num_phasings,
+                      const map<pair<long, int>, vector<pair<string, int>>>& variant_alts,
                       string& seq,
                       string& name) {
 
@@ -2117,7 +2138,8 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         cerr << tid << ": in from_alleles" << endl;
         cerr << tid << ": with " << altp.size() << " vars" << endl;
         cerr << tid << ": and " << num_phasings << " phasings" << endl;
-        cerr << tid << ": and " << visits.size() << " visit records" << endl;
+        cerr << tid << ": and " << visits.size() << " phasing visits" << endl;
+        cerr << tid << ": and " << variant_alts.size() << " variant alt visits" << endl;
         cerr << tid << ": and " << seq.size() << "bp" << endl;
         if(seq.size() < 100) cerr << seq << endl;
     }
@@ -2186,10 +2208,13 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             // Go through all the alleles with their numbers
             auto& allele = alleles[allele_number];
             
-            if(allele.ref == allele.alt && !visits.count(make_pair(va.first, allele_number))) {
-                // This is a ref-only allele with no visits, which means we
-                // don't actually need any cuts if the allele is not visited. If
-                // other alleles here are visited, we'll get cuts from them.
+            auto allele_key = make_pair(va.first, allele_number);
+            
+            if(allele.ref == allele.alt && !visits.count(allele_key) && !variant_alts.count(allele_key)) {
+                // This is a ref-only allele with no visits or usages in
+                // alleles, which means we don't actually need any cuts if the
+                // allele is not visited. If other alleles here are visited,
+                // we'll get cuts from them.
                 continue;
             }
             
@@ -2359,12 +2384,6 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 // However, we can only do this if there actually is a node
                 // between the last set of alleles and here.
                 
-                // TODO: have an actual flag for whether we're doing phasings;
-                // what if we just don't happen to have any visits in here for
-                // some reason?
-                
-                // TODO: how should we know how many phasings there are?
-                
                 // TODO: what if some of these phasings aren't actually phased
                 // here? We'll need to break up their paths to just have some
                 // ref matching paths between variants where they aren't
@@ -2379,12 +2398,12 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 // The next allele won't be the first one actually processed.
                 first_allele_processed = false;
             }
-            if(!alt_nodes.empty() && visits.count(make_pair(va.first, allele_number))) {
+            if(!alt_nodes.empty() && visits.count(allele_key)) {
                 // At least one phased path visits this allele, and we have some
                 // nodes to path it through.
                 
                 // Get the vector of bools for that phasings visit
-                auto& visit_vector = visits.at(make_pair(va.first, allele_number));
+                auto& visit_vector = visits.at(allele_key);
                 
                 for(size_t i = 0; i < visit_vector.size(); i++) {
                     // For each phasing
@@ -2409,6 +2428,32 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                                 paths.append_mapping(phase_name, alt_node->id());
                             }
                         }
+                    }
+                }
+            }
+            
+            if(variant_alts.count(allele_key)) {
+            
+                for(auto name_and_alt : variant_alts.at(allele_key)) {
+                    // For each of the alts using this allele, put mappings for this path
+                    string path_name = "_allele_" + name_and_alt.first + "_" + to_string(name_and_alt.second);
+                    
+                    if(!alt_nodes.empty()) {
+                        // This allele has some physical presence and is used by some
+                        // variants.
+                        
+                        for(auto alt_node : alt_nodes) {
+                            // Put a mapping on each alt node
+                            
+                            paths.append_mapping(path_name, alt_node->id());
+                        }
+                    } else {
+                        // TODO: alts that are deletions don't always have nodes
+                        // on both sides to visit. Either anchor your VCF
+                        // deletions at both ends, or rely on the presence of
+                        // mappings to other alleles (allele 0) in this variant
+                        // but not this allele to indicate the deletion of
+                        // nodes.
                     }
                 }
             }
@@ -2730,6 +2775,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
        int max_node_size,
        bool flat_input_vcf,
        bool load_phasing_paths,
+       bool load_variant_alt_paths,
        bool showprog) {
 
     init();
@@ -2824,6 +2870,12 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         // overlapping allele elsewhere.
         map<pair<long, int>, vector<bool>> phase_visits;
         
+        // This is going to hold visits to VariantAlleles by the reference and
+        // nonreference alts of variants. We map from VariantAllele index and
+        // number to a list of the variant ID and alt number pairs that use the
+        // VariantAllele.
+        map<pair<long, int>, vector<pair<string, int>>> variant_alts;
+        
         // We don't want to load all the vcf records into memory at once, since
         // the vcflib internal data structures are big compared to the info we
         // need.
@@ -2833,10 +2885,15 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             // Parse the variants we have loaded, and clear them out, so we can
             // go back and load a new batch of variants.
             
-            // decompose records into alleles with offsets against our target sequence
-            // Dump the collections of alleles (which are ref, alt pairs) into the alleles map.
-            // Populate the phase visit map if we're loading phasing paths
-            vcf_records_to_alleles(records, alleles, load_phasing_paths ? &phase_visits : nullptr, flat_input_vcf);
+            // decompose records into alleles with offsets against our target
+            // sequence Dump the collections of alleles (which are ref, alt
+            // pairs) into the alleles map. Populate the phase visit map if
+            // we're loading phasing paths, and the variant alt path map if
+            // we're loading variant alts.
+            vcf_records_to_alleles(records, alleles,
+                load_phasing_paths ? &phase_visits : nullptr,
+                load_variant_alt_paths ? &variant_alts : nullptr,
+                flat_input_vcf);
             records.clear(); // clean up
         };
         
@@ -2884,6 +2941,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             invariant_graph = false;
             map<long, vector<vcflib::VariantAllele> > new_alleles;
             map<pair<long, int>, vector<bool>> new_phase_visits;
+            map<pair<long, int>, vector<pair<string, int>>> new_variant_alts;
             // our start position is the "offset" we should subtract from the
             // alleles and the phase visits for correct construction
             //chunk_start = (!chunk_start ? 0 : alleles.begin()->first);
@@ -2915,11 +2973,11 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                     // Also handle any visits to this allele
                     // We need the key, consisting of the old position and the allele number there.
                     auto old_allele_key = make_pair(alleles.begin()->first, j);
+                    // Make the new key
+                    auto new_allele_key = make_pair(pos, j);
                     if(phase_visits.count(old_allele_key)) {
-                        // We have some usages of this allele. We need to move them over.
+                        // We have some usages of this allele for phase paths. We need to move them over.
                         
-                        // Make the new key
-                        auto new_allele_key = make_pair(pos, j);
                         // Move over the value and insert into the new map. See <http://stackoverflow.com/a/14816487/402891>
                         // TODO: would it be clearer with the braces instead?
                         new_phase_visits.insert(make_pair(new_allele_key, std::move(phase_visits.at(old_allele_key))));
@@ -2927,6 +2985,15 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                         // Now we've emptied out/made-undefined the old vector,
                         // so we probably should drop it from the old map.
                         phase_visits.erase(old_allele_key);
+                    }
+                    
+                    if(variant_alts.count(old_allele_key)) {
+                        // We have some usages of this allele by variant alts. We need to move them over.
+                        
+                        // Do a move operation
+                        new_variant_alts.insert(make_pair(new_allele_key, std::move(variant_alts.at(old_allele_key))));
+                        // Delete the olkd entry (just so we don't keep it around wasting time/space/being unspecified)
+                        variant_alts.erase(old_allele_key);
                     }
                 }
                 alleles.erase(alleles.begin());
@@ -2946,6 +3013,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             Plan* plan = new Plan(graphq.empty() && targets.size() == 1 ? this : new VG,
                                   std::move(new_alleles),
                                   std::move(new_phase_visits),
+                                  std::move(new_variant_alts),
                                   reference.getSubSequence(seq_name,
                                                            chunk_start,
                                                            chunk_end - chunk_start),
@@ -3034,6 +3102,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             plan->graph->from_alleles(plan->alleles,
                                       plan->phase_visits,
                                       num_phasings,
+                                      plan->variant_alts,
                                       plan->seq,
                                       plan->name);
                                       

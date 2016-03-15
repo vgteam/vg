@@ -281,16 +281,19 @@ public:
        int max_node_size = 0,
        bool flat_input_vcf = false,
        bool load_phasing_paths = false,
+       bool load_variant_alt_paths = false,
        bool showprog = false);
        
     void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
                       size_t num_phasings,
+                      const map<pair<long, int>, vector<pair<string, int>>>& variant_alts,
                       string& seq,
                       string& chrom);
     void vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
                                 map<pair<long, int>, vector<bool>>* phase_visits,
+                                map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
                                 bool flat_input_vcf = false);
     void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
@@ -1051,7 +1054,13 @@ public:
     struct Plan {
         VG* graph;
         map<long, vector<vcflib::VariantAllele> > alleles;
+        // What alleles are visited by phasing paths? For each position and
+        // allele index, stores a vector of flags, one per phase path.
         map<pair<long, int>, vector<bool>> phase_visits;
+        // What alleles are visited by paths defining the alts of a variant? For
+        // each position and allele index, stores a vector of variant ID, alt
+        // number pairs.
+        map<pair<long, int>, vector<pair<string, int>>> variant_alts;
         string seq;
         string name;
         // Make a new plan, moving the alleles map and phase visit vector map
@@ -1059,11 +1068,13 @@ public:
         Plan(VG* graph,
              map<long, vector<vcflib::VariantAllele> >&& alleles,
              map<pair<long, int>, vector<bool>>&& phase_visits,
+             map<pair<long, int>, vector<pair<string, int>>>&& variant_alts,
              string seq,
              string name)
             : graph(graph)
             , alleles(std::move(alleles))
             , phase_visits(std::move(phase_visits))
+            , variant_alts(std::move(variant_alts))
             , seq(seq)
             , name(name) { };
     };
