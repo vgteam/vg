@@ -49,21 +49,30 @@ public:
         bool allow_dups, bool allow_negatives = false);
     
     // Write out kmer lines to GCSA2
-    void write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride,
+    void write_gcsa_out(ostream& out, int kmer_size,
                         bool forward_only,
                         int64_t head_id=0, int64_t tail_id=0);
-    
+
+    void write_gcsa_kmers_binary(ostream& out,
+                                 int kmer_size,
+                                 bool forward_only,
+                                 int64_t head_id=0, int64_t tail_id=0);
+
     // gets all the kmers in GCSA's internal format.
-    void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+    void get_gcsa_kmers(int kmer_size,
                         bool forward_only,
                         vector<gcsa::KMer>& kmers_out,
                         int64_t head_id=0, int64_t tail_id=0);
+
+    vector<string> write_gcsa_kmers_binary(int kmer_size,
+                                           bool forward_only,
+                                           int64_t head_id=0, int64_t tail_id=0);
 
     bool show_progress;
 
 private:
 
-    void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+    void for_each_gcsa_kmer_position_parallel(int kmer_size,
                                               bool forward_only,
                                               int64_t& head_id, int64_t& tail_id,
                                               function<void(KmerPosition&)> lambda);

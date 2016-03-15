@@ -944,9 +944,22 @@ public:
                         vector<gcsa::KMer>& kmers_out,
                         id_t& head_id, id_t& tail_id);
 
+    void write_gcsa_kmers(int kmer_size, int edge_max, int stride,
+                          bool forward_only,
+                          ostream& out,
+                          id_t& head_id, id_t& tail_id);
+
+    // write the kmers to a tmp file with the given base, return the name of the file
+    string write_gcsa_kmers_to_tmpfile(int kmer_size, bool forward_only,
+                                       size_t doubling_steps = 2,
+                                       size_t size_limit = 200,
+                                       const string& base_file_name = ".vg-kmers-tmp-");
+
+    // construct the GCSA index for this graph
     gcsa::GCSA* build_gcsa_index(int kmer_size, bool forward_only,
                                  size_t doubling_steps = 2,
-                                 size_t size_limit = 200);
+                                 size_t size_limit = 200,
+                                 const string& base_file_name = ".vg-kmers-tmp-");
 
     // for pruning graph prior to indexing with gcsa2
     // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to
