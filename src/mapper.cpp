@@ -410,7 +410,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
         }
     };
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic,1)
     for (int i = 0; i < bands.size(); ++i) {
         {
             if (max_multimaps > 1) {
