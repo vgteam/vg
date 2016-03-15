@@ -29,7 +29,9 @@ before_install:
   - source ./source_me.sh
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;fi
-script: make && make test && make static
+script:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make && make test && make static; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make && make test; fi
 
 os:
   - linux
