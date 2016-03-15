@@ -24,7 +24,7 @@ Before you begin, you'll need to install some basic tools if they are not alread
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
-                         jq bc curl unzip redland-utils librdf-dev
+                         jq bc curl unzip redland-utils librdf-dev bison
 
 You can also run `make get-deps`.
 
@@ -63,8 +63,11 @@ Note that static binaries cannot yet be built for Mac.
 ```
 brew tap homebrew/versions  # for gcc49
 brew tap homebrew/science  # for samtools
-brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake raptor
+brew install automake libtool jq jansson coreutils gcc49 samtools pkg-config cmake raptor bison
 export PATH="/usr/local/opt/coreutils/libexec/gnubin:/usr/local/bin:$PATH"
+
+# Force use of new version of bison
+brew link bison --force
 
 # Use glibtool/ize
 export LIBTOOL=glibtool
