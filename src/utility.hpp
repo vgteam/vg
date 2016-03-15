@@ -7,6 +7,7 @@
 #include <omp.h>
 #include <cstring>
 #include <algorithm>
+#include <unistd.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
 
@@ -63,6 +64,8 @@ vector<T> vpmax(const std::vector<std::vector<T>>& vv) {
     }
     return c;
 }
+
+string tmpfilename(const string& base);
 
 }
 

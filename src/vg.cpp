@@ -7449,6 +7449,8 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
 
 }
 
+// runs the GCSA kmer extraction
+// wraps and unwraps the graph in a single start and end node
 void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
                                               bool forward_only,
                                               id_t& head_id, id_t& tail_id,
@@ -7542,6 +7544,16 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
     if(tail_node_in_graph) {
         destroy_node(tail_node);
     }
+}
+
+void VG::write_gcsa_kmers(int kmer_size, int edge_max, int stride,
+                          bool forward_only,
+                          ostream& out,
+                          id_t& head_id, id_t& tail_id) {
+    vector<gcsa::KMer> kmers_out;
+    get_gcsa_kmers(kmer_size, edge_max, stride, forward_only,
+                   kmers_out, head_id, tail_id);
+    gcsa::writeBinary(out, kmers_out, kmer_size);
 }
 
 void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
@@ -7645,17 +7657,39 @@ void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
             kmer.makeSorted();
         }
     }
+}
 
+string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool forward_only,
+                                       size_t doubling_steps, size_t size_limit,
+                                       const string& base_file_name) {
+    // open a temporary file for the kmers
+    string tmpfile = tmpfilename(base_file_name);
+    ofstream out(tmpfile);
+    id_t head_id=0, tail_id=0;
+    // write the kmers to the temporary file
+    write_gcsa_kmers(kmer_size, 0, 1, forward_only,
+                     out, head_id, tail_id);
+    out.close();
+    return tmpfile;
 }
 
 gcsa::GCSA* VG::build_gcsa_index(int kmer_size, bool forward_only,
-                                 size_t doubling_steps,
-                                 size_t size_limit) {
-    vector<gcsa::KMer> kmers;
-    id_t head_id=0, tail_id=0;
-    get_gcsa_kmers(kmer_size, 0, 1, forward_only,
-                   kmers, head_id, tail_id);
-    gcsa::GCSA* result = new gcsa::GCSA(kmers, kmer_size, doubling_steps, size_limit);
+                                 size_t doubling_steps, size_t size_limit,
+                                 const string& base_file_name) {
+
+    string tmpfile = write_gcsa_kmers_to_tmpfile(kmer_size, forward_only,
+                                                 doubling_steps, size_limit,
+                                                 base_file_name);
+    // set up the input graph using the kmers
+    gcsa::InputGraph input_graph({ tmpfile }, true);
+    gcsa::ConstructionParameters params;
+    params.setSteps(doubling_steps);
+    params.setLimit(size_limit);
+    // and run the construction
+    gcsa::GCSA* result = new gcsa::GCSA(input_graph, params);
+    // delete the temporary debruijn graph file
+    remove(tmpfile.c_str());
+    // returns the GCSA we've constructed
     return result;
 }
 

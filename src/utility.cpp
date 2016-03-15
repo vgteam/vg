@@ -185,4 +185,19 @@ string cigar_string(vector<pair<int, char> >& cigar) {
     return cigarss.str();
 }
 
+string tmpfilename(const string& base) {
+    string tmpname = base + "XXXXXXXX";
+    // hack to use mkstemp to get us a safe temporary file name
+    int fd = mkstemp(&tmpname[0]);
+    if(fd != -1) {
+        // we don't leave it open; we are assumed to open it again externally
+        close(fd);
+    } else {
+        cerr << "[vg utility.cpp]: couldn't create temp file on base "
+             << base << " : " << tmpname << endl;
+        exit(1);
+    }
+    return tmpname;
+}
+
 }

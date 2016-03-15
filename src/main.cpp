@@ -2154,22 +2154,9 @@ int main_kmers(int argc, char** argv) {
 
     if (gcsa_out) {
         if (!gcsa_binary) {
-            graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, forward_only, head_id, tail_id);
+            graphs.write_gcsa_out(cout, kmer_size, forward_only, head_id, tail_id);
         } else {
-            // Go get the kmers of the correct size
-            vector<gcsa::KMer> kmers;
-            graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, forward_only, kmers, head_id, tail_id);
-            for(auto& kmer : kmers) {
-                // Mark kmers that go to the sink node as "sorted", since they have stop
-                // characters in them and can't be extended.
-                if(gcsa::Node::id(kmer.to) == tail_id && gcsa::Node::offset(kmer.to) > 0) {
-                    kmer.makeSorted();
-                }
-            }
-            if(show_progress) {
-                cerr << "Found " << kmers.size() << " kmer instances" << endl;
-            }
-            gcsa::writeBinary(cout, kmers, kmer_size);
+            graphs.write_gcsa_kmers_binary(cout, kmer_size, forward_only, head_id, tail_id);
         }
     } else {
         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG& graph)>
@@ -3351,7 +3338,7 @@ int main_index(int argc, char** argv) {
     bool compact = false;
     bool dump_alignments = false;
     bool use_snappy = false;
-    int doubling_steps = gcsa::GCSA::DOUBLING_STEPS;
+    int doubling_steps = 2;
     bool verify_index = false;
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
@@ -3559,58 +3546,31 @@ int main_index(int argc, char** argv) {
         graphs.show_progress = show_progress;
 
         // Go get the kmers of the correct size
-        vector<gcsa::KMer> kmers;
-        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, forward_only, kmers, 0);
-
-        // Handle finding the sink node
-        size_t sink_node_id = 0;
-        for(auto kmer : kmers) {
-            if(gcsa::Key::label(kmer.key) == 0) {
-                // This kmer lets us know the sink node.
-                sink_node_id = gcsa::Node::id(kmer.from);
-                break;
-            }
-        }
-
-        for(auto& kmer : kmers) {
-            // Mark kmers that go to the sink node as "sorted", since they have stop
-            // characters in them and can't be extended.
-            // TODO: Can we just check for the presence of "$" during conversion and not do this serial loop?
-            if(gcsa::Node::id(kmer.to) == sink_node_id && gcsa::Node::offset(kmer.to) > 0) {
-                kmer.makeSorted();
-            }
-
-            //cout << kmer << std::endl;
-        }
-
-        if(show_progress) {
-            cerr << "Found " << kmers.size() << " kmer instances" << endl;
-        }
-
-        /*
-        // if we'd like to stash the output to GCSA2
-        ofstream out("x.graph");
-        gcsa::writeBinary(out, kmers, kmer_size);
-        out.close();
-        */
-
-        // copy the kmers if we are verifying the index
-        // as these are destructively modified
-        vector<gcsa::KMer> kmers_copy;
-        if (verify_index) {
-            kmers_copy = kmers;
-        }
-
+        auto tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, forward_only);
         // Make the index with the kmers
-        gcsa::GCSA gcsa_index(kmers, kmer_size, doubling_steps, size_limit);
+        gcsa::InputGraph input_graph(tmpfiles, true);
+        gcsa::ConstructionParameters params;
+        params.setSteps(doubling_steps);
+        params.setLimit(size_limit);
+
+        // build the GCSA index
+        gcsa::GCSA* gcsa_index = new gcsa::GCSA(input_graph, params);
 
         if (verify_index) {
             //cerr << "verifying index" << endl;
-            gcsa_index.verifyIndex(kmers_copy, kmer_size);
+            if (!gcsa_index->verifyIndex(input_graph)) {
+                cerr << "[vg::main]: GCSA2 index verification failed" << endl;
+            }
+        }
+
+        // clean up input graph temp files
+        for (auto& tfn : tmpfiles) {
+            remove(tfn.c_str());
         }
 
         // Save it to the index filename
-        sdsl::store_to_file(gcsa_index, gcsa_name);
+        sdsl::store_to_file(*gcsa_index, gcsa_name);
+        delete gcsa_index;
 
         // Skip all the Snappy stuff we can't do (yet).
         return 0;
