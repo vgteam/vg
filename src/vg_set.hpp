@@ -33,8 +33,8 @@ public:
     // necessary when storing many graphs in the same index
     int64_t merge_id_space(void);
 
-    // saves as a succinct, queryable representation
-    void to_xg(const string& xg_db_name);
+    // Transforms to a succinct, queryable representation
+    xg::XG&& to_xg();
 
     // stores the nodes in the VGs identified by the filenames into the index
     void store_in_index(Index& index);

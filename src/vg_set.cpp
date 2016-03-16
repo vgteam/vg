@@ -57,9 +57,8 @@ int64_t VGset::merge_id_space(void) {
     return max_node_id;
 }
 
-void VGset::to_xg(const string& xg_db_name) {
-    // get a temporary graph
-    // TODO: make this a stream that loads from all the files in sequence instead.
+xg::XG&& VGset::to_xg() {
+    // Set up an XG index
     xg::XG index;
     index.from_callback([&](function<void(Graph&)> callback) {
         for (auto& name : filenames) {
@@ -68,10 +67,9 @@ void VGset::to_xg(const string& xg_db_name) {
             stream::for_each(in, callback);
         }
     });
-    // save the xg version to the file name we've been given
-    ofstream db_out(xg_db_name.c_str());
-    index.serialize(db_out);
-    db_out.close();
+    
+    // Send out the XG object to the caller.
+    return std::move(index);
 }
 
 void VGset::store_in_index(Index& index) {

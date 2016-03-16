@@ -3533,7 +3533,13 @@ int main_index(int argc, char** argv) {
     if (!xg_name.empty()) {
         // store the graphs
         VGset graphs(file_names);
-        graphs.to_xg(xg_name);
+        xg::XG index = graphs.to_xg();
+        
+        // save the xg version to the file name we've been given
+        ofstream db_out(xg_name);
+        index.serialize(db_out);
+        db_out.close();
+        
         // should we stop here?
     }
 
