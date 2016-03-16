@@ -1862,8 +1862,35 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
                                 bool flat_input_vcf) {
 
+    
+
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
+        
+        // What name should we use for the variant? We need to make sure it is
+        // unique, even if there are multiple variant records at the same
+        // position in the VCF. Also, we don't necessarily have every variant in
+        // the VCF in our records vector.
+        string var_name;
+        if(!var.id.empty() && var.id != ".") {
+            // We assume all the actually filled in ID fields in the VCF are unique.
+            var_name = var.id;
+        } else {
+            // Synthesize a name for the variant
+            // Let's just hash
+            SHA1 hasher;
+            
+            // Turn the variant back into a string line and hash it.
+            std::stringstream variant_stringer;
+            variant_stringer << var;
+            hasher.update(variant_stringer.str());
+            
+            // Name the variant with the hex hash. Will be unique unless two
+            // identical variant lines are in the file.
+            var_name = hasher.final();
+            
+        }
+        
         // decompose to alts
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
         map<string, vector<vcflib::VariantAllele> > alternates
@@ -2012,7 +2039,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     }
                 }
                 
-                if(alt_allele_visits != nullptr && alt_number != -1 && !var.id.empty() && var.id != ".") {
+                if(alt_allele_visits != nullptr && alt_number != -1) {
                     // We have to record a visit of this alt of this variant to
                     // this VariantAllele bubble/reference patch.
                     
@@ -2021,8 +2048,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     auto visited = make_pair(allele.position, found_at);
                     
                     // Say we visit this allele as part of this alt of this variant.
-                    // We assume all the actually filled in ID fields in the VCF are unique.
-                    (*alt_allele_visits)[visited].push_back(make_pair(var.id, alt_number));
+                    (*alt_allele_visits)[visited].push_back(make_pair(var_name, alt_number));
                 }                
                 
             }
