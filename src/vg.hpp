@@ -7,6 +7,7 @@
 #include <string>
 #include <deque>
 #include <list>
+#include <array>
 #include <omp.h>
 #include <unistd.h>
 #include <limits.h>
@@ -126,8 +127,8 @@ public:
     }
 
     // Make an edge into a canonically ordered pair of NodeSides
-    static inline pair<NodeSide, NodeSide> pair_from_edge(Edge& e) {
-        return pair_from_edge(&e);
+    static inline pair<NodeSide, NodeSide> pair_from_edge(const Edge& e) {
+        return minmax(NodeSide(e.from(), !e.from_start()), NodeSide(e.to(), e.to_end()));
     }
 
     // Make a canonically ordered pair of NodeSides from an edge off of the
@@ -291,17 +292,19 @@ public:
        int vars_per_region,
        int max_node_size = 0,
        bool flat_input_vcf = false,
+       bool load_phasing_paths = false,
        bool showprog = false);
-    void from_alleles(const map<long, set<vcflib::VariantAllele> >& altp,
+       
+    void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
+                      const map<pair<long, int>, vector<bool>>& visits,
+                      size_t num_phasings,
                       string& seq,
                       string& chrom);
     void vcf_records_to_alleles(vector<vcflib::Variant>& records,
-                                map<long, set<vcflib::VariantAllele> >& altp,
-                                int start_pos,
-                                int stop_pos,
-                                int max_node_size = 0,
+                                map<long, vector<vcflib::VariantAllele> >& altp,
+                                map<pair<long, int>, vector<bool>>* phase_visits,
                                 bool flat_input_vcf = false);
-    void slice_alleles(map<long, set<vcflib::VariantAllele> >& altp,
+    void slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
                        int stop_pos,
                        int max_node_size);
@@ -347,6 +350,7 @@ public:
     map<id_t, pair<id_t, bool> > overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
                                                            const map<id_t, pair<id_t, bool> >& under);
     // use our topological sort to quickly break cycles in the graph, return the edges which are removed
+    // very non-optimal, but fast
     vector<Edge> break_cycles(void);
     // removes pieces of the graph which are not part of any path
     void remove_non_path(void);
@@ -354,7 +358,7 @@ public:
     void flip_doubly_reversed_edges(void);
 
     void from_gfa(istream& in, bool showp = false);
-
+    void from_turtle(string filename, string baseuri, bool showp = false);
 
     // default constructor, destructor
     ~VG(void);
@@ -512,16 +516,19 @@ public:
     void add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation);
 
     // Add in the given node, by value
-    void add_node(Node& node);
-    void add_nodes(vector<Node>& nodes);
-    void add_edge(Edge& edge);
-    void add_edges(vector<Edge>& edges);
-    void add_nodes(set<Node*>& nodes);
-    void add_edges(set<Edge*>& edges);
+    void add_node(const Node& node);
+    void add_nodes(const vector<Node>& nodes);
+    void add_edge(const Edge& edge);
+    void add_edges(const vector<Edge>& edges);
+    void add_nodes(const set<Node*>& nodes);
+    void add_edges(const set<Edge*>& edges);
 
     id_t node_count(void);
     id_t edge_count(void);
     id_t total_length_of_nodes(void);
+    // returns the rank of the node in the protobuf array that backs the graph
+    int node_rank(Node* node);
+    int node_rank(id_t id);
     // Number of edges attached to the start of a node
     int start_degree(Node* node);
     // Number of edges attached to the end of a node
@@ -591,7 +598,7 @@ public:
     // Get the subgraph of a node and all the edges it is responsible for (i.e.
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
-   void expand_context(VG& g, size_t steps, bool add_paths = true);
+    void expand_context(VG& g, size_t steps, bool add_paths = true);
 
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
@@ -599,7 +606,8 @@ public:
     void destroy_node(id_t id);
     bool has_node(id_t id);
     bool has_node(Node* node);
-    bool has_node(Node& node);
+    bool has_node(const Node& node);
+    Node* find_node_by_name_or_add_new(string name);
     void for_each_node(function<void(Node*)> lambda);
     void for_each_node_parallel(function<void(Node*)> lambda);
     // Go through all the nodes in the same connected component as the given node. Ignores relative orientation.
@@ -684,7 +692,7 @@ public:
     // This can take sides in any order
     bool has_edge(const pair<NodeSide, NodeSide>& sides);
     bool has_edge(Edge* edge);
-    bool has_edge(Edge& edge);
+    bool has_edge(const Edge& edge);
     bool has_inverting_edge(Node* n);
     bool has_inverting_edge_from(Node* n);
     bool has_inverting_edge_to(Node* n);
@@ -729,7 +737,7 @@ public:
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
                             bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
    void to_gfa(ostream& out);
-    void to_turtle(ostream& out, const string& rdf_base_uri);
+    void to_turtle(ostream& out, const string& rdf_base_uri, bool precompress);
     bool is_valid(bool check_nodes = true,
                   bool check_edges = true,
                   bool check_paths = true,
@@ -1044,18 +1052,22 @@ public:
     // for managing parallel construction
     struct Plan {
         VG* graph;
-        map<long, set<vcflib::VariantAllele> >* alleles;
+        map<long, vector<vcflib::VariantAllele> > alleles;
+        map<pair<long, int>, vector<bool>> phase_visits;
         string seq;
         string name;
-        Plan(VG* g,
-             map<long, set<vcflib::VariantAllele> >* a,
-             string s,
-             string n)
-            : graph(g)
-            , alleles(a)
-            , seq(s)
-            , name(n) { };
-        ~Plan(void) { delete alleles; }
+        // Make a new plan, moving the alleles map and phase visit vector map
+        // into the plan.
+        Plan(VG* graph,
+             map<long, vector<vcflib::VariantAllele> >&& alleles,
+             map<pair<long, int>, vector<bool>>&& phase_visits,
+             string seq,
+             string name)
+            : graph(graph)
+            , alleles(std::move(alleles))
+            , phase_visits(std::move(phase_visits))
+            , seq(seq)
+            , name(name) { };
     };
 
 

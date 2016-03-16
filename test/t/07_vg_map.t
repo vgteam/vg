@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 16
+plan tests 17
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -81,6 +81,8 @@ vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.vg.idx -g x.vg.gcsa -k 16 -X 2 x.vg
 vg sim -s 1337 -n 1000 x.vg >x.reads
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -k 16 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
+
+is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -n 5 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "mem mapping works"
 
 is $(vg map -r x.reads -V x.vg -k 16 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map can build its own in-memory indexes"
 

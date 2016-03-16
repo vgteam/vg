@@ -56,7 +56,7 @@ public:
     // This maps from path name to the list of Mappings for that path.
     map<string, list<Mapping> > _paths;
     // This maps from Mapping* pointer to its iterator in its list of Mappings
-    // for its path. The list in question is stroed above in _paths. Recall that
+    // for its path. The list in question is stored above in _paths. Recall that
     // std::list iterators are bidirectional.
     map<Mapping*, list<Mapping>::iterator > mapping_itr;
     // This maps from Mapping* pointer to the name of the path it belongs to
@@ -64,11 +64,12 @@ public:
     map<Mapping*, string> mapping_path;
     void sort_by_mapping_rank(void);
     void rebuild_mapping_aux(void);
-    // ...we need this in order to get subsets of the paths in correct order
-    map<Mapping*, size_t> mapping_path_order;
-    // This maps from node ID to a set of path name, mapping instance pairs.
-    // Note that we don't have a map for each node, because each node can appear
-    // along any given path multiple times, with multiple Mapping* pointers.
+    // We need this in order to make sure we aren't adding duplicate mappings
+    // with the same rank in the same path. Maps from path name and rank to
+    // Mapping pointer.
+    map<string, map<size_t, Mapping*>> mappings_by_rank;
+    // This maps from node ID, then path name, then rank and orientation, to
+    // Mapping pointers for the mappings on that path to that node.
     map<id_t, map<string, set<Mapping*>>> node_mapping;
     
     void rebuild_node_mapping(void);
@@ -80,7 +81,12 @@ public:
     pair<Mapping*, Mapping*> divide_mapping(Mapping* m, size_t offset);
     // replace the mapping with two others in the order provided
     pair<Mapping*, Mapping*> replace_mapping(Mapping* m, pair<Mapping, Mapping> n);
+    // Note that this clears and rebuilds all the indexes
     void remove_paths(const set<string>& names);
+    // This one actually unthreads the path from the indexes. It's O(path
+    // length), but you can do several calls without thrashing the index
+    // clear and rebuild functions.
+    void remove_path(const string& name);
     void keep_paths(const set<string>& name);
     void remove_node(id_t id);
     bool has_path(const string& name);
@@ -88,7 +94,13 @@ public:
     list<Mapping>& get_path(const string& name);
     list<Mapping>& get_create_path(const string& name);
     list<Mapping>& create_path(const string& name);
-    bool has_mapping(const string& name, const Mapping& m);
+    // Does the given path have a mapping meeting the given criteria?
+    // Is there a mapping in the given path with the given assigned rank? Note
+    // that the rank passed may not be 0.
+    bool has_mapping(const string& name, size_t rank);
+    // We used to be able to search for a Mapping by value, but that's not
+    // efficient if the Mappings don't have ranks, and it never checked the
+    // edits for equality anyway.
     bool has_node_mapping(id_t id);
     bool has_node_mapping(Node* n);
     map<string, set<Mapping*>>& get_node_mapping(Node* n);
@@ -117,7 +129,12 @@ public:
     void to_graph(Graph& g);
     // get a path
     Path path(const string& name);
-    // add mappings, use rank to sort later
+    // add mappings. Mappings are assumed to either be pre-sorted or to have
+    // ranks assigned already. If you append a mapping with no rank after
+    // mappings with ranks, or visa versa, the relative ordering is undefined.
+    // Also, if both pre-ranked and un-ranked mappings are appended, or if you
+    // called clear_mapping_ranks before appending, mappings_by_rank may be
+    // incorrect until rebuild_mapping_aux() is called.
     void append_mapping(const string& name, const Mapping& m);
     void append_mapping(const string& name, id_t id, size_t rank = 0, bool is_reverse = false);
     void prepend_mapping(const string& name, const Mapping& m);
@@ -128,6 +145,8 @@ public:
     void extend(Paths& p);
     void extend(const Path& p);
     void for_each(const function<void(const Path&)>& lambda);
+    // Loop over the names of paths without actually extracting the Path objects.
+    void for_each_name(const function<void(const string&)>& lambda);
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
     void increment_node_ids(id_t inc);
     // Replace the node IDs used as keys with those used as values.
@@ -172,9 +191,14 @@ Path reverse_complement_path(const Path& path,
 // type, strip leading and trailing deletion edits on mappings, and make sure no
 // mappings have missing positions.
 Path simplify(const Path& p);
+// does the same for a single mapping element
 Mapping simplify(const Mapping& m);
+// make a new mapping that concatenates the mappings
 Mapping concat_mappings(const Mapping& m, const Mapping& n);
+// make a new path that concatenates the two given paths
 Path concat_paths(const Path& path1, const Path& path2);
+// extend the first path by the second, avoiding copy operations
+Path& extend_path(Path& path1, const Path& path2);
 // divide mapping at reference-relative position
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos);
 // divide mapping at target-relative offset (as measured in to_length)
