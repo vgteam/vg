@@ -12,7 +12,7 @@ Mapper::Mapper(Index* idex,
     , lcp(a)
     , best_clusters(0)
     , cluster_min(2)
-    , hit_max(100)
+    , hit_max(0)
     , hit_size_threshold(512)
     , kmer_min(0)
     , kmer_sensitivity_step(3)
@@ -1149,15 +1149,9 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
             mems.push_back(mem);
         }
     }
-    for (auto& mem : mems) {
-        mem.fill_nodes(gcsa);
-    }
-    if (debug) cerr << "mems before filtering " << mems_to_json(mems) << endl;
-    for (auto& mem : mems) {
-        if (mem.nodes.size() > hit_max) {
-            mem.nodes.clear();
-        }
-    }
+
+    if (debug) cerr << "mems before filling " << mems_to_json(mems) << endl;
+    for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
     if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
 
     return align_mem_multi(alignment, mems);
@@ -1176,6 +1170,20 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     }
     */
 }
+
+bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
+    bool filled = false;
+    // use the counting interface to determine the number of hits
+    mem.fill_match_count(gcsa);
+    // if we aren't filtering on hit count, or if we have up to the max allowed hits
+    if (!hit_max || mem.match_count <= hit_max) {
+        // extract the graph positions matching the range
+        mem.fill_nodes(gcsa);
+        filled = true;
+    }
+    return filled;
+}
+
 
 // Well, it's not really "optimal" yet
 // but the idea here is that we can thread back through multi-mappings
@@ -1280,10 +1288,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         rc_mems.erase(std::remove_if(rc_mems.begin(), rc_mems.end(),
                                   [&](const MaximalExactMatch& m) { return m.end-m.begin < min_mem_length; }));
         for (auto& rc_mem : rc_mems) {
-            rc_mem.fill_nodes(gcsa);
-            if (rc_mem.nodes.size() > hit_max) {
-                rc_mem.nodes.clear();
-            }
+            get_mem_hits_if_under_max(rc_mem);
             for (auto& node : rc_mem.nodes) {
                 id_t id = gcsa::Node::id(node);
                 ids.insert(id);

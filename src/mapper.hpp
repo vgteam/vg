@@ -26,13 +26,13 @@ public:
     string::const_iterator begin;
     string::const_iterator end;
     gcsa::range_type range;
-    size_t matches;
+    size_t match_count;
     std::vector<gcsa::node_type> nodes;
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
                       gcsa::range_type r,
                       size_t m = 0)
-        : begin(b), end(e), range(r), matches(m) { }
+        : begin(b), end(e), range(r), match_count(m) { }
 
     // construct the sequence of the MEM; useful in debugging
     string sequence(void) const {
@@ -46,7 +46,10 @@ public:
     void fill_nodes(gcsa::GCSA* gcsa) {
         gcsa->locate(range, nodes);
     }
-    // TODO: add interface to efficient position counting when finished upstream
+    // uses GCSA to get a count of the number of graph nodes in our range
+    void fill_match_count(gcsa::GCSA* gcsa) {
+        match_count = gcsa->count(range);
+    }
 };
 
 class Mapper {
@@ -138,6 +141,7 @@ public:
     // MEM-based mapping
     // finds absolute super-maximal exact matches
     vector<MaximalExactMatch> find_smems(const string& seq);
+    bool get_mem_hits_if_under_max(MaximalExactMatch& mem);
     // debugging, checking of mems using find interface to gcsa
     void check_mems(const vector<MaximalExactMatch>& mems);
     // finds "forward" maximal exact matches of the sequence using the GCSA index
