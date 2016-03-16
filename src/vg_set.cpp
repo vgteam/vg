@@ -59,25 +59,15 @@ int64_t VGset::merge_id_space(void) {
 
 void VGset::to_xg(const string& xg_db_name) {
     // get a temporary graph
-    string tmp_graph = xg_db_name + ".tmp_vg";
-    {
-        stringstream cmd;
-        cmd << "cat ";
-        for (auto& name : filenames) {
-            cmd << name << " ";
-        }
-        cmd << ">" << tmp_graph;
-        if (system(cmd.str().c_str())) {
-            cerr << "[vg::map] could not concatenate graphs" << endl;
-            exit(1);
-        }
-    }
-    // and load them into xg
-    ifstream is(tmp_graph);
+    // TODO: make this a stream that loads from all the files in sequence instead.
     xg::XG index;
-    index.from_stream(is);
-    is.close();
-    remove(tmp_graph.c_str());
+    index.from_callback([&](function<void(Graph&)> callback) {
+        for (auto& name : filenames) {
+            // Load chunks from all the files and pass them into XG.
+            std::ifstream in(name);
+            stream::for_each(in, callback);
+        }
+    });
     // save the xg version to the file name we've been given
     ofstream db_out(xg_db_name.c_str());
     index.serialize(db_out);
