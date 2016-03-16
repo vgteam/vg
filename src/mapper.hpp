@@ -138,6 +138,8 @@ public:
     // MEM-based mapping
     // finds absolute mems
     vector<MaximalExactMatch> find_mems(const string& seq);
+    // debugging, checking of mems using find interface to gcsa
+    void check_mems(const vector<MaximalExactMatch>& mems);
     // the same but filters for only supra-maximal matches
     vector<MaximalExactMatch> find_smems(const string& seq);
     // finds "forward" maximal exact matches of the sequence using the GCSA index
@@ -157,6 +159,8 @@ public:
     Alignment walk_match(const string& seq, pos_t pos, int match_score = 2);
     // convert the set of hits of a MEM into a set of alignments
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
+    // Use the GCSA index to look up the sequence
+    set<pos_t> sequence_positions(const string& seq);
     
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
@@ -199,6 +203,7 @@ public:
 // utility
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
 const string mems_to_json(const vector<MaximalExactMatch>& mems);
+set<pos_t> gcsa_nodes_to_positions(const vector<gcsa::node_type>& nodes);
 
 }
 
