@@ -846,71 +846,78 @@ set<pos_t> Mapper::sequence_positions(const string& seq) {
     return gcsa_nodes_to_positions(gcsa_nodes);
 }
 
-// Use the GCSA2 index to find maximal exact matches.
+// Use the GCSA2 index to find super-maximal exact matches.
 vector<MaximalExactMatch>
-Mapper::find_mems(const string& seq) {
+Mapper::find_smems(const string& seq) {
+
     string::const_iterator string_begin = seq.begin();
     string::const_iterator cursor = seq.end();
     vector<MaximalExactMatch> mems;
+
     // an empty sequence matches the entire bwt
     if (seq.empty()) {
-        mems.emplace_back(MaximalExactMatch(seq.begin(), seq.end(), gcsa::range_type(0, gcsa->size() - 1)));
+        mems.emplace_back(
+            MaximalExactMatch(seq.begin(), seq.end(),
+                              gcsa::range_type(0, gcsa->size() - 1)));
         return mems;
     }
+
     // find MEMs using GCSA+LCP array
-    // algorithm sketch
-    //
-    // while sequence is left:
-    //   backwards search until our range goes to 0 (use LF mapping)
-    //   then, pop characters off our end until we can walk forward (LCP->parent)
+    // algorithm sketch:
+    // set up a cursor pointing to the last position in the sequence
+    // set up a structure to track our MEMs, and set it == "" and full range match
+    // while our cursor is >= the beginning of the string
+    //   try a step of backwards searching using LF mapping
+    //   if our range goes to 0
+    //       go back to the last non-empty range
+    //       emit the MEM corresponding to this range
+    //       start a new mem
+    //           use the LCP array's parent function to cut off the end of the match
+    //           (effectively, this steps up the suffix tree)
+    //           and calculate the new end point using the LCP of the parent node
+    // emit the final MEM, if we finished in a matching state
+
+    // the temporary MEM we'll build up in this process
     MaximalExactMatch match(cursor, cursor, gcsa::range_type(0, gcsa->size() - 1));
-    size_t i = 0;
     gcsa::range_type last_range = match.range;
-    auto print_match = [&](MaximalExactMatch m) {
-        m.begin = cursor;
-        m.fill_nodes(gcsa);
-        cerr << m.sequence() << ": ";
-        for (auto& n : m.nodes) {
-            cerr << gcsa::Node::decode(n) << ", ";
-        } cerr << endl;
-    };
-    // we step forward until we have a mem
-    --cursor; // start off looking one base backwards
+    --cursor; // start off looking at the last character in the query
     while (cursor >= string_begin) {
-        cerr << "searching " << *cursor << " @ " << cursor-string_begin << endl;
+        // hold onto our previous range
         last_range = match.range;
-        cerr << "range = " << match.range.first << " " << match.range.second << endl;
+        // execute one step of LF mapping
         match.range = gcsa->LF(match.range, gcsa->alpha.char2comp[*cursor]);
-        cerr << "LF(range, " << *cursor << ") = " << match.range.first << " " << match.range.second << endl;
-        // if we are down to a single entry in the BWT, we know we must emit this MEM
-        if (gcsa::Range::empty(match.range)) {
+        if (gcsa::Range::empty(match.range)
+            || max_mem_length && match.end-cursor > max_mem_length
+            || match.end-cursor > gcsa->order()) {
             // we've exhausted our BWT range, so the last match range was maximal
-            cerr << "breaking "; print_match(match);
+            // or: we have exceeded the order of the graph (FPs if we go further)
+            //     we have run over our parameter-defined MEM limit
+            // record the last MEM
             match.begin = cursor+1;
             match.range = last_range;
             mems.push_back(match);
-            // move the end of the range using parent()
+            // length of last MEM, which we use to update our end pointer for the next MEM
+            size_t last_mem_length = match.end - match.begin;
+            // get the parent suffix tree node corresponding to the parent of the last MEM's STNode
             gcsa::STNode parent = lcp->parent(last_range);
-            size_t step_size = parent.lcp();
-            // change the end for the next mem to reflect our step
-            cerr << "stepped " << step_size << endl;
+            // change the end for the next mem to reflect our step size
+            size_t step_size = last_mem_length - parent.lcp();
             match.end = mems.back().end-step_size;
+            // and set up the next MEM using the parent node range
             match.range = parent.range();
         } else {
+            // we are matching
             match.begin = cursor;
-            cerr << "matching "; print_match(match);
-            if (max_mem_length && match.end-cursor > max_mem_length
-                || match.end-cursor > gcsa->order()) {
-                cerr << "exceededeeded!" << endl;
-            }
+            // just step to the next position
             --cursor;
         }
     }
+    // if we have a non-empty MEM at the end, record it
     if (match.end - match.begin > 0) mems.push_back(match);
     // return the matches in natural order
     std::reverse(mems.begin(), mems.end());
-    // now verify the matches
-    check_mems(mems);
+    // if debugging, verify the matches (costly)
+    if (debug) { check_mems(mems); }
     return mems;
 }
 
@@ -924,16 +931,6 @@ void Mapper::check_mems(const vector<MaximalExactMatch>& mems) {
                  << "but found " << gcsa_nodes_to_positions(mem.nodes).size() << endl;
         }
     }
-}
-
-// Use the GCSA2 index to find supra-maximal exact matches.
-vector<MaximalExactMatch>
-Mapper::find_smems(const string& seq) {
-    string::const_iterator begin = seq.begin();
-    string::const_iterator end = seq.end();
-    vector<MaximalExactMatch> mems = find_mems(seq);
-    // TODO filter for SMEM status
-    return mems;
 }
 
 // Use the GCSA2 index to find approximate maximal exact matches.
@@ -1147,7 +1144,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     // but we may want to selectively use them
     // such as by trying to use them as seeds in order from shortest to longest
     vector<MaximalExactMatch> mems;
-    for (auto& mem: find_forward_mems(alignment.sequence())) {
+    for (auto& mem: find_smems(alignment.sequence())) {
         if (mem.end-mem.begin >= min_mem_length) {
             mems.push_back(mem);
         }
@@ -1277,7 +1274,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
         // now handle the reverse complement mem to get the end position of the mem
         string rc_mem = reverse_complement(mem.sequence());
-        auto rc_mems = find_forward_mems(rc_mem);
+        auto rc_mems = find_smems(rc_mem);
         // also filter to remove spurious sub-hits
         // TODO: is it the case that the rc is definitively the same number as the forward?
         rc_mems.erase(std::remove_if(rc_mems.begin(), rc_mems.end(),

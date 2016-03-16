@@ -36,7 +36,7 @@ is $? 0 "index compaction"
 
 vg index -g x.gcsa -k 16 x.vg
 is $? 0 "building a GCSA2 index"
-rm x.gcsa
+rm -f x.gcsa x.gcsa.lcp
 
 #vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of 1mb graph succeeds"
@@ -60,7 +60,7 @@ is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignme
 vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg index -m - -d x.vg.map
 is $(vg index -D -d x.vg.map | wc -l) $(vg map -r <(vg sim -s 1337 -n 100 x.vg) x.vg | vg view -a - | jq -c '.path.mapping[]' | sort | uniq | wc -l) "index stores all unique mappings"
 
-rm -rf x.vg.index x.vg.gcsa x.vg.map x.vg.aln
+rm -rf x.vg.index x.vg.gcsa x.vg.gcsa.lcp x.vg.map x.vg.aln
 rm -f x.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
@@ -83,7 +83,7 @@ vg index -k 2 -g qx.vg.gcsa q.vg x.vg
 is $? 0 "building a GCSA2 index of two graphs"
 
 rm x.vg y.vg z.vg q.vg
-rm -rf x.vg.index q.vg.index qx.vg.gcsa
+rm -rf x.vg.index q.vg.index qx.vg.gcsa qx.vg.gcsa.lcp
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s x.vg
@@ -140,7 +140,7 @@ is $(vg index -g x.gcsa -k 16 -V cyclic/all.vg 2>&1 |  grep 'Index verification 
 
 is $(vg index -g x.gcsa -k 16 -V -F cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 forward-only indexing works on cyclic graphs with no heads or tails"
 
-rm -f x.gcsa
+rm -f x.gcsa x.gcsa.lcp
 
 is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g t.idx -k 16 -V - 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing of a tiny graph works"
 

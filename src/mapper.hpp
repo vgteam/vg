@@ -136,12 +136,10 @@ public:
                                      int attempt = 0);
 
     // MEM-based mapping
-    // finds absolute mems
-    vector<MaximalExactMatch> find_mems(const string& seq);
+    // finds absolute super-maximal exact matches
+    vector<MaximalExactMatch> find_smems(const string& seq);
     // debugging, checking of mems using find interface to gcsa
     void check_mems(const vector<MaximalExactMatch>& mems);
-    // the same but filters for only supra-maximal matches
-    vector<MaximalExactMatch> find_smems(const string& seq);
     // finds "forward" maximal exact matches of the sequence using the GCSA index
     // stepping step between each one
     vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1);

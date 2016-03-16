@@ -33,7 +33,7 @@ is $(vg map -s $seq -B 30 -x x.xg -g x.gcsa -k 22 | vg surject -d x.vg.index -s 
 
 is $(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -k 22 -J -M 2 | jq -r '.score' | tr '\n' ',') "62,54," "multiple alignments are returned in descending score order"
 
-rm -f x.vg x.xg x.gcsa
+rm -f x.vg x.xg x.gcsa x.gcsa.lcp
 rm -rf x.vg.index
 
 vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz -m 64 >giab.vg
@@ -48,7 +48,7 @@ count_next=$(samtools sort -no minigiab/NA12878.chr22.tiny.bam x | samtools bam2
 
 is $count_prev $count_next "vg connects paired-end reads in gam output"
 
-rm -f giab.vg giab.xg giab.gcsa
+rm -f giab.vg giab.xg giab.gcsa giab.gcsa.lcp
 
 #vg index -s -k 27 -e 7 graphs/199754000:199755000.vg
 
@@ -86,4 +86,4 @@ is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -n 5 -t 1 -J | jq -c '.path.m
 
 is $(vg map -r x.reads -V x.vg -k 16 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map can build its own in-memory indexes"
 
-rm -f x.vg.idx x.vg.gcsa x.vg x.reads
+rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads
