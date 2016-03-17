@@ -130,32 +130,28 @@ is $(vg index -D -d all.vg.aln | wc -l) ${NUM_UNIQUE_READS} "index can store ali
 
 rm -rf cyclic/all.vg.index all.vg.aln
 
-is $(vg index -g x.gcsa -k 16 -V <(vg view -Fv cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with heads and tails"
+is $(vg index -g x.gcsa -k 16 -V <(vg view -Fv cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on cyclic graphs with heads and tails"
 
-is $(vg index -g x.gcsa -k 16 -V cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with no heads or tails"
+is $(vg index -g x.gcsa -k 16 -V cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on cyclic graphs with no heads or tails"
 
-is $(vg index -g x.gcsa -k 16 -V cyclic/self_loops.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on cyclic graphs with self loops"
+is $(vg index -g x.gcsa -k 16 -V cyclic/self_loops.vg 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on cyclic graphs with self loops"
 
-is $(vg index -g x.gcsa -k 16 -V cyclic/all.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 index works on general cyclic graphs"
+is $(vg index -g x.gcsa -k 16 -V cyclic/all.vg 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on general cyclic graphs"
 
-is $(vg index -g x.gcsa -k 16 -V -F cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing works on cyclic graphs with no heads or tails"
-
-#is $(vg index -g -k 16 -V -F cyclic/self_loops.vg | 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing works on cyclic graphs with self loops"
-
-#is $(vg index -g -k 16 -V -F cyclic/all.vg 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing works on general cyclic graphs"
+is $(vg index -g x.gcsa -k 16 -V -F cyclic/no_heads.vg 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 forward-only indexing works on cyclic graphs with no heads or tails"
 
 rm -f x.gcsa
 
-is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g t.idx -k 16 -V - 2>&1 |  grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing of a tiny graph works"
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g t.idx -k 16 -V - 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing of a tiny graph works"
 
-is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g t.idx -k 16 -V - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing of a tiny graph works"
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg index -g t.idx -k 16 -V - 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 forward-only indexing of a tiny graph works"
 
-is $(vg construct -r tiny/tiny.fa | vg index -g t.idx -k 16 -V - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing succeeds on a single-node graph"
+is $(vg construct -r tiny/tiny.fa | vg index -g t.idx -k 16 -V - 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing succeeds on a single-node graph"
 
-is $(vg construct -r tiny/tiny.fa | vg index -g t.idx -k 16 -V -F - 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 forward-only indexing succeeds on a single-node graph"
+is $(vg construct -r tiny/tiny.fa | vg index -g t.idx -k 16 -V -F - 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 forward-only indexing succeeds on a single-node graph"
 
-is $(vg index -g t.idx reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete.' | wc -l) 1 "GCSA2 indexing succeeds on graph with heads but no tails"
+is $(vg index -g t.idx reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing succeeds on graph with heads but no tails"
 
-is $(vg index -g t.idx reversing/cactus.vg -k 16 -V -F 2>&1 | grep 'Index verification complete.' | wc -l) 0 "GCSA2 forward-only indexing fails due to impossibility on graph with heads but no tails"
+is $(vg index -g t.idx reversing/cactus.vg -k 16 -V -F 2>&1 | grep 'Index verification complete' | wc -l) 0 "GCSA2 forward-only indexing fails due to impossibility on graph with heads but no tails"
 
 rm t.idx

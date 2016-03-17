@@ -2283,22 +2283,9 @@ int main_kmers(int argc, char** argv) {
 
     if (gcsa_out) {
         if (!gcsa_binary) {
-            graphs.write_gcsa_out(cout, kmer_size, edge_max, kmer_stride, forward_only, head_id, tail_id);
+            graphs.write_gcsa_out(cout, kmer_size, forward_only, head_id, tail_id);
         } else {
-            // Go get the kmers of the correct size
-            vector<gcsa::KMer> kmers;
-            graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, forward_only, kmers, head_id, tail_id);
-            for(auto& kmer : kmers) {
-                // Mark kmers that go to the sink node as "sorted", since they have stop
-                // characters in them and can't be extended.
-                if(gcsa::Node::id(kmer.to) == tail_id && gcsa::Node::offset(kmer.to) > 0) {
-                    kmer.makeSorted();
-                }
-            }
-            if(show_progress) {
-                cerr << "Found " << kmers.size() << " kmer instances" << endl;
-            }
-            gcsa::writeBinary(cout, kmers, kmer_size);
+            graphs.write_gcsa_kmers_binary(cout, kmer_size, forward_only, head_id, tail_id);
         }
     } else {
         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG& graph)>
@@ -3480,7 +3467,7 @@ int main_index(int argc, char** argv) {
     bool compact = false;
     bool dump_alignments = false;
     bool use_snappy = false;
-    int doubling_steps = gcsa::GCSA::DOUBLING_STEPS;
+    int doubling_steps = 2;
     bool verify_index = false;
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
@@ -3688,58 +3675,31 @@ int main_index(int argc, char** argv) {
         graphs.show_progress = show_progress;
 
         // Go get the kmers of the correct size
-        vector<gcsa::KMer> kmers;
-        graphs.get_gcsa_kmers(kmer_size, edge_max, kmer_stride, forward_only, kmers, 0);
-
-        // Handle finding the sink node
-        size_t sink_node_id = 0;
-        for(auto kmer : kmers) {
-            if(gcsa::Key::label(kmer.key) == 0) {
-                // This kmer lets us know the sink node.
-                sink_node_id = gcsa::Node::id(kmer.from);
-                break;
-            }
-        }
-
-        for(auto& kmer : kmers) {
-            // Mark kmers that go to the sink node as "sorted", since they have stop
-            // characters in them and can't be extended.
-            // TODO: Can we just check for the presence of "$" during conversion and not do this serial loop?
-            if(gcsa::Node::id(kmer.to) == sink_node_id && gcsa::Node::offset(kmer.to) > 0) {
-                kmer.makeSorted();
-            }
-
-            //cout << kmer << std::endl;
-        }
-
-        if(show_progress) {
-            cerr << "Found " << kmers.size() << " kmer instances" << endl;
-        }
-
-        /*
-        // if we'd like to stash the output to GCSA2
-        ofstream out("x.graph");
-        gcsa::writeBinary(out, kmers, kmer_size);
-        out.close();
-        */
-
-        // copy the kmers if we are verifying the index
-        // as these are destructively modified
-        vector<gcsa::KMer> kmers_copy;
-        if (verify_index) {
-            kmers_copy = kmers;
-        }
-
+        auto tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, forward_only);
         // Make the index with the kmers
-        gcsa::GCSA gcsa_index(kmers, kmer_size, doubling_steps, size_limit);
+        gcsa::InputGraph input_graph(tmpfiles, true);
+        gcsa::ConstructionParameters params;
+        params.setSteps(doubling_steps);
+        params.setLimit(size_limit);
+
+        // build the GCSA index
+        gcsa::GCSA* gcsa_index = new gcsa::GCSA(input_graph, params);
 
         if (verify_index) {
             //cerr << "verifying index" << endl;
-            gcsa_index.verifyIndex(kmers_copy, kmer_size);
+            if (!gcsa_index->verifyIndex(input_graph)) {
+                cerr << "[vg::main]: GCSA2 index verification failed" << endl;
+            }
+        }
+
+        // clean up input graph temp files
+        for (auto& tfn : tmpfiles) {
+            remove(tfn.c_str());
         }
 
         // Save it to the index filename
-        sdsl::store_to_file(gcsa_index, gcsa_name);
+        sdsl::store_to_file(*gcsa_index, gcsa_name);
+        delete gcsa_index;
 
         // Skip all the Snappy stuff we can't do (yet).
         return 0;
@@ -5220,29 +5180,30 @@ int main_deconstruct(int argc, char** argv){
             cerr << i.first << " " << i.second << endl;
         }
 
-
           /* Find superbubbles */
 
         return 1;
     }
 
-    void help_construct(char** argv) {
-        cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
-            << "options:" << endl
-            << "    -v, --vcf FILE        input VCF" << endl
-            << "    -r, --reference FILE  input FASTA reference" << endl
-            << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
-            << "    -R, --region REGION   specify a particular chromosome" << endl
-            << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
-            << "                          sequence name could be inadvertently parsed as a region)" << endl
-            << "    -z, --region-size N   variants per region to parallelize" << endl
-            << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
-            << "                          nodes greater than this threshold will be divided" << endl
-            << "    -p, --progress        show progress" << endl
-            << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
-            << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
-    }
 
+void help_construct(char** argv) {
+    cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
+         << "options:" << endl
+         << "    -v, --vcf FILE        input VCF" << endl
+         << "    -r, --reference FILE  input FASTA reference" << endl
+         << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
+         << "    -B, --phase-blocks    save paths for phased blocks with the ref paths" << endl
+         << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
+         << "    -R, --region REGION   specify a particular chromosome" << endl
+         << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
+         << "                          sequence name could be inadvertently parsed as a region)" << endl
+         << "    -z, --region-size N   variants per region to parallelize" << endl
+         << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
+         << "                          nodes greater than this threshold will be divided" << endl
+         << "    -p, --progress        show progress" << endl
+         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
+         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
+}
     int main_construct(int argc, char** argv) {
 
         if (argc == 2) {
@@ -5271,6 +5232,7 @@ int main_deconstruct(int argc, char** argv){
                 // TODO: change the long option here?
                 {"ref-paths", required_argument, 0, 'P'},
                 {"phase-blocks", no_argument, 0, 'B'},
+                {"alt-paths", no_argument, 0, 'a'},
                 {"progress",  no_argument, 0, 'p'},
                 {"region-size", required_argument, 0, 'z'},
                 {"threads", required_argument, 0, 't'},
@@ -5282,7 +5244,7 @@ int main_deconstruct(int argc, char** argv){
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bs:Cf",
+        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bas:Cf",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -5305,6 +5267,10 @@ int main_deconstruct(int argc, char** argv){
             
         case 'B':
             load_phasing_paths = true;
+            break;
+
+        case 'a':
+            load_alt_paths = true;
             break;
 
         case 'p':
@@ -5373,7 +5339,7 @@ int main_deconstruct(int argc, char** argv){
     Paths ref_paths;
 
     VG graph(variant_file, reference, region, region_is_chrom, vars_per_region,
-        max_node_size, flat_alts, load_phasing_paths, progress);
+        max_node_size, flat_alts, load_phasing_paths, load_alt_paths, progress);
 
     if (!ref_paths_file.empty()) {
         ofstream paths_out(ref_paths_file);

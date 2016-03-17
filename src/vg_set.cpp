@@ -177,7 +177,7 @@ void VGset::for_each_kmer_parallel(
     });
 }
 
-void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride, bool forward_only,
+void VGset::write_gcsa_out(ostream& out, int kmer_size, bool forward_only,
                            int64_t start_id, int64_t end_id) {
 
     // When we're sure we know what this kmer instance looks like, we'll write
@@ -216,22 +216,21 @@ void VGset::write_gcsa_out(ostream& out, int kmer_size, int edge_max, int stride
     };
 
     // Run on each KmerPosition
-    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
+    for_each_gcsa_kmer_position_parallel(kmer_size,
                                          forward_only,
                                          start_id, end_id,
                                          write_kmer);
     
 }
 
-void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size,
                                                  bool forward_only,
                                                  int64_t& head_id, int64_t& tail_id,
                                                  function<void(KmerPosition&)> lambda) {
 
     // For every graph in our set (in serial), visit all the nodes in parallel and handle them.
-    for_each([kmer_size, edge_max,stride, forward_only,
-              &head_id, &tail_id, lambda](VG* g) {
-                 g->for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
+    for_each([&](VG* g) {
+                 g->for_each_gcsa_kmer_position_parallel(kmer_size, 0, 1,
                                                          forward_only,
                                                          head_id, tail_id,
                                                          lambda);
@@ -241,17 +240,39 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, in
 // TODO
 // to implement edge_max correctly we will need to mod each graph *before* passing it into
 // the kmer generation routines in vg::VG
-void VGset::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+void VGset::get_gcsa_kmers(int kmer_size,
                            bool forward_only,
                            vector<gcsa::KMer>& kmers_out,
                            int64_t head_id, int64_t tail_id) {
-    for_each([kmer_size, edge_max,stride, forward_only, &kmers_out,
-              &head_id, &tail_id](VG* g) {
-                 g->get_gcsa_kmers(kmer_size, edge_max, stride,
-                                   forward_only,
-                                   kmers_out,
-                                   head_id, tail_id);
-             });
+    for_each([&](VG* g) {
+            g->get_gcsa_kmers(kmer_size, 0, 1,
+                              forward_only,
+                              kmers_out,
+                              head_id, tail_id);
+        });
+}
+
+// writes to a set of temp files and returns their names
+vector<string> VGset::write_gcsa_kmers_binary(int kmer_size,
+                                              bool forward_only,
+                                              int64_t head_id, int64_t tail_id) {
+    vector<string> tmpnames;
+    for_each([&](VG* g) {
+            tmpnames.push_back(
+                g->write_gcsa_kmers_to_tmpfile(kmer_size, forward_only, head_id, tail_id));
+        });
+    return tmpnames;
+}
+
+// writes to a specific output stream
+void VGset::write_gcsa_kmers_binary(ostream& out,
+                                    int kmer_size,
+                                    bool forward_only,
+                                    int64_t head_id, int64_t tail_id) {
+    for_each([&](VG* g) {
+            g->write_gcsa_kmers(kmer_size, 0, 1, forward_only,
+                                out, head_id, tail_id);
+        });
 }
 
 }

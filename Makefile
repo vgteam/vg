@@ -65,7 +65,7 @@ $(LIB_DIR)/libvg.a: $(OBJ)
 	ar rs $@ $^
 
 get-deps:
-	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools
+	sudo apt-get install -qq -y protobuf-compiler libprotoc-dev libjansson-dev libbz2-dev libncurses5-dev automake libtool jq samtools curl unzip redland-utils librdf-dev cmake pkg-config wget bc gtk-doc-tools raptor2-utils rasqal-utils bison
 
 test: $(BIN_DIR)/vg $(LIB_DIR)/libvg.a test/build_graph $(BIN_DIR)/shuf
 	. ./source_me.sh && cd test && $(MAKE)
@@ -122,8 +122,7 @@ $(INC_DIR)/lru_cache.h: .pre-build
 	+cd $(DEP_DIR)/lru_cache && $(MAKE) && cp *.h* $(CWD)/$(INC_DIR)/
 
 $(INC_DIR)/dynamic.hpp: .pre-build
-	+cat $(DYNAMIC_DIR)/include/dynamic.hpp | sed 's%<internal/%<dynamic/%' >$(INC_DIR)/dynamic.hpp
-	+cp -r $(DYNAMIC_DIR)/include/internal $(INC_DIR)/dynamic
+	+cat $(DYNAMIC_DIR)/include/dynamic.hpp | sed 's%<internal/%<dynamic/%' >$(INC_DIR)/dynamic.hpp && cp -r $(CWD)/$(DYNAMIC_DIR)/include/internal $(CWD)/$(INC_DIR)/dynamic
 
 $(INC_DIR)/sparsehash/sparse_hash_map: .pre-build
 	+cd $(SPARSEHASH_DIR) && ./autogen.sh && ./configure --prefix=$(CWD) && $(MAKE) && $(MAKE) install
@@ -150,7 +149,7 @@ $(INC_DIR)/globalDefs.hpp: $(LIB_DIR)/libsdsl.a .pre-build
 	cp $(DEP_DIR)/superbubbles/*.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libraptor2.a: .pre-build
-	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) && cp src/libraptor2.a $(CWD)/$(LIB_DIR)
+	+cd $(RAPTOR_DIR)/build && cmake .. && $(MAKE) && cp src/libraptor2.a $(CWD)/$(LIB_DIR) && mkdir -p $(CWD)/$(INC_DIR)/raptor2 && cp src/*.h $(CWD)/$(INC_DIR)/raptor2
 
 $(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
@@ -262,6 +261,7 @@ clean:
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
 	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
 	cd $(RAPTOR_DIR)  && $(MAKE) clean
+	rm -R $(RAPTOR_DIR)/build/*
 ## TODO vg source code
 ## TODO LRU_CACHE
 ## TODO bash-tap
