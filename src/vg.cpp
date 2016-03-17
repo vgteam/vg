@@ -8595,7 +8595,10 @@ VG VG::dagify(uint32_t expand_scc_steps,
         // the nodes in the component that are already copied in
         map<id_t, Node*> base;
         for (auto id : component) {
-            base[id] = dag.get_node(id);
+            Node* node = dag.get_node(id);
+            base[id] = node;
+            // record the length to the start of the node
+            min_return_length[node] = node->sequence().size();
         }
         // pointers to the last copy of the graph in the DAG
         map<id_t, Node*> last = base;
@@ -8614,9 +8617,6 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 }
                 curr[id] = node;
                 node_translation[node->id()] = make_pair(id, false);
-                // note that we don't record the lengths of these sequences
-                // because we are measuring our min walk back length back to the first edge in the path
-                // not the root of the graph
             }
             // preserve the edges that connect these nodes to the rest of the graph
             // And connect to the nodes in this and the previous component using the original edges as guide
@@ -8667,7 +8667,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             dag.add_edge(new_edge);
                             // update the min-min length
                             size_t& mm = min_return_length[curr[id]];
-                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[id]];
+                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[e->from()]];
                             mm = (mm ? min(mm, inmm) : inmm);
                             curr_min_min_return_length = (curr_min_min_return_length ?
                                                           min(mm, curr_min_min_return_length)
@@ -8685,7 +8685,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             dag.add_edge(new_edge);
                             // update the min-min length
                             size_t& mm = min_return_length[curr[id]];
-                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[id]];
+                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[e->from()]];
                             mm = (mm ? min(mm, inmm) : inmm);
                             curr_min_min_return_length = (curr_min_min_return_length ?
                                                           min(mm, curr_min_min_return_length)
