@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
+#include "Variant.h"
 
 namespace vg {
 
@@ -66,6 +67,10 @@ vector<T> vpmax(const std::vector<std::vector<T>>& vv) {
 }
 
 string tmpfilename(const string& base);
+
+// Code to detect if a variant lacks an ID and give it a unique but repeatable
+// one.
+string get_or_make_variant_id(vcflib::Variant variant);
 
 }
 

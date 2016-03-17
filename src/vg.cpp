@@ -1871,25 +1871,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         // unique, even if there are multiple variant records at the same
         // position in the VCF. Also, we don't necessarily have every variant in
         // the VCF in our records vector.
-        string var_name;
-        if(!var.id.empty() && var.id != ".") {
-            // We assume all the actually filled in ID fields in the VCF are unique.
-            var_name = var.id;
-        } else {
-            // Synthesize a name for the variant
-            // Let's just hash
-            SHA1 hasher;
-            
-            // Turn the variant back into a string line and hash it.
-            std::stringstream variant_stringer;
-            variant_stringer << var;
-            hasher.update(variant_stringer.str());
-            
-            // Name the variant with the hex hash. Will be unique unless two
-            // identical variant lines are in the file.
-            var_name = hasher.final();
-            
-        }
+        string var_name = get_or_make_variant_id(var);
         
         // decompose to alts
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
@@ -2462,7 +2444,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             
                 for(auto name_and_alt : variant_alts.at(allele_key)) {
                     // For each of the alts using this allele, put mappings for this path
-                    string path_name = "_allele_" + name_and_alt.first + "_" + to_string(name_and_alt.second);
+                    string path_name = "_alt_" + name_and_alt.first + "_" + to_string(name_and_alt.second);
                     
                     if(!alt_nodes.empty()) {
                         // This allele has some physical presence and is used by some

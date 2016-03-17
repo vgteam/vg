@@ -21,6 +21,7 @@
 #include "caller.hpp"
 #include "deconstructor.hpp"
 #include "google/protobuf/stubs/common.h"
+#include "progress_bar.hpp"
 
 using namespace std;
 using namespace google::protobuf;
@@ -3281,6 +3282,7 @@ void help_index(char** argv) {
          << "xg options:" << endl
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
          << "                           the graph(s) (effectively replaces rocksdb)" << endl
+         << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
@@ -3322,6 +3324,8 @@ int main_index(int argc, char** argv) {
     string db_name;
     string gcsa_name;
     string xg_name;
+    // Where should we import haplotype phasing paths from, if anywhere?
+    string vcf_name;
     int kmer_size = 0;
     int edge_max = 0;
     int kmer_stride = 1;
@@ -3368,7 +3372,8 @@ int main_index(int argc, char** argv) {
                 {"allow-negs", no_argument, 0, 'n'},
                 {"use-snappy", no_argument, 0, 'Q'},
                 {"gcsa-name", required_argument, 0, 'g'},
-                {"xg-name", no_argument, 0, 'x'},
+                {"xg-name", required_argument, 0, 'x'},
+                {"vcf-phasing", required_argument, 0, 'v'},
                 {"verify-index", no_argument, 0, 'V'},
                 {"forward-only", no_argument, 0, 'F'},
                 {"size-limit", no_argument, 0, 'Z'},
@@ -3376,7 +3381,7 @@ int main_index(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:VFZ:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -3391,6 +3396,10 @@ int main_index(int argc, char** argv) {
 
         case 'x':
             xg_name = optarg;
+            break;
+            
+        case 'v':
+            vcf_name = optarg;
             break;
 
         case 'P':
@@ -3531,14 +3540,279 @@ int main_index(int argc, char** argv) {
     }
 
     if (!xg_name.empty()) {
+        // We need to build an xg index
+        
+        // We'll fill this with the opened VCF file if we need one.
+        vcflib::VariantCallFile variant_file;
+        
+        if(!vcf_name.empty()) {
+            // There's a VCF we should load haplotype info from
+            
+            if (!vcf_name.empty()) {
+                variant_file.open(vcf_name);
+                if (!variant_file.is_open()) {
+                    cerr << "error:[vg index] could not open" << vcf_name << endl;
+                    return 1;
+                }
+            }
+            
+        }
+    
         // store the graphs
         VGset graphs(file_names);
         xg::XG index = graphs.to_xg();
+        
+        if(variant_file.is_open()) {
+            // Now go through and add the varaints.
+            
+            // How many phases are there?
+            size_t num_samples = variant_file.sampleNames.size();
+            // And how many phases?
+            size_t num_phases = num_samples * 2;
+            
+            for(size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
+                // Find all the reference paths and loop over them. We'll just
+                // assume paths that don't start with "_" might appear in the
+                // VCF. We need to use the xg path functions, since we didn't
+                // load up the whole vg graph.
+                
+                // What path is this?
+                string path_name = index.path_name(path_rank);
+                if(path_name.size() > 0 && path_name[0] == '_') {
+                    // This path starts with an underscore, so we assume it's
+                    // not a proper contig path that might have variants.
+                    continue;
+                }
+                
+                // How many bases is it?
+                size_t path_length = index.path_length(path_name);
+                
+                // Allocate some Paths to store phase threads
+                vector<Path> active_phase_paths{num_phases};
+                // We need to remember how many paths of a particular phase have
+                // already been generated.
+                vector<int> saved_phase_paths(num_phases, 0);
+                
+                // What's the first reference position after the last variant?
+                size_t nonvariant_start = 0;
+                
+                // Completed ones just get dumped into the index
+                auto finish_phase = [&](size_t phase_number) {
+                    // We have finished a phase (because an unphased variant
+                    // came up or we ran out of variants); dump it into the
+                    // index under a name and make a new Path for that phase.
+                    
+                    // Find where this path is in our vector
+                    Path& to_save = active_phase_paths[phase_number];
+                    
+                    if(to_save.mapping_size() > 0) {
+                        // Only actually do anything if we put in some mappings.
+                        
+                        // Make sure the path has a name, and increment the
+                        // number of saved paths for this phase so the next path
+                        // will get a different name.
+                        to_save.set_name("_phase_" + to_string(phase_number) + 
+                            "_" + to_string(saved_phase_paths[phase_number]++));
+                        
+                        // Actually send the path off to XG
+                        index.insert_thread(to_save);
+                        
+                        // Clear it out for re-use
+                        to_save = Path();
+                    }
+                };
+                
+                // We need a way to dump mappings into pahse threads. The
+                // mapping edits and rank and offset info will be ignored; the
+                // Mapping just represents an oriented node traversal.
+                auto append_mapping = [&](size_t phase_number, const Mapping& mapping) {
+                    // Make a new Mapping in the Path
+                    Mapping& new_place = *(active_phase_paths[phase_number].add_mapping());
+                    
+                    // Set it
+                    new_place = mapping;
+                    
+                    // Make sure to clear out the rank and edits
+                    new_place.set_rank(0);
+                    new_place.clear_edit();
+                };
+                
+                // We need an easy way to append any reference mappings from the
+                // last variant up until a certain position (which may be past
+                // the end of the entire reference path).
+                auto append_reference_mappings_until = [&](size_t phase_number, size_t end) {
+                    // We need to look and add in the mappings to the
+                    // intervening reference nodes from the last variant, if
+                    // any. For which we need access to the last variant's past-
+                    // the-end reference position.
+                    size_t ref_pos = nonvariant_start;
+                    while(ref_pos < end) {
+                        // While there is intervening reference
+                        // sequence, add it to our phase.
+                        
+                        // What mapping is here?
+                        Mapping ref_mapping = index.mapping_at_path_position(path_name, ref_pos);
+                        
+                        // Stick it in the phase path
+                        append_mapping(phase_number, ref_mapping);
+                        
+                        // Advance to what's after that mapping
+                        ref_pos += index.node_length(ref_mapping.position().node_id());
+                    }
+                };
+                
+                // We also have another function to handle each variant as it comes in.
+                auto handle_variant = [&](vcflib::Variant& variant) {
+                    // So we have a variant
+                    
+                    // Grab its id, or make one by hashing stuff if it doesn't
+                    // have an ID.
+                    string var_name = get_or_make_variant_id(variant);
+                    
+                    if(index.path_rank("_alt_" + var_name + "_0") == 0) {
+                        // The index doesn't have a reference alt path for this variant.
+#ifdef debug
+                        cerr << "Reference alt for " << var_name << " not in index! Skipping!" << endl;
+#endif
+                        // Don't bother with this variant
+                        return;
+                    }
+                    
+                    for(int sample_number = 0; sample_number < num_samples; sample_number++) {
+                        // For each sample
+                        
+                        // What sample is it?
+                        string& sample_name = variant_file.sampleNames[sample_number];
+                        
+                        // Parse it out and see if it's phased.
+                        string genotype = variant.getGenotype(sample_name);
+                        
+                        // Find the phasing bar
+                        auto bar_pos = genotype.find('|');
+                        
+                        for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                            // For both the phases for the sample, add mappings
+                            // through all the fixed reference nodes between the
+                            // last variant and here.
+                            append_reference_mappings_until(sample_number * 2 + phase_offset, variant.position);
+                            
+                            // If this variant isn't phased, this will just be a
+                            // reference-matching piece of thread after the last
+                            // variant. If that wasn't phased either, it's just
+                            // a floating perfect reference match.
+                        }
+                        
+                        if(bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
+                            // If it isn't phased, or we otherwise don't like
+                            // it, we need to break phasing paths.
+                            for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                                // Finish both the phases for this sample.
+                                finish_phase(sample_number * 2 + phase_offset);
+                            }
+                        }
+                        
+                        // If it is phased, parse out the two alleles and handle
+                        // each separately.
+                        vector<int> alt_indices({stoi(genotype.substr(0, bar_pos)),
+                            stoi(genotype.substr(bar_pos + 1))});
+                            
+                        for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                            // Handle each phase and its alt
+                            int& alt_index = alt_indices[phase_offset];
+
+                            // We need to find the path for this alt of this
+                            // variant. We can pull out the whole thing since it
+                            // should be short.
+                            Path alt_path = index.path("_alt_" + var_name + "_" + to_string(alt_index));
+                            
+                            for(size_t i = 0; i < alt_path.mapping_size(); i++) {
+                                // Then blit mappings from the alt over to the phase thread
+                                append_mapping(sample_number * 2 + phase_offset, alt_path.mapping(i));
+                            }
+                            
+                            // TODO: We can't really land anywhere on the other
+                            // side of a deletion if the phasing breaks right at
+                            // it, because we don't know that the first
+                            // reference base after the deletion hasn't been
+                            // replaced. TODO: can we inspect the next reference
+                            // node and see if any alt paths touch it?
+                        }
+                        
+                        // Now we have processed both phasinbgs for this sample.
+                    }
+                        
+                    // Update the past-the-last-variant position, globally,
+                    // after we do all the samples.
+                    nonvariant_start = variant.position + variant.ref.size();
+                };
+                
+                // Look for variants only on this path
+                variant_file.setRegion(path_name);
+                
+                // Set up progress bar
+                ProgressBar* progress = nullptr;
+                if(show_progress) {
+                    progress = new ProgressBar(path_length, ("loading variants for " + path_name).c_str());
+                    progress->Progressed(0);
+                }
+                
+                // TODO: For a first attempt, let's assume we can actually store
+                // all the Path objects for all the phases.
+                
+                // Allocate a place to store actual variants
+                vcflib::Variant var(variant_file);
+                
+                // How many variants have we done?
+                size_t variants_processed = 0;
+                while (variant_file.is_open() && variant_file.getNextVariant(var)) {
+                    // this ... maybe we should remove it as for when we have calls against N
+                    bool isDNA = allATGC(var.ref);
+                    for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+                        if (!allATGC(*a)) isDNA = false;
+                    }
+                    // only work with DNA sequences
+                    if (!isDNA) {
+                        continue;
+                    }
+                    
+                    var.position -= 1; // convert to 0-based
+                
+                    // Handle the variant
+                    handle_variant(var);
+                    
+                    
+                    if (variants_processed++ % 1000 == 0 && progress != nullptr) {
+                        // Say we made progress
+                        progress->Progressed(var.position);
+                    }
+                }
+                
+                // Now finish up all the threads
+                for(size_t i = 0; i < num_phases; i++) {
+                    // Each thread runs out until the end of the reference path
+                    append_reference_mappings_until(i, path_length);
+                    
+                    // And then we save all the threads
+                    finish_phase(i);
+                }
+                
+                if(progress != nullptr) {
+                    // Throw out our progress bar
+                    delete progress;
+                }
+                
+            }
+            
+            
+        }
+        
         
         // save the xg version to the file name we've been given
         ofstream db_out(xg_name);
         index.serialize(db_out);
         db_out.close();
+        
+        
         
         // should we stop here?
     }
