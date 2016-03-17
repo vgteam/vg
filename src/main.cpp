@@ -858,6 +858,7 @@ int main_msga(int argc, char** argv) {
     // reverse complement?
     Mapper* mapper = nullptr;
     gcsa::GCSA* gcsaidx = nullptr;
+    gcsa::LCPArray* lcpidx = nullptr;
     xg::XG* xgidx = nullptr;
     size_t iter = 0;
 
@@ -867,6 +868,7 @@ int main_msga(int argc, char** argv) {
         if (mapper) delete mapper;
         if (xgidx) delete xgidx;
         if (gcsaidx) delete gcsaidx;
+        if (lcpidx) delete lcpidx;
 
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
@@ -877,12 +879,12 @@ int main_msga(int argc, char** argv) {
             gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
             if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
             // then index
-            gcsaidx = gcsa_graph.build_gcsa_index(idx_kmer_size, false, doubling_steps);
+            gcsa_graph.build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, false, doubling_steps);
         } else {
             // if no complexity reduction is requested, just build the index
-            gcsaidx = graph->build_gcsa_index(idx_kmer_size, false, doubling_steps);
+            graph->build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, false, doubling_steps);
         }
-        mapper = new Mapper(xgidx, gcsaidx);
+        mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
             mapper->debug = debug_align;
             mapper->context_depth = context_depth;
@@ -2837,8 +2839,7 @@ void help_find(char** argv) {
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
          << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
-         << "    -M, --mems STR         describe the maximal exact matches of the STR (gcsa2) in JSON" << endl
-         << "    -F, --mem-step N       output the forward MEMs using a step size of N between each (default 1)" << endl
+         << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
@@ -2873,7 +2874,6 @@ int main_find(int argc, char** argv) {
     string gcsa_in;
     string xg_name;
     bool get_mems = false;
-    size_t mem_step = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2891,7 +2891,6 @@ int main_find(int argc, char** argv) {
                 {"table", no_argument, 0, 'T'},
                 {"sequence", required_argument, 0, 'S'},
                 {"mems", required_argument, 0, 'M'},
-                {"mem-step", required_argument, 0, 'F'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
@@ -2906,7 +2905,7 @@ int main_find(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:F:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2938,10 +2937,6 @@ int main_find(int argc, char** argv) {
         case 'M':
             sequence = optarg;
             get_mems = true;
-            break;
-
-        case 'F':
-            mem_step = atoi(optarg);
             break;
 
         case 'j':
@@ -3204,9 +3199,14 @@ int main_find(int argc, char** argv) {
         } else {
             // let's use the GCSA index
             // first open it
-            ifstream in(gcsa_in.c_str());
+            ifstream in_gcsa(gcsa_in.c_str());
             gcsa::GCSA gcsa_index;
-            gcsa_index.load(in);
+            gcsa_index.load(in_gcsa);
+            gcsa::LCPArray lcp_index;
+            // default LCP is the gcsa base name +.lcp
+            string lcp_in = gcsa_in + ".lcp";
+            ifstream in_lcp(lcp_in.c_str());
+            lcp_index.load(in_lcp);
             //range_type find(const char* pattern, size_type length) const;
             //void locate(size_type path, std::vector<node_type>& results, bool append = false, bool sort = true) const;
             //locate(i, results);
@@ -3221,10 +3221,12 @@ int main_find(int argc, char** argv) {
                     }
                 }
             } else {
+                // for mems we need to load up the gcsa and lcp structures into the mapper
                 Mapper mapper;
                 mapper.gcsa = &gcsa_index;
+                mapper.lcp = &lcp_index;
                 // get the mems
-                auto mems = mapper.find_forward_mems(sequence, mem_step);
+                auto mems = mapper.find_smems(sequence);
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
@@ -3563,14 +3565,22 @@ int main_index(int argc, char** argv) {
             }
         }
 
+        // build the LCP array
+        string lcp_name = gcsa_name + ".lcp";
+        gcsa::LCPArray* lcp_array = new gcsa::LCPArray(input_graph, params);
+
         // clean up input graph temp files
         for (auto& tfn : tmpfiles) {
             remove(tfn.c_str());
         }
 
-        // Save it to the index filename
+        // Save the GCSA2 index
         sdsl::store_to_file(*gcsa_index, gcsa_name);
         delete gcsa_index;
+
+        // Save the LCP array
+        sdsl::store_to_file(*lcp_array, lcp_name);
+        delete lcp_array;
 
         // Skip all the Snappy stuff we can't do (yet).
         return 0;
@@ -4164,6 +4174,7 @@ int main_map(int argc, char** argv) {
     // Load up our indexes.
     xg::XG* xindex = nullptr;
     gcsa::GCSA* gcsa = nullptr;
+    gcsa::LCPArray* lcp = nullptr;
 
     // for testing, we sometimes want to run the mapper on indexes we build in memory
     if (build_in_memory) {
@@ -4178,7 +4189,7 @@ int main_map(int argc, char** argv) {
         xindex = new xg::XG(graph->graph);
         assert(kmer_size);
         int doubling_steps = 2;
-        gcsa = graph->build_gcsa_index(kmer_size, false, 2);
+        graph->build_gcsa_lcp(gcsa, lcp, kmer_size, false, 2);
         delete graph;
     } else {
         // We try opening the file, and then see if it worked
@@ -4200,6 +4211,16 @@ int main_map(int argc, char** argv) {
             }
             gcsa = new gcsa::GCSA();
             gcsa->load(gcsa_stream);
+        }
+
+        string lcp_name = gcsa_name + ".lcp";
+        ifstream lcp_stream(lcp_name);
+        if (lcp_stream) {
+            if(debug) {
+                cerr << "Loading LCP index " << gcsa_name << "..." << endl;
+            }
+            lcp = new gcsa::LCPArray();
+            lcp->load(lcp_stream);
         }
     }
 
@@ -4249,9 +4270,9 @@ int main_map(int argc, char** argv) {
 
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m;
-        if(xindex && gcsa) {
+        if(xindex && gcsa && lcp) {
             // We have the xg and GCSA indexes, so use them
-            m = new Mapper(xindex, gcsa);
+            m = new Mapper(xindex, gcsa, lcp);
         } else {
             // Use the Rocksdb index and maybe the GCSA one
             m = new Mapper(idx, gcsa);
@@ -4489,8 +4510,8 @@ void help_view(char** argv) {
          << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
          << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
          << "    -R, --n-triples-in   read n-triples" << endl
-    
-	 << "    -a, --align-in       input GAM format" << endl
+
+         << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
          << "    -d, --dot            output dot format" << endl
