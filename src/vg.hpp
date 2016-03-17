@@ -331,7 +331,8 @@ public:
     // and translating the edges in the component to flow through the copies in one direction
     VG dagify(uint32_t expand_scc_steps,
               map<id_t, pair<id_t, bool> >& node_translation,
-              size_t target_min_walk_length = 0);
+              size_t target_min_walk_length = 0,
+              size_t component_length_max = 0);
     // generate a new graph that unrolls the current one using backtracking (caution: exponential in branching)
     VG backtracking_unroll(uint32_t max_length, uint32_t max_depth,
                            map<id_t, pair<id_t, bool> >& node_translation);

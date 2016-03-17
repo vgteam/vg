@@ -6648,10 +6648,11 @@ Alignment VG::align(const Alignment& alignment) {
 
     map<id_t, pair<id_t, bool> > unfold_trans;
     map<id_t, pair<id_t, bool> > dagify_trans;
-    uint32_t max_length = alignment.sequence().size();
+    size_t max_length = alignment.sequence().size();
+    size_t component_length_max = 100*max_length; // hard coded to be 100x
 
-    // dagify the graph by unfolding inversions and then applying forward unroll
-    VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length);
+    // dagify the graph by unfolding inversions and then applying dagify forward unroll
+    VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length, component_length_max);
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
 
@@ -8534,7 +8535,8 @@ bool VG::is_self_looping(NodeTraversal trav) {
 
 VG VG::dagify(uint32_t expand_scc_steps,
               map<id_t, pair<id_t, bool> >& node_translation,
-              size_t target_min_walk_length) {
+              size_t target_min_walk_length,
+              size_t component_length_max) {
 
     VG dag;
     // Find the strongly connected components in the graph.
@@ -8591,14 +8593,18 @@ VG VG::dagify(uint32_t expand_scc_steps,
         // we derive these using dynamic programming; the new min return length is
         // min(l_(i-1), \forall inbound links)
         size_t min_min_return_length = 0;
+        size_t component_length = 0;
         map<Node*, size_t> min_return_length;
         // the nodes in the component that are already copied in
         map<id_t, Node*> base;
         for (auto id : component) {
             Node* node = dag.get_node(id);
             base[id] = node;
+            size_t len = node->sequence().size();
             // record the length to the start of the node
-            min_return_length[node] = node->sequence().size();
+            min_return_length[node] = len;
+            // and in our count of the size of the component
+            component_length += len;
         }
         // pointers to the last copy of the graph in the DAG
         map<id_t, Node*> last = base;
@@ -8614,6 +8620,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 } else {
                     // get a new id for the node
                     node = dag.create_node(get_node(id)->sequence());
+                    component_length += node->sequence().size();
                 }
                 curr[id] = node;
                 node_translation[node->id()] = make_pair(id, false);
@@ -8702,6 +8709,8 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 break;
             }
             last = curr;
+            // break if we've exceeded the length max parameter
+            if (component_length_max && component_length >= component_length_max) break;
         }
     }
 

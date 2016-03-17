@@ -1403,6 +1403,7 @@ void help_mod(char** argv) {
          << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
          << "                            edges from old to new copies to convert the graph into a DAG" << endl
          << "                            until the shortest path through each SCC is N bases long" << endl
+         << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
          << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
          << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
          << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
@@ -1469,6 +1470,7 @@ int main_mod(int argc, char** argv) {
     bool break_cycles = false;
     uint32_t dagify_steps = 0;
     uint32_t dagify_to = 0;
+    uint32_t dagify_component_length_max = 0;
     bool orient_forward = false;
 
     int c;
@@ -1507,6 +1509,7 @@ int main_mod(int argc, char** argv) {
                 {"strong-connect", no_argument, 0, 'T'},
                 {"dagify-steps", required_argument, 0, 'd'},
                 {"dagify-to", required_argument, 0, 'w'},
+                {"dagify-len-max", required_argument, 0, 'L'},
                 {"unroll", required_argument, 0, 'U'},
                 {"max-branch", required_argument, 0, 'B'},
                 {"break-cycles", no_argument, 0, 'b'},
@@ -1515,7 +1518,7 @@ int main_mod(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:L:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1633,6 +1636,10 @@ int main_mod(int argc, char** argv) {
             dagify_to = atoi(optarg);
             break;
 
+        case 'L':
+            dagify_component_length_max = atoi(optarg);
+            break;
+
         case 'B':
             unroll_max_branch = atoi(optarg);
             break;
@@ -1725,13 +1732,13 @@ int main_mod(int argc, char** argv) {
 
     if (dagify_steps) {
         map<int64_t, pair<int64_t, bool> > node_translation;
-        *graph = graph->dagify(dagify_steps, node_translation);
+        *graph = graph->dagify(dagify_steps, node_translation, 0, dagify_component_length_max);
     }
 
     if (dagify_to) {
         map<int64_t, pair<int64_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
-        *graph = graph->dagify(dagify_to, node_translation, dagify_to);
+        *graph = graph->dagify(dagify_to, node_translation, dagify_to, dagify_component_length_max);
     }
 
     if (unroll_to) {
