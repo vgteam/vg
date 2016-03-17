@@ -416,41 +416,39 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
 
 #pragma omp parallel for schedule(dynamic,1)
     for (int i = 0; i < bands.size(); ++i) {
-        {
-            if (max_multimaps > 1) {
-                vector<Alignment>& malns = multi_alns[i];
-                malns = align_multi(bands[i], kmer_size, stride);
-                // always include an unaligned mapping
-                malns.push_back(bands[i]);
-                for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
-                    Alignment& aln = *a;
-                    bool above_threshold = ((float) aln.score() / ((float) aln.sequence().size() * match_score)
-                                            >= min_norm_score);
-                    if (!above_threshold) {
-                        // treat as unmapped
-                        aln = bands[i];
-                    }
-                    // strip overlaps
-                    aln = strip_from_start(aln, to_strip[i].first);
-                    aln = strip_from_end(aln, to_strip[i].second);
-                }
-            } else {
-                Alignment& aln = alns[i];
-                aln = align(bands[i], kmer_size, stride);
+        if (max_multimaps > 1) {
+            vector<Alignment>& malns = multi_alns[i];
+            malns = align_multi(bands[i], kmer_size, stride);
+            // always include an unaligned mapping
+            malns.push_back(bands[i]);
+            for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
+                Alignment& aln = *a;
                 bool above_threshold = ((float) aln.score() / ((float) aln.sequence().size() * match_score)
                                         >= min_norm_score);
                 if (!above_threshold) {
-                    aln = bands[i]; // unmapped
+                    // treat as unmapped
+                    aln = bands[i];
                 }
                 // strip overlaps
-                //cerr << "checking before strip" << endl;
-                //check_alignment(aln);
                 aln = strip_from_start(aln, to_strip[i].first);
                 aln = strip_from_end(aln, to_strip[i].second);
-                //cerr << "checking after strip" << endl;
-                //check_alignment(aln);
-                //cerr << "OK" << endl;
             }
+        } else {
+            Alignment& aln = alns[i];
+            aln = align(bands[i], kmer_size, stride);
+            bool above_threshold = ((float) aln.score() / ((float) aln.sequence().size() * match_score)
+                                    >= min_norm_score);
+            if (!above_threshold) {
+                aln = bands[i]; // unmapped
+            }
+            // strip overlaps
+            //cerr << "checking before strip" << endl;
+            //check_alignment(aln);
+            aln = strip_from_start(aln, to_strip[i].first);
+            aln = strip_from_end(aln, to_strip[i].second);
+            //cerr << "checking after strip" << endl;
+            //check_alignment(aln);
+            //cerr << "OK" << endl;
         }
     }
 
@@ -469,6 +467,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
 
     // merge the resulting alignments
     Alignment merged = merge_alignments(alns, debug);
+    // TODO RECALCULATE QUALITY BASED ON SCORING
     merged.set_quality(read.quality());
     merged.set_name(read.name());
 
