@@ -579,10 +579,12 @@ void help_msga(char** argv) {
          << "mem mapping:" << endl
          << "    -L, --min-mem-length N  ignore MEMs shorter than this length (default: 0/unset)" << endl
          << "    -Y, --max-mem-length N  ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -H, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
+         << "    -H, --hit-max N         ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
          << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 5)" << endl
          << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -G, --greedy-accept     if a tested alignment achieves -S score/bp don't try clusters with fewer hits" << endl
+         << "    -S, --accept-score N    accept early alignment if the normalized alignment score is > N and -G is set" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
@@ -635,6 +637,8 @@ int main_msga(int argc, char** argv) {
     int iter_max = 1;
     int max_mem_length = 0;
     int min_mem_length = 0;
+    bool greedy_accept = false;
+    float accept_score = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -664,11 +668,13 @@ int main_msga(int argc, char** argv) {
                 {"hit-max", required_argument, 0, 'H'},
                 {"threads", required_argument, 0, 't'},
                 {"node-max", required_argument, 0, 'm'},
+                {"greedy-accept", no_argument, 0, 'G'},
+                {"accept-score", required_argument, 0, 'S'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -696,6 +702,14 @@ int main_msga(int argc, char** argv) {
 
         case 'I':
             iter_max = atoi(optarg);
+            break;
+
+        case 'G':
+            greedy_accept = true;
+            break;
+
+        case 'S':
+            accept_score = atof(optarg);
             break;
 
         case 'c':
@@ -894,6 +908,8 @@ int main_msga(int argc, char** argv) {
             mapper->max_mem_length = max_mem_length;
             mapper->min_mem_length = min_mem_length;
             mapper->hit_max = hit_max;
+            mapper->greedy_accept = greedy_accept;
+            if (accept_score) mapper->accept_norm_score = accept_score;
         }
     };
 
