@@ -949,11 +949,6 @@ int main_msga(int argc, char** argv) {
             graph->edit_both_directions(paths);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
-            //graph->clear_paths();
-            //if (debug) cerr << name << ": normalizing graph and node size" << endl;
-            //graph->normalize();
-            //if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
-            //graph->serialize_to_file(name + "-post-norm.vg");
             graph->dice_nodes(node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
