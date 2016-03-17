@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 33
+plan tests 34
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -98,3 +98,5 @@ is $? 0 "dagify unrolls the un-unrollable graph"
 
 vg mod -s graphs/not-simple.vg | vg validate -
 is $? 0 "sibling simplification does not disrupt paths"
+
+is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg mod -D - | vg mod -n - | vg mod -n - | vg mod -X 30 - | vg mod -w 100 - | vg stats -N -) 36 "dagify correctly calculates the minimum distance through the unrolled component"

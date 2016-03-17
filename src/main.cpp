@@ -590,7 +590,7 @@ void help_msga(char** argv) {
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
          << "graph normalization:" << endl
-         << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
+         << "    -N, --normalize         normalize the graph after assembly" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
@@ -630,7 +630,7 @@ int main_msga(int argc, char** argv) {
     int alignment_threads = 1;
     int edge_max = 0;
     int subgraph_prune = 0;
-    bool normalize = true;
+    bool normalize = false;
     bool allow_nonpath = false;
     int iter_max = 1;
     int max_mem_length = 0;
@@ -752,7 +752,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'N':
-            normalize = false;
+            normalize = true;
             break;
 
         case 'P':
@@ -950,8 +950,8 @@ int main_msga(int argc, char** argv) {
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
             //graph->clear_paths();
-            if (debug) cerr << name << ": normalizing graph and node size" << endl;
-            graph->normalize();
+            //if (debug) cerr << name << ": normalizing graph and node size" << endl;
+            //graph->normalize();
             //if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
             //graph->serialize_to_file(name + "-post-norm.vg");
             graph->dice_nodes(node_max);
@@ -998,6 +998,9 @@ int main_msga(int argc, char** argv) {
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
+        if (!graph->is_valid()) {
+            cerr << "[vg msga] warning! graph is not valid after normalization" << endl;
+        }
     }
 
     // remove nodes in the graph that have no assigned paths
