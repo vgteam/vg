@@ -34,7 +34,7 @@ public:
     int64_t merge_id_space(void);
 
     // Transforms to a succinct, queryable representation
-    xg::XG&& to_xg();
+    xg::XG to_xg();
 
     // stores the nodes in the VGs identified by the filenames into the index
     void store_in_index(Index& index);

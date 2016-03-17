@@ -57,19 +57,34 @@ int64_t VGset::merge_id_space(void) {
     return max_node_id;
 }
 
-xg::XG&& VGset::to_xg() {
+xg::XG VGset::to_xg() {
     // Set up an XG index
     xg::XG index;
     index.from_callback([&](function<void(Graph&)> callback) {
         for (auto& name : filenames) {
+#ifdef debug
+            cerr << "Loading chunks from " << name << endl;
+#endif
             // Load chunks from all the files and pass them into XG.
             std::ifstream in(name);
-            stream::for_each(in, callback);
+            
+            function<void(Graph&)> handle_graph = [&](Graph& graph) {
+#ifdef debug
+                cerr << "Got chunk of " << name << "!" << endl;
+#endif
+                callback(graph);
+            };
+            
+            stream::for_each(in, handle_graph);
+#ifdef debug
+            cerr << "Got all chunks; building XG index" << endl;
+#endif
         }
     });
     
-    // Send out the XG object to the caller.
-    return std::move(index);
+    // Send out the XG object to the caller. Let the compiler use return value
+    // optimization, because the move constructor seems to fail.
+    return index;
 }
 
 void VGset::store_in_index(Index& index) {
