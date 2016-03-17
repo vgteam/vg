@@ -1144,7 +1144,8 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     // such as by trying to use them as seeds in order from shortest to longest
     vector<MaximalExactMatch> mems;
     for (auto& mem: find_smems(alignment.sequence())) {
-        if (mem.end-mem.begin >= min_mem_length) {
+        if (mem.end-mem.begin >= min_mem_length // require minimum length
+            && allATGC(mem.sequence())) {       // and that the MEM does not contain Ns
             mems.push_back(mem);
         }
     }

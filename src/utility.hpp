@@ -27,7 +27,7 @@ std::vector<std::string> split_delims(const std::string &s, const std::string& d
 const std::string sha1sum(const std::string& data);
 const std::string sha1head(const std::string& data, size_t head);
 
-bool allATGC(string& s);
+bool allATGC(const string& s);
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
 string cigar_string(vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
