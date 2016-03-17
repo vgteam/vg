@@ -1094,29 +1094,29 @@ int main_msga(int argc, char** argv) {
         }
     }
 
-    auto include_paths = [&mapper,
-         kmer_size,
-         kmer_stride,
-         band_width,
-         debug,
-         &strings](VG* graph) {
-             // include the paths in the graph
-             if (debug) cerr << "including paths" << endl;
-             for (auto& group : strings) {
-                 auto& name = group.first;
-                 if (debug) cerr << name << ": tracing path through graph" << endl;
-                 auto& seq = group.second;
-                 if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
-                 Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
-                 //if (debug) cerr << "alignment score: " << aln.score() << endl;
-                 aln.mutable_path()->set_name(name);
-                 //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
-                 // todo simplify in the mapper itself when merging the banded bits
-                 if (debug) cerr << name << ": labeling" << endl;
-                 graph->include(aln.path());
-                 // now repeat back the path
-             }
-         };
+    // auto include_paths = [&mapper,
+    //      kmer_size,
+    //      kmer_stride,
+    //      band_width,
+    //      debug,
+    //      &strings](VG* graph) {
+    //          // include the paths in the graph
+    //          if (debug) cerr << "including paths" << endl;
+    //          for (auto& group : strings) {
+    //              auto& name = group.first;
+    //              if (debug) cerr << name << ": tracing path through graph" << endl;
+    //              auto& seq = group.second;
+    //              if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp" << endl;
+    //              Alignment aln = mapper->align(seq, kmer_size, kmer_stride, band_width);
+    //              //if (debug) cerr << "alignment score: " << aln.score() << endl;
+    //              aln.mutable_path()->set_name(name);
+    //              //if (debug) cerr << "alignment: " << pb2json(aln) << endl;
+    //              // todo simplify in the mapper itself when merging the banded bits
+    //              if (debug) cerr << name << ": labeling" << endl;
+    //              graph->include(aln.path());
+    //              // now repeat back the path
+    //          }
+    //      };
 
     if (normalize) {
         if (debug) cerr << "normalizing graph" << endl;
@@ -5099,7 +5099,7 @@ int main_view(int argc, char** argv) {
         } else if (output_type == "gfa") {
             graph->to_gfa(std::cout);
         } else if (output_type == "turtle") {
-            graph->to_turtle(std::cout, rdf_base_uri);
+            graph->to_turtle(std::cout, rdf_base_uri, color_variants);
         } else if (output_type == "vg") {
             graph->serialize_to_ostream(cout);
         } else {
@@ -5121,15 +5121,6 @@ int main_view(int argc, char** argv) {
     }
 int main_deconstruct(int argc, char** argv){
         cerr << "WARNING: EXPERIMENTAL" << endl;
-    if(!graph->is_valid()) {
-        // If we're converting the graph, we might as well make sure it's valid.
-        // This is especially useful for JSON import.
-        cerr << "[vg view] warning: graph is invalid!" << endl;
-    }
-
-    // Now we know graph was filled in from the input format. Spit it out in the
-    // requested output format.
-
             if (argc <= 2) {
             help_deconstruct(argv);
             return 1;
@@ -5184,26 +5175,25 @@ int main_deconstruct(int argc, char** argv){
 
         return 1;
     }
+    void help_construct(char** argv) {
+        cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
+             << "options:" << endl
+             << "    -v, --vcf FILE        input VCF" << endl
+             << "    -r, --reference FILE  input FASTA reference" << endl
+             << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
+             << "    -B, --phase-blocks    save paths for phased blocks with the ref paths" << endl
+             << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
+             << "    -R, --region REGION   specify a particular chromosome" << endl
+             << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
+             << "                          sequence name could be inadvertently parsed as a region)" << endl
+             << "    -z, --region-size N   variants per region to parallelize" << endl
+             << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
+             << "                          nodes greater than this threshold will be divided" << endl
+             << "    -p, --progress        show progress" << endl
+             << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
+             << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
+    }
 
-
-void help_construct(char** argv) {
-    cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
-         << "options:" << endl
-         << "    -v, --vcf FILE        input VCF" << endl
-         << "    -r, --reference FILE  input FASTA reference" << endl
-         << "    -P, --ref-paths FILE  write reference paths in protobuf/gzip format to FILE" << endl
-         << "    -B, --phase-blocks    save paths for phased blocks with the ref paths" << endl
-         << "    -a, --alt-paths       save paths for alts of variants by variant ID" << endl
-         << "    -R, --region REGION   specify a particular chromosome" << endl
-         << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
-         << "                          sequence name could be inadvertently parsed as a region)" << endl
-         << "    -z, --region-size N   variants per region to parallelize" << endl
-         << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
-         << "                          nodes greater than this threshold will be divided" << endl
-         << "    -p, --progress        show progress" << endl
-         << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
-         << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
-}
     int main_construct(int argc, char** argv) {
 
         if (argc == 2) {
@@ -5220,86 +5210,106 @@ void help_construct(char** argv) {
         int max_node_size = 0;
         string ref_paths_file;
         bool flat_alts = false;
+        // Should we make paths out of phasing blocks in the called samples?
+        bool load_phasing_paths = false;
+        // Should we make alt paths for variants?
+        bool load_alt_paths = false;
 
         int c;
         while (true) {
             static struct option long_options[] =
+                {
+                    /* These options set a flag. */
+                    //{"verbose", no_argument,       &verbose_flag, 1},
+                    {"vcf", required_argument, 0, 'v'},
+                    {"reference", required_argument, 0, 'r'},
+                    // TODO: change the long option here?
+                    {"ref-paths", required_argument, 0, 'P'},
+                    {"phase-blocks", no_argument, 0, 'B'},
+                    {"alt-paths", no_argument, 0, 'a'},
+                    {"progress",  no_argument, 0, 'p'},
+                    {"region-size", required_argument, 0, 'z'},
+                    {"threads", required_argument, 0, 't'},
+                    {"region", required_argument, 0, 'R'},
+                    {"region-is-chrom", no_argument, 0, 'C'},
+                    {"node-max", required_argument, 0, 'm'},\
+                    {"flat-alts", no_argument, 0, 'f'},
+                    {0, 0, 0, 0}
+                };
+
+            int option_index = 0;
+            c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bas:Cf",
+                             long_options, &option_index);
+
+            /* Detect the end of the options. */
+            if (c == -1)
+                break;
+
+            switch (c)
             {
-                /* These options set a flag. */
-                //{"verbose", no_argument,       &verbose_flag, 1},
-                {"vcf", required_argument, 0, 'v'},
-                {"reference", required_argument, 0, 'r'},
-                // TODO: change the long option here?
-                {"ref-paths", required_argument, 0, 'P'},
-                {"phase-blocks", no_argument, 0, 'B'},
-                {"alt-paths", no_argument, 0, 'a'},
-                {"progress",  no_argument, 0, 'p'},
-                {"region-size", required_argument, 0, 'z'},
-                {"threads", required_argument, 0, 't'},
-                {"region", required_argument, 0, 'R'},
-                {"region-is-chrom", no_argument, 0, 'C'},
-                {"node-max", required_argument, 0, 'm'},\
-                {"flat-alts", no_argument, 0, 'f'},
-                {0, 0, 0, 0}
-            };
+            case 'v':
+                vcf_file_name = optarg;
+                break;
 
-        int option_index = 0;
-        c = getopt_long (argc, argv, "v:r:phz:t:R:m:P:Bas:Cf",
-                         long_options, &option_index);
+            case 'r':
+                fasta_file_name = optarg;
+                break;
 
-        /* Detect the end of the options. */
-        if (c == -1)
-            break;
+            case 'P':
+                ref_paths_file = optarg;
+                break;
 
-        switch (c)
-        {
-        case 'v':
-            vcf_file_name = optarg;
-            break;
+            case 'B':
+                load_phasing_paths = true;
+                break;
 
-        case 'r':
-            fasta_file_name = optarg;
-            break;
+            case 'a':
+                load_alt_paths = true;
+                break;
 
-        case 'P':
-            ref_paths_file = optarg;
-            break;
-            
-        case 'B':
-            load_phasing_paths = true;
-            break;
+            case 'p':
+                progress = true;
+                break;
 
-        case 'a':
-            load_alt_paths = true;
-            break;
+            case 'z':
+                vars_per_region = atoi(optarg);
+                break;
 
-        case 'p':
-            progress = true;
-            break;
+            case 'R':
+                region = optarg;
+                break;
 
-        case 'z':
-            vars_per_region = atoi(optarg);
-            break;
+            case 'C':
+                region_is_chrom = true;
+                break;
 
-        case 'R':
-            region = optarg;
-            break;
+            case 't':
+                omp_set_num_threads(atoi(optarg));
+                break;
 
-        case 'C':
-            region_is_chrom = true;
-            break;
+            case 'm':
+                max_node_size = atoi(optarg);
+                break;
 
-        case 't':
-            omp_set_num_threads(atoi(optarg));
-            break;
+            case 'f':
+                flat_alts = true;
+                break;
 
-        case 'm':
-            max_node_size = atoi(optarg);
-            break;
+            case 'h':
+            case '?':
+                /* getopt_long already printed an error message. */
+                help_construct(argv);
+                exit(1);
+                break;
 
-        case 'f':
-            flat_alts = true;
-            break;
+            default:
+                abort ();
+            }
+        }
+
+        if(load_phasing_paths && ref_paths_file.empty()) {
+            cerr << "error:[vg construct] cannot save phasing paths without a paths file name" << endl;
+            return 1;
         }
 
         vcflib::VariantCallFile variant_file;
@@ -5314,55 +5324,41 @@ void help_construct(char** argv) {
         FastaReference reference;
         if (fasta_file_name.empty()) {
             cerr << "error:[vg construct] a reference is required for graph construction" << endl;
-    if(load_phasing_paths && ref_paths_file.empty()) {
-        cerr << "error:[vg construct] cannot save phasing paths without a paths file name" << endl;
-        return 1;
-    }
-
+            return 1;
+        }
         reference.open(fasta_file_name);
 
         // store our reference sequence paths
+        // TODO: use this. Maybe dump paths here instead of in the graph?
         Paths ref_paths;
-/**
-<<<<<<< HEAD
-        VG graph(variant_file, reference, region, region_is_chrom, vars_per_region, max_node_size, flat_alts, progress);
+
+        VG graph(variant_file, reference, region, region_is_chrom, vars_per_region,
+            max_node_size, flat_alts, load_phasing_paths, load_alt_paths, progress);
 
         if (!ref_paths_file.empty()) {
             ofstream paths_out(ref_paths_file);
             graph.paths.write(paths_out);
+            if(load_phasing_paths) {
+                // Keep only the non-phasing paths in the graph. If you keep too
+                // many paths in a graph, you'll make chunks that are too large.
+                // TODO: dynamically deliniate the chunks in the serializer so you
+                // won't write vg files you can't read.
+
+                set<string> non_phase_paths;
+                string phase_prefix = "_phase";
+                graph.paths.for_each_name([&](string path_name) {
+                    if(!equal(phase_prefix.begin(), phase_prefix.end(), path_name.begin())) {
+                        // Path is not a phase path
+                        non_phase_paths.insert(path_name);
+                    }
+                });
+
+                // Keep only the non-phase paths
+                graph.paths.keep_paths(non_phase_paths);
+            }
         }
 
         graph.serialize_to_ostream(std::cout);
-=======*/
-    // store our reference sequence paths
-    // TODO: use this. Maybe dump paths here instead of in the graph?
-    Paths ref_paths;
-
-    VG graph(variant_file, reference, region, region_is_chrom, vars_per_region,
-        max_node_size, flat_alts, load_phasing_paths, load_alt_paths, progress);
-
-    if (!ref_paths_file.empty()) {
-        ofstream paths_out(ref_paths_file);
-        graph.paths.write(paths_out);
-        if(load_phasing_paths) {
-            // Keep only the non-phasing paths in the graph. If you keep too
-            // many paths in a graph, you'll make chunks that are too large.
-            // TODO: dynamically deliniate the chunks in the serializer so you
-            // won't write vg files you can't read.
-            
-            set<string> non_phase_paths;
-            string phase_prefix = "_phase";
-            graph.paths.for_each_name([&](string path_name) {
-                if(!equal(phase_prefix.begin(), phase_prefix.end(), path_name.begin())) {
-                    // Path is not a phase path
-                    non_phase_paths.insert(path_name);
-                }
-            });
-            
-            // Keep only the non-phase paths
-            graph.paths.keep_paths(non_phase_paths);
-        }
-    }
 
         // NB: If you worry about "still reachable but possibly lost" warnings in valgrind,
         // this would free all the memory used by protobuf:
@@ -5373,29 +5369,29 @@ void help_construct(char** argv) {
 
     void vg_help(char** argv) {
         cerr << "usage: " << argv[0] << " <command> [options]" << endl
-            << endl
-            << "commands:" << endl
-            << "  -- construct     graph construction" << endl
-            << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
-            << "  -- view          format conversions for graphs and alignments" << endl
-            << "  -- index         index features of the graph in a disk-backed key/value store" << endl
-            << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
-            << "  -- paths         traverse paths in the graph" << endl
-            << "  -- align         local alignment" << endl
-            << "  -- map           global alignment" << endl
-            << "  -- stats         metrics describing graph properties" << endl
-            << "  -- join          combine graphs via a new head" << endl
-            << "  -- ids           manipulate node ids" << endl
-            << "  -- concat        concatenate graphs tail-to-head" << endl
-            << "  -- kmers         enumerate kmers of the graph" << endl
-            << "  -- sim           simulate reads from the graph" << endl
-            << "  -- mod           filter, transform, and edit the graph" << endl
-            << "  -- surject       map alignments onto specific paths" << endl
-            << "  -- msga          multiple sequence graph alignment" << endl
-            << "  -- pileup        build a pileup from a set of alignments" << endl
-            << "  -- call          prune the graph by genotyping a pileup" << endl
-            << "  -- compare       compare the kmer space of two graphs" << endl
-            << "  -- validate      validate the semantics of a graph" << endl;
+             << endl
+             << "commands:" << endl
+             << "  -- construct     graph construction" << endl
+             << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
+             << "  -- view          format conversions for graphs and alignments" << endl
+             << "  -- index         index features of the graph in a disk-backed key/value store" << endl
+             << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
+             << "  -- paths         traverse paths in the graph" << endl
+             << "  -- align         local alignment" << endl
+             << "  -- map           global alignment" << endl
+             << "  -- stats         metrics describing graph properties" << endl
+             << "  -- join          combine graphs via a new head" << endl
+             << "  -- ids           manipulate node ids" << endl
+             << "  -- concat        concatenate graphs tail-to-head" << endl
+             << "  -- kmers         enumerate kmers of the graph" << endl
+             << "  -- sim           simulate reads from the graph" << endl
+             << "  -- mod           filter, transform, and edit the graph" << endl
+             << "  -- surject       map alignments onto specific paths" << endl
+             << "  -- msga          multiple sequence graph alignment" << endl
+             << "  -- pileup        build a pileup from a set of alignments" << endl
+             << "  -- call          prune the graph by genotyping a pileup" << endl
+             << "  -- compare       compare the kmer space of two graphs" << endl
+             << "  -- validate      validate the semantics of a graph" << endl;
     }
 
     int main(int argc, char *argv[])
@@ -5413,8 +5409,6 @@ void help_construct(char** argv) {
             return main_construct(argc, argv);
         } else if (command == "deconstruct"){
             return main_deconstruct(argc, argv);
-        } else if (command == "vectorize"){
-            return main_vectorize(argc, argv);
         } else if (command == "view") {
             return main_view(argc, argv);
         } else if (command == "align") {
