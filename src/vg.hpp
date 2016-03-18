@@ -473,15 +473,9 @@ public:
     void edit_node(id_t node_id,
                    const vector<tuple<Mapping, bool, bool> >& mappings,
                    map<pair<id_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans);
-    // for each node, modify it with the associated mappings
-    void edit(const map<id_t, vector<tuple<Mapping, bool, bool> > >& mappings,
-              map<pair<id_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans,
-              map<pair<id_t, size_t>, pair<id_t, size_t> >& del_f,
-              map<pair<id_t, size_t>, pair<id_t, size_t> >& del_t);
-    void edit(const vector<Path>& paths);
     // Edit the graph to include all the sequence and edges added by the given
     // paths. Can handle paths that visit nodes in any orientation.
-    void edit_both_directions(const vector<Path>& paths);
+    void edit(const vector<Path>& paths);
 
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need

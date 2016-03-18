@@ -962,7 +962,7 @@ int main_msga(int argc, char** argv) {
             // now take the alignment and modify the graph with it
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
-            graph->edit_both_directions(paths);
+            graph->edit(paths);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
             graph->dice_nodes(node_max);
@@ -1807,7 +1807,7 @@ int main_mod(int argc, char** argv) {
         }
         if (!label_paths) {
             // execute the edits
-            graph->edit_both_directions(paths);
+            graph->edit(paths);
         } else {
             // just add the path labels to the graph
             for (auto& path : paths) {
