@@ -145,6 +145,7 @@ int main_vectorize(int argc, char** argv){
     bool show_header = false;
     bool map_alns = false;
     bool annotate = false;
+
     if (argc <= 2) {
         help_vectorize(argv);
         return 1;
@@ -191,6 +192,7 @@ int main_vectorize(int argc, char** argv){
                 abort();
         }
     }
+
     xg::XG xindex;
     if (!xg_name.empty()) {
         ifstream in(xg_name);
@@ -200,9 +202,9 @@ int main_vectorize(int argc, char** argv){
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     }
+
     Vectorizer vz(xindex);
     string alignment_file = argv[optind];
-
 
     //Generate a 1-hot coverage vector for graph entities.
     function<void(Alignment&)> lambda = [&vz](Alignment a){
@@ -219,6 +221,8 @@ int main_vectorize(int argc, char** argv){
             stream::for_each(in, lambda);
         }
     }
+
+
 
     //TODO handle custom scores settings.
 
@@ -5470,7 +5474,9 @@ int main_deconstruct(int argc, char** argv){
             return main_compare(argc, argv);
         } else if (command == "validate") {
             return main_validate(argc, argv);
-        } else {
+        } else if (command == "vectorize") {
+            return main_vectorize(argc, argv);
+        }else {
             cerr << "error:[vg] command " << command << " not found" << endl;
             vg_help(argv);
             return 1;

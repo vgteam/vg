@@ -6,6 +6,8 @@ using namespace sdsl;
 using namespace stream;
 Vectorizer::Vectorizer(xg::XG x){
   my_xg = x;
+  vector<bit_vector> my_vectors;
+  vector<string> my_names;
 }
 
 Vectorizer::~Vectorizer(){
@@ -74,14 +76,14 @@ string Vectorizer::format(bit_vector v){
 bit_vector Vectorizer::alignment_to_onehot(Alignment a){
   // Make a vector as large as the | |nodes| + |edges| | space
   // TODO handle edges
-  size_t entity_size = my_xg.node_count + my_xg.edge_count;
+  int64_t entity_size = my_xg.node_count + my_xg.edge_count;
   bit_vector ret(entity_size, 0);
   Path path = a.path();
   for (int i = 0; i < path.mapping_size(); i++){
     Mapping mapping = path.mapping(i);
     Position pos = mapping.position();
     int64_t node_id = pos.node_id();
-    size_t key = my_xg.node_rank_as_entity(node_id);
+    int64_t key = my_xg.node_rank_as_entity(node_id);
 		//TODO we're getting out of range errors??? How is that possible?
 		// OKAY, double weird - it's only with certain xg indices.
 		//TODO WHY???????
