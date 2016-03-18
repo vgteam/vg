@@ -5396,6 +5396,7 @@ int main_deconstruct(int argc, char** argv){
              << "  -- construct     graph construction" << endl
              << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
              << "  -- view          format conversions for graphs and alignments" << endl
+             << "  -- vectorize     Transform alignments to one-hot vectors." << endl
              << "  -- index         index features of the graph in a disk-backed key/value store" << endl
              << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
              << "  -- paths         traverse paths in the graph" << endl
