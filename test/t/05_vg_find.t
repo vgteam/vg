@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 18
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -49,7 +49,10 @@ is $(vg find -x x.idx -n 203 -c 1 | vg view - | grep CTACCCAGGCCATTTTAAGTTTCCTGT
 
 vg index -g x.gcsa -k 16 x.vg
 is $(( for seq in $(vg sim -l 50 -n 100 x.vg); do vg find -M $seq -g x.gcsa; done ) | jq length | grep ^1$ | wc -l) 100 "each perfect read contains one maximal exact match"
+rm -f x.idx x.gcsa x.gcsa.lcp x.vg
 
-rm -f x.idx
-rm -f x.gcsa
-rm -f x.vg
+vg construct -rmem/h.fa >h.vg
+vg index -g h.gcsa -k 16 h.vg
+is $(vg find -M ACCGTTAGAGTCAG -g h.gcsa | md5sum | cut -f 1 -d\ ) b32ca3f2cc2087372dda2c0719bd3391 "we find the 4 canonical SMEMs from @lh3's bwa mem poster"
+rm -f h.gcsa h.gcsa.lcp h.vg
+

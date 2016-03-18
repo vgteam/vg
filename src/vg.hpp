@@ -16,6 +16,7 @@
 
 #include "gssw.h"
 #include "gcsa.h"
+#include "lcp.h"
 #include "gssw_aligner.hpp"
 #include "region.hpp"
 #include "path.hpp"
@@ -974,10 +975,13 @@ public:
                                        const string& base_file_name = ".vg-kmers-tmp-");
 
     // construct the GCSA index for this graph
-    gcsa::GCSA* build_gcsa_index(int kmer_size, bool forward_only,
-                                 size_t doubling_steps = 2,
-                                 size_t size_limit = 200,
-                                 const string& base_file_name = ".vg-kmers-tmp-");
+    void build_gcsa_lcp(gcsa::GCSA*& gcsa,
+                        gcsa::LCPArray*& lcp,
+                        int kmer_size,
+                        bool forward_only,
+                        size_t doubling_steps = 2,
+                        size_t size_limit = 200,
+                        const string& base_file_name = ".vg-kmers-tmp-");
 
     // for pruning graph prior to indexing with gcsa2
     // takes all nodes that would introduce paths of > edge_max edge crossings, removes them, and links their neighbors to

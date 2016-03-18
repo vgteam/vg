@@ -7790,9 +7790,12 @@ string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool forward_only,
     return tmpfile;
 }
 
-gcsa::GCSA* VG::build_gcsa_index(int kmer_size, bool forward_only,
-                                 size_t doubling_steps, size_t size_limit,
-                                 const string& base_file_name) {
+void
+VG::build_gcsa_lcp(gcsa::GCSA*& gcsa,
+                   gcsa::LCPArray*& lcp,
+                   int kmer_size, bool forward_only,
+                   size_t doubling_steps, size_t size_limit,
+                   const string& base_file_name) {
 
     string tmpfile = write_gcsa_kmers_to_tmpfile(kmer_size, forward_only,
                                                  doubling_steps, size_limit,
@@ -7802,12 +7805,13 @@ gcsa::GCSA* VG::build_gcsa_index(int kmer_size, bool forward_only,
     gcsa::ConstructionParameters params;
     params.setSteps(doubling_steps);
     params.setLimit(size_limit);
-    // and run the construction
-    gcsa::GCSA* result = new gcsa::GCSA(input_graph, params);
+    // run the GCSA construction
+    gcsa = new gcsa::GCSA(input_graph, params);
+    // and the LCP array construction
+    lcp = new gcsa::LCPArray(input_graph, params);
     // delete the temporary debruijn graph file
     remove(tmpfile.c_str());
-    // returns the GCSA we've constructed
-    return result;
+    // results returned by reference
 }
 
 void VG::prune_complex_with_head_tail(int path_length, int edge_max) {

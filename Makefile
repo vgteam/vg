@@ -162,13 +162,11 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
 include/stream.hpp: .pre-build
 	cp src/stream.hpp include/stream.hpp
 
-$(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
-
-$(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h .pre-build
+$(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.h .pre-build
 	+. ./source_me.sh && g++ -O3 -msse4.1 -fopenmp -std=c++11 -c -o cpp/vg.pb.o cpp/vg.pb.cc $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a .pre-build
-	./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
-	cp $@ $(INC_DIR)
+	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
+	+cp $@ $(INC_DIR)
 
 $(OBJ_DIR)/vg.o: $(SRC_DIR)/vg.cpp $(SRC_DIR)/vg.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libvcflib.a $(FASTAHACK_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/sparsehash/sparse_hash_map $(INC_DIR)/lru_cache.h $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(OBJ_DIR)/progress_bar.o $(INC_DIR)/gcsa.h $(INC_DIR)/sha1.hpp $(LIB_DIR)/libgfakluge.a $(LIB_DIR)/libsupbub.a $(LIB_DIR)/libsdsl.a
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)

@@ -1,0 +1,88 @@
+# baseURI: http://biohackathon.org/resource/vg
+
+@prefix : <http://biohackathon.org/resource/vg#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix spin: <http://spinrdf.org/spin#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://biohackathon.org/resource/vg>
+  rdf:type owl:Ontology ;
+  <http://purl.org/dc/terms/license> <http://creativecommons.org/publicdomain/zero/1.0/> ;
+  spin:imports <http://topbraid.org/spin/owlrl-all> ;
+  spin:imports <http://topbraid.org/spin/rdfsplus> ;
+  spin:imports <http://topbraid.org/spin/spinowl> ;
+  owl:versionInfo "Created at the DBCLS RDF Summit 2, Sendai Japan 20"^^xsd:string ;
+.
+:Node
+  rdf:type owl:Class ;
+  rdfs:comment "A node in the variant graph, representing a sequence section."^^xsd:string ;
+  rdfs:label "Node"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:Path
+  rdf:type owl:Class ;
+  rdfs:comment "A Path is a collection of steps from path to path that represent an asserdfs:labelmbled sequence integrated into the variant grap."^^xsd:string ;
+  rdfs:label "Path"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:Step
+  rdf:type owl:Class ;
+  rdfs:comment "A step along a path in the variant graph. A series of steps along a path represent an assembled sequence that was originally inserted into the the variant graph. A step points to a :Node or the reverse complement of a node and has a rank (step number)."^^xsd:string ;
+  rdfs:label "Step"^^xsd:string ;
+  rdfs:subClassOf owl:Thing ;
+.
+:linksForwardToForward
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This links a node from the forward (5' to 3') strand on the subject node to the forward (5' to 3') strand on the predicate node."^^xsd:string ;
+  rdfs:domain :Node ;
+  rdfs:label "++"^^xsd:string ;
+  rdfs:label "linksForwardToForward"^^xsd:string ;
+  rdfs:range :Node ;
+.
+:linksForwardToReverse
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This links a node from the forward (5' to 3') strand on the subject node to the reverse (3' to 5') strand on the predicate node."^^xsd:string ;
+  rdfs:domain :Node ;
+  rdfs:label "+-"^^xsd:string ;
+  rdfs:label "linksForwardToReverse"^^xsd:string ;
+  rdfs:range :Node ;
+.
+:linksReverseToForward
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This links a node from the reverse (3' to 5') strand on the subject node to the forward (5' to 3') strand on the predicate node."^^xsd:string ;
+  rdfs:domain :Node ;
+  rdfs:label "-+"^^xsd:string ;
+  rdfs:label "linksReverseToForward"^^xsd:string ;
+  rdfs:range :Node ;
+.
+:linksReverseToReverse
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This links a node from the reverse (3' to 5') strand on the subject node to the reverse (3' to 5') strand on the predicate node."^^xsd:string ;
+  rdfs:domain :Node ;
+  rdfs:label "--"^^xsd:string ;
+  rdfs:label "linksReverseToReverse"^^xsd:string ;
+  rdfs:range :Node ;
+.
+:node
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This means that this step occurs on the forward strand of the sequence attaced to the node (i.e. it is on the explicit encoded forward (5' to 3') strand) of the predicate node."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "node"^^xsd:string ;
+  rdfs:range :Step ;
+.
+:rank
+  rdf:type owl:DatatypeProperty ;
+  rdfs:comment "The rank records the step place along its path."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "rank"^^xsd:string ;
+  rdfs:range xsd:positiveInteger ;
+.
+:reverseOfNode
+  rdf:type owl:ObjectProperty ;
+  rdfs:comment "This means this step occurs on the revese complement of the sequence attaced to the node (i.e. it is on the implicit reverse (3' to 5') strand) of the predicate node."^^xsd:string ;
+  rdfs:domain :Step ;
+  rdfs:label "reverseOfNode"^^xsd:string ;
+  rdfs:range :Node ;
+.

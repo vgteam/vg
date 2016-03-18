@@ -9,6 +9,7 @@
 #include "xg.hpp"
 #include "index.hpp"
 #include "gcsa.h"
+#include "lcp.h"
 #include "alignment.hpp"
 #include "path.hpp"
 #include "json2pb.h"
@@ -25,13 +26,13 @@ public:
     string::const_iterator begin;
     string::const_iterator end;
     gcsa::range_type range;
-    size_t matches;
+    size_t match_count;
     std::vector<gcsa::node_type> nodes;
     MaximalExactMatch(string::const_iterator b,
                       string::const_iterator e,
                       gcsa::range_type r,
                       size_t m = 0)
-        : begin(b), end(e), range(r), matches(m) { }
+        : begin(b), end(e), range(r), match_count(m) { }
 
     // construct the sequence of the MEM; useful in debugging
     string sequence(void) const {
@@ -45,7 +46,10 @@ public:
     void fill_nodes(gcsa::GCSA* gcsa) {
         gcsa->locate(range, nodes);
     }
-    // TODO: add interface to efficient position counting when finished upstream
+    // uses GCSA to get a count of the number of graph nodes in our range
+    void fill_match_count(gcsa::GCSA* gcsa) {
+        match_count = gcsa->count(range);
+    }
 };
 
 class Mapper {
@@ -56,18 +60,22 @@ private:
     // Private constructor to delegate everything to. It might have all these
     // indexing structures null, for example if being called from the default
     // constructor.
-    Mapper(Index* idex, gcsa::GCSA* g, xg::XG* xidex);
+    Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
 
 public:
     // Make a Mapper that pulls from a RocksDB index and optionally a GCSA2 kmer index.
-    Mapper(Index* idex, gcsa::GCSA* g = nullptr);
-    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index.
-    Mapper(xg::XG* xidex, gcsa::GCSA* g);
+    Mapper(Index* idex, gcsa::GCSA* g = nullptr, gcsa::LCPArray* a = nullptr);
+    // Make a Mapper that pulls from an XG succinct graph and a GCSA2 kmer index + LCP array
+    Mapper(xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     Mapper(void);
     ~Mapper(void);
+    // rocksdb index
     Index* index;
-    gcsa::GCSA* gcsa;
+    // xg index
     xg::XG* xindex;
+    // GCSA index and its LCP array
+    gcsa::GCSA* gcsa;
+    gcsa::LCPArray* lcp;
 
     // Align the given string and return an Alignment.
     Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
@@ -131,6 +139,11 @@ public:
                                      int attempt = 0);
 
     // MEM-based mapping
+    // finds absolute super-maximal exact matches
+    vector<MaximalExactMatch> find_smems(const string& seq);
+    bool get_mem_hits_if_under_max(MaximalExactMatch& mem);
+    // debugging, checking of mems using find interface to gcsa
+    void check_mems(const vector<MaximalExactMatch>& mems);
     // finds "forward" maximal exact matches of the sequence using the GCSA index
     // stepping step between each one
     vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1);
@@ -148,6 +161,8 @@ public:
     Alignment walk_match(const string& seq, pos_t pos, int match_score = 2);
     // convert the set of hits of a MEM into a set of alignments
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
+    // Use the GCSA index to look up the sequence
+    set<pos_t> sequence_positions(const string& seq);
     
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
@@ -190,6 +205,7 @@ public:
 // utility
 const vector<string> balanced_kmers(const string& seq, int kmer_size, int stride);
 const string mems_to_json(const vector<MaximalExactMatch>& mems);
+set<pos_t> gcsa_nodes_to_positions(const vector<gcsa::node_type>& nodes);
 
 }
 
