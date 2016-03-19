@@ -6938,6 +6938,9 @@ void VG::_for_each_kmer(int kmer_size,
         for_each_kpath_of_node(node, kmer_size, edge_max, noop, noop, handle_path);
     }
 
+    for (auto l : lru) {
+        delete l.second;
+    }
 }
 
 int VG::path_edge_count(list<NodeTraversal>& path, int32_t offset, int path_length) {
