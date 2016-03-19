@@ -16,7 +16,7 @@ Mapper::Mapper(Index* idex,
     , hit_size_threshold(512)
     , kmer_min(0)
     , kmer_sensitivity_step(3)
-    , thread_extension(20)
+    , thread_extension(10)
     , max_thread_gap(30)
     , context_depth(1)
     , max_multimaps(1)

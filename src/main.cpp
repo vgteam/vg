@@ -3906,7 +3906,7 @@ void help_map(char** argv) {
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
-         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 7)" << endl
+         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
          << "    -t, --threads N       number of threads to use" << endl
@@ -3939,7 +3939,7 @@ int main_map(int argc, char** argv) {
     int hit_max = 100;
     int max_multimaps = 1;
     int thread_count = 1;
-    int thread_ex = 7;
+    int thread_ex = 10;
     int context_depth = 5;
     bool output_json = false;
     bool debug = false;
