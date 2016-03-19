@@ -182,7 +182,6 @@ public:
     bool greedy_accept; // if we make an OK forward alignment, accept it
     float accept_norm_score; // for early bailout; target alignment score as a fraction of the score of a perfect match
 
-
     // mem mapper parameters (it is _much_ simpler)
     //
     int max_mem_length; // a mem must be <= this length
@@ -194,7 +193,7 @@ public:
     int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
     int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
-
+    int max_target_length; // the maximum graph length we'll try to align against (MEM only)
 
     // multimapping
     int max_multimaps;

@@ -32,6 +32,7 @@ Mapper::Mapper(Index* idex,
     , match_score(2)
     , max_mem_length(0)
     , min_mem_length(0)
+    , max_target_length(1e6)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -1258,7 +1259,6 @@ Alignment Mapper::align_mem_optimal(const Alignment& alignment, vector<MaximalEx
 
 vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int max_multi) {
 
-    set<id_t> ids;
     struct StrandCounts {
         uint32_t forward;
         uint32_t reverse;
@@ -1266,6 +1266,10 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
     // we will use these to determine the alignment strand for each subgraph
     map<id_t, StrandCounts> node_strands;
+    // records a mapping of id->MEMs, for cluster ranking
+    map<id_t, vector<MaximalExactMatch> > id_to_mems;
+    // for clustering
+    set<id_t> ids;
 
     // run through the mems, generating a set of alignments for each
     for (auto& mem : mems) {
@@ -1273,11 +1277,12 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
+            id_to_mems[id].push_back(mem); // copy
             ids.insert(id);
             if (gcsa::Node::rc(node)) {
-                node_strands[id].reverse += len;
+                node_strands[id].reverse++;
             } else {
-                node_strands[id].forward += len;
+                node_strands[id].forward++;
             }
         }
 
@@ -1292,13 +1297,14 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             get_mem_hits_if_under_max(rc_mem);
             for (auto& node : rc_mem.nodes) {
                 id_t id = gcsa::Node::id(node);
+                id_to_mems[id].push_back(rc_mem); // copy
                 ids.insert(id);
                 // we are looking at the position of the end of the mem on the reverse strand
                 // so we flip it around when tabulating strands
                 if (!gcsa::Node::rc(node)) {
-                    node_strands[id].reverse += len;
+                    node_strands[id].reverse++;
                 } else {
-                    node_strands[id].forward += len;
+                    node_strands[id].forward++;
                 }
             }
         }
@@ -1331,26 +1337,25 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         xindex->get_id_range(id1, id2, sub.graph);
         xindex->expand_context(sub.graph, context_depth, false);
         sub.rebuild_indexes();
+        if (max_target_length && sub.length() > max_target_length) {
+            subgraphs.pop_back();
+        }
     }
-
-    vector<Alignment> alns; // our alignments
-    
-    // set up our forward and reverse base alignments (these are just sequences in bare alignment objs)
-    auto aln_fw = alignment;
-    aln_fw.clear_path();
-    aln_fw.set_score(0);
-    auto aln_rc = aln_fw;
-    aln_rc.set_sequence(reverse_complement(aln_fw.sequence()));
 
     // order the subgraphs by number of hits
     // and go through them until we have enough multi-maps
-    map<int, vector<VG*> > subgraphs_by_hits;
+    map<size_t, vector<VG*> > subgraphs_by_hits;;
     for (auto& subgraph : subgraphs) {
-        int hits = 0;
+        int hit_length = 0;
         subgraph.for_each_node([&](Node* n) {
-                hits += ids.count(n->id());
+                auto m = id_to_mems.find(n->id());
+                if (m != id_to_mems.end()) {
+                    for (auto& mem : m->second) {
+                        hit_length += mem.end - mem.begin;
+                    }
+                }
             });
-        subgraphs_by_hits[hits].push_back(&subgraph);
+        subgraphs_by_hits[hit_length].push_back(&subgraph);
     }
 
     // sort the ranked subgraphs and only keep the best N (attempts)
@@ -1365,6 +1370,18 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             ranked_subgraphs.push_back(subgraph);
         }
     }
+
+    // generate an alignment for each subgraph/orientation combination for which we have hits
+    if (debug) cerr << "aligning to " << subgraphs.size() << " subgraphs" << endl;
+
+    vector<Alignment> alns; // our alignments
+    
+    // set up our forward and reverse base alignments (these are just sequences in bare alignment objs)
+    auto aln_fw = alignment;
+    aln_fw.clear_path();
+    aln_fw.set_score(0);
+    auto aln_rc = aln_fw;
+    aln_rc.set_sequence(reverse_complement(aln_fw.sequence()));
 
     // generate an alignment for each subgraph/orientation combination for which we have hits
     if (debug) cerr << "aligning to " << subgraphs.size() << " subgraphs" << endl;
