@@ -178,8 +178,6 @@ public:
     int kmer_min; // don't decrease kmer size below this level when trying shorter kmers
     int max_thread_gap; // maximum number of nodes in id space to extend a thread (assumes semi partial order on graph ids)
     int kmer_sensitivity_step; // size to decrease the kmer length if we fail alignment
-    int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
-    int max_attempts; // maximum number of times to try to increase sensitivity
     bool prefer_forward; // attempt alignment of forward complement of the read against the graph (forward) first
     bool greedy_accept; // if we make an OK forward alignment, accept it
     float accept_norm_score; // for early bailout; target alignment score as a fraction of the score of a perfect match
@@ -192,8 +190,12 @@ public:
 
     // general parameters, applying to both types of mapping
     //
-    int hit_max; // ignore kmers or MEMs (TODO) with more than this many hits
-    int context_depth;    // how deeply the mapper will extend out the subgraph prior to alignment
+    int hit_max;       // ignore kmers or MEMs (TODO) with more than this many hits
+    int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
+    int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
+    int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
+
+
     // multimapping
     int max_multimaps;
     // soft clip resolution

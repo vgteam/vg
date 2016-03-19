@@ -16,11 +16,11 @@ Mapper::Mapper(Index* idex,
     , hit_size_threshold(512)
     , kmer_min(0)
     , kmer_sensitivity_step(3)
-    , thread_extension(7)
+    , thread_extension(20)
     , max_thread_gap(30)
     , context_depth(1)
     , max_multimaps(1)
-    , max_attempts(7)
+    , max_attempts(0)
     , softclip_threshold(0)
     , prefer_forward(false)
     , greedy_accept(false)
@@ -1269,14 +1269,15 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
     // run through the mems, generating a set of alignments for each
     for (auto& mem : mems) {
+        size_t len = mem.begin - mem.end;
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
             ids.insert(id);
             if (gcsa::Node::rc(node)) {
-                node_strands[id].reverse++;
+                node_strands[id].reverse += len;
             } else {
-                node_strands[id].forward++;
+                node_strands[id].forward += len;
             }
         }
 
@@ -1295,28 +1296,42 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
                 // we are looking at the position of the end of the mem on the reverse strand
                 // so we flip it around when tabulating strands
                 if (!gcsa::Node::rc(node)) {
-                    node_strands[id].reverse++;
+                    node_strands[id].reverse += len;
                 } else {
-                    node_strands[id].forward++;
+                    node_strands[id].forward += len;
                 }
             }
         }
     }
 
     // collect the graph implied by the mems and their reverse complements
-    VG* graph = new VG;
+    // attempt to pick up ranges between successive nodes
+    // when these are below our context_depth
+    vector<vector<id_t> > clusters;
     for (auto& id : ids) {
-        Node node = xindex->node(id);
-        graph->add_node(node);
+        if (clusters.empty()) {
+            clusters.emplace_back();
+            auto& l = clusters.back();
+            l.push_back(id);
+        } else {
+            auto& prev = clusters.back().back();
+            if (id - prev <= thread_extension) {
+                clusters.back().push_back(id);
+            }
+        }
     }
 
-    // then expand the graph with our context depth to fill in nearby gaps
-    xindex->expand_context(graph->graph, context_depth, false);
-    graph->rebuild_indexes();
-
-    // determine subgraphs
-    list<VG> subgraphs;
-    graph->disjoint_subgraphs(subgraphs);
+    // get target subgraphs
+    vector<VG> subgraphs;
+    for (auto& cluster : clusters) {
+        subgraphs.emplace_back();
+        auto& sub = subgraphs.back();
+        auto id1 = cluster.front();
+        auto id2 = cluster.back();
+        xindex->get_id_range(id1, id2, sub.graph);
+        xindex->expand_context(sub.graph, context_depth, false);
+        sub.rebuild_indexes();
+    }
 
     vector<Alignment> alns; // our alignments
     
@@ -1337,8 +1352,15 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             });
         subgraphs_by_hits[hits].push_back(&subgraph);
     }
+
+    // sort the ranked subgraphs and only keep the best N (attempts)
     vector<VG*> ranked_subgraphs;
-    for (auto it = subgraphs_by_hits.rbegin(); it != subgraphs_by_hits.rend(); ++it) {
+    size_t i = 0;
+    for (auto it = subgraphs_by_hits.rbegin();
+         it != subgraphs_by_hits.rend()
+             // if we've set max_attempts, only try up to that many graphs
+             && (!max_attempts || i < max_attempts);
+         ++it, ++i) {
         for (auto subgraph : it->second) {
             ranked_subgraphs.push_back(subgraph);
         }
@@ -1387,7 +1409,6 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
     // free memory; we don't need the graphs for the last bit
     subgraphs.clear();
-    delete graph;
 
     int sum_score = 0;
     double mean_score = 0;

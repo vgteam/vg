@@ -577,14 +577,16 @@ void help_msga(char** argv) {
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
          << "mem mapping:" << endl
-         << "    -L, --min-mem-length N  ignore MEMs shorter than this length (default: 0/unset)" << endl
-         << "    -Y, --max-mem-length N  ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -H, --hit-max N         ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
-         << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 5)" << endl
+         << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: 0/unset)" << endl
+         << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
+         << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
+         << "    -T, --thread-ex N       cluster nodes when successive ids are within this distance (default: 10)" << endl
          << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping" << endl
          << "    -G, --greedy-accept     if a tested alignment achieves -S score/bp don't try clusters with fewer hits" << endl
          << "    -S, --accept-score N    accept early alignment if the normalized alignment score is > N and -G is set" << endl
+         << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
@@ -622,7 +624,9 @@ int main_msga(int argc, char** argv) {
     int hit_max = 100;
     int max_attempts = 10;
     // if this is set too low, we may miss optimal alignments
-    int context_depth = 5;
+    int context_depth = 7;
+    // same here; initial clustering
+    int thread_extension = 10;
     float min_norm_score = 0.75;
     int band_width = 1000;
     size_t doubling_steps = 2;
@@ -670,11 +674,13 @@ int main_msga(int argc, char** argv) {
                 {"node-max", required_argument, 0, 'm'},
                 {"greedy-accept", no_argument, 0, 'G'},
                 {"accept-score", required_argument, 0, 'S'},
+                {"max-attempts", required_argument, 0, 'M'},
+                {"thread-ex", required_argument, 0, 'T'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -698,6 +704,10 @@ int main_msga(int argc, char** argv) {
 
         case 'M':
             max_attempts = atoi(optarg);
+            break;
+
+        case 'T':
+            thread_extension = atoi(optarg);
             break;
 
         case 'I':
@@ -902,6 +912,7 @@ int main_msga(int argc, char** argv) {
         { // set mapper variables
             mapper->debug = debug_align;
             mapper->context_depth = context_depth;
+            mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
             mapper->min_norm_score = min_norm_score;
             mapper->alignment_threads = alignment_threads;
