@@ -480,7 +480,7 @@ public:
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need
     // to become the starts of new nodes.
-   void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
+    void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
 
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
@@ -528,6 +528,8 @@ public:
     // Guaranteed to add each edge only once per call.
     void edges_of_node(Node* node, vector<Edge*>& edges);
     vector<Edge*> edges_of(Node* node);
+    vector<Edge*> edges_from(Node* node);
+    vector<Edge*> edges_to(Node* node);
     // Get the edges of the specified set of nodes, and add them to the given set of edge pointers.
     void edges_of_nodes(set<Node*>& nodes, set<Edge*>& edges);
 
@@ -599,6 +601,22 @@ public:
     void for_each_node_parallel(function<void(Node*)> lambda);
     // Go through all the nodes in the same connected component as the given node. Ignores relative orientation.
     void for_each_connected_node(Node* node, function<void(Node*)> lambda);
+    void dfs(
+        // called when node is first encountered
+        const function<void(Node*)>& node_begin_fn,
+        // called when node goes out of scope
+        const function<void(Node*)>& node_end_fn,
+        // called when an edge is encountered
+        const function<void(Edge*)>& edge_fn,
+        // called when an edge forms part of the DFS spanning tree
+        const function<void(Edge*)>& tree_fn,
+        // called when we meet an edge in the current tree component
+        const function<void(Edge*)>& edge_curr_fn,
+        // called when we meet an edge in an already-traversed tree component
+        const function<void(Edge*)>& edge_cross_fn);
+    // specialization of dfs for only handling nodes
+    void dfs(const function<void(Node*)>& node_begin_fn,
+             const function<void(Node*)>& node_end_fn);
 
     // is the graph empty?
     bool empty(void);
@@ -1085,6 +1103,7 @@ private:
     // placeholders for empty
     vector<id_t> empty_ids;
     vector<pair<id_t, bool>> empty_edge_ends;
+
 };
 
 } // end namespace vg

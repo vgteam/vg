@@ -286,6 +286,26 @@ void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
     }
 }
 
+vector<Edge*> VG::edges_from(Node* node) {
+    vector<Edge*> from;
+    for (auto e : edges_of(node)) {
+        if (e->from() == node->id()) {
+            from.push_back(e);
+        }
+    }
+    return from;
+}
+
+vector<Edge*> VG::edges_to(Node* node) {
+    vector<Edge*> to;
+    for (auto e : edges_of(node)) {
+        if (e->to() == node->id()) {
+            to.push_back(e);
+        }
+    }
+    return to;
+}
+
 vector<Edge*> VG::edges_of(Node* node) {
     vector<Edge*> edges;
     edges_of_node(node, edges);
@@ -3260,59 +3280,150 @@ void VG::sort(void) {
     }
 }
 
-// Tarjan's strongly connected components algorithm
-// transcribed from pseudocode
-// https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
-set<set<id_t> > VG::strongly_connected_components(void) {
-    set<set<id_t> > components;
-    deque<id_t> stack;
-    set<id_t> on_stack;
-    int64_t index = 0;
-    map<id_t, int64_t> node_idx;
-    map<id_t, int64_t> node_lowlink;
+// depth first search across nodes with interface to traversal tree via callback
+void VG::dfs(
+    const function<void(Node*)>& node_begin_fn, // called when node is first encountered
+    const function<void(Node*)>& node_end_fn,   // called when node goes out of scope
+    const function<void(Edge*)>& edge_fn,       // called when an edge is encountered
+    const function<void(Edge*)>& tree_fn,       // called when an edge forms part of the DFS spanning tree
+    const function<void(Edge*)>& edge_curr_fn,  // called when we meet an edge in the current tree component
+    const function<void(Edge*)>& edge_cross_fn  // called when we meet an edge in an already-traversed tree component
+    ) {
 
-    //function<void(Node*)> strong_connect;
-    function<void(id_t)> strong_connect = [&](id_t v) {
-        node_idx[v] = index;
-        node_lowlink[v] = index;
-        ++index;
-        stack.push_back(v);
-        on_stack.insert(v);
-        // Consider successors of v
-        for (auto side : sides_from(v)) {
-            id_t w = side.node;
-            if (node_idx.find(w) == node_idx.end()) {
-                // Successor w has not yet been visited; recurse on it
-                strong_connect(w);
-                node_lowlink[v] = min(node_lowlink[v], node_lowlink[w]);
-            } else if (on_stack.count(w)) {
-                // Successor w is in stack S and hence in the current SCC
-                node_lowlink[v] = min(node_lowlink[v], node_idx[w]);
-            }
-        }
-        // If v is a root node, pop the stack and generate an SCC
-        if (node_lowlink[v] == node_idx[v]) {
-            // start a new strongly connected component
-            set<id_t> component;
-            id_t w;
-            do {
-                // get w from the stack
-                w = stack.back();
-                stack.pop_back();
-                on_stack.erase(w);
-                // add w to current strongly connected component
-                component.insert(w);
-            } while (w != v);
-            // output the current strongly connected component
-            components.insert(component);
-        }
+    // to maintain search state
+    enum SearchState { PRE, CURR, POST };
+    map<Node*, SearchState> state;
+    for_each_node([&](Node* node) { state[node] = SearchState::PRE; });
+
+    // to maintain stack frames
+    struct Frame {
+        Node* node;
+        vector<Edge*>::iterator begin, end;
+        Frame(Node* n,
+              vector<Edge*>::iterator b,
+              vector<Edge*>::iterator e)
+            : node(n), begin(b), end(e) { }
     };
 
-    // now run strong_connect across the graph
-    for_each_node([&](Node* n) {
-            id_t v = n->id();
-            if (node_idx.find(v) == node_idx.end()) {
-                strong_connect(v);
+    // maintains edges while the node's frame is on the stack
+    map<Node*, vector<Edge*> > edges;
+    // records when we're on the stack
+    set<Node*> in_frame;
+
+    // attempt the search rooted at all nodes
+    for_each_node([&](Node* root) {
+            // to store the stack frames
+            deque<Frame> todo;
+            if (state[root] == SearchState::PRE) {
+                state[root] = SearchState::CURR;
+                auto& es = edges[root];
+                es = edges_from(root);
+                todo.push_back(Frame(root, es.begin(), es.end()));
+                // run our discovery-time callback
+                node_begin_fn(root);
+            }
+            // now begin the search rooted at this node
+            while (!todo.empty()) {
+                // get the frame
+                auto& frame = todo.back();
+                todo.pop_back();
+                // and set up reference to it
+                auto node = frame.node;
+                auto edges_begin = frame.begin;
+                auto edges_end = frame.end;
+                // run through the edges to handle
+                while (edges_begin != edges_end) {
+                    auto edge = *edges_begin;
+                    // run the edge callback
+                    edge_fn(edge);
+                    // what's the node we'd get to following this edge
+                    auto target = get_node(edge->to());
+                    auto search_state = state[target];
+                    // if we've not seen it, follow it
+                    if (search_state == SearchState::PRE) {
+                        tree_fn(edge);
+                        // save the rest of the search for this node on the stack
+                        todo.push_back(Frame(node, ++edges_begin, edges_end));
+                        // switch our focus to the current node
+                        node = target;
+                        // and store the next node on the stack
+                        state[node] = SearchState::CURR;
+                        auto& es = edges[node];
+                        es = edges_from(node);
+                        edges_begin = es.begin();
+                        edges_end = es.end();
+                        // run our discovery-time callback
+                        node_begin_fn(node);
+                    } else if (search_state == SearchState::CURR) {
+                        // if it's on the stack
+                        edge_curr_fn(edge);
+                        ++edges_begin;
+                    } else {
+                        // it's already been handled, so in another part of the tree
+                        edge_cross_fn(edge);
+                        ++edges_begin;
+                    }
+                }
+                state[node] = SearchState::POST;
+                node_end_fn(node);
+                edges.erase(node); // clean up edge cache
+            }
+        });
+}
+
+void VG::dfs(const function<void(Node*)>& node_begin_fn,
+             const function<void(Node*)>& node_end_fn) {
+    auto edge_noop = [](Edge* e) { };
+    dfs(node_begin_fn,
+        node_end_fn,
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        edge_noop);
+}
+
+// recursion-free version of Tarjan's strongly connected components algorithm
+// https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+set<set<id_t> > VG::strongly_connected_components(void) {
+
+    int64_t index = 0;
+    map<id_t, id_t> roots;
+    map<id_t, int64_t> discover_idx;
+    deque<id_t> stack;
+    set<id_t> on_stack;
+    set<set<id_t> > components;
+
+    dfs([&](Node* node) {
+            const id_t id = node->id();
+            roots[id] = id;
+            discover_idx[id] = index++;
+            stack.push_back(id);
+            on_stack.insert(id);
+        },
+        [&](Node* node) {
+            const id_t curr = node->id();
+            for (auto side : sides_from(curr)) {
+                const id_t next = side.node;
+                if (on_stack.count(next)) {
+                    const id_t node_root = roots[curr];
+                    const id_t next_root = roots[next];
+                    roots[curr] = discover_idx[node_root] <
+                        discover_idx[next_root] ?
+                        node_root :
+                        next_root;
+                }
+            }
+            if (roots[curr] == curr) {
+                id_t other;
+                set<id_t> component;
+                do
+                {
+                    other = stack.back();
+                    stack.pop_back();
+                    on_stack.erase(other);
+                    component.insert(other);
+                } while (other != curr);
+                components.insert(component);
             }
         });
 
