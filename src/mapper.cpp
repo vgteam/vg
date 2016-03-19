@@ -32,7 +32,7 @@ Mapper::Mapper(Index* idex,
     , match_score(2)
     , max_mem_length(0)
     , min_mem_length(0)
-    , max_target_length(1e6)
+    , max_target_length(10000)
 {
     // Nothing to do. We just hold the default parameter values.
 }

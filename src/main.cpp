@@ -587,6 +587,7 @@ void help_msga(char** argv) {
          << "    -G, --greedy-accept     if a tested alignment achieves -S score/bp don't try clusters with fewer hits" << endl
          << "    -S, --accept-score N    accept early alignment if the normalized alignment score is > N and -G is set" << endl
          << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
+         << "    -q, --max-target-len N  skip cluster subgraphs with length > N (default: 10k; 0=unset)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
@@ -643,6 +644,7 @@ int main_msga(int argc, char** argv) {
     int min_mem_length = 0;
     bool greedy_accept = false;
     float accept_score = 0;
+    int max_target_length = 10000;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -676,11 +678,12 @@ int main_msga(int argc, char** argv) {
                 {"accept-score", required_argument, 0, 'S'},
                 {"max-attempts", required_argument, 0, 'M'},
                 {"thread-ex", required_argument, 0, 'T'},
+                {"max-target-len", required_argument, 0, 'q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -700,6 +703,10 @@ int main_msga(int argc, char** argv) {
 
         case 'H':
             hit_max = atoi(optarg);
+            break;
+
+        case 'q':
+            max_target_length = atoi(optarg);
             break;
 
         case 'M':
@@ -920,6 +927,7 @@ int main_msga(int argc, char** argv) {
             mapper->min_mem_length = min_mem_length;
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
+            mapper->max_target_length = max_target_length;
             if (accept_score) mapper->accept_norm_score = accept_score;
         }
     };
@@ -3909,6 +3917,7 @@ void help_map(char** argv) {
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
+         << "    -H, --max-target-len N  skip cluster subgraphs with length > N (default: 10k)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
          << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
@@ -3960,6 +3969,7 @@ int main_map(int argc, char** argv) {
     bool build_in_memory = false;
     int max_mem_length = 0;
     int min_mem_length = 0;
+    int max_target_length = 10000;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4005,11 +4015,12 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
+                {"max-target-len", required_argument, 0, 'H'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4166,6 +4177,10 @@ int main_map(int argc, char** argv) {
 
         case 'Y':
             max_mem_length = atoi(optarg);
+            break;
+
+        case 'H':
+            max_target_length = atoi(optarg);
             break;
 
         case 'h':
@@ -4327,6 +4342,7 @@ int main_map(int argc, char** argv) {
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
+        m->max_target_length = max_target_length;
         mapper[i] = m;
     }
 
