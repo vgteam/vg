@@ -193,7 +193,7 @@ public:
     int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
     int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
-    int max_target_length; // the maximum graph length we'll try to align against (MEM only)
+    int max_target_factor; // the maximum multiple of the read length we'll try to align to
 
     // multimapping
     int max_multimaps;

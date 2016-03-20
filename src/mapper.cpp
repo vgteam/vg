@@ -32,7 +32,7 @@ Mapper::Mapper(Index* idex,
     , match_score(2)
     , max_mem_length(0)
     , min_mem_length(0)
-    , max_target_length(10000)
+    , max_target_factor(100)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -1329,6 +1329,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
     // get target subgraphs
     vector<VG> subgraphs;
+    int max_target_length = alignment.sequence().size() * max_target_factor;
     for (auto& cluster : clusters) {
         subgraphs.emplace_back();
         auto& sub = subgraphs.back();
@@ -1510,6 +1511,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
     int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
     int32_t d_to_head = graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3);
     int32_t d_to_tail = graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3);
+    int max_target_length = aln.sequence().size() * max_target_factor;
     while (itr++ < 3
            && ((sc_start > softclip_threshold
                 && d_to_head >= 0 && d_to_head < sc_start)
@@ -1547,6 +1549,10 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         aln.clear_path();
         aln.set_score(0);
 
+        // give up if the graph is too big
+        if (graph.length() >= max_target_length) break;
+
+        // otherwise, align
         aln = graph.align(aln);
 
         sc_start = softclip_start(aln);
