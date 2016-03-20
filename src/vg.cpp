@@ -6531,7 +6531,11 @@ map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<
     return overlay;
 }
 
-Alignment VG::align(const Alignment& alignment) {
+Alignment VG::align(const Alignment& alignment,
+                    int32_t match,
+                    int32_t mismatch,
+                    int32_t gap_open,
+                    int32_t gap_extension) {
 
     auto aln = alignment;
 
@@ -6551,7 +6555,7 @@ Alignment VG::align(const Alignment& alignment) {
     Node* root = dag.join_heads();
     dag.sort();
 
-    gssw_aligner = new GSSWAligner(dag.graph);
+    gssw_aligner = new GSSWAligner(dag.graph, match, mismatch, gap_open, gap_extension);
     gssw_aligner->align(aln);
 
     delete gssw_aligner;
@@ -6585,10 +6589,14 @@ Alignment VG::align(const Alignment& alignment) {
     return aln;
 }
 
-Alignment VG::align(const string& sequence) {
+Alignment VG::align(const string& sequence,
+                    int32_t match,
+                    int32_t mismatch,
+                    int32_t gap_open,
+                    int32_t gap_extension) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment);
+    return align(alignment, match, mismatch, gap_open, gap_extension);
 }
 
 const string VG::hash(void) {
