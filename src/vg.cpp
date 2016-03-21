@@ -1856,7 +1856,6 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
 
-#define debug
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
                                 map<pair<long, int>, vector<bool>>* phase_visits,
@@ -2043,7 +2042,6 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         }
     }
 }
-#undef debug
 
 void VG::slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
@@ -2135,7 +2133,6 @@ void VG::dice_nodes(int max_node_size) {
     paths.compact_ranks();
 }
 
-#define debug
 void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
                       size_t num_phasings,
@@ -2635,7 +2632,6 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     compact_ids();
 
 }
-#undef debug
 
 void VG::from_gfa(istream& in, bool showp) {
     // c++... split...
