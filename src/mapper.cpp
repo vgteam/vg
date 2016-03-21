@@ -1351,14 +1351,18 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
     // order the subgraphs by number of hits
     // and go through them until we have enough multi-maps
-    map<size_t, vector<VG*> > subgraphs_by_hits;;
+    map<double, vector<VG*> > subgraphs_by_hits;;
     for (auto& subgraph : subgraphs) {
-        int hit_length = 0;
+        double hit_length = 0;
         subgraph.for_each_node([&](Node* n) {
                 auto m = id_to_mems.find(n->id());
                 if (m != id_to_mems.end()) {
                     for (auto& mem : m->second) {
-                        hit_length += mem.end - mem.begin;
+                        // we add weight for the hit length, but
+                        // weight the hit by the number of matches
+                        hit_length +=
+                            (double)(mem.end - mem.begin)
+                            /(double)mem.match_count;
                     }
                 }
             });
