@@ -4642,6 +4642,7 @@ void help_view(char** argv) {
         << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
         << "                         Alignment/Map)" << endl
         << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
+        << "    -T  --turtle-in      input turtle format." << endl
         << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
 
         << "    -a, --align-in       input GAM format" << endl
@@ -4730,6 +4731,7 @@ int main_view(int argc, char** argv) {
             {"interleaved", no_argument, 0, 'i'},
             {"aln-graph", required_argument, 0, 'A'},
             {"show-paths", no_argument, 0, 'p'},
+            {"turtle-in", no_argument, 0, 'T'},
             {"walk-paths", no_argument, 0, 'w'},
             {"annotate-paths", no_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
@@ -4743,7 +4745,7 @@ int main_view(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMctr:SC",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SC",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4775,6 +4777,7 @@ int main_view(int argc, char** argv) {
             case 'w':
                 walk_paths_in_dot = true;
                 break;
+
 
             case 'n':
                 annotate_paths_in_dot = true;
