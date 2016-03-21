@@ -1020,12 +1020,6 @@ void VG::remove_non_path(void) {
     for (auto id : non_path_nodes) {
         destroy_node(id);
     }
-
-    // re-compact ids if we have made changes to the graph
-    if (!non_path_nodes.empty()) {
-        sort();
-        compact_ids();
-    }
 }
 
 set<list<Node*>> VG::simple_multinode_components(void) {
@@ -7101,6 +7095,21 @@ void VG::kmer_context(string& kmer,
     // Start our iterator at our kmer's starting node instance.
     list<NodeTraversal>::iterator np = start_node;
 
+    // TODO expensive, should be done in calling context
+    // we need to determine what paths we have
+    vector<string> followed;
+    if (path_only) {
+        auto n1 = start_node;
+        auto n2 = ++n1; --n1;
+        followed = paths.node_path_traversals(n1->node->id(), n1->backward);
+        while (n2 != end_node) {
+            followed = paths.over_edge(n1->node->id(), n1->backward,
+                                       n2->node->id(), n2->backward,
+                                       followed);
+            ++n1; ++n2;
+        }
+    }
+
     if (start_offset == 0) {
         // for each node connected to this one
         // what's its last character?
@@ -7111,6 +7120,15 @@ void VG::kmer_context(string& kmer,
         vector<NodeTraversal> prev_nodes;
         nodes_prev(*start_node, prev_nodes);
         for (auto n : prev_nodes) {
+            // do we share a common path?
+            if (path_only) {
+                auto prev_followed = paths.over_edge(n.node->id(), n.backward,
+                                                     start_node->node->id(), start_node->backward,
+                                                     followed);
+                if (prev_followed.empty()) {
+                    continue;
+                }
+            }
             const string& seq = n.node->sequence();
             // We have to find the last chartacter in either orientation.
             char c = n.backward ? reverse_complement(seq[0]) : seq[seq.size()-1];
@@ -7181,6 +7199,14 @@ void VG::kmer_context(string& kmer,
             vector<NodeTraversal> next_nodes;
             nodes_next(n, next_nodes);
             for (auto m : next_nodes) {
+                if (path_only) {
+                    auto next_followed = paths.over_edge(end_node->node->id(), end_node->backward,
+                                                         m.node->id(), m.backward,
+                                                         followed);
+                    if (next_followed.empty()) {
+                        continue;
+                    }
+                }
                 // How long is this next node?
                 size_t node_length = m.node->sequence().size();
                 // If the next node is backward, get the rc of its last character. Else get its first.

@@ -641,6 +641,18 @@ Mapping* Paths::traverse_right(Mapping* mapping) {
     return &(*place);
 }
 
+vector<string> Paths::all_path_names(void) {
+    vector<string> names;
+    for (auto& p : mappings_by_rank) {
+        names.push_back(p.first);
+    }
+    return names;
+}
+
+bool Paths::is_head_or_tail_node(id_t id) {
+    return head_tail_nodes.count(id);
+}
+
 const string Paths::mapping_path_name(Mapping* m) {
     auto n = mapping_path.find(m);
     if (n == mapping_path.end()) {
@@ -650,22 +662,28 @@ const string Paths::mapping_path_name(Mapping* m) {
     }
 }
 
-map<string, int> Paths::node_path_traversal_counts(id_t id) {
+map<string, int> Paths::node_path_traversal_counts(id_t id, bool rev) {
     map<string, int> path_counts;
     if (has_node_mapping(id)) {
         for (auto& p : get_node_mapping(id)) {
             path_counts[p.first]++;
         }
+    } else if (is_head_or_tail_node(id)) {
+        for (auto& n : all_path_names()) {
+            path_counts[n]++;
+        }
     }
     return path_counts;
 }
 
-vector<string> Paths::node_path_traversals(id_t id) {
+vector<string> Paths::node_path_traversals(id_t id, bool rev) {
     vector<string> names;
     if (has_node_mapping(id)) {
         for (auto& p : get_node_mapping(id)) {
             names.push_back(p.first);
         }
+    } else if (is_head_or_tail_node(id)) {
+        names = all_path_names();
     }
     return names;
 }
@@ -704,20 +722,37 @@ bool Paths::are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path
     return false;
 }
 
-// among the set of followed paths which paths connect these two node strands?
 vector<string> Paths::over_edge(id_t id1, bool rev1, id_t id2, bool rev2,
                                 vector<string> following) {
+    // try both ways
+    auto forward = over_directed_edge(id1, rev1, id2, rev2, following);
+    auto reverse = over_directed_edge(id2, !rev2, id1, !rev1, following);
+    // take the union
+    std::sort(forward.begin(), forward.end());
+    std::sort(reverse.begin(), reverse.end());
+    vector<string> continued;
+    std::set_union(forward.begin(), forward.end(),
+                   reverse.begin(), reverse.end(),
+                   std::back_inserter(continued));
+    return continued;
+}
+
+// among the set of followed paths which paths connect these two node strands?
+vector<string> Paths::over_directed_edge(id_t id1, bool rev1, id_t id2, bool rev2,
+                                         vector<string> following) {
     vector<string> consecutive;
+    /* for future debugging
+    cerr << "looking for edges " << id1 << " -> " << id2 << endl;
+    cerr << "following ";
+    std::for_each(following.begin(), following.end(), [](const string& s) { cerr << s << ", "; });
+    cerr << endl;
+    */
     
     // handle the head/tail node case
     // we treat these like catch-alls; every path that reaches them is assumed to continue on
     if (head_tail_nodes.count(id1)
-        && head_tail_nodes.count(id2)) {
-        return consecutive;
-    } else if (head_tail_nodes.count(id1)) {
-        return node_path_traversals(id2);
-    } else if (head_tail_nodes.count(id2)) {
-        return node_path_traversals(id1);
+        || head_tail_nodes.count(id2)) {
+        return following;
     }
 
     // we want the mappings of the first node
@@ -731,6 +766,7 @@ vector<string> Paths::over_edge(id_t id1, bool rev1, id_t id2, bool rev2,
     // iterate over the paths
     // and see how many pairs of consecutive ranks we have
     // in the expected direction between the nodes
+
     for (auto& p1 : m1) {
         auto& name = p1.first;
         auto& r1 = p1.second;
