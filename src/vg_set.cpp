@@ -58,6 +58,18 @@ int64_t VGset::merge_id_space(void) {
 }
 
 xg::XG VGset::to_xg() {
+    map<string, Path> dummy;
+    // Nothing matches the default-constructed regex, so nothing will ever be
+    // sent to the map.
+    return to_xg(regex(), dummy);
+}
+
+xg::XG VGset::to_xg(const regex& paths_to_take, map<string, Path>& removed_paths) {
+    
+    // We need to sort out the mappings from different paths by rank. This maps
+    // from path anme and then rank to Mapping.
+    map<string, map<int64_t, Mapping>> mappings;
+    
     // Set up an XG index
     xg::XG index;
     index.from_callback([&](function<void(Graph&)> callback) {
@@ -72,10 +84,76 @@ xg::XG VGset::to_xg() {
 #ifdef debug
                 cerr << "Got chunk of " << name << "!" << endl;
 #endif
+
+                // We'll move all the paths into one of these.
+                std::list<Path> paths_taken;
+                std::list<Path> paths_kept;
+
+                // Filter out matching paths
+                for(size_t i = 0; i < graph.path_size(); i++) {
+                    if(regex_match(graph.path(i).name(), paths_to_take)) {
+                        // We need to take this path
+                        paths_taken.emplace_back(move(*graph.mutable_path(i)));
+                    } else {
+                        // We need to keep this path
+                        paths_kept.emplace_back(move(*graph.mutable_path(i)));
+                    }
+                }
+                
+                // Clear the graph's paths and copy back only the ones that were
+                // kept. I don't think there's a good way to leave an entry and
+                // mark it not real somehow.
+                graph.clear_path();
+                for(Path& path : paths_kept) {
+                    // Move all the paths we keep back.
+                    *(graph.add_path()) = move(path);
+                }
+
+                // Sort out all the mappings from the paths we pulled out
+                for(Path& path : paths_taken) {
+                    for(size_t i = 0; i < path.mapping_size(); i++) {
+                        // For each mapping, file it under its rank if a rank is
+                        // specified, or at the last rank otherwise.
+                        // TODO: this sort of duplicates logic from Paths...
+                        Mapping& mapping = *path.mutable_mapping(i);
+                        
+                        if(mapping.rank() == 0) {
+                            if(mappings[path.name()].size() > 0) {
+                                // Calculate a better rank, which is 1 more than the current largest rank.
+                                int64_t last_rank = (*mappings[path.name()].rbegin()).first;
+                                mapping.set_rank(last_rank + 1);
+                            } else {
+                                // Say it has rank 1 now.
+                                mapping.set_rank(1);
+                            }
+                        }
+                        
+                        // Move the mapping into place
+                        mappings[path.name()][mapping.rank()] = move(mapping);
+                    }
+                }
+
+                // Ship out the corrected graph
                 callback(graph);
             };
             
             stream::for_each(in, handle_graph);
+            
+            // Now that we got all the chunks, reconstitute any siphoned-off paths into Path objects and return them.
+            for(auto& kv : mappings) {
+                // We'll fill in this Path object
+                Path path;
+                path.set_name(kv.first);
+                
+                for(auto& rank_and_mapping : kv.second) {
+                    // Put in all the mappings. Ignore the rank since thay're already marked with and sorted by rank.
+                    *path.add_mapping() = move(rank_and_mapping.second);
+                }
+                
+                // Now the Path is rebuilt; stick it in the big output map.
+                removed_paths[path.name()] = move(path);
+            }
+            
 #ifdef debug
             cerr << "Got all chunks; building XG index" << endl;
 #endif

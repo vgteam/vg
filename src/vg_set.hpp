@@ -2,6 +2,7 @@
 #define VG_SET_H
 
 #include <set>
+#include <regex>
 #include <stdlib.h>
 #include "gcsa.h"
 #include "vg.hpp"
@@ -35,6 +36,10 @@ public:
 
     // Transforms to a succinct, queryable representation
     xg::XG to_xg();
+    // As above, except paths with names matching the given regex are removed
+    // and returned separately py inserting them into the provided map. Rank
+    // values are
+    xg::XG to_xg(const regex& paths_to_take, map<string, Path>& removed_paths);
 
     // stores the nodes in the VGs identified by the filenames into the index
     void store_in_index(Index& index);
