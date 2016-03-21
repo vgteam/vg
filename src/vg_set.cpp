@@ -93,10 +93,16 @@ xg::XG VGset::to_xg(const regex& paths_to_take, map<string, Path>& removed_paths
                 for(size_t i = 0; i < graph.path_size(); i++) {
                     if(regex_match(graph.path(i).name(), paths_to_take)) {
                         // We need to take this path
+#ifdef debug
+                        cerr << "Path " << graph.path(i).name() << " matches regex. Removing." << endl;
+#endif
                         paths_taken.emplace_back(move(*graph.mutable_path(i)));
                     } else {
                         // We need to keep this path
                         paths_kept.emplace_back(move(*graph.mutable_path(i)));
+#ifdef debug
+                        cerr << "Path " << graph.path(i).name() << " does not match regex. Keeping." << endl;
+#endif
                     }
                 }
                 

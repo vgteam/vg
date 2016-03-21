@@ -3558,9 +3558,18 @@ int main_index(int argc, char** argv) {
             
         }
     
+        // We want to siphon off the "_alt_<variant>_<number>" paths from "vg
+        // construct -a" and not index them, and use them for creating haplotype
+        // threads.
+        // TODO: a better way to store path metadata
+        map<string, Path> alt_paths;
+        // This is matched against the entire string.
+        regex is_alt("_alt_.+_[0-9]+");
+    
         // store the graphs
         VGset graphs(file_names);
-        xg::XG index = graphs.to_xg();
+        // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
+        xg::XG index = graphs.to_xg(is_alt, alt_paths);
         
         if(variant_file.is_open()) {
             // Now go through and add the varaints.
@@ -3578,11 +3587,9 @@ int main_index(int argc, char** argv) {
                 
                 // What path is this?
                 string path_name = index.path_name(path_rank);
-                if(path_name.size() > 0 && path_name[0] == '_') {
-                    // This path starts with an underscore, so we assume it's
-                    // not a proper contig path that might have variants.
-                    continue;
-                }
+                
+                // We already know it's not a variant's alt, since those were
+                // removed, so it might be a primary contig.
                 
                 // How many bases is it?
                 size_t path_length = index.path_length(path_name);
@@ -3696,10 +3703,10 @@ int main_index(int argc, char** argv) {
                     // have an ID.
                     string var_name = get_or_make_variant_id(variant);
                     
-                    if(index.path_rank("_alt_" + var_name + "_0") == 0) {
-                        // The index doesn't have a reference alt path for this variant.
+                    if(alt_paths.count("_alt_" + var_name + "_0") == 0) {
+                        // There isn't a reference alt path for this variant.
 #ifdef debug
-                        cerr << "Reference alt for " << var_name << " not in index! Skipping!" << endl;
+                        cerr << "Reference alt for " << var_name << " not in VG set! Skipping!" << endl;
 #endif
                         // Don't bother with this variant
                         return;
@@ -3750,7 +3757,12 @@ int main_index(int argc, char** argv) {
                             // We need to find the path for this alt of this
                             // variant. We can pull out the whole thing since it
                             // should be short.
-                            Path alt_path = index.path("_alt_" + var_name + "_" + to_string(alt_index));
+                            Path alt_path = alt_paths.at("_alt_" + var_name + "_" + to_string(alt_index));
+                            // TODO: if we can't find this path, it probaby
+                            // means we mismatched the vg file and the vcf file.
+                            // Maybe we should complain to the user instead of
+                            // just failing an assert in at()?
+                            
                             
                             for(size_t i = 0; i < alt_path.mapping_size(); i++) {
                                 // Then blit mappings from the alt over to the phase thread
