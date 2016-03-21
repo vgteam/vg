@@ -783,43 +783,43 @@ public:
 
     // returns all node-crossing paths with up to length across node boundaries
     // considers each node in forward orientation to produce the kpaths around it
-    void for_each_kpath(int k, int edge_max,
+    void for_each_kpath(int k, bool path_only, int edge_max,
                         function<void(NodeTraversal)> handle_prev_maxed,
                         function<void(NodeTraversal)> handle_next_maxed,
                         function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
-    void for_each_kpath_parallel(int k, int edge_max,
+    void for_each_kpath_parallel(int k, bool path_only, int edge_max,
                                  function<void(NodeTraversal)> handle_prev_maxed,
                                  function<void(NodeTraversal)> handle_next_maxed,
                                  function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
-    void for_each_kpath(int k, int edge_max,
+    void for_each_kpath(int k, bool path_only, int edge_max,
                         function<void(NodeTraversal)> handle_prev_maxed,
                         function<void(NodeTraversal)> handle_next_maxed,
                         function<void(size_t,Path&)> lambda);
-    void for_each_kpath_parallel(int k, int edge_max,
+    void for_each_kpath_parallel(int k, bool path_only, int edge_max,
                                  function<void(NodeTraversal)> handle_prev_maxed,
                                  function<void(NodeTraversal)> handle_next_maxed,
                                  function<void(size_t,Path&)> lambda);
-    void for_each_kpath_of_node(Node* node, int k, int edge_max,
+    void for_each_kpath_of_node(Node* node, int k, bool path_only, int edge_max,
                                 function<void(NodeTraversal)> handle_prev_maxed,
                                 function<void(NodeTraversal)> handle_next_maxed,
                                 function<void(list<NodeTraversal>::iterator, list<NodeTraversal>&)> lambda);
-    void for_each_kpath_of_node(Node* n, int k, int edge_max,
+    void for_each_kpath_of_node(Node* n, int k, bool path_only, int edge_max,
                                 function<void(NodeTraversal)> handle_prev_maxed,
                                 function<void(NodeTraversal)> handle_next_maxed,
                                 function<void(size_t,Path&)> lambda);
 
-    void kpaths(set<list<NodeTraversal> >& paths, int length, int edge_max,
+    void kpaths(set<list<NodeTraversal> >& paths, int length, bool path_only, int edge_max,
                 function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
-    void kpaths(vector<Path>& paths, int length, int edge_max,
+    void kpaths(vector<Path>& paths, int length, bool path_only, int edge_max,
                 function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
 
     void kpaths_of_node(Node* node, set<list<NodeTraversal> >& paths,
-                        int length, int edge_max,
+                        int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
     void kpaths_of_node(Node* node, vector<Path>& paths,
-                        int length, int edge_max,
+                        int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
-    void kpaths_of_node(id_t node_id, vector<Path>& paths, int length, int edge_max,
+    void kpaths_of_node(id_t node_id, vector<Path>& paths, int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed);
     // Given an oriented start node, a length in bp, a maximum number of edges
     // to cross, and a stack of nodes visited so far, fill in the set of paths
@@ -828,12 +828,14 @@ public:
     // which can't be visited due to the edge-crossing limit. Produces paths
     // ending with the specified node. TODO: postfix should not be (potentially)
     // copied on every call.
-    void prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
-                               list<NodeTraversal> postfix, set<list<NodeTraversal> >& paths,
+    void prev_kpaths_from_node(NodeTraversal node, int length, bool path_only, int edge_max, bool edge_bounding,
+                               list<NodeTraversal> postfix, set<list<NodeTraversal> >& walked_paths,
+                               const vector<string>& followed_paths,
                                function<void(NodeTraversal)>& maxed_nodes);
     // Do the same as prec_kpaths_from_node, except going right, producing a path starting with the specified node.
-    void next_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
-                               list<NodeTraversal> prefix, set<list<NodeTraversal> >& paths,
+    void next_kpaths_from_node(NodeTraversal node, int length, bool path_only, int edge_max, bool edge_bounding,
+                               list<NodeTraversal> prefix, set<list<NodeTraversal> >& walked_paths,
+                               const vector<string>& followed_paths,
                                function<void(NodeTraversal)>& maxed_nodes);
 
     void paths_between(Node* from, Node* to, vector<Path>& paths);
@@ -898,12 +900,14 @@ public:
 
     // kmers
     void for_each_kmer_parallel(int kmer_size,
+                                bool path_only,
                                 int edge_max,
                                 function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                                 int stride = 1,
                                 bool allow_dups = false,
                                 bool allow_negatives = false);
     void for_each_kmer(int kmer_size,
+                       bool path_only,
                        int edge_max,
                        function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                        int stride = 1,
@@ -911,6 +915,7 @@ public:
                        bool allow_negatives = false);
     void for_each_kmer_of_node(Node* node,
                                int kmer_size,
+                               bool path_only,
                                int edge_max,
                                function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                                int stride = 1,
@@ -928,6 +933,7 @@ public:
     // orientation.
     void kmer_context(string& kmer,
                       int kmer_size,
+                      bool path_only,
                       int edge_max,
                       bool forward_only,
                       list<NodeTraversal>& path,
@@ -942,7 +948,8 @@ public:
     // null, but only one of those nodes actually needs to be in the graph. They
     // will be examined directly to get their representative characters. They
     // also don't need to be actually owned by the graph; they can be copies.
-    void gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int stride,
+    void gcsa_handle_node_in_graph(Node* node, int kmer_size, bool path_only,
+                                   int edge_max, int stride,
                                    bool forward_only,
                                    Node* head_node, Node* tail_node,
                                    function<void(KmerPosition&)> lambda);
@@ -959,23 +966,29 @@ public:
     // of support for reversing edges, with the same trick. Note that
     // start_tail_id, if zero, will be replaced with the ID actually used for the
     // start/end node before lambda is ever called.
-    void for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+    void for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
+                                              int edge_max, int stride,
                                               bool forward_only,
                                               id_t& head_id, id_t& tail_id,
                                               function<void(KmerPosition&)> lambda);
 
-    void get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+    void get_gcsa_kmers(int kmer_size, bool path_only,
+                        int edge_max, int stride,
                         bool forward_only,
                         vector<gcsa::KMer>& kmers_out,
                         id_t& head_id, id_t& tail_id);
 
-    void write_gcsa_kmers(int kmer_size, int edge_max, int stride,
+    void write_gcsa_kmers(int kmer_size, bool path_only,
+                          int edge_max, int stride,
                           bool forward_only,
                           ostream& out,
                           id_t& head_id, id_t& tail_id);
 
     // write the kmers to a tmp file with the given base, return the name of the file
-    string write_gcsa_kmers_to_tmpfile(int kmer_size, bool forward_only,
+    string write_gcsa_kmers_to_tmpfile(int kmer_size,
+                                       bool paths_only,
+                                       bool forward_only,
+                                       id_t& head_id, id_t& tail_id,
                                        size_t doubling_steps = 2,
                                        size_t size_limit = 200,
                                        const string& base_file_name = ".vg-kmers-tmp-");
@@ -984,6 +997,7 @@ public:
     void build_gcsa_lcp(gcsa::GCSA*& gcsa,
                         gcsa::LCPArray*& lcp,
                         int kmer_size,
+                        bool paths_only,
                         bool forward_only,
                         size_t doubling_steps = 2,
                         size_t size_limit = 200,
@@ -1002,6 +1016,7 @@ private:
     // through nodes one per thread. If node is not null, looks only at kmers of
     // that specific node.
     void _for_each_kmer(int kmer_size,
+                        bool path_only,
                         int edge_max,
                         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                         bool parallel,

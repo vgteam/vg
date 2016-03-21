@@ -578,6 +578,16 @@ map<string, set<Mapping*>>& Paths::get_node_mapping(Node* n) {
     return node_mapping[n->id()];
 }
 
+map<string, map<int, Mapping*>> Paths::get_node_mappings_by_rank(id_t id) {
+    map<string, map<int, Mapping*>> by_ranks;
+    for (auto& p : get_node_mapping(id)) {
+        auto& name = p.first;
+        auto& mp = p.second;
+        for (auto* m : mp) by_ranks[name][m->rank()] = m;
+    }
+    return by_ranks;
+}
+
 map<string, map<int, Mapping>> Paths::get_node_mapping_copies_by_rank(id_t id) {
     map<string, map<int, Mapping>> by_ranks;
     for (auto& p : get_node_mapping(id)) {
@@ -640,13 +650,34 @@ const string Paths::mapping_path_name(Mapping* m) {
     }
 }
 
-map<string, int> Paths::of_node(id_t id) {
+map<string, int> Paths::node_path_traversal_counts(id_t id) {
     map<string, int> path_counts;
-    auto& node_mapping = get_node_mapping(id);
-    for (auto& p : node_mapping) {
-        path_counts[p.first]++;
+    if (has_node_mapping(id)) {
+        for (auto& p : get_node_mapping(id)) {
+            path_counts[p.first]++;
+        }
     }
     return path_counts;
+}
+
+vector<string> Paths::node_path_traversals(id_t id) {
+    vector<string> names;
+    if (has_node_mapping(id)) {
+        for (auto& p : get_node_mapping(id)) {
+            names.push_back(p.first);
+        }
+    }
+    return names;
+}
+
+set<string> Paths::of_node(id_t id) {
+    set<string> names;
+    if (has_node_mapping(id)) {
+        for (auto& p : get_node_mapping(id)) {
+            names.insert(p.first);
+        }
+    }
+    return names;
 }
 
 bool Paths::are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path_name) {
@@ -671,6 +702,57 @@ bool Paths::are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path
         }
     }
     return false;
+}
+
+// among the set of followed paths which paths connect these two node strands?
+vector<string> Paths::over_edge(id_t id1, bool rev1, id_t id2, bool rev2,
+                                vector<string> following) {
+    vector<string> consecutive;
+    // we want the mappings of the first node
+    // which are on the same strand
+
+    // if either of the nodes has no path, the result is the empty set
+    if (!has_node_mapping(id1) || !has_node_mapping(id2)) return {};
+    // otherwise, we can safely get reference to the mappings
+    auto m1 = get_node_mappings_by_rank(id1);
+    auto m2 = get_node_mappings_by_rank(id2);
+    // iterate over the paths
+    // and see how many pairs of consecutive ranks we have
+    // in the expected direction between the nodes
+    for (auto& p1 : m1) {
+        auto& name = p1.first;
+        auto& r1 = p1.second;
+        // and the corresponding one
+        auto p2 = m2.find(name);
+        // matching path possible
+        if (p2 == m2.end()) continue;
+        // now iterate over the mappings in the first
+        // use the traversal directions to determine the expected order
+        // and check if there is a mapping at 
+        //auto& n2 = p2.first;
+        auto& r2 = p2->second;
+        for (auto i1 : r1) {
+            auto& m1 = i1.second;
+            // only consider mappings that touch these traversals
+            if (m1->position().is_reverse() != rev1) continue;
+            auto rank1 = i1.first;
+            // do we have something at the successive mapping in r2
+            auto i2 = r2.find(rank1+1);
+            if (i2 == r2.end()) continue;
+            if (i2->second->position().is_reverse() != rev2) continue;
+            consecutive.push_back(name);
+        }
+    }
+    // if we aren't following anything, assume everything
+    if (following.empty()) return consecutive;
+    // otherwise find the paths which we continue following
+    std::sort(following.begin(), following.end());
+    std::sort(consecutive.begin(), consecutive.end());
+    vector<string> continued;
+    std::set_intersection(following.begin(), following.end(),
+                          consecutive.begin(), consecutive.end(),
+                          std::back_inserter(continued));
+    return continued;
 }
 
 void parse_region(const string& target, string& name, id_t& start, id_t& end) {

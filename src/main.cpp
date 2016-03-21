@@ -590,6 +590,7 @@ void help_msga(char** argv) {
          << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -O, --idx-recomb        index all recombinations implied in the graph, not only embedded paths" << endl
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
@@ -645,6 +646,7 @@ int main_msga(int argc, char** argv) {
     bool greedy_accept = false;
     float accept_score = 0;
     int max_target_factor = 100;
+    bool idx_path_only = true;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -658,6 +660,7 @@ int main_msga(int argc, char** argv) {
                 {"graph", required_argument, 0, 'g'},
                 {"base", required_argument, 0, 'b'},
                 {"idx-kmer-size", required_argument, 0, 'K'},
+                {"idx-recomb", no_argument, 0, 'O'},
                 {"idx-doublings", required_argument, 0, 'X'},
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
@@ -683,7 +686,7 @@ int main_msga(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:O",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -776,6 +779,10 @@ int main_msga(int argc, char** argv) {
 
         case 'K':
             idx_kmer_size = atoi(optarg);
+            break;
+
+        case 'O':
+            idx_path_only = false;
             break;
 
         case 'm':
@@ -910,10 +917,10 @@ int main_msga(int argc, char** argv) {
             gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
             if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
             // then index
-            gcsa_graph.build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, false, doubling_steps);
+            gcsa_graph.build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, idx_path_only, false, doubling_steps);
         } else {
             // if no complexity reduction is requested, just build the index
-            graph->build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, false, doubling_steps);
+            graph->build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, idx_path_only, false, doubling_steps);
         }
         mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
@@ -2068,6 +2075,7 @@ void help_kmers(char** argv) {
          << "                          Forward and reverse strand kmers are reported." << endl
          << "    -B, --gcsa-binary     Write the GCSA graph in binary format." << endl
          << "    -F, --forward-only    When producing GCSA2 output, don't describe the reverse strand" << endl
+         << "    -P, --path-only       Only consider kmers if they occur in a path embedded in the graph" << endl
          << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
          << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
          << "    -p, --progress        show progress" << endl;
@@ -2081,6 +2089,7 @@ int main_kmers(int argc, char** argv) {
     }
 
     int kmer_size = 0;
+    bool path_only = false;
     int edge_max = 0;
     int kmer_stride = 1;
     bool show_progress = false;
@@ -2111,11 +2120,12 @@ int main_kmers(int argc, char** argv) {
                 {"tail-id", required_argument, 0, 'T'},
                 {"forward-only", no_argument, 0, 'F'},
                 {"gcsa-binary", no_argument, 0, 'B'},
+                {"path-only", no_argument, 0, 'P'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:FB",
+        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:FBP",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2147,6 +2157,10 @@ int main_kmers(int argc, char** argv) {
 
         case 'F':
             forward_only = true;
+            break;
+
+        case 'P':
+            path_only = true;
             break;
 
         case 'd':
@@ -2196,9 +2210,9 @@ int main_kmers(int argc, char** argv) {
 
     if (gcsa_out) {
         if (!gcsa_binary) {
-            graphs.write_gcsa_out(cout, kmer_size, forward_only, head_id, tail_id);
+            graphs.write_gcsa_out(cout, kmer_size, path_only, forward_only, head_id, tail_id);
         } else {
-            graphs.write_gcsa_kmers_binary(cout, kmer_size, forward_only, head_id, tail_id);
+            graphs.write_gcsa_kmers_binary(cout, kmer_size, path_only, forward_only, head_id, tail_id);
         }
     } else {
         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG& graph)>
@@ -2210,7 +2224,7 @@ int main_kmers(int argc, char** argv) {
 #pragma omp critical (cout)
             cout << kmer << '\t' << (*n).node->id() * sign << '\t' << p * sign << '\n';
         };
-        graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride, allow_dups, allow_negs);
+        graphs.for_each_kmer_parallel(lambda, kmer_size, path_only, edge_max, kmer_stride, allow_dups, allow_negs);
     }
     cout.flush();
 
@@ -2729,7 +2743,8 @@ void help_paths(char** argv) {
          << "    -n, --node ID         starting at node with ID" << endl
          << "    -l, --max-length N    generate paths of at most length N" << endl
          << "    -e, --edge-max N      only consider paths which make edge choices at this many points" << endl
-         << "    -s, --as-seqs         write each path as a sequence" << endl;
+         << "    -s, --as-seqs         write each path as a sequence" << endl
+         << "    -p, --path-only       only write kpaths from the graph if they traverse embedded paths" << endl;
 }
 
 int main_paths(int argc, char** argv) {
@@ -2744,6 +2759,7 @@ int main_paths(int argc, char** argv) {
     int64_t node_id = 0;
     bool as_seqs = false;
     bool extract = false;
+    bool path_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2755,11 +2771,12 @@ int main_paths(int argc, char** argv) {
                 {"max-length", required_argument, 0, 'l'},
                 {"edge-max", required_argument, 0, 'e'},
                 {"as-seqs", no_argument, 0, 's'},
+                {"path-only", no_argument, 0, 'p'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hse:x",
+        c = getopt_long (argc, argv, "n:l:hse:xp",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -2787,6 +2804,10 @@ int main_paths(int argc, char** argv) {
 
         case 's':
             as_seqs = true;
+            break;
+
+        case 'p':
+            path_only = true;
             break;
 
         case 'h':
@@ -2843,11 +2864,16 @@ int main_paths(int argc, char** argv) {
     auto noop = [](NodeTraversal) { }; // don't handle the failed regions of the graph yet
 
     if (node_id) {
-        graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, edge_max,
+        graph->for_each_kpath_of_node(graph->get_node(node_id),
+                                      path_only,
+                                      max_length,
+                                      edge_max,
                                       noop, noop,
                                       *callback);
     } else {
-        graph->for_each_kpath_parallel(max_length, edge_max,
+        graph->for_each_kpath_parallel(max_length,
+                                       path_only,
+                                       edge_max,
                                        noop, noop,
                                        *callback);
     }
@@ -3328,6 +3354,7 @@ void help_index(char** argv) {
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
+         << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
          << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
          << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
          << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
@@ -3365,6 +3392,7 @@ int main_index(int argc, char** argv) {
     string gcsa_name;
     string xg_name;
     int kmer_size = 0;
+    bool path_only = false;
     int edge_max = 0;
     int kmer_stride = 1;
     int prune_kb = -1;
@@ -3414,11 +3442,12 @@ int main_index(int argc, char** argv) {
                 {"verify-index", no_argument, 0, 'V'},
                 {"forward-only", no_argument, 0, 'F'},
                 {"size-limit", no_argument, 0, 'Z'},
+                {"path-only", no_argument, 0, 'O'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:VFZ:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:VFZ:O",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -3441,6 +3470,10 @@ int main_index(int argc, char** argv) {
 
         case 'k':
             kmer_size = atoi(optarg);
+            break;
+
+        case 'O':
+            path_only = true;
             break;
 
         case 'e':
@@ -3588,7 +3621,7 @@ int main_index(int argc, char** argv) {
         graphs.show_progress = show_progress;
 
         // Go get the kmers of the correct size
-        auto tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, forward_only);
+        auto tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, path_only, forward_only);
         // Make the index with the kmers
         gcsa::InputGraph input_graph(tmpfiles, true);
         gcsa::ConstructionParameters params;
@@ -3711,7 +3744,7 @@ int main_index(int argc, char** argv) {
         index.open_for_bulk_load(db_name);
         VGset graphs(file_names);
         graphs.show_progress = show_progress;
-        graphs.index_kmers(index, kmer_size, edge_max, kmer_stride, allow_negs);
+        graphs.index_kmers(index, kmer_size, path_only, edge_max, kmer_stride, allow_negs);
         index.flush();
         index.close();
         // forces compaction
@@ -3881,6 +3914,7 @@ void help_map(char** argv) {
          << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "    -V, --in-memory       build the XG and GCSA2 indexes in-memory from the provided .vg file" << endl
+         << "    -O, --in-mem-path-only  when making the in-memory temporary index, only look at embedded paths" << endl
          << "input:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
@@ -3970,6 +4004,7 @@ int main_map(int argc, char** argv) {
     int max_mem_length = 0;
     int min_mem_length = 0;
     int max_target_factor = 100;
+    bool in_mem_path_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4012,6 +4047,7 @@ int main_map(int argc, char** argv) {
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
                 {"in-memory", no_argument, 0, 'V'},
+                {"in-mem-path-only", no_argument, 0, 'O'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
@@ -4020,7 +4056,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:O",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4035,6 +4071,10 @@ int main_map(int argc, char** argv) {
 
         case 'V':
             build_in_memory = true;
+            break;
+
+        case 'O':
+            in_mem_path_only = true;
             break;
 
         case 'Q':
@@ -4236,7 +4276,7 @@ int main_map(int argc, char** argv) {
         xindex = new xg::XG(graph->graph);
         assert(kmer_size);
         int doubling_steps = 2;
-        graph->build_gcsa_lcp(gcsa, lcp, kmer_size, false, 2);
+        graph->build_gcsa_lcp(gcsa, lcp, kmer_size, in_mem_path_only, false, 2);
         delete graph;
     } else {
         // We try opening the file, and then see if it worked

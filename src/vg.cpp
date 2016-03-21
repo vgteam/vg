@@ -1229,7 +1229,7 @@ map<string, vector<Mapping>>
     // and equal numbers of traversals
     set<map<string,int>> path_groups;
     for (auto n : nodes) {
-        path_groups.insert(paths.of_node(n->id()));
+        path_groups.insert(paths.node_path_traversal_counts(n->id()));
     }
 
     if (path_groups.size() != 1) {
@@ -4344,8 +4344,12 @@ int VG::node_count_next(NodeTraversal n) {
     return nodes.size();
 }
 
-void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
-                               list<NodeTraversal> postfix, set<list<NodeTraversal> >& paths,
+void VG::prev_kpaths_from_node(NodeTraversal node, int length,
+                               bool path_only,
+                               int edge_max, bool edge_bounding,
+                               list<NodeTraversal> postfix,
+                               set<list<NodeTraversal> >& walked_paths,
+                               const vector<string>& followed_paths,
                                function<void(NodeTraversal)>& maxed_nodes) {
 
    // length gives the number of bases *off the end of the current node* to
@@ -4384,6 +4388,16 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
 #ifdef debug
             cerr << "Consider prev node " << prev << endl;
 #endif
+            // if the current traversal and this one are consecutive a path we're following
+            vector<string> paths_over;
+            if (path_only) {
+                paths_over = paths.over_edge(prev.node->id(), prev.backward,
+                                             node.node->id(), node.backward,
+                                             followed_paths);
+                if (paths_over.empty()) {
+                    continue; // skip if we wouldn't reach this
+                }
+            }
 
             if(edge_bounding && edge_max - (left_degree(node) > 1) < 0) {
                 // We won't have been able to get anything out of this next node
@@ -4399,11 +4413,15 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
 #endif
                 prev_kpaths_from_node(prev,
                                       length - prev.node->sequence().size(),
+                                      path_only,
                                       // Charge 1 against edge_max for every time we pass up alternative edges
                                       edge_max - (left_degree(node) > 1),
                                       // but only if we are using edge bounding
                                       edge_bounding,
-                                      postfix, paths, maxed_nodes);
+                                      postfix,
+                                      walked_paths,
+                                      followed_paths,
+                                      maxed_nodes);
 
                 // We found a valid extension of this node
                 valid_extensions = true;
@@ -4422,7 +4440,7 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
         // We didn't find an extension to do, either because we ran out of edge
         // crossings, or because our length will run out somewhere in this node.
         // Create a path for this node.
-        paths.insert(postfix);
+        walked_paths.insert(postfix);
 #ifdef debug
         cerr << "Reported path:" << endl;
         for(auto x : postfix) {
@@ -4432,8 +4450,12 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
     }
 }
 
-void VG::next_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
-                               list<NodeTraversal> prefix, set<list<NodeTraversal> >& paths,
+void VG::next_kpaths_from_node(NodeTraversal node, int length,
+                               bool path_only,
+                               int edge_max, bool edge_bounding,
+                               list<NodeTraversal> prefix,
+                               set<list<NodeTraversal> >& walked_paths,
+                               const vector<string>& followed_paths,
                                function<void(NodeTraversal)>& maxed_nodes) {
 
     if(edge_bounding && edge_max < 0) {
@@ -4456,18 +4478,31 @@ void VG::next_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
         // We're allowed to look off our end
 
         for (NodeTraversal& next : next_nodes) {
-
+            // if the current traversal and this one are consecutive a path we're following
+            vector<string> paths_over;
+            if (path_only) {
+                paths_over = paths.over_edge(node.node->id(), node.backward,
+                                             next.node->id(), next.backward,
+                                             followed_paths);
+                if (paths_over.empty()) {
+                    continue; // skip if we couldn't reach it
+                }
+            }
             if(edge_bounding && edge_max - (right_degree(node) > 1) < 0) {
                 // We won't have been able to get anything out of this next node
                 maxed_nodes(next);
             } else {
                 next_kpaths_from_node(next,
-                                  length - next.node->sequence().size(),
-                                  // Charge 1 against edge_max for every time we pass up alternative edges
-                                  edge_max - (right_degree(node) > 1),
-                                  // but only if we are using edge bounding
-                                  edge_bounding,
-                                  prefix, paths, maxed_nodes);
+                                      length - next.node->sequence().size(),
+                                      path_only,
+                                      // Charge 1 against edge_max for every time we pass up alternative edges
+                                      edge_max - (right_degree(node) > 1),
+                                      // but only if we are using edge bounding
+                                      edge_bounding,
+                                      prefix,
+                                      walked_paths,
+                                      followed_paths,
+                                      maxed_nodes);
 
                 // We found a valid extension of this node
                 valid_extensions = true;
@@ -4480,28 +4515,28 @@ void VG::next_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
         // We didn't find an extension to do, either because we ran out of edge
         // crossings, or because our length will run out somewhere in this node.
         // Create a path for this node.
-        paths.insert(prefix);
+        walked_paths.insert(prefix);
     }
 }
 
 // iterate over the kpaths in the graph, doing something
 
-void VG::for_each_kpath(int k, int edge_max,
+void VG::for_each_kpath(int k, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed,
                         function<void(NodeTraversal)> next_maxed,
                         function<void(list<NodeTraversal>::iterator,list<NodeTraversal>&)> lambda) {
-    auto by_node = [k, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
+    auto by_node = [k, path_only, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
+        for_each_kpath_of_node(node, k, path_only, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node(by_node);
 }
 
-void VG::for_each_kpath(int k, int edge_max,
+void VG::for_each_kpath(int k, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed,
                         function<void(NodeTraversal)> next_maxed,
                         function<void(size_t,Path&)> lambda) {
-    auto by_node = [k, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
+    auto by_node = [k, path_only, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
+        for_each_kpath_of_node(node, k, path_only, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node(by_node);
 }
@@ -4510,28 +4545,28 @@ void VG::for_each_kpath(int k, int edge_max,
 // this isn't by default because the lambda may have side effects
 // that need to be guarded explicitly
 
-void VG::for_each_kpath_parallel(int k, int edge_max,
+void VG::for_each_kpath_parallel(int k, bool path_only, int edge_max,
                                  function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed,
                                  function<void(list<NodeTraversal>::iterator,list<NodeTraversal>&)> lambda) {
-    auto by_node = [k, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
+    auto by_node = [k, path_only, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
+        for_each_kpath_of_node(node, k, path_only, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node_parallel(by_node);
 }
 
-void VG::for_each_kpath_parallel(int k, int edge_max,
+void VG::for_each_kpath_parallel(int k, bool path_only, int edge_max,
                                  function<void(NodeTraversal)> prev_maxed,
                                  function<void(NodeTraversal)> next_maxed,
                                  function<void(size_t,Path&)> lambda) {
-    auto by_node = [k, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
+    auto by_node = [k, path_only, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
+        for_each_kpath_of_node(node, k, path_only, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node_parallel(by_node);
 }
 
 // per-node kpaths
 
-void VG::for_each_kpath_of_node(Node* n, int k, int edge_max,
+void VG::for_each_kpath_of_node(Node* n, int k, bool path_only, int edge_max,
                                 function<void(NodeTraversal)> prev_maxed,
                                 function<void(NodeTraversal)> next_maxed,
                                 function<void(size_t,Path&)> lambda) {
@@ -4548,10 +4583,10 @@ void VG::for_each_kpath_of_node(Node* n, int k, int edge_max,
 
         lambda(index, path);
     };
-    for_each_kpath_of_node(n, k, edge_max, prev_maxed, next_maxed, apply_to_path);
+    for_each_kpath_of_node(n, k, path_only, edge_max, prev_maxed, next_maxed, apply_to_path);
 }
 
-void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
+void VG::for_each_kpath_of_node(Node* node, int k, bool path_only, int edge_max,
                                 function<void(NodeTraversal)> prev_maxed,
                                 function<void(NodeTraversal)> next_maxed,
                                 function<void(list<NodeTraversal>::iterator,list<NodeTraversal>&)> lambda) {
@@ -4559,11 +4594,13 @@ void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
     set<list<NodeTraversal> > prev_paths;
     set<list<NodeTraversal> > next_paths;
     list<NodeTraversal> empty_list;
-
-    prev_kpaths_from_node(NodeTraversal(node), k, edge_max, (edge_max != 0),
-                          empty_list, prev_paths, prev_maxed);
-    next_kpaths_from_node(NodeTraversal(node), k, edge_max, (edge_max != 0),
-                          empty_list, next_paths, next_maxed);
+    auto curr_paths = paths.node_path_traversals(node->id());
+    vector<string> prev_followed = curr_paths;
+    vector<string> next_followed = curr_paths;
+    prev_kpaths_from_node(NodeTraversal(node), k, path_only, edge_max, (edge_max != 0),
+                          empty_list, prev_paths, prev_followed, prev_maxed);
+    next_kpaths_from_node(NodeTraversal(node), k, path_only, edge_max, (edge_max != 0),
+                          empty_list, next_paths, next_followed, next_maxed);
     // now take the cross and give to the callback
     for (set<list<NodeTraversal> >::iterator p = prev_paths.begin(); p != prev_paths.end(); ++p) {
         for (set<list<NodeTraversal> >::iterator n = next_paths.begin(); n != next_paths.end(); ++n) {
@@ -4586,19 +4623,19 @@ void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
 }
 
 void VG::kpaths_of_node(Node* node, set<list<NodeTraversal> >& paths,
-                        int length, int edge_max,
+                        int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     auto collect_path = [&paths](list<NodeTraversal>::iterator n, list<NodeTraversal>& path) {
         paths.insert(path);
     };
-    for_each_kpath_of_node(node, length, edge_max, prev_maxed, next_maxed, collect_path);
+    for_each_kpath_of_node(node, length, path_only, edge_max, prev_maxed, next_maxed, collect_path);
 }
 
 void VG::kpaths_of_node(Node* node, vector<Path>& paths,
-                        int length, int edge_max,
+                        int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     set<list<NodeTraversal> > unique_paths;
-    kpaths_of_node(node, unique_paths, length, edge_max, prev_maxed, next_maxed);
+    kpaths_of_node(node, unique_paths, length, path_only, edge_max, prev_maxed, next_maxed);
     for (auto& unique_path : unique_paths) {
         Path path = create_path(unique_path);
         paths.push_back(path);
@@ -4607,18 +4644,18 @@ void VG::kpaths_of_node(Node* node, vector<Path>& paths,
 
 // aggregators, when a callback won't work
 
-void VG::kpaths(set<list<NodeTraversal> >& paths, int length, int edge_max,
+void VG::kpaths(set<list<NodeTraversal> >& paths, int length, bool path_only, int edge_max,
                 function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
-        kpaths_of_node(node, paths, length, edge_max, prev_maxed, next_maxed);
+        kpaths_of_node(node, paths, length, path_only, edge_max, prev_maxed, next_maxed);
     }
 }
 
-void VG::kpaths(vector<Path>& paths, int length, int edge_max,
+void VG::kpaths(vector<Path>& paths, int length, bool path_only, int edge_max,
                 function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     set<list<NodeTraversal> > unique_paths;
-    kpaths(unique_paths, length, edge_max, prev_maxed, next_maxed);
+    kpaths(unique_paths, length, path_only, edge_max, prev_maxed, next_maxed);
     for (auto& unique_path : unique_paths) {
         Path path = create_path(unique_path);
         paths.push_back(path);
@@ -5447,12 +5484,12 @@ void VG::node_starts_in_path(list<NodeTraversal>& path,
     }
 }
 
-void VG::kpaths_of_node(id_t node_id, vector<Path>& paths, int length, int edge_max,
+void VG::kpaths_of_node(id_t node_id, vector<Path>& paths, int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     hash_map<id_t, Node*>::iterator n = node_by_id.find(node_id);
     if (n != node_by_id.end()) {
         Node* node = n->second;
-        kpaths_of_node(node, paths, length, edge_max, prev_maxed, next_maxed);
+        kpaths_of_node(node, paths, length, path_only, edge_max, prev_maxed, next_maxed);
     }
 }
 
@@ -5859,8 +5896,8 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        auto from_paths = map_keys_to_set(paths.of_node(e->from()));
-        auto to_paths = map_keys_to_set(paths.of_node(e->to()));
+        auto from_paths = paths.of_node(e->from());
+        auto to_paths = paths.of_node(e->to());
         set<string> both_paths;
         std::set_intersection(from_paths.begin(), from_paths.end(),
                               to_paths.begin(), to_paths.end(),
@@ -6606,34 +6643,38 @@ const string VG::hash(void) {
 }
 
 void VG::for_each_kmer_parallel(int kmer_size,
+                                bool path_only,
                                 int edge_max,
                                 function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                                 int stride,
                                 bool allow_dups,
                                 bool allow_negatives) {
-    _for_each_kmer(kmer_size, edge_max, lambda, true, stride, allow_dups, allow_negatives);
+    _for_each_kmer(kmer_size, path_only, edge_max, lambda, true, stride, allow_dups, allow_negatives);
 }
 
 void VG::for_each_kmer(int kmer_size,
+                       bool path_only,
                        int edge_max,
                        function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                        int stride,
                        bool allow_dups,
                        bool allow_negatives) {
-    _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups, allow_negatives);
+    _for_each_kmer(kmer_size, path_only, edge_max, lambda, false, stride, allow_dups, allow_negatives);
 }
 
 void VG::for_each_kmer_of_node(Node* node,
                                int kmer_size,
+                               bool path_only,
                                int edge_max,
                                function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                                int stride,
                                bool allow_dups,
                                bool allow_negatives) {
-    _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups, allow_negatives, node);
+    _for_each_kmer(kmer_size, path_only, edge_max, lambda, false, stride, allow_dups, allow_negatives, node);
 }
 
 void VG::_for_each_kmer(int kmer_size,
+                        bool path_only,
                         int edge_max,
                         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                         bool parallel,
@@ -6650,6 +6691,7 @@ void VG::_for_each_kmer(int kmer_size,
     // use one per thread so as to avoid contention
     // If we aren't starting a parallel kmer iteration from here, just fill in 0.
     // TODO: How do we know this is big enough?
+    // TODO: is this even necessary? afaik GCSA2 doesn't care about duplicates
     map<int, LRUCache<string, bool>* > lru;
 #pragma omp parallel
     {
@@ -6659,7 +6701,7 @@ void VG::_for_each_kmer(int kmer_size,
         }
     }
     // constructs the cache key
-    // experiment -- use a struct here
+    // TODO: experiment -- use a struct here
     // We deduplicate kmers based on where they start, where they end (optionally), and where they are viewed from.
     auto make_cache_key = [](string& kmer,
                              id_t start_node, int start_pos,
@@ -6679,6 +6721,7 @@ void VG::_for_each_kmer(int kmer_size,
     auto handle_path = [this,
                         &lambda,
                         kmer_size,
+                        path_only,
                         stride,
                         allow_dups,
                         allow_negatives,
@@ -6937,13 +6980,13 @@ void VG::_for_each_kmer(int kmer_size,
     if(node == nullptr) {
         // Look at all the kpaths
         if (parallel) {
-            for_each_kpath_parallel(kmer_size, edge_max, noop, noop, handle_path);
+            for_each_kpath_parallel(kmer_size, path_only, edge_max, noop, noop, handle_path);
         } else {
-            for_each_kpath(kmer_size, edge_max, noop, noop, handle_path);
+            for_each_kpath(kmer_size, path_only, edge_max, noop, noop, handle_path);
         }
     } else {
         // Look only at kpaths of the specified node
-        for_each_kpath_of_node(node, kmer_size, edge_max, noop, noop, handle_path);
+        for_each_kpath_of_node(node, kmer_size, path_only, edge_max, noop, noop, handle_path);
     }
 
     for (auto l : lru) {
@@ -7033,6 +7076,7 @@ const string VG::path_sequence(const Path& path) {
 
 void VG::kmer_context(string& kmer,
                       int kmer_size,
+                      bool path_only,
                       int edge_max,
                       bool forward_only,
                       list<NodeTraversal>& path,
@@ -7186,7 +7230,9 @@ void VG::kmer_context(string& kmer,
     }
 }
 
-void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int stride,
+void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size,
+                                   bool path_only,
+                                   int edge_max, int stride,
                                    bool forward_only,
                                    Node* head_node, Node* tail_node,
                                    function<void(KmerPosition&)> lambda) {
@@ -7203,7 +7249,7 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
 
     // We're going to visit every kmer of the node and run this:
     function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>
-        visit_kmer = [&cache, &kmer_size, &edge_max, &node, &forward_only, &head_node, &tail_node, this]
+        visit_kmer = [&cache, kmer_size, path_only, edge_max, node, forward_only, &head_node, &tail_node, this]
         (string& kmer, list<NodeTraversal>::iterator start_node, int start_pos,
          list<NodeTraversal>& path, VG& graph) {
 
@@ -7227,6 +7273,7 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
         // Fill in prev_chars, next_chars, prev_positions, and next_positions for the kmer by walking the path.
         graph.kmer_context(kmer,
                            kmer_size,
+                           path_only,
                            edge_max,
                            forward_only,
                            path,
@@ -7409,7 +7456,7 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
     // allow negative offsets; force them to be converted to positive
     // offsets on the reverse strand. But do allow different paths that
     // produce the same kmer, since GCSA2 needs those.
-    for_each_kmer_of_node(node, kmer_size, edge_max, visit_kmer, stride, true, false);
+    for_each_kmer_of_node(node, kmer_size, path_only, edge_max, visit_kmer, stride, true, false);
 
     // Now that the cache is full and correct, containing each kmer starting
     // on either strand of this node, send out all its entries.
@@ -7421,7 +7468,8 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
 
 // runs the GCSA kmer extraction
 // wraps and unwraps the graph in a single start and end node
-void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
+                                              int edge_max, int stride,
                                               bool forward_only,
                                               id_t& head_id, id_t& tail_id,
                                               function<void(KmerPosition&)> lambda) {
@@ -7501,9 +7549,9 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
     // things, but the graph is only guaranteed to actually own one of those
     // things.
     for_each_node_parallel(
-        [kmer_size, edge_max, stride, forward_only,
+        [kmer_size, path_only, edge_max, stride, forward_only,
          head_node, tail_node, lambda, this](Node* node) {
-            gcsa_handle_node_in_graph(node, kmer_size, edge_max, stride, forward_only,
+            gcsa_handle_node_in_graph(node, kmer_size, path_only, edge_max, stride, forward_only,
                                       head_node, tail_node, lambda);
         });
 
@@ -7516,17 +7564,19 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
     }
 }
 
-void VG::write_gcsa_kmers(int kmer_size, int edge_max, int stride,
+void VG::write_gcsa_kmers(int kmer_size, bool path_only,
+                          int edge_max, int stride,
                           bool forward_only,
                           ostream& out,
                           id_t& head_id, id_t& tail_id) {
     vector<gcsa::KMer> kmers_out;
-    get_gcsa_kmers(kmer_size, edge_max, stride, forward_only,
+    get_gcsa_kmers(kmer_size, path_only, edge_max, stride, forward_only,
                    kmers_out, head_id, tail_id);
     gcsa::writeBinary(out, kmers_out, kmer_size);
 }
 
-void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+void VG::get_gcsa_kmers(int kmer_size, bool path_only,
+                        int edge_max, int stride,
                         bool forward_only,
                         vector<gcsa::KMer>& kmers_out,
                         id_t& head_id, id_t& tail_id) {
@@ -7607,7 +7657,9 @@ void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
     };
 
     // Run on each KmerPosition. This populates start_end_id, if it was 0, before calling convert_kmer.
-    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
+    for_each_gcsa_kmer_position_parallel(kmer_size,
+                                         path_only,
+                                         edge_max, stride,
                                          forward_only,
                                          head_id, tail_id,
                                          convert_kmer);
@@ -7629,15 +7681,15 @@ void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
     }
 }
 
-string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool forward_only,
+string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool path_only, bool forward_only,
+                                       id_t& head_id, id_t& tail_id,
                                        size_t doubling_steps, size_t size_limit,
                                        const string& base_file_name) {
     // open a temporary file for the kmers
     string tmpfile = tmpfilename(base_file_name);
     ofstream out(tmpfile);
-    id_t head_id=0, tail_id=0;
     // write the kmers to the temporary file
-    write_gcsa_kmers(kmer_size, 0, 1, forward_only,
+    write_gcsa_kmers(kmer_size, path_only, 0, 1, forward_only,
                      out, head_id, tail_id);
     out.close();
     return tmpfile;
@@ -7646,11 +7698,16 @@ string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool forward_only,
 void
 VG::build_gcsa_lcp(gcsa::GCSA*& gcsa,
                    gcsa::LCPArray*& lcp,
-                   int kmer_size, bool forward_only,
-                   size_t doubling_steps, size_t size_limit,
+                   int kmer_size,
+                   bool path_only,
+                   bool forward_only,
+                   size_t doubling_steps,
+                   size_t size_limit,
                    const string& base_file_name) {
 
-    string tmpfile = write_gcsa_kmers_to_tmpfile(kmer_size, forward_only,
+    id_t head_id=0, tail_id=0;
+    string tmpfile = write_gcsa_kmers_to_tmpfile(kmer_size, path_only, forward_only,
+                                                 head_id, tail_id,
                                                  doubling_steps, size_limit,
                                                  base_file_name);
     // set up the input graph using the kmers
@@ -7697,7 +7754,8 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
         next_maxed_nodes[tid].insert(node);
     };
     auto noop = [](list<NodeTraversal>::iterator node, list<NodeTraversal>& path) { };
-    for_each_kpath_parallel(path_length, edge_max, prev_maxed, next_maxed, noop);
+    // ignores the paths in the graph
+    for_each_kpath_parallel(path_length, false, edge_max, prev_maxed, next_maxed, noop);
 
     // What nodes will we destroy because we got into them with too much complexity?
     set<Node*> to_destroy;
