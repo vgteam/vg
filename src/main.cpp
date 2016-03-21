@@ -590,7 +590,7 @@ void help_msga(char** argv) {
          << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
-         << "    -O, --idx-recomb        index all recombinations implied in the graph, not only embedded paths" << endl
+         << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
@@ -646,7 +646,7 @@ int main_msga(int argc, char** argv) {
     bool greedy_accept = false;
     float accept_score = 0;
     int max_target_factor = 100;
-    bool idx_path_only = true;
+    bool idx_path_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -660,7 +660,7 @@ int main_msga(int argc, char** argv) {
                 {"graph", required_argument, 0, 'g'},
                 {"base", required_argument, 0, 'b'},
                 {"idx-kmer-size", required_argument, 0, 'K'},
-                {"idx-recomb", no_argument, 0, 'O'},
+                {"idx-no-recomb", no_argument, 0, 'O'},
                 {"idx-doublings", required_argument, 0, 'X'},
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
@@ -782,7 +782,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'O':
-            idx_path_only = false;
+            idx_path_only = true;
             break;
 
         case 'm':

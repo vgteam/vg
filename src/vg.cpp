@@ -4395,6 +4395,9 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length,
                                              node.node->id(), node.backward,
                                              followed_paths);
                 if (paths_over.empty()) {
+#ifdef debug
+                    cerr << "paths over are empty" << endl;
+#endif
                     continue; // skip if we wouldn't reach this
                 }
             }
@@ -4420,7 +4423,7 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length,
                                       edge_bounding,
                                       postfix,
                                       walked_paths,
-                                      followed_paths,
+                                      paths_over,
                                       maxed_nodes);
 
                 // We found a valid extension of this node
@@ -4501,7 +4504,7 @@ void VG::next_kpaths_from_node(NodeTraversal node, int length,
                                       edge_bounding,
                                       prefix,
                                       walked_paths,
-                                      followed_paths,
+                                      paths_over,
                                       maxed_nodes);
 
                 // We found a valid extension of this node
@@ -6533,6 +6536,11 @@ void VG::add_start_end_markers(int length,
 
 #endif
 
+    // now record the head and tail nodes in our path index
+    // this is used during kpath traversals
+    paths.head_tail_nodes.insert(start_node->id());
+    paths.head_tail_nodes.insert(end_node->id());
+
 }
 
 map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
@@ -7557,9 +7565,11 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
 
     // cleanup
     if(head_node_in_graph) {
+        paths.head_tail_nodes.erase(head_id);
         destroy_node(head_node);
     }
     if(tail_node_in_graph) {
+        paths.head_tail_nodes.erase(tail_id);
         destroy_node(tail_node);
     }
 }

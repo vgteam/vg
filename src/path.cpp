@@ -708,9 +708,21 @@ bool Paths::are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path
 vector<string> Paths::over_edge(id_t id1, bool rev1, id_t id2, bool rev2,
                                 vector<string> following) {
     vector<string> consecutive;
+    
+    // handle the head/tail node case
+    // we treat these like catch-alls; every path that reaches them is assumed to continue on
+    if (head_tail_nodes.count(id1)
+        && head_tail_nodes.count(id2)) {
+        return consecutive;
+    } else if (head_tail_nodes.count(id1)) {
+        return node_path_traversals(id2);
+    } else if (head_tail_nodes.count(id2)) {
+        return node_path_traversals(id1);
+    }
+
     // we want the mappings of the first node
     // which are on the same strand
-
+    
     // if either of the nodes has no path, the result is the empty set
     if (!has_node_mapping(id1) || !has_node_mapping(id2)) return {};
     // otherwise, we can safely get reference to the mappings

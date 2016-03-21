@@ -71,6 +71,9 @@ public:
     // This maps from node ID, then path name, then rank and orientation, to
     // Mapping pointers for the mappings on that path to that node.
     map<id_t, map<string, set<Mapping*>>> node_mapping;
+    // record which head nodes we have
+    // we'll use this when determining path edge crossings--- all paths implicitly cross these nodes
+    set<id_t> head_tail_nodes;
     
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);
