@@ -2213,6 +2213,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         
         // Are all the alleles here clear of visits by variants?
         bool no_variant_visits = true;
+        
         for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
             if(variant_alts.count(make_pair(va.first, allele_number))) {
                 no_variant_visits = false;
@@ -2233,13 +2234,36 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             continue;
         }
         
+        // We also need to sort the allele numbers by the lengths of their
+        // alleles' reference sequences, to properly handle inserts followed by
+        // matches.
+        vector<int> allele_numbers_by_ref_length(alleles.size());
+        // Fill with sequentially increasing integers.
+        // Sometimes the STL actually *does* have the function you want.
+        iota(allele_numbers_by_ref_length.begin(), allele_numbers_by_ref_length.end(), 0);
+        
+        // Sort the allele numbers by reference length, ascending
+        std::sort(allele_numbers_by_ref_length.begin(), allele_numbers_by_ref_length.end(),
+            [&](const int& a, const int& b) -> bool {
+            // Sort alleles with shorter ref sequences first.
+            return alleles[a].ref.size() < alleles[b].ref.size();
+        });
+        
+#ifdef debug
+#pragma omp critical (cerr)
+                {
+                    cerr << tid << ": Processing " << allele_numbers_by_ref_length.size() << " alleles at " << va.first << endl;
+                }
+#endif
+        
         // Is this allele the first one processed? Because the first one
         // processed gets to handle adding mappings to the intervening sequence
         // from the previous allele to here.
         bool first_allele_processed = true;
 
-        for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
-            // Go through all the alleles with their numbers
+        for (size_t allele_number : allele_numbers_by_ref_length) {
+            // Go through all the alleles with their numbers, in order of
+            // increasing reference sequence length (so inserts come first)
             auto& allele = alleles[allele_number];
             
             auto allele_key = make_pair(va.first, allele_number);
