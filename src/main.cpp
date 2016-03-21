@@ -3626,6 +3626,33 @@ int main_index(int argc, char** argv) {
                 // mapping edits and rank and offset info will be ignored; the
                 // Mapping just represents an oriented node traversal.
                 auto append_mapping = [&](size_t phase_number, const Mapping& mapping) {
+                    // Find the path to add to
+                    Path& to_extend = active_phase_paths[phase_number];
+                    
+                    // See if the edge we need to follow exists
+                    if(to_extend.mapping_size() > 0) {
+                        // If there's a previous mapping, go find it
+                        const Mapping& previous = to_extend.mapping(to_extend.mapping_size() - 1);
+                        
+                        // Break out the IDs and flags we need to check for the edge
+                        int64_t last_node = previous.position().node_id();
+                        bool last_from_start = previous.position().is_reverse();
+                        
+                        int64_t new_node = mapping.position().node_id();
+                        bool new_to_end = mapping.position().is_reverse();
+                        
+                        if(!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
+                            // We can't have a thread take this edge. Split ane
+                            // emit the current mappings and start a new path.
+                            cerr << "warning:[vg index] phase " << phase_number << " wants edge "
+                                << last_node << (last_from_start ? "L" : "R") << " - " 
+                                << new_node << (new_to_end ? "R" : "L") 
+                                << " which does not exist. Splitting!" << endl;
+                                
+                            finish_phase(phase_number);
+                        }
+                    }
+                    
                     // Make a new Mapping in the Path
                     Mapping& new_place = *(active_phase_paths[phase_number].add_mapping());
                     
@@ -3751,8 +3778,10 @@ int main_index(int argc, char** argv) {
                 
                 // Set up progress bar
                 ProgressBar* progress = nullptr;
+                // Message needs to last as long as the bar itself.
+                string progress_message = "loading variants for " + path_name;
                 if(show_progress) {
-                    progress = new ProgressBar(path_length, ("loading variants for " + path_name).c_str());
+                    progress = new ProgressBar(path_length, progress_message.c_str());
                     progress->Progressed(0);
                 }
                 

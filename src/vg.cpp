@@ -1856,6 +1856,7 @@ void VG::swap_node_id(Node* node, id_t new_id) {
 // store the ref mapping as a property of the edges and nodes (this allows deletion edges and insertion subpaths)
 //
 
+#define debug
 void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<long, vector<vcflib::VariantAllele> >& altp,
                                 map<pair<long, int>, vector<bool>>* phase_visits,
@@ -2029,6 +2030,11 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     // visit this alt?
                     auto visited = make_pair(allele.position, found_at);
                     
+#ifdef debug
+                    cerr << var_name << " alt " << alt_number << " visits allele #" << found_at
+                        << " at position " << allele.position << " of " << allele.ref << " -> " << allele.alt << endl;
+#endif
+                    
                     // Say we visit this allele as part of this alt of this variant.
                     (*alt_allele_visits)[visited].push_back(make_pair(var_name, alt_number));
                 }                
@@ -2037,6 +2043,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         }
     }
 }
+#undef debug
 
 void VG::slice_alleles(map<long, vector<vcflib::VariantAllele> >& altp,
                        int start_pos,
@@ -2128,6 +2135,7 @@ void VG::dice_nodes(int max_node_size) {
     paths.compact_ranks();
 }
 
+#define debug
 void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
                       size_t num_phasings,
@@ -2453,8 +2461,17 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         for(auto alt_node : alt_nodes) {
                             // Put a mapping on each alt node
                             
+                            // TODO: assert that there's an edge from the
+                            // previous mapping's node (if any) to this one's
+                            // node.
+                            
                             paths.append_mapping(path_name, alt_node->id());
                         }
+                        
+#ifdef debug
+                        cerr << "Path " << path_name << " uses these alts" << endl;
+#endif
+                        
                     } else {
                         // TODO: alts that are deletions don't always have nodes
                         // on both sides to visit. Either anchor your VCF
@@ -2462,6 +2479,10 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         // mappings to other alleles (allele 0) in this variant
                         // but not this allele to indicate the deletion of
                         // nodes.
+                        
+#ifdef debug
+                        cerr << "Path " << path_name << " would use these alts if there were any" << endl;
+#endif
                     }
                 }
             }
@@ -2561,6 +2582,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     compact_ids();
 
 }
+#undef debug
 
 void VG::from_gfa(istream& in, bool showp) {
     // c++... split...
