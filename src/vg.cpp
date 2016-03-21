@@ -2201,8 +2201,8 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         }
         
         
-        // If all the alleles here are perfect reference matches, we'll have
-        // nothing to do.
+        // If all the alleles here are perfect reference matches, and no
+        // variants visit them, we'll have nothing to do.
         bool all_perfect_matches = true;
         for(auto& allele : alleles) {
             if(allele.ref != allele.alt) {
@@ -2210,8 +2210,26 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 break;
             }
         }
-        if(all_perfect_matches) {
+        
+        // Are all the alleles here clear of visits by variants?
+        bool no_variant_visits = true;
+        for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
+            if(variant_alts.count(make_pair(va.first, allele_number))) {
+                no_variant_visits = false;
+                break;
+            }
+        }
+        
+        if(all_perfect_matches && no_variant_visits) {
             // No need to break anything here.
+            
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                cerr << tid << ": Skipping entire allele site at " << va.first << endl;
+            }
+#endif
+            
             continue;
         }
         
@@ -2226,20 +2244,37 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             
             auto allele_key = make_pair(va.first, allele_number);
             
-            if(allele.ref == allele.alt && !visits.count(allele_key) && !variant_alts.count(allele_key)) {
-                // This is a ref-only allele with no visits or usages in
-                // alleles, which means we don't actually need any cuts if the
-                // allele is not visited. If other alleles here are visited,
-                // we'll get cuts from them.
-                continue;
-            }
-            
             // 0/1 based conversion happens in offset
             long allele_start_pos = allele.position;
             long allele_end_pos = allele_start_pos + allele.ref.size();
             // for ordering, set insertion start position at +1
             // otherwise insertions at the same position will loop infinitely
             //if (allele_start_pos == allele_end_pos) allele_end_pos++;
+
+            if(allele.ref == allele.alt && !visits.count(allele_key) && !variant_alts.count(allele_key)) {
+                // This is a ref-only allele with no visits or usages in
+                // alleles, which means we don't actually need any cuts if the
+                // allele is not visited. If other alleles here are visited,
+                // we'll get cuts from them.
+                
+#ifdef debug
+#pragma omp critical (cerr)
+                {
+                    cerr << tid << ": Skipping variant at " << allele_start_pos 
+                         << " allele " << allele.ref << " -> " << allele.alt << endl;
+                }
+#endif
+                
+                continue;
+            }
+
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                cerr << tid << ": Handling variant at " << allele_start_pos 
+                     << " allele " << allele.ref << " -> " << allele.alt << endl;
+            }
+#endif
 
             if (allele_start_pos == 0) {
                 // ensures that we can handle variation at first position
@@ -2250,13 +2285,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 nodes_by_end_position[0].insert(root);
             }
             
-#ifdef debug
-#pragma omp critical (cerr)
-            {
-                cerr << tid << ": Handling variant at " << allele_start_pos 
-                     << " allele " << allele.ref << " -> " << allele.alt << endl;
-            }
-#endif
+
 
             // We grab all the nodes involved in this allele: before, being
             // replaced, and after.
