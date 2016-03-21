@@ -3620,6 +3620,36 @@ int main_index(int argc, char** argv) {
                         // will get a different name.
                         to_save.set_name("_phase_" + to_string(phase_number) + 
                             "_" + to_string(saved_phase_paths[phase_number]++));
+                            
+                        // Check it ourselves for missing edges.
+                        for(size_t i = 0; i < to_save.mapping_size() - 1; i++) {
+                            const Mapping& first = to_save.mapping(i);
+                            const Mapping& second = to_save.mapping(i + 1);
+                            
+                            // Break out the IDs and flags we need to check for the edge
+                            int64_t last_node = first.position().node_id();
+                            bool last_from_start = first.position().is_reverse();
+                            
+                            int64_t new_node = second.position().node_id();
+                            bool new_to_end = second.position().is_reverse();
+                            
+                            if(!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
+                                // We can't have a thread take this edge. Split ane
+                                // emit the current mappings and start a new path.
+                                cerr << "error:[vg index] thread " << to_save.name() << " wants edge "
+                                    << last_node << (last_from_start ? "L" : "R") << " - " 
+                                    << new_node << (new_to_end ? "R" : "L") 
+                                    << " which does not exist, when being inserted!" << endl;
+                                    
+                                assert(false);
+                            } else {
+                                cerr << "error:[vg index] thread " << to_save.name() << " has edge "
+                                    << last_node << (last_from_start ? "L" : "R") << " - " 
+                                    << new_node << (new_to_end ? "R" : "L") 
+                                    << " which exists." << endl;
+                            }
+                            
+                        }
                         
                         // Actually send the path off to XG
                         index.insert_thread(to_save);
