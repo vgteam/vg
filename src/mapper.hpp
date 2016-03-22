@@ -195,10 +195,11 @@ public:
     int max_target_factor; // the maximum multiple of the read length we'll try to align to
 
     // local alignment parameters
-    int32_t match = 2;
-    int32_t mismatch = 2;
-    int32_t gap_open = 3;
-    int32_t gap_extension = 1;
+    int32_t match;
+    int32_t mismatch;
+    int32_t gap_open;
+    int32_t gap_extension;
+    size_t max_query_graph_ratio;
 
     // multimapping
     int max_multimaps;

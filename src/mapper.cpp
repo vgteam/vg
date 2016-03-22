@@ -36,6 +36,7 @@ Mapper::Mapper(Index* idex,
     , mismatch(2)
     , gap_open(3)
     , gap_extension(1)
+    , max_query_graph_ratio(25)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -119,7 +120,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     read2.clear_path();
     read2.set_score(0);
 
-    read2 = graph->align(read2, match, mismatch, gap_open, gap_extension);
+    read2 = graph->align(read2, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
     delete graph;
 }
 
@@ -881,7 +882,8 @@ Mapper::find_smems(const string& seq) {
     // emit the final MEM, if we finished in a matching state
 
     // the temporary MEM we'll build up in this process
-    MaximalExactMatch match(cursor, cursor, gcsa::range_type(0, gcsa->size() - 1));
+    auto full_range = gcsa::range_type(0, gcsa->size() - 1);
+    MaximalExactMatch match(cursor, cursor, full_range);
     gcsa::range_type last_range = match.range;
     --cursor; // start off looking at the last character in the query
     while (cursor >= string_begin) {
@@ -899,6 +901,7 @@ Mapper::find_smems(const string& seq) {
             match.begin = cursor+1;
             match.range = last_range;
             mems.push_back(match);
+            // set up the next MEM using the parent node range
             // length of last MEM, which we use to update our end pointer for the next MEM
             size_t last_mem_length = match.end - match.begin;
             // get the parent suffix tree node corresponding to the parent of the last MEM's STNode
@@ -925,9 +928,8 @@ Mapper::find_smems(const string& seq) {
 }
 
 void Mapper::check_mems(const vector<MaximalExactMatch>& mems) {
-    // for each copy of the mems
     for (auto mem : mems) {
-        mem.fill_nodes(gcsa);
+        get_mem_hits_if_under_max(mem);        
         if (sequence_positions(mem.sequence()) != gcsa_nodes_to_positions(mem.nodes)) {
             cerr << "mem failed! " << mem.sequence()
                  << " expected " << sequence_positions(mem.sequence()).size() << " hits "
@@ -1146,14 +1148,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     // for the moment, we can just get the positions in all the mems
     // but we may want to selectively use them
     // such as by trying to use them as seeds in order from shortest to longest
-    vector<MaximalExactMatch> mems;
-    for (auto& mem: find_smems(alignment.sequence())) {
-        if (mem.end-mem.begin >= min_mem_length // require minimum length
-            && allATGC(mem.sequence())) {       // and that the MEM does not contain Ns
-            mems.push_back(mem);
-        }
-    }
-
+    vector<MaximalExactMatch> mems = find_smems(alignment.sequence());
     if (debug) cerr << "mems before filling " << mems_to_json(mems) << endl;
     for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
     if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
@@ -1177,10 +1172,15 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
 
 bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
     bool filled = false;
+    // remove all-Ns
+    //if (!allATGC(mem.sequence())) return false;
+    // require a minimum length
+    if (mem.end-mem.begin == 0
+        || mem.end-mem.begin < min_mem_length) return false;
     // use the counting interface to determine the number of hits
     mem.fill_match_count(gcsa);
     // if we aren't filtering on hit count, or if we have up to the max allowed hits
-    if (!hit_max || mem.match_count <= hit_max) {
+    if (mem.match_count > 0 && (!hit_max || mem.match_count <= hit_max)) {
         // extract the graph positions matching the range
         mem.fill_nodes(gcsa);
         filled = true;
@@ -1268,17 +1268,19 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     // we will use these to determine the alignment strand for each subgraph
     map<id_t, StrandCounts> node_strands;
     // records a mapping of id->MEMs, for cluster ranking
-    map<id_t, vector<MaximalExactMatch> > id_to_mems;
+    map<id_t, vector<MaximalExactMatch*> > id_to_mems;
     // for clustering
     set<id_t> ids;
+    vector<MaximalExactMatch> rc_mems;
 
     // run through the mems, generating a set of alignments for each
     for (auto& mem : mems) {
+        if (debug) cerr << "on mem " << mem.sequence() << endl;
         size_t len = mem.begin - mem.end;
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
-            id_to_mems[id].push_back(mem); // copy
+            id_to_mems[id].push_back(&mem);
             ids.insert(id);
             if (gcsa::Node::rc(node)) {
                 node_strands[id].reverse++;
@@ -1289,7 +1291,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
         // now handle the reverse complement mem to get the end position of the mem
         string rc_mem = reverse_complement(mem.sequence());
-        auto rc_mems = find_smems(rc_mem);
+        rc_mems = find_smems(rc_mem);
         // also filter to remove spurious sub-hits
         // TODO: is it the case that the rc is definitively the same number as the forward?
         rc_mems.erase(std::remove_if(rc_mems.begin(), rc_mems.end(),
@@ -1298,7 +1300,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             get_mem_hits_if_under_max(rc_mem);
             for (auto& node : rc_mem.nodes) {
                 id_t id = gcsa::Node::id(node);
-                id_to_mems[id].push_back(rc_mem); // copy
+                id_to_mems[id].push_back(&rc_mem);
                 ids.insert(id);
                 // we are looking at the position of the end of the mem on the reverse strand
                 // so we flip it around when tabulating strands
@@ -1361,8 +1363,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
                         // we add weight for the hit length, but
                         // weight the hit by the number of matches
                         hit_length +=
-                            (double)(mem.end - mem.begin)
-                            /(double)mem.match_count;
+                            (double)(mem->end - mem->begin)
+                            /(double)mem->match_count;
                     }
                 }
             });
@@ -1411,7 +1413,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             });
         if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
         if (fw_mems) {
-            Alignment aln = subgraph.align(aln_fw, match, mismatch, gap_open, gap_extension);
+            Alignment aln = subgraph.align(aln_fw, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
             resolve_softclips(aln, subgraph);
             alns.push_back(aln);
             if (attempts >= max_multimaps &&
@@ -1420,7 +1422,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             }
         }
         if (rc_mems) {
-            Alignment aln = subgraph.align(aln_rc, match, mismatch, gap_open, gap_extension);
+            Alignment aln = subgraph.align(aln_rc, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
             resolve_softclips(aln, subgraph);
             alns.push_back(reverse_complement_alignment(aln,
                                                         (function<int64_t(int64_t)>)
@@ -1560,7 +1562,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (max_target_factor && graph.length() >= max_target_length) break;
 
         // otherwise, align
-        aln = graph.align(aln, match, mismatch, gap_open, gap_extension);
+        aln = graph.align(aln, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
 
         sc_start = softclip_start(aln);
         sc_end = softclip_end(aln);
@@ -1955,7 +1957,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             ta.clear_path();
             ta.set_score(0);
 
-            ta = graph->align(ta, match, mismatch, gap_open, gap_extension);
+            ta = graph->align(ta, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
 
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
@@ -2025,7 +2027,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 ta.clear_path();
                 ta.set_score(0);
 
-                ta = graph->align(ta, match, mismatch, gap_open, gap_extension);
+                ta = graph->align(ta, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
 
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);

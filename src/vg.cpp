@@ -6574,7 +6574,8 @@ Alignment VG::align(const Alignment& alignment,
                     int32_t match,
                     int32_t mismatch,
                     int32_t gap_open,
-                    int32_t gap_extension) {
+                    int32_t gap_extension,
+                    size_t max_query_graph_ratio) {
 
     auto aln = alignment;
 
@@ -6583,8 +6584,24 @@ Alignment VG::align(const Alignment& alignment,
     size_t max_length = alignment.sequence().size();
     size_t component_length_max = 100*max_length; // hard coded to be 100x
 
+    // give up if we've exceeded our maximum alignable graph size
+    /*
+    if (max_query_graph_ratio && length() > max_query_graph_ratio * max_length) {
+        cerr << "hey! breaking before  !!!!!!" << endl;
+        return aln;
+    }
+    */
+
     // dagify the graph by unfolding inversions and then applying dagify forward unroll
     VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length, component_length_max);
+    // give up if we've exceeded our maximum alignable graph size
+    /*
+    if (max_query_graph_ratio && dag.length() > max_query_graph_ratio * max_length) {
+        cerr << "hey! breaking !!!!!!" << endl;
+        return aln;
+    }
+    */
+
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
 
@@ -6632,10 +6649,11 @@ Alignment VG::align(const string& sequence,
                     int32_t match,
                     int32_t mismatch,
                     int32_t gap_open,
-                    int32_t gap_extension) {
+                    int32_t gap_extension,
+                    size_t max_query_graph_ratio) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment, match, mismatch, gap_open, gap_extension);
+    return align(alignment, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
 }
 
 const string VG::hash(void) {
