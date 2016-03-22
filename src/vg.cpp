@@ -6585,22 +6585,16 @@ Alignment VG::align(const Alignment& alignment,
     size_t component_length_max = 100*max_length; // hard coded to be 100x
 
     // give up if we've exceeded our maximum alignable graph size
-    /*
     if (max_query_graph_ratio && length() > max_query_graph_ratio * max_length) {
-        cerr << "hey! breaking before  !!!!!!" << endl;
         return aln;
     }
-    */
 
     // dagify the graph by unfolding inversions and then applying dagify forward unroll
     VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length, component_length_max);
     // give up if we've exceeded our maximum alignable graph size
-    /*
     if (max_query_graph_ratio && dag.length() > max_query_graph_ratio * max_length) {
-        cerr << "hey! breaking !!!!!!" << endl;
         return aln;
     }
-    */
 
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);

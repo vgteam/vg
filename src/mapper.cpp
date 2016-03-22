@@ -36,7 +36,7 @@ Mapper::Mapper(Index* idex,
     , mismatch(2)
     , gap_open(3)
     , gap_extension(1)
-    , max_query_graph_ratio(25)
+    , max_query_graph_ratio(100)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -894,23 +894,36 @@ Mapper::find_smems(const string& seq) {
         if (gcsa::Range::empty(match.range)
             || max_mem_length && match.end-cursor > max_mem_length
             || match.end-cursor > gcsa->order()) {
-            // we've exhausted our BWT range, so the last match range was maximal
-            // or: we have exceeded the order of the graph (FPs if we go further)
-            //     we have run over our parameter-defined MEM limit
-            // record the last MEM
-            match.begin = cursor+1;
-            match.range = last_range;
-            mems.push_back(match);
-            // set up the next MEM using the parent node range
-            // length of last MEM, which we use to update our end pointer for the next MEM
-            size_t last_mem_length = match.end - match.begin;
-            // get the parent suffix tree node corresponding to the parent of the last MEM's STNode
-            gcsa::STNode parent = lcp->parent(last_range);
-            // change the end for the next mem to reflect our step size
-            size_t step_size = last_mem_length - parent.lcp();
-            match.end = mems.back().end-step_size;
-            // and set up the next MEM using the parent node range
-            match.range = parent.range();
+            // break on N; which for DNA we assume is non-informative
+            // this *will* match many places in assemblies; this isn't helpful
+            if (*cursor == 'N' || last_range == full_range) {
+                // we mismatched in a single character
+                // there is no MEM here
+                match.begin = cursor+1;
+                match.range = last_range;
+                mems.push_back(match);
+                match.end = cursor;
+                match.range = full_range;
+                --cursor;
+            } else {
+                // we've exhausted our BWT range, so the last match range was maximal
+                // or: we have exceeded the order of the graph (FPs if we go further)
+                //     we have run over our parameter-defined MEM limit
+                // record the last MEM
+                match.begin = cursor+1;
+                match.range = last_range;
+                mems.push_back(match);
+                // set up the next MEM using the parent node range
+                // length of last MEM, which we use to update our end pointer for the next MEM
+                size_t last_mem_length = match.end - match.begin;
+                // get the parent suffix tree node corresponding to the parent of the last MEM's STNode
+                gcsa::STNode parent = lcp->parent(last_range);
+                // change the end for the next mem to reflect our step size
+                size_t step_size = last_mem_length - parent.lcp();
+                match.end = mems.back().end-step_size;
+                // and set up the next MEM using the parent node range
+                match.range = parent.range();
+            }
         } else {
             // we are matching
             match.begin = cursor;
@@ -920,8 +933,16 @@ Mapper::find_smems(const string& seq) {
     }
     // if we have a non-empty MEM at the end, record it
     if (match.end - match.begin > 0) mems.push_back(match);
+    // remove zero-length entries;
+    // these are associated with single-base MEMs that tend to
+    // match the entire index (typically Ns)
+    // minor TODO: fix the above algorithm so they aren't introduced at all
+    mems.erase(std::remove_if(mems.begin(), mems.end(),
+                              [](MaximalExactMatch m) { return m.end-m.begin == 0; }),
+               mems.end());
     // return the matches in natural order
     std::reverse(mems.begin(), mems.end());
+    //for (auto& m : mems) cerr << "mem: " << m.sequence() << endl;
     // if debugging, verify the matches (costly)
     if (debug) { check_mems(mems); }
     return mems;
