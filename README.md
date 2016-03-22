@@ -24,7 +24,7 @@ Before you begin, you'll need to install some basic tools if they are not alread
 
     sudo apt-get install build-essential git cmake pkg-config libncurses-dev libbz2-dev  \
                          protobuf-compiler libprotoc-dev libjansson-dev automake libtool \
-                         jq bc curl unzip redland-utils librdf-dev bison
+                         jq bc curl unzip redland-utils librdf-dev bison flex
 
 You can also run `make get-deps`.
 
