@@ -583,7 +583,7 @@ void help_msga(char** argv) {
          << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
          << "    -T, --thread-ex N       cluster nodes when successive ids are within this distance (default: 10)" << endl
          << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
-         << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -B, --band-width N      use this bandwidth when mapping (default: 256)" << endl
          << "    -G, --greedy-accept     if a tested alignment achieves -S score/bp don't try clusters with fewer hits" << endl
          << "    -S, --accept-score N    accept early alignment if the normalized alignment score is > N and -G is set" << endl
          << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
@@ -630,7 +630,7 @@ int main_msga(int argc, char** argv) {
     // same here; initial clustering
     int thread_extension = 10;
     float min_norm_score = 0.75;
-    int band_width = 1000;
+    int band_width = 256;
     size_t doubling_steps = 2;
     bool debug = false;
     bool debug_align = false;

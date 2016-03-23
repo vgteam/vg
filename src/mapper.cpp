@@ -31,12 +31,12 @@ Mapper::Mapper(Index* idex,
     , alignment_threads(1)
     , max_mem_length(0)
     , min_mem_length(0)
-    , max_target_factor(100)
+    , max_target_factor(128)
     , match(2)
     , mismatch(2)
     , gap_open(3)
     , gap_extension(1)
-    , max_query_graph_ratio(100)
+    , max_query_graph_ratio(128)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -471,7 +471,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     }
 
     // merge the resulting alignments
-    Alignment merged = merge_alignments(alns, debug);
+    Alignment merged = merge_alignments(alns);
     // TODO RECALCULATE QUALITY BASED ON SCORING
     merged.set_quality(read.quality());
     merged.set_name(read.name());
@@ -1273,7 +1273,7 @@ Alignment Mapper::align_mem_optimal(const Alignment& alignment, vector<MaximalEx
     }
     auto optim_alns = resolve_banded_multi(alns);
     // merge the resulting alignments
-    Alignment merged = merge_alignments(optim_alns, debug);
+    Alignment merged = merge_alignments(optim_alns);
     merged.set_quality(alignment.quality());
     merged.set_name(alignment.name());
     return merged;
@@ -1296,7 +1296,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
     // run through the mems, generating a set of alignments for each
     for (auto& mem : mems) {
-        if (debug) cerr << "on mem " << mem.sequence() << endl;
+        //if (debug) cerr << "on mem " << mem.sequence() << endl;
         size_t len = mem.begin - mem.end;
         // collect ids and orienations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
@@ -1307,29 +1307,6 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
                 node_strands[id].reverse++;
             } else {
                 node_strands[id].forward++;
-            }
-        }
-
-        // now handle the reverse complement mem to get the end position of the mem
-        string rc_mem = reverse_complement(mem.sequence());
-        rc_mems = find_smems(rc_mem);
-        // also filter to remove spurious sub-hits
-        // TODO: is it the case that the rc is definitively the same number as the forward?
-        rc_mems.erase(std::remove_if(rc_mems.begin(), rc_mems.end(),
-                                  [&](const MaximalExactMatch& m) { return m.end-m.begin < min_mem_length; }));
-        for (auto& rc_mem : rc_mems) {
-            get_mem_hits_if_under_max(rc_mem);
-            for (auto& node : rc_mem.nodes) {
-                id_t id = gcsa::Node::id(node);
-                id_to_mems[id].push_back(&rc_mem);
-                ids.insert(id);
-                // we are looking at the position of the end of the mem on the reverse strand
-                // so we flip it around when tabulating strands
-                if (!gcsa::Node::rc(node)) {
-                    node_strands[id].reverse++;
-                } else {
-                    node_strands[id].forward++;
-                }
             }
         }
     }
@@ -1389,7 +1366,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
                     }
                 }
             });
-        subgraphs_by_hits[hit_length].push_back(&subgraph);
+        subgraphs_by_hits[hit_length/subgraph.length()].push_back(&subgraph);
     }
 
     // sort the ranked subgraphs and only keep the best N (attempts)
@@ -1562,17 +1539,13 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (sc_start) {
             Graph flank;
             xindex->get_id_range(idf-1, idf, flank);
-            xindex->expand_context(flank,
-                                   max(context_depth, (int)(sc_start/avg_node_size)),
-                                   false);
+            xindex->expand_context(flank, context_depth, false);
             graph.extend(flank);
         }
         if (sc_end) {
             Graph flank;
             xindex->get_id_range(idl, idl+1, flank);
-            xindex->expand_context(flank,
-                                   max(context_depth, (int)(sc_end/avg_node_size)),
-                                   false);
+            xindex->expand_context(flank, context_depth, false);
             graph.extend(flank);
         }
         graph.remove_orphan_edges();
