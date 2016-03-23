@@ -286,6 +286,26 @@ void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
     }
 }
 
+vector<Edge*> VG::edges_from(Node* node) {
+    vector<Edge*> from;
+    for (auto e : edges_of(node)) {
+        if (e->from() == node->id()) {
+            from.push_back(e);
+        }
+    }
+    return from;
+}
+
+vector<Edge*> VG::edges_to(Node* node) {
+    vector<Edge*> to;
+    for (auto e : edges_of(node)) {
+        if (e->to() == node->id()) {
+            to.push_back(e);
+        }
+    }
+    return to;
+}
+
 vector<Edge*> VG::edges_of(Node* node) {
     vector<Edge*> edges;
     edges_of_node(node, edges);
@@ -1000,12 +1020,6 @@ void VG::remove_non_path(void) {
     for (auto id : non_path_nodes) {
         destroy_node(id);
     }
-
-    // re-compact ids if we have made changes to the graph
-    if (!non_path_nodes.empty()) {
-        sort();
-        compact_ids();
-    }
 }
 
 set<list<Node*>> VG::simple_multinode_components(void) {
@@ -1209,7 +1223,7 @@ map<string, vector<Mapping>>
     // and equal numbers of traversals
     set<map<string,int>> path_groups;
     for (auto n : nodes) {
-        path_groups.insert(paths.of_node(n->id()));
+        path_groups.insert(paths.node_path_traversal_counts(n->id()));
     }
 
     if (path_groups.size() != 1) {
@@ -3260,59 +3274,150 @@ void VG::sort(void) {
     }
 }
 
-// Tarjan's strongly connected components algorithm
-// transcribed from pseudocode
-// https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
-set<set<id_t> > VG::strongly_connected_components(void) {
-    set<set<id_t> > components;
-    deque<id_t> stack;
-    set<id_t> on_stack;
-    int64_t index = 0;
-    map<id_t, int64_t> node_idx;
-    map<id_t, int64_t> node_lowlink;
+// depth first search across nodes with interface to traversal tree via callback
+void VG::dfs(
+    const function<void(Node*)>& node_begin_fn, // called when node is first encountered
+    const function<void(Node*)>& node_end_fn,   // called when node goes out of scope
+    const function<void(Edge*)>& edge_fn,       // called when an edge is encountered
+    const function<void(Edge*)>& tree_fn,       // called when an edge forms part of the DFS spanning tree
+    const function<void(Edge*)>& edge_curr_fn,  // called when we meet an edge in the current tree component
+    const function<void(Edge*)>& edge_cross_fn  // called when we meet an edge in an already-traversed tree component
+    ) {
 
-    //function<void(Node*)> strong_connect;
-    function<void(id_t)> strong_connect = [&](id_t v) {
-        node_idx[v] = index;
-        node_lowlink[v] = index;
-        ++index;
-        stack.push_back(v);
-        on_stack.insert(v);
-        // Consider successors of v
-        for (auto side : sides_from(v)) {
-            id_t w = side.node;
-            if (node_idx.find(w) == node_idx.end()) {
-                // Successor w has not yet been visited; recurse on it
-                strong_connect(w);
-                node_lowlink[v] = min(node_lowlink[v], node_lowlink[w]);
-            } else if (on_stack.count(w)) {
-                // Successor w is in stack S and hence in the current SCC
-                node_lowlink[v] = min(node_lowlink[v], node_idx[w]);
-            }
-        }
-        // If v is a root node, pop the stack and generate an SCC
-        if (node_lowlink[v] == node_idx[v]) {
-            // start a new strongly connected component
-            set<id_t> component;
-            id_t w;
-            do {
-                // get w from the stack
-                w = stack.back();
-                stack.pop_back();
-                on_stack.erase(w);
-                // add w to current strongly connected component
-                component.insert(w);
-            } while (w != v);
-            // output the current strongly connected component
-            components.insert(component);
-        }
+    // to maintain search state
+    enum SearchState { PRE, CURR, POST };
+    map<Node*, SearchState> state;
+    for_each_node([&](Node* node) { state[node] = SearchState::PRE; });
+
+    // to maintain stack frames
+    struct Frame {
+        Node* node;
+        vector<Edge*>::iterator begin, end;
+        Frame(Node* n,
+              vector<Edge*>::iterator b,
+              vector<Edge*>::iterator e)
+            : node(n), begin(b), end(e) { }
     };
 
-    // now run strong_connect across the graph
-    for_each_node([&](Node* n) {
-            id_t v = n->id();
-            if (node_idx.find(v) == node_idx.end()) {
-                strong_connect(v);
+    // maintains edges while the node's frame is on the stack
+    map<Node*, vector<Edge*> > edges;
+    // records when we're on the stack
+    set<Node*> in_frame;
+
+    // attempt the search rooted at all nodes
+    for_each_node([&](Node* root) {
+            // to store the stack frames
+            deque<Frame> todo;
+            if (state[root] == SearchState::PRE) {
+                state[root] = SearchState::CURR;
+                auto& es = edges[root];
+                es = edges_from(root);
+                todo.push_back(Frame(root, es.begin(), es.end()));
+                // run our discovery-time callback
+                node_begin_fn(root);
+            }
+            // now begin the search rooted at this node
+            while (!todo.empty()) {
+                // get the frame
+                auto& frame = todo.back();
+                todo.pop_back();
+                // and set up reference to it
+                auto node = frame.node;
+                auto edges_begin = frame.begin;
+                auto edges_end = frame.end;
+                // run through the edges to handle
+                while (edges_begin != edges_end) {
+                    auto edge = *edges_begin;
+                    // run the edge callback
+                    edge_fn(edge);
+                    // what's the node we'd get to following this edge
+                    auto target = get_node(edge->to());
+                    auto search_state = state[target];
+                    // if we've not seen it, follow it
+                    if (search_state == SearchState::PRE) {
+                        tree_fn(edge);
+                        // save the rest of the search for this node on the stack
+                        todo.push_back(Frame(node, ++edges_begin, edges_end));
+                        // switch our focus to the current node
+                        node = target;
+                        // and store the next node on the stack
+                        state[node] = SearchState::CURR;
+                        auto& es = edges[node];
+                        es = edges_from(node);
+                        edges_begin = es.begin();
+                        edges_end = es.end();
+                        // run our discovery-time callback
+                        node_begin_fn(node);
+                    } else if (search_state == SearchState::CURR) {
+                        // if it's on the stack
+                        edge_curr_fn(edge);
+                        ++edges_begin;
+                    } else {
+                        // it's already been handled, so in another part of the tree
+                        edge_cross_fn(edge);
+                        ++edges_begin;
+                    }
+                }
+                state[node] = SearchState::POST;
+                node_end_fn(node);
+                edges.erase(node); // clean up edge cache
+            }
+        });
+}
+
+void VG::dfs(const function<void(Node*)>& node_begin_fn,
+             const function<void(Node*)>& node_end_fn) {
+    auto edge_noop = [](Edge* e) { };
+    dfs(node_begin_fn,
+        node_end_fn,
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        edge_noop);
+}
+
+// recursion-free version of Tarjan's strongly connected components algorithm
+// https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+set<set<id_t> > VG::strongly_connected_components(void) {
+
+    int64_t index = 0;
+    map<id_t, id_t> roots;
+    map<id_t, int64_t> discover_idx;
+    deque<id_t> stack;
+    set<id_t> on_stack;
+    set<set<id_t> > components;
+
+    dfs([&](Node* node) {
+            const id_t id = node->id();
+            roots[id] = id;
+            discover_idx[id] = index++;
+            stack.push_back(id);
+            on_stack.insert(id);
+        },
+        [&](Node* node) {
+            const id_t curr = node->id();
+            for (auto side : sides_from(curr)) {
+                const id_t next = side.node;
+                if (on_stack.count(next)) {
+                    const id_t node_root = roots[curr];
+                    const id_t next_root = roots[next];
+                    roots[curr] = discover_idx[node_root] <
+                        discover_idx[next_root] ?
+                        node_root :
+                        next_root;
+                }
+            }
+            if (roots[curr] == curr) {
+                id_t other;
+                set<id_t> component;
+                do
+                {
+                    other = stack.back();
+                    stack.pop_back();
+                    on_stack.erase(other);
+                    component.insert(other);
+                } while (other != curr);
+                components.insert(component);
             }
         });
 
@@ -4233,8 +4338,12 @@ int VG::node_count_next(NodeTraversal n) {
     return nodes.size();
 }
 
-void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
-                               list<NodeTraversal> postfix, set<list<NodeTraversal> >& paths,
+void VG::prev_kpaths_from_node(NodeTraversal node, int length,
+                               bool path_only,
+                               int edge_max, bool edge_bounding,
+                               list<NodeTraversal> postfix,
+                               set<list<NodeTraversal> >& walked_paths,
+                               const vector<string>& followed_paths,
                                function<void(NodeTraversal)>& maxed_nodes) {
 
    // length gives the number of bases *off the end of the current node* to
@@ -4273,6 +4382,19 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
 #ifdef debug
             cerr << "Consider prev node " << prev << endl;
 #endif
+            // if the current traversal and this one are consecutive a path we're following
+            vector<string> paths_over;
+            if (path_only) {
+                paths_over = paths.over_edge(prev.node->id(), prev.backward,
+                                             node.node->id(), node.backward,
+                                             followed_paths);
+                if (paths_over.empty()) {
+#ifdef debug
+                    cerr << "paths over are empty" << endl;
+#endif
+                    continue; // skip if we wouldn't reach this
+                }
+            }
 
             if(edge_bounding && edge_max - (left_degree(node) > 1) < 0) {
                 // We won't have been able to get anything out of this next node
@@ -4288,11 +4410,15 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
 #endif
                 prev_kpaths_from_node(prev,
                                       length - prev.node->sequence().size(),
+                                      path_only,
                                       // Charge 1 against edge_max for every time we pass up alternative edges
                                       edge_max - (left_degree(node) > 1),
                                       // but only if we are using edge bounding
                                       edge_bounding,
-                                      postfix, paths, maxed_nodes);
+                                      postfix,
+                                      walked_paths,
+                                      paths_over,
+                                      maxed_nodes);
 
                 // We found a valid extension of this node
                 valid_extensions = true;
@@ -4311,7 +4437,7 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
         // We didn't find an extension to do, either because we ran out of edge
         // crossings, or because our length will run out somewhere in this node.
         // Create a path for this node.
-        paths.insert(postfix);
+        walked_paths.insert(postfix);
 #ifdef debug
         cerr << "Reported path:" << endl;
         for(auto x : postfix) {
@@ -4321,8 +4447,12 @@ void VG::prev_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
     }
 }
 
-void VG::next_kpaths_from_node(NodeTraversal node, int length, int edge_max, bool edge_bounding,
-                               list<NodeTraversal> prefix, set<list<NodeTraversal> >& paths,
+void VG::next_kpaths_from_node(NodeTraversal node, int length,
+                               bool path_only,
+                               int edge_max, bool edge_bounding,
+                               list<NodeTraversal> prefix,
+                               set<list<NodeTraversal> >& walked_paths,
+                               const vector<string>& followed_paths,
                                function<void(NodeTraversal)>& maxed_nodes) {
 
     if(edge_bounding && edge_max < 0) {
@@ -4345,18 +4475,31 @@ void VG::next_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
         // We're allowed to look off our end
 
         for (NodeTraversal& next : next_nodes) {
-
+            // if the current traversal and this one are consecutive a path we're following
+            vector<string> paths_over;
+            if (path_only) {
+                paths_over = paths.over_edge(node.node->id(), node.backward,
+                                             next.node->id(), next.backward,
+                                             followed_paths);
+                if (paths_over.empty()) {
+                    continue; // skip if we couldn't reach it
+                }
+            }
             if(edge_bounding && edge_max - (right_degree(node) > 1) < 0) {
                 // We won't have been able to get anything out of this next node
                 maxed_nodes(next);
             } else {
                 next_kpaths_from_node(next,
-                                  length - next.node->sequence().size(),
-                                  // Charge 1 against edge_max for every time we pass up alternative edges
-                                  edge_max - (right_degree(node) > 1),
-                                  // but only if we are using edge bounding
-                                  edge_bounding,
-                                  prefix, paths, maxed_nodes);
+                                      length - next.node->sequence().size(),
+                                      path_only,
+                                      // Charge 1 against edge_max for every time we pass up alternative edges
+                                      edge_max - (right_degree(node) > 1),
+                                      // but only if we are using edge bounding
+                                      edge_bounding,
+                                      prefix,
+                                      walked_paths,
+                                      paths_over,
+                                      maxed_nodes);
 
                 // We found a valid extension of this node
                 valid_extensions = true;
@@ -4369,28 +4512,28 @@ void VG::next_kpaths_from_node(NodeTraversal node, int length, int edge_max, boo
         // We didn't find an extension to do, either because we ran out of edge
         // crossings, or because our length will run out somewhere in this node.
         // Create a path for this node.
-        paths.insert(prefix);
+        walked_paths.insert(prefix);
     }
 }
 
 // iterate over the kpaths in the graph, doing something
 
-void VG::for_each_kpath(int k, int edge_max,
+void VG::for_each_kpath(int k, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed,
                         function<void(NodeTraversal)> next_maxed,
                         function<void(list<NodeTraversal>::iterator,list<NodeTraversal>&)> lambda) {
-    auto by_node = [k, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
+    auto by_node = [k, path_only, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
+        for_each_kpath_of_node(node, k, path_only, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node(by_node);
 }
 
-void VG::for_each_kpath(int k, int edge_max,
+void VG::for_each_kpath(int k, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed,
                         function<void(NodeTraversal)> next_maxed,
                         function<void(size_t,Path&)> lambda) {
-    auto by_node = [k, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
+    auto by_node = [k, path_only, edge_max, &lambda, &prev_maxed, &next_maxed, this](Node* node) {
+        for_each_kpath_of_node(node, k, path_only, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node(by_node);
 }
@@ -4399,28 +4542,28 @@ void VG::for_each_kpath(int k, int edge_max,
 // this isn't by default because the lambda may have side effects
 // that need to be guarded explicitly
 
-void VG::for_each_kpath_parallel(int k, int edge_max,
+void VG::for_each_kpath_parallel(int k, bool path_only, int edge_max,
                                  function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed,
                                  function<void(list<NodeTraversal>::iterator,list<NodeTraversal>&)> lambda) {
-    auto by_node = [k, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
+    auto by_node = [k, path_only, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
+        for_each_kpath_of_node(node, k, path_only, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node_parallel(by_node);
 }
 
-void VG::for_each_kpath_parallel(int k, int edge_max,
+void VG::for_each_kpath_parallel(int k, bool path_only, int edge_max,
                                  function<void(NodeTraversal)> prev_maxed,
                                  function<void(NodeTraversal)> next_maxed,
                                  function<void(size_t,Path&)> lambda) {
-    auto by_node = [k, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
-        for_each_kpath_of_node(node, k, edge_max, prev_maxed, next_maxed, lambda);
+    auto by_node = [k, path_only, edge_max, &prev_maxed, &next_maxed, &lambda, this](Node* node) {
+        for_each_kpath_of_node(node, k, path_only, edge_max, prev_maxed, next_maxed, lambda);
     };
     for_each_node_parallel(by_node);
 }
 
 // per-node kpaths
 
-void VG::for_each_kpath_of_node(Node* n, int k, int edge_max,
+void VG::for_each_kpath_of_node(Node* n, int k, bool path_only, int edge_max,
                                 function<void(NodeTraversal)> prev_maxed,
                                 function<void(NodeTraversal)> next_maxed,
                                 function<void(size_t,Path&)> lambda) {
@@ -4437,10 +4580,10 @@ void VG::for_each_kpath_of_node(Node* n, int k, int edge_max,
 
         lambda(index, path);
     };
-    for_each_kpath_of_node(n, k, edge_max, prev_maxed, next_maxed, apply_to_path);
+    for_each_kpath_of_node(n, k, path_only, edge_max, prev_maxed, next_maxed, apply_to_path);
 }
 
-void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
+void VG::for_each_kpath_of_node(Node* node, int k, bool path_only, int edge_max,
                                 function<void(NodeTraversal)> prev_maxed,
                                 function<void(NodeTraversal)> next_maxed,
                                 function<void(list<NodeTraversal>::iterator,list<NodeTraversal>&)> lambda) {
@@ -4448,11 +4591,13 @@ void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
     set<list<NodeTraversal> > prev_paths;
     set<list<NodeTraversal> > next_paths;
     list<NodeTraversal> empty_list;
-
-    prev_kpaths_from_node(NodeTraversal(node), k, edge_max, (edge_max != 0),
-                          empty_list, prev_paths, prev_maxed);
-    next_kpaths_from_node(NodeTraversal(node), k, edge_max, (edge_max != 0),
-                          empty_list, next_paths, next_maxed);
+    auto curr_paths = paths.node_path_traversals(node->id());
+    vector<string> prev_followed = curr_paths;
+    vector<string> next_followed = curr_paths;
+    prev_kpaths_from_node(NodeTraversal(node), k, path_only, edge_max, (edge_max != 0),
+                          empty_list, prev_paths, prev_followed, prev_maxed);
+    next_kpaths_from_node(NodeTraversal(node), k, path_only, edge_max, (edge_max != 0),
+                          empty_list, next_paths, next_followed, next_maxed);
     // now take the cross and give to the callback
     for (set<list<NodeTraversal> >::iterator p = prev_paths.begin(); p != prev_paths.end(); ++p) {
         for (set<list<NodeTraversal> >::iterator n = next_paths.begin(); n != next_paths.end(); ++n) {
@@ -4475,19 +4620,19 @@ void VG::for_each_kpath_of_node(Node* node, int k, int edge_max,
 }
 
 void VG::kpaths_of_node(Node* node, set<list<NodeTraversal> >& paths,
-                        int length, int edge_max,
+                        int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     auto collect_path = [&paths](list<NodeTraversal>::iterator n, list<NodeTraversal>& path) {
         paths.insert(path);
     };
-    for_each_kpath_of_node(node, length, edge_max, prev_maxed, next_maxed, collect_path);
+    for_each_kpath_of_node(node, length, path_only, edge_max, prev_maxed, next_maxed, collect_path);
 }
 
 void VG::kpaths_of_node(Node* node, vector<Path>& paths,
-                        int length, int edge_max,
+                        int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     set<list<NodeTraversal> > unique_paths;
-    kpaths_of_node(node, unique_paths, length, edge_max, prev_maxed, next_maxed);
+    kpaths_of_node(node, unique_paths, length, path_only, edge_max, prev_maxed, next_maxed);
     for (auto& unique_path : unique_paths) {
         Path path = create_path(unique_path);
         paths.push_back(path);
@@ -4496,18 +4641,18 @@ void VG::kpaths_of_node(Node* node, vector<Path>& paths,
 
 // aggregators, when a callback won't work
 
-void VG::kpaths(set<list<NodeTraversal> >& paths, int length, int edge_max,
+void VG::kpaths(set<list<NodeTraversal> >& paths, int length, bool path_only, int edge_max,
                 function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* node = graph.mutable_node(i);
-        kpaths_of_node(node, paths, length, edge_max, prev_maxed, next_maxed);
+        kpaths_of_node(node, paths, length, path_only, edge_max, prev_maxed, next_maxed);
     }
 }
 
-void VG::kpaths(vector<Path>& paths, int length, int edge_max,
+void VG::kpaths(vector<Path>& paths, int length, bool path_only, int edge_max,
                 function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     set<list<NodeTraversal> > unique_paths;
-    kpaths(unique_paths, length, edge_max, prev_maxed, next_maxed);
+    kpaths(unique_paths, length, path_only, edge_max, prev_maxed, next_maxed);
     for (auto& unique_path : unique_paths) {
         Path path = create_path(unique_path);
         paths.push_back(path);
@@ -4809,230 +4954,8 @@ void VG::edit_node(id_t node_id,
     // deletions spanning multiple nodes must be handled externally using cut_trans
 }
 
-// edit the graph, so that the graph will include the paths which are provided
-// beware:
-// this doesn't work on the reverse strand
-// to get this to work, we should be using NodeSides rather than pair<id_t, size_t>
-// to track cuts and positions in the system
-void VG::edit(const vector<Path>& paths) {
-#ifdef debug
-    // We should not add additional disconnected components
-    list<VG> subgraphs;
-    disjoint_subgraphs(subgraphs);
-    int subgraph_count = subgraphs.size();
-#endif
-
-
-    //cerr << "editing graph" << endl;
-    // deletions from this node position/offset on the forward strand to the second position/offset
-    map<pair<id_t, size_t>, pair<id_t, size_t> > del_f;
-    // reverse index of the above
-    map<pair<id_t, size_t>, pair<id_t, size_t> > del_t;
-    // mappings by node, each is stored as a tuple of <mapping, is_at_start, is_at_end>
-    map<id_t, vector<tuple<Mapping, bool, bool>>> mappings; // by node
-    // the cut_trans(lation) maps from positions in the old graph (pair<size_t, id_t>)
-    // to tuples of nodes that sets of nodes that now lie on either side of these
-    // to handle long jumps with sequence on the path
-    map<pair<id_t, size_t>, pair<set<Node*>, set<Node*> > > cut_trans;
-    bool in_del = false;
-    pair<id_t, size_t> del_start;
-    for (auto& p : paths) {
-        auto path = simplify(p);
-        for (int i = 0; i < path.mapping_size(); ++i) {
-            Mapping mapping = path.mapping(i);
-            //if (!mapping.has_position()) cerr << "woah mapping got no position " << pb2json(mapping) << endl;
-            if (i > 0) {
-                auto& last = path.mapping(i-1);
-                // do we go from in-node to off-node between this mapping and the next
-                // without reaching the end of the node we're on?
-                // this would indicate a jump!
-                id_t lid = last.position().node_id();
-                id_t nid = mapping.position().node_id();
-                //cerr << "there is a possible jump " << lid << " -> " << nid << endl;
-
-                // now it's possible that we are cutting the two nodes as well with the jump
-                // to make the cut, we have to find the mapping end offset on the first node
-                size_t loff = last.position().offset() + mapping_from_length(last);
-                // and the mapping start offset on the second
-                size_t noff = mapping.position().offset();
-                // should there be sequence on the path?
-                // get the sequence after the loff and before the noff
-                auto lafter = cut_mapping(last, loff).second;
-                auto nbefore = cut_mapping(mapping, noff).first;
-                string ins_seq;
-                if (mapping_to_length(lafter) + mapping_to_length(nbefore)) {
-                    //cerr << "there be an insertion!" << endl;
-                    // path has been simplified, each insertion will be == 1 edit
-                    ins_seq = (lafter.edit_size()?lafter.edit(lafter.edit_size()-1).sequence():"")
-                        + (nbefore.edit_size()?nbefore.edit(0).sequence():"");
-                }
-                // record the jumps and cut trans in del_f and del_t
-                // these they will be included at the end of this function
-                if (ins_seq.empty()) {
-                    auto dstart = make_pair(lid, loff);
-                    auto dend =   make_pair(nid, noff);
-                    del_f[dstart] = dend;
-                    del_t[dend] = dstart;
-                } else {
-                    //cerr << "creating insertion node" << endl;
-                    Node* ins = create_node(ins_seq);
-                    auto dstart1 = make_pair(lid, loff);
-                    auto dend1 = make_pair(ins->id(), 0);
-                    del_f[dstart1] = dend1;
-                    del_t[dend1] = dstart1;
-                    auto& p1 = cut_trans[make_pair(lid, loff)];
-                    p1.second.insert(ins);
-
-                    // record the middle of the insertion in the trans
-                    auto& p1m = cut_trans[make_pair(ins->id(), 0)];
-                    p1m.second.insert(ins);
-                    auto& p2m = cut_trans[make_pair(ins->id(), ins->sequence().size())];
-                    p2m.first.insert(ins);
-
-                    auto dstart2 = make_pair(ins->id(), ins_seq.size());
-                    auto dend2 = make_pair(nid, noff);
-                    del_f[dstart2] = dend2;
-                    del_t[dend2] = dstart2;
-                    auto& p2 = cut_trans[make_pair(nid, noff)];
-                    p2.first.insert(ins);
-                }
-                // trigger the appropriate node-level edits by making two new mappings
-                // against the nodes which include 1-bp no-seq insertions at the correct position
-                // these won't be included but trigger the node cut
-                Info info; info.set_str(path.name());
-                Mapping lmap;
-                {
-                    lmap.mutable_position()->set_node_id(lid);
-                    (*lmap.mutable_metadata()->mutable_info())["path_name"] = info;
-                    Edit* edit = lmap.add_edit();
-                    edit->set_to_length(loff);
-                    edit->set_from_length(loff);
-                    edit = lmap.add_edit();
-                    edit->set_from_length(0);
-                    edit->set_to_length(1);
-                }
-                Mapping nmap;
-                {
-                    nmap.mutable_position()->set_node_id(nid);
-                    (*nmap.mutable_metadata()->mutable_info())["path_name"] = info;
-                    Edit* edit = nmap.add_edit();
-                    edit->set_to_length(noff);
-                    edit->set_from_length(noff);
-                    edit = nmap.add_edit();
-                    edit->set_from_length(0);
-                    edit->set_to_length(1);
-                }
-                //cerr << "lmap is " << pb2json(lmap) << " and nmap is " << pb2json(nmap) << endl;
-                // and save them
-                // note that we store them as being "from the start" only
-                mappings[last.position().node_id()].push_back(make_tuple(lmap, true, false));
-                mappings[mapping.position().node_id()].push_back(make_tuple(nmap, true, false));
-            }
-            Info info; info.set_str(path.name());
-            (*mapping.mutable_metadata()->mutable_info())["path_name"] = info;
-            // store in our mapping set, with flags for whether we're at the start or end
-            mappings[mapping.position().node_id()].push_back(make_tuple(
-                                                                 mapping,
-                                                                 i==0,
-                                                                 i==path.mapping_size()-1
-                                                                 ));
-            if (mapping_is_total_deletion(mapping)) {
-                //&& path.mapping_size() > 1 && i != 0 && i != path.mapping_size()-1) {
-                cerr << "[vg::VG] warning: mapping in " << path.name() << " is a total deletion" << endl;
-            }
-            // ^^ these should be stripped out using simplify_deletions(path)
-            id_t node_id = mapping.position().node_id();
-
-            // find internal deletions
-            size_t ioff = 0;
-            for (int j = 0; j < mapping.edit_size(); ++j) {
-                auto& edit = mapping.edit(j);
-                // is it an internal deletion?
-                if (edit_is_deletion(edit) && j > 0 && j < mapping.edit_size()-1) {
-                    auto dstart = make_pair(node_id, ioff);
-                    auto dend =   make_pair(node_id, ioff+edit.from_length());
-                    del_f[dstart] = dend;
-                    del_t[dend] = dstart;
-                }
-                ioff += edit.from_length();
-            }
-
-            // not just ones that jump nodes
-            if (!in_del) {
-                if (mapping_starts_in_deletion(mapping) && i > 0) {
-                    // this deletion should extend from the end of the last node to this one
-                    id_t last_id = path.mapping(i-1).position().node_id();
-                    del_start = make_pair(last_id, get_node(last_id)->sequence().size());
-                }
-                if (mapping_ends_in_deletion(mapping)) {
-                    size_t del_off = get_node(node_id)->sequence().size()
-                        - mapping.edit(mapping.edit_size()-1).from_length();
-                    del_start = make_pair(node_id, del_off);
-                    in_del = true;
-                }
-            } else {
-                pair<id_t, size_t> del_end;
-                if (mapping_starts_in_deletion(mapping)) {
-                    size_t end_off = mapping.edit(0).from_length();
-                    del_end = make_pair(node_id, end_off);
-                    in_del = false;
-                } else {
-                    del_end = make_pair(node_id, 0);
-                    in_del = false;
-                }
-                // record the deletion
-                //cerr << "del_start " << del_start.first << ":" << del_start.second << " -> " << del_end.first << ":" << del_end.second << endl;
-                del_f[del_start] = del_end;
-                del_t[del_end] = del_start;
-            }
-        }
-    }
-    edit(mappings, cut_trans, del_f, del_t);
-
-#ifdef debug
-    // We should not add additional disconnected components
-    subgraphs.clear();
-    disjoint_subgraphs(subgraphs);
-    int end_subgraph_count = subgraphs.size();
-    assert(end_subgraph_count == subgraph_count);
-#endif
-}
-
-// mappings sorted by node id
-void VG::edit(const map<id_t, vector<tuple<Mapping, bool, bool> > >& mappings,
-              map<pair<id_t, size_t>, pair<set<Node*>, set<Node*> > >& cut_trans,
-              map<pair<id_t, size_t>, pair<id_t, size_t> >& del_f,
-              map<pair<id_t, size_t>, pair<id_t, size_t> >& del_t) {
-
-    map<id_t, pair<Node*, Node*> > node_end_map;
-    for (auto& node : mappings) {
-        //cerr << "edit: " << node.first << endl;
-        edit_node(node.first, node.second, cut_trans);
-    }
-
-    // now resolve the node jumps (trans-insertions and deletions)
-    //cerr << "resolving trans events" << endl;
-    for (auto& d : del_f) {
-        auto& f = d.first;
-        auto& t = d.second;
-        auto& l = cut_trans[f];
-        auto& r = cut_trans[t];
-        //cerr << f.first << ":" << f.second << " " << l.first.size() << " " << l.second.size() << endl;
-        //cerr << t.first << ":" << t.second << " " << r.first.size() << " " << r.second.size() << endl;
-        // connect all left to right
-        for (auto& ln : l.first) {
-            //cerr << "left node is " << pb2json(*ln) << " " << ln << endl;
-            for (auto& rn : r.second) {
-                //cerr << "right node is " << pb2json(*rn) << " " << rn << endl;
-                create_edge(ln, rn);
-            }
-        }
-    }
-    remove_null_nodes_forwarding_edges();
-}
-
 // The correct way to edit the graph
-void VG::edit_both_directions(const vector<Path>& paths_to_add) {
+void VG::edit(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -5558,12 +5481,12 @@ void VG::node_starts_in_path(list<NodeTraversal>& path,
     }
 }
 
-void VG::kpaths_of_node(id_t node_id, vector<Path>& paths, int length, int edge_max,
+void VG::kpaths_of_node(id_t node_id, vector<Path>& paths, int length, bool path_only, int edge_max,
                         function<void(NodeTraversal)> prev_maxed, function<void(NodeTraversal)> next_maxed) {
     hash_map<id_t, Node*>::iterator n = node_by_id.find(node_id);
     if (n != node_by_id.end()) {
         Node* node = n->second;
-        kpaths_of_node(node, paths, length, edge_max, prev_maxed, next_maxed);
+        kpaths_of_node(node, paths, length, path_only, edge_max, prev_maxed, next_maxed);
     }
 }
 
@@ -5970,8 +5893,8 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
-        auto from_paths = map_keys_to_set(paths.of_node(e->from()));
-        auto to_paths = map_keys_to_set(paths.of_node(e->to()));
+        auto from_paths = paths.of_node(e->from());
+        auto to_paths = paths.of_node(e->to());
         set<string> both_paths;
         std::set_intersection(from_paths.begin(), from_paths.end(),
                               to_paths.begin(), to_paths.end(),
@@ -6607,6 +6530,11 @@ void VG::add_start_end_markers(int length,
 
 #endif
 
+    // now record the head and tail nodes in our path index
+    // this is used during kpath traversals
+    paths.head_tail_nodes.insert(start_node->id());
+    paths.head_tail_nodes.insert(end_node->id());
+
 }
 
 map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<id_t, bool> >& over,
@@ -6642,16 +6570,36 @@ map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<
     return overlay;
 }
 
-Alignment VG::align(const Alignment& alignment) {
+Alignment VG::align(const Alignment& alignment,
+                    int32_t match,
+                    int32_t mismatch,
+                    int32_t gap_open,
+                    int32_t gap_extension,
+                    size_t max_query_graph_ratio) {
 
     auto aln = alignment;
 
     map<id_t, pair<id_t, bool> > unfold_trans;
     map<id_t, pair<id_t, bool> > dagify_trans;
-    uint32_t max_length = alignment.sequence().size();
+    size_t max_length = alignment.sequence().size();
+    size_t component_length_max = 100*max_length; // hard coded to be 100x
 
-    // dagify the graph by unfolding inversions and then applying forward unroll
-    VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length);
+    // give up if we've exceeded our maximum alignable graph size
+    /*
+    if (max_query_graph_ratio && length() > max_query_graph_ratio * max_length) {
+        return aln;
+    }
+    */
+
+    // dagify the graph by unfolding inversions and then applying dagify forward unroll
+    VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length, component_length_max);
+    // give up if we've exceeded our maximum alignable graph size
+    /*
+    if (max_query_graph_ratio && dag.length() > max_query_graph_ratio * max_length) {
+        return aln;
+    }
+    */
+
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
 
@@ -6661,7 +6609,7 @@ Alignment VG::align(const Alignment& alignment) {
     Node* root = dag.join_heads();
     dag.sort();
 
-    gssw_aligner = new GSSWAligner(dag.graph);
+    gssw_aligner = new GSSWAligner(dag.graph, match, mismatch, gap_open, gap_extension);
     gssw_aligner->align(aln);
 
     delete gssw_aligner;
@@ -6695,10 +6643,15 @@ Alignment VG::align(const Alignment& alignment) {
     return aln;
 }
 
-Alignment VG::align(const string& sequence) {
+Alignment VG::align(const string& sequence,
+                    int32_t match,
+                    int32_t mismatch,
+                    int32_t gap_open,
+                    int32_t gap_extension,
+                    size_t max_query_graph_ratio) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment);
+    return align(alignment, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
 }
 
 const string VG::hash(void) {
@@ -6708,34 +6661,38 @@ const string VG::hash(void) {
 }
 
 void VG::for_each_kmer_parallel(int kmer_size,
+                                bool path_only,
                                 int edge_max,
                                 function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                                 int stride,
                                 bool allow_dups,
                                 bool allow_negatives) {
-    _for_each_kmer(kmer_size, edge_max, lambda, true, stride, allow_dups, allow_negatives);
+    _for_each_kmer(kmer_size, path_only, edge_max, lambda, true, stride, allow_dups, allow_negatives);
 }
 
 void VG::for_each_kmer(int kmer_size,
+                       bool path_only,
                        int edge_max,
                        function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                        int stride,
                        bool allow_dups,
                        bool allow_negatives) {
-    _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups, allow_negatives);
+    _for_each_kmer(kmer_size, path_only, edge_max, lambda, false, stride, allow_dups, allow_negatives);
 }
 
 void VG::for_each_kmer_of_node(Node* node,
                                int kmer_size,
+                               bool path_only,
                                int edge_max,
                                function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                                int stride,
                                bool allow_dups,
                                bool allow_negatives) {
-    _for_each_kmer(kmer_size, edge_max, lambda, false, stride, allow_dups, allow_negatives, node);
+    _for_each_kmer(kmer_size, path_only, edge_max, lambda, false, stride, allow_dups, allow_negatives, node);
 }
 
 void VG::_for_each_kmer(int kmer_size,
+                        bool path_only,
                         int edge_max,
                         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)> lambda,
                         bool parallel,
@@ -6752,6 +6709,7 @@ void VG::_for_each_kmer(int kmer_size,
     // use one per thread so as to avoid contention
     // If we aren't starting a parallel kmer iteration from here, just fill in 0.
     // TODO: How do we know this is big enough?
+    // TODO: is this even necessary? afaik GCSA2 doesn't care about duplicates
     map<int, LRUCache<string, bool>* > lru;
 #pragma omp parallel
     {
@@ -6761,7 +6719,7 @@ void VG::_for_each_kmer(int kmer_size,
         }
     }
     // constructs the cache key
-    // experiment -- use a struct here
+    // TODO: experiment -- use a struct here
     // We deduplicate kmers based on where they start, where they end (optionally), and where they are viewed from.
     auto make_cache_key = [](string& kmer,
                              id_t start_node, int start_pos,
@@ -6781,6 +6739,7 @@ void VG::_for_each_kmer(int kmer_size,
     auto handle_path = [this,
                         &lambda,
                         kmer_size,
+                        path_only,
                         stride,
                         allow_dups,
                         allow_negatives,
@@ -7039,15 +6998,18 @@ void VG::_for_each_kmer(int kmer_size,
     if(node == nullptr) {
         // Look at all the kpaths
         if (parallel) {
-            for_each_kpath_parallel(kmer_size, edge_max, noop, noop, handle_path);
+            for_each_kpath_parallel(kmer_size, path_only, edge_max, noop, noop, handle_path);
         } else {
-            for_each_kpath(kmer_size, edge_max, noop, noop, handle_path);
+            for_each_kpath(kmer_size, path_only, edge_max, noop, noop, handle_path);
         }
     } else {
         // Look only at kpaths of the specified node
-        for_each_kpath_of_node(node, kmer_size, edge_max, noop, noop, handle_path);
+        for_each_kpath_of_node(node, kmer_size, path_only, edge_max, noop, noop, handle_path);
     }
 
+    for (auto l : lru) {
+        delete l.second;
+    }
 }
 
 int VG::path_edge_count(list<NodeTraversal>& path, int32_t offset, int path_length) {
@@ -7132,6 +7094,7 @@ const string VG::path_sequence(const Path& path) {
 
 void VG::kmer_context(string& kmer,
                       int kmer_size,
+                      bool path_only,
                       int edge_max,
                       bool forward_only,
                       list<NodeTraversal>& path,
@@ -7148,6 +7111,21 @@ void VG::kmer_context(string& kmer,
     // Start our iterator at our kmer's starting node instance.
     list<NodeTraversal>::iterator np = start_node;
 
+    // TODO expensive, should be done in calling context
+    // we need to determine what paths we have
+    vector<string> followed;
+    if (path_only) {
+        auto n1 = start_node;
+        auto n2 = ++n1; --n1;
+        followed = paths.node_path_traversals(n1->node->id(), n1->backward);
+        while (n2 != end_node) {
+            followed = paths.over_edge(n1->node->id(), n1->backward,
+                                       n2->node->id(), n2->backward,
+                                       followed);
+            ++n1; ++n2;
+        }
+    }
+
     if (start_offset == 0) {
         // for each node connected to this one
         // what's its last character?
@@ -7158,6 +7136,15 @@ void VG::kmer_context(string& kmer,
         vector<NodeTraversal> prev_nodes;
         nodes_prev(*start_node, prev_nodes);
         for (auto n : prev_nodes) {
+            // do we share a common path?
+            if (path_only) {
+                auto prev_followed = paths.over_edge(n.node->id(), n.backward,
+                                                     start_node->node->id(), start_node->backward,
+                                                     followed);
+                if (prev_followed.empty()) {
+                    continue;
+                }
+            }
             const string& seq = n.node->sequence();
             // We have to find the last chartacter in either orientation.
             char c = n.backward ? reverse_complement(seq[0]) : seq[seq.size()-1];
@@ -7228,6 +7215,14 @@ void VG::kmer_context(string& kmer,
             vector<NodeTraversal> next_nodes;
             nodes_next(n, next_nodes);
             for (auto m : next_nodes) {
+                if (path_only) {
+                    auto next_followed = paths.over_edge(end_node->node->id(), end_node->backward,
+                                                         m.node->id(), m.backward,
+                                                         followed);
+                    if (next_followed.empty()) {
+                        continue;
+                    }
+                }
                 // How long is this next node?
                 size_t node_length = m.node->sequence().size();
                 // If the next node is backward, get the rc of its last character. Else get its first.
@@ -7285,7 +7280,9 @@ void VG::kmer_context(string& kmer,
     }
 }
 
-void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int stride,
+void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size,
+                                   bool path_only,
+                                   int edge_max, int stride,
                                    bool forward_only,
                                    Node* head_node, Node* tail_node,
                                    function<void(KmerPosition&)> lambda) {
@@ -7302,7 +7299,7 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
 
     // We're going to visit every kmer of the node and run this:
     function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG&)>
-        visit_kmer = [&cache, &kmer_size, &edge_max, &node, &forward_only, &head_node, &tail_node, this]
+        visit_kmer = [&cache, kmer_size, path_only, edge_max, node, forward_only, &head_node, &tail_node, this]
         (string& kmer, list<NodeTraversal>::iterator start_node, int start_pos,
          list<NodeTraversal>& path, VG& graph) {
 
@@ -7326,6 +7323,7 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
         // Fill in prev_chars, next_chars, prev_positions, and next_positions for the kmer by walking the path.
         graph.kmer_context(kmer,
                            kmer_size,
+                           path_only,
                            edge_max,
                            forward_only,
                            path,
@@ -7508,7 +7506,7 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
     // allow negative offsets; force them to be converted to positive
     // offsets on the reverse strand. But do allow different paths that
     // produce the same kmer, since GCSA2 needs those.
-    for_each_kmer_of_node(node, kmer_size, edge_max, visit_kmer, stride, true, false);
+    for_each_kmer_of_node(node, kmer_size, path_only, edge_max, visit_kmer, stride, true, false);
 
     // Now that the cache is full and correct, containing each kmer starting
     // on either strand of this node, send out all its entries.
@@ -7520,7 +7518,8 @@ void VG::gcsa_handle_node_in_graph(Node* node, int kmer_size, int edge_max, int 
 
 // runs the GCSA kmer extraction
 // wraps and unwraps the graph in a single start and end node
-void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int stride,
+void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
+                                              int edge_max, int stride,
                                               bool forward_only,
                                               id_t& head_id, id_t& tail_id,
                                               function<void(KmerPosition&)> lambda) {
@@ -7600,32 +7599,36 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, int edge_max, int s
     // things, but the graph is only guaranteed to actually own one of those
     // things.
     for_each_node_parallel(
-        [kmer_size, edge_max, stride, forward_only,
+        [kmer_size, path_only, edge_max, stride, forward_only,
          head_node, tail_node, lambda, this](Node* node) {
-            gcsa_handle_node_in_graph(node, kmer_size, edge_max, stride, forward_only,
+            gcsa_handle_node_in_graph(node, kmer_size, path_only, edge_max, stride, forward_only,
                                       head_node, tail_node, lambda);
         });
 
     // cleanup
     if(head_node_in_graph) {
+        paths.head_tail_nodes.erase(head_id);
         destroy_node(head_node);
     }
     if(tail_node_in_graph) {
+        paths.head_tail_nodes.erase(tail_id);
         destroy_node(tail_node);
     }
 }
 
-void VG::write_gcsa_kmers(int kmer_size, int edge_max, int stride,
+void VG::write_gcsa_kmers(int kmer_size, bool path_only,
+                          int edge_max, int stride,
                           bool forward_only,
                           ostream& out,
                           id_t& head_id, id_t& tail_id) {
     vector<gcsa::KMer> kmers_out;
-    get_gcsa_kmers(kmer_size, edge_max, stride, forward_only,
+    get_gcsa_kmers(kmer_size, path_only, edge_max, stride, forward_only,
                    kmers_out, head_id, tail_id);
     gcsa::writeBinary(out, kmers_out, kmer_size);
 }
 
-void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
+void VG::get_gcsa_kmers(int kmer_size, bool path_only,
+                        int edge_max, int stride,
                         bool forward_only,
                         vector<gcsa::KMer>& kmers_out,
                         id_t& head_id, id_t& tail_id) {
@@ -7706,7 +7709,9 @@ void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
     };
 
     // Run on each KmerPosition. This populates start_end_id, if it was 0, before calling convert_kmer.
-    for_each_gcsa_kmer_position_parallel(kmer_size, edge_max, stride,
+    for_each_gcsa_kmer_position_parallel(kmer_size,
+                                         path_only,
+                                         edge_max, stride,
                                          forward_only,
                                          head_id, tail_id,
                                          convert_kmer);
@@ -7728,15 +7733,15 @@ void VG::get_gcsa_kmers(int kmer_size, int edge_max, int stride,
     }
 }
 
-string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool forward_only,
+string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool path_only, bool forward_only,
+                                       id_t& head_id, id_t& tail_id,
                                        size_t doubling_steps, size_t size_limit,
                                        const string& base_file_name) {
     // open a temporary file for the kmers
     string tmpfile = tmpfilename(base_file_name);
     ofstream out(tmpfile);
-    id_t head_id=0, tail_id=0;
     // write the kmers to the temporary file
-    write_gcsa_kmers(kmer_size, 0, 1, forward_only,
+    write_gcsa_kmers(kmer_size, path_only, 0, 1, forward_only,
                      out, head_id, tail_id);
     out.close();
     return tmpfile;
@@ -7745,11 +7750,16 @@ string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool forward_only,
 void
 VG::build_gcsa_lcp(gcsa::GCSA*& gcsa,
                    gcsa::LCPArray*& lcp,
-                   int kmer_size, bool forward_only,
-                   size_t doubling_steps, size_t size_limit,
+                   int kmer_size,
+                   bool path_only,
+                   bool forward_only,
+                   size_t doubling_steps,
+                   size_t size_limit,
                    const string& base_file_name) {
 
-    string tmpfile = write_gcsa_kmers_to_tmpfile(kmer_size, forward_only,
+    id_t head_id=0, tail_id=0;
+    string tmpfile = write_gcsa_kmers_to_tmpfile(kmer_size, path_only, forward_only,
+                                                 head_id, tail_id,
                                                  doubling_steps, size_limit,
                                                  base_file_name);
     // set up the input graph using the kmers
@@ -7796,7 +7806,8 @@ void VG::prune_complex(int path_length, int edge_max, Node* head_node, Node* tai
         next_maxed_nodes[tid].insert(node);
     };
     auto noop = [](list<NodeTraversal>::iterator node, list<NodeTraversal>& path) { };
-    for_each_kpath_parallel(path_length, edge_max, prev_maxed, next_maxed, noop);
+    // ignores the paths in the graph
+    for_each_kpath_parallel(path_length, false, edge_max, prev_maxed, next_maxed, noop);
 
     // What nodes will we destroy because we got into them with too much complexity?
     set<Node*> to_destroy;
@@ -8534,7 +8545,8 @@ bool VG::is_self_looping(NodeTraversal trav) {
 
 VG VG::dagify(uint32_t expand_scc_steps,
               map<id_t, pair<id_t, bool> >& node_translation,
-              size_t target_min_walk_length) {
+              size_t target_min_walk_length,
+              size_t component_length_max) {
 
     VG dag;
     // Find the strongly connected components in the graph.
@@ -8591,11 +8603,18 @@ VG VG::dagify(uint32_t expand_scc_steps,
         // we derive these using dynamic programming; the new min return length is
         // min(l_(i-1), \forall inbound links)
         size_t min_min_return_length = 0;
+        size_t component_length = 0;
         map<Node*, size_t> min_return_length;
         // the nodes in the component that are already copied in
         map<id_t, Node*> base;
         for (auto id : component) {
-            base[id] = dag.get_node(id);
+            Node* node = dag.get_node(id);
+            base[id] = node;
+            size_t len = node->sequence().size();
+            // record the length to the start of the node
+            min_return_length[node] = len;
+            // and in our count of the size of the component
+            component_length += len;
         }
         // pointers to the last copy of the graph in the DAG
         map<id_t, Node*> last = base;
@@ -8611,12 +8630,10 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 } else {
                     // get a new id for the node
                     node = dag.create_node(get_node(id)->sequence());
+                    component_length += node->sequence().size();
                 }
                 curr[id] = node;
                 node_translation[node->id()] = make_pair(id, false);
-                // note that we don't record the lengths of these sequences
-                // because we are measuring our min walk back length back to the first edge in the path
-                // not the root of the graph
             }
             // preserve the edges that connect these nodes to the rest of the graph
             // And connect to the nodes in this and the previous component using the original edges as guide
@@ -8667,7 +8684,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             dag.add_edge(new_edge);
                             // update the min-min length
                             size_t& mm = min_return_length[curr[id]];
-                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[id]];
+                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[e->from()]];
                             mm = (mm ? min(mm, inmm) : inmm);
                             curr_min_min_return_length = (curr_min_min_return_length ?
                                                           min(mm, curr_min_min_return_length)
@@ -8685,7 +8702,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
                             dag.add_edge(new_edge);
                             // update the min-min length
                             size_t& mm = min_return_length[curr[id]];
-                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[id]];
+                            size_t inmm = curr[id]->sequence().size() + min_return_length[last[e->from()]];
                             mm = (mm ? min(mm, inmm) : inmm);
                             curr_min_min_return_length = (curr_min_min_return_length ?
                                                           min(mm, curr_min_min_return_length)
@@ -8702,6 +8719,8 @@ VG VG::dagify(uint32_t expand_scc_steps,
                 break;
             }
             last = curr;
+            // break if we've exceeded the length max parameter
+            if (component_length_max && component_length >= component_length_max) break;
         }
     }
 

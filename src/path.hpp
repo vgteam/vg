@@ -71,6 +71,11 @@ public:
     // This maps from node ID, then path name, then rank and orientation, to
     // Mapping pointers for the mappings on that path to that node.
     map<id_t, map<string, set<Mapping*>>> node_mapping;
+    // record which head nodes we have
+    // we'll use this when determining path edge crossings--- all paths implicitly cross these nodes
+    set<id_t> head_tail_nodes;
+    bool is_head_or_tail_node(id_t);
+    vector<string> all_path_names(void);
     
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);
@@ -103,9 +108,10 @@ public:
     // edits for equality anyway.
     bool has_node_mapping(id_t id);
     bool has_node_mapping(Node* n);
-    map<string, set<Mapping*>>& get_node_mapping(Node* n);
-    map<string, set<Mapping*>>& get_node_mapping(id_t id);
-    map<string, map<int, Mapping>> get_node_mapping_copies_by_rank(id_t id);
+    map<string, set<Mapping*> >& get_node_mapping(Node* n);
+    map<string, set<Mapping*> >& get_node_mapping(id_t id);
+    map<string, map<int, Mapping*> > get_node_mappings_by_rank(id_t id);
+    map<string, map<int, Mapping> > get_node_mapping_copies_by_rank(id_t id);
     // Go left along the path that this Mapping* belongs to, and return the
     // Mapping* there, or null if this Mapping* is the first in its path.
     Mapping* traverse_left(Mapping* mapping);
@@ -114,9 +120,21 @@ public:
     Mapping* traverse_right(Mapping* mapping);
     // TODO: should this be a reference?
     const string mapping_path_name(Mapping* m);
+    // the patsh of the node
+    set<string> of_node(id_t id);
     // get the paths on this node and the number of mappings from each one
-    map<string, int> of_node(id_t id);
+    map<string, int> node_path_traversal_counts(id_t id, bool rev = false);
+    // the return vector contains the name of each path that crosses the node
+    // repeated as many times as it crosses
+    vector<string> node_path_traversals(id_t id, bool rev = false);
     bool are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path_name);
+    // paths that cross the edge, 
+    vector<string> over_edge(id_t id1, bool rev1,
+                             id_t id2, bool rev2,
+                             vector<string> following);
+    vector<string> over_directed_edge(id_t id1, bool rev1,
+                                      id_t id2, bool rev2,
+                                      vector<string> following);
     size_t size(void) const;
     bool empty(void) const;
     // clear the internal data structures tracking mappings and storing the paths

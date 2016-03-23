@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 15
+plan tests 16
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     2133 \
@@ -57,3 +57,5 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 -H 100
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view - |head -10 | vg view -v - | vg mod -o - | vg kmers -k 16 - >/dev/null
 is $? 0 "attempting to generate kmers longer than the longest path in a graph correctly yields no kmers"
+
+is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg kmers -g -P -t 1 -k 16 - | sort | md5sum | cut -f 1 -d\ ) $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -r x - | vg mod -N - | vg kmers -g -t 1 -k 16 - | sort | md5sum | cut -f 1 -d\ ) "indexing only embedded paths yields the same result as indexing a graph which has been pruned to the path in question"

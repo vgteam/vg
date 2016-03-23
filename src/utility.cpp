@@ -90,8 +90,8 @@ string wrap_text(const string& str, size_t width) {
     return w.str();
 }
 
-bool allATGC(string& s) {
-    for (string::iterator c = s.begin(); c != s.end(); ++c) {
+bool allATGC(const string& s) {
+    for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
         char b = *c;
         if (b != 'A' && b != 'T' && b != 'G' && b != 'C') {
             return false;
