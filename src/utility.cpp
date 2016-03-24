@@ -90,8 +90,8 @@ string wrap_text(const string& str, size_t width) {
     return w.str();
 }
 
-bool allATGC(string& s) {
-    for (string::iterator c = s.begin(); c != s.end(); ++c) {
+bool allATGC(const string& s) {
+    for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
         char b = *c;
         if (b != 'A' && b != 'T' && b != 'G' && b != 'C') {
             return false;
@@ -198,6 +198,30 @@ string tmpfilename(const string& base) {
         exit(1);
     }
     return tmpname;
+}
+
+string get_or_make_variant_id(vcflib::Variant variant) {
+
+     if(!variant.id.empty() && variant.id != ".") {
+        // We assume all the actually filled in ID fields in a VCF are unique.
+        return variant.id;
+    } else {
+        // Synthesize a name for the variant
+        
+        // Let's just hash
+        SHA1 hasher;
+        
+        // Turn the variant back into a string line and hash it.
+        // Note that this keeps the modified 0-based position.
+        std::stringstream variant_stringer;
+        variant_stringer << variant;
+        hasher.update(variant_stringer.str());
+        
+        // Name the variant with the hex hash. Will be unique unless two
+        // identical variant lines are in the file.
+        return hasher.final();
+        
+    }
 }
 
 }

@@ -158,7 +158,7 @@ public:
     // the next positions and their characters following the same strand of the graph
     map<pos_t, char> next_pos_chars(pos_t pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
-    Alignment walk_match(const string& seq, pos_t pos, int match_score = 2);
+    Alignment walk_match(const string& seq, pos_t pos);
     // convert the set of hits of a MEM into a set of alignments
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
     // Use the GCSA index to look up the sequence
@@ -166,7 +166,6 @@ public:
     
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
-    int match_score; // the score of a match in the aligner (TODO expose this configuration to GSSW here)
 
     // kmer/"threaded" mapper parameters
     //
@@ -178,12 +177,9 @@ public:
     int kmer_min; // don't decrease kmer size below this level when trying shorter kmers
     int max_thread_gap; // maximum number of nodes in id space to extend a thread (assumes semi partial order on graph ids)
     int kmer_sensitivity_step; // size to decrease the kmer length if we fail alignment
-    int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
-    int max_attempts; // maximum number of times to try to increase sensitivity
     bool prefer_forward; // attempt alignment of forward complement of the read against the graph (forward) first
     bool greedy_accept; // if we make an OK forward alignment, accept it
     float accept_norm_score; // for early bailout; target alignment score as a fraction of the score of a perfect match
-
 
     // mem mapper parameters (it is _much_ simpler)
     //
@@ -192,8 +188,19 @@ public:
 
     // general parameters, applying to both types of mapping
     //
-    int hit_max; // ignore kmers or MEMs (TODO) with more than this many hits
-    int context_depth;    // how deeply the mapper will extend out the subgraph prior to alignment
+    int hit_max;       // ignore kmers or MEMs (TODO) with more than this many hits
+    int context_depth; // how deeply the mapper will extend out the subgraph prior to alignment
+    int max_attempts;  // maximum number of times to try to increase sensitivity or use a lower-hit subgraph
+    int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
+    int max_target_factor; // the maximum multiple of the read length we'll try to align to
+
+    // local alignment parameters
+    int32_t match;
+    int32_t mismatch;
+    int32_t gap_open;
+    int32_t gap_extension;
+    size_t max_query_graph_ratio;
+
     // multimapping
     int max_multimaps;
     // soft clip resolution

@@ -22,6 +22,7 @@
 #include "deconstructor.hpp"
 #include "vectorizer.hpp"
 #include "google/protobuf/stubs/common.h"
+#include "progress_bar.hpp"
 
 using namespace std;
 using namespace google::protobuf;
@@ -684,20 +685,26 @@ void help_msga(char** argv) {
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
          << "mem mapping:" << endl
-         << "    -L, --min-mem-length N  ignore MEMs shorter than this length (default: 0/unset)" << endl
-         << "    -Y, --max-mem-length N  ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -H, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
-         << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 5)" << endl
+         << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: 0/unset)" << endl
+         << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
+         << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
+         << "    -T, --thread-ex N       cluster nodes when successive ids are within this distance (default: 10)" << endl
          << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
-         << "    -B, --band-width N      use this bandwidth when mapping" << endl
+         << "    -B, --band-width N      use this bandwidth when mapping (default: 256)" << endl
+         << "    -G, --greedy-accept     if a tested alignment achieves -S score/bp don't try clusters with fewer hits" << endl
+         << "    -S, --accept-score N    accept early alignment if the normalized alignment score is > N and -G is set" << endl
+         << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
+         << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
          << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
          << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
          << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
          << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
          << "graph normalization:" << endl
-         << "    -N, --no-normalize      don't normalize the graph before tracing the original paths through it" << endl
+         << "    -N, --normalize         normalize the graph after assembly" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
@@ -727,9 +734,11 @@ int main_msga(int argc, char** argv) {
     int hit_max = 100;
     int max_attempts = 10;
     // if this is set too low, we may miss optimal alignments
-    int context_depth = 5;
+    int context_depth = 7;
+    // same here; initial clustering
+    int thread_extension = 10;
     float min_norm_score = 0.75;
-    int band_width = 1000;
+    int band_width = 256;
     size_t doubling_steps = 2;
     bool debug = false;
     bool debug_align = false;
@@ -737,11 +746,15 @@ int main_msga(int argc, char** argv) {
     int alignment_threads = 1;
     int edge_max = 0;
     int subgraph_prune = 0;
-    bool normalize = true;
+    bool normalize = false;
     bool allow_nonpath = false;
     int iter_max = 1;
     int max_mem_length = 0;
     int min_mem_length = 0;
+    bool greedy_accept = false;
+    float accept_score = 0;
+    int max_target_factor = 100;
+    bool idx_path_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -756,6 +769,7 @@ int main_msga(int argc, char** argv) {
                 {"graph", required_argument, 0, 'g'},
                 {"base", required_argument, 0, 'b'},
                 {"idx-kmer-size", required_argument, 0, 'K'},
+                {"idx-no-recomb", no_argument, 0, 'O'},
                 {"idx-doublings", required_argument, 0, 'X'},
                 {"band-width", required_argument, 0, 'B'},
                 {"debug", no_argument, 0, 'D'},
@@ -772,11 +786,16 @@ int main_msga(int argc, char** argv) {
                 {"hit-max", required_argument, 0, 'H'},
                 {"threads", required_argument, 0, 't'},
                 {"node-max", required_argument, 0, 'm'},
+                {"greedy-accept", no_argument, 0, 'G'},
+                {"accept-score", required_argument, 0, 'S'},
+                {"max-attempts", required_argument, 0, 'M'},
+                {"thread-ex", required_argument, 0, 'T'},
+                {"max-target-x", required_argument, 0, 'q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:O",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -799,17 +818,35 @@ int main_msga(int argc, char** argv) {
             hit_max = atoi(optarg);
             break;
 
-            case 'M':
-                max_attempts = atoi(optarg);
-                break;
 
-            case 'I':
-                iter_max = atoi(optarg);
-                break;
+        case 'q':
+            max_target_factor = atoi(optarg);
+            break;
 
-            case 'c':
-                context_depth = atoi(optarg);
-                break;
+        case 'M':
+            max_attempts = atoi(optarg);
+            break;
+
+        case 'T':
+            thread_extension = atoi(optarg);
+            break;
+
+        case 'I':
+            iter_max = atoi(optarg);
+            break;
+
+        case 'G':
+            greedy_accept = true;
+            break;
+
+        case 'S':
+            accept_score = atof(optarg);
+            break;
+
+        case 'c':
+            context_depth = atoi(optarg);
+            break;
+
 
         case 'f':
             fasta_files.push_back(optarg);
@@ -856,13 +893,19 @@ int main_msga(int argc, char** argv) {
                 idx_kmer_size = atoi(optarg);
                 break;
 
-            case 'm':
-                node_max = atoi(optarg);
-                break;
 
-            case 'N':
-                normalize = false;
-                break;
+        case 'O':
+            idx_path_only = true;
+            break;
+
+        case 'm':
+            node_max = atoi(optarg);
+            break;
+
+        case 'N':
+            normalize = true;
+            break;
+
 
         case 'P':
             min_norm_score = atof(optarg);
@@ -988,21 +1031,25 @@ int main_msga(int argc, char** argv) {
             gcsa_graph.prune_complex_with_head_tail(idx_kmer_size, edge_max);
             if (subgraph_prune) gcsa_graph.prune_short_subgraphs(subgraph_prune);
             // then index
-            gcsa_graph.build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, false, doubling_steps);
+            gcsa_graph.build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, idx_path_only, false, doubling_steps);
         } else {
             // if no complexity reduction is requested, just build the index
-            graph->build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, false, doubling_steps);
+            graph->build_gcsa_lcp(gcsaidx, lcpidx, idx_kmer_size, idx_path_only, false, doubling_steps);
         }
         mapper = new Mapper(xgidx, gcsaidx, lcpidx);
         { // set mapper variables
             mapper->debug = debug_align;
             mapper->context_depth = context_depth;
+            mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
             mapper->min_norm_score = min_norm_score;
             mapper->alignment_threads = alignment_threads;
             mapper->max_mem_length = max_mem_length;
             mapper->min_mem_length = min_mem_length;
             mapper->hit_max = hit_max;
+            mapper->greedy_accept = greedy_accept;
+            mapper->max_target_factor = max_target_factor;
+            if (accept_score) mapper->accept_norm_score = accept_score;
         }
     };
 
@@ -1055,14 +1102,9 @@ int main_msga(int argc, char** argv) {
             // now take the alignment and modify the graph with it
             if (debug) cerr << name << ": editing graph" << endl;
             //graph->serialize_to_file(name + "-pre-edit.vg");
-            graph->edit_both_directions(paths);
+            graph->edit(paths);
             //if (!graph->is_valid()) cerr << "invalid after edit" << endl;
             //graph->serialize_to_file(name + "-immed-post-edit.vg");
-            //graph->clear_paths();
-            if (debug) cerr << name << ": normalizing graph and node size" << endl;
-            graph->normalize();
-            //if (!graph->is_valid()) cerr << "invalid after normalize" << endl;
-            //graph->serialize_to_file(name + "-post-norm.vg");
             graph->dice_nodes(node_max);
             //if (!graph->is_valid()) cerr << "invalid after dice" << endl;
             //graph->serialize_to_file(name + "-post-dice.vg");
@@ -1131,6 +1173,9 @@ int main_msga(int argc, char** argv) {
         graph->dice_nodes(node_max);
         graph->sort();
         graph->compact_ids();
+        if (!graph->is_valid()) {
+            cerr << "[vg msga] warning! graph is not valid after normalization" << endl;
+        }
     }
 
     // remove nodes in the graph that have no assigned paths
@@ -1518,52 +1563,53 @@ int main_surject(int argc, char** argv) {
 
 void help_mod(char** argv) {
     cerr << "usage: " << argv[0] << " mod [options] <graph.vg> >[mod.vg]" << endl
-        << "Modifies graph, outputs modified on stdout." << endl
-        << endl
-        << "options:" << endl
-        << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
-        << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
-        << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
-        << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
-        << "    -z, --sort              sort the graph using an approximate topological sort" << endl
-        << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
-        << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
-        << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
-        << "                            and edges that do not introduce new paths are removed and neighboring" << endl
-        << "                            nodes are merged)" << endl
-        << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
-        << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
-        << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
-        << "                            edges from old to new copies to convert the graph into a DAG" << endl
-        << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
-        << "                            edges from old to new copies to convert the graph into a DAG" << endl
-        << "                            until the shortest path through each SCC is N bases long" << endl
-        << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
-        << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
-        << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
-        << "                            component of the graph" << endl
-        << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
-        << "    -D, --drop-paths        remove the paths of the graph" << endl
-        << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
-        << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
-        << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
-        << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
-        << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
-        << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
-        << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
-        << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
-        << "                            cross more than --edge-max edges" << endl
-        << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
-        << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
-        << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
-        << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
-        << "                            replace the pair with a single node that is the concatenation of their labels" << endl
-        << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
-        << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
-        << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
-        << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
-        << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
-        << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
+         << "Modifies graph, outputs modified on stdout." << endl
+         << endl
+         << "options:" << endl
+         << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
+         << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
+         << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
+         << "    -z, --sort              sort the graph using an approximate topological sort" << endl
+         << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
+         << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
+         << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
+         << "                            and edges that do not introduce new paths are removed and neighboring" << endl
+         << "                            nodes are merged)" << endl
+         << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
+         << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "                            until the shortest path through each SCC is N bases long" << endl
+         << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
+         << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
+         << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
+         << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
+         << "                            component of the graph" << endl
+         << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
+         << "    -D, --drop-paths        remove the paths of the graph" << endl
+         << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
+         << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
+         << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
+         << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
+         << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
+         << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
+         << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
+         << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
+         << "                            cross more than --edge-max edges" << endl
+         << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
+         << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
+         << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
+         << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
+         << "                            replace the pair with a single node that is the concatenation of their labels" << endl
+         << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
+         << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
+         << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
+         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
+         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
+         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -1604,54 +1650,58 @@ int main_mod(int argc, char** argv) {
     bool break_cycles = false;
     uint32_t dagify_steps = 0;
     uint32_t dagify_to = 0;
+    uint32_t dagify_component_length_max = 0;
     bool orient_forward = false;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
-        {
-            {"help", no_argument, 0, 'h'},
-            {"include-aln", required_argument, 0, 'i'},
-            {"compact-ids", no_argument, 0, 'c'},
-            {"compact-ranks", no_argument, 0, 'C'},
-            {"drop-paths", no_argument, 0, 'D'},
-            {"keep-path", required_argument, 0, 'k'},
-            {"remove-orphans", no_argument, 0, 'o'},
-            {"prune-complex", no_argument, 0, 'p'},
-            {"prune-subgraphs", no_argument, 0, 'S'},
-            {"length", required_argument, 0, 'l'},
-            {"edge-max", required_argument, 0, 'e'},
-            {"chop", required_argument, 0, 'X'},
-            {"kill-labels", no_argument, 0, 'K'},
-            {"markers", no_argument, 0, 'm'},
-            {"threads", no_argument, 0, 't'},
-            {"label-paths", no_argument, 0, 'P'},
-            {"simplify", no_argument, 0, 's'},
-            {"unchop", no_argument, 0, 'u'},
-            {"normalize", no_argument, 0, 'n'},
-            {"sort", no_argument, 0, 'z'},
-            {"remove-non-path", no_argument, 0, 'N'},
-            {"orient-forward", no_argument, 0, 'O'},
-            {"unfold", required_argument, 0, 'f'},
-            {"force-path-match", no_argument, 0, 'F'},
-            {"retain-path", required_argument, 0, 'r'},
-            {"subgraph", required_argument, 0, 'g'},
-            {"context", required_argument, 0, 'x'},
-            {"remove-null", no_argument, 0, 'R'},
-            {"strong-connect", no_argument, 0, 'T'},
-            {"dagify-steps", required_argument, 0, 'd'},
-            {"dagify-to", required_argument, 0, 'w'},
-            {"unroll", required_argument, 0, 'U'},
-            {"max-branch", required_argument, 0, 'B'},
-            {"break-cycles", no_argument, 0, 'b'},
-            {"orient-forward", no_argument, 0, 'O'},
-            {0, 0, 0, 0}
-        };
+
+            {
+                {"help", no_argument, 0, 'h'},
+                {"include-aln", required_argument, 0, 'i'},
+                {"compact-ids", no_argument, 0, 'c'},
+                {"compact-ranks", no_argument, 0, 'C'},
+                {"drop-paths", no_argument, 0, 'D'},
+                {"keep-path", required_argument, 0, 'k'},
+                {"remove-orphans", no_argument, 0, 'o'},
+                {"prune-complex", no_argument, 0, 'p'},
+                {"prune-subgraphs", no_argument, 0, 'S'},
+                {"length", required_argument, 0, 'l'},
+                {"edge-max", required_argument, 0, 'e'},
+                {"chop", required_argument, 0, 'X'},
+                {"kill-labels", no_argument, 0, 'K'},
+                {"markers", no_argument, 0, 'm'},
+                {"threads", no_argument, 0, 't'},
+                {"label-paths", no_argument, 0, 'P'},
+                {"simplify", no_argument, 0, 's'},
+                {"unchop", no_argument, 0, 'u'},
+                {"normalize", no_argument, 0, 'n'},
+                {"sort", no_argument, 0, 'z'},
+                {"remove-non-path", no_argument, 0, 'N'},
+                {"orient-forward", no_argument, 0, 'O'},
+                {"unfold", required_argument, 0, 'f'},
+                {"force-path-match", no_argument, 0, 'F'},
+                {"retain-path", required_argument, 0, 'r'},
+                {"subgraph", required_argument, 0, 'g'},
+                {"context", required_argument, 0, 'x'},
+                {"remove-null", no_argument, 0, 'R'},
+                {"strong-connect", no_argument, 0, 'T'},
+                {"dagify-steps", required_argument, 0, 'd'},
+                {"dagify-to", required_argument, 0, 'w'},
+                {"dagify-len-max", required_argument, 0, 'L'},
+                {"unroll", required_argument, 0, 'U'},
+                {"max-branch", required_argument, 0, 'B'},
+                {"break-cycles", no_argument, 0, 'b'},
+                {"orient-forward", no_argument, 0, 'O'},
+                {0, 0, 0, 0}
+            };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:L:",
+                         long_options, &option_index);
+
 
         // Detect the end of the options.
         if (c == -1)
@@ -1768,9 +1818,15 @@ int main_mod(int argc, char** argv) {
                 dagify_to = atoi(optarg);
                 break;
 
-            case 'B':
-                unroll_max_branch = atoi(optarg);
-                break;
+
+        case 'L':
+            dagify_component_length_max = atoi(optarg);
+            break;
+
+        case 'B':
+            unroll_max_branch = atoi(optarg);
+            break;
+
 
             case 'z':
                 sort_graph = true;
@@ -1860,13 +1916,13 @@ int main_mod(int argc, char** argv) {
 
     if (dagify_steps) {
         map<int64_t, pair<int64_t, bool> > node_translation;
-        *graph = graph->dagify(dagify_steps, node_translation);
+        *graph = graph->dagify(dagify_steps, node_translation, 0, dagify_component_length_max);
     }
 
     if (dagify_to) {
         map<int64_t, pair<int64_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
-        *graph = graph->dagify(dagify_to, node_translation, dagify_to);
+        *graph = graph->dagify(dagify_to, node_translation, dagify_to, dagify_component_length_max);
     }
 
     if (unroll_to) {
@@ -1919,7 +1975,7 @@ int main_mod(int argc, char** argv) {
         }
         if (!label_paths) {
             // execute the edits
-            graph->edit_both_directions(paths);
+            graph->edit(paths);
         } else {
             // just add the path labels to the graph
             for (auto& path : paths) {
@@ -2146,24 +2202,26 @@ int main_sim(int argc, char** argv) {
 
 void help_kmers(char** argv) {
     cerr << "usage: " << argv[0] << " kmers [options] <graph1.vg> [graph2.vg ...] >kmers.tsv" << endl
-        << "Generates kmers of the graph(s). Output is: kmer id pos" << endl
-        << endl
-        << "options:" << endl
-        << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
-        << "    -e, --edge-max N      only consider paths which make edge choices at <= this many points" << endl
-        << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
-        << "    -t, --threads N       number of threads to use" << endl
-        << "    -d, --ignore-dups     filter out duplicated kmers in normal output" << endl
-        << "    -n, --allow-negs      don't filter out relative negative positions of kmers in normal output" << endl
-        << "    -g, --gcsa-out        output a table suitable for input to GCSA2:" << endl
-        << "                          kmer, starting position, previous characters," << endl
-        << "                          successive characters, successive positions." << endl
-        << "                          Forward and reverse strand kmers are reported." << endl
-        << "    -B, --gcsa-binary     Write the GCSA graph in binary format." << endl
-        << "    -F, --forward-only    When producing GCSA2 output, don't describe the reverse strand" << endl
-        << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
-        << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
-        << "    -p, --progress        show progress" << endl;
+
+         << "Generates kmers of the graph(s). Output is: kmer id pos" << endl
+         << endl
+         << "options:" << endl
+         << "    -k, --kmer-size N     print kmers of size N in the graph" << endl
+         << "    -e, --edge-max N      only consider paths which make edge choices at <= this many points" << endl
+         << "    -j, --kmer-stride N   step distance between succesive kmers in paths (default 1)" << endl
+         << "    -t, --threads N       number of threads to use" << endl
+         << "    -d, --ignore-dups     filter out duplicated kmers in normal output" << endl
+         << "    -n, --allow-negs      don't filter out relative negative positions of kmers in normal output" << endl
+         << "    -g, --gcsa-out        output a table suitable for input to GCSA2:" << endl
+         << "                          kmer, starting position, previous characters," << endl
+         << "                          successive characters, successive positions." << endl
+         << "                          Forward and reverse strand kmers are reported." << endl
+         << "    -B, --gcsa-binary     Write the GCSA graph in binary format." << endl
+         << "    -F, --forward-only    When producing GCSA2 output, don't describe the reverse strand" << endl
+         << "    -P, --path-only       Only consider kmers if they occur in a path embedded in the graph" << endl
+         << "    -H, --head-id N       use the specified ID for the GCSA2 head sentinel node" << endl
+         << "    -T, --tail-id N       use the specified ID for the GCSA2 tail sentinel node" << endl
+         << "    -p, --progress        show progress" << endl;
 }
 
 int main_kmers(int argc, char** argv) {
@@ -2174,6 +2232,7 @@ int main_kmers(int argc, char** argv) {
     }
 
     int kmer_size = 0;
+    bool path_only = false;
     int edge_max = 0;
     int kmer_stride = 1;
     bool show_progress = false;
@@ -2190,26 +2249,28 @@ int main_kmers(int argc, char** argv) {
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
-        {
-            {"help", no_argument, 0, 'h'},
-            {"kmer-size", required_argument, 0, 'k'},
-            {"kmer-stride", required_argument, 0, 'j'},
-            {"edge-max", required_argument, 0, 'e'},
-            {"threads", required_argument, 0, 't'},
-            {"gcsa-out", no_argument, 0, 'g'},
-            {"ignore-dups", no_argument, 0, 'd'},
-            {"allow-negs", no_argument, 0, 'n'},
-            {"progress",  no_argument, 0, 'p'},
-            {"head-id", required_argument, 0, 'H'},
-            {"tail-id", required_argument, 0, 'T'},
-            {"forward-only", no_argument, 0, 'F'},
-            {"gcsa-binary", no_argument, 0, 'B'},
-            {0, 0, 0, 0}
-        };
+
+            {
+                {"help", no_argument, 0, 'h'},
+                {"kmer-size", required_argument, 0, 'k'},
+                {"kmer-stride", required_argument, 0, 'j'},
+                {"edge-max", required_argument, 0, 'e'},
+                {"threads", required_argument, 0, 't'},
+                {"gcsa-out", no_argument, 0, 'g'},
+                {"ignore-dups", no_argument, 0, 'd'},
+                {"allow-negs", no_argument, 0, 'n'},
+                {"progress",  no_argument, 0, 'p'},
+                {"head-id", required_argument, 0, 'H'},
+                {"tail-id", required_argument, 0, 'T'},
+                {"forward-only", no_argument, 0, 'F'},
+                {"gcsa-binary", no_argument, 0, 'B'},
+                {"path-only", no_argument, 0, 'P'},
+                {0, 0, 0, 0}
+            };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:FB",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "hk:j:pt:e:gdnH:T:FBP",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -2242,9 +2303,14 @@ int main_kmers(int argc, char** argv) {
                 forward_only = true;
                 break;
 
-            case 'd':
-                allow_dups = false;
-                break;
+
+        case 'P':
+            path_only = true;
+            break;
+
+        case 'd':
+            allow_dups = false;
+            break;
 
             case 'n':
                 allow_negs = true;
@@ -2289,9 +2355,9 @@ int main_kmers(int argc, char** argv) {
 
     if (gcsa_out) {
         if (!gcsa_binary) {
-            graphs.write_gcsa_out(cout, kmer_size, forward_only, head_id, tail_id);
+            graphs.write_gcsa_out(cout, kmer_size, path_only, forward_only, head_id, tail_id);
         } else {
-            graphs.write_gcsa_kmers_binary(cout, kmer_size, forward_only, head_id, tail_id);
+            graphs.write_gcsa_kmers_binary(cout, kmer_size, path_only, forward_only, head_id, tail_id);
         }
     } else {
         function<void(string&, list<NodeTraversal>::iterator, int, list<NodeTraversal>&, VG& graph)>
@@ -2301,9 +2367,10 @@ int main_kmers(int argc, char** argv) {
                 // orientation, and are negated in the output.
                 int sign = (*n).backward ? -1 : 1;
 #pragma omp critical (cout)
-                cout << kmer << '\t' << (*n).node->id() * sign << '\t' << p * sign << '\n';
-            };
-        graphs.for_each_kmer_parallel(lambda, kmer_size, edge_max, kmer_stride, allow_dups, allow_negs);
+
+            cout << kmer << '\t' << (*n).node->id() * sign << '\t' << p * sign << '\n';
+        };
+        graphs.for_each_kmer_parallel(lambda, kmer_size, path_only, edge_max, kmer_stride, allow_dups, allow_negs);
     }
     cout.flush();
 
@@ -2815,14 +2882,15 @@ int main_stats(int argc, char** argv) {
 
 void help_paths(char** argv) {
     cerr << "usage: " << argv[0] << " paths [options] <graph.vg>" << endl
-        << "options:" << endl
-        << "  obtain paths in GAM:" << endl
-        << "    -x, --extract         return (as alignments) the stored paths in the graph" << endl
-        << "  generation:" << endl
-        << "    -n, --node ID         starting at node with ID" << endl
-        << "    -l, --max-length N    generate paths of at most length N" << endl
-        << "    -e, --edge-max N      only consider paths which make edge choices at this many points" << endl
-        << "    -s, --as-seqs         write each path as a sequence" << endl;
+         << "options:" << endl
+         << "  obtain paths in GAM:" << endl
+         << "    -x, --extract         return (as alignments) the stored paths in the graph" << endl
+         << "  generation:" << endl
+         << "    -n, --node ID         starting at node with ID" << endl
+         << "    -l, --max-length N    generate paths of at most length N" << endl
+         << "    -e, --edge-max N      only consider paths which make edge choices at this many points" << endl
+         << "    -s, --as-seqs         write each path as a sequence" << endl
+         << "    -p, --path-only       only write kpaths from the graph if they traverse embedded paths" << endl;
 }
 
 int main_paths(int argc, char** argv) {
@@ -2837,23 +2905,26 @@ int main_paths(int argc, char** argv) {
     int64_t node_id = 0;
     bool as_seqs = false;
     bool extract = false;
+    bool path_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
-        {
-            {"extract", no_argument, 0, 'x'},
-            {"node", required_argument, 0, 'n'},
-            {"max-length", required_argument, 0, 'l'},
-            {"edge-max", required_argument, 0, 'e'},
-            {"as-seqs", no_argument, 0, 's'},
-            {0, 0, 0, 0}
-        };
+
+            {
+                {"extract", no_argument, 0, 'x'},
+                {"node", required_argument, 0, 'n'},
+                {"max-length", required_argument, 0, 'l'},
+                {"edge-max", required_argument, 0, 'e'},
+                {"as-seqs", no_argument, 0, 's'},
+                {"path-only", no_argument, 0, 'p'},
+                {0, 0, 0, 0}
+            };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "n:l:hse:x",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "n:l:hse:xp",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -2882,11 +2953,15 @@ int main_paths(int argc, char** argv) {
                 as_seqs = true;
                 break;
 
-            case 'h':
-            case '?':
-                help_paths(argv);
-                exit(1);
-                break;
+        case 'p':
+            path_only = true;
+            break;
+
+        case 'h':
+        case '?':
+            help_paths(argv);
+            exit(1);
+            break;
 
             default:
                 abort ();
@@ -2936,13 +3011,19 @@ int main_paths(int argc, char** argv) {
     auto noop = [](NodeTraversal) { }; // don't handle the failed regions of the graph yet
 
     if (node_id) {
-        graph->for_each_kpath_of_node(graph->get_node(node_id), max_length, edge_max,
-                noop, noop,
-                *callback);
+
+        graph->for_each_kpath_of_node(graph->get_node(node_id),
+                                      path_only,
+                                      max_length,
+                                      edge_max,
+                                      noop, noop,
+                                      *callback);
     } else {
-        graph->for_each_kpath_parallel(max_length, edge_max,
-                noop, noop,
-                *callback);
+        graph->for_each_kpath_parallel(max_length,
+                                       path_only,
+                                       edge_max,
+                                       noop, noop,
+                                       *callback);
     }
 
     delete graph;
@@ -3410,37 +3491,39 @@ int main_find(int argc, char** argv) {
 
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
-        << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
-        << "already be in a joint ID space, and the graph containing the highest-ID node " << endl
-        << "must come first." << endl
-        << "xg options:" << endl
-        << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
-        << "                           the graph(s) (effectively replaces rocksdb)" << endl
-        << "gcsa options:" << endl
-        << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
-        << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
-        << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
-        << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
-        << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
-        << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
-        << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
-        << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
-        << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
-        << "                           (this is required if you are using multiple graphs files)" << endl
-        << "    -t, --threads N        number of threads to use" << endl
-        << "    -p, --progress         show progress" << endl
-        << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
-        << "rocksdb options (ignored with -g):" << endl
-        << "    -s, --store-graph      store graph as xg" << endl
-        << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
-        << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
-        << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
-        << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
-        << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
-        << "    -D, --dump             print the contents of the db to stdout" << endl
-        << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
-        << "    -L, --path-layout      describes the path layout of the graph" << endl
-        << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
+         << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
+         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl
+         << "must come first." << endl
+         << "xg options:" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
+         << "                           the graph(s) (effectively replaces rocksdb)" << endl
+         << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
+         << "gcsa options:" << endl
+         << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
+         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
+         << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
+         << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
+         << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
+         << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
+         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
+         << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
+         << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+         << "                           (this is required if you are using multiple graphs files)" << endl
+         << "    -t, --threads N        number of threads to use" << endl
+         << "    -p, --progress         show progress" << endl
+         << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
+         << "rocksdb options (ignored with -g):" << endl
+         << "    -s, --store-graph      store graph as xg" << endl
+         << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
+         << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
+         << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
+         << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
+         << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
+         << "    -D, --dump             print the contents of the db to stdout" << endl
+         << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
+         << "    -L, --path-layout      describes the path layout of the graph" << endl
+         << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
         //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
         << "    -C, --compact          compact the index into a single level (improves performance)" << endl
         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl;
@@ -3457,7 +3540,10 @@ int main_index(int argc, char** argv) {
     string db_name;
     string gcsa_name;
     string xg_name;
+    // Where should we import haplotype phasing paths from, if anywhere?
+    string vcf_name;
     int kmer_size = 0;
+    bool path_only = false;
     int edge_max = 0;
     int kmer_stride = 1;
     int prune_kb = -1;
@@ -3482,37 +3568,39 @@ int main_index(int argc, char** argv) {
     optind = 2; // force optind past command positional argument
     while (true) {
         static struct option long_options[] =
-        {
-            //{"verbose", no_argument,       &verbose_flag, 1},
-            {"db-name", required_argument, 0, 'd'},
-            {"kmer-size", required_argument, 0, 'k'},
-            {"edge-max", required_argument, 0, 'e'},
-            {"kmer-stride", required_argument, 0, 'j'},
-            {"store-graph", no_argument, 0, 's'},
-            {"store-alignments", no_argument, 0, 'a'},
-            {"dump-alignments", no_argument, 0, 'A'},
-            {"store-mappings", no_argument, 0, 'm'},
-            {"dump", no_argument, 0, 'D'},
-            {"metadata", no_argument, 0, 'M'},
-            {"set-kmer", no_argument, 0, 'S'},
-            {"threads", required_argument, 0, 't'},
-            {"progress",  no_argument, 0, 'p'},
-            {"prune",  required_argument, 0, 'P'},
-            {"path-layout", no_argument, 0, 'L'},
-            {"compact", no_argument, 0, 'C'},
-            {"allow-negs", no_argument, 0, 'n'},
-            {"use-snappy", no_argument, 0, 'Q'},
-            {"gcsa-name", required_argument, 0, 'g'},
-            {"xg-name", no_argument, 0, 'x'},
-            {"verify-index", no_argument, 0, 'V'},
-            {"forward-only", no_argument, 0, 'F'},
-            {"size-limit", no_argument, 0, 'Z'},
-            {0, 0, 0, 0}
-        };
+            {
+                //{"verbose", no_argument,       &verbose_flag, 1},
+                {"db-name", required_argument, 0, 'd'},
+                {"kmer-size", required_argument, 0, 'k'},
+                {"edge-max", required_argument, 0, 'e'},
+                {"kmer-stride", required_argument, 0, 'j'},
+                {"store-graph", no_argument, 0, 's'},
+                {"store-alignments", no_argument, 0, 'a'},
+                {"dump-alignments", no_argument, 0, 'A'},
+                {"store-mappings", no_argument, 0, 'm'},
+                {"dump", no_argument, 0, 'D'},
+                {"metadata", no_argument, 0, 'M'},
+                {"set-kmer", no_argument, 0, 'S'},
+                {"threads", required_argument, 0, 't'},
+                {"progress",  no_argument, 0, 'p'},
+                {"prune",  required_argument, 0, 'P'},
+                {"path-layout", no_argument, 0, 'L'},
+                {"compact", no_argument, 0, 'C'},
+                {"allow-negs", no_argument, 0, 'n'},
+                {"use-snappy", no_argument, 0, 'Q'},
+                {"gcsa-name", required_argument, 0, 'g'},
+                {"xg-name", required_argument, 0, 'x'},
+                {"vcf-phasing", required_argument, 0, 'v'},
+                {"verify-index", no_argument, 0, 'V'},
+                {"forward-only", no_argument, 0, 'F'},
+                {"size-limit", no_argument, 0, 'Z'},
+                {"path-only", no_argument, 0, 'O'},
+                {0, 0, 0, 0}
+            };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:VFZ:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:O",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -3524,9 +3612,13 @@ int main_index(int argc, char** argv) {
                 db_name = optarg;
                 break;
 
-            case 'x':
-                xg_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
+
+        case 'v':
+            vcf_name = optarg;
+            break;
 
             case 'P':
                 prune_kb = atoi(optarg);
@@ -3536,9 +3628,15 @@ int main_index(int argc, char** argv) {
                 kmer_size = atoi(optarg);
                 break;
 
-            case 'e':
-                edge_max = atoi(optarg);
-                break;
+
+        case 'O':
+            path_only = true;
+            break;
+
+        case 'e':
+            edge_max = atoi(optarg);
+            break;
+
 
             case 'j':
                 kmer_stride = atoi(optarg);
@@ -3666,9 +3764,321 @@ int main_index(int argc, char** argv) {
     }
 
     if (!xg_name.empty()) {
+        // We need to build an xg index
+
+        // We'll fill this with the opened VCF file if we need one.
+        vcflib::VariantCallFile variant_file;
+
+        if(!vcf_name.empty()) {
+            // There's a VCF we should load haplotype info from
+
+            if (!vcf_name.empty()) {
+                variant_file.open(vcf_name);
+                if (!variant_file.is_open()) {
+                    cerr << "error:[vg index] could not open" << vcf_name << endl;
+                    return 1;
+                }
+            }
+
+        }
+
+        // We want to siphon off the "_alt_<variant>_<number>" paths from "vg
+        // construct -a" and not index them, and use them for creating haplotype
+        // threads.
+        // TODO: a better way to store path metadata
+        map<string, Path> alt_paths;
+        // This is matched against the entire string.
+        regex is_alt("_alt_.+_[0-9]+");
+
         // store the graphs
         VGset graphs(file_names);
-        graphs.to_xg(xg_name);
+        // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
+        xg::XG index = graphs.to_xg(is_alt, alt_paths);
+
+        if(variant_file.is_open()) {
+            // Now go through and add the varaints.
+
+            // How many phases are there?
+            size_t num_samples = variant_file.sampleNames.size();
+            // And how many phases?
+            size_t num_phases = num_samples * 2;
+
+            for(size_t path_rank = 1; path_rank <= index.max_path_rank(); path_rank++) {
+                // Find all the reference paths and loop over them. We'll just
+                // assume paths that don't start with "_" might appear in the
+                // VCF. We need to use the xg path functions, since we didn't
+                // load up the whole vg graph.
+
+                // What path is this?
+                string path_name = index.path_name(path_rank);
+
+                // We already know it's not a variant's alt, since those were
+                // removed, so it might be a primary contig.
+
+                // How many bases is it?
+                size_t path_length = index.path_length(path_name);
+
+                // Allocate some Paths to store phase threads
+                vector<Path> active_phase_paths{num_phases};
+                // We need to remember how many paths of a particular phase have
+                // already been generated.
+                vector<int> saved_phase_paths(num_phases, 0);
+
+                // What's the first reference position after the last variant?
+                size_t nonvariant_start = 0;
+
+                // Completed ones just get dumped into the index
+                auto finish_phase = [&](size_t phase_number) {
+                    // We have finished a phase (because an unphased variant
+                    // came up or we ran out of variants); dump it into the
+                    // index under a name and make a new Path for that phase.
+
+                    // Find where this path is in our vector
+                    Path& to_save = active_phase_paths[phase_number];
+
+                    if(to_save.mapping_size() > 0) {
+                        // Only actually do anything if we put in some mappings.
+
+                        // Make sure the path has a name, and increment the
+                        // number of saved paths for this phase so the next path
+                        // will get a different name.
+                        to_save.set_name("_phase_" + to_string(phase_number) +
+                            "_" + to_string(saved_phase_paths[phase_number]++));
+
+                        // Actually send the path off to XG
+                        index.insert_thread(to_save);
+
+                        // Clear it out for re-use
+                        to_save = Path();
+                    }
+                };
+
+                // We need a way to dump mappings into pahse threads. The
+                // mapping edits and rank and offset info will be ignored; the
+                // Mapping just represents an oriented node traversal.
+                auto append_mapping = [&](size_t phase_number, const Mapping& mapping) {
+                    // Find the path to add to
+                    Path& to_extend = active_phase_paths[phase_number];
+
+                    // See if the edge we need to follow exists
+                    if(to_extend.mapping_size() > 0) {
+                        // If there's a previous mapping, go find it
+                        const Mapping& previous = to_extend.mapping(to_extend.mapping_size() - 1);
+
+                        // Break out the IDs and flags we need to check for the edge
+                        int64_t last_node = previous.position().node_id();
+                        bool last_from_start = previous.position().is_reverse();
+
+                        int64_t new_node = mapping.position().node_id();
+                        bool new_to_end = mapping.position().is_reverse();
+
+                        if(!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
+                            // We can't have a thread take this edge. Split ane
+                            // emit the current mappings and start a new path.
+                            cerr << "warning:[vg index] phase " << phase_number << " wants edge "
+                                << last_node << (last_from_start ? "L" : "R") << " - "
+                                << new_node << (new_to_end ? "R" : "L")
+                                << " which does not exist. Splitting!" << endl;
+
+                            finish_phase(phase_number);
+                        }
+                    }
+
+                    // Make a new Mapping in the Path
+                    Mapping& new_place = *(active_phase_paths[phase_number].add_mapping());
+
+                    // Set it
+                    new_place = mapping;
+
+                    // Make sure to clear out the rank and edits
+                    new_place.set_rank(0);
+                    new_place.clear_edit();
+                };
+
+                // We need an easy way to append any reference mappings from the
+                // last variant up until a certain position (which may be past
+                // the end of the entire reference path).
+                auto append_reference_mappings_until = [&](size_t phase_number, size_t end) {
+                    // We need to look and add in the mappings to the
+                    // intervening reference nodes from the last variant, if
+                    // any. For which we need access to the last variant's past-
+                    // the-end reference position.
+                    size_t ref_pos = nonvariant_start;
+                    while(ref_pos < end) {
+                        // While there is intervening reference
+                        // sequence, add it to our phase.
+
+                        // What mapping is here?
+                        Mapping ref_mapping = index.mapping_at_path_position(path_name, ref_pos);
+
+                        // Stick it in the phase path
+                        append_mapping(phase_number, ref_mapping);
+
+                        // Advance to what's after that mapping
+                        ref_pos += index.node_length(ref_mapping.position().node_id());
+                    }
+                };
+
+                // We also have another function to handle each variant as it comes in.
+                auto handle_variant = [&](vcflib::Variant& variant) {
+                    // So we have a variant
+
+                    // Grab its id, or make one by hashing stuff if it doesn't
+                    // have an ID.
+                    string var_name = get_or_make_variant_id(variant);
+
+                    if(alt_paths.count("_alt_" + var_name + "_0") == 0) {
+                        // There isn't a reference alt path for this variant.
+#ifdef debug
+                        cerr << "Reference alt for " << var_name << " not in VG set! Skipping!" << endl;
+#endif
+                        // Don't bother with this variant
+                        return;
+                    }
+
+                    for(int sample_number = 0; sample_number < num_samples; sample_number++) {
+                        // For each sample
+
+                        // What sample is it?
+                        string& sample_name = variant_file.sampleNames[sample_number];
+
+                        // Parse it out and see if it's phased.
+                        string genotype = variant.getGenotype(sample_name);
+
+                        // Find the phasing bar
+                        auto bar_pos = genotype.find('|');
+
+                        for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                            // For both the phases for the sample, add mappings
+                            // through all the fixed reference nodes between the
+                            // last variant and here.
+                            append_reference_mappings_until(sample_number * 2 + phase_offset, variant.position);
+
+                            // If this variant isn't phased, this will just be a
+                            // reference-matching piece of thread after the last
+                            // variant. If that wasn't phased either, it's just
+                            // a floating perfect reference match.
+                        }
+
+                        if(bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
+                            // If it isn't phased, or we otherwise don't like
+                            // it, we need to break phasing paths.
+                            for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                                // Finish both the phases for this sample.
+                                finish_phase(sample_number * 2 + phase_offset);
+                            }
+                        }
+
+                        // If it is phased, parse out the two alleles and handle
+                        // each separately.
+                        vector<int> alt_indices({stoi(genotype.substr(0, bar_pos)),
+                            stoi(genotype.substr(bar_pos + 1))});
+
+                        for(int phase_offset = 0; phase_offset < 2; phase_offset++) {
+                            // Handle each phase and its alt
+                            int& alt_index = alt_indices[phase_offset];
+
+                            // We need to find the path for this alt of this
+                            // variant. We can pull out the whole thing since it
+                            // should be short.
+                            Path alt_path = alt_paths.at("_alt_" + var_name + "_" + to_string(alt_index));
+                            // TODO: if we can't find this path, it probaby
+                            // means we mismatched the vg file and the vcf file.
+                            // Maybe we should complain to the user instead of
+                            // just failing an assert in at()?
+
+
+                            for(size_t i = 0; i < alt_path.mapping_size(); i++) {
+                                // Then blit mappings from the alt over to the phase thread
+                                append_mapping(sample_number * 2 + phase_offset, alt_path.mapping(i));
+                            }
+
+                            // TODO: We can't really land anywhere on the other
+                            // side of a deletion if the phasing breaks right at
+                            // it, because we don't know that the first
+                            // reference base after the deletion hasn't been
+                            // replaced. TODO: can we inspect the next reference
+                            // node and see if any alt paths touch it?
+                        }
+
+                        // Now we have processed both phasinbgs for this sample.
+                    }
+
+                    // Update the past-the-last-variant position, globally,
+                    // after we do all the samples.
+                    nonvariant_start = variant.position + variant.ref.size();
+                };
+
+                // Look for variants only on this path
+                variant_file.setRegion(path_name);
+
+                // Set up progress bar
+                ProgressBar* progress = nullptr;
+                // Message needs to last as long as the bar itself.
+                string progress_message = "loading variants for " + path_name;
+                if(show_progress) {
+                    progress = new ProgressBar(path_length, progress_message.c_str());
+                    progress->Progressed(0);
+                }
+
+                // TODO: For a first attempt, let's assume we can actually store
+                // all the Path objects for all the phases.
+
+                // Allocate a place to store actual variants
+                vcflib::Variant var(variant_file);
+
+                // How many variants have we done?
+                size_t variants_processed = 0;
+                while (variant_file.is_open() && variant_file.getNextVariant(var)) {
+                    // this ... maybe we should remove it as for when we have calls against N
+                    bool isDNA = allATGC(var.ref);
+                    for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+                        if (!allATGC(*a)) isDNA = false;
+                    }
+                    // only work with DNA sequences
+                    if (!isDNA) {
+                        continue;
+                    }
+
+                    var.position -= 1; // convert to 0-based
+
+                    // Handle the variant
+                    handle_variant(var);
+
+
+                    if (variants_processed++ % 1000 == 0 && progress != nullptr) {
+                        // Say we made progress
+                        progress->Progressed(var.position);
+                    }
+                }
+
+                // Now finish up all the threads
+                for(size_t i = 0; i < num_phases; i++) {
+                    // Each thread runs out until the end of the reference path
+                    append_reference_mappings_until(i, path_length);
+
+                    // And then we save all the threads
+                    finish_phase(i);
+                }
+
+                if(progress != nullptr) {
+                    // Throw out our progress bar
+                    delete progress;
+                }
+
+            }
+
+
+        }
+
+
+        // save the xg version to the file name we've been given
+        ofstream db_out(xg_name);
+        index.serialize(db_out);
+        db_out.close();
+
+
+
         // should we stop here?
     }
 
@@ -3681,7 +4091,7 @@ int main_index(int argc, char** argv) {
         graphs.show_progress = show_progress;
 
         // Go get the kmers of the correct size
-        auto tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, forward_only);
+        auto tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, path_only, forward_only);
         // Make the index with the kmers
         gcsa::InputGraph input_graph(tmpfiles, true);
         gcsa::ConstructionParameters params;
@@ -3804,7 +4214,7 @@ int main_index(int argc, char** argv) {
         index.open_for_bulk_load(db_name);
         VGset graphs(file_names);
         graphs.show_progress = show_progress;
-        graphs.index_kmers(index, kmer_size, edge_max, kmer_stride, allow_negs);
+        graphs.index_kmers(index, kmer_size, path_only, edge_max, kmer_stride, allow_negs);
         index.flush();
         index.close();
         // forces compaction
@@ -3974,6 +4384,7 @@ void help_map(char** argv) {
          << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "    -V, --in-memory       build the XG and GCSA2 indexes in-memory from the provided .vg file" << endl
+         << "    -O, --in-mem-path-only  when making the in-memory temporary index, only look at embedded paths" << endl
          << "input:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
@@ -4007,9 +4418,10 @@ void help_map(char** argv) {
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
-         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 7)" << endl
+         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
          << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
+         << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
          << "    -t, --threads N       number of threads to use" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
          << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
@@ -4040,7 +4452,7 @@ int main_map(int argc, char** argv) {
     int hit_max = 100;
     int max_multimaps = 1;
     int thread_count = 1;
-    int thread_ex = 7;
+    int thread_ex = 10;
     int context_depth = 5;
     bool output_json = false;
     bool debug = false;
@@ -4061,6 +4473,8 @@ int main_map(int argc, char** argv) {
     bool build_in_memory = false;
     int max_mem_length = 0;
     int min_mem_length = 0;
+    int max_target_factor = 100;
+    bool in_mem_path_only = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4104,14 +4518,16 @@ int main_map(int argc, char** argv) {
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
                 {"in-memory", no_argument, 0, 'V'},
+                {"in-mem-path-only", no_argument, 0, 'O'},
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
+                {"max-target-x", required_argument, 0, 'H'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:O",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4148,9 +4564,14 @@ int main_map(int argc, char** argv) {
                 kmer_stride = atoi(optarg);
                 break;
 
-            case 'k':
-                kmer_size = atoi(optarg);
-                break;
+
+        case 'O':
+            in_mem_path_only = true;
+            break;
+
+        case 'Q':
+            seq_name = optarg;
+            break;
 
             case 'S':
                 sens_step = atoi(optarg);
@@ -4270,6 +4691,10 @@ int main_map(int argc, char** argv) {
             max_mem_length = atoi(optarg);
             break;
 
+        case 'H':
+            max_target_factor = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -4323,7 +4748,7 @@ int main_map(int argc, char** argv) {
         xindex = new xg::XG(graph->graph);
         assert(kmer_size);
         int doubling_steps = 2;
-        graph->build_gcsa_lcp(gcsa, lcp, kmer_size, false, 2);
+        graph->build_gcsa_lcp(gcsa, lcp, kmer_size, in_mem_path_only, false, 2);
         delete graph;
     } else {
         // We try opening the file, and then see if it worked
@@ -4429,6 +4854,7 @@ int main_map(int argc, char** argv) {
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
+        m->max_target_factor = max_target_factor;
         mapper[i] = m;
     }
 

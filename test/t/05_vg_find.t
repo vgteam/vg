@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 18
+plan tests 20
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -56,3 +56,8 @@ vg index -g h.gcsa -k 16 h.vg
 is $(vg find -M ACCGTTAGAGTCAG -g h.gcsa | md5sum | cut -f 1 -d\ ) b32ca3f2cc2087372dda2c0719bd3391 "we find the 4 canonical SMEMs from @lh3's bwa mem poster"
 rm -f h.gcsa h.gcsa.lcp h.vg
 
+vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz -m 64 >giab.vg
+vg index -x giab.xg -g giab.gcsa -k 11 giab.vg
+is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) a7bce59dd511e6fb003720b8d5a788a0 "we can find the right MEMs for a sequence with Ns"
+is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(vg find -M ATTCATNNNNNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) "we find the same MEMs sequences with different lengths of Ns"
+rm -f giab.vg giab.xg giab.gcsa

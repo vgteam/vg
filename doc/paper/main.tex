@@ -1,8 +1,33 @@
 \documentclass{article}
 \usepackage{hyperref}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
 \usepackage{graphicx}
-%\usepackage{algorithmicx}
-\usepackage{algorithm2e}
+\usepackage{cite}
+\usepackage{xspace}
+\usepackage{algorithmicx}
+\usepackage[noend]{algpseudocode}
+\usepackage{algorithm}
+\usepackage[colorinlistoftodos]{todonotes}
+
+% Add Yield as a pseudocode command
+\algnewcommand\algorithmicyield{\textbf{yield}}
+\algnewcommand\Yield{\algorithmicyield{} }%
+
+% Add Continue as a pseudocode command
+\algnewcommand\algorithmiccontinue{\textbf{continue}}
+\algnewcommand\Continue{\algorithmiccontinue{} }%
+
+% Add Break as a pseudocode command
+\algnewcommand\algorithmicbreak{\textbf{break}}
+\algnewcommand\Break{\algorithmicbreak{} }%
+
+% Non-useless comments
+\algrenewcomment[1]{\(\triangleright\) #1}%
+
+% Have a command for vocab words
+\newcommand{\vocab}[1]{\textbf{#1}\xspace}
 
 \begin{document}
 
@@ -13,11 +38,13 @@
 \maketitle
 
 \begin{abstract}
-Reference genomes provide a prior to guide our interpretation of new genomes from similar individuals.
-However, they have a fundamental limitation in that they may only represent one genome copy per locus.
-This prevents us from extending our prior to incorporate the additional information we gain by analyzing new genomes and results in bias towards an arbitrary genome sequence, causing pernicious, difficult problems in genomics.
-To allow the incorporation of many genomes into our reference system, we develop \emph{variation graphs}, which are bidirectional DNA sequence graphs with embedded paths that describe sequences of interest.
-We enable the use of variation graphs in resequencing and \emph{de novo} genomic analysis by building a toolkit of computational methods for the creation, manipulation, and utilization of these structures.
+Reference genomes provide a prior to guide our interpretation of new sequence data.
+However, they have a fundamental limitation in that they only represent one version of each locus, whereas
+in a population or species there is in general a distribution of related sequences at each locus.
+Mapping new data to a single sequence from this distribution can introduce bias and other problems.
+To allow the representation of alternate gemomes in our reference system, we describe \emph{variation graphs}, which are bidirectional DNA sequence graphs with embedded paths that describe sequences of interest.
+Here we enable the practical use of variation graphs at human genome scale
+by building a toolkit of computational methods for the creation, manipulation, and utilization of these structures.
 Our approach generalizes fundamental aspects of resequencing analysis (assembly, alignment, variant calling, and genotyping) to operate on variation graphs.
 \end{abstract}
 
@@ -26,68 +53,186 @@ Our approach generalizes fundamental aspects of resequencing analysis (assembly,
 Where genomes are small and sequences from different individuals can be reliably isolated, we can understand variation by assembling whole genomes and then comparing them via whole-genome comparison approaches \cite{mummer}.
 In practice, complete genomes are rare, and we require prior information to reduce the cost of our efforts.
 The genomes of organisms of interest (such as \emph{Homo sapiens}) are often large \cite{pmid11237011}, and would be costly to work with this way.
-Or, they may simply be difficult to completely assemble reliably using existing technology (for example, despite extensive efforts and its importance for public health, the current reference for \emph{Plasmodium falciparum} still contains 80 gaps in 250 megabases \cite{pfalciparum, pfalciparumweb}).
+Or, they may simply be difficult to completely assemble reliably using cost effective technology (for example, despite extensive efforts and its importance for public health, the current reference for \emph{Plasmodium falciparum} still contains 80 gaps in 250 megabases \cite{pfalciparum, pfalciparumweb}).
 
 We reduce the cost of inference of new genomes by using a suitable prior--- in most cases, a genome of a closely-related individual.
 We align sequence reads from the new sample against a single high-quality reference genome.
-While expedient, this approach biases our results towards a reference that may poorly-represent alleles present in the sample we are attempting to characterize.
+While expedient, this approach biases our results towards a reference that may poorly represent alleles present in the sample we are attempting to characterize.
 We would like to align to a genome that is as similar to our sample as possible, ideally a ``personalized'' reference genome \cite{Yuan_2012}.
 
 We expect to infer new genomes most accurately when they are well-represented by the prior represented by the reference genome.
-As a linear reference genome is fundamentally unable to incorporate the full information we have available (many genomes), we are led to ask what structure could include this information.
-In bioinformatics, the natural model class for doing so is the sequence graph.
+As a linear reference genome is fundamentally unable to incorporate the genetic information we have available, we are led to ask what structure could include this information.
+The natural computational structure for doing so is the sequence graph.
 These have a long history of application to problems which require the representation of multiple genomes or ambiguities in the same structure.
-Multiple sequence alignments have a natural representation as partially ordered graphs \cite{lee2002POA}.
-The total information available in a sequencing data set can be compressed into a string graph, in which unique sequences are represented uniquely and repeated sequences unresolvable due to read lengths are collapsed into single entities.
+For example, multiple sequence alignments have a natural representation as partially ordered sequence graphs \cite{lee2002POA}.
+The total information available in a shotgun sequencing dataset set can be compressed into a string graph, in which single-copy sequences are represented uniquely and repeated sequences unresolvable due to read lengths are collapsed into single entities.
 These were first proposed by \cite{myers2005}, and implemented at scale by \cite{simpson2010}.
-A similar structure which has good scaling properties when applied to the problem of genome assembly is the de Bruijn graph, which records the relationships between unique $k$-mers of a set of sequences in a graph in which an edge links each pair of $k$-mers for which the suffix of one sequence is the prefix of the next \cite{iqbal2012}.
+A similar structure which has good scaling properties when applied to the problem of genome assembly is the de Bruijn graph, which records the relationships between unique $k$-mers of a set of sequences with edges that link pairs of $k$-mers for which the suffix of one $k$-mer is the prefix of the next \cite{iqbal2012}.
 The variant call format (VCF) \cite{danecek2011}, which is a common data format for describing populations of genomes, does not explicitly define a graph model, but can be understood as defining a partially ordered graph similar to those used in multiple sequence alignment. 
-To serve as generalized reference system, we propose a general model which allows us to represent these different kinds of sequence graphs.
-This will allow us to consume and produce data compatible with methods based on such models.
+To serve as a generalized reference system, we propose a general model which allows us to represent these different kinds of sequence graphs, and provide a practical software environment for operating with them at the multi-gigabase scale.
 
-\subsection{Model}
+\section{Model}
 
-We define a variation graph to be a graph with embedded paths $G = ( N, E, P )$ comprised of a set of nodes $N = n_1 \ldots n_M$, a set of directed edges $E = e_1 \ldots e_L$, and a set of paths $P = p_1 \ldots p_Q$, which describe transformations from the graph space into a set of sequences.
+We define a variation graph to be a graph with embedded paths $G = ( N, E, P )$ comprised of
+a set of nodes $N = n_1 \ldots n_M$,
+a set of directed edges $E = e_1 \ldots e_L$,
+and a set of paths $P = p_1 \ldots p_Q$ which describe transformations from the graph space into a set of sequences.
 
-Each node $n_i$ represents a sequence $seq(n_i)$ which is built from an arbitrary alphabet $a$.
-For DNA sequences, we might use $a = \{ A, T, G, C, N \}$, but in principle the model can be based in any alphabet.
-Edges represent linkages between sequences that have been observed in a reference set of samples or other sequences.
+Each node $n_i$ represents a sequence $seq(n_i)$ which is built from an arbitrary alphabet ${ \cal A }$.
+For DNA sequences, we might use ${ \cal A } = \{ {\tt A, T, G, C, N} \}$, but in principle the model can be based in any alphabet.
+Edges represent linkages between nodes that are allowed to be followed in representing longer sequences as paths through the graph.
 
-Edges link the ends of nodes. 
-We identify edges by the pairs of node ids that they conect: $e_{i \rightarrow j} = \{ i, j \}$.
-An edge $e_{i \rightarrow j}$ from $i$ to $j$ includes the sequence $n_i + n_j$ in our model.
-Edges may describe inversions, by passing from the forward to reverse complement.
-(TODO define further).
-Each edge implies its own reverse complement, so we can avoid redundancy by only recording the edges of the forward graph except where we have inversions.
+Nodes may be traversed in either the forward ($+$) or reverse direction ($-$), with the sequence being reverse-complemented in the
+$-$ direction.  In general we will use simple variables such as $i$ to indicate a strand of a node (forward or reverse) with $\bar \imath$
+for its reverse-complement.  Edges can be identified with the ordered pairs of node strands that they link, so we can write
+$e_{i \rightarrow j} = ( i, j ) $.  In fact this defines one strand of an edge.  Edges also can be traversed in either forward or
+reverse direction, with the reverse strand defined by $\overline{e_{i \rightarrow j}} = (  {\bar \jmath}, {\bar \imath} )$.
 
-We define paths as a series of ``mapping'' operations over a series of nodes $p = m_1, \ldots, m_{|p_i|}$.
-Each mapping $m = \{ l, e_i \ldots e_{|m_i|} \}$ has a start position, which is a tuple of a node id $n$, a strand $d$, and an offset $o$ relative to the start of the node on that strand, $l = \{ n, d, o \}$, and a series of edit operations which describe the transformation of the sequence in question into the sequence represented by the path.
-Edits $x = \{ f, t, s \}$ have a length in the graph $f$ (the ``from length''), a length in the derived sequence $t$ (the ``to length''), and a sequence which replaces the sequence in the source graph $s$.
-If they contain invariant edits, paths allow us to label sequences in the graph.
-Where they describe variation, they also provide a natural method to define the alignment of new sequences into the graph.
+We define paths as alignments to a walk through the graph.  Explicitly, a path is a series of ``mapping'' operations, each
+describing the segment of the path derived from a single node, $p = m_1, \ldots, m_{|p|}$.  Each mapping $m$ can be written
+as $( (n, o), e_i \ldots e_{|m|} )$, where $n$ is the node strand, $o$ is the zero-offset start position on the strand ($0 \le o < |n|$),
+and each $e_i$ is an ``edit'' which copies or replaces a segment of the node sequence.  In {\tt vg} We encode $e$ as $(f, t, s)$
+where $f$ is a length in the node (``from length''), $t$ is a length in the derived sequence (``to length''), and $s$ is an optional
+replacement literal sequence of length $t$.  Edges traversed in a path are implicitly defined by the node strands of neighbouring mappings.
+If all the edits are copies then we say that the path is {\em fully embedded} in the graph.
 
-\section{constructing variation graphs}
+\section{Operations on the graph}
 
-\subsection{from VCF}
+A fundamental operation on the variation graph is $edit(G, P)$, where the graph $G$ is extended to include the sequences described by paths $P$.
 
-\subsection{from other sources (from long sequence alignment / assembly input)}
+\begin{algorithm}
+  \begin{algorithmic}
+    
+    \Function{edit}{$G$, $P$}
+    \State \Comment{Generate a new graph which embeds $G$ and the paths in $P$.}
+    %\State $P \gets \Call{simplify}{P}$
+    \State $breakpoints \gets \Call{find\_breakpoints}{P}$
+    \EndFunction
+
+    %\Function{simplify}{$P$}
+    %\ForAll{path $p$ in $P$}
+    %\State $simplified\_path \gets []$
+    %\ForAll{mapping $m$ in $p$}
+    %\EndFor
+    %\EndFor
+    %\EndFunction
+
+    \Function{find\_breakpoints}{$P$}
+    \State \Comment{Collect positions where we must cut the graph to include the paths.}
+    \State $breakpoints \gets \emptyset$
+    \ForAll{path $p$ in $P$}
+    \ForAll{mapping $m$ in $p$}
+    \State $p \gets \Call{position}{m}$
+    \State $n \gets \Call{node}{p}$
+    \State $o \gets \Call{offset}{p}$
+    %\State $s \gets \Call{strand}{p}$
+    %\If {$strand$ = $-$}
+    %\State $p \gets \Call{reverse}{p}$
+    \ForAll{edit $e$ in $m$}
+    \State $from\_length \gets \Call{from\_length}{e}$
+    \State $p \gets \Call{increment}{p, f}$
+    \If{$\Call{offset}{p} < \Call{length}{n}$}
+    \State $breakpoints \gets breakpoints \cup p$
+    \EndIf
+    \EndFor
+    \EndFor
+    \EndFor
+    \Return $\Call{forwardize}{breakpoints}$
+    \EndFunction
+
+    \Function{cut}{$G$, $breakpoints$}
+    \State $translation \gets \emptyset$
+    
+    \Return $\{ translation, G \}$
+    \EndFunction
+
+    \Function{forwardize}{$positions$}
+    \State \Comment{Represent the positions on the forward strand.}
+    \ForAll{position $p$ in $breakpoints$}
+    \State $forward\_positions \gets \emptyset$
+    \If{$\Call{strand}{p} = -$}
+    \State $forward\_positions \gets forward\_positions \cup \Call{reverse}{p}$
+    \Else
+    \State $forward\_positions \gets forward\_positions \cup p$
+    \EndIf
+    \EndFor
+    \Return $forward\_positions$
+    \EndFunction
+
+    \Function{position}{$mapping$}
+    \Return beginning position of $mapping$
+    \EndFunction
+
+    \Function{node}{$position$}
+    \Return node of $position$
+    \EndFunction
+
+    \Function{offset}{$position$}
+    \Return offset of $position$ in node
+    \EndFunction
+
+    \Function{strand}{$position$}
+    \Return strand of $position$
+    \EndFunction
+
+    \Function{flip}{$strand$}
+    \If{$strand$ = $+$}
+    \Return $-$
+    \Else{}
+    \Return $+$
+    \EndIf
+    \EndFunction
+
+    \Function{length}{$node$}
+    \Return length of the label of $node$
+    \EndFunction
+
+    \Function{reverse}{$position$}
+    \State $n \gets \Call{node}{position}$
+    \State $l \gets \Call{length}{n}$
+    \Return $\{ \Call{node}{position}, \Call{flip}{strand}, l \}$
+    \EndFunction
+
+    \Function{from\_length}{$edit$}
+    \Return reference length of $edit$
+    \EndFunction
+
+    \Function{to\_length}{$edit$}
+    \Return target length of $edit$
+    \EndFunction
+
+  \end{algorithmic}
+  \caption{Edit the graph.}
+\end{algorithm}
+
+
+\subsection{Generating variation graphs}
+
+\subsubsection{from VCF}
+
+\subsubsection{from other sources (from long sequence alignment / assembly input)}
 
 
 \section{indexing variation graphs}
 
 \subsection{base graph (xg)}
 
-\subsection{queries (GCSA2)}
+\subsection{path queries (GCSA2)}
 
 
 \section{resequencing against the graph}
 
-\subsection{alignment (MEM approach)}
+\subsection{local alignment}
+
+Describe DAGification, unfolding, and GSSW.
+
+\subsection{global alignment}
+
+MEM mapping using GCSA2 (or another system that provides a full representation of the suffix tree).
 
 \subsection{variant calling (novel alleles)}
 
 \subsection{genotyping (across things in the graph)}
-
 
 \section{experiments}
 

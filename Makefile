@@ -109,7 +109,7 @@ $(OBJ_DIR)/Fasta.o: .pre-build
 $(LIB_DIR)/libhts.a: .pre-build
 	+cd $(HTSLIB_DIR) && $(MAKE) lib-static && mv libhts.a $(CWD)/$(LIB_DIR) && cp *.h $(CWD)/$(INC_DIR) && cp -r htslib $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.o $(INC_DIR)/dynamic.hpp .pre-build
+$(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.o $(INC_DIR)/dynamic.hpp $(XG_DIR)/src/xg.cpp .pre-build
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c $(XG_DIR)/src/xg.cpp -o $(CWD)/$(OBJ_DIR)/xg.o $(LD_INCLUDE_FLAGS) -I$(INC_DIR)/dynamic && ar rs $(CWD)/$(LIB_DIR)/libxg.a $(CWD)/$(OBJ_DIR)/xg.o $(CWD)/$(CPP_DIR)/vg.pb.o && cp $(XG_DIR)/src/*.hpp $(CWD)/$(INC_DIR)/
 
 $(LIB_DIR)/libvcflib.a: .pre-build
@@ -162,8 +162,11 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
 include/stream.hpp: .pre-build
 	cp src/stream.hpp include/stream.hpp
 
-$(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.h .pre-build
+$(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc .pre-build
 	+. ./source_me.sh && g++ -O3 -msse4.1 -fopenmp -std=c++11 -c -o cpp/vg.pb.o cpp/vg.pb.cc $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
+$(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h 
+
 $(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a .pre-build
 	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	+cp $@ $(INC_DIR)

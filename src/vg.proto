@@ -59,7 +59,6 @@ message Info {
 // *snps* from_length == to_length; sequence = alt
 // *deletions* from_length > to_length; sequence may be unset or empty
 // *insertions* from_length < to_length; sequence contains relative insertion
-// *skip* from_length == 0, to_length > 0; implies "soft clip" or sequence skip
 //
 message Edit {
     int32 from_length = 1; // length in target/ref
