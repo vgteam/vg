@@ -6,11 +6,13 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 15
+plan tests 16
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) e3a28b1662bf849060abc050cc7a4b66 "MSGA produces the expected graph for GRCh38 HLA-V"
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) e3a28b1662bf849060abc050cc7a4b66 "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
+
+is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -n 'gi|568815592:29791752-29792749' -n 'gi|568815454:1057585-1058559' -b 'gi|568815454:1057585-1058559' -B 10000 -N | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -n 'gi|568815592:29791752-29792749' -n 'gi|568815454:1057585-1058559' -b 'gi|568815454:1057585-1058559' -B 300 -N | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ )  "varying alignment bandwidth does not affect output graph"
 
 is $(vg msga -f msgas/s.fa -b s1 -B 20 -N | vg view - | md5sum | cut -f 1 -d\ ) 456ec5be516a364ea8238241d80ebd1f "banded alignment can detect and include large deletions in the graph"
 
