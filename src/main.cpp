@@ -4544,10 +4544,6 @@ int main_map(int argc, char** argv) {
                 build_in_memory = true;
                 break;
 
-            case 'Q':
-                seq_name = optarg;
-                break;
-
             case 'd':
                 db_name = optarg;
                 break;
