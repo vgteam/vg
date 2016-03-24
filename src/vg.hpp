@@ -285,6 +285,7 @@ public:
        bool load_variant_alt_paths = false,
        bool showprog = false);
        
+    // Build the graph from a bunch of alleles, organized by position.
     void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                       const map<pair<long, int>, vector<bool>>& visits,
                       size_t num_phasings,

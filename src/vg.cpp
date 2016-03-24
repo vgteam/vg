@@ -1876,8 +1876,17 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
                                 bool flat_input_vcf) {
 
+    
+
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
+        
+        // What name should we use for the variant? We need to make sure it is
+        // unique, even if there are multiple variant records at the same
+        // position in the VCF. Also, we don't necessarily have every variant in
+        // the VCF in our records vector.
+        string var_name = get_or_make_variant_id(var);
+        
         // decompose to alts
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
         map<string, vector<vcflib::VariantAllele> > alternates
@@ -2026,7 +2035,7 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     }
                 }
                 
-                if(alt_allele_visits != nullptr && alt_number != -1 && !var.id.empty() && var.id != ".") {
+                if(alt_allele_visits != nullptr && alt_number != -1) {
                     // We have to record a visit of this alt of this variant to
                     // this VariantAllele bubble/reference patch.
                     
@@ -2034,9 +2043,13 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     // visit this alt?
                     auto visited = make_pair(allele.position, found_at);
                     
+#ifdef debug
+                    cerr << var_name << " alt " << alt_number << " visits allele #" << found_at
+                        << " at position " << allele.position << " of " << allele.ref << " -> " << allele.alt << endl;
+#endif
+                    
                     // Say we visit this allele as part of this alt of this variant.
-                    // We assume all the actually filled in ID fields in the VCF are unique.
-                    (*alt_allele_visits)[visited].push_back(make_pair(var.id, alt_number));
+                    (*alt_allele_visits)[visited].push_back(make_pair(var_name, alt_number));
                 }                
                 
             }
@@ -2199,8 +2212,8 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         }
         
         
-        // If all the alleles here are perfect reference matches, we'll have
-        // nothing to do.
+        // If all the alleles here are perfect reference matches, and no
+        // variants visit them, we'll have nothing to do.
         bool all_perfect_matches = true;
         for(auto& allele : alleles) {
             if(allele.ref != allele.alt) {
@@ -2208,29 +2221,63 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 break;
             }
         }
-        if(all_perfect_matches) {
+        
+        // Are all the alleles here clear of visits by variants?
+        bool no_variant_visits = true;
+        
+        for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
+            if(variant_alts.count(make_pair(va.first, allele_number))) {
+                no_variant_visits = false;
+                break;
+            }
+        }
+        
+        if(all_perfect_matches && no_variant_visits) {
             // No need to break anything here.
+            
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                cerr << tid << ": Skipping entire allele site at " << va.first << endl;
+            }
+#endif
+            
             continue;
         }
+        
+        // We also need to sort the allele numbers by the lengths of their
+        // alleles' reference sequences, to properly handle inserts followed by
+        // matches.
+        vector<int> allele_numbers_by_ref_length(alleles.size());
+        // Fill with sequentially increasing integers.
+        // Sometimes the STL actually *does* have the function you want.
+        iota(allele_numbers_by_ref_length.begin(), allele_numbers_by_ref_length.end(), 0);
+        
+        // Sort the allele numbers by reference length, ascending
+        std::sort(allele_numbers_by_ref_length.begin(), allele_numbers_by_ref_length.end(),
+            [&](const int& a, const int& b) -> bool {
+            // Sort alleles with shorter ref sequences first.
+            return alleles[a].ref.size() < alleles[b].ref.size();
+        });
+        
+#ifdef debug
+#pragma omp critical (cerr)
+                {
+                    cerr << tid << ": Processing " << allele_numbers_by_ref_length.size() << " alleles at " << va.first << endl;
+                }
+#endif
         
         // Is this allele the first one processed? Because the first one
         // processed gets to handle adding mappings to the intervening sequence
         // from the previous allele to here.
         bool first_allele_processed = true;
 
-        for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
-            // Go through all the alleles with their numbers
+        for (size_t allele_number : allele_numbers_by_ref_length) {
+            // Go through all the alleles with their numbers, in order of
+            // increasing reference sequence length (so inserts come first)
             auto& allele = alleles[allele_number];
             
             auto allele_key = make_pair(va.first, allele_number);
-            
-            if(allele.ref == allele.alt && !visits.count(allele_key) && !variant_alts.count(allele_key)) {
-                // This is a ref-only allele with no visits or usages in
-                // alleles, which means we don't actually need any cuts if the
-                // allele is not visited. If other alleles here are visited,
-                // we'll get cuts from them.
-                continue;
-            }
             
             // 0/1 based conversion happens in offset
             long allele_start_pos = allele.position;
@@ -2238,6 +2285,31 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             // for ordering, set insertion start position at +1
             // otherwise insertions at the same position will loop infinitely
             //if (allele_start_pos == allele_end_pos) allele_end_pos++;
+
+            if(allele.ref == allele.alt && !visits.count(allele_key) && !variant_alts.count(allele_key)) {
+                // This is a ref-only allele with no visits or usages in
+                // alleles, which means we don't actually need any cuts if the
+                // allele is not visited. If other alleles here are visited,
+                // we'll get cuts from them.
+                
+#ifdef debug
+#pragma omp critical (cerr)
+                {
+                    cerr << tid << ": Skipping variant at " << allele_start_pos 
+                         << " allele " << allele.ref << " -> " << allele.alt << endl;
+                }
+#endif
+                
+                continue;
+            }
+
+#ifdef debug
+#pragma omp critical (cerr)
+            {
+                cerr << tid << ": Handling variant at " << allele_start_pos 
+                     << " allele " << allele.ref << " -> " << allele.alt << endl;
+            }
+#endif
 
             if (allele_start_pos == 0) {
                 // ensures that we can handle variation at first position
@@ -2248,13 +2320,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 nodes_by_end_position[0].insert(root);
             }
             
-#ifdef debug
-#pragma omp critical (cerr)
-            {
-                cerr << tid << ": Handling variant at " << allele_start_pos 
-                     << " allele " << allele.ref << " -> " << allele.alt << endl;
-            }
-#endif
+
 
             // We grab all the nodes involved in this allele: before, being
             // replaced, and after.
@@ -2450,7 +2516,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             
                 for(auto name_and_alt : variant_alts.at(allele_key)) {
                     // For each of the alts using this allele, put mappings for this path
-                    string path_name = "_allele_" + name_and_alt.first + "_" + to_string(name_and_alt.second);
+                    string path_name = "_alt_" + name_and_alt.first + "_" + to_string(name_and_alt.second);
                     
                     if(!alt_nodes.empty()) {
                         // This allele has some physical presence and is used by some
@@ -2459,8 +2525,17 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         for(auto alt_node : alt_nodes) {
                             // Put a mapping on each alt node
                             
+                            // TODO: assert that there's an edge from the
+                            // previous mapping's node (if any) to this one's
+                            // node.
+                            
                             paths.append_mapping(path_name, alt_node->id());
                         }
+                        
+#ifdef debug
+                        cerr << "Path " << path_name << " uses these alts" << endl;
+#endif
+                        
                     } else {
                         // TODO: alts that are deletions don't always have nodes
                         // on both sides to visit. Either anchor your VCF
@@ -2468,6 +2543,10 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         // mappings to other alleles (allele 0) in this variant
                         // but not this allele to indicate the deletion of
                         // nodes.
+                        
+#ifdef debug
+                        cerr << "Path " << path_name << " would use these alts if there were any" << endl;
+#endif
                     }
                 }
             }
