@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 39
+plan tests 40
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -153,5 +153,8 @@ is $(vg construct -r tiny/tiny.fa | vg index -g t.idx -k 16 -V -F - 2>&1 | grep 
 is $(vg index -g t.idx reversing/cactus.vg -k 16 -V 2>&1 | grep 'Index verification complete' | wc -l) 1 "GCSA2 indexing succeeds on graph with heads but no tails"
 
 is $(vg index -g t.idx reversing/cactus.vg -k 16 -V -F 2>&1 | grep 'Index verification complete' | wc -l) 0 "GCSA2 forward-only indexing fails due to impossibility on graph with heads but no tails"
+
+vg construct -r ins_and_del/ins_and_del.fa -v ins_and_del/ins_and_del.vcf.gz -a >ins_and_del.vg
+is $(vg index -x ins_and_del.vg.xg -v ins_and_del/ins_and_del.vcf.gz ins_and_del.vg 2>&1 | wc -l) 0 "indexing with allele paths handles combination insert-and-deletes"
 
 rm t.idx
