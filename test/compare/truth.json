@@ -1,6 +1,6 @@
 {
-"db1_path": "graph1.vg.index",
-"db2_path": "graph2.vg.index",
+"db1_path": "graph1.idx",
+"db2_path": "graph2.idx",
 "db1_total": 5,
 "db2_total": 7,
 "db1_only": 2,

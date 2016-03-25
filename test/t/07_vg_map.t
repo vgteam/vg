@@ -9,7 +9,7 @@ plan tests 17
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
-vg index -sk 11 x.vg
+vg index -sk 11 -d x.idx x.vg
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 -J | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "global alignment traverses the correct path"
 
@@ -29,7 +29,7 @@ is $(vg map -s $seq -x x.xg -g x.gcsa -k 22 | vg view -a - | jq -c '[.score, .se
 
 is $(vg map -b small/x.bam -x x.xg -g x.gcsa -k 22 -J | jq .quality | grep null | wc -l) 0 "alignment from BAM correctly handles qualities"
 
-is $(vg map -s $seq -B 30 -x x.xg -g x.gcsa -k 22 | vg surject -d x.vg.index -s - | wc -l) 4 "banded alignment produces a correct alignment"
+is $(vg map -s $seq -B 30 -x x.xg -g x.gcsa -k 22 | vg surject -d x.idx -s - | wc -l) 4 "banded alignment produces a correct alignment"
 
 is $(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -k 22 -J -M 2 | jq -r '.score' | tr '\n' ',') "62,54," "multiple alignments are returned in descending score order"
 
@@ -66,16 +66,16 @@ rm -f giab.vg giab.xg giab.gcsa giab.gcsa.lcp
 # I was having a problem when updating an edge due to a flipped end node made it
 # identical to an already existing edge that hadn't yet been updated. This makes
 # sure that that isn't happening.
-vg index -s -k10 cyclic/orient_must_swap_edges.vg
-vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" -d cyclic/orient_must_swap_edges.vg.index >/dev/null
+vg index -s -k10 -d e.idx cyclic/orient_must_swap_edges.vg
+vg map -s "ACACCTCCCTCCCGGACGGGGCGGCTGGCC" -d e.idx >/dev/null
 is $? 0 "mapping to graphs that can't be oriented without swapping edges works correctly"
 
-rm -Rf cyclic/orient_must_swap_edges.vg.index
+rm -Rf e.idx
 
-vg index -s -k10 graphs/multimap.vg
-is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCGG" -d graphs/multimap.vg.index -J | jq -c 'select(.is_secondary == true)' | wc -l) 1 "reads multi-map to multiple possible locations"
+vg index -s -k10 -d g.idx graphs/multimap.vg
+is $(vg map -M 2 -s "GCTAAGAGTAGGCCGGGGGTGTAGACCTTTGGGGTTGAATAAATCTATTGTACTAATCGG" -d g.idx -J | jq -c 'select(.is_secondary == true)' | wc -l) 1 "reads multi-map to multiple possible locations"
 
-rm -Rf graphs/multimap.vg.index
+rm -Rf g.idx
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.vg.idx -g x.vg.gcsa -k 16 -X 2 x.vg

@@ -26,8 +26,8 @@ is $(vg kmers -k 15 reversing/reversing_edge.vg | grep "CAAATAAGTGTAATC" | wc -l
 is $(vg kmers -k 15 reversing/reversing_edge.vg | grep "AAATAAGTGTAATCA" | wc -l) 1 "from_start edges are handled correctly"
 
 vg construct -v small/x.vcf.gz -r small/x.fa >x.vg
-vg index -s x.vg
-is $(vg find -n 10 -c 1 x.vg | vg kmers -n -k 11 - | sort -n -k 2 -k 3 | tail -1 | cut -f 2) \
+vg index -s -d x.idx x.vg
+is $(vg find -n 10 -c 1 -d x.idx | vg kmers -n -k 11 - | sort -n -k 2 -k 3 | tail -1 | cut -f 2) \
     12 \
     "kmers correctly generated from all nodes"
 
