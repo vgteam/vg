@@ -3085,12 +3085,13 @@ int main_find(int argc, char** argv) {
         }
     }
 
-    Index vindex;
     // open index
+    Index* vindex = nullptr;
     if (db_name.empty()) {
         assert(!gcsa_in.empty() || !xg_name.empty());
     } else {
-        vindex.open_read_only(db_name);
+        vindex = new Index;
+        vindex->open_read_only(db_name);
     }
 
     xg::XG xindex;
@@ -3165,9 +3166,9 @@ int main_find(int argc, char** argv) {
             vector<VG> graphs;
             for (auto node_id : node_ids) {
                 VG g;
-                vindex.get_context(node_id, g);
+                vindex->get_context(node_id, g);
                 if (context_size > 0) {
-                    vindex.expand_context(g, context_size);
+                    vindex->expand_context(g, context_size);
                 }
                 graphs.push_back(g);
             }
@@ -3181,24 +3182,24 @@ int main_find(int argc, char** argv) {
             result_graph.serialize_to_ostream(cout);
         } else if (end_id != 0) {
             vector<Edge> edges;
-            vindex.get_edges_on_end(end_id, edges);
+            vindex->get_edges_on_end(end_id, edges);
             for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
                 cout << (e->from_start() ? -1 : 1) * e->from() << "\t" <<  (e->to_end() ? -1 : 1) * e->to() << endl;
             }
         } else if (start_id != 0) {
             vector<Edge> edges;
-            vindex.get_edges_on_start(start_id, edges);
+            vindex->get_edges_on_start(start_id, edges);
             for (vector<Edge>::iterator e = edges.begin(); e != edges.end(); ++e) {
                 cout << (e->from_start() ? -1 : 1) * e->from() << "\t" <<  (e->to_end() ? -1 : 1) * e->to() << endl;
             }
         }
         if (!node_ids.empty() && !path_name.empty()) {
-            int64_t path_id = vindex.get_path_id(path_name);
+            int64_t path_id = vindex->get_path_id(path_name);
             for (auto node_id : node_ids) {
                 list<pair<int64_t, bool>> path_prev, path_next;
                 int64_t prev_pos=0, next_pos=0;
                 bool prev_backward, next_backward;
-                if (vindex.get_node_path_relative_position(node_id, false, path_id,
+                if (vindex->get_node_path_relative_position(node_id, false, path_id,
                                                           path_prev, prev_pos, prev_backward,
                                                           path_next, next_pos, next_backward)) {
 
@@ -3206,7 +3207,7 @@ int main_find(int argc, char** argv) {
                     cout << node_id << "\t" << path_prev.front().first * (path_prev.front().second ? -1 : 1) << "\t" << prev_pos
                          << "\t" << path_next.back().first * (path_next.back().second ? -1 : 1) << "\t" << next_pos << "\t";
 
-                    Mapping m = vindex.path_relative_mapping(node_id, false, path_id,
+                    Mapping m = vindex->path_relative_mapping(node_id, false, path_id,
                                                             path_prev, prev_pos, prev_backward,
                                                             path_next, next_pos, next_backward);
                     cout << pb2json(m) << endl;
@@ -3218,9 +3219,9 @@ int main_find(int argc, char** argv) {
             int64_t start, end;
             VG graph;
             parse_region(target, name, start, end);
-            vindex.get_path(graph, name, start, end);
+            vindex->get_path(graph, name, start, end);
             if (context_size > 0) {
-                vindex.expand_context(graph, context_size);
+                vindex->expand_context(graph, context_size);
             }
             graph.remove_orphan_edges();
             graph.serialize_to_ostream(cout);
@@ -3235,9 +3236,9 @@ int main_find(int argc, char** argv) {
             }
             convert(parts.front(), id_start);
             convert(parts.back(), id_end);
-            vindex.get_range(id_start, id_end, graph);
+            vindex->get_range(id_start, id_end, graph);
             if (context_size > 0) {
-                vindex.expand_context(graph, context_size);
+                vindex->expand_context(graph, context_size);
             }
             graph.remove_orphan_edges();
             graph.serialize_to_ostream(cout);
@@ -3252,7 +3253,7 @@ int main_find(int argc, char** argv) {
                 cerr << "error:[vg find] a GCSA index must be passed to get MEMs" << endl;
                 return 1;
             }
-            set<int> kmer_sizes = vindex.stored_kmer_sizes();
+            set<int> kmer_sizes = vindex->stored_kmer_sizes();
             if (kmer_sizes.empty()) {
                 cerr << "error:[vg find] index does not include kmers, add with vg index -k" << endl;
                 return 1;
@@ -3305,12 +3306,12 @@ int main_find(int argc, char** argv) {
     if (!kmers.empty()) {
         if (count_kmers) {
             for (auto& kmer : kmers) {
-                cout << kmer << "\t" << vindex.approx_size_of_kmer_matches(kmer) << endl;
+                cout << kmer << "\t" << vindex->approx_size_of_kmer_matches(kmer) << endl;
             }
         } else if (kmer_table) {
             for (auto& kmer : kmers) {
                 map<string, vector<pair<int64_t, int32_t> > > positions;
-                vindex.get_kmer_positions(kmer, positions);
+                vindex->get_kmer_positions(kmer, positions);
                 for (auto& k : positions) {
                     for (auto& p : k.second) {
                         cout << k.first << "\t" << p.first << "\t" << p.second << endl;
@@ -3321,9 +3322,9 @@ int main_find(int argc, char** argv) {
             vector<VG> graphs;
             for (auto& kmer : kmers) {
                 VG g;
-                vindex.get_kmer_subgraph(kmer, g);
+                vindex->get_kmer_subgraph(kmer, g);
                 if (context_size > 0) {
-                    vindex.expand_context(g, context_size);
+                    vindex->expand_context(g, context_size);
                 }
                 graphs.push_back(g);
             }
@@ -3337,6 +3338,8 @@ int main_find(int argc, char** argv) {
             result_graph.serialize_to_ostream(cout);
         }
     }
+
+    if (vindex) delete vindex;
 
     return 0;
 
