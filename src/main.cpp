@@ -3928,9 +3928,6 @@ int main_index(int argc, char** argv) {
         index.serialize(db_out);
         db_out.close();
         
-        
-        
-        // should we stop here?
     }
 
     if(!gcsa_name.empty()) {
@@ -3976,154 +3973,154 @@ int main_index(int argc, char** argv) {
         sdsl::store_to_file(*lcp_array, lcp_name);
         delete lcp_array;
 
-        // Skip all the Snappy stuff we can't do (yet).
-        return 0;
     }
 
+    if (!db_name.empty()) {
 
-    Index index;
-    index.use_snappy = use_snappy;
+        Index index;
+        index.use_snappy = use_snappy;
 
-    if (compact) {
-        index.open_for_write(db_name);
-        index.compact();
-        index.flush();
-        index.close();
-    }
+        if (compact) {
+            index.open_for_write(db_name);
+            index.compact();
+            index.flush();
+            index.close();
+        }
 
-    // todo, switch to xg for graph storage
-    // index should write and load index/xg or such
-    // then a handful of functions used in main.cpp and mapper.cpp need to be rewritten to use the xg index
-    if (store_graph && file_names.size() > 0) {
-        index.open_for_write(db_name);
-        VGset graphs(file_names);
-        graphs.show_progress = show_progress;
-        graphs.store_in_index(index);
-        //index.flush();
-        //index.close();
-        // reopen to index paths
-        // this requires the index to be queryable
-        //index.open_for_write(db_name);
-        graphs.store_paths_in_index(index);
-        index.compact();
-        index.flush();
-        index.close();
-    }
+        // todo, switch to xg for graph storage
+        // index should write and load index/xg or such
+        // then a handful of functions used in main.cpp and mapper.cpp need to be rewritten to use the xg index
+        if (store_graph && file_names.size() > 0) {
+            index.open_for_write(db_name);
+            VGset graphs(file_names);
+            graphs.show_progress = show_progress;
+            graphs.store_in_index(index);
+            //index.flush();
+            //index.close();
+            // reopen to index paths
+            // this requires the index to be queryable
+            //index.open_for_write(db_name);
+            graphs.store_paths_in_index(index);
+            index.compact();
+            index.flush();
+            index.close();
+        }
 
-    if (store_alignments && file_names.size() > 0) {
-        index.open_for_write(db_name);
-        function<void(Alignment&)> lambda = [&index](Alignment& aln) {
-            index.put_alignment(aln);
-        };
-        for (auto& file_name : file_names) {
-            if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(file_name.c_str());
-                stream::for_each(in, lambda);
+        if (store_alignments && file_names.size() > 0) {
+            index.open_for_write(db_name);
+            function<void(Alignment&)> lambda = [&index](Alignment& aln) {
+                index.put_alignment(aln);
+            };
+            for (auto& file_name : file_names) {
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
             }
+            index.flush();
+            index.close();
         }
-        index.flush();
-        index.close();
-    }
 
-    if (dump_alignments) {
-        vector<Alignment> output_buf;
-        index.open_read_only(db_name);
-        auto lambda = [&output_buf](const Alignment& aln) {
-            output_buf.push_back(aln);
-            stream::write_buffered(cout, output_buf, 1000);
-        };
-        index.for_each_alignment(lambda);
-        stream::write_buffered(cout, output_buf, 0);
-        index.close();
-    }
+        if (dump_alignments) {
+            vector<Alignment> output_buf;
+            index.open_read_only(db_name);
+            auto lambda = [&output_buf](const Alignment& aln) {
+                output_buf.push_back(aln);
+                stream::write_buffered(cout, output_buf, 1000);
+            };
+            index.for_each_alignment(lambda);
+            stream::write_buffered(cout, output_buf, 0);
+            index.close();
+        }
 
-    if (store_mappings && file_names.size() > 0) {
-        index.open_for_write(db_name);
-        function<void(Alignment&)> lambda = [&index](Alignment& aln) {
-            const Path& path = aln.path();
-            for (int i = 0; i < path.mapping_size(); ++i) {
-                index.put_mapping(path.mapping(i));
+        if (store_mappings && file_names.size() > 0) {
+            index.open_for_write(db_name);
+            function<void(Alignment&)> lambda = [&index](Alignment& aln) {
+                const Path& path = aln.path();
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    index.put_mapping(path.mapping(i));
+                }
+            };
+            for (auto& file_name : file_names) {
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
             }
-        };
-        for (auto& file_name : file_names) {
-            if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
-            } else {
-                ifstream in;
-                in.open(file_name.c_str());
-                stream::for_each(in, lambda);
+            index.flush();
+            index.close();
+        }
+
+        if (kmer_size != 0 && file_names.size() > 0) {
+            index.open_for_bulk_load(db_name);
+            VGset graphs(file_names);
+            graphs.show_progress = show_progress;
+            graphs.index_kmers(index, kmer_size, path_only, edge_max, kmer_stride, allow_negs);
+            index.flush();
+            index.close();
+            // forces compaction
+            index.open_for_write(db_name);
+            index.flush();
+            index.compact();
+            index.close();
+        }
+
+        if (prune_kb >= 0) {
+            if (show_progress) {
+                cerr << "pruning kmers > " << prune_kb << " on disk from " << db_name << endl;
             }
+            index.open_for_write(db_name);
+            index.prune_kmers(prune_kb);
+            index.compact();
+            index.close();
         }
-        index.flush();
-        index.close();
-    }
 
-    if (kmer_size != 0 && file_names.size() > 0) {
-        index.open_for_bulk_load(db_name);
-        VGset graphs(file_names);
-        graphs.show_progress = show_progress;
-        graphs.index_kmers(index, kmer_size, path_only, edge_max, kmer_stride, allow_negs);
-        index.flush();
-        index.close();
-        // forces compaction
-        index.open_for_write(db_name);
-        index.flush();
-        index.compact();
-        index.close();
-    }
-
-    if (prune_kb >= 0) {
-        if (show_progress) {
-            cerr << "pruning kmers > " << prune_kb << " on disk from " << db_name << endl;
+        if (set_kmer_size) {
+            assert(kmer_size != 0);
+            index.open_for_write(db_name);
+            index.remember_kmer_size(kmer_size);
+            index.close();
         }
-        index.open_for_write(db_name);
-        index.prune_kmers(prune_kb);
-        index.compact();
-        index.close();
-    }
 
-    if (set_kmer_size) {
-        assert(kmer_size != 0);
-        index.open_for_write(db_name);
-        index.remember_kmer_size(kmer_size);
-        index.close();
-    }
-
-    if (dump_index) {
-        index.open_read_only(db_name);
-        index.dump(cout);
-        index.close();
-    }
-
-    if (describe_index) {
-        index.open_read_only(db_name);
-        set<int> kmer_sizes = index.stored_kmer_sizes();
-        cout << "kmer sizes: ";
-        for (auto kmer_size : kmer_sizes) {
-            cout << kmer_size << " ";
+        if (dump_index) {
+            index.open_read_only(db_name);
+            index.dump(cout);
+            index.close();
         }
-        cout << endl;
-        index.close();
-    }
 
-    if (path_layout) {
-        index.open_read_only(db_name);
-        //index.path_layout();
-        map<string, int64_t> path_by_id = index.paths_by_id();
-        map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> layout;
-        map<string, int64_t> length;
-        index.path_layout(layout, length);
-        for (auto& p : layout) {
-            // Negate IDs for backward nodes
-            cout << p.first << " " << p.second.first.first * (p.second.first.second ? -1 : 1) << " "
-                 << p.second.second.first * (p.second.second.second ? -1 : 1) << " " << length[p.first] << endl;
+        if (describe_index) {
+            index.open_read_only(db_name);
+            set<int> kmer_sizes = index.stored_kmer_sizes();
+            cout << "kmer sizes: ";
+            for (auto kmer_size : kmer_sizes) {
+                cout << kmer_size << " ";
+            }
+            cout << endl;
+            index.close();
         }
-        index.close();
-    }
 
+        if (path_layout) {
+            index.open_read_only(db_name);
+            //index.path_layout();
+            map<string, int64_t> path_by_id = index.paths_by_id();
+            map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> layout;
+            map<string, int64_t> length;
+            index.path_layout(layout, length);
+            for (auto& p : layout) {
+                // Negate IDs for backward nodes
+                cout << p.first << " " << p.second.first.first * (p.second.first.second ? -1 : 1) << " "
+                     << p.second.second.first * (p.second.second.second ? -1 : 1) << " " << length[p.first] << endl;
+            }
+            index.close();
+        }
+    }
+    
     return 0;
 
 }
