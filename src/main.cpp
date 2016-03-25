@@ -3592,7 +3592,7 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if(kmer_size == 0 && !gcsa_name.empty()) {
+    if(kmer_size == 0 && !gcsa_name.empty() && dbg_name.empty()) {
         // gcsa doesn't do anything if we tell it a kmer size of 0.
         cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
         return 1;
@@ -3959,8 +3959,10 @@ int main_index(int argc, char** argv) {
         gcsa::LCPArray* lcp_array = new gcsa::LCPArray(input_graph, params);
 
         // clean up input graph temp files
-        for (auto& tfn : tmpfiles) {
-            remove(tfn.c_str());
+        if (dbg_name.empty()) {
+            for (auto& tfn : tmpfiles) {
+                remove(tfn.c_str());
+            }
         }
 
         // Save the GCSA2 index

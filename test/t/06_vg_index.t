@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
 
-plan tests 39
+plan tests 40
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 
@@ -39,6 +39,11 @@ rm -rf x.idx
 vg index -g x.gcsa -k 16 x.vg
 is $? 0 "building a GCSA2 index"
 rm -f x.gcsa x.gcsa.lcp
+
+vg kmers -k 16 -gB x.vg >x.graph
+vg index -i x.graph -g x.gcsa
+is $? 0 "a prebuilt deBruijn graph in GCSA2 format may be used"
+rm -f x.gcsa x.gcsa.lcp x.graph
 
 vg index -s -k 11 -d x.idx x.vg
 num_records=$(vg index -D -d x.idx | wc -l)
