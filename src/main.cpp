@@ -200,10 +200,10 @@ int main_compare(int argc, char** argv) {
     string file_name2 = argv[optind];
 
     if (db_name1.empty()) {
-        db_name1 = file_name1 + ".index";
+        db_name1 = file_name1;
     }
     if (db_name2.empty()) {
-        db_name2 = file_name2 + ".index";
+        db_name2 = file_name2;
     }
 
     // Note: only supporting rocksdb index for now.
@@ -589,6 +589,7 @@ void help_msga(char** argv) {
          << "    -S, --accept-score N    accept early alignment if the normalized alignment score is > N and -G is set" << endl
          << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
          << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
+         << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
          << "index generation:" << endl
          << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
          << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
@@ -626,6 +627,9 @@ int main_msga(int argc, char** argv) {
     int best_clusters = 0;
     int hit_max = 100;
     int max_attempts = 10;
+    // if we set this above 1, we use a dynamic programming process to determine the
+    // optimal alignment through a series of bands based on a proximity metric
+    int max_multimaps = 1;
     // if this is set too low, we may miss optimal alignments
     int context_depth = 7;
     // same here; initial clustering
@@ -672,7 +676,6 @@ int main_msga(int argc, char** argv) {
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
                 {"allow-nonpath", no_argument, 0, 'z'},
-                {"iter-max", required_argument, 0, 'I'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"hit-max", required_argument, 0, 'H'},
@@ -683,11 +686,12 @@ int main_msga(int argc, char** argv) {
                 {"max-attempts", required_argument, 0, 'M'},
                 {"thread-ex", required_argument, 0, 'T'},
                 {"max-target-x", required_argument, 0, 'q'},
+                {"max-multimaps", required_argument, 0, 'I'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:O",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -709,6 +713,10 @@ int main_msga(int argc, char** argv) {
             hit_max = atoi(optarg);
             break;
 
+        case 'I':
+            max_multimaps = atoi(optarg);
+            break;
+
         case 'q':
             max_target_factor = atoi(optarg);
             break;
@@ -719,10 +727,6 @@ int main_msga(int argc, char** argv) {
 
         case 'T':
             thread_extension = atoi(optarg);
-            break;
-
-        case 'I':
-            iter_max = atoi(optarg);
             break;
 
         case 'G':
@@ -936,6 +940,7 @@ int main_msga(int argc, char** argv) {
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
+            mapper->max_multimaps = max_multimaps;
             if (accept_score) mapper->accept_norm_score = accept_score;
         }
     };
@@ -952,7 +957,7 @@ int main_msga(int argc, char** argv) {
         //graph->serialize_to_file("msga-pre-" + name + ".vg");
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
-            if (debug) cerr << name << ": adding to graph, attempt " << iter << endl;
+            if (debug) cerr << name << ": adding to graph" << iter << endl;
             vector<Path> paths;
             vector<Alignment> alns;
             int j = 0;
@@ -3073,16 +3078,9 @@ int main_find(int argc, char** argv) {
         }
     }
     if (optind < argc) {
-        string file_name = argv[optind];
-        if (file_name == "-") {
-            if (db_name.empty()) {
-                cerr << "error:[vg find] reading variant graph from stdin and no db name (-d) given, exiting" << endl;
-                return 1;
-            }
-        }
-        if (db_name.empty()) {
-            db_name = file_name + ".index";
-        }
+        //string file_name = argv[optind];
+        cerr << "[vg find] find requires -d, -g, or -x to know where to find its database" << endl;
+        return 1;
     }
 
     // open index
@@ -3356,6 +3354,7 @@ void help_index(char** argv) {
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
+         << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
@@ -3393,11 +3392,12 @@ int main_index(int argc, char** argv) {
         return 1;
     }
 
-    string db_name;
+    string rocksdb_name;
     string gcsa_name;
     string xg_name;
     // Where should we import haplotype phasing paths from, if anywhere?
     string vcf_name;
+    string dbg_name;
     int kmer_size = 0;
     bool path_only = false;
     int edge_max = 0;
@@ -3451,11 +3451,12 @@ int main_index(int argc, char** argv) {
                 {"forward-only", no_argument, 0, 'F'},
                 {"size-limit", no_argument, 0, 'Z'},
                 {"path-only", no_argument, 0, 'O'},
+                {"dbg-in", required_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:O",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -3465,7 +3466,7 @@ int main_index(int argc, char** argv) {
         switch (c)
         {
         case 'd':
-            db_name = optarg;
+            rocksdb_name = optarg;
             break;
 
         case 'x':
@@ -3556,6 +3557,10 @@ int main_index(int argc, char** argv) {
             verify_index = true;
             break;
 
+        case 'i':
+            dbg_name = optarg;
+            break;
+
         case 'F':
             forward_only = true;
             break;
@@ -3585,19 +3590,6 @@ int main_index(int argc, char** argv) {
     while (optind < argc) {
         string file_name = argv[optind++];
         file_names.push_back(file_name);
-    }
-
-    if (db_name.empty() && xg_name.empty() && gcsa_name.empty()) {
-        if (file_names.size() > 1) {
-            cerr << "error:[vg index] working on multiple graphs and no db name (-d) given, exiting" << endl;
-            return 1;
-        } else if (file_names.size() == 1) {
-            // Name the database for rocksdb
-            db_name = *file_names.begin() + ".index";
-        } else {
-            cerr << "error:[vg index] no graph or db given, exiting" << endl;
-            return 1;
-        }
     }
 
     if(kmer_size == 0 && !gcsa_name.empty()) {
@@ -3937,12 +3929,15 @@ int main_index(int argc, char** argv) {
         // We need to make a gcsa index.
 
         // Load up the graphs
-        VGset graphs(file_names);
-
-        graphs.show_progress = show_progress;
-
-        // Go get the kmers of the correct size
-        auto tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, path_only, forward_only);
+        vector<string> tmpfiles;
+        if (dbg_name.empty()) {
+            VGset graphs(file_names);
+            graphs.show_progress = show_progress;
+            // Go get the kmers of the correct size
+            tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, path_only, forward_only);
+        } else {
+            tmpfiles.push_back(dbg_name);
+        }
         // Make the index with the kmers
         gcsa::InputGraph input_graph(tmpfiles, true);
         gcsa::ConstructionParameters params;
@@ -3978,13 +3973,13 @@ int main_index(int argc, char** argv) {
 
     }
 
-    if (!db_name.empty()) {
+    if (!rocksdb_name.empty()) {
 
         Index index;
         index.use_snappy = use_snappy;
 
         if (compact) {
-            index.open_for_write(db_name);
+            index.open_for_write(rocksdb_name);
             index.compact();
             index.flush();
             index.close();
@@ -3994,7 +3989,7 @@ int main_index(int argc, char** argv) {
         // index should write and load index/xg or such
         // then a handful of functions used in main.cpp and mapper.cpp need to be rewritten to use the xg index
         if (store_graph && file_names.size() > 0) {
-            index.open_for_write(db_name);
+            index.open_for_write(rocksdb_name);
             VGset graphs(file_names);
             graphs.show_progress = show_progress;
             graphs.store_in_index(index);
@@ -4010,7 +4005,7 @@ int main_index(int argc, char** argv) {
         }
 
         if (store_alignments && file_names.size() > 0) {
-            index.open_for_write(db_name);
+            index.open_for_write(rocksdb_name);
             function<void(Alignment&)> lambda = [&index](Alignment& aln) {
                 index.put_alignment(aln);
             };
@@ -4029,7 +4024,7 @@ int main_index(int argc, char** argv) {
 
         if (dump_alignments) {
             vector<Alignment> output_buf;
-            index.open_read_only(db_name);
+            index.open_read_only(rocksdb_name);
             auto lambda = [&output_buf](const Alignment& aln) {
                 output_buf.push_back(aln);
                 stream::write_buffered(cout, output_buf, 1000);
@@ -4040,7 +4035,7 @@ int main_index(int argc, char** argv) {
         }
 
         if (store_mappings && file_names.size() > 0) {
-            index.open_for_write(db_name);
+            index.open_for_write(rocksdb_name);
             function<void(Alignment&)> lambda = [&index](Alignment& aln) {
                 const Path& path = aln.path();
                 for (int i = 0; i < path.mapping_size(); ++i) {
@@ -4061,14 +4056,14 @@ int main_index(int argc, char** argv) {
         }
 
         if (kmer_size != 0 && file_names.size() > 0) {
-            index.open_for_bulk_load(db_name);
+            index.open_for_bulk_load(rocksdb_name);
             VGset graphs(file_names);
             graphs.show_progress = show_progress;
             graphs.index_kmers(index, kmer_size, path_only, edge_max, kmer_stride, allow_negs);
             index.flush();
             index.close();
             // forces compaction
-            index.open_for_write(db_name);
+            index.open_for_write(rocksdb_name);
             index.flush();
             index.compact();
             index.close();
@@ -4076,9 +4071,9 @@ int main_index(int argc, char** argv) {
 
         if (prune_kb >= 0) {
             if (show_progress) {
-                cerr << "pruning kmers > " << prune_kb << " on disk from " << db_name << endl;
+                cerr << "pruning kmers > " << prune_kb << " on disk from " << rocksdb_name << endl;
             }
-            index.open_for_write(db_name);
+            index.open_for_write(rocksdb_name);
             index.prune_kmers(prune_kb);
             index.compact();
             index.close();
@@ -4086,19 +4081,19 @@ int main_index(int argc, char** argv) {
 
         if (set_kmer_size) {
             assert(kmer_size != 0);
-            index.open_for_write(db_name);
+            index.open_for_write(rocksdb_name);
             index.remember_kmer_size(kmer_size);
             index.close();
         }
 
         if (dump_index) {
-            index.open_read_only(db_name);
+            index.open_read_only(rocksdb_name);
             index.dump(cout);
             index.close();
         }
 
         if (describe_index) {
-            index.open_read_only(db_name);
+            index.open_read_only(rocksdb_name);
             set<int> kmer_sizes = index.stored_kmer_sizes();
             cout << "kmer sizes: ";
             for (auto kmer_size : kmer_sizes) {
@@ -4109,7 +4104,7 @@ int main_index(int argc, char** argv) {
         }
 
         if (path_layout) {
-            index.open_read_only(db_name);
+            index.open_read_only(rocksdb_name);
             //index.path_layout();
             map<string, int64_t> path_by_id = index.paths_by_id();
             map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> layout;
@@ -4565,14 +4560,6 @@ int main_map(int argc, char** argv) {
     string file_name;
     if (optind < argc) {
         file_name = argv[optind];
-    }
-
-    if (db_name.empty() && !file_name.empty()) {
-        db_name = file_name + ".index";
-    }
-
-    if (xg_name.empty() && !file_name.empty()) {
-        xg_name = file_name + ".xg";
     }
 
     if (gcsa_name.empty() && !file_name.empty()) {
