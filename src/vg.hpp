@@ -10,6 +10,7 @@
 #include <array>
 #include <omp.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <limits.h>
 #include <algorithm>
 #include <random>
@@ -432,6 +433,7 @@ public:
     // write to a stream in chunked graphs
     void serialize_to_ostream(ostream& out, id_t chunk_size = 1000);
     void serialize_to_file(const string& file_name, id_t chunk_size = 1000);
+    void serialize_to_stdout();
 
     // can we handle this with merge?
     //void concatenate(VG& g);

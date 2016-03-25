@@ -7,11 +7,19 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 20
+plan tests 21
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep edges | cut -f 2) 291 "construction produces the right number of edges"
+
+# script has a different interface on mac and linux
+if [[ $(uname -s) = Darwin ]]; then
+    lines_out=$(script -q /dev/null vg construct -r small/x.fa -v small/x.vcf.gz | wc -l)
+else
+    lines_out=$(script -qfc "vg construct -r small/x.fa -v small/x.vcf.gz" /dev/null | wc -l)
+fi
+is $lines_out 641 "vg construct outputs to terminal in GFA"
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
