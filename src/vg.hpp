@@ -40,10 +40,17 @@
 #include "types.hpp"
 #include "gfakluge.hpp"
 
+#include "globalDefs.hpp"
+#include "Graph.hpp"
+#include "DetectSuperBubble.hpp"
+#include "helperDefs.hpp"
+
+
 // uncomment to enable verbose debugging to stderr
 //#define debug
 
 namespace vg {
+
 
 // Represents a node traversed in a certain orientation. The default orientation
 // is start to end, but if `backward` is set, represents the node being
@@ -138,7 +145,7 @@ public:
         // If it's in the same relative orientation, we go to its start.
         return minmax(NodeSide(end_id, true), NodeSide(oriented_other.first, oriented_other.second));
     }
-    
+
     // reverse complement the node side
     inline NodeSide flip(void) const {
         return NodeSide(node, !is_end);
@@ -157,6 +164,11 @@ struct KmerPosition {
     set<char> prev_chars;
     set<char> next_chars;
     set<string> next_positions;
+};
+
+struct SB_Input{
+    int num_vertices;
+    vector<pair<id_t, id_t> > edges;
 };
 
 inline ostream& operator<<(ostream& out, const NodeSide& nodeside) {
@@ -638,7 +650,7 @@ public:
     void remove_inverting_edges(void);
     // true if the graph has inversions, false otherwise
     bool has_inverting_edges(void);
-    
+
     // Keep paths in the given set of path names. Populates kept_names with the names of the paths it actually found to keep.
     // The paths specified may not overlap. Removes all nodes and edges not used by one of the specified paths.
     void keep_paths(set<string>& path_names, set<string>& kept_names);
@@ -660,6 +672,9 @@ public:
     const vector<Alignment> paths_as_alignments(void);
     const string path_sequence(const Path& path);
 
+    SB_Input vg_to_sb_input();
+    vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
+    vector<pair<id_t, id_t> > get_superbubbles();
     // edges
     // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.
@@ -857,10 +872,10 @@ public:
     vector<NodeTraversal> nodes_next(NodeTraversal n);
     // (uses set) traversals after this node on the same strand
     set<NodeTraversal> travs_from(NodeTraversal node);
-    
+
     // traversals before this node on the same strand
     set<NodeTraversal> travs_of(NodeTraversal node);
-    
+
     // Count the nodes attached to the left side of the given NodeTraversal
     int node_count_prev(NodeTraversal n);
     // Count the nodes attached to the right side of the given NodeTraversal
