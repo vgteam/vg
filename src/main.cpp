@@ -3780,12 +3780,13 @@ int main_index(int argc, char** argv) {
         // TODO: a better way to store path metadata
         map<string, Path> alt_paths;
         // This is matched against the entire string.
-        //regex is_alt("_alt_.+_[0-9]+"); TODO
+        regex is_alt("_alt_.+_[0-9]+");
 
         // store the graphs
         VGset graphs(file_names);
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
-        xg::XG index = graphs.to_xg(); //TODO graphs.to_xg(is_alt, alt_paths);
+        //xg::XG index = graphs.to_xg(); //TODO
+        xg::XG index = graphs.to_xg(is_alt, alt_paths);
 
         if(variant_file.is_open()) {
             // Now go through and add the varaints.
