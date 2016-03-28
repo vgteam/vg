@@ -4697,13 +4697,10 @@ int main_map(int argc, char** argv) {
             max_target_factor = atoi(optarg);
             break;
 
-<<<<<<< 840c1a276d91c99b8d056d88846e551d39ca98ff
         case 'Z':
             buffer_size = atoi(optarg);
             break;
 
-=======
->>>>>>> Merged with origin
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
