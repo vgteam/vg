@@ -3794,6 +3794,7 @@ int main_index(int argc, char** argv) {
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
         xg::XG index = graphs.to_xg(store_threads);
 
+
         if(variant_file.is_open()) {
             // Now go through and add the varaints.
 
