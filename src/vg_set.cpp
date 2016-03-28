@@ -57,14 +57,14 @@ int64_t VGset::merge_id_space(void) {
     return max_node_id;
 }
 
-xg::XG VGset::to_xg() {
+xg::XG VGset::to_xg(bool store_threads) {
     map<string, Path> dummy;
     // Nothing matches the default-constructed regex, so nothing will ever be
     // sent to the map.
-    return to_xg(regex(), dummy);
+    return to_xg(store_threads, regex(), dummy);
 }
 
-xg::XG VGset::to_xg(const regex& paths_to_take, map<string, Path>& removed_paths) {
+xg::XG VGset::to_xg(bool store_threads, const regex& paths_to_take, map<string, Path>& removed_paths) {
     
     // We need to sort out the mappings from different paths by rank. This maps
     // from path anme and then rank to Mapping.
