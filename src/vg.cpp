@@ -7509,16 +7509,22 @@ void VG::write_gcsa_kmers(int kmer_size, bool path_only,
                           bool forward_only,
                           ostream& out,
                           id_t& head_id, id_t& tail_id) {
-    vector<gcsa::KMer> kmers_out;
+    size_t buffer_limit = 1e5; // 100k kmers per buffer
+    auto handle_kmers = [&](vector<gcsa::KMer>& kmers, bool more) {
+        if (!more || kmers.size() > buffer_limit) {
+#pragma omp critical (gcsa_kmer_out)
+            gcsa::writeBinary(out, kmers, kmer_size);
+            kmers.clear();
+        }
+    };
     get_gcsa_kmers(kmer_size, path_only, edge_max, stride, forward_only,
-                   kmers_out, head_id, tail_id);
-    gcsa::writeBinary(out, kmers_out, kmer_size);
+                   handle_kmers, head_id, tail_id);
 }
 
 void VG::get_gcsa_kmers(int kmer_size, bool path_only,
                         int edge_max, int stride,
                         bool forward_only,
-                        vector<gcsa::KMer>& kmers_out,
+                        const function<void(vector<gcsa::KMer>&, bool)>& handle_kmers,
                         id_t& head_id, id_t& tail_id) {
 
     // TODO: This function goes through an internal string format that should
@@ -7539,8 +7545,9 @@ void VG::get_gcsa_kmers(int kmer_size, bool path_only,
         }
     }
 
-    auto convert_kmer = [&thread_outputs, &alpha, &head_id, &tail_id](KmerPosition& kp) {
+    auto convert_kmer = [&thread_outputs, &alpha, &head_id, &tail_id, &handle_kmers](KmerPosition& kp) {
         // Convert this KmerPosition to several gcsa::Kmers, and save them in thread_outputs
+        vector<gcsa::KMer>& thread_output = thread_outputs[omp_get_thread_num()];
 
         // We need to make this kmer into a series of tokens
         vector<string> tokens;
@@ -7582,7 +7589,15 @@ void VG::get_gcsa_kmers(int kmer_size, bool path_only,
             // tokens, the alphabet, and the index in the tokens of the
             // successor.
 
-            thread_outputs[omp_get_thread_num()].emplace_back(tokens, alpha, successor_index);
+            thread_output.emplace_back(tokens, alpha, successor_index);
+
+            // Mark kmers that go to the sink node as "sorted", since they have stop
+            // characters in them and can't be extended.
+            // If we don't do this GCSA will get unhappy and we'll see random segfalts and stack smashing errors
+            auto& kmer = thread_output.back();
+            if(gcsa::Node::id(kmer.to) == tail_id && gcsa::Node::offset(kmer.to) > 0) {
+                kmer.makeSorted();
+            }
 
             // Kmers that go to the sink/have stop characters still need to be marked as sorted.
             if(kp.kmer.rfind('$') != string::npos) {
@@ -7593,6 +7608,9 @@ void VG::get_gcsa_kmers(int kmer_size, bool path_only,
                 }
             }
         }
+
+        //handle kmers, and we have more to get
+        handle_kmers(thread_output, true);
 
     };
 
@@ -7605,20 +7623,10 @@ void VG::get_gcsa_kmers(int kmer_size, bool path_only,
                                          convert_kmer);
 
     for(auto& thread_output : thread_outputs) {
-        // Now throw everything into the output vector
-        kmers_out.insert(kmers_out.end(),
-                         make_move_iterator(thread_output.begin()),
-                         make_move_iterator(thread_output.end()));
+        // the last handling
+        handle_kmers(thread_output, false);
     }
 
-    for(auto& kmer : kmers_out) {
-        // Mark kmers that go to the sink node as "sorted", since they have stop
-        // characters in them and can't be extended.
-        // If we don't do this GCSA will get unhappy and we'll see random segfalts and stack smashing errors
-        if(gcsa::Node::id(kmer.to) == tail_id && gcsa::Node::offset(kmer.to) > 0) {
-            kmer.makeSorted();
-        }
-    }
 }
 
 string VG::write_gcsa_kmers_to_tmpfile(int kmer_size, bool path_only, bool forward_only,

@@ -334,14 +334,14 @@ void VGset::for_each_gcsa_kmer_position_parallel(int kmer_size,
 void VGset::get_gcsa_kmers(int kmer_size,
                            bool path_only,
                            bool forward_only,
-                           vector<gcsa::KMer>& kmers_out,
+                           const function<void(vector<gcsa::KMer>&, bool)>& handle_kmers,
                            int64_t head_id, int64_t tail_id) {
     for_each([&](VG* g) {
             g->get_gcsa_kmers(kmer_size,
                               path_only,
                               0, 1,
                               forward_only,
-                              kmers_out,
+                              handle_kmers,
                               head_id, tail_id);
         });
 }
