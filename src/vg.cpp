@@ -7725,6 +7725,7 @@ void VG::get_gcsa_kmers(int kmer_size, bool path_only,
 
             thread_output.emplace_back(tokens, alpha, successor_index);
 
+
             // Mark kmers that go to the sink node as "sorted", since they have stop
             // characters in them and can't be extended.
             // If we don't do this GCSA will get unhappy and we'll see random segfalts and stack smashing errors
