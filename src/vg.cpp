@@ -2157,36 +2157,35 @@ void VG::dice_nodes(int max_node_size) {
     paths.clear_mapping_ranks();
 
     if (max_node_size) {
-        vector<Node*> nodes; nodes.reserve(size());
+        list<Node*> stack;
         for_each_node(
-            [this, &nodes](Node* n) {
-                nodes.push_back(n);
+            [this, &stack](Node* n) {
+                stack.push_front(n);
             });
         auto lambda =
-            [this, max_node_size](Node* n) {
+            [this, max_node_size, &stack](Node* n) {
             int node_size = n->sequence().size();
             if (node_size > max_node_size) {
                 Node* l = NULL;
                 Node* r = NULL;
-                int div = 2;
-                while (node_size/div > max_node_size) {
-                    ++div;
-                }
-                int segment_size = node_size/div;
-                int i = 0;
-                while (n->sequence().size() > segment_size) {
-                    // For each division between the div new pieces,
-                    // break off a piece of the determined size at the left
-                    // TODO: for very large nodes, this is n * (n/max_node_size) = O(n^2).
-                    // We could do n log n if we split nodes in their middles.
-                    divide_node(n, segment_size, l, r);
-                    // Keep dividing the right node
-                    n = r;
-                }
+                int segment_size = node_size/2;
+                // Split the node in the middle, for O(n log n) character copy
+                // operations. This is the best we can get with a single-break
+                // split primitive. TODO: add a split-at-list-of-places
+                // primitive.
+                divide_node(n, segment_size, l, r);
+                
+                // Each of the child nodes need to be examined. We do it stack-
+                // wise for better locality.
+                stack.push_front(l);
+                stack.push_front(r);
             }
         };
-        for (int i = 0; i < nodes.size(); ++i) {
-            lambda(nodes[i]);
+        while(!stack.empty()) {
+            // Keep dividing nodes until they are all small enough.
+            Node* node = stack.front();
+            stack.pop_front();
+            lambda(node);
         }
     }
 
