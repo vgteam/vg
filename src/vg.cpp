@@ -7598,15 +7598,6 @@ void VG::get_gcsa_kmers(int kmer_size, bool path_only,
             if(gcsa::Node::id(kmer.to) == tail_id && gcsa::Node::offset(kmer.to) > 0) {
                 kmer.makeSorted();
             }
-
-            // Kmers that go to the sink/have stop characters still need to be marked as sorted.
-            if(kp.kmer.rfind('$') != string::npos) {
-                //(*(thread_outputs[omp_get_thread_num()].rbegin())).makeSorted();
-#pragma omp critical
-                {
-                   // cout << "Marked " << *(thread_outputs[omp_get_thread_num()].rbegin()) << " as sorted early" << endl;
-                }
-            }
         }
 
         //handle kmers, and we have more to get
