@@ -3501,7 +3501,7 @@ void help_index(char** argv) {
          << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
-         << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG" << endl
+         << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
          << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
          << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
          << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
@@ -3544,7 +3544,7 @@ int main_index(int argc, char** argv) {
     string xg_name;
     // Where should we import haplotype phasing paths from, if anywhere?
     string vcf_name;
-    string dbg_name;
+    vector<string> dbg_names;
     int kmer_size = 0;
     bool path_only = false;
     int edge_max = 0;
@@ -3708,7 +3708,7 @@ int main_index(int argc, char** argv) {
             verify_index = true;
             break;
         case 'i':
-            dbg_name = optarg;
+            dbg_names.push_back(optarg);
             break;
         case 'F':
             forward_only = true;
@@ -3745,7 +3745,7 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if(kmer_size == 0 && !gcsa_name.empty() && dbg_name.empty()) {
+    if(kmer_size == 0 && !gcsa_name.empty() && dbg_names.empty()) {
         // gcsa doesn't do anything if we tell it a kmer size of 0.
         cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
         return 1;
@@ -4082,13 +4082,13 @@ int main_index(int argc, char** argv) {
 
         // Load up the graphs
         vector<string> tmpfiles;
-        if (dbg_name.empty()) {
+        if (dbg_names.empty()) {
             VGset graphs(file_names);
             graphs.show_progress = show_progress;
             // Go get the kmers of the correct size
             tmpfiles = graphs.write_gcsa_kmers_binary(kmer_size, path_only, forward_only);
         } else {
-            tmpfiles.push_back(dbg_name);
+            tmpfiles = dbg_names;
         }
         // Make the index with the kmers
         gcsa::InputGraph input_graph(tmpfiles, true);
@@ -4111,7 +4111,7 @@ int main_index(int argc, char** argv) {
         gcsa::LCPArray* lcp_array = new gcsa::LCPArray(input_graph, params);
 
         // clean up input graph temp files
-        if (dbg_name.empty()) {
+        if (dbg_names.empty()) {
             for (auto& tfn : tmpfiles) {
                 remove(tfn.c_str());
             }
