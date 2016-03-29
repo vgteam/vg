@@ -482,10 +482,6 @@ public:
 
     // edit the graph to include the path
     void include(const Path& path);
-    // or a set of mappings against one node
-    void edit_node(id_t node_id,
-                   const vector<tuple<Mapping, bool, bool> >& mappings,
-                   map<pair<id_t, size_t>, pair<set<Node*>, set<Node*>>>& cut_trans);
     // Edit the graph to include all the sequence and edges added by the given
     // paths. Can handle paths that visit nodes in any orientation.
     void edit(const vector<Path>& paths);
