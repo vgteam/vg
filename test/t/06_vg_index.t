@@ -19,11 +19,12 @@ vg index -x x.xg x.vg
 is $? 0 "building an xg index of the graph"
 rm -f x.xg
 
-cp x.vg y.vg
-vg ids -j x.vg y.vg
-vg index -x x.xg x.vg y.vg
+vg mod -D x.vg >y.vg
+cp y.vg z.vg
+vg ids -j y.vg z.vg
+vg index -x x.xg y.vg z.vg
 is $? 0 "building an xg index using multiple input files"
-rm -rf x.xg y.vg
+rm -rf x.xg y.vg z.vg
 
 vg index -s -d x.idx x.vg bogus123.vg
 is $? 134 "fail with nonexistent file"
