@@ -989,7 +989,7 @@ public:
     void get_gcsa_kmers(int kmer_size, bool path_only,
                         int edge_max, int stride,
                         bool forward_only,
-                        vector<gcsa::KMer>& kmers_out,
+                        const function<void(vector<gcsa::KMer>&, bool)>& handle_kmers,
                         id_t& head_id, id_t& tail_id);
 
     void write_gcsa_kmers(int kmer_size, bool path_only,

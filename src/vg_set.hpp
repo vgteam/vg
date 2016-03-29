@@ -66,7 +66,7 @@ public:
     // gets all the kmers in GCSA's internal format.
     void get_gcsa_kmers(int kmer_size,
                         bool path_only, bool forward_only,
-                        vector<gcsa::KMer>& kmers_out,
+                        const function<void(vector<gcsa::KMer>&, bool)>& handle_kmers,
                         int64_t head_id=0, int64_t tail_id=0);
 
     vector<string> write_gcsa_kmers_binary(int kmer_size,
