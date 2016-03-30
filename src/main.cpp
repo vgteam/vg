@@ -986,6 +986,11 @@ void help_msga(char** argv) {
          << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
+         << "local alignment parameters:" << endl
+         << "    -a, --match N         use this match score (default: 1)" << endl
+         << "    -i, --mismatch N      use this mismatch penalty (default: 4)" << endl
+         << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
+         << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "mem mapping:" << endl
          << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: 0/unset)" << endl
          << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
@@ -1061,6 +1066,10 @@ int main_msga(int argc, char** argv) {
     float accept_identity = 0;
     int max_target_factor = 100;
     bool idx_path_only = false;
+    int match = 1;
+    int mismatch = 4;
+    int gap_open = 6;
+    int gap_extend = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1097,11 +1106,15 @@ int main_msga(int argc, char** argv) {
                 {"thread-ex", required_argument, 0, 'T'},
                 {"max-target-x", required_argument, 0, 'q'},
                 {"max-multimaps", required_argument, 0, 'I'},
+                {"match", required_argument, 0, 'a'},
+                {"mismatch", required_argument, 0, 'i'},
+                {"gap-open", required_argument, 0, 'o'},
+                {"gap-extend", required_argument, 0, 'e'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1151,7 +1164,6 @@ int main_msga(int argc, char** argv) {
         case 'c':
             context_depth = atoi(optarg);
             break;
-
 
         case 'f':
             fasta_files.push_back(optarg);
@@ -1231,6 +1243,22 @@ int main_msga(int argc, char** argv) {
 
             case 'z':
                 allow_nonpath = true;
+                break;
+                
+            case 'a':
+                match = atoi(optarg);
+                break;
+
+            case 'i':
+                mismatch = atoi(optarg);
+                break;
+
+            case 'o':
+                gap_open = atoi(optarg);
+                break;
+
+            case 'e':
+                gap_extend = atoi(optarg);
                 break;
 
             case 'h':
@@ -1356,6 +1384,10 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
+            mapper->match = match;
+            mapper->mismatch = mismatch;
+            mapper->gap_open = gap_open;
+            mapper->gap_extend = gap_extend;
         }
     };
 
@@ -4585,11 +4617,15 @@ void help_align(char** argv) {
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value" << endl
          << "    -j, --json            output alignments in JSON format (default GAM)" << endl
-         << "    -m, --match N         use this match score (default: 2)" << endl
-         << "    -M, --mismatch N      use this mismatch penalty (default: 2)" << endl
-         << "    -g, --gap-open N      use this gap open penalty (default: 3)" << endl
+         << "    -m, --match N         use this match score (default: 1)" << endl
+         << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
+         << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
-         << "    -D, --debug           print out score matrices and other debugging info" << endl;
+         << "    -D, --debug           print out score matrices and other debugging info" << endl
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -Q, --seq-name STR    name the sequence using this value" << endl
+         << "    -j, --json            output alignments in JSON format (default GAM)" << endl;
 }
 
 int main_align(int argc, char** argv) {
@@ -4604,9 +4640,9 @@ int main_align(int argc, char** argv) {
 
     bool print_cigar = false;
     bool output_json = false;
-    int match = 2;
-    int mismatch = 2;
-    int gap_open = 3;
+    int match = 1;
+    int mismatch = 4;
+    int gap_open = 6;
     int gap_extend = 1;
     bool debug = false;
 
@@ -4738,9 +4774,9 @@ void help_map(char** argv) {
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
-         << "    -q, --match N         use this match score (default: 2)" << endl
-         << "    -z, --mismatch N      use this mismatch penalty (default: 2)" << endl
-         << "    -o, --gap-open N      use this gap open penalty (default: 3)" << endl
+         << "    -q, --match N         use this match score (default: 1)" << endl
+         << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
+         << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
@@ -4819,9 +4855,9 @@ int main_map(int argc, char** argv) {
     int max_target_factor = 100;
     bool in_mem_path_only = false;
     int buffer_size = 100;
-    int match = 2;
-    int mismatch = 2;
-    int gap_open = 3;
+    int match = 1;
+    int mismatch = 4;
+    int gap_open = 6;
     int gap_extend = 1;
 
     int c;
@@ -4945,7 +4981,7 @@ int main_map(int argc, char** argv) {
         case 'm':
             hit_max = atoi(optarg);
             break;
-
+            
         case 'M':
             max_multimaps = atoi(optarg);
             break;
@@ -5178,7 +5214,7 @@ int main_map(int argc, char** argv) {
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer, &output_json, &buffer_size](vector<Alignment>& alignments) {
         // for(auto& alignment : alignments){
-        // 		cerr << "This is in output_alignments" << alignment.DebugString() << endl;
+        //     cerr << "This is in output_alignments" << alignment.DebugString() << endl;
         // }
 
         if (output_json) {
@@ -5765,7 +5801,7 @@ int main_view(int argc, char** argv) {
              graph->from_turtle("/dev/stdin", rdf_base_uri);
         } else {
              graph->from_turtle(file_name, rdf_base_uri);
-	}
+        }
     } else if (input_type == "gam") {
         if (input_json == false) {
             if (output_type == "json") {
