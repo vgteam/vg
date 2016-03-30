@@ -3792,7 +3792,7 @@ int main_index(int argc, char** argv) {
         // store the graphs
         VGset graphs(file_names);
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
-        xg::XG index = graphs.to_xg(store_threads); //TODO graphs.to_xg(is_alt, alt_paths);
+        xg::XG index = graphs.to_xg(store_threads);
 
         if(variant_file.is_open()) {
             // Now go through and add the varaints.
