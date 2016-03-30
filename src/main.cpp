@@ -3498,6 +3498,7 @@ void help_index(char** argv) {
          << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
          << "                           the graph(s) (effectively replaces rocksdb)" << endl
          << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
+         << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
          << "gcsa options:" << endl
          << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
          << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG" << endl
@@ -3565,6 +3566,7 @@ int main_index(int argc, char** argv) {
     bool verify_index = false;
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
+    bool store_threads = false; // use gPBWT to store paths
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3597,12 +3599,13 @@ int main_index(int argc, char** argv) {
                 {"forward-only", no_argument, 0, 'F'},
                 {"size-limit", no_argument, 0, 'Z'},
                 {"path-only", no_argument, 0, 'O'},
+                {"store-threads", no_argument, 0, 'T'},
                 {"dbg-in", required_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:T",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -3623,13 +3626,13 @@ int main_index(int argc, char** argv) {
             vcf_name = optarg;
             break;
 
-            case 'P':
-                prune_kb = atoi(optarg);
-                break;
+        case 'P':
+            prune_kb = atoi(optarg);
+            break;
 
-            case 'k':
-                kmer_size = atoi(optarg);
-                break;
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
 
 
         case 'O':
@@ -3641,92 +3644,96 @@ int main_index(int argc, char** argv) {
             break;
 
 
-            case 'j':
-                kmer_stride = atoi(optarg);
-                break;
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
 
-            case 'p':
-                show_progress = true;
-                break;
+        case 'p':
+            show_progress = true;
+            break;
 
-            case 'D':
-                dump_index = true;
-                break;
+        case 'D':
+            dump_index = true;
+            break;
 
-            case 'M':
-                describe_index = true;
-                break;
+        case 'M':
+            describe_index = true;
+            break;
 
-            case 'L':
-                path_layout = true;
-                break;
+        case 'L':
+            path_layout = true;
+            break;
 
-            case 'S':
-                set_kmer_size = true;
-                break;
+        case 'S':
+            set_kmer_size = true;
+            break;
 
-            case 's':
-                store_graph = true;
-                break;
+        case 's':
+            store_graph = true;
+            break;
 
-            case 'a':
-                store_alignments = true;
-                break;
+        case 'a':
+            store_alignments = true;
+            break;
 
-            case 'A':
-                dump_alignments = true;
-                break;
+        case 'A':
+            dump_alignments = true;
+            break;
 
-            case 'm':
-                store_mappings = true;
-                break;
+        case 'm':
+            store_mappings = true;
+            break;
 
-            case 'n':
-                allow_negs = true;
-                break;
+        case 'n':
+            allow_negs = true;
+            break;
 
-            case 'C':
-                compact = true;
-                break;
+        case 'C':
+            compact = true;
+            break;
 
-            case 'Q':
-                use_snappy = true;
-                break;
+        case 'Q':
+            use_snappy = true;
+            break;
 
-            case 't':
-                omp_set_num_threads(atoi(optarg));
-                break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
 
-            case 'g':
-                gcsa_name = optarg;
-                break;
+        case 'g':
+            gcsa_name = optarg;
+            break;
 
-            case 'V':
-                verify_index = true;
-                break;
+        case 'V':
+            verify_index = true;
+            break;
         case 'i':
             dbg_name = optarg;
             break;
         case 'F':
-                forward_only = true;
-                break;
+            forward_only = true;
+            break;
 
-            case 'X':
-                doubling_steps = atoi(optarg);
-                break;
+        case 'X':
+            doubling_steps = atoi(optarg);
+            break;
 
-            case 'Z':
-                size_limit = atoi(optarg);
-                break;
+        case 'Z':
+            size_limit = atoi(optarg);
+            break;
 
-            case 'h':
-            case '?':
-                help_index(argv);
-                exit(1);
-                break;
+        case 'T':
+            store_threads = true;
+            break;
 
-            default:
-                abort ();
+        case 'h':
+        case '?':
+            help_index(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
@@ -3785,8 +3792,11 @@ int main_index(int argc, char** argv) {
         // store the graphs
         VGset graphs(file_names);
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
+/**<<<<<<< HEAD
         //xg::XG index = graphs.to_xg(); //TODO
         xg::XG index = graphs.to_xg(is_alt, alt_paths);
+=======*/
+        xg::XG index = graphs.to_xg(store_threads); //TODO graphs.to_xg(is_alt, alt_paths);
 
         if(variant_file.is_open()) {
             // Now go through and add the varaints.
@@ -4530,174 +4540,174 @@ int main_map(int argc, char** argv) {
 
         switch (c)
         {
-          case 's':
-          seq = optarg;
-          break;
+        case 's':
+            seq = optarg;
+            break;
 
-          case 'V':
-          build_in_memory = true;
-          break;
+        case 'V':
+            build_in_memory = true;
+            break;
 
-          case 'd':
-          db_name = optarg;
-          break;
+        case 'd':
+            db_name = optarg;
+            break;
 
-          case 'x':
-          xg_name = optarg;
-          break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-          case 'g':
-          gcsa_name = optarg;
-          break;
+        case 'g':
+            gcsa_name = optarg;
+            break;
 
-          case 'j':
-          kmer_stride = atoi(optarg);
-          break;
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
 
 
-          case 'O':
-          in_mem_path_only = true;
-          break;
+        case 'O':
+            in_mem_path_only = true;
+            break;
 
-          case 'Q':
-          seq_name = optarg;
-          break;
+        case 'Q':
+            seq_name = optarg;
+            break;
 
-          case 'S':
-          sens_step = atoi(optarg);
-          break;
+        case 'S':
+            sens_step = atoi(optarg);
+            break;
 
-          case 'c':
-          best_clusters = atoi(optarg);
-          break;
+        case 'c':
+            best_clusters = atoi(optarg);
+            break;
 
-          case 'C':
-          cluster_min = atoi(optarg);
-          break;
+        case 'C':
+            cluster_min = atoi(optarg);
+            break;
 
-          case 'E':
-          min_kmer_entropy = atof(optarg);
-          break;
+        case 'E':
+            min_kmer_entropy = atof(optarg);
+            break;
 
-          case 'A':
-          max_attempts = atoi(optarg);
-          break;
+        case 'A':
+            max_attempts = atoi(optarg);
+            break;
 
-          case 'm':
-          hit_max = atoi(optarg);
-          break;
+        case 'm':
+            hit_max = atoi(optarg);
+            break;
 
-          case 'M':
-          max_multimaps = atoi(optarg);
-          break;
+        case 'M':
+            max_multimaps = atoi(optarg);
+            break;
 
-          case 'k':
+        case 'k':
             kmer_size = atoi(optarg);
             break;
 
-          case 'e':
-          thread_ex = atoi(optarg);
-          break;
+        case 'e':
+            thread_ex = atoi(optarg);
+            break;
 
-          case 'n':
-          context_depth = atoi(optarg);
-          break;
+        case 'n':
+            context_depth = atoi(optarg);
+            break;
 
-          case 'T':
-          softclip_threshold = atoi(optarg);
-          break;
+        case 'T':
+            softclip_threshold = atoi(optarg);
+            break;
 
-          case 'r':
-          read_file = optarg;
-          break;
+        case 'r':
+            read_file = optarg;
+            break;
 
-          case 'R':
-          read_group = optarg;
-          break;
+        case 'R':
+            read_group = optarg;
+            break;
 
-          case 'N':
-          sample_name = optarg;
-          break;
+        case 'N':
+            sample_name = optarg;
+            break;
 
-          case 'b':
-          hts_file = optarg;
-          break;
+        case 'b':
+            hts_file = optarg;
+            break;
 
-          case 'K':
-          keep_secondary = true;
-          break;
+        case 'K':
+            keep_secondary = true;
+            break;
 
-          case 'f':
-          if (fastq1.empty()) fastq1 = optarg;
-          else if (fastq2.empty()) fastq2 = optarg;
-          else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
-          break;
+        case 'f':
+            if (fastq1.empty()) fastq1 = optarg;
+            else if (fastq2.empty()) fastq2 = optarg;
+            else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
+            break;
 
-          case 'i':
-          interleaved_fastq = true;
-          break;
+        case 'i':
+            interleaved_fastq = true;
+            break;
 
-          case 'p':
-          pair_window = atoi(optarg);
-          break;
+        case 'p':
+            pair_window = atoi(optarg);
+            break;
 
-          case 't':
-          omp_set_num_threads(atoi(optarg));
-          break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
 
-          case 'D':
-          debug = true;
-          break;
+        case 'D':
+            debug = true;
+            break;
 
-          case 'F':
-          prefer_forward = true;
-          break;
+        case 'F':
+            prefer_forward = true;
+            break;
 
-          case 'G':
-          greedy_accept = true;
-          break;
+        case 'G':
+            greedy_accept = true;
+            break;
 
-          case 'X':
-          accept_score = atof(optarg);
-          break;
+        case 'X':
+            accept_score = atof(optarg);
+            break;
 
-          case 'J':
-          output_json = true;
-          break;
+        case 'J':
+            output_json = true;
+            break;
 
-          case 'B':
-          band_width = atoi(optarg);
-          break;
+        case 'B':
+            band_width = atoi(optarg);
+            break;
 
-          case 'P':
-          min_score = atof(optarg);
-          break;
+        case 'P':
+            min_score = atof(optarg);
+            break;
 
-          case 'l':
-          kmer_min = atoi(optarg);
-          break;
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
 
-          case 'L':
-          min_mem_length = atoi(optarg);
-          break;
+        case 'L':
+            min_mem_length = atoi(optarg);
+            break;
 
-          case 'Y':
-          max_mem_length = atoi(optarg);
-          break;
+        case 'Y':
+            max_mem_length = atoi(optarg);
+            break;
 
-          case 'H':
-          max_target_factor = atoi(optarg);
-          break;
+        case 'H':
+            max_target_factor = atoi(optarg);
+            break;
 
-          case 'h':
-          case '?':
-          /* getopt_long already printed an error message. */
-          help_map(argv);
-          exit(1);
-          break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_map(argv);
+            exit(1);
+            break;
 
-          default:
-          abort ();
+        default:
+            abort ();
         }
     }
 
