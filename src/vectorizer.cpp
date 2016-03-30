@@ -4,15 +4,14 @@ using namespace std;
 using namespace vg;
 using namespace sdsl;
 using namespace stream;
-Vectorizer::Vectorizer(xg::XG x){
-  my_xg = x;
-  vector<bit_vector> my_vectors;
-  vector<string> my_names;
+Vectorizer::Vectorizer(xg::XG* x) : my_xg(x){
+
 }
 
 Vectorizer::~Vectorizer(){
-
+  delete my_xg;
 }
+
 
 void Vectorizer::emit(ostream &out, bool r_format=false, bool annotate=false){
     /**TODO print header*/
@@ -76,20 +75,23 @@ string Vectorizer::format(bit_vector v){
 bit_vector Vectorizer::alignment_to_onehot(Alignment a){
   // Make a vector as large as the | |nodes| + |edges| | space
   // TODO handle edges
-  int64_t entity_size = my_xg.node_count + my_xg.edge_count;
+  int64_t entity_size = my_xg->node_count + my_xg->edge_count;
   bit_vector ret(entity_size, 0);
   Path path = a.path();
   for (int i = 0; i < path.mapping_size(); i++){
     Mapping mapping = path.mapping(i);
     Position pos = mapping.position();
     int64_t node_id = pos.node_id();
-    int64_t key = my_xg.node_rank_as_entity(node_id);
-		//TODO we're getting out of range errors??? How is that possible?
-		// OKAY, double weird - it's only with certain xg indices.
-		//TODO WHY???????
-    ret[key] = 1;
+    int64_t key = my_xg->node_rank_as_entity(node_id);
+    // Okay, solved the previous out of range errors:
+    // We have to use an entity-space that is |nodes + edges + 1|
+    // as nodes are indexed from 1, not from 0.
+    //TODO: this means we may one day have to do the same bump up
+    // by one for edges, as I assume they are also indexed starting at 1.
+    //cerr << key << " - " << entity_size << endl;
+    ret[key - 1] = 1;
   }
-  //aln_to_onehot[a] = ret;
+
   return ret;
 }
 
