@@ -194,10 +194,10 @@ int main_vectorize(int argc, char** argv){
         }
     }
 
-    xg::XG xindex;
+    xg::XG* xindex;
     if (!xg_name.empty()) {
         ifstream in(xg_name);
-        xindex.load(in);
+        xindex = new xg::XG(in);
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;
@@ -208,12 +208,21 @@ int main_vectorize(int argc, char** argv){
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz](Alignment a){
-        vz.add_bv(vz.alignment_to_onehot(a));
-        vz.add_name(a.name());
+    function<void(Alignment&)> lambda = [&vz, format](Alignment& a){
+      //vz.add_bv(vz.alignment_to_onehot(a));
+      //vz.add_name(a.name());
+      bit_vector v = vz.alignment_to_onehot(a);
+      if (format){
+        cout << a.name() << "\t";
+        cout << vz.format(v) << endl;
+      }
+      else{
+        cout << v << endl;
+      }
+
     };
     if (alignment_file == "-"){
-        stream::for_each(cin, lambda);
+        stream::for_each_parallel(cin, lambda);
     }
     else{
         ifstream in;
@@ -4272,7 +4281,7 @@ int main_index(int argc, char** argv) {
             index.close();
         }
     }
-    
+
     return 0;
 
 }
