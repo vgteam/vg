@@ -53,7 +53,7 @@ rm -f x.idx x.gcsa x.gcsa.lcp x.vg
 
 vg construct -rmem/h.fa >h.vg
 vg index -g h.gcsa -k 16 h.vg
-is $(vg find -M ACCGTTAGAGTCAG -g h.gcsa | md5sum | cut -f 1 -d\ ) b32ca3f2cc2087372dda2c0719bd3391 "we find the 4 canonical SMEMs from @lh3's bwa mem poster"
+is $(vg find -M ACCGTTAGAGTCAG -g h.gcsa) '[["ACC",["1:-32"]],["CCGTTAG",["1:5"]],["GTTAGAGT",["1:19"]],["TAGAGTCAG",["1:40"]]]' "we find the 4 canonical SMEMs from @lh3's bwa mem poster"
 rm -f h.gcsa h.gcsa.lcp h.vg
 
 vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz -m 64 >giab.vg
