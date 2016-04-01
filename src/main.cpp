@@ -4716,9 +4716,9 @@ int main_align(int argc, char** argv) {
 void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
          << "options:" << endl
-         << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl
+         << "    -d, --db-name DIR     use this db (defaults to <graph>.vg.index/)" << endl
          << "                          A graph is not required. But GCSA/xg take precedence if available." << endl
-         << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.xg)" << endl
+         << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "    -V, --in-memory       build the XG and GCSA2 indexes in-memory from the provided .vg file" << endl
          << "    -O, --in-mem-path-only  when making the in-memory temporary index, only look at embedded paths" << endl
@@ -5093,6 +5093,14 @@ int main_map(int argc, char** argv) {
 
     if (gcsa_name.empty() && !file_name.empty()) {
         gcsa_name = file_name + gcsa::GCSA::EXTENSION;
+    }
+    
+    if (xg_name.empty() && !file_name.empty()) {
+        xg_name = file_name + ".xg";
+    }
+    
+    if (db_name.empty() && !file_name.empty()) {
+        db_name = file_name + ".index";
     }
 
     // Load up our indexes.
