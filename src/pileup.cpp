@@ -237,10 +237,6 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
     string seq = edit.sequence();
     // is the mapping reversed wrt read sequence? use for iterating
     bool map_reverse = mapping.position().is_reverse();
-    // if so, we want to process the edit backwards
-    if (map_reverse && !seq.empty()) {
-        seq = reverse_complement(seq);
-    }
     
     // ***** MATCH *****
     if (edit.from_length() == edit.to_length()) {
