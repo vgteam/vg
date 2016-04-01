@@ -43,24 +43,20 @@ namespace vg{
       bool isNested;
     };
 
-class CandList{
-
-
-};
     class Deconstructor{
         public:
 
             Deconstructor();
-            Deconstructor(xg::XG x);
-			Deconstructor(VG v);
+            Deconstructor(VG* graph);
             ~Deconstructor();
+            bool is_nested(SuperBubble sb);
             SuperBubble report_superbubble(int64_t start, int64_t end);
             vector<SuperBubble> get_all_superbubbles();
             
 
         private:
-          xg::XG my_xg;
-		  VG my_vg;
+
+		  VG* my_vg;
           vector<SuperBubble> my_super_bubbles;
 		  vector<int64_t> nt_to_ids(deque<NodeTraversal>& nt);
 		  void init();
