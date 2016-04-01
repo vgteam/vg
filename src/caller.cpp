@@ -12,12 +12,13 @@ const double Caller::Log_zero = (double)-1e100;
 
 // these values pretty arbitrary at this point
 const double Caller::Default_het_prior = 0.001; // from MAQ
-const int Caller::Default_min_depth = 20;
-const int Caller::Default_max_depth = 5000;
-const int Caller::Default_min_support = 20;
-const double Caller::Default_min_frac = 0.75;
+const int Caller::Default_min_depth = 10;
+const int Caller::Default_max_depth = 200;
+const int Caller::Default_min_support = 1;
+const double Caller::Default_min_frac = 0.25;
 const double Caller::Default_min_likelihood = 1e-50;
 const char Caller::Default_default_quality = 30;
+const double Caller::Default_max_strand_bias = 0.25;
 
 Caller::Caller(VG* graph,
                double het_prior,
@@ -27,7 +28,9 @@ Caller::Caller(VG* graph,
                double min_frac,
                double min_likelihood, 
                bool leave_uncalled,
-               int default_quality):
+               int default_quality,
+               double max_strand_bias,
+               ostream* text_calls):
     _graph(graph),
     _het_log_prior(safe_log(het_prior)),
     _hom_log_prior(safe_log(.5 * (1. - het_prior))),
@@ -37,8 +40,11 @@ Caller::Caller(VG* graph,
     _min_frac(min_frac),
     _min_log_likelihood(safe_log(min_likelihood)),
     _leave_uncalled(leave_uncalled),
-    _default_quality(default_quality) {
+    _default_quality(default_quality),
+    _max_strand_bias(max_strand_bias),
+    _text_calls(text_calls) {
     _max_id = _graph->max_node_id();
+    _node_divider._max_id = &_max_id;
 }
 
 // delete contents of table
@@ -48,14 +54,20 @@ Caller::~Caller() {
 
 void Caller::clear() {
     _node_calls.clear();
+    _node_likelihoods.clear();
+    _insert_calls.clear();
+    _insert_likelihoods.clear();
     _call_graph = VG();
-    _start_node_map.clear();
-    _end_node_map.clear();
+    _node_divider.clear();
     _visited_nodes.clear();
+    _called_edges.clear();
+    _augmented_edges.clear();
+    _inserted_nodes.clear();
 }
 
 void Caller::write_call_graph(ostream& out, bool json) {
     if (json) {
+        _call_graph.paths.to_graph(_call_graph.graph);
         out << pb2json(_call_graph.graph);
     } else {
         _call_graph.serialize_to_ostream(out);
@@ -66,17 +78,31 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
 
     _node = _graph->get_node(pileup.node_id());
     assert(_node != NULL);
+    assert(_node->sequence().length() == pileup.base_pileup_size());
     
     _node_calls.clear();
-    char def_char = _leave_uncalled ? '.' : '-';
+    _insert_calls.clear();
+    string def_char = "-";
     _node_calls.assign(_node->sequence().length(), Genotype(def_char, def_char));
+    _insert_calls.assign(_node->sequence().length(), Genotype(def_char, def_char));
+    _node_likelihoods.clear();
+    _node_likelihoods.assign(_node->sequence().length(), safe_log(0));
+    _insert_likelihoods.clear();
+    _insert_likelihoods.assign(_node->sequence().length(), safe_log(0));
 
     // todo: parallelize this loop
     // process each base in pileup individually
     for (int i = 0; i < pileup.base_pileup_size(); ++i) {
-        if (pileup.base_pileup(i).num_bases() >= _min_depth &&
-            pileup.base_pileup(i).num_bases() <= _max_depth) {
-            call_base_pileup(pileup, i);
+        int num_inserts = 0;
+        for (auto b : pileup.base_pileup(i).bases()) {
+            if (b == '+') {
+                ++num_inserts;
+            }
+        }
+        int pileup_depth = max(num_inserts, pileup.base_pileup(i).num_bases() - num_inserts);
+        if (pileup_depth >= _min_depth && pileup_depth <= _max_depth) {
+            call_base_pileup(pileup, i, false);
+            call_base_pileup(pileup, i, true);
         }
     }
 
@@ -87,14 +113,24 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
     _visited_nodes.insert(_node->id());
 }
 
+void Caller::call_edge_pileup(const EdgePileup& pileup) {
+    if (pileup.num_reads() >= _min_depth &&
+        pileup.num_reads() <= _max_depth) {
+
+        // to do: factor in likelihood?
+        Edge edge = pileup.edge(); // gcc not happy about passing directly
+        _called_edges.insert(NodeSide::pair_from_edge(edge));
+    }
+}
+
 void Caller::update_call_graph() {
+    
     // if we're leaving uncalled nodes, add'em:
     if (_leave_uncalled) {
         function<void(Node*)> add_node = [&](Node* node) {
             if (_visited_nodes.find(node->id()) == _visited_nodes.end()) {
-                _call_graph.create_node(node->sequence(), node->id());
-                _start_node_map[node->id()] = NodePair(node->id(), -1);
-                _end_node_map[node->id()] = NodePair(node->id(), -1);
+                Node* call_node = _call_graph.create_node(node->sequence(), node->id());
+                _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref, (char)0);
             }
         };
         _graph->for_each_node(add_node);
@@ -103,34 +139,84 @@ void Caller::update_call_graph() {
     // map every edge in the original graph to equivalent sides
     // in the call graph. if both sides exist, make an edge in the call graph
     function<void(Edge*)> map_edge = [&](Edge* edge) {
-        const NodeMap& from_map = edge->from_start() ? _start_node_map : _end_node_map;
-        auto mappedNode1 = from_map.find(edge->from());
-        if (mappedNode1 != from_map.end()) {
-            const NodeMap& to_map = edge->to_end() ? _end_node_map : _start_node_map;
-            auto mappedNode2 = to_map.find(edge->to());
-            if (mappedNode2 != to_map.end()) {
-                // up to 2 mappings for each node, so 4 possible edges:
-                if (mappedNode1->second.first != -1 && mappedNode2->second.first != -1) {
-                    _call_graph.create_edge(mappedNode1->second.first, mappedNode2->second.first,
-                                            edge->from_start(), edge->to_end());
-                }
-                if (mappedNode1->second.first != -1 && mappedNode2->second.second != -1) {
-                    _call_graph.create_edge(mappedNode1->second.first, mappedNode2->second.second,
-                                            edge->from_start(), edge->to_end());
-                }
-                if (mappedNode1->second.second != -1 && mappedNode2->second.first != -1) {
-                    _call_graph.create_edge(mappedNode1->second.second, mappedNode2->second.first,
-                                            edge->from_start(), edge->to_end());
-                }
-                if (mappedNode1->second.second != -1 && mappedNode2->second.second != -1) {
-                    _call_graph.create_edge(mappedNode1->second.second, mappedNode2->second.second,
-                                            edge->from_start(), edge->to_end());
-                }
+        pair<NodeSide, NodeSide> sides = NodeSide::pair_from_edge(edge);
+        // skip uncalled edges if not writing augmented graph
+        bool called = _called_edges.find(sides) != _called_edges.end();
+        if (!_leave_uncalled && !called) {
+            return;
+        }
+        
+        Node* side1 = _graph->get_node(sides.first.node);
+        Node* side2 = _graph->get_node(sides.second.node);
+        // find up to two nodes matching side1 in the call graph
+        int from_offset = !sides.first.is_end ? 0 : side1->sequence().length() - 1;
+        int to_offset = sides.second.is_end ? side2->sequence().length() - 1 : 0;
+        cerr << "(orig) ";
+        char cat = called ? 'R' : 'U';
+        create_augmented_edge(side1, from_offset, !sides.first.is_end, true,
+                              side2, to_offset, !sides.second.is_end, true, cat);
+    };            
+
+    function<void(bool)> process_augmented_edges = [&](bool pass1) {
+        for (auto& i : _augmented_edges) {
+            auto& sides = i.first;
+            char cat = i.second;
+            NodeOffSide os1 = sides.first;
+            Node* node1;
+            bool aug1;
+            if (_graph->has_node(os1.first.node)) {
+                node1 = _graph->get_node(os1.first.node);
+                aug1 = true;
+            } else {
+                // snp or isnert node -- need to get from call grpah
+                // note : that we should never break these as they aren't in
+                // the divider structure (will be caught down the road)
+                node1 = _call_graph.get_node(os1.first.node);
+                aug1 = false;
+            }
+            int from_offset = os1.second;
+            bool left1 = !os1.first.is_end;
+            NodeOffSide os2 = sides.second;
+            Node* node2;
+            bool aug2;
+            if (_graph->has_node(os2.first.node)) {
+                node2 = _graph->get_node(os2.first.node);
+                aug2 = true;
+            } else {
+                // snp or insert node -- need to get from call graph
+                node2 = _call_graph.get_node(os2.first.node);
+                aug2 = false;
+            }
+            int to_offset = os2.second;
+            bool left2 = !os2.first.is_end;
+            // todo: clean this up
+            if (!pass1) {
+                cerr << "(pass2) i=" << sides.first << ", " << sides.second << "  ";
+                create_augmented_edge(node1, from_offset, left1, aug1,  node2, to_offset, left2, aug2, cat);
+            } else {
+                _node_divider.break_end(node1, &_call_graph, from_offset, left1);
+                _node_divider.break_end(node2, &_call_graph, to_offset, left2);
             }
         }
     };
+
+    // two passes here is a hack to make sure break_end is called on all edge ends
+    // before processing any of them. 
+    process_augmented_edges(true);
+    cerr << "PASS   2" << endl;
+    process_augmented_edges(false);
+    cerr << "PASS 3 " << endl;
     _graph->for_each_edge(map_edge);
 
+    // write out all the nodes in the divider structure to tsv
+    if (_text_calls != NULL) {
+        write_nd_tsv();
+        // add on the inserted nodes
+        for (auto n : _inserted_nodes) {
+            write_node_tsv(n.first, 'I', n.second);
+        }
+    }
+    
     // make sure paths are saved
     _call_graph.paths.rebuild_node_mapping();
     _call_graph.paths.rebuild_mapping_aux();
@@ -141,148 +227,396 @@ void Caller::update_call_graph() {
     //_call_graph.compact_ids();
 }
 
-void Caller::call_base_pileup(const NodePileup& np, int64_t offset) {
-    const BasePileup& bp = np.base_pileup(offset);
-    
-    // parse the pilueup structure
-    vector<pair<int, int> > base_offsets;
-    vector<pair<int, int> > indel_offsets;
-    Pileups::parse_base_offsets(bp, base_offsets, indel_offsets, indel_offsets);
 
-    // compute top two most frequent bases and their counts
-    char top_base;
-    int top_count;
-    char second_base;
-    int second_count;
-    compute_top_frequencies(bp, base_offsets, top_base, top_count, second_base, second_count);
-
-    // note first and second base will be upper case too
-    char ref_base = ::toupper(bp.ref_base());
-
-    // test against thresholding heuristics
-    if ((double)(top_count + second_count) / (double)base_offsets.size() >= _min_frac) {
-
-        // compute max likelihood snp genotype.  it will be one of the three combinations
-        // of the top two bases (we don't care about case here)
-        pair<char, char> g = mp_snp_genotype(bp, base_offsets, top_base, second_base);
-
-
-        // update the node calls
-        if (top_count >= _min_support) {
-            if (g.first != ref_base) {
-                _node_calls[offset].first = g.first;
-            } else {
-                _node_calls[offset].first = '.';
+void Caller::map_paths() {
+    // if we don't leave uncalled nodes (ie make augmented graph),
+    // then the paths may get disconnected, which we don't support for now
+    assert(_leave_uncalled == true);
+    function<void(const Path&)> lambda = [&](const Path& path) {
+        list<Mapping>& call_path = _call_graph.paths.create_path(path.name());
+        int last_rank = -1;
+        int last_call_rank = 0;
+        int running_len = 0;
+        int path_len = 0;
+        for (int i = 0; i < path.mapping_size(); ++i) {
+            const Mapping& mapping = path.mapping(i);
+            int rank = mapping.rank() == 0 ? i+1 : mapping.rank();
+            int len = mapping.edit_size() == 0 ? _graph->get_node(mapping.position().node_id())->sequence().length() :
+                mapping.edit(0).from_length();
+            int to_len = mapping.edit_size() == 0 ? len : mapping.edit(0).to_length();
+            if (mapping.edit_size() > 1 || len != to_len || rank <= last_rank) {
+                cerr << "rank " << rank;
+                cerr << "mapping " << pb2json(mapping) << endl;
+                cerr << "last_rank " << last_rank << endl;
+                cerr << "i " << i << endl;
+                cerr << "Skipping input path " << path.name()
+                     << " because ranks out of order or non-trivial edits." << endl;
+                set<string> s;
+                s.insert(path.name());
+                _call_graph.paths.remove_paths(s);
+                return;
             }
+            int node_id = mapping.position().node_id();
+            Node* node = _graph->get_node(node_id);
+            
+            int start = mapping.position().offset();
+            if (mapping.position().is_reverse()) {
+                start = node->sequence().length() - 1 - start;
+            }
+            int end = mapping.position().is_reverse() ? start - len + 1 : start + len - 1;
+            list<Mapping> call_mappings = _node_divider.map_node(node_id, start, len,
+                                                                 mapping.position().is_reverse());
+            for (auto& cm : call_mappings) {
+                cerr << "Map node " << pb2json(cm.position()) << " -> " << running_len << " = "
+                     << ( running_len + 32314860) << endl;
+                running_len += cm.edit(0).from_length();
+                cm.set_rank(++last_call_rank);
+                call_path.push_back(cm);
+            }
+            path_len += len;
+            last_rank = rank; 
         }
-        if (second_count >= _min_support) {
-            if (g.second != ref_base && g.second != g.first) {
-                _node_calls[offset].second = g.second;
-            } else {
-                _node_calls[offset].second = '.';
+        cerr << "running_len " << running_len << " path+len " << path_len << endl;
+        assert(running_len == path_len);
+        verify_path(path, call_path);
+    };
+    _graph->paths.for_each(lambda);
+    
+}
+
+void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
+    function<string(VG*, const Mapping&)> lambda = [](VG* graph, const Mapping& mapping) {
+        const Position& pos = mapping.position();
+        const Node* node = graph->get_node(pos.node_id());
+        string s = node->sequence();
+        int64_t offset = pos.offset();
+        if (mapping.position().is_reverse()) {
+            s = reverse_complement(s);
+        }
+        if (offset > 0) {
+            s = s.substr(pos.offset());
+        }
+        return s;
+    };
+
+    string in_string;
+    for (int i = 0; i < in_path.mapping_size(); ++i) {
+        in_string += lambda(_graph, in_path.mapping(i));
+    }
+    string call_string;
+    for (auto& m : call_path) {
+        call_string += lambda(&_call_graph, m);
+    }
+
+    cerr << "in string " << in_string.length() << " call_string " << call_string.length() << endl;
+    if (in_string.length() == call_string.length()) {
+        for (int i = 0; i < in_string.length(); ++i) {
+            if (in_string[i] != call_string[i]) {
+                cerr << i << " " << in_string[i] << " " << call_string[i] << endl;
             }
         }
     }
+    assert(in_string == call_string);
+
+}
+
+void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
+                                   Node* node2, int to_offset, bool left_side2, bool aug2, char cat) {
+    NodeDivider::Entry call_sides1;
+    NodeDivider::Entry call_sides2;
+
+    if (aug1) {
+        call_sides1 = _node_divider.break_end(node1, &_call_graph, from_offset,
+                                              left_side1);
+    } else {
+        call_sides1 = NodeDivider::Entry(node1);
+    }
+    if (aug2) {
+        call_sides2 = _node_divider.break_end(node2, &_call_graph, to_offset,
+                                              left_side2);
+    } else {
+        call_sides2 = NodeDivider::Entry(node2);
+    }
+    
+    cerr << "Input Edge " << node1->id() << ":" << from_offset << ",l=" << left_side1 << ",a=" << aug1
+         << " - " << node2->id() << ":" <<to_offset << ",l=" << left_side2 <<" ,a=" << aug2 << endl;
+    cerr << " -> ["
+         << (call_sides1.ref ? call_sides1.ref->id() : -1) << ", "
+         << (call_sides1.alt1 ? call_sides1.alt1->id() : -1) << ", "
+         << (call_sides1.alt2 ? call_sides1.alt2->id() : -1) << "] X ["
+         << (call_sides2.ref ? call_sides2.ref->id() : -1) << ", "
+         << (call_sides2.alt1 ? call_sides2.alt1->id() : -1) << ", "
+         << (call_sides2.alt2 ? call_sides2.alt2->id() : -1) << "]" << endl;
+    cerr << "NM 1 " << _node_divider.index[1] << endl;
+
+    // make up to 9 edges connecting them in the call graph
+    for (int i = 0; i < (int)NodeDivider::EntryCat::Last; ++i) {
+        for (int j = 0; j < (int)NodeDivider::EntryCat::Last; ++j) {
+            if (call_sides1[i] != NULL && call_sides2[j] != NULL) {
+                NodeSide side1(call_sides1[i]->id(), !left_side1);
+                NodeSide side2(call_sides2[j]->id(), !left_side2);
+                if (!_call_graph.has_edge(side1, side2)) {
+                    Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
+                                                         left_side1, !left_side2);
+                    // can edges be written more than once with different cats?
+                    // if so, first one will prevail. should check if this
+                    // can impact vcf converter...
+                    if (_text_calls != NULL) {
+                        write_edge_tsv(edge, cat);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool insertion) {
+    const BasePileup& bp = np.base_pileup(offset);
+
+    // parse the pilueup structure
+    vector<pair<int64_t, int64_t> > base_offsets;
+    Pileups::parse_base_offsets(bp, base_offsets);
+
+    // compute top two most frequent bases and their counts
+    string top_base;
+    int top_count;
+    int top_rev_count;
+    string second_base;
+    int second_count;
+    int second_rev_count;
+    int total_count;
+    compute_top_frequencies(bp, base_offsets, top_base, top_count, top_rev_count,
+                            second_base, second_count, second_rev_count, total_count, insertion);
+
+    // note first and second base will be upper case too
+    string ref_base = string(1, ::toupper(bp.ref_base()));
+
+    // compute threshold
+    int min_support = max(int(_min_frac * (double)max(total_count, bp.num_bases() - total_count)), _min_support);
+
+    // compute strand bias
+    double top_sb = top_count > 0 ? abs(0.5 - (double)top_rev_count / (double)top_count) : 0;
+    double second_sb = second_count > 0 ? abs(0.5 - (double)second_rev_count / (double)second_count) : 0;
+    
+    // compute max likelihood snp genotype.  it will be one of the three combinations
+    // of the top two bases (we don't care about case here)
+    pair<string, string> g;
+    double& base_likelihood = insertion ? _insert_likelihoods[offset] : _node_likelihoods[offset];
+    base_likelihood = mp_snp_genotype(bp, base_offsets, top_base, second_base, g);
+    Genotype& base_call = insertion ? _insert_calls[offset] : _node_calls[offset];
+    cerr << offset << ": g= " << g.first << ", " << g.second <<  "(" << top_count << "," << second_count <<") l="
+         << base_likelihood << " min=" <<_min_log_likelihood << " minsupport " << min_support
+         << " sb =" << top_sb << "," << second_sb << " max_sb " << _max_strand_bias << endl;
+
+    if (base_likelihood >= _min_log_likelihood) {
+        // update the node calls
+        if (top_count >= min_support && top_sb <= _max_strand_bias) {
+            if (g.first != ref_base) {
+                base_call.first = g.first;
+            } else {
+                base_call.first = ".";
+            }
+        }
+        if (second_count >= min_support && second_sb <= _max_strand_bias) {
+            if (g.second != ref_base && g.second != g.first) {
+                base_call.second = g.second;
+            } else {
+                base_call.second = ".";
+            }
+        }
+    }
+    if (base_call.first == "-" && base_call.second != "-") {
+        swap(base_call.first, base_call.second);
+    }
+
+    cerr << " bp " << pb2json(bp) << " --> " << base_call.first << ", " << base_call.second << endl;
 }
 
 void Caller::compute_top_frequencies(const BasePileup& bp,
-                                     const vector<pair<int, int> >& base_offsets,
-                                     char& top_base, int& top_count,
-                                     char& second_base, int& second_count) {
+                                     const vector<pair<int64_t, int64_t> >& base_offsets,
+                                     string& top_base, int& top_count, int& top_rev_count,
+                                     string& second_base, int& second_count, int& second_rev_count,
+                                     int& total_count, bool inserts) {
 
+    // histogram of pileup entries (base, indel)
+    unordered_map<string, int> hist;
+    // same thing but just reverse strand (used for strand bias filter)
+    unordered_map<string, int> rev_hist;
+
+    total_count = 0;
     const string& bases = bp.bases();
-    // frequency of each base (nidx / idxn converts to from / int)
-    int hist[5] = {0};
+
+    // compute histogram from pileup
     for (auto i : base_offsets) {
-        char base = Pileups::extract_match(bp, i.first);
-        ++hist[nidx(base)];
-    }
-    
-    int first = max_element(hist, hist + 4) - hist;
-    int second = first == 0 ? 1 : 0;
-    for (int i = 0; i < 4; ++i) {
-        if (i != first && hist[i] > hist[second]) {
-            second = i;
+        string val = Pileups::extract(bp, i.first);
+
+        if ((inserts && val[0] != '+') || (!inserts && val[0] == '+')) {
+            // toggle inserts
+            continue;
+        }
+        ++total_count;
+        
+        // val will always be uppcase / forward strand.  we check
+        // the original pileup to see if reversed
+        bool reverse = bases[i.first] == ',' ||
+            (bases[i.first] == '+' && ::islower(bases[i.first + val.length() - 1])) ||
+            (bases[i.first] != '-' && ::islower(bases[i.first]));
+        if (bases[i.first] == '-') {
+            string tok = Pileups::extract(bp, i.first);
+            bool is_reverse, from_start, to_end;
+            int64_t from_id, from_offset, to_id, to_offset;
+            Pileups::parse_delete(tok, is_reverse, from_id, from_offset, from_start, to_id, to_offset, to_end);
+            reverse = is_reverse;
+            // reset reverse to forward
+            if (is_reverse) {
+                Pileups::make_delete(val, false, from_id, from_offset, from_start, to_id, to_offset, to_end);
+            }
+        }
+
+        if (hist.find(val) == hist.end()) {
+            hist[val] = 0;
+            rev_hist[val] = 0;
+        }
+        ++hist[val];
+
+        if (reverse) {
+            ++rev_hist[val];
         }
     }
 
-    // break ties with reference
-    int refidx = nidx(bp.ref_base());
-    if (hist[first] == hist[refidx]) {
-        first = refidx;
-    } else if (hist[second] == hist[refidx]) {
-        second = refidx;
+    // find highest occurring string (reference breaks ties)
+    top_base.clear();
+    top_count = 0;
+    string ref_base = string(1, ::toupper(bp.ref_base()));
+    if (hist.find(ref_base) != hist.end()) {
+        top_base = ref_base;
+        top_count = hist[ref_base];
+    }   
+    for (auto i : hist) {
+        if (i.second > top_count) {
+            top_base = i.first;
+            top_count = i.second;
+        }
     }
 
-    top_base = idxn(first);
-    top_count = hist[first];
-    second_base = idxn(second);
-    second_count = hist[second];
+    // find second highest occurring string (reference breaks ties)
+    // todo: do it in same pass as above
+    second_base.clear();
+    second_count = 0;
+    if (top_base != ref_base && hist.find(ref_base) != hist.end()) {
+        second_base = ref_base;
+        second_count = hist[ref_base];
+    }
+    for (auto i : hist) {
+        if (i.first != top_base && i.second > second_count) {
+            second_base = i.first;
+            second_count = i.second;
+        }
+    }
+    assert(top_base == "" || top_base != second_base);
+    top_rev_count = rev_hist[top_base];
+    second_rev_count = rev_hist[second_base];
 }
 
 // Estimate the most probable snp genotype
-pair<char, char> Caller::mp_snp_genotype(const BasePileup& bp,
-                                         const vector<pair<int, int> >& base_offsets,
-                                         char top_base, char second_base) {
-    char ref_base = ::toupper(bp.ref_base());
+double Caller::mp_snp_genotype(const BasePileup& bp,
+                               const vector<pair<int64_t, int64_t> >& base_offsets,
+                               const string& top_base, const string& second_base,
+                               Genotype& mp_genotype) {
 
-    // gotta do better than this:
-    pair<char, char> mp_genotype(ref_base, ref_base);
-    double mp = _min_log_likelihood + _hom_log_prior;
-
-    // genotype with 0 top_bases
-    double gl = genotype_log_likelihood(bp, base_offsets, 0, top_base, second_base);
-    double p = _hom_log_prior + gl;
-    if (p > mp) {
-        mp = p;
-        mp_genotype = make_pair(second_base, second_base);
-    }
-
-    // genotype with 1 top_base
-    gl = genotype_log_likelihood(bp, base_offsets, 1, top_base, second_base);
-    p = _het_log_prior + gl;
-    if (p > mp) {
-        mp = p;
-        mp_genotype = make_pair(top_base, second_base);
-    }
-
-    // genotype with 2 top_bases
-    gl = genotype_log_likelihood(bp, base_offsets, 2, top_base, second_base);
-    p = _hom_log_prior + gl;
-    if (p > mp) {
-        mp = p;
-        mp_genotype = make_pair(top_base, top_base);
-    }
+    string ref_base = string(1, ::toupper(bp.ref_base()));
     
-    // note, we're throwing away the probabilty value (mp) here.
-    // should figure out where to stick it in the output. 
-    return mp_genotype;
+    // genotype with 2 reference bases
+    double gl = genotype_log_likelihood(bp, base_offsets, 2, top_base, second_base);
+    double mp = _hom_log_prior + gl;
+    double ml = gl;
+    mp_genotype = make_pair(top_base == ref_base ? ref_base : "-",
+                            second_base == ref_base ? ref_base : "-");
+
+    // genotype with 1 reference base
+    if (top_base != ref_base) {
+        double gl = genotype_log_likelihood(bp, base_offsets, 1, top_base, top_base);
+        double p = _het_log_prior + gl;
+        if (p > mp) {
+            mp = p;
+            ml = gl;
+            mp_genotype = make_pair(top_base,
+                                    second_base == ref_base ? ref_base : "-");
+        }
+    }
+    if (second_base != ref_base) {
+        double gl = genotype_log_likelihood(bp, base_offsets, 1, second_base, second_base);
+        double p = _het_log_prior + gl;
+        if (p > mp) {
+            mp = p;
+            ml = gl;
+            mp_genotype = make_pair(top_base == ref_base ? ref_base : "-",
+                                    second_base);
+        }
+    }
+    // genotype with 0 reference bases
+    if (top_base != ref_base && second_base != ref_base) {
+        double gl = genotype_log_likelihood(bp, base_offsets, 0, top_base, second_base);
+        double p = _het_log_prior + gl;
+        if (p > mp) {
+            mp = p;
+            ml = gl;
+            mp_genotype = make_pair(top_base, second_base);
+        }
+    }
+
+    return ml;
 }
 
-// This is Equation 2 (tranformed to log) from
+// This is adapted from Equation 2 (tranformed to log) from
 // A statistical framework for SNP calling ... , Heng Li, Bioinformatics, 2011
 // http://bioinformatics.oxfordjournals.org/content/27/21/2987.full
 double Caller::genotype_log_likelihood(const BasePileup& bp,
-                                       const vector<pair<int, int> >& base_offsets,
-                                       double g, char first, char second) {
-    double m = 2.; // always assume two alleles
+                                       const vector<pair<int64_t, int64_t> >& base_offsets,
+                                       double g, const string& first, const string& second) {
+    // g = number of ref alleles
+    // first, second = alt alleles (can be the same if only considering one)
+    double m = 2.; // ploidy. always assume two alleles
+    double k = (double)base_offsets.size(); // depth
 
-    double log_likelihood = log(0.25); // 1 / m^2, where m = ploidy = 2;
+    double log_likelihood = -k * log(m); // 1 / m^k
 
     const string& bases = bp.bases();
     const string& quals = bp.qualities();
     double perr;
+    string ref_base = string(1, ::toupper(bp.ref_base()));
+    // inserts are treated completely seprately.  toggle here:
+    bool insert = first[0] == '+';
+    assert(!insert || second.empty() || second[0] == '+');
 
     for (int i = 0; i < base_offsets.size(); ++i) {
-        char base = Pileups::extract_match(bp, base_offsets[i].first);
-        char qual = base_offsets[i].second >= 0 ? quals[base_offsets[i].second] : _default_quality;
-        perr = phred2prob(qual);
-        if (base == first) {
-            log_likelihood += safe_log((m - g) * perr + g * (1. - perr));
-        } else if (base == second) {
-            log_likelihood += safe_log((m - g) * (1. - perr) + g * perr);
-        } else {
-            log_likelihood += safe_log(perr * perr);
+        string base = Pileups::extract(bp, base_offsets[i].first);
+        bool base_insert = base[0] == '+';
+        if (base_insert == insert) {
+
+            // make sure deletes always compared without is_reverse flag
+            if (base.length() > 1 && base[0] == '-') {
+                bool is_reverse, from_start, to_end;
+                int64_t from_id, from_offset, to_id, to_offset;
+                Pileups::parse_delete(base, is_reverse, from_id, from_offset, from_start, to_id, to_offset, to_end);
+                // reset reverse to forward
+                if (is_reverse) {
+                    Pileups::make_delete(base, false, from_id, from_offset, from_start, to_id, to_offset, to_end);
+                }
+            }
+
+            char qual = base_offsets[i].second >= 0 ? quals[base_offsets[i].second] : _default_quality;
+            perr = phred2prob(qual);
+            if (base == ref_base) {
+                // ref
+                log_likelihood += safe_log((m - g) * perr + g * (1. - perr));
+            } else if (base == first || base == second) {
+                // alt
+                log_likelihood += safe_log((m - g) * (1. - perr) + g * perr);
+            } else {
+                // just call anything else an error
+                log_likelihood += safe_log(2. * perr);
+            }
         }
     }
 
@@ -296,106 +630,406 @@ void Caller::create_node_calls(const NodePileup& np) {
     const string& seq = _node->sequence();
     int cur = 0;
     int cat = call_cat(_node_calls[cur]);
-    NodePair prev_nodes(-1, -1);
 
+    // scan calls, merging contiguous reference calls.  only consider
+    // ref / snp / inserts on first pass.  
     // scan contiguous chunks of a node with same call
     // (note: snps will always be 1-base -- never merged)
     for (int next = 1; next <= n; ++next) {
         int next_cat = next == n ? -1 : call_cat(_node_calls[next]);
-        if (cat == 2 || cat != next_cat) {
-            NodePair new_nodes(-1, -1);
-            bool secondary_snp = false;
 
-            // process first genotype if it's not missing
-            if (_node_calls[cur].first == '.') {
-                // add single node for stretch of reference node
+        cerr << _node->id() << "." << cur << " " << _node_calls[cur].first << "," <<_node_calls[cur].second  << endl;
+
+        // for anything but case where we merge consec. ref/refs
+        if (cat == 2 || cat != next_cat ||
+            _insert_calls[next-1].first[0] == '+' || _insert_calls[next-1].second[0] == '+') {
+
+            if (cat == 0 && !_leave_uncalled) {
+                cerr << "Missing" << endl;
+            }        
+            else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
+                // add reference
+                int cn = cat == 1 ? 2 : 0;
+                cerr << "Ref/Ref" << endl;
                 string new_seq = seq.substr(cur, next - cur);
-                new_nodes.first = ++_max_id;
-                _call_graph.create_node(new_seq, new_nodes.first);
-            } else if (_node_calls[cur].first != '-') {
-                // add snp node
-                assert(next - cur == 1);
-                string new_seq(1, _node_calls[cur].first);
-                new_nodes.first = ++_max_id;
-                _call_graph.create_node(new_seq, new_nodes.first);
-                create_snp_path(new_nodes.first, secondary_snp);
-                secondary_snp = true;
-            }
-
-            // process second genotype if difference from first
-            if (_node_calls[cur].second != _node_calls[cur].first) {
-                if (_node_calls[cur].second == '.') {
-                    // add single node for stretch of reference node
-                    string new_seq = seq.substr(cur, next - cur);
-                    new_nodes.second = ++_max_id;
-                    _call_graph.create_node(new_seq, new_nodes.second);
-                } else if (_node_calls[cur].second != '-') {
-                    // add snp node
-                    assert(next - cur == 1);
-                    string new_seq(1, _node_calls[cur].second);
-                    new_nodes.second = ++_max_id;
-                    _call_graph.create_node(new_seq, new_nodes.second);
-                    create_snp_path(new_nodes.second, secondary_snp);
-                }
+                Node* node = _call_graph.create_node(new_seq, ++_max_id);
+                _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref, (char)cn);
+                // bridge to node
+                NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
+                NodeOffSide no2(NodeSide(_node->id(), false), cur);
+                cerr << "0add ref bridge ae " << no1 << " - " << no2 << endl;
+                _augmented_edges[make_pair(no1, no2)] = 'R';
+                // bridge from node
+                no1 = NodeOffSide(NodeSide(_node->id(), true), next-1);
+                no2 = NodeOffSide(NodeSide(_node->id(), false), next);
+                _augmented_edges[make_pair(no1, no2)] = 'R';
+                cerr << "1add ref bridge ae " << no1 << " - " << no2 << endl;
             }
             
-            // update maps if new node abuts end of original node
-            // so that edges can be updated later on:
-            if (new_nodes.first != -1 || new_nodes.second != -1) {
-                if (cur == 0) {
-                    _start_node_map[_node->id()] = new_nodes;
-                }
-                if (next == n) {
-                    _end_node_map[_node->id()] = new_nodes;
-                }
+            else {
+                // some mix of reference and alts
+                assert(next == cur + 1);
+                
+                function<void(string&, string&, NodeDivider::EntryCat)>  call_het =
+                    [&](string& call1, string& call2, NodeDivider::EntryCat altCat) {
+                
+                    if (call1 == "." || (_leave_uncalled && altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
+                        // reference base
+                        int cn = call1 == "." ? 1 : 0;
+                        string new_seq = seq.substr(cur, 1);
+                        Node* node = _call_graph.create_node(new_seq, ++_max_id);
+                        _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref, (char)cn);
+                        cerr << "REF NODE " << pb2json(*node) << endl;
+                        // bridge to node
+                        NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
+                        NodeOffSide no2(NodeSide(_node->id(), false), cur);
+                        _augmented_edges[make_pair(no1, no2)] = 'R';
+                        cerr << "2add ref bridge ae " << no1 << " - " << no2 << endl;
+                        // bridge from node
+                        no1 = NodeOffSide(NodeSide(_node->id(), true), next-1);
+                        no2 = NodeOffSide(NodeSide(_node->id(), false), next);
+                        _augmented_edges[make_pair(no1, no2)] = 'R';
+                        cerr << "3add ref bridge ae " << no1 << " - " << no2 << endl;
+                    }
+                    if (call1 != "." && call1[0] != '-' && call1[0] != '+' && call1[0] != '-') {
+                        // snp base
+                        string new_seq = call1;
+                        Node* node = _call_graph.create_node(new_seq, ++_max_id);
+                        _node_divider.add_fragment(_node, cur, node, altCat, (char)1);
+                        cerr << "SNP NODE (" << call1 << ") " << pb2json(*node) << endl;
+
+                        // bridge to node
+                        NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
+                        NodeOffSide no2(NodeSide(_node->id(), false), cur);
+                        _augmented_edges[make_pair(no1, no2)] = 'S';
+                        cerr << "4add ref bridge ae " << no1 << " - " << no2 << endl;
+                        // bridge from node
+                        no1 = NodeOffSide(NodeSide(_node->id(), true), next-1);
+                        no2 = NodeOffSide(NodeSide(_node->id(), false), next);
+                        _augmented_edges[make_pair(no1, no2)] = 'S';
+                        cerr << "5add ref bridge ae " << no1 << " - " << no2 << endl;
+                    }
+                    else if (call1 != "." && call1[0] == '-' && call1.length() > 1) {
+                        // delete
+                        int64_t del_len;
+                        bool from_start;
+                        int64_t from_id;
+                        int64_t from_offset;
+                        int64_t to_id;
+                        int64_t to_offset;
+                        bool to_end;
+                        bool reverse;
+                        Pileups::parse_delete(call1, reverse, from_id, from_offset, from_start, to_id, to_offset, to_end);
+                        NodeOffSide s1(NodeSide(from_id, !from_start), from_offset);
+                        NodeOffSide s2(NodeSide(to_id, to_end), to_offset);
+                        Node* node1 = _graph->get_node(from_id);
+                        assert(from_offset >=0 && from_offset < node1->sequence().length());
+                        Node* node2 = _graph->get_node(to_id);
+                        assert(to_offset >=0 && to_offset < node2->sequence().length());
+                        
+                        // we're just going to update the divider here, since all
+                        // edges get done at the end
+                        cerr << "deletion break from " << node1->id() << " " << from_offset << " " << from_start << endl;
+                        //_node_divider.break_end(node1, _graph, from_offset, from_start);
+                        cerr << "deletion break to " << node2->id() << " " << to_offset << " " << !to_end << endl;
+                        //_node_divider.break_end(node2, _graph, to_offset, !to_end);
+                        cerr << "delete " << s1 << " -> " << s2 << endl;
+                        _augmented_edges[make_pair(s1, s2)] = 'L';
+                        // also need to bridge any fragments created above
+                        if ((from_start && from_offset > 0) ||
+                            (!from_start && from_offset < node1->sequence().length() - 1)) {
+                            NodeOffSide no1(NodeSide(from_id, !from_start), from_offset);
+                            NodeOffSide no2(NodeSide(from_id, from_start),
+                                            (from_start ? from_offset - 1 : from_offset + 1));
+                            cerr << "Bridge S " << no1 << " -> " << no2 << endl;
+                            if (_augmented_edges.find(make_pair(no1, no2)) == _augmented_edges.end()) {
+                                _augmented_edges[make_pair(no1, no2)] = 'R';
+                            }
+                        }
+                        if ((!to_end && to_offset > 0) ||
+                            (to_end && to_offset < node2->sequence().length() - 1)) {
+                            NodeOffSide no1(NodeSide(to_id, to_end), to_offset);
+                            NodeOffSide no2(NodeSide(to_id, !to_end), !to_end ? to_offset - 1 : to_offset + 1);
+                            cerr << "Bridge D " << no1 << " -> " << no2 << endl;
+                            if (_augmented_edges.find(make_pair(no1, no2)) == _augmented_edges.end()) {
+                                _augmented_edges[make_pair(no1, no2)] = 'R';
+                            }
+
+                        }
+                    }
+                };
+
+                // apply same logic to both calls, updating opposite arrays
+                call_het(_node_calls[cur].first, _node_calls[cur].second, NodeDivider::EntryCat::Alt1);
+                call_het(_node_calls[cur].second, _node_calls[cur].first, NodeDivider::EntryCat::Alt2);                
             }
 
-            // add edges
-            if (prev_nodes.first != -1 && new_nodes.first != -1) {
-                _call_graph.create_edge(prev_nodes.first, new_nodes.first);
-            }
-            if (prev_nodes.first != -1 && new_nodes.second != -1) {
-                _call_graph.create_edge(prev_nodes.first, new_nodes.second);
-            }
-            if (prev_nodes.second != -1 && new_nodes.first != -1) {
-                _call_graph.create_edge(prev_nodes.second, new_nodes.first);
-            }
-            if (prev_nodes.second != -1 && new_nodes.second != -1) {
-                _call_graph.create_edge(prev_nodes.second, new_nodes.second);
-            }
+            // inserts done separate at end since they take start between cur and next
+            function<void(string&, string&)>  call_inserts = [&](string& ins_call1, string& ins_call2) {
+                if (ins_call1[0] == '+') {
+                    int64_t ins_len;
+                    string ins_seq;
+                    bool ins_rev;
+                    Pileups::parse_insert(ins_call1, ins_len, ins_seq, ins_rev);
+                    // todo: check reverse?
+                    Node* node = _call_graph.create_node(ins_seq, ++_max_id);
+                    int cn = ins_call2[0] == '+' ? 2 : 1;
+                    cerr << "Insertion node " << node->id() << ": " << ins_seq << " cn= " << endl;
+                    _inserted_nodes.push_back(make_pair(node, cn));
 
+                    // bridge to insert
+                    NodeOffSide no1(NodeSide(_node->id(), true), next-1);
+                    NodeOffSide no2(NodeSide(node->id(), false), 0);
+                    cerr << "Ins Bridge S " << no1 << " -> " << no2 << endl;
+                    _augmented_edges[make_pair(no2, no1)] = 'I';
+                    // bridge from insert
+                    no1 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
+                    no2 = NodeOffSide(NodeSide(_node->id(), false), next);
+                    cerr << "Ins Bridge D " << no1 << " -> " << no2 << endl;                    
+                    _augmented_edges[make_pair(no2, no1)] = 'I';
+                }
+            };
+            
+            call_inserts(_insert_calls[next-1].first, _insert_calls[next-1].second);
+            call_inserts(_insert_calls[next-1].second, _insert_calls[next-1].first);
+                
             // shift right
             cur = next;
             cat = next_cat;
-            prev_nodes = new_nodes;
         }
     }
 }
 
-void Caller::create_snp_path(int64_t snp_node, bool secondary_snp) {
+void Caller::write_node_tsv(Node* node, char call, char cn)
+{
+    *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << (int)cn << "\n";
+}
 
-    // for now we don't write secdonary snp, so we have 1 path per *site*
-    // and counting paths will give us somethign comparable to snp count
-    // from bcftools
-    if (!secondary_snp) {
-        stringstream name;
-        name << "SNP_" << snp_node;
+void Caller::write_edge_tsv(Edge* edge, char call, char cn)
+{
+    *_text_calls << "E\t" << edge->from() << "," << edge->from_start() << "," 
+                 << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << cn << "\n";
+}
 
-        Mapping mapping;
-        Position* pos = mapping.mutable_position();
-        // make path that covers node forward with no edits.  not super
-        // useful but will use to count snps... 
-        pos->set_node_id(snp_node);
-        pos->set_offset(0);
-        mapping.mutable_position()->set_is_reverse(false);
-        
-        // note: create_path doesn't seem to work.. too rushed to look into
-        //list<Mapping>& mappings = _call_graph.paths.create_path(name.str());
-
-        list<Mapping> mappings;
-        mappings.push_back(mapping);
-        _call_graph.paths._paths.insert(make_pair(name.str(), mappings));
+void Caller::write_nd_tsv()
+{
+    for (auto& i : _node_divider.index) {
+        for (auto& j : i.second) {
+            NodeDivider::Entry& entry = j.second;
+            char call = entry.cn_ref == 0 ? 'U' : 'R';
+            write_node_tsv(entry.ref, call, entry.cn_ref);
+            if (entry.alt1 != NULL) {
+                write_node_tsv(entry.alt1, 'S', entry.cn_alt1);
+            }
+            if (entry.alt2 != NULL) {
+                write_node_tsv(entry.alt2, 'S', entry.cn_alt2);
+            }
+        }
     }
+}
+
+void NodeDivider::add_fragment(const Node* orig_node, int offset, Node* fragment, EntryCat cat, int cn) {
+
+//    cerr << "ADD FRAGMENT " << pb2json(*orig_node) << " OFFSET=" << offset << " new NODE "
+    //       << pb2json(*fragment) << endl;
+    
+    NodeHash::iterator i = index.find(orig_node->id());
+    if (i == index.end()) {
+        i = index.insert(make_pair(orig_node->id(), NodeMap())).first;
+    }
+
+    NodeMap& node_map = i->second;
+    NodeMap::iterator j = node_map.find(offset);
+    
+    if (j != node_map.end()) {
+        assert(j->second[cat] == NULL);
+        j->second[cat] = fragment;
+        j->second.cn(cat) = cn;
+    } else {
+        Entry ins_triple;
+        ins_triple[cat] = fragment;
+        ins_triple.cn(cat) = cn;
+        j = node_map.insert(make_pair(offset, ins_triple)).first;
+    }
+    // sanity checks to make sure we don't introduce an overlap
+    if (offset == 0) {
+        assert(j == node_map.begin());
+    } 
+    if (offset + fragment->sequence().length() == orig_node->sequence().length()) {
+        assert(j == --node_map.end());
+    } else if (j != --node_map.end()) {
+        NodeMap::iterator next = j;
+        ++next;
+        assert(offset + fragment->sequence().length() <= next->first);
+    }
+}
+            
+NodeDivider::Entry NodeDivider::break_end(const Node* orig_node, VG* graph, int offset, bool left_side) {
+    NodeHash::iterator i = index.find(orig_node->id());
+    if (i == index.end()) {
+        cerr << " Index Not Found " << orig_node->id() << " in table of size " << index.size() << endl;
+        return Entry();
+    }
+    NodeMap& node_map = i->second;
+    NodeMap::iterator j = node_map.upper_bound(offset);
+    if (j == node_map.begin()) {
+        cerr << " Offset not found " << offset << " in map of size " << node_map.size() << endl;
+        return Entry();
+    }
+
+    --j;
+    int sub_offset = j->first;
+
+    function<Node*(Node*, EntryCat, char)>  lambda =[&](Node* fragment, EntryCat cat, char cn) {
+        if (offset < sub_offset || offset >= sub_offset + fragment->sequence().length()) {
+            return (Node*)NULL;
+        }
+
+        // if our cut point is already the exact left or right side of the node, then
+        // we don't have anything to do than return it.
+        if (offset == sub_offset && left_side == true) {
+            return fragment;
+        }
+        if (offset == sub_offset + fragment->sequence().length() - 1 && left_side == false) {
+            return fragment;
+        }
+
+        cerr << "fragmenting " << pb2json(*fragment);
+        // otherwise, we're somewhere in the middle, and have to subdivide the node
+        // first, shorten the exsisting node
+        int new_len = left_side ? offset - sub_offset : offset - sub_offset + 1;
+        assert(new_len > 0 && new_len != fragment->sequence().length());
+        string frag_seq = fragment->sequence();
+        *fragment->mutable_sequence() = frag_seq.substr(0, new_len);
+
+        // then make a new node for the right part
+        Node* new_node = graph->create_node(frag_seq.substr(new_len, frag_seq.length() - new_len), ++(*_max_id));
+        add_fragment(orig_node, sub_offset + new_len, new_node, cat, cn);
+
+        cerr << " -- > " << pb2json(*fragment) << ", " << pb2json(*new_node) << endl;
+
+        return new_node;
+    };
+
+    // none of this affects copy number
+    char cn_ref = j->second.cn_ref;
+    Node* fragment_ref = j->second.ref;
+    Node* new_node_ref = fragment_ref != NULL ? lambda(fragment_ref, Ref, cn_ref) : NULL;
+    char cn_alt1 = j->second.cn_alt1;
+    Node* fragment_alt1 = j->second.alt1;
+    Node* new_node_alt1 = fragment_alt1 != NULL ? lambda(fragment_alt1, Alt1, cn_alt1) : NULL;
+    char cn_alt2 = j->second.cn_alt2;
+    Node* fragment_alt2 = j->second.alt2;
+    Node* new_node_alt2 = fragment_alt2 != NULL ? lambda(fragment_alt2, Alt2, cn_alt2) : NULL;
+
+    Entry ret = left_side ? Entry(new_node_ref, cn_ref, new_node_alt1, cn_alt1, new_node_alt2, cn_alt2) :
+        Entry(fragment_ref, cn_ref, fragment_alt1, cn_alt1, fragment_alt2, cn_alt2);
+
+    cerr << "Break End " << orig_node->id() << " " << offset << " " << left_side
+         << " --> " << ret << endl;
+
+    return ret;
+}
+
+// this function only works if node is completely covered in divider structure,
+list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64_t length, bool reverse){
+    NodeHash::iterator i = index.find(node_id);
+    assert(i != index.end());
+    NodeMap& node_map = i->second;
+    assert(!node_map.empty());
+    list<Mapping> out_mappings;
+    int cur_len = 0;
+    if (!reverse) {
+        for (auto i : node_map) {
+            if (i.first >= start_offset && cur_len < length) {
+                Node* call_node = i.second.ref;
+                assert(call_node != NULL);
+                Mapping mapping;
+                mapping.mutable_position()->set_node_id(call_node->id());
+                if (start_offset > i.first && out_mappings.empty()) {
+                    mapping.mutable_position()->set_offset(start_offset - i.first);
+                } else {
+                    mapping.mutable_position()->set_offset(0);
+                }
+                int map_len = call_node->sequence().length() - mapping.position().offset();
+                if (map_len + cur_len > length) {
+                    map_len = length - cur_len;
+                }
+                Edit* edit = mapping.add_edit();
+                edit->set_from_length(map_len);
+                edit->set_to_length(map_len);
+                cur_len += map_len;
+                out_mappings.push_back(mapping);
+            }
+        }
+    } else {
+        // should fold into above when on less cold meds. 
+        for (NodeMap::reverse_iterator i = node_map.rbegin(); i != node_map.rend(); ++i)
+        {
+            if (i->first <= start_offset && cur_len < length) {
+                Node* call_node = i->second.ref;
+                Mapping mapping;
+                mapping.mutable_position()->set_is_reverse(true);
+                mapping.mutable_position()->set_node_id(call_node->id());
+                if (start_offset >= i->first && start_offset < i->first + call_node->sequence().length() - 1) {
+                    assert(out_mappings.empty());
+                    mapping.mutable_position()->set_offset(start_offset - i->first);
+                } else {
+                    mapping.mutable_position()->set_offset(call_node->sequence().length() - 1);
+                }
+                // switch up to new-style offset (todo: revise whole function)
+                mapping.mutable_position()->set_offset(call_node->sequence().length() - 1 -
+                                                       mapping.position().offset());
+                int map_len = mapping.position().offset() + 1;
+                if (map_len + cur_len > length) {
+                    map_len = length - cur_len;
+                }
+                assert(map_len <= call_node->sequence().length());
+                assert(mapping.position().offset() >= 0 &&
+                       mapping.position().offset() < call_node->sequence().length());
+                Edit* edit = mapping.add_edit();
+                edit->set_from_length(map_len);
+                edit->set_to_length(map_len);
+                cur_len += map_len;
+                out_mappings.push_back(mapping);
+            }
+        }
+    }
+                
+    assert(cur_len == length);
+    return out_mappings;
+}
+
+void NodeDivider::clear() {
+    index.clear();
+}
+
+ostream& operator<<(ostream& os, const NodeDivider::NodeMap& nm) {
+    for (auto& x : nm) {
+        os << x.first << "[" << (x.second.ref ? x.second.ref->id() : -1) << ", "
+           << (x.second.alt1 ? x.second.alt1->id() : -1) << ", "
+           << (x.second.alt2 ? x.second.alt2->id() : -1) << "]" << endl;
+    }
+    return os;
+}
+
+ostream& operator<<(ostream& os, NodeDivider::Entry entry) {
+    for (int i = 0; i < NodeDivider::EntryCat::Last; ++i) {
+        if (entry[i] != NULL) {
+            os << pb2json(*entry[i]);
+        }
+        else {
+            os << "NULL";
+        }
+        os << ", ";
+    }
+
+    return os;
+}
+
+ostream& operator<<(ostream& os, const Caller::NodeOffSide& no) {
+    os << "NOS(" << no.first.node << ":" << no.second << ",left=" << !no.first.is_end << ")";
+    return os;
 }
 
 }
