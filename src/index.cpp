@@ -90,7 +90,7 @@ void Index::open(const std::string& dir, bool read_only) {
         s = rocksdb::DB::Open(db_options, name, &db);
     }
     if (!s.ok()) {
-        throw indexOpenException();
+        throw indexOpenException("can't open " + dir);
     }
     is_open = true;
 
