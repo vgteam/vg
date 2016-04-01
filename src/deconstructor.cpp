@@ -8,11 +8,7 @@ namespace vg {
 
 	}
 
-	Deconstructor::Deconstructor(xg::XG x) : my_xg(x){
-
-	}
-
-	Deconstructor::Deconstructor(VG v) {
+	Deconstructor::Deconstructor(VG* v) {
 		my_vg = v;;
   	
 		init();
@@ -34,19 +30,51 @@ SuperBubble Deconstructor::report_superbubble(int64_t start, int64_t end){
 	return sb;
 }
 
+bool Deconstructor::is_nested(SuperBubble sb){
+    return false;
+}
+
 /**
-* Implementation of method SuperBubble in Brankovic 2015.
-* Takes a graph (vg), topologically sorts it, and marches
-* backward through the ordered nodes looking for candidates superbubbles.
-* Makes a SuperBubble struct if one is found, and appends it to a vector which
-* is returned. If none are found, the returned vector is empty.
-* Modifies global variables!
-* TODO need to call unroll/unfold/dagify first
-* TODO should really use more pointers.
+* Uses a BFS between nodes in the graph
+* labeled as the endpoints of superbubbles
+* to enumerate the nodes between them.
+*TODO: the dagify transform records the node translation
 */
 vector<SuperBubble> Deconstructor::get_all_superbubbles(){
-	vector<SuperBubble> ret;;
+    
+    pair<id_t, id_t> endpoints;
+    
+    
+    vector<pair<id_t, id_t> > supbubs = my_vg->get_superbubbles();
+    SuperBubble x;
+    vector<SuperBubble> ret(supbubs.size(), x);
 
+    /**
+    * For each superbubble, BFS through it and record
+    * possible paths.
+    */
+    
+    for (int i = 0; i < supbubs.size(); i++){
+        vector<id_t> alleles;
+        queue<id_t> nq;
+        endpoints = supbubs[i];
+        nq.push(endpoints.first);
+        while(!nq.empty()){
+            id_t current = nq.front(); nq.pop();
+            vector<pair<id_t, bool>> edges_on_end = my_vg->edges_end(current);
+            for (int j = 0; j < edges_on_end.size(); j++){
+                id_t next_id = (edges_on_end[j].first);
+                if (next_id == endpoints.second){
+                    SuperBubble fresh_bub;
+                    fresh_bub.nodes = alleles;
+                    fresh_bub.start_node = endpoints.first;
+                    fresh_bub.end_node = endpoints.second;
+                    ret[i] = fresh_bub;
+                }
+            }
+        }
+        
+    }
 
 
 	return ret;
