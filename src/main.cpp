@@ -5581,6 +5581,7 @@ int main_deconstruct(int argc, char** argv){
             help_deconstruct(argv);
             return 1;
         }
+        bool print_sbs = false;
 
         int c;
         optind = 2; // force optind past command positional argument
@@ -5588,12 +5589,13 @@ int main_deconstruct(int argc, char** argv){
             static struct option long_options[] =
             {
                 {"help", no_argument, 0, 'h'},
-                {"xg-name", required_argument,0, 'g'},
+                {"xg-name", required_argument,0, 'x'},
+                {"superbubbles", no_argument, 0, 's'},
                 {0, 0, 0, 0}
 
             };
             int option_index = 0;
-            c = getopt_long (argc, argv, "hg:",
+            c = getopt_long (argc, argv, "hsx:",
                     long_options, &option_index);
 
             // Detect the end of the options.
@@ -5602,6 +5604,9 @@ int main_deconstruct(int argc, char** argv){
 
             switch (c)
             {
+                case 's':
+                    print_sbs = true;
+                    break;
                 case '?':
                 case 'h':
                     help_deconstruct(argv);
@@ -5620,16 +5625,18 @@ int main_deconstruct(int argc, char** argv){
             in.open(file_name.c_str());
             graph = new VG(in);
         }
-        //This struct contains the number of vertices in the graph
-        //and the edges in a format that the superbubble package can understand.
-        //Alright, superbubble time.
-        for (auto i : graph->get_superbubbles()){
-            cerr << i.first << " " << i.second << endl;
+        Deconstructor decon = Deconstructor(graph);
+        
+        if (print_sbs){
+            vector<SuperBubble> sbs = decon.get_all_superbubbles();
+            for (auto s: sbs){
+                cout << s.start_node << "\t" << s.end_node << endl;
+            }
         }
 
           /* Find superbubbles */
 
-        return 1;
+        return 0;
     }
     void help_construct(char** argv) {
         cerr << "usage: " << argv[0] << " construct [options] >new.vg" << endl
