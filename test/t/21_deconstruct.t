@@ -5,10 +5,10 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 0
+plan tests 1
 
 ## Test VG .to_superbubbles()
-#is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg deconstruct -s - ) 6 "vg deconstruct produces the expected number of superbubbles in a simple graph."
+is $(vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg deconstruct -s - | wc -l) 4 "vg deconstruct produces the expected number of superbubbles in a simple graph."
 
 ## Make sure deconstruct successfully finds the right nodes in a superbubble of a simple graph.
 #is $(vg construct -r tiny/tiny.fa -v tiny.vcf.gz | vg deconstruct -s - > x.txt && diff x.txt expected_x.txt | wc -l) 0 "vg deconstruct produces the expected superbubble format for a simple graph."

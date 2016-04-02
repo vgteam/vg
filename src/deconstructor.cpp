@@ -59,19 +59,20 @@ vector<SuperBubble> Deconstructor::get_all_superbubbles(){
         queue<id_t> nq;
         endpoints = supbubs[i];
         nq.push(endpoints.first);
+        cerr << endpoints.first << "\t" << endpoints.second << endl;
         while(!nq.empty()){
             id_t current = nq.front(); nq.pop();
             vector<pair<id_t, bool>> edges_on_end = my_vg->edges_end(current);
             for (int j = 0; j < edges_on_end.size(); j++){
-                id_t next_id = (edges_on_end[j].first);
-                if (next_id == endpoints.second){
-                    SuperBubble fresh_bub;
-                    fresh_bub.nodes = alleles;
-                    fresh_bub.start_node = endpoints.first;
-                    fresh_bub.end_node = endpoints.second;
-                    ret[i] = fresh_bub;
-                }
+                nq.push(edges_on_end[j].first);    
             }
+             id_t next_id = (edges_on_end[j].first);
+             if (next_id == endpoints.second){
+                    ret[i].nodes = alleles;
+                    ret[i].start_node = endpoints.first;
+                    ret[i].end_node = endpoints.second;
+               }
+            
         }
         
     }
