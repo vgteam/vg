@@ -43,17 +43,22 @@ namespace vg {
     vector<SuperBubble> Deconstructor::get_all_superbubbles(){
 
         pair<id_t, id_t> endpoints;
+        //map<id_t, pair<id_t, bool> > node_translation;
+        //uint32_t dag_len = 1;
+        //my_vg->dagify(dag_len, node_translation);
 
 
         vector<pair<id_t, id_t> > supbubs = my_vg->get_superbubbles();
         SuperBubble x;
         vector<SuperBubble> ret(supbubs.size(), x);
+        map<int, vector<id_t> > level_to_node;
+        int level = 0;
 
         /**
          * For each superbubble, BFS through it and record
          * possible paths.
          *
-
+         */
         for (int i = 0; i < supbubs.size(); i++){
             vector<id_t> alleles;
             queue<id_t> nq;
@@ -73,16 +78,21 @@ namespace vg {
                     }
                     alleles.push_back(next_id);
                 }
-
+                level++;
             }
 
         }
-        */
+        
         //Use the DFS interface instead
-        function<void(node&)> is_end = [](){
-
-        };
-        my_vg->dfs();
+        
+        // vector<
+        // function<void(Node*)> is_end = [](Node* node){
+            
+        // };
+        // function<void(Node*)> is_start = [](Node* node){
+            
+        // };
+        // my_vg->dfs(is_start, is_end);
 
 
         return ret;
