@@ -21,13 +21,25 @@ class Filter{
          * a NULLPTR if the alignment fails and we don't allow
          * modified alignments.
          */
-        Alignment& depth_filter(Alignment& aln, int depth);
-        Alignment& qual_filter(Alignment& aln, int qual);
-        Alignment& coverage_filter(Alignment& aln, int depth);
-        Alignment& cov_qual_filter(Alignment& aln, int avg_qual);
+        Alignment& depth_filter(Alignment& aln);
+        Alignment& qual_filter(Alignment& aln);
+        Alignment& coverage_filter(Alignment& aln);
+        Alignment& cov_qual_filter(Alignment& aln);
+        Alignment& percent_identity_filter(Alignment&n aln);
         Alignment& soft_clip_filter(Alignment& aln);
+        void set_min_depth(int depth);
+        void set_min_qual(int qual);
+        void set_min_pct_identity(double pct_id);
+        void set_avg_qual(double avg_qual);
+        
     private:
         unordered_map<int, int> pos_to_depth;
         unordered_map<int, int> pos_to_qual;
+        int min_depth;
+        int min_qual;
+        int min_cov;
+        double avg_qual;
+        double min_pct_identity;        
+        
 
 }
