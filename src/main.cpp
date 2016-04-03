@@ -5573,6 +5573,7 @@ int main_view(int argc, char** argv) {
     void help_deconstruct(char** argv){
         cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
             << "options: " << endl
+            << "-s, --superbubbles  print the superbubbles of the graph and exit."
             << endl;
     }
 int main_deconstruct(int argc, char** argv){
@@ -5630,7 +5631,11 @@ int main_deconstruct(int argc, char** argv){
         if (print_sbs){
             vector<SuperBubble> sbs = decon.get_all_superbubbles();
             for (auto s: sbs){
-                cout << s.start_node << "\t" << s.end_node << endl;
+                cout << s.start_node << "\t";
+                for (auto i : s.nodes){
+                    cout << i << ",";
+                }
+                cout << "\t" << s.end_node << endl;
             }
         }
 
