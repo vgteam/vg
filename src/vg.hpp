@@ -731,6 +731,8 @@ public:
     // correct paths, but can't update the ranks, so they need to be cleared and
     // re-calculated by the caller.
     void divide_node(Node* node, int pos, Node*& left, Node*& right);
+    // This version works on a collection of internal positions, in linear time.
+    void divide_node(Node* node, vector<int> positions, vector<Node*>& parts);
     // Divide a path at a position. Also invalidates stored rank information.
     void divide_path(map<long, id_t>& path, long pos, Node*& left, Node*& right);
     //void node_replace_prev(Node* node, Node* before, Node* after);
