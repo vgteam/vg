@@ -4406,6 +4406,14 @@ void help_map(char** argv) {
          << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
          << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
          << "    -m, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
+         << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
+         << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
+         << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
+         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
+         << "    -t, --threads N       number of threads to use" << endl
+         << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
+         << "    -X, --accept-score N  accept early alignment if the normalized alignment score is > N and -F or -G is set" << endl
+         << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
@@ -4416,16 +4424,8 @@ void help_map(char** argv) {
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
          << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
-         << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
-         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
-         << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
-         << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 2)" << endl
-         << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
-         << "    -t, --threads N       number of threads to use" << endl
-         << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl
-         << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
-         << "    -X, --accept-score N  accept early alignment if the normalized alignment score is > N and -F or -G is set" << endl;
+         << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl;
 }
 
 int main_map(int argc, char** argv) {
@@ -4444,7 +4444,7 @@ int main_map(int argc, char** argv) {
     int kmer_stride = 0;
     int sens_step = 0;
     int best_clusters = 0;
-    int cluster_min = 2;
+    int cluster_min = 1;
     int max_attempts = 7;
     string read_file;
     string hts_file;

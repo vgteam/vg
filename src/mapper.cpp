@@ -11,7 +11,7 @@ Mapper::Mapper(Index* idex,
     , gcsa(g)
     , lcp(a)
     , best_clusters(0)
-    , cluster_min(2)
+    , cluster_min(1)
     , hit_max(0)
     , hit_size_threshold(512)
     , kmer_min(0)
@@ -1035,13 +1035,7 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
 
 // get the character at the given position in the graph
 char Mapper::pos_char(pos_t pos) {
-    Node node = xindex->node(id(pos)); // could we pass this in optionally to avoid reconstructing it?
-    //cerr << "getting " << pos << " in " << pb2json(node) << endl;
-    if (!is_rev(pos)) {
-        return node.sequence().at(offset(pos));
-    } else {
-        return reverse_complement(node.sequence()).at(offset(pos));
-    }
+    return xindex->pos_char(id(pos), is_rev(pos), offset(pos));
 }
 
 map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
@@ -1291,7 +1285,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     // records a mapping of id->MEMs, for cluster ranking
     map<id_t, vector<MaximalExactMatch*> > id_to_mems;
     // for clustering
-    set<id_t> ids;
+    vector<id_t> ids;
     vector<MaximalExactMatch> rc_mems;
 
     // run through the mems, generating a set of alignments for each
@@ -1302,7 +1296,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
             id_to_mems[id].push_back(&mem);
-            ids.insert(id);
+            ids.push_back(id);
             if (gcsa::Node::rc(node)) {
                 node_strands[id].reverse++;
             } else {
@@ -1310,6 +1304,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             }
         }
     }
+
+    std::sort(ids.begin(), ids.end());
 
     // collect the graph implied by the mems and their reverse complements
     // attempt to pick up ranges between successive nodes
@@ -1337,10 +1333,13 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     int max_target_length = alignment.sequence().size() * max_target_factor;
     if (debug) cerr << clusters.size() << " clusters" << endl;
     for (auto& cluster : clusters) {
-        subgraphs.emplace_back();
-        auto& sub = subgraphs.back();
         auto id1 = cluster.front();
         auto id2 = cluster.back();
+        if (debug) cerr << "cluster has " << cluster.size() << " from " << id1 << " to " << id2 << endl;
+        // we skip clusters that are below our min?
+        if (cluster.size() < cluster_min) continue;
+        subgraphs.emplace_back();
+        auto& sub = subgraphs.back();
         xindex->get_id_range(id1, id2, sub.graph);
         xindex->expand_context(sub.graph, context_depth, false);
         sub.rebuild_indexes();
