@@ -620,7 +620,7 @@ vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, c
 }
 
 Alignment reverse_complement_alignment(const Alignment& aln,
-                                       const function<int64_t(int64_t)>& node_length) {
+                                       const function<int64_t(id_t)>& node_length) {
     // We're going to reverse the alignment and all its mappings.
     // TODO: should we/can we do this in place?
     

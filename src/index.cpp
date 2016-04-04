@@ -1273,8 +1273,15 @@ bool Index::surject_alignment(const Alignment& source,
         return false;
     }
     // TODO: replace ID windowing with a real notion of region
-    int64_t from_id = source.path().mapping(0).position().node_id() - window;
-    int64_t to_id = source.path().mapping(source.path().mapping_size()-1).position().node_id() + window;
+    
+    int64_t first_id = source.path().mapping(0).position().node_id();
+    int64_t last_id = source.path().mapping(source.path().mapping_size()-1).position().node_id();
+    if(last_id < first_id) {
+        swap(first_id, last_id);
+    }
+    
+    int64_t from_id = first_id - window;
+    int64_t to_id = last_id + window;
     get_range(max((int64_t)0, from_id), to_id, graph);
     graph.remove_orphan_edges();
     // which path(s) did we keep?
@@ -1288,8 +1295,39 @@ bool Index::surject_alignment(const Alignment& source,
 
 #endif
     
-    // Align the old alignment to the graph and retain the returned result.
-    surjection = graph.align(source);
+    // We need this for inverting mappings to the correct strand
+    function<int64_t(id_t)> node_length = [&graph](id_t node) {
+        return graph.get_node(node)->sequence().size();
+    };
+    
+    // What is our alignment to surject spelled the other way around? We can't
+    // just use the normal alignment RC function because the mappings reference
+    // nonexistent nodes.
+    Alignment source_rc;
+    source_rc.set_sequence(reverse_complement(source.sequence()));
+    
+    // Align the old alignment to the graph in both orientations. Apparently
+    // align only does a single oriantation, and we have no idea, even looking
+    // at the mappings, which of the orientations will correspond to the one the
+    // alignment is actually in.
+    auto surjection_forward = graph.align(source);
+    auto surjection_reverse = graph.align(source_rc);
+    
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << surjection_forward.score() << " forwards, " << surjection_reverse.score() << " reverse" << endl;
+
+#endif
+    
+    if(surjection_reverse.score() > surjection_forward.score()) {
+        // Even if we have to surject backwards, we have to send the same string out as we got in.
+        surjection = reverse_complement_alignment(surjection_reverse, node_length);
+    } else {
+        surjection = surjection_forward;
+    }
+    
+    
 
 #ifdef debug
 
