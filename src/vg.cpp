@@ -2166,23 +2166,26 @@ void VG::dice_nodes(int max_node_size) {
             [this, max_node_size](Node* n) {
             int node_size = n->sequence().size();
             if (node_size > max_node_size) {
-                Node* l = NULL;
-                Node* r = NULL;
                 int div = 2;
                 while (node_size/div > max_node_size) {
                     ++div;
                 }
                 int segment_size = node_size/div;
-                int i = 0;
-                while (n->sequence().size() > segment_size) {
-                    // For each division between the div new pieces,
-                    // break off a piece of the determined size at the left
-                    // TODO: for very large nodes, this is n * (n/max_node_size) = O(n^2).
-                    // We could do n log n if we split nodes in their middles.
-                    divide_node(n, segment_size, l, r);
-                    // Keep dividing the right node
-                    n = r;
+                
+                // Make up all the positions to divide at
+                vector<int> divisions;
+                int last_division = 0;
+                while(last_division + segment_size < node_size) {
+                    // We can fit another division point
+                    last_division += segment_size;
+                    divisions.push_back(last_division);
                 }
+                
+                // What segments are we making?
+                vector<Node*> segments;
+                
+                // Do the actual division
+                divide_node(n, divisions, segments);
             }
         };
         for (int i = 0; i < nodes.size(); ++i) {
@@ -4230,32 +4233,65 @@ void VG::keep_path(string& path_name) {
 
 // divide a node into two pieces at the given offset
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
+    vector<Node*> parts;
+    vector<int> positions{pos};
+    
+    divide_node(node, positions, parts);
+    
+    // Pull out the nodes we made
+    left = parts.front();
+    right = parts.back();
+}
+
+void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
 
 #ifdef debug_divide
 #pragma omp critical (cerr)
-    cerr << "dividing node " << node->id() << " at " << pos << endl;
+    cerr << "dividing node " << node->id() << " at ";
+    for(auto pos : positions) {
+        cerr << pos << ", ";
+    }
+    cerr << endl;
 #endif
 
-    if (pos < 0 || pos > node->sequence().size()) {
-#pragma omp critical (cerr)
-        {
-            cerr << omp_get_thread_num() << ": cannot divide node " << node->id() << ":" << node->sequence()
-                 << " -- position (" << pos << ") is less than 0 or greater than sequence length ("
-                 << node->sequence().size() << ")" << endl;
-            exit(1);
+    // Check all the positions first
+    for(auto pos : positions) {
+
+        if (pos < 0 || pos > node->sequence().size()) {
+    #pragma omp critical (cerr)
+            {
+                cerr << omp_get_thread_num() << ": cannot divide node " << node->id() << ":" << node->sequence()
+                     << " -- position (" << pos << ") is less than 0 or greater than sequence length ("
+                     << node->sequence().size() << ")" << endl;
+                exit(1);
+            }
         }
     }
 
+    int last_pos = 0;
+    for(auto pos : positions) {
+        // Make all the nodes ending at the given positions, grabbing the appropriate substrings
+        Node* new_node = create_node(node->sequence().substr(last_pos, pos - last_pos));
+        last_pos = pos;
+        parts.push_back(new_node);
+    }
+    
+    // Make the last node with the remaining sequence
+    Node* last_node = create_node(node->sequence().substr(last_pos));
+    parts.push_back(last_node);
+    
 #ifdef debug_divide
+
 #pragma omp critical (cerr)
-    cerr << omp_get_thread_num() << ": in divide_node " << pos << " of " << node->sequence().size() << endl;
+    {
+        for(auto* part : parts) {
+            cerr << "\tCreated node " << part->id() << ": " << part->sequence() << endl;
+        }
+    }
+            
 #endif
 
-    // make our left node
-    left = create_node(node->sequence().substr(0,pos));
-
-    // make our right node
-    right = create_node(node->sequence().substr(pos));
+    // Our leftmost new node is now parts.front(), and our rightmost parts.back()
 
     // Create edges between the left node (optionally its start) and the right node (optionally its end)
     set<pair<pair<id_t, bool>, pair<id_t, bool>>> edges_to_create;
@@ -4266,32 +4302,32 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         if (e.first == node->id()) {
             // if it's a reversed edge, it would be from the start of this node
             if (e.second) {
-                // so set it to the left node
-                e.first = left->id();
+                // so set it to the front node
+                e.first = parts.front()->id();
             } else {
-                // otherwise, it's from the end, so set it to the right side
-                e.first = right->id();
+                // otherwise, it's from the end, so set it to the back node
+                e.first = parts.back()->id();
             }
         }
         // Make an edge to the left node's start from wherever this edge went.
-        edges_to_create.emplace(make_pair(e.first, e.second), make_pair(left->id(), false));
+        edges_to_create.emplace(make_pair(e.first, e.second), make_pair(parts.front()->id(), false));
     }
 
     // replace the connections to the node's end
     for(auto e : edges_end(node)) {
         // We have to check for self loops, as these will be clobbered by the division of the node
         if (e.first == node->id()) {
-            // if it's a reversed edge, it would be to the end of this node
+            // if it's a reversed edge, it would be to the start of this node
             if (e.second) {
-                // so set it to the right node
-                e.first = right->id();
+                // so set it to the back node
+                e.first = parts.back()->id();
             } else {
-                // otherwise, it's to the start, so set it to the left side
-                e.first = left->id();
+                // otherwise, it's to the start, so set it to the front node
+                e.first = parts.front()->id();
             }
         }
         // Make an edge from the right node's end to wherever this edge went.
-        edges_to_create.emplace(make_pair(right->id(), false), make_pair(e.first, e.second));
+        edges_to_create.emplace(make_pair(parts.back()->id(), false), make_pair(e.first, e.second));
     }
 
     // create the edges here as otherwise we will invalidate the iterators
@@ -4300,10 +4336,10 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         create_edge(e.first.first, e.second.first, e.first.second, e.second.second);
     }
 
-    // connect left to right. This edge always goes from end to start.
-    create_edge(left, right);
-
-    //cerr << "Dividing into " << left->id() << " and " << right->id() << endl;
+    for(int i = 0; i < parts.size() - 1; i++) {
+        // Connect all the new parts left to right. These edges always go from end to start.
+        create_edge(parts[i], parts[i+1]);
+    }
 
     // divide paths
     // note that we can't do this (yet) for non-exact matching paths
@@ -4320,45 +4356,94 @@ void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
         for (auto m : to_divide) {
             // we have to divide the mapping
 
-#ifdef debug
+#ifdef debug_divide
 
 #pragma omp critical (cerr)
             cerr << omp_get_thread_num() << ": dividing mapping " << pb2json(*m) << endl;
 #endif
 
             string path_name = paths.mapping_path_name(m);
-            // TODO: this only preserves perfect match paths.
-            // TODO: warn if that precondition is violated
-            //divide_invariant_mapping(*m, l, r, pos, node, left, right);
-            auto n = cut_mapping(*m, pos);
-            Mapping l=n.first, r=n.second;
-            l.mutable_position()->set_node_id(left->id());
-            l.mutable_position()->set_offset(0);
-            r.mutable_position()->set_node_id(right->id());
-            r.mutable_position()->set_offset(0);
-
+            // OK, we're somewhat N^2 in mapping division, if there are edits to
+            // copy. But we're nearly linear!
+            
+            // We can only work on full-length perfect matches, because we make the cuts in mapping space.
+            // TODO: implement cut_mapping on Positions for reverse mappings, so we can use that and work on all mappings.
+            assert(m->position().offset() == 0);
+            assert(mapping_is_match(*m));
+            assert(m->edit_size() == 0 || from_length(*m) == node->sequence().size());
+            
+            vector<Mapping> mapping_parts;
+            Mapping remainder = *m;
+            int local_offset = 0;
+            
+            for(int i = 0; i < positions.size(); i++) {
+                // At this position
+                auto& pos = positions[i];
+                // Break off the mapping
+                // Note that we are cutting at mapping-relative locations and not node-relative locations.
+                pair<Mapping, Mapping> halves;
+                
+                
+                
+                if(remainder.position().is_reverse()) {
+                    // Cut positions are measured from the end of the original node.
+                    halves = cut_mapping(remainder, node->sequence().size() - pos);
+                    // Turn them around to be in reference order
+                    swap(halves.first, halves.second);
+                } else {
+                    // Mapping offsets are the same as offsets from the start of the node.
+                    halves = cut_mapping(remainder, pos - local_offset);
+                }
+                // TODO: since there are no edits to move, none of that is
+                // strictly necessary, because both mapping halves will be
+                // identical.
+                
+                // This is the one we have produced
+                Mapping& chunk = halves.first;
+                
+                // Tell it what it's mapping to
+                // We'll take all of this node.
+                chunk.mutable_position()->set_node_id(parts[i]->id());
+                chunk.mutable_position()->set_offset(0);
+                
+                mapping_parts.push_back(chunk);
+                remainder = halves.second;
+                // The remainder needs to be divided at a position relative to
+                // here.
+                local_offset = pos;
+            }
+            // Place the last part of the mapping.
+            // It takes all of the last node.
+            remainder.mutable_position()->set_node_id(parts.back()->id());
+            remainder.mutable_position()->set_offset(0);
+            mapping_parts.push_back(remainder);
+            
             //divide_mapping
             // with the mapping divided, insert the pieces where the old one was
             bool is_rev = m->position().is_reverse();
             auto mpit = paths.remove_mapping(m);
             if (is_rev) {
-                // insert left then right in the path, snce we're going through
+                // insert left then right in the path, since we're going through
                 // this node backward (insert puts *before* the iterator)
-                mpit = paths.insert_mapping(mpit, path_name, l);
-                mpit = paths.insert_mapping(mpit, path_name, r);
+                for(auto i = mapping_parts.begin(); i != mapping_parts.end(); ++i) {
+                    mpit = paths.insert_mapping(mpit, path_name, *i);
+                }
             } else {
                 // insert right then left (insert puts *before* the iterator)
-                mpit = paths.insert_mapping(mpit, path_name, r);
-                mpit = paths.insert_mapping(mpit, path_name, l);
+                for(auto i = mapping_parts.rbegin(); i != mapping_parts.rend(); ++i) {
+                    mpit = paths.insert_mapping(mpit, path_name, *i);
+                }
             }
 
 
 
 #ifdef debug_divide
 #pragma omp critical (cerr)
-            cerr << omp_get_thread_num() << ": produced mappings " << pb2json(l) << " and " << pb2json(r) << endl;
+            cerr << omp_get_thread_num() << ": produced mappings:" << endl;
+            for(auto mapping : mapping_parts) {
+                cerr << "\t" << pb2json(mapping) << endl;
+            }
 #endif
-
         }
     }
 
