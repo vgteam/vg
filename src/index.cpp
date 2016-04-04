@@ -1264,6 +1264,12 @@ bool Index::surject_alignment(const Alignment& source,
     // get start and end nodes in path
     // get range between +/- window
     if (!source.has_path() || source.path().mapping_size() == 0) {
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
+
+#endif
         return false;
     }
     // TODO: replace ID windowing with a real notion of region
@@ -1274,9 +1280,24 @@ bool Index::surject_alignment(const Alignment& source,
     // which path(s) did we keep?
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
-    surjection = source;
-    surjection.clear_path();
-    graph.align(surjection);
+    
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " should surject into to window from " << from_id << " to " << to_id << " which contains " << graph.size() << " nodes on " << kept_paths.size() << "/" << path_names.size() << " kept paths" << endl;
+
+#endif
+    
+    // Align the old alignment to the graph and retain the returned result.
+    surjection = graph.align(source);
+
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << surjection.path().mapping_size() << " mappings, " << kept_paths.size() << " paths" << endl;
+
+#endif
+
     if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
         // determine the paths of the node we mapped into
         //  ... get the id of the first node, get the pahs of it
@@ -1304,6 +1325,12 @@ bool Index::surject_alignment(const Alignment& source,
         // we need the cigar, but this comes from a function on the alignment itself
         return true;
     } else {
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " did not align to the surjection subgraph" << endl;
+
+#endif
         return false;
     }
 }
