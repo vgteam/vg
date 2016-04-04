@@ -638,7 +638,7 @@ void Caller::create_node_calls(const NodePileup& np) {
     for (int next = 1; next <= n; ++next) {
         int next_cat = next == n ? -1 : call_cat(_node_calls[next]);
 
-        cerr << _node->id() << "." << cur << " " << _node_calls[cur].first << "," <<_node_calls[cur].second  << endl;
+        cerr << _node->id() << "." << (next-1) << " " << _node_calls[next-1].first << "," <<_node_calls[next-1].second  << endl;
 
         // for anything but case where we merge consec. ref/refs
         if (cat == 2 || cat != next_cat ||
