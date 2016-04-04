@@ -36,6 +36,10 @@ class Filter{
         void set_avg_qual(double avg_qual);
 
     private:
+        vg::VG* my_vg;
+        //Position: NodeID + offset
+        // different edits may be present at each position.
+        // is there some way to just hash the mappings?
         unordered_map<int, int> pos_to_depth;
         unordered_map<int, int> pos_to_qual;
         int min_depth;
