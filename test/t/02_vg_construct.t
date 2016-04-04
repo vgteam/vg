@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 20
+plan tests 21
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -94,6 +94,10 @@ is $max_node_size 12 "nodes are correctly capped in size"
 
 is $(vg construct -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz | vg view - | awk '{ print length($3); }' | sort -n | tail -1) 241 "-R --region flag is respected" 
 
-is $(vg construct -r small/x.fa -m 50 | vg view - | wc -l) 63 "vg construct does not require a VCF and respects node size limit"
+vg construct -r small/x.fa >/dev/null
+is $? 0 "vg construct does not require a vcf"
+
+(( short_enough=$(vg construct -r small/x.fa -m 50 | vg view - | grep "^S" | cut -f3 | wc -L) < 51 ? 1 : 0 ))
+is $short_enough 1 "vg construct respects node size limit"
 
 is $(vg construct -CR 'gi|568815592:29791752-29792749' -r GRCh38_alts/FASTA/HLA/V-352962.fa | vg view - | grep TCTAGAAGAGTCCACGGGGACAGGTAAG | wc -l) 1 "--region can be interpreted to be a reference sequence (and not parsed as a region spec)"

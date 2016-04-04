@@ -1561,6 +1561,17 @@ bool adjacent_mappings(const Mapping& m1, const Mapping& m2) {
     return abs(m1.rank() - m2.rank()) == 1;
 }
 
+bool mapping_is_match(const Mapping& m) {
+    for(size_t i = 0; i < m.edit_size(); i++) {
+        if(!edit_is_match(m.edit(i))) {
+            // We have a non-match edit
+            return false;
+        }
+    }
+    // No non-match edits found
+    return true;
+}
+
 // assumes complete description of mapped node by the edits
 double divergence(const Mapping& m) {
     double from_length = 0;
