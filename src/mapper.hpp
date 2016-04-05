@@ -38,7 +38,6 @@ public:
     string sequence(void) const {
         string seq; //seq.resize(end-begin);
         string::const_iterator c = begin;
-        size_t i = 0;
         while (c != end) seq += *c++;
         return seq;
     }
