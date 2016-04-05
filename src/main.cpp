@@ -1711,7 +1711,7 @@ int main_surject(int argc, char** argv) {
                 int64_t path_pos;
                 index.surject_alignment(src, path_names, surj, path_name, path_pos, window);
                 buffer[tid].push_back(surj);
-                stream::write_buffered(cout, buffer[tid], 1000);
+                stream::write_buffered(cout, buffer[tid], 100);
             };
             if (file_name == "-") {
                 stream::for_each_parallel(std::cin, lambda);
@@ -4485,7 +4485,7 @@ int main_index(int argc, char** argv) {
             index.open_read_only(rocksdb_name);
             auto lambda = [&output_buf](const Alignment& aln) {
                 output_buf.push_back(aln);
-                stream::write_buffered(cout, output_buf, 1000);
+                stream::write_buffered(cout, output_buf, 100);
             };
             index.for_each_alignment(lambda);
             stream::write_buffered(cout, output_buf, 0);
@@ -4702,9 +4702,10 @@ void help_map(char** argv) {
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
-         << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
+         << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "generic mapping parameters:" << endl
+         << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -P, --min-score N     accept alignment only if the normalized alignment score is > N (default: 0)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 5)" << endl
          << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
@@ -4779,6 +4780,7 @@ int main_map(int argc, char** argv) {
     int min_mem_length = 0;
     int max_target_factor = 100;
     bool in_mem_path_only = false;
+    int buffer_size = 100;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4827,11 +4829,12 @@ int main_map(int argc, char** argv) {
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"max-target-x", required_argument, 0, 'H'},
+                {"buffer-size", required_argument, 0, 'Z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:O",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4999,6 +5002,10 @@ int main_map(int argc, char** argv) {
             max_target_factor = atoi(optarg);
             break;
 
+        case 'Z':
+            buffer_size = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -5099,7 +5106,7 @@ int main_map(int argc, char** argv) {
 
     // We have one function to dump alignments into
     // Make sure to flush the buffer at the end of the program!
-    auto output_alignments = [&output_buffer, &output_json](vector<Alignment>& alignments) {
+    auto output_alignments = [&output_buffer, &output_json, &buffer_size](vector<Alignment>& alignments) {
         // for(auto& alignment : alignments){
         // 		cerr << "This is in output_alignments" << alignment.DebugString() << endl;
         // }
@@ -5119,7 +5126,7 @@ int main_map(int argc, char** argv) {
             // Copy all the alignments over to the output buffer
             copy(alignments.begin(), alignments.end(), back_inserter(output_buf));
 
-            stream::write_buffered(cout, output_buf, 1000);
+            stream::write_buffered(cout, output_buf, buffer_size);
         }
     };
 

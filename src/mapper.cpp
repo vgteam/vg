@@ -942,15 +942,14 @@ Mapper::find_smems(const string& seq) {
                mems.end());
     // return the matches in natural order
     std::reverse(mems.begin(), mems.end());
-    //for (auto& m : mems) cerr << "mem: " << m.sequence() << endl;
-    // if debugging, verify the matches (costly)
-    if (debug) { check_mems(mems); }
+    // verify the matches (super costly at scale)
+    //if (debug) { check_mems(mems); }
     return mems;
 }
 
 void Mapper::check_mems(const vector<MaximalExactMatch>& mems) {
     for (auto mem : mems) {
-        get_mem_hits_if_under_max(mem);        
+        get_mem_hits_if_under_max(mem);
         if (sequence_positions(mem.sequence()) != gcsa_nodes_to_positions(mem.nodes)) {
             cerr << "mem failed! " << mem.sequence()
                  << " expected " << sequence_positions(mem.sequence()).size() << " hits "
@@ -1286,7 +1285,6 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     map<id_t, vector<MaximalExactMatch*> > id_to_mems;
     // for clustering
     vector<id_t> ids;
-    vector<MaximalExactMatch> rc_mems;
 
     // run through the mems, generating a set of alignments for each
     for (auto& mem : mems) {
@@ -1328,61 +1326,68 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         }
     }
 
-    // get target subgraphs
-    vector<VG> subgraphs;
-    int max_target_length = alignment.sequence().size() * max_target_factor;
-    if (debug) cerr << clusters.size() << " clusters" << endl;
-    for (auto& cluster : clusters) {
-        auto id1 = cluster.front();
-        auto id2 = cluster.back();
-        if (debug) cerr << "cluster has " << cluster.size() << " from " << id1 << " to " << id2 << endl;
-        // we skip clusters that are below our min?
-        if (cluster.size() < cluster_min) continue;
-        subgraphs.emplace_back();
-        auto& sub = subgraphs.back();
-        xindex->get_id_range(id1, id2, sub.graph);
-        xindex->expand_context(sub.graph, context_depth, false);
-        sub.rebuild_indexes();
-        if (max_target_factor && sub.length() > max_target_length) {
-            subgraphs.pop_back();
-        }
-    }
+    // rank the clusters using heuristics
+    // prefer larger clusters (more nodes nearby)
+    // prefer more MEMs (more matches, more better)
+    // prefer the length of the MEMs
 
-    // order the subgraphs by number of hits
-    // and go through them until we have enough multi-maps
-    map<double, vector<VG*> > subgraphs_by_hits;;
-    for (auto& subgraph : subgraphs) {
-        double hit_length = 0;
-        subgraph.for_each_node([&](Node* n) {
-                auto m = id_to_mems.find(n->id());
-                if (m != id_to_mems.end()) {
-                    for (auto& mem : m->second) {
-                        // we add weight for the hit length, but
-                        // weight the hit by the number of matches
-                        hit_length +=
-                            (double)(mem->end - mem->begin)
-                            /(double)mem->match_count;
-                    }
-                }
-            });
-        subgraphs_by_hits[hit_length/subgraph.length()].push_back(&subgraph);
-    }
+    map<vector<id_t>*, int> cluster_mem_length;
+    std::for_each(clusters.begin(), clusters.end(),
+                  [&cluster_mem_length,
+                   &id_to_mems](vector<id_t>& cluster) {
+                      size_t len_sum = 0;
+                      for (auto& id : cluster) {
+                          auto& mems = id_to_mems[id];
+                          std::for_each(mems.begin(), mems.end(),
+                                        [&](MaximalExactMatch* m) { len_sum += m->end - m->begin; });
+                      }
+                      cluster_mem_length[&cluster] = len_sum;
+                  });
 
-    // sort the ranked subgraphs and only keep the best N (attempts)
-    vector<VG*> ranked_subgraphs;
-    size_t i = 0;
-    for (auto it = subgraphs_by_hits.rbegin();
-         it != subgraphs_by_hits.rend()
-             // if we've set max_attempts, only try up to that many graphs
-             && (!max_attempts || i < max_attempts);
-         ++it, ++i) {
-        for (auto subgraph : it->second) {
-            ranked_subgraphs.push_back(subgraph);
-        }
-    }
+    vector<vector<id_t>*> ranked_clusters;
+    std::for_each(clusters.begin(), clusters.end(),
+                  [&ranked_clusters](vector<id_t>& cluster) {
+                      ranked_clusters.push_back(&cluster); });
+
+    std::sort(ranked_clusters.begin(), ranked_clusters.end(),
+              [&cluster_mem_length](vector<id_t>* a,
+                                    vector<id_t>* b) {
+                  auto range_a = a->back() - a->front();
+                  auto range_b = b->back() - b->front();
+                  auto len_a = cluster_mem_length[a];
+                  auto len_b = cluster_mem_length[b];
+                  // TODO: order by unique hit positions
+                  // order by cluster length
+                  // order by number of MEMs
+                  // order by length of MEMs
+                  if (range_a == range_b) {
+                      if (a->size() == b->size()) {
+                          return len_a > len_b;
+                      } else {
+                          return a->size() > b->size();
+                      }
+                  } else {
+                      return range_a > range_b;
+                  }
+              });
+
 
     // generate an alignment for each subgraph/orientation combination for which we have hits
-    if (debug) cerr << "aligning to " << subgraphs.size() << " subgraphs" << endl;
+    if (debug) cerr << "aligning to " << clusters.size() << " clusters" << endl;
+    if (debug) {
+        for (auto cptr : ranked_clusters) {
+            auto& c = *cptr;
+            size_t len_sum = 0;
+            for (auto& id : c) {
+                auto& mems = id_to_mems[id];
+                std::for_each(mems.begin(), mems.end(),
+                              [&](MaximalExactMatch* m) { len_sum += m->end - m->begin; });
+            }
+            cerr << c.size() << ":"
+                 << len_sum << " "
+                 << c.front() << "-" << c.back() << endl;
+        }
+    }
 
     vector<Alignment> alns; // our alignments
     
@@ -1393,15 +1398,41 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     auto aln_rc = aln_fw;
     aln_rc.set_sequence(reverse_complement(aln_fw.sequence()));
 
+    int max_target_length = alignment.sequence().size() * max_target_factor;
+
     size_t attempts = 0;
-    for (auto s : ranked_subgraphs) {
-        VG& subgraph = *s;
+    for (auto& cptr : ranked_clusters) {
+        auto& cluster = *cptr;
+        // skip if our cluster is too small
+        if (cluster.size() < cluster_min) continue;
         // record our attempt count
         ++attempts;
+        // bail out if we've passed our maximum number of attempts
+        if (attempts > max(max_attempts, max_multimaps)) break;
+        if (debug) {
+            cerr << "attempt " << attempts
+                 << " on cluster " << cluster.front() << "-" << cluster.back() << endl;
+        }
+        VG sub; // the subgraph we'll align against
+        set<id_t> seen;
+        for (auto& id : cluster) {
+            if (seen.count(id)) continue; // avoid double-gets
+            seen.insert(id);
+            xindex->get_id_range(id, id, sub.graph);
+        }
+        // expand using our context depth
+        xindex->expand_context(sub.graph, context_depth, false);
+        sub.rebuild_indexes();
+        // if the graph is now too big to attempt, bail out
+        if (max_target_factor && sub.length() > max_target_length) continue;
+        if (debug) {
+            cerr << "attempt " << attempts
+                 << " on subgraph " << sub.min_node_id() << "-" << sub.max_node_id() << endl;
+        }
         // determine the likely orientation
         uint32_t fw_mems = 0;
         uint32_t rc_mems = 0;
-        subgraph.for_each_node([&](Node* n) {
+        sub.for_each_node([&](Node* n) {
                 auto ns = node_strands.find(n->id());
                 if (ns != node_strands.end()) {
                     fw_mems += ns->second.forward;
@@ -1410,8 +1441,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             });
         if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
         if (fw_mems) {
-            Alignment aln = subgraph.align(aln_fw, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
-            resolve_softclips(aln, subgraph);
+            Alignment aln = sub.align(aln_fw, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+            resolve_softclips(aln, sub);
             alns.push_back(aln);
             if (attempts >= max_multimaps &&
                 greedy_accept && (float)aln.score() / ((float)aln.sequence().size()*match) >= accept_norm_score) {
@@ -1419,8 +1450,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             }
         }
         if (rc_mems) {
-            Alignment aln = subgraph.align(aln_rc, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
-            resolve_softclips(aln, subgraph);
+            Alignment aln = sub.align(aln_rc, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+            resolve_softclips(aln, sub);
             alns.push_back(reverse_complement_alignment(aln,
                                                         (function<int64_t(int64_t)>)
                                                         ([&](int64_t id) { return get_node_length(id); })));
@@ -1430,9 +1461,6 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             }
         }
     }
-
-    // free memory; we don't need the graphs for the last bit
-    subgraphs.clear();
 
     int sum_score = 0;
     double mean_score = 0;
@@ -1515,22 +1543,12 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
     Path* path = aln.mutable_path();
     int64_t idf = path->mutable_mapping(0)->position().node_id();
     int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
-    int32_t d_to_head = graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3);
-    int32_t d_to_tail = graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3);
     int max_target_length = aln.sequence().size() * max_target_factor;
     while (itr++ < 3
-           && ((sc_start > softclip_threshold
-                && d_to_head >= 0 && d_to_head < sc_start)
-               || (sc_end > softclip_threshold
-                   && d_to_tail >=0 && d_to_tail < sc_end))) {
+           && (sc_start > softclip_threshold
+               || sc_end > softclip_threshold)) {
         if (debug) {
             cerr << "softclip before " << sc_start << " " << sc_end << endl;
-            cerr << "distance to head "
-                 << graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3)
-                 << endl;
-            cerr << "distance to tail "
-                 << graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3)
-                 << endl;
         }
         double avg_node_size = graph.length() / graph.size();
         if (debug) cerr << "average node size " << avg_node_size << endl;
@@ -1571,8 +1589,6 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         path = aln.mutable_path();
         idf = path->mutable_mapping(0)->position().node_id();
         idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
-        d_to_head = graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3);
-        d_to_tail = graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3);
     }
 }
 

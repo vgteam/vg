@@ -435,6 +435,8 @@ public:
     void merge_union(VG& g);
     // helper to merge_union
     void remove_duplicated_in(VG& g);
+    // removes duplicated nodes and edges
+    void remove_duplicates(void);
 
     // limit the local complexity of the graph, connecting pruned components to a head and tail node
     // depending on the direction which we come into the node when the edge_max is passed
