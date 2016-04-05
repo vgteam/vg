@@ -942,9 +942,8 @@ Mapper::find_smems(const string& seq) {
                mems.end());
     // return the matches in natural order
     std::reverse(mems.begin(), mems.end());
-    //for (auto& m : mems) cerr << "mem: " << m.sequence() << endl;
-    // if debugging, verify the matches (costly)
-    if (debug) { check_mems(mems); }
+    // verify the matches (super costly at scale)
+    //if (debug) { check_mems(mems); }
     return mems;
 }
 
