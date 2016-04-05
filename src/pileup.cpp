@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <stdexcept>
+#include <regex>
 #include "json2pb.h"
 #include "pileup.hpp"
 #include "stream.hpp"
@@ -648,7 +649,10 @@ void Pileups::parse_delete(const string& tok, bool& is_reverse,
                            int64_t& to_id, int64_t& to_offset, bool& to_end) {
     assert(tok[0] == '-');
     vector<string> toks;
-    split_delims(tok, ";", toks);
+    regex sc_re(";");
+    std::copy(sregex_token_iterator(tok.begin(), tok.end(), sc_re, -1),
+              sregex_token_iterator(), back_inserter(toks));
+
     assert(toks.size() == 7);
     is_reverse = std::stoi(toks[0]) != 0;
 

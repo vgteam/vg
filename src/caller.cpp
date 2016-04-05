@@ -90,8 +90,8 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
     _insert_likelihoods.clear();
     _insert_likelihoods.assign(_node->sequence().length(), safe_log(0));
 
-    // todo: parallelize this loop
     // process each base in pileup individually
+    #pragma omp parallel
     for (int i = 0; i < pileup.base_pileup_size(); ++i) {
         int num_inserts = 0;
         for (auto b : pileup.base_pileup(i).bases()) {
@@ -428,7 +428,6 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     if (base_call.first == "-" && base_call.second != "-") {
         swap(base_call.first, base_call.second);
     }
-
     cerr << " bp " << pb2json(bp) << " --> " << base_call.first << ", " << base_call.second << endl;
 }
 
