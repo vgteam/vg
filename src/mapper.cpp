@@ -1327,36 +1327,42 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         }
     }
 
-    // order the clusters by number of hits
-    std::sort(clusters.begin(), clusters.end(),
-              [&id_to_mems](const vector<id_t>& a,
-                 const vector<id_t>& b) {
-                  // if sizes are the same
-                  // order by the sum of mem lengths
-                  if (a.size() == b.size()) {
-                      size_t len_sum_a = 0;
-                      for (auto& id : a) {
+    map<vector<id_t>*, int> cluster_mem_length;
+    // order the clusters by length of hits and then by the number of MEMs
+    std::for_each(clusters.begin(), clusters.end(),
+                  [&cluster_mem_length,
+                   &id_to_mems](vector<id_t>& cluster) {
+                      size_t len_sum = 0;
+                      for (auto& id : cluster) {
                           auto& mems = id_to_mems[id];
                           std::for_each(mems.begin(), mems.end(),
-                                        [&](MaximalExactMatch* m) { len_sum_a += m->end - m->begin; });
+                                        [&](MaximalExactMatch* m) { len_sum += m->end - m->begin; });
                       }
-                      size_t len_sum_b = 0;
-                      for (auto& id : b) {
-                          auto& mems = id_to_mems[id];
-                          std::for_each(mems.begin(), mems.end(),
-                                        [&](MaximalExactMatch* m) { len_sum_b += m->end - m->begin; });
-                      }
-                      return len_sum_a > len_sum_b;
-                  } else {
-                      return a.size() > b.size();
-                  }
+                      cluster_mem_length[&cluster] = len_sum;
+                  });
+
+    vector<vector<id_t>*> ranked_clusters;
+    std::for_each(clusters.begin(), clusters.end(),
+                  [&ranked_clusters](vector<id_t>& cluster) {
+                      ranked_clusters.push_back(&cluster); });
+
+    std::sort(ranked_clusters.begin(), ranked_clusters.end(),
+              [&cluster_mem_length](vector<id_t>* a,
+                                    vector<id_t>* b) {
+                  auto len_a = cluster_mem_length[a];
+                  auto len_b = cluster_mem_length[b];
+                  // order by the sum of mem lengths (longer is better)
+                  // then by the number of MEMs (fewer is better)
+                  if (len_a == len_b) return a->size() < b->size();
+                  else return len_a > len_b;
               });
 
 
     // generate an alignment for each subgraph/orientation combination for which we have hits
     if (debug) cerr << "aligning to " << clusters.size() << " clusters" << endl;
     if (debug) {
-        for (auto& c : clusters) {
+        for (auto cptr : ranked_clusters) {
+            auto& c = *cptr;
             size_t len_sum = 0;
             for (auto& id : c) {
                 auto& mems = id_to_mems[id];
@@ -1381,7 +1387,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     int max_target_length = alignment.sequence().size() * max_target_factor;
 
     size_t attempts = 0;
-    for (auto& cluster : clusters) {
+    for (auto& cptr : ranked_clusters) {
+        auto& cluster = *cptr;
         // skip if our cluster is too small
         if (cluster.size() < cluster_min) continue;
         // record our attempt count
