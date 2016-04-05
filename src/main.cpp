@@ -328,7 +328,6 @@ int main_vectorize(int argc, char** argv){
         else{
             cout << v << endl;
         }
-
     };
     if (alignment_file == "-"){
         stream::for_each_parallel(cin, lambda);
@@ -5746,7 +5745,6 @@ int main_view(int argc, char** argv) {
             graph = new VG(in);
         }
         Deconstructor decon = Deconstructor(graph);
-
         if (print_sbs){
             vector<SuperBubble> sbs = decon.get_all_superbubbles();
             for (auto s: sbs){

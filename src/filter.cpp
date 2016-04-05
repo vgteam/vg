@@ -95,6 +95,5 @@ namespace vg{
     Alignment& Filter::percent_identity_filter(Alignment& aln){
         double pctid = 0.0;
         int64_t graph_len = my_vg->total_length_of_nodes();
-
     }
 }

@@ -18,8 +18,7 @@ class Filter{
     public:
         Filter();
         ~Filter();
-        /**
-         * Filter functions.
+         /* Filter functions.
          * Take an Alignment and walk it.
          * Perform the desired summary statistics.
          * Output the Alignment if it passes OR
