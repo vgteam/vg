@@ -950,7 +950,7 @@ Mapper::find_smems(const string& seq) {
 
 void Mapper::check_mems(const vector<MaximalExactMatch>& mems) {
     for (auto mem : mems) {
-        get_mem_hits_if_under_max(mem);        
+        get_mem_hits_if_under_max(mem);
         if (sequence_positions(mem.sequence()) != gcsa_nodes_to_positions(mem.nodes)) {
             cerr << "mem failed! " << mem.sequence()
                  << " expected " << sequence_positions(mem.sequence()).size() << " hits "
@@ -1340,8 +1340,10 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         if (cluster.size() < cluster_min) continue;
         subgraphs.emplace_back();
         auto& sub = subgraphs.back();
-        xindex->get_id_range(id1, id2, sub.graph);
-        xindex->expand_context(sub.graph, context_depth, false);
+        for (auto& id : cluster) {
+            xindex->get_id_range(id, id, sub.graph);
+        }
+        //xindex->expand_context(sub.graph, context_depth, false);
         sub.rebuild_indexes();
         if (max_target_factor && sub.length() > max_target_length) {
             subgraphs.pop_back();
@@ -1357,8 +1359,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
                 auto m = id_to_mems.find(n->id());
                 if (m != id_to_mems.end()) {
                     for (auto& mem : m->second) {
-                        // we add weight for the hit length, but
-                        // weight the hit by the number of matches
+                        // we weight by the hit length
+                        // divided by the number of matches it has
                         hit_length +=
                             (double)(mem->end - mem->begin)
                             /(double)mem->match_count;
@@ -1396,6 +1398,9 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     size_t attempts = 0;
     for (auto s : ranked_subgraphs) {
         VG& subgraph = *s;
+        // expand only now
+        xindex->expand_context(subgraph.graph, context_depth, false);
+        subgraph.rebuild_indexes();
         // record our attempt count
         ++attempts;
         // determine the likely orientation
