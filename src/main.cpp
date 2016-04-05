@@ -5787,37 +5787,37 @@ int main_view(int argc, char** argv) {
             }
             cout.flush();
             return 0;
-        } else if (input_type == "pileup") {
-            if (input_json == false) {
-                if (output_type == "json") {
-                    // convert values to printable ones
-                    function<void(NodePileup&)> lambda = [](NodePileup& p) {
-                        cout << pb2json(p) << "\n";
-                    };
-                    if (file_name == "-") {
-                        stream::for_each(std::cin, lambda);
-                    } else {
-                        ifstream in;
-                        in.open(file_name.c_str());
-                        stream::for_each(in, lambda);
-                    }
+    } else if (input_type == "pileup") {
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Pileup&)> lambda = [](Pileup& p) {
+                    cout << pb2json(p) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
                 } else {
-                    // todo
-                    cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
-                    return 1;
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
                 }
             } else {
-                if (output_type == "json" || output_type == "pileup") {
-                    JSONStreamHelper<NodePileup> json_helper(file_name);
-                    json_helper.write(cout, output_type == "json");
-                } else {
-                    cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
-                    return 1;
-                }
+                // todo
+                cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
+                return 1;
             }
-            cout.flush();
-            return 0;
+        } else {
+            if (output_type == "json" || output_type == "pileup") {
+                JSONStreamHelper<Pileup> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
+                return 1;
+            }
         }
+        cout.flush();
+        return 0;
+    }
 
         if(graph == nullptr) {
             // Make sure we didn't forget to implement an input format.
