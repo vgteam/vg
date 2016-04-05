@@ -1,6 +1,8 @@
 #include <vector>
 #include <iostream>
 #include <unordered_map>
+#include <sstream>
+#include <string>
 #include "vg.hpp"
 #include "vg.pb.h"
 
@@ -15,6 +17,7 @@ namespace vg{
 class Filter{
     public:
         Filter();
+        ~Filter();
         /**
          * Filter functions.
          * Take an Alignment and walk it.
@@ -40,12 +43,12 @@ class Filter{
         //Position: NodeID + offset
         // different edits may be present at each position.
         // is there some way to just hash the mappings?
-        unordered_map<int, int> pos_to_depth;
+        unordered_map<string, unordered_map<string, int> > pos_to_edit_to_depth;
         unordered_map<int, int> pos_to_qual;
         int min_depth;
         int min_qual;
         int min_cov;
-        double avg_qual;
+        double min_avg_qual;
         double min_pct_identity;
         bool remove_failing_edits = false;
 
