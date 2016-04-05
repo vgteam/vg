@@ -1326,8 +1326,12 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         }
     }
 
+    // rank the clusters using heuristics
+    // prefer larger clusters (more nodes nearby)
+    // prefer more MEMs (more matches, more better)
+    // prefer the length of the MEMs
+
     map<vector<id_t>*, int> cluster_mem_length;
-    // order the clusters by length of hits and then by the number of MEMs
     std::for_each(clusters.begin(), clusters.end(),
                   [&cluster_mem_length,
                    &id_to_mems](vector<id_t>& cluster) {
@@ -1348,12 +1352,23 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     std::sort(ranked_clusters.begin(), ranked_clusters.end(),
               [&cluster_mem_length](vector<id_t>* a,
                                     vector<id_t>* b) {
+                  auto range_a = a->back() - a->front();
+                  auto range_b = b->back() - b->front();
                   auto len_a = cluster_mem_length[a];
                   auto len_b = cluster_mem_length[b];
-                  // order by the sum of mem lengths (longer is better)
-                  // then by the number of MEMs (fewer is better)
-                  if (len_a == len_b) return a->size() < b->size();
-                  else return len_a > len_b;
+                  // TODO: order by unique hit positions
+                  // order by cluster length
+                  // order by number of MEMs
+                  // order by length of MEMs
+                  if (range_a == range_b) {
+                      if (a->size() == b->size()) {
+                          return len_a > len_b;
+                      } else {
+                          return a->size() > b->size();
+                      }
+                  } else {
+                      return range_a > range_b;
+                  }
               });
 
 
@@ -1528,22 +1543,12 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
     Path* path = aln.mutable_path();
     int64_t idf = path->mutable_mapping(0)->position().node_id();
     int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
-    int32_t d_to_head = graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3);
-    int32_t d_to_tail = graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3);
     int max_target_length = aln.sequence().size() * max_target_factor;
     while (itr++ < 3
-           && ((sc_start > softclip_threshold
-                && d_to_head >= 0 && d_to_head < sc_start)
-               || (sc_end > softclip_threshold
-                   && d_to_tail >=0 && d_to_tail < sc_end))) {
+           && (sc_start > softclip_threshold
+               || sc_end > softclip_threshold)) {
         if (debug) {
             cerr << "softclip before " << sc_start << " " << sc_end << endl;
-            cerr << "distance to head "
-                 << graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3)
-                 << endl;
-            cerr << "distance to tail "
-                 << graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3)
-                 << endl;
         }
         double avg_node_size = graph.length() / graph.size();
         if (debug) cerr << "average node size " << avg_node_size << endl;
@@ -1584,8 +1589,6 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         path = aln.mutable_path();
         idf = path->mutable_mapping(0)->position().node_id();
         idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
-        d_to_head = graph.distance_to_head(NodeTraversal(graph.get_node(idf), false), sc_start*3);
-        d_to_tail = graph.distance_to_tail(NodeTraversal(graph.get_node(idl), false), sc_end*3);
     }
 }
 
