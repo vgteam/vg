@@ -1631,7 +1631,49 @@ void VG::remove_duplicated_in(VG& g) {
     for (vector<Edge*>::iterator e = edges_to_destroy.begin();
          e != edges_to_destroy.end(); ++e) {
         // Find and destroy the edge that does the same thing in g.
-        g.destroy_edge(g.get_edge(NodeSide::pair_from_edge(*e)));
+        destroy_edge(g.get_edge(NodeSide::pair_from_edge(*e)));
+    }
+}
+
+void VG::remove_duplicates(void) {
+    map<id_t, size_t> node_counts;
+    for (size_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        node_counts[n->id()]++;
+    }
+    vector<Node*> nodes_to_destroy;
+    for (size_t i = 0; i < graph.node_size(); ++i) {
+        Node* n = graph.mutable_node(i);
+        auto f = node_counts.find(n->id());
+        if (f != node_counts.end()
+            && f->second > 1) {
+            --f->second;
+            nodes_to_destroy.push_back(n);
+        }
+    }
+    for (vector<Node*>::iterator n = nodes_to_destroy.begin();
+         n != nodes_to_destroy.end(); ++n) {
+        destroy_node(get_node((*n)->id()));
+    }
+    
+    map<pair<NodeSide, NodeSide>, size_t> edge_counts;
+    for (id_t i = 0; i < graph.edge_size(); ++i) {
+        edge_counts[NodeSide::pair_from_edge(graph.edge(i))]++;
+    }
+    vector<Edge*> edges_to_destroy;
+    for (id_t i = 0; i < graph.edge_size(); ++i) {
+        Edge* e = graph.mutable_edge(i);
+        auto f = edge_counts.find(NodeSide::pair_from_edge(*e));
+        if (f != edge_counts.end()
+            && f->second > 1) {
+            --f->second;
+            edges_to_destroy.push_back(e);
+        }
+    }
+    for (vector<Edge*>::iterator e = edges_to_destroy.begin();
+         e != edges_to_destroy.end(); ++e) {
+        // Find and destroy the edge that does the same thing in g.
+        destroy_edge(get_edge(NodeSide::pair_from_edge(*e)));
     }
 }
 
