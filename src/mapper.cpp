@@ -1304,10 +1304,11 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     }
 
     std::sort(ids.begin(), ids.end());
+    ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
 
-    // collect the graph implied by the mems and their reverse complements
-    // attempt to pick up ranges between successive nodes
-    // when these are below our context_depth
+    // establish clusters using approximate distance metric based on ids
+    // we pick up ranges between successive nodes
+    // when these are below our thread_extension length
     vector<vector<id_t> > clusters;
     for (auto& id : ids) {
         if (clusters.empty()) {
@@ -1326,22 +1327,21 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         }
     }
 
-    // rank the clusters using heuristics
-    // prefer larger clusters (more nodes nearby)
-    // prefer more MEMs (more matches, more better)
-    // prefer the length of the MEMs
-
-    map<vector<id_t>*, int> cluster_mem_length;
+    // rank the clusters by the fraction of the read which they cover
+    map<vector<id_t>*, int> cluster_query_coverage;
     std::for_each(clusters.begin(), clusters.end(),
-                  [&cluster_mem_length,
+                  [&cluster_query_coverage,
                    &id_to_mems](vector<id_t>& cluster) {
-                      size_t len_sum = 0;
+                      set<string::const_iterator> query_coverage;
                       for (auto& id : cluster) {
                           auto& mems = id_to_mems[id];
                           std::for_each(mems.begin(), mems.end(),
-                                        [&](MaximalExactMatch* m) { len_sum += m->end - m->begin; });
+                                        [&](MaximalExactMatch* m) {
+                                            string::const_iterator c = m->begin;
+                                            while (c != m->end) query_coverage.insert(c++);
+                                        });
                       }
-                      cluster_mem_length[&cluster] = len_sum;
+                      cluster_query_coverage[&cluster] = query_coverage.size();
                   });
 
     vector<vector<id_t>*> ranked_clusters;
@@ -1350,24 +1350,16 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
                       ranked_clusters.push_back(&cluster); });
 
     std::sort(ranked_clusters.begin(), ranked_clusters.end(),
-              [&cluster_mem_length](vector<id_t>* a,
-                                    vector<id_t>* b) {
-                  auto range_a = a->back() - a->front();
-                  auto range_b = b->back() - b->front();
-                  auto len_a = cluster_mem_length[a];
-                  auto len_b = cluster_mem_length[b];
-                  // TODO: order by unique hit positions
-                  // order by cluster length
-                  // order by number of MEMs
-                  // order by length of MEMs
-                  if (range_a == range_b) {
-                      if (a->size() == b->size()) {
-                          return len_a > len_b;
-                      } else {
-                          return a->size() > b->size();
-                      }
+              [&cluster_query_coverage](vector<id_t>* a,
+                                        vector<id_t>* b) {
+                  auto len_a = cluster_query_coverage[a];
+                  auto len_b = cluster_query_coverage[b];
+                  // order by cluster coverage of query
+                  // break ties on number of MEMs (fewer better)
+                  if (len_a == len_b) {
+                      return a->size() < b->size();
                   } else {
-                      return range_a > range_b;
+                      return len_a > len_b;
                   }
               });
 
@@ -1377,14 +1369,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     if (debug) {
         for (auto cptr : ranked_clusters) {
             auto& c = *cptr;
-            size_t len_sum = 0;
-            for (auto& id : c) {
-                auto& mems = id_to_mems[id];
-                std::for_each(mems.begin(), mems.end(),
-                              [&](MaximalExactMatch* m) { len_sum += m->end - m->begin; });
-            }
-            cerr << c.size() << ":"
-                 << len_sum << " "
+            cerr << cluster_query_coverage[cptr] << ":"
+                 << c.size() << " "
                  << c.front() << "-" << c.back() << endl;
         }
     }
