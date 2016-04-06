@@ -211,16 +211,7 @@ void Caller::update_call_graph() {
         for (auto n : _inserted_nodes) {
             write_node_tsv(n.first, 'I', n.second);
         }
-    }
-    
-    // make sure paths are saved
-    _call_graph.paths.rebuild_node_mapping();
-    _call_graph.paths.rebuild_mapping_aux();
-    _call_graph.paths.to_graph(_call_graph.graph);
-
-    // fix ids
-    //_call_graph.sort();
-    //_call_graph.compact_ids();
+    }    
 }
 
 
@@ -274,7 +265,11 @@ void Caller::map_paths() {
         verify_path(path, call_path);
     };
     _graph->paths.for_each(lambda);
-    
+
+    // make sure paths are saved
+    _call_graph.paths.rebuild_node_mapping();
+    _call_graph.paths.rebuild_mapping_aux();
+    _call_graph.paths.to_graph(_call_graph.graph);    
 }
 
 void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
