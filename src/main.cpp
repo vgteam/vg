@@ -785,11 +785,9 @@ int main_call(int argc, char** argv) {
     
     function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
         for (int i = 0; i < pileup.node_pileups_size(); ++i) {
-            cerr << "Call Node " << pileup.node_pileups(i).node_id() << endl;
             caller.call_node_pileup(pileup.node_pileups(i));
         }
         for (int i = 0; i < pileup.edge_pileups_size(); ++i) {
-            cerr << "Call Edge " << pb2json(pileup.edge_pileups(i).edge()) << endl;
             caller.call_edge_pileup(pileup.edge_pileups(i));
         }
     };
