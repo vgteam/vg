@@ -1,8 +1,233 @@
-{"node_id": 1, "base_pileup": [{}, {}, {}, {}, {"ref_base": 84, "num_bases": 1, "bases": "."}, {"ref_base": 65, "num_bases": 1, "bases": "."}, {"ref_base": 65, "num_bases": 2, "bases": ".."}, {"ref_base": 71, "num_bases": 3, "bases": ".+1T."}]}
-{"node_id": 2, "base_pileup": [{"ref_base": 71, "num_bases": 1, "bases": "."}]}
-{"node_id": 3, "base_pileup": [{"ref_base": 65, "num_bases": 1, "bases": "."}]}
-{"node_id": 4, "base_pileup": [{"ref_base": 67, "num_bases": 2, "bases": ".."}]}
-{"node_id": 6, "base_pileup": [{"ref_base": 84, "num_bases": 2, "bases": "-2TT."}, {"ref_base": 84, "num_bases": 1, "bases": "C"}, {"ref_base": 71, "num_bases": 2, "bases": ".."}]}
-{"node_id": 7, "base_pileup": [{"ref_base": 71, "num_bases": 1, "bases": "."}]}
-{"node_id": 8, "base_pileup": [{"ref_base": 65, "num_bases": 1, "bases": "."}]}
-{"node_id": 9, "base_pileup": [{"ref_base": 65, "num_bases": 2, "bases": ".+1G"}]}
+{
+  "node_pileups": [
+    {
+      "node_id": 1,
+      "base_pileup": [
+        {
+          "ref_base": 67
+        },
+        {
+          "ref_base": 65
+        },
+        {
+          "ref_base": 65
+        },
+        {
+          "ref_base": 65
+        },
+        {
+          "ref_base": 84,
+          "num_bases": 1,
+          "bases": "."
+        },
+        {
+          "ref_base": 65,
+          "num_bases": 1,
+          "bases": "."
+        },
+        {
+          "ref_base": 65,
+          "num_bases": 2,
+          "bases": ".,"
+        },
+        {
+          "ref_base": 71,
+          "num_bases": 3,
+          "bases": ".+1T,"
+        }
+      ]
+    },
+    {
+      "node_id": 2,
+      "base_pileup": [
+        {
+          "ref_base": 71,
+          "num_bases": 1,
+          "bases": ","
+        }
+      ]
+    },
+    {
+      "node_id": 3,
+      "base_pileup": [
+        {
+          "ref_base": 65,
+          "num_bases": 1,
+          "bases": "."
+        }
+      ]
+    },
+    {
+      "node_id": 4,
+      "base_pileup": [
+        {
+          "ref_base": 67,
+          "num_bases": 2,
+          "bases": ".,"
+        }
+      ]
+    },
+    {
+      "node_id": 6,
+      "base_pileup": [
+        {
+          "ref_base": 84,
+          "num_bases": 2,
+          "bases": "-0;4;0;0;6;2;0,"
+        },
+        {
+          "ref_base": 84,
+          "num_bases": 1,
+          "bases": "g"
+        },
+        {
+          "ref_base": 71,
+          "num_bases": 2,
+          "bases": ".,"
+        }
+      ]
+    },
+    {
+      "node_id": 7,
+      "base_pileup": [
+        {
+          "ref_base": 71,
+          "num_bases": 1,
+          "bases": ","
+        }
+      ]
+    },
+    {
+      "node_id": 8,
+      "base_pileup": [
+        {
+          "ref_base": 65,
+          "num_bases": 1,
+          "bases": "."
+        }
+      ]
+    },
+    {
+      "node_id": 9,
+      "base_pileup": [
+        {
+          "ref_base": 65,
+          "num_bases": 2,
+          "bases": ".+1G"
+        },
+        {
+          "ref_base": 65
+        },
+        {
+          "ref_base": 65
+        },
+        {
+          "ref_base": 84
+        },
+        {
+          "ref_base": 84
+        },
+        {
+          "ref_base": 84
+        },
+        {
+          "ref_base": 84
+        },
+        {
+          "ref_base": 67
+        },
+        {
+          "ref_base": 84
+        },
+        {
+          "ref_base": 71
+        },
+        {
+          "ref_base": 71
+        },
+        {
+          "ref_base": 65
+        },
+        {
+          "ref_base": 71
+        },
+        {
+          "ref_base": 84
+        },
+        {
+          "ref_base": 84
+        },
+        {
+          "ref_base": 67
+        },
+        {
+          "ref_base": 84
+        },
+        {
+          "ref_base": 65
+        },
+        {
+          "ref_base": 84
+        }
+      ]
+    }
+  ],
+  "edge_pileups": [
+    {
+      "edge": {
+        "from": 6,
+        "to": 8
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "from": 1,
+        "to": 2
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "from": 1,
+        "to": 3
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "from": 3,
+        "to": 4
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "from": 8,
+        "to": 9
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "from": 6,
+        "to": 7
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "from": 4,
+        "to": 6
+      },
+      "num_reads": 2
+    },
+    {
+      "edge": {
+        "from": 2,
+        "to": 4
+      },
+      "num_reads": 1
+    }
+  ]
+}
