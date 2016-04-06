@@ -146,6 +146,28 @@ vg map -r <(vg sim -n 1000 -l 150 x.vg) -x x.xg -g x.gcsa -k 22 >aln.gam
 # NB: currently requires the rocksdb-backed index
 vg surject -p x -b aln.gam >aln.bam
 ```
+### Variant Calling
+
+The following example shows how to construct a VCF file from a read alignment and graph.  This has been tested on 50X short read sequencing for relatively small pilot regions.  Note: VCF export requires  [glenn2vcf](https://github.com/adamnovak/glenn2vcf) and [vt](http://varianttools.sourceforge.net/Association/HomePage)
+
+```sh
+# filter secondary and ambiguous read mappings out of the gam
+vg filter graph.vg alignment.gam -r 0.90 -d 0.05 -e 0.05 -afu -s 10000 -o 10 > filtered.gam
+
+# create pileup for every graph position and edge in the graph
+vg pileup graph.vg filtered.gam -w 40 -m 10 -q 10 > graph.pileup
+
+# create "augmented graph" (original graph plus new newly called stuff)
+# and tsv file containing some annotations on this graph needed for vcf export
+vg call graph.vg graph.pileup -r 0.0001 -b 0.4 -f 0.25 -d 8 -l -c augmented.tsv -j > augmented.vg
+
+# export to vcf. note: -s -s -r -o parameters will have to be changed to fit your data
+glenn2vcf augmented.vg augmented.tsv -c chr13 -s NA12878 -r ref -o 32314860 > calls.vcf
+
+# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases:
+vt decompose calls.vcf | vt decompose_blocksub -a - | vt normalize -r FASTA_FILE - | uniq > calls.clean.vcf
+
+```
 
 ### Command line interface
 
@@ -167,6 +189,10 @@ A variety of commands are available:
 - *mod*: various transformations of the graph
 - *surject*: force graph alignments into a linear reference space
 - *msga*: construct a graph from an assembly of multiple sequences
+- *validate*: determine if graph is valid
+- *filter*: filter reads out of an alignment
+- *pileup*: pileup reads onto graph positions and edges
+- *call*: call graph positions from a pileup
 
 ## Implementation notes
 
