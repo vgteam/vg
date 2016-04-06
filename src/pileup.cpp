@@ -93,7 +93,7 @@ void Pileups::for_each_edge_pileup(const function<void(EdgePileup&)>& lambda) {
 }
 
 EdgePileup* Pileups::get_edge_pileup(pair<NodeSide, NodeSide> sides) {
-    if (sides.first < sides.second) {
+    if (sides.second < sides.first) {
         swap(sides.first, sides.second);
     }
     auto p = _edge_pileups.find(sides);
@@ -102,7 +102,7 @@ EdgePileup* Pileups::get_edge_pileup(pair<NodeSide, NodeSide> sides) {
             
 // get a pileup.  if it's null, create a new one and insert it.
 EdgePileup* Pileups::get_create_edge_pileup(pair<NodeSide, NodeSide> sides) {
-    if (sides.first < sides.second) {
+    if (sides.second < sides.first) {
         swap(sides.first, sides.second);
     }
     EdgePileup* p = get_edge_pileup(sides);
