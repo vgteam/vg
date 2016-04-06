@@ -26,6 +26,13 @@ namespace vg{
     void Filter::set_avg_qual(double avg_qual){
         min_avg_qual = avg_qual;
     }
+
+    void Filter::set_filter_matches(bool fm){
+        filter_matches = fm;
+    }
+    void Filter::set_remove_failing_alignments(bool fm){
+        remove_failing_alignments = fm;
+    }
     /**
      * CLI: vg filter -d 10 -q 40 -r -R
      * -r: track depth of both novel variants and those in the graph.
@@ -33,7 +40,6 @@ namespace vg{
      */
     Alignment Filter::depth_filter(Alignment& aln){
         Path path = aln.path();
-        bool depth_filter_matches = false;
         //TODO handle reversing mappings
 
         for (int i = 0; i < path.mapping_size(); i++){
@@ -50,10 +56,7 @@ namespace vg{
             for (int j = 0; j < mapping.edit_size(); j++){
                 Edit ee = mapping.edit(j);
                 if (ee.from_length() == ee.to_length() && ee.sequence() == ""){
-                    if (depth_filter_matches){
-
-                    }
-                    else {
+                    if (!filter_matches){
                         continue;
                     }
                 }
@@ -61,16 +64,22 @@ namespace vg{
                 est <<  ee.from_length() << "_" << ee.to_length() << "_" + ee.sequence();
                 string e_hash = est.str();
                 pos_to_edit_to_depth[p_hash][e_hash] += 1;
+                /**
+                 * If an edit fails the filter, either return a new empty alignment
+                 * OR
+                 * return a new alignment identical to the old one EXCEPT where
+                 * the offending edit has been replaced by a match to the reference.
+                 */
                 if (pos_to_edit_to_depth[p_hash][e_hash] < min_depth){
-                    if (remove_failing_edits){
+                    if (remove_failing_alignments){
                         return Alignment();
                     }
 
                     else {
-                        Alignment edited_aln = Alignment();
-                        //Alignment.set_sequence(aln.sequence());
-                        //Edit new_ed = Edit();
-                        //Alignment.path().mapping(i).edit(j) = new_ed;
+                        Alignment edited_aln = Alignment(aln);
+                        edited_aln.mutable_path()->mutable_mapping(i)->mutable_edit(j)->set_sequence("");
+                        edited_aln.mutable_path()->mutable_mapping(i)->mutable_edit(j)->set_from_length(ee.from_length());
+                        edited_aln.mutable_path()->mutable_mapping(i)->mutable_edit(j)->set_to_length(ee.from_length());
                         return edited_aln;
                     }
                 }
@@ -80,19 +89,19 @@ namespace vg{
 
 
     }
-    Alignment& Filter::qual_filter(Alignment& aln){
+    Alignment Filter::qual_filter(Alignment& aln){
 
     }
-    Alignment& Filter::coverage_filter(Alignment& aln){
+    Alignment Filter::coverage_filter(Alignment& aln){
 
     }
-    Alignment& Filter::avg_qual_filter(Alignment& aln){
+    Alignment Filter::avg_qual_filter(Alignment& aln){
 
     }
-    Alignment& Filter::soft_clip_filter(Alignment& aln){
+    Alignment Filter::soft_clip_filter(Alignment& aln){
 
     }
-    Alignment& Filter::percent_identity_filter(Alignment& aln){
+    Alignment Filter::percent_identity_filter(Alignment& aln){
         double pctid = 0.0;
         int64_t graph_len = my_vg->total_length_of_nodes();
     }

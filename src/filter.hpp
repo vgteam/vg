@@ -27,15 +27,17 @@ class Filter{
          * modified alignments.
          */
         Alignment depth_filter(Alignment& aln);
-        Alignment& qual_filter(Alignment& aln);
-        Alignment& coverage_filter(Alignment& aln);
-        Alignment& avg_qual_filter(Alignment& aln);
-        Alignment& percent_identity_filter(Alignment& aln);
-        Alignment& soft_clip_filter(Alignment& aln);
+        Alignment qual_filter(Alignment& aln);
+        Alignment coverage_filter(Alignment& aln);
+        Alignment avg_qual_filter(Alignment& aln);
+        Alignment percent_identity_filter(Alignment& aln);
+        Alignment soft_clip_filter(Alignment& aln);
         void set_min_depth(int depth);
         void set_min_qual(int qual);
         void set_min_pct_identity(double pct_id);
         void set_avg_qual(double avg_qual);
+        void set_filter_matches(bool fm);
+        void set_remove_failing_alignments(bool fm);
 
     private:
         vg::VG* my_vg;
@@ -49,8 +51,8 @@ class Filter{
         int min_cov;
         double min_avg_qual;
         double min_pct_identity;
-        bool remove_failing_edits = false;
-
+        bool remove_failing_alignments = true;
+        bool filter_matches = true;
 
 };
 }
