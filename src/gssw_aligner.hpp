@@ -34,8 +34,8 @@ public:
                     set<gssw_node*>& temporary_marks);
 
     // alignment functions
-    void align(Alignment& alignment);
-    void gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& alignment);
+    void align(Alignment& alignment, bool print_score_matrices = false);
+    void gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& alignment, bool print_score_matrices = false);
     string graph_cigar(gssw_graph_mapping* gm);
 
     // members

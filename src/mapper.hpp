@@ -197,7 +197,7 @@ public:
     int32_t match;
     int32_t mismatch;
     int32_t gap_open;
-    int32_t gap_extension;
+    int32_t gap_extend;
     size_t max_query_graph_ratio;
 
     // multimapping
