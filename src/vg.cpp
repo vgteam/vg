@@ -6611,7 +6611,8 @@ Alignment VG::align(const Alignment& alignment,
                     int32_t mismatch,
                     int32_t gap_open,
                     int32_t gap_extension,
-                    size_t max_query_graph_ratio) {
+                    size_t max_query_graph_ratio,
+                    bool print_score_matrices) {
 
     auto aln = alignment;
 
@@ -6646,7 +6647,7 @@ Alignment VG::align(const Alignment& alignment,
     dag.sort();
 
     gssw_aligner = new GSSWAligner(dag.graph, match, mismatch, gap_open, gap_extension);
-    gssw_aligner->align(aln);
+    gssw_aligner->align(aln, print_score_matrices);
 
     delete gssw_aligner;
     gssw_aligner = NULL;
@@ -6684,10 +6685,11 @@ Alignment VG::align(const string& sequence,
                     int32_t mismatch,
                     int32_t gap_open,
                     int32_t gap_extension,
-                    size_t max_query_graph_ratio) {
+                    size_t max_query_graph_ratio,
+                    bool print_score_matrices) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+    return align(alignment, match, mismatch, gap_open, gap_extension, max_query_graph_ratio, print_score_matrices);
 }
 
 const string VG::hash(void) {

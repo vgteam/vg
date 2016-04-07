@@ -3183,25 +3183,25 @@ void help_find(char** argv) {
         // TODO, dump these from the index
         //<< "    -a, --alignments       write all stored alignments in sorted order (in GAM)" << endl
         //<< "    -m, --mappings         write stored mappings in sorted order (in json)" << endl
-        << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
-        << "graph features:" << endl
-        << "    -n, --node ID          find node, return 1-hop context as graph" << endl
-        << "    -e, --edges-end ID     return edges on end of node with ID" << endl
-        << "    -s, --edges-start ID   return edges on start of node with ID" << endl
-        << "    -c, --context STEPS    expand the context of the kmer hit subgraphs" << endl
-        << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
-        << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
-        << "    -r, --node-range N:M   get nodes from N to M" << endl
-        << "sequences:" << endl
-        << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
-        << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
-        << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
-        << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
-        << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
-        << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
-        << "    -T, --table            instead of a graph, return a table of kmers" << endl
-        << "                           (works only with kmers in the index)" << endl
-        << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl;
+         << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
+         << "graph features:" << endl
+         << "    -n, --node ID          find node, return 1-hop context as graph" << endl
+         << "    -e, --edges-end ID     return edges on end of node with ID" << endl
+         << "    -s, --edges-start ID   return edges on start of node with ID" << endl
+         << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
+         << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
+         << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
+         << "    -r, --node-range N:M   get nodes from N to M" << endl
+         << "sequences:" << endl
+         << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
+         << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in sequence (default 1)" << endl
+         << "    -S, --sequence STR     search for sequence STR using --kmer-size kmers" << endl
+         << "    -M, --mems STR         describe the super-maximal exact matches of the STR (gcsa2) in JSON" << endl
+         << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
+         << "    -T, --table            instead of a graph, return a table of kmers" << endl
+         << "                           (works only with kmers in the index)" << endl
+         << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl;
 
 
 }
@@ -4420,10 +4420,15 @@ int main_index(int argc, char** argv) {
 
 void help_align(char** argv) {
     cerr << "usage: " << argv[0] << " align [options] <graph.vg> >alignments.gam" << endl
-        << "options:" << endl
-        << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
-        << "    -Q, --seq-name STR    name the sequence using this value" << endl
-        << "    -j, --json            output alignments in JSON format (default GAM)" << endl;
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -Q, --seq-name STR    name the sequence using this value" << endl
+         << "    -j, --json            output alignments in JSON format (default GAM)" << endl
+         << "    -m, --match N         use this match score (default: 2)" << endl
+         << "    -M, --mismatch N      use this mismatch penalty (default: 2)" << endl
+         << "    -g, --gap-open N      use this gap open penalty (default: 3)" << endl
+         << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -D, --debug           print out score matrices and other debugging info" << endl;
 }
 
 int main_align(int argc, char** argv) {
@@ -4438,6 +4443,11 @@ int main_align(int argc, char** argv) {
 
     bool print_cigar = false;
     bool output_json = false;
+    int match = 2;
+    int mismatch = 2;
+    int gap_open = 3;
+    int gap_extend = 1;
+    bool debug = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4449,11 +4459,16 @@ int main_align(int argc, char** argv) {
             {"sequence", required_argument, 0, 's'},
             {"seq-name", no_argument, 0, 'Q'},
             {"json", no_argument, 0, 'j'},
+            {"match", required_argument, 0, 'm'},
+            {"mismatch", required_argument, 0, 'M'},
+            {"gap-open", required_argument, 0, 'g'},
+            {"gap-extend", required_argument, 0, 'e'},
+            {"debug", no_argument, 0, 'D'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:D",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -4462,27 +4477,47 @@ int main_align(int argc, char** argv) {
 
         switch (c)
         {
-            case 's':
-                seq = optarg;
-                break;
+        case 's':
+            seq = optarg;
+            break;
 
-            case 'Q':
-                seq_name = optarg;
-                break;
+        case 'Q':
+            seq_name = optarg;
+            break;
 
-            case 'j':
-                output_json = true;
-                break;
+        case 'j':
+            output_json = true;
+            break;
 
-            case 'h':
-            case '?':
-                /* getopt_long already printed an error message. */
-                help_align(argv);
-                exit(1);
-                break;
+        case 'm':
+            match = atoi(optarg);
+            break;
 
-            default:
-                abort ();
+        case 'M':
+            mismatch = atoi(optarg);
+            break;
+
+        case 'g':
+            gap_open = atoi(optarg);
+            break;
+
+        case 'e':
+            gap_extend = atoi(optarg);
+            break;
+
+        case 'D':
+            debug = true;
+            break;
+
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_align(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
@@ -4496,7 +4531,7 @@ int main_align(int argc, char** argv) {
         graph = new VG(in);
     }
 
-    Alignment alignment = graph->align(seq);
+    Alignment alignment = graph->align(seq, match, mismatch, gap_open, gap_extend, 0, debug);
 
     if (output_json) {
         cout << pb2json(alignment) << endl;
@@ -4541,6 +4576,11 @@ void help_map(char** argv) {
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
+         << "local alignment parameters:" << endl
+         << "    -q, --match N         use this match score (default: 2)" << endl
+         << "    -z, --mismatch N      use this mismatch penalty (default: 2)" << endl
+         << "    -o, --gap-open N      use this gap open penalty (default: 3)" << endl
+         << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -P, --min-score N     accept alignment only if the normalized alignment score is > N (default: 0)" << endl
@@ -4618,6 +4658,10 @@ int main_map(int argc, char** argv) {
     int max_target_factor = 100;
     bool in_mem_path_only = false;
     int buffer_size = 100;
+    int match = 2;
+    int mismatch = 2;
+    int gap_open = 3;
+    int gap_extend = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4667,11 +4711,15 @@ int main_map(int argc, char** argv) {
                 {"max-mem-length", required_argument, 0, 'Y'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
+                {"match", required_argument, 0, 'q'},
+                {"mismatch", required_argument, 0, 'z'},
+                {"gap-open", required_argument, 0, 'o'},
+                {"gap-extend", required_argument, 0, 'y'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:",
                          long_options, &option_index);
 
 
@@ -4844,6 +4892,22 @@ int main_map(int argc, char** argv) {
             buffer_size = atoi(optarg);
             break;
 
+        case 'q':
+            match = atoi(optarg);
+            break;
+
+        case 'z':
+            mismatch = atoi(optarg);
+            break;
+
+        case 'o':
+            gap_open = atoi(optarg);
+            break;
+
+        case 'y':
+            gap_extend = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -4997,6 +5061,10 @@ int main_map(int argc, char** argv) {
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
         m->max_target_factor = max_target_factor;
+        m->match = match;
+        m->mismatch = mismatch;
+        m->gap_open = gap_open;
+        m->gap_extend = gap_extend;
         mapper[i] = m;
     }
 

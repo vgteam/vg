@@ -35,7 +35,7 @@ Mapper::Mapper(Index* idex,
     , match(2)
     , mismatch(2)
     , gap_open(3)
-    , gap_extension(1)
+    , gap_extend(1)
     , max_query_graph_ratio(128)
 {
     // Nothing to do. We just hold the default parameter values.
@@ -120,7 +120,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     read2.clear_path();
     read2.set_score(0);
 
-    read2 = graph->align(read2, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+    read2 = graph->align(read2, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
     delete graph;
 }
 
@@ -1427,7 +1427,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             });
         if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
         if (fw_mems) {
-            Alignment aln = sub.align(aln_fw, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+            Alignment aln = sub.align(aln_fw, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(aln);
             if (attempts >= max_multimaps &&
@@ -1436,7 +1436,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             }
         }
         if (rc_mems) {
-            Alignment aln = sub.align(aln_rc, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+            Alignment aln = sub.align(aln_rc, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(reverse_complement_alignment(aln,
                                                         (function<int64_t(int64_t)>)
@@ -1563,7 +1563,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (max_target_factor && graph.length() >= max_target_length) break;
 
         // otherwise, align
-        aln = graph.align(aln, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+        aln = graph.align(aln, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
 
         sc_start = softclip_start(aln);
         sc_end = softclip_end(aln);
@@ -1956,7 +1956,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             ta.clear_path();
             ta.set_score(0);
 
-            ta = graph->align(ta, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+            ta = graph->align(ta, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
 
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
@@ -2026,7 +2026,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 ta.clear_path();
                 ta.set_score(0);
 
-                ta = graph->align(ta, match, mismatch, gap_open, gap_extension, max_query_graph_ratio);
+                ta = graph->align(ta, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
 
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);

@@ -794,13 +794,15 @@ public:
                     int32_t mismatch = 2,
                     int32_t gap_open = 3,
                     int32_t gap_extension = 1,
-                    size_t max_query_graph_ratio = 0);
+                    size_t max_query_graph_ratio = 0,
+                    bool print_score_matrices = false);
     Alignment align(const string& sequence,
                     int32_t match = 2,
                     int32_t mismatch = 2,
                     int32_t gap_open = 3,
                     int32_t gap_extension = 1,
-                    size_t max_query_graph_ratio = 0);
+                    size_t max_query_graph_ratio = 0,
+                    bool print_score_matrices = false);
     void destroy_alignable_graph(void);
 
     GSSWAligner* gssw_aligner;
