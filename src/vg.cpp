@@ -3006,7 +3006,8 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
     //
     
     std::function<bool(string)> all_upper = [](string s){
-        for (int i = 0; i < s.size(); i++){
+        //GO until [size() - 1 ] to avoid the newline char
+        for (int i = 0; i < s.size() - 1; i++){
             if (!isupper(s[i])){
                 return false;
             }
