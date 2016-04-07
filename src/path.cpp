@@ -1486,6 +1486,13 @@ pair<Path, Path> cut_path(const Path& path, size_t offset) {
     Path p1, p2;
     size_t seen = 0;
     size_t i = 0;
+    if (!path.mapping_size()) {
+        cerr << "[vg::Path] cannot cut an empty path" << endl;
+        assert(false);
+    }
+#ifdef debug
+    cerr << "cutting path at " << offset << endl << pb2json(m) << endl;
+#endif
     // seek forward to the cut point
     for ( ; i < path.mapping_size() && seen < offset; ++i) {
         auto& m = path.mapping(i);
