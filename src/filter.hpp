@@ -33,6 +33,7 @@ class Filter{
         Alignment percent_identity_filter(Alignment& aln);
         Alignment soft_clip_filter(Alignment& aln);
         Alignment split_read_filter(Alignment& aln);
+        Alignment path_divergence_filter(Alignment& aln);
         void set_min_depth(int depth);
         void set_min_qual(int qual);
         void set_min_percent_identity(double pct_id);

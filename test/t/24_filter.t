@@ -7,4 +7,5 @@ PATH=../bin:$PATH # for vg
 
 plan tests 0
 
-## Check whether depth filtering fails a small number of alignments.
+## Check whether depth filtering passes all alignments when the minimum depth is zero.
+

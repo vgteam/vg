@@ -33,6 +33,10 @@ namespace vg{
     void Filter::set_remove_failing_alignments(bool fm){
         remove_failing_alignments = fm;
     }
+
+    Alignment Filter::path_divergence_filter(Alignment& aln){
+        
+    }
     /**
      * CLI: vg filter -d 10 -q 40 -r -R
      * -r: track depth of both novel variants and those in the graph.
