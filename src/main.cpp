@@ -3048,7 +3048,7 @@ void help_find(char** argv) {
          << "    -n, --node ID          find node, return 1-hop context as graph" << endl
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
-         << "    -c, --context STEPS    expand the context of the kmer hit subgraphs" << endl
+         << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
