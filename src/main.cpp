@@ -144,7 +144,7 @@ int main_filter(int argc, char** argv){
     string alignment_file;
     int min_depth = 0;
     int min_qual = 0;
-    double min_percent_identity = 0;
+    double min_percent_identity = 0.0;
 
     if (argc <= 2){
         help_filter(argv);
@@ -183,7 +183,7 @@ int main_filter(int argc, char** argv){
                 min_qual = atoi(optarg);
                 break;
             case 'p':
-                min_percent_identity = atol(optarg);
+                min_percent_identity = atof(optarg);
                 break;
             default:
                 abort();
@@ -196,10 +196,9 @@ int main_filter(int argc, char** argv){
     Filter ff = Filter();
     ff.set_min_depth(min_depth);
     ff.set_min_qual(min_qual);
-    ff.set_min_pct_identity(min_percent_identity);
+    ff.set_min_percent_identity(min_percent_identity);
 
-    std::function<void(Alignment&)> lambda = [&ff, min_depth](Alignment& aln){
-        if (min_depth > 0){
+    std::function<void(Alignment&)> depth_fil = [&ff](Alignment& aln){
             //std::function<Alignment(uint64_t)>([&ff, &aln](uint64_t n) { return ff.depth_filter(aln); });
 
             aln = ff.depth_filter(aln);
@@ -207,23 +206,47 @@ int main_filter(int argc, char** argv){
                 cout << "FAIL" << endl;
             }
             else {cout <<  "PASS" << endl;}
+    };
+
+    std::function<void(Alignment&)> pct_fil = [&ff](Alignment& aln){
+        aln = ff.percent_identity_filter(aln);
+        if (aln.sequence().size() == 0){
+            cout << "FAIL" << endl;
         }
+        else {cout << "PASS" << endl;}
+    };
+
+    std::function<void(Alignment&)> qual_fil = [&ff](Alignment& aln){
+
+    };
+
+    std::function<void(Alignment&)> cov_fil = [&ff](Alignment& aln){
+
     };
     if (alignment_file == "-"){
         if (min_depth > 0){
-            stream::for_each(cin, lambda);
+            stream::for_each(cin, depth_fil);
         }
         if (min_qual > 0){
 
         }
         if (min_percent_identity > 0.0){
-
+            stream::for_each(cin, pct_fil);
         }
     }
     else{
         ifstream in;
         in.open(alignment_file);
         if (in.good()){
+            if (min_depth > 0){
+                stream::for_each(in, depth_fil);
+            }
+            if (min_qual > 0){
+
+            }
+            if (min_percent_identity > 0.0){
+                stream::for_each(in, pct_fil);
+            }   
         }
         else{
             cerr << "Could not open " << alignment_file << endl;

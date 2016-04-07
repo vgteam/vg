@@ -19,8 +19,8 @@ namespace vg{
         min_qual = qual;
     }
 
-    void Filter::set_min_pct_identity(double pct_id){
-        min_pct_identity = pct_id;
+    void Filter::set_min_percent_identity(double pct_id){
+        min_percent_identity = pct_id;
     }
 
     void Filter::set_avg_qual(double avg_qual){
@@ -96,13 +96,85 @@ namespace vg{
 
     }
     Alignment Filter::avg_qual_filter(Alignment& aln){
+        double total_qual = 0.0;
+
+        cerr << "UNTESTED" << endl;
+        exit(1);
+
+        std::function<double(int64_t, int64_t)> calc_avg_qual = [](int64_t total_qual, int64_t length){
+            return ((double) total_qual / (double) length);
+        };
+        
+    
+
+        Path path = aln.path();
+        //TODO: handle reversing alignments
+        
+        for (int i = 0; i < aln.quality().size(); i++){
+            cerr << aln.quality()[i] << endl;
+        }
+        if (calc_avg_qual(total_qual, aln.sequence().size()) < min_avg_qual){
+            return Alignment();
+        }
+
+        return aln;
 
     }
+
+
     Alignment Filter::soft_clip_filter(Alignment& aln){
 
     }
+    /**
+     * Split reads map to two separate paths OR vastly separated non-consecutive
+     * nodes in a single path.
+     *
+     * They're super important for detecting structural variants, so we may want to
+     * filter them out or collect only split reads.
+     */
+    Alignment Filter::split_read_filter(Alignment& aln){
+
+        //TODO binary search for breakpoint in read.
+
+    }
+    /**
+     * Filter reads that are less than <PCTID> reference.
+     * I.E. if a read matches the reference 80% alogn 80% of its
+     * length, and your cutoff is 90% PCTID, throw it out.
+     */
     Alignment Filter::percent_identity_filter(Alignment& aln){
-        double pctid = 0.0;
-        int64_t graph_len = my_vg->total_length_of_nodes();
+        double read_pctid = 0.0;
+        //read pct_id = len(matching sequence / len(total sequence)
+
+        int64_t aln_total_len = aln.sequence().size();
+        int64_t aln_match_len = 0;
+
+        std::function<double(int64_t, int64_t)> calc_pct_id = [](int64_t rp, int64_t ttlp){
+            return ((double) rp / (double) ttlp);
+        };
+
+
+
+        Path path = aln.path();
+        //TODO handle reversing mappings
+
+        for (int i = 0; i < path.mapping_size(); i++){
+            Mapping mapping = path.mapping(i);
+
+            for (int j = 0; j < mapping.edit_size(); j++){
+                Edit ee = mapping.edit(j);
+                if (ee.from_length() == ee.to_length() && ee.sequence() == ""){
+                    aln_match_len += ee.to_length();        
+                }
+
+            }    
+        }
+        if (calc_pct_id(aln_match_len, aln_total_len) < min_percent_identity){
+            return Alignment();
+        }
+        
+        return aln;
+        
+
     }
 }

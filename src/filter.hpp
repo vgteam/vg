@@ -32,9 +32,10 @@ class Filter{
         Alignment avg_qual_filter(Alignment& aln);
         Alignment percent_identity_filter(Alignment& aln);
         Alignment soft_clip_filter(Alignment& aln);
+        Alignment split_read_filter(Alignment& aln);
         void set_min_depth(int depth);
         void set_min_qual(int qual);
-        void set_min_pct_identity(double pct_id);
+        void set_min_percent_identity(double pct_id);
         void set_avg_qual(double avg_qual);
         void set_filter_matches(bool fm);
         void set_remove_failing_alignments(bool fm);
@@ -46,11 +47,11 @@ class Filter{
         // is there some way to just hash the mappings?
         unordered_map<string, unordered_map<string, int> > pos_to_edit_to_depth;
         unordered_map<int, int> pos_to_qual;
-        int min_depth;
-        int min_qual;
-        int min_cov;
-        double min_avg_qual;
-        double min_pct_identity;
+        int min_depth = 0;
+        int min_qual = 0;
+        int min_cov = 0;
+        double min_avg_qual = 0.0;
+        double min_percent_identity = 0.0;
         bool remove_failing_alignments = true;
         bool filter_matches = true;
 
