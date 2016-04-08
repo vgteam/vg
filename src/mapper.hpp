@@ -178,7 +178,7 @@ public:
     int kmer_sensitivity_step; // size to decrease the kmer length if we fail alignment
     bool prefer_forward; // attempt alignment of forward complement of the read against the graph (forward) first
     bool greedy_accept; // if we make an OK forward alignment, accept it
-    float accept_norm_score; // for early bailout; target alignment score as a fraction of the score of a perfect match
+    float accept_identity; // for early bailout; target alignment score as a fraction of the score of a perfect match
 
     // mem mapper parameters (it is _much_ simpler)
     //
@@ -204,7 +204,7 @@ public:
     int max_multimaps;
     // soft clip resolution
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
-    float min_norm_score; // require that aln.score()/(aln.sequence().size()*match_score) is at least this much to accept alignment
+    float min_identity; // require that alignment identity is at least this much to accept alignment
 
 };
 

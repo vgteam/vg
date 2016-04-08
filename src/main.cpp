@@ -690,10 +690,10 @@ void help_msga(char** argv) {
          << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
          << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
          << "    -T, --thread-ex N       cluster nodes when successive ids are within this distance (default: 10)" << endl
-         << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
+         << "    -P, --min-identity N    accept alignment only if the alignment-based identity is >= N (default: 0.75)" << endl
          << "    -B, --band-width N      use this bandwidth when mapping (default: 256)" << endl
-         << "    -G, --greedy-accept     if a tested alignment achieves -S score/bp don't try clusters with fewer hits" << endl
-         << "    -S, --accept-score N    accept early alignment if the normalized alignment score is > N and -G is set" << endl
+         << "    -G, --greedy-accept     if a tested alignment achieves -S identity don't try clusters with fewer hits" << endl
+         << "    -S, --accept-identity N accept early alignment if the alignment identity is >= N and -G is set" << endl
          << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
          << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
          << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
@@ -741,7 +741,7 @@ int main_msga(int argc, char** argv) {
     int context_depth = 7;
     // same here; initial clustering
     int thread_extension = 10;
-    float min_norm_score = 0.75;
+    float min_identity = 0.75;
     int band_width = 256;
     size_t doubling_steps = 2;
     bool debug = false;
@@ -756,7 +756,7 @@ int main_msga(int argc, char** argv) {
     int max_mem_length = 0;
     int min_mem_length = 0;
     bool greedy_accept = false;
-    float accept_score = 0;
+    float accept_identity = 0;
     int max_target_factor = 100;
     bool idx_path_only = false;
 
@@ -779,7 +779,7 @@ int main_msga(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"debug-align", no_argument, 0, 'A'},
                 {"context-depth", required_argument, 0, 'c'},
-                {"min-score", required_argument, 0, 'P'},
+                {"min-identity", required_argument, 0, 'P'},
                 {"idx-edge-max", required_argument, 0, 'E'},
                 {"idx-prune-subs", required_argument, 0, 'Q'},
                 {"normalize", no_argument, 0, 'N'},
@@ -790,7 +790,7 @@ int main_msga(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"node-max", required_argument, 0, 'm'},
                 {"greedy-accept", no_argument, 0, 'G'},
-                {"accept-score", required_argument, 0, 'S'},
+                {"accept-identity", required_argument, 0, 'S'},
                 {"max-attempts", required_argument, 0, 'M'},
                 {"thread-ex", required_argument, 0, 'T'},
                 {"max-target-x", required_argument, 0, 'q'},
@@ -843,7 +843,7 @@ int main_msga(int argc, char** argv) {
             break;
 
         case 'S':
-            accept_score = atof(optarg);
+            accept_identity = atof(optarg);
             break;
 
         case 'c':
@@ -911,7 +911,7 @@ int main_msga(int argc, char** argv) {
 
 
         case 'P':
-            min_norm_score = atof(optarg);
+            min_identity = atof(optarg);
             break;
 
             case 't':
@@ -1045,7 +1045,7 @@ int main_msga(int argc, char** argv) {
             mapper->context_depth = context_depth;
             mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
-            mapper->min_norm_score = min_norm_score;
+            mapper->min_identity = min_identity;
             mapper->alignment_threads = alignment_threads;
             mapper->max_mem_length = max_mem_length;
             mapper->min_mem_length = min_mem_length;
@@ -1053,7 +1053,7 @@ int main_msga(int argc, char** argv) {
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
-            if (accept_score) mapper->accept_norm_score = accept_score;
+            mapper->accept_identity = accept_identity;
         }
     };
 
@@ -4442,7 +4442,7 @@ void help_map(char** argv) {
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
-         << "    -P, --min-score N     accept alignment only if the normalized alignment score is > N (default: 0)" << endl
+         << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 5)" << endl
          << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
          << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
@@ -4452,8 +4452,8 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -t, --threads N       number of threads to use" << endl
-         << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
-         << "    -X, --accept-score N  accept early alignment if the normalized alignment score is > N and -F or -G is set" << endl
+         << "    -G, --greedy-accept   if a tested alignment achieves -X identity don't try worse seeds" << endl
+         << "    -X, --accept-identity N  accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
@@ -4508,7 +4508,7 @@ int main_map(int argc, char** argv) {
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
     float min_kmer_entropy = 0;
-    float accept_score = 0;
+    float accept_identity = 0;
     size_t kmer_min = 8;
     int softclip_threshold = 0;
     bool build_in_memory = false;
@@ -4549,7 +4549,7 @@ int main_map(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"greedy-accept", no_argument, 0, 'G'},
-                {"accept-score", required_argument, 0, 'X'},
+                {"accept-identity", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"thread-ex", required_argument, 0, 'e'},
                 {"context-depth", required_argument, 0, 'n'},
@@ -4560,7 +4560,7 @@ int main_map(int argc, char** argv) {
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},
-                {"min-score", required_argument, 0, 'P'},
+                {"min-identity", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
                 {"in-memory", no_argument, 0, 'V'},
@@ -4715,7 +4715,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'X':
-            accept_score = atof(optarg);
+            accept_identity = atof(optarg);
             break;
 
         case 'J':
@@ -4903,7 +4903,7 @@ int main_map(int argc, char** argv) {
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
         m->debug = debug;
-        if (accept_score) m->accept_norm_score = accept_score;
+        m->accept_identity = accept_identity;
         if (sens_step) m->kmer_sensitivity_step = sens_step;
         m->prefer_forward = prefer_forward;
         m->greedy_accept = greedy_accept;
@@ -4913,7 +4913,7 @@ int main_map(int argc, char** argv) {
         m->max_attempts = max_attempts;
         m->min_kmer_entropy = min_kmer_entropy;
         m->kmer_min = kmer_min;
-        m->min_norm_score = min_score;
+        m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
