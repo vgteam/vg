@@ -140,6 +140,19 @@ message NodePileup {
     repeated BasePileup base_pileup = 2;
 }
 
+// Keep pileup-like record for reads that span edges
+message EdgePileup {
+    Edge edge = 1;
+ 	 int32 num_reads = 2;
+	 bytes qualities = 3;
+}
+
+// Bundle up Node and Edge pileups
+message Pileup {
+    repeated NodePileup node_pileups = 1;
+	 repeated EdgePileup edge_pileups = 2;
+}
+
 message Genotype {
     repeated Path allele = 1;
     Position start = 2;
