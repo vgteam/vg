@@ -91,7 +91,7 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
     _insert_likelihoods.assign(_node->sequence().length(), safe_log(0));
 
     // process each base in pileup individually
-    #pragma omp parallel
+    #pragma omp parallel for
     for (int i = 0; i < pileup.base_pileup_size(); ++i) {
         int num_inserts = 0;
         for (auto b : pileup.base_pileup(i).bases()) {
