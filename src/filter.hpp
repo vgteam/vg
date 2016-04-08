@@ -40,6 +40,8 @@ class Filter{
         void set_avg_qual(double avg_qual);
         void set_filter_matches(bool fm);
         void set_remove_failing_alignments(bool fm);
+        //void set_softclip_filter(bool do_softclip);
+        //void set_splitread_filter(bool do_splitread);
 
     private:
         vg::VG* my_vg;

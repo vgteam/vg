@@ -37,6 +37,15 @@ namespace vg{
     Alignment Filter::path_divergence_filter(Alignment& aln){
         
     }
+
+    void set_softclip_filter(bool do_softclip){
+        
+    }
+
+    void set_splitread_filter(bool do_splitread){
+
+    }
+
     /**
      * CLI: vg filter -d 10 -q 40 -r -R
      * -r: track depth of both novel variants and those in the graph.
