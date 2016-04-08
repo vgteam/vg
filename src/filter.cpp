@@ -38,12 +38,12 @@ namespace vg{
         
     }
 
-    void set_softclip_filter(bool do_softclip){
-        
+    void Filter::set_softclip_filter(bool dsc){
+        do_softclip = dsc;        
     }
 
-    void set_splitread_filter(bool do_splitread){
-
+    void Filter::set_splitread_filter(bool dsr){
+        do_splitread = dsr;
     }
 
     /**

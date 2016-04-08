@@ -40,8 +40,8 @@ class Filter{
         void set_avg_qual(double avg_qual);
         void set_filter_matches(bool fm);
         void set_remove_failing_alignments(bool fm);
-        //void set_softclip_filter(bool do_softclip);
-        //void set_splitread_filter(bool do_splitread);
+        void set_softclip_filter(bool do_softclip);
+        void set_splitread_filter(bool do_splitread);
 
     private:
         vg::VG* my_vg;
@@ -55,6 +55,8 @@ class Filter{
         int min_cov = 0;
         double min_avg_qual = 0.0;
         double min_percent_identity = 0.0;
+        bool do_softclip = false;
+        bool do_splitread = false;
         bool remove_failing_alignments = true;
         bool filter_matches = true;
 
