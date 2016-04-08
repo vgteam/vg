@@ -205,7 +205,7 @@ Mapping reverse_complement_mapping(const Mapping& m,
 Path reverse_complement_path(const Path& path,
                              const function<id_t(id_t)>& node_length);
 // Simplify the path for addition as new material in the graph. Remove any
-// mappings that are merely single deletions, merge adjacent edits of the same
+// mappings that are merely single deletions, merge adjacent edis of the same
 // type, strip leading and trailing deletion edits on mappings, and make sure no
 // mappings have missing positions.
 Path simplify(const Path& p);
@@ -233,6 +233,7 @@ bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 // Return true if a mapping is a perfect match (i.e. contains no non-match edits)
 bool mapping_is_match(const Mapping& m);
 double divergence(const Mapping& m);
+double identity(const Path& path);
 
 }
 

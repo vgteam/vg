@@ -1610,4 +1610,20 @@ double divergence(const Mapping& m) {
     return 1 - (matches*2.0 / (from_length + to_length));
 }
 
+double identity(const Path& path) {
+    double ident = 0;
+    size_t total_length = path_to_length(path);
+    size_t matched_length = 0;
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                matched_length += edit.from_length();
+            }
+        }
+    }
+    return (double) matched_length / (double) total_length;
+}
+
 }
