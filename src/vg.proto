@@ -104,7 +104,7 @@ message Alignment {
     Alignment fragment_prev = 11; // e.g. contains an alignment with only a name, or only a graph mapping position
     Alignment fragment_next = 12; // same thing for next in fragment
     bool is_secondary = 15; // All but one maximal-scoring alignment of a given read in a GAM file must be secondary.
-    float identity = 16;
+    double identity = 16;
 }
 
 // Fragments represent the library fragments that yield pairs of alignments

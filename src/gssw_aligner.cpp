@@ -213,6 +213,8 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
         //cerr << "path to_length " << path_to_length(*path) << endl;
     }
 
+    // set identity
+    alignment.set_identity(identity(alignment.path()));
 
 }
 
