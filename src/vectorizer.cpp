@@ -89,6 +89,21 @@ bit_vector Vectorizer::alignment_to_onehot(Alignment a){
     //TODO: this means we may one day have to do the same bump up
     // by one for edges, as I assume they are also indexed starting at 1.
     //cerr << key << " - " << entity_size << endl;
+    
+    //Find edge by current / previous node ID
+    // we can check the orientation, though it shouldn't **really** matter
+    // whether we catch them in the forward or reverse direction.
+        if (i > 0){
+            Mapping prev_mapping = path.mapping(i - 1);
+            Position prev_pos = prev_mapping.position();
+            int64_t prev_node_id = prev_pos.node_id();
+            if (my_xg->has_edge(prev_node_id, false, node_id, false)){
+                int64_t edge_key = my_xg->edge_rank_as_entity(prev_node_id, false, node_id, false);
+                ret[edge_key - 1] = 1;
+            }
+    }
+    //Find entity rank of edge
+
     ret[key - 1] = 1;
   }
 
