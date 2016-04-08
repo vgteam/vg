@@ -1264,19 +1264,78 @@ bool Index::surject_alignment(const Alignment& source,
     // get start and end nodes in path
     // get range between +/- window
     if (!source.has_path() || source.path().mapping_size() == 0) {
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
+
+#endif
         return false;
     }
     // TODO: replace ID windowing with a real notion of region
-    int64_t from_id = source.path().mapping(0).position().node_id() - window;
-    int64_t to_id = source.path().mapping(source.path().mapping_size()-1).position().node_id() + window;
+    
+    int64_t first_id = source.path().mapping(0).position().node_id();
+    int64_t last_id = source.path().mapping(source.path().mapping_size()-1).position().node_id();
+    if(last_id < first_id) {
+        swap(first_id, last_id);
+    }
+    
+    int64_t from_id = first_id - window;
+    int64_t to_id = last_id + window;
     get_range(max((int64_t)0, from_id), to_id, graph);
     graph.remove_orphan_edges();
     // which path(s) did we keep?
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
-    surjection = source;
-    surjection.clear_path();
-    graph.align(surjection);
+    
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " should surject into to window from " << from_id << " to " << to_id << " which contains " << graph.size() << " nodes on " << kept_paths.size() << "/" << path_names.size() << " kept paths" << endl;
+
+#endif
+    
+    // We need this for inverting mappings to the correct strand
+    function<int64_t(id_t)> node_length = [&graph](id_t node) {
+        return graph.get_node(node)->sequence().size();
+    };
+    
+    // What is our alignment to surject spelled the other way around? We can't
+    // just use the normal alignment RC function because the mappings reference
+    // nonexistent nodes.
+    Alignment source_rc;
+    source_rc.set_sequence(reverse_complement(source.sequence()));
+    
+    // Align the old alignment to the graph in both orientations. Apparently
+    // align only does a single oriantation, and we have no idea, even looking
+    // at the mappings, which of the orientations will correspond to the one the
+    // alignment is actually in.
+    auto surjection_forward = graph.align(source);
+    auto surjection_reverse = graph.align(source_rc);
+    
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << surjection_forward.score() << " forwards, " << surjection_reverse.score() << " reverse" << endl;
+
+#endif
+    
+    if(surjection_reverse.score() > surjection_forward.score()) {
+        // Even if we have to surject backwards, we have to send the same string out as we got in.
+        surjection = reverse_complement_alignment(surjection_reverse, node_length);
+    } else {
+        surjection = surjection_forward;
+    }
+    
+    
+
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << surjection.path().mapping_size() << " mappings, " << kept_paths.size() << " paths" << endl;
+
+#endif
+
     if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
         // determine the paths of the node we mapped into
         //  ... get the id of the first node, get the pahs of it
@@ -1304,6 +1363,12 @@ bool Index::surject_alignment(const Alignment& source,
         // we need the cigar, but this comes from a function on the alignment itself
         return true;
     } else {
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " did not align to the surjection subgraph" << endl;
+
+#endif
         return false;
     }
 }
