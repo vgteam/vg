@@ -365,7 +365,7 @@ int main_validate(int argc, char** argv) {
 }
 
 void help_ngs(char** argv){
-    cerr << "usage: " << argv[0] << " ngs [options] <alignments.gam>" << endl
+    cerr << "usage: " << argv[0] << " ngs [options] <alignments.gam> > filtered.gam" << endl
         << "Filter alignments by various common metrics in NGS." << endl
         << endl
         << "options: " << endl
@@ -398,6 +398,10 @@ int main_ngs(int argc, char** argv){
             {"quality", required_argument,0, 'q'},
             {"percent-identity", required_argument, 0, 'p'},
             {"remove-alignments", no_argument, 0, 'r'},
+            {"path-divergence", no_argument, 0, 'D'},
+            {"softclip", no_argument, 0, 's'},
+            {"split-read", no_argument, 0, 'S'},
+            {"inverse", no_argument, 0, 'v'},
             {0, 0, 0, 0}
 
         };
@@ -434,6 +438,11 @@ int main_ngs(int argc, char** argv){
 
     alignment_file = argv[optind];
 
+    vector<Alignment> buffer;
+    static const int buffer_size = 1000; // we let this be off by 1
+    function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
+        return buffer[i];
+    };
 
     Filter ff = Filter();
     ff.set_min_depth(min_depth);
@@ -441,37 +450,37 @@ int main_ngs(int argc, char** argv){
     ff.set_min_percent_identity(min_percent_identity);
     ff.set_remove_failing_alignments(remove_failing_alignments);
 
-    std::function<void(Alignment&)> depth_fil = [&ff](Alignment& aln){
+    std::function<void(Alignment&)> depth_fil = [&ff, &buffer](Alignment& aln){
             //std::function<Alignment(uint64_t)>([&ff, &aln](uint64_t n) { return ff.depth_filter(aln); });
 
             aln = ff.depth_filter(aln);
-            if (aln.sequence().size() == 0){
-                cout << "FAIL" << endl;
+            if (aln.sequence().size() > 0){
+              buffer.push_back(aln);
             }
-            else {cout <<  "PASS" << endl;}
+
+            // if (aln.sequence().size() == 0){
+            //     cout << "FAIL" << endl;
+            // }
+            // else {cout <<  "PASS" << endl;}
     };
 
-    std::function<void(Alignment&)> pct_fil = [&ff](Alignment& aln){
+    std::function<void(Alignment&)> pct_fil = [&ff, &buffer](Alignment& aln){
         aln = ff.percent_identity_filter(aln);
-        if (aln.sequence().size() == 0){
-            cout << "FAIL" << endl;
+        if (aln.sequence().size() > 0){
+          buffer.push_back(aln);
         }
-        else {cout << "PASS" << endl;}
     };
 
-    std::function<void(Alignment&)> qual_fil = [&ff](Alignment& aln){
+    std::function<void(Alignment&)> qual_fil = [&ff, &buffer](Alignment& aln){
         aln = ff.qual_filter(aln);
-        if (aln.sequence().size() == 0){
-          cerr << "FAIL" << endl;
-        }
-        else {
-          cerr << "PASS" << endl;
+        if (aln.sequence().size() > 0){
+          buffer.push_back(aln);
         }
     };
 
-    std::function<void(Alignment&)> cov_fil = [&ff](Alignment& aln){
 
-    };
+
+
     if (alignment_file == "-"){
         if (min_depth > 0){
             stream::for_each(cin, depth_fil);
@@ -503,8 +512,10 @@ int main_ngs(int argc, char** argv){
         }
     }
 
-
-
+    if (buffer.size() > 0) {
+        stream::write(cout, buffer.size(), write_buffer);
+        buffer.clear();
+    }
 
     return 0;
 }
