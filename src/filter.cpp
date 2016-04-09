@@ -136,7 +136,7 @@ namespace vg{
 
 
     Alignment Filter::soft_clip_filter(Alignment& aln){
-
+        
     }
     /**
      * Split reads map to two separate paths OR vastly separated non-consecutive
@@ -147,12 +147,12 @@ namespace vg{
      */
     Alignment Filter::split_read_filter(Alignment& aln){
 
-        //TODO binary search for breakpoint in read.
+        //TODO binary search for breakpoint in read would be awesome.
 
     }
     /**
      * Filter reads that are less than <PCTID> reference.
-     * I.E. if a read matches the reference 80% alogn 80% of its
+     * I.E. if a read matches the reference along 80% of its
      * length, and your cutoff is 90% PCTID, throw it out.
      */
     Alignment Filter::percent_identity_filter(Alignment& aln){

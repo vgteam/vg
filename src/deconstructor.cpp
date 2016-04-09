@@ -59,6 +59,7 @@ namespace vg {
          * possible paths.
          *
          */
+        map<int, vector<id_t> > level_to_nodes;
         for (int i = 0; i < supbubs.size(); i++){
             vector<id_t> alleles;
             queue<id_t> nq;
