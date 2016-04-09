@@ -4,6 +4,8 @@
 
 [![Build Status](https://travis-ci.org/vgteam/vg.svg)](https://travis-ci.org/vgteam/vg)
 
+[![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
+
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
 ![Variation graph](https://raw.githubusercontent.com/vgteam/vg/master/doc/figures/vg_logo.png)
