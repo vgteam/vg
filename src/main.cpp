@@ -70,7 +70,7 @@ int main_filter(int argc, char** argv) {
                 {"min-sec-delta", required_argument, 0, 'd'},
                 {"min-pri-delta", required_argument, 0, 'e'},
                 {"frac-score", required_argument, 0, 'f'},
-                {"frac-delta", required_argument, 0, 'a'}, 
+                {"frac-delta", required_argument, 0, 'a'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
                 {0, 0, 0, 0}
@@ -162,7 +162,7 @@ int main_filter(int argc, char** argv) {
     function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
         return buffer[i];
     };
-    
+
     // for deltas, we keep track of last primary
     bool prev_primary = false;
     bool keep_prev = true;
@@ -243,7 +243,7 @@ int main_filter(int argc, char** argv) {
                 stream::write(cout, buffer.size(), write_buffer);
                 buffer.clear();
             }
-            
+
             prev_primary = true;
             prev_score = score;
             keep_prev = score >= min_primary && overhang <= max_overhang;
@@ -259,7 +259,7 @@ int main_filter(int argc, char** argv) {
         stream::write(cout, buffer.size(), write_buffer);
         buffer.clear();
     }
-    
+
     delete graph;
     return 0;
 }
@@ -364,25 +364,28 @@ int main_validate(int argc, char** argv) {
     }
 }
 
-void help_filter(char** argv){
-    cerr << "usage: " << argv[0] << " filter [options] <alignments.gam>" << endl
-        << "Filter alignments by various common metrics." << endl
+void help_ngs(char** argv){
+    cerr << "usage: " << argv[0] << " ngs [options] <alignments.gam>" << endl
+        << "Filter alignments by various common metrics in NGS." << endl
         << endl
         << "options: " << endl
         << "  -d --depth <DEPTH>    remove edits below DEPTH" << endl
         << "  -q --qual <QUAL>      remove edits with a per-base quality below <QUAL>" << endl
-        << "  -p --percent-identity <PCTID> remove alignments that have a percent identity below <PCTID>" << endl
+        << "  -p --percent-identity <PCTID> remove alignments that arbelow <PCTID>" << endl
+        << "  -r --remove-alignments if an alignment fails return an empty one" << endl
+        << "(default behavior: remove failing edits but return the alignment)" << endl
         << endl;
 }
 
-int main_filter(int argc, char** argv){
+int main_ngs(int argc, char** argv){
     string alignment_file;
     int min_depth = 0;
     int min_qual = 0;
     double min_percent_identity = 0.0;
+    bool remove_failing_alignments = true;
 
     if (argc <= 2){
-        help_filter(argv);
+        help_ngs(argv);
         exit(1);
     }
     int c;
@@ -394,11 +397,12 @@ int main_filter(int argc, char** argv){
             {"depth", required_argument, 0, 'd'},
             {"quality", required_argument,0, 'q'},
             {"percent-identity", required_argument, 0, 'p'},
+            {"remove-alignments", no_argument, 0, 'r'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:d:q:",
+        c = getopt_long (argc, argv, "hp:d:q:r",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -409,16 +413,19 @@ int main_filter(int argc, char** argv){
         {
             case '?':
             case 'h':
-                help_filter(argv);
+                help_ngs(argv);
                 return 1;
             case 'd':
                 min_depth = atoi(optarg);
                 break;
-            case 'f':
+            case 'q':
                 min_qual = atoi(optarg);
                 break;
             case 'p':
                 min_percent_identity = atof(optarg);
+                break;
+            case 'r':
+                remove_failing_alignments = true;
                 break;
             default:
                 abort();
@@ -432,6 +439,7 @@ int main_filter(int argc, char** argv){
     ff.set_min_depth(min_depth);
     ff.set_min_qual(min_qual);
     ff.set_min_percent_identity(min_percent_identity);
+    ff.set_remove_failing_alignments(remove_failing_alignments);
 
     std::function<void(Alignment&)> depth_fil = [&ff](Alignment& aln){
             //std::function<Alignment(uint64_t)>([&ff, &aln](uint64_t n) { return ff.depth_filter(aln); });
@@ -452,7 +460,13 @@ int main_filter(int argc, char** argv){
     };
 
     std::function<void(Alignment&)> qual_fil = [&ff](Alignment& aln){
-
+        aln = ff.qual_filter(aln);
+        if (aln.sequence().size() == 0){
+          cerr << "FAIL" << endl;
+        }
+        else {
+          cerr << "PASS" << endl;
+        }
     };
 
     std::function<void(Alignment&)> cov_fil = [&ff](Alignment& aln){
@@ -463,7 +477,7 @@ int main_filter(int argc, char** argv){
             stream::for_each(cin, depth_fil);
         }
         if (min_qual > 0){
-
+            stream::for_each(cin, qual_fil);
         }
         if (min_percent_identity > 0.0){
             stream::for_each(cin, pct_fil);
@@ -477,11 +491,11 @@ int main_filter(int argc, char** argv){
                 stream::for_each(in, depth_fil);
             }
             if (min_qual > 0){
-
+                stream::for_each(in, qual_fil);
             }
             if (min_percent_identity > 0.0){
                 stream::for_each(in, pct_fil);
-            }   
+            }
         }
         else{
             cerr << "Could not open " << alignment_file << endl;
@@ -817,7 +831,7 @@ int main_call(int argc, char** argv) {
             break;
         case 'f':
             min_frac = atof(optarg);
-            break;            
+            break;
         case 'q':
             default_read_qual = atoi(optarg);
             break;
@@ -880,8 +894,8 @@ int main_call(int argc, char** argv) {
             exit(1);
         }
         graph = new VG(in);
-    }    
-    
+    }
+
     // setup pileup stream
     if (optind >= argc) {
         help_call(argv);
@@ -922,7 +936,7 @@ int main_call(int argc, char** argv) {
                   min_frac, Caller::Default_min_likelihood,
                   leave_uncalled, default_read_qual, max_strand_bias,
                   text_file_stream);
-    
+
     function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
         for (int i = 0; i < pileup.node_pileups_size(); ++i) {
             caller.call_node_pileup(pileup.node_pileups(i));
@@ -971,7 +985,7 @@ void help_pileup(char** argv) {
          << "    -m, --max-mismatches N  ignore bases with > N mismatches within window centered on read (default=1)" << endl
          << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
          << "    -p, --progress          show progress" << endl
-         << "    -t, --threads N         number of threads to use" << endl;  
+         << "    -t, --threads N         number of threads to use" << endl;
 }
 
 int main_pileup(int argc, char** argv) {
@@ -1023,7 +1037,7 @@ int main_pileup(int argc, char** argv) {
             break;
         case 'w':
             window_size = atoi(optarg);
-            break;            
+            break;
         case 'p':
             show_progress = true;
             break;
@@ -5237,11 +5251,11 @@ int main_map(int argc, char** argv) {
     if (gcsa_name.empty() && !file_name.empty()) {
         gcsa_name = file_name + gcsa::GCSA::EXTENSION;
     }
-    
+
     if (xg_name.empty() && !file_name.empty()) {
         xg_name = file_name + ".xg";
     }
-    
+
     if (db_name.empty() && !file_name.empty()) {
         db_name = file_name + ".index";
     }
@@ -6438,8 +6452,8 @@ int main_view(int argc, char** argv) {
             return main_filter(argc, argv);
         } else if (command == "vectorize") {
             return main_vectorize(argc, argv);
-        } else if (command == "filter"){
-            return main_filter(argc, argv);
+        } else if (command == "ngs"){
+            return main_ngs(argc, argv);
         }else {
             cerr << "error:[vg] command " << command << " not found" << endl;
             vg_help(argv);
