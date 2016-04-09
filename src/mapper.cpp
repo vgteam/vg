@@ -24,8 +24,8 @@ Mapper::Mapper(Index* idex,
     , softclip_threshold(0)
     , prefer_forward(false)
     , greedy_accept(false)
-    , accept_norm_score(0.75)
-    , min_norm_score(0)
+    , accept_identity(0.75)
+    , min_identity(0)
     , min_kmer_entropy(0)
     , debug(false)
     , alignment_threads(1)
@@ -428,8 +428,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             malns.push_back(bands[i]);
             for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
                 Alignment& aln = *a;
-                bool above_threshold = ((float) aln.score() / ((float) aln.sequence().size() * match)
-                                        >= min_norm_score);
+                bool above_threshold = aln.identity() >= min_identity;
                 if (!above_threshold) {
                     // treat as unmapped
                     aln = bands[i];
@@ -441,8 +440,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
         } else {
             Alignment& aln = alns[i];
             aln = align(bands[i], kmer_size, stride);
-            bool above_threshold = ((float) aln.score() / ((float) aln.sequence().size() * match)
-                                    >= min_norm_score);
+            bool above_threshold = aln.identity() >= min_identity;
             if (!above_threshold) {
                 aln = bands[i]; // unmapped
             }
@@ -715,12 +713,10 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
     int kmer_count_f = 0;
     int kmer_count_r = 0;
 
-    while (!((float)best_f.score()/((float)sequence.size()*match) > min_norm_score
-             || (float)best_r.score()/((float)sequence.size()*match) > min_norm_score)
+    while (!(best_f.identity() > min_identity
+             || best_r.identity() > min_identity)
            && attempt < max_attempts) {
 
-        //cerr << "min score per bp " << min_score_per_bp << " " << (float)best_f.score()/(float)sequence.size()
-        //<< " " << (float)best_r.score()/(float)sequence.size() << endl;
         {
             std::chrono::time_point<std::chrono::system_clock> start, end;
             if (debug) start = std::chrono::system_clock::now();
@@ -733,7 +729,7 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
             }
         }
 
-        if (!(prefer_forward && (float)best_f.score() / ((float)sequence.size()*match) >= accept_norm_score))
+        if (!(prefer_forward && best_f.identity() >= accept_identity))
         {
             // If we need to look on the reverse strand, do that too.
             std::chrono::time_point<std::chrono::system_clock> start, end;
@@ -1269,6 +1265,8 @@ Alignment Mapper::align_mem_optimal(const Alignment& alignment, vector<MaximalEx
     Alignment merged = merge_alignments(optim_alns);
     merged.set_quality(alignment.quality());
     merged.set_name(alignment.name());
+    merged.set_score(0);
+    merged.set_identity(identity(merged.path()));
     return merged;
 }
 
@@ -1431,7 +1429,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             resolve_softclips(aln, sub);
             alns.push_back(aln);
             if (attempts >= max_multimaps &&
-                greedy_accept && (float)aln.score() / ((float)aln.sequence().size()*match) >= accept_norm_score) {
+                greedy_accept &&
+                aln.identity() >= accept_identity) {
                 break;
             }
         }
@@ -1442,7 +1441,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
                                                         (function<int64_t(int64_t)>)
                                                         ([&](int64_t id) { return get_node_length(id); })));
             if (attempts >= max_multimaps &&
-                greedy_accept && (float)aln.score() / ((float)aln.sequence().size()*match) >= accept_norm_score) {
+                greedy_accept &&
+                aln.identity() >= accept_identity) {
                 break;
             }
         }
@@ -2045,7 +2045,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             delete graph;
 
             if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*match) << endl;
-            if (greedy_accept && (float)ta.score() / ((float)ta.sequence().size()*match) >= accept_norm_score) {
+            if (greedy_accept && ta.identity() >= accept_identity) {
                 if (debug) cerr << "greedy accept" << endl;
                 accepted = true;
                 break;

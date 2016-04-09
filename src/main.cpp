@@ -29,6 +29,241 @@ using namespace std;
 using namespace google::protobuf;
 using namespace vg;
 
+void help_filter(char** argv) {
+    cerr << "usage: " << argv[0] << " filter [options] <graph.vg> <alignment.gam> > out.gam" << endl
+         << "Filter low-scoring alignments using different heuristics." << endl
+         << endl
+         << "options:" << endl
+         << "    -s, --min-secondary N   minimum score to keep secondary alignment [default=0]" << endl
+         << "    -r, --min-primary N     minimum score to keep primary alignment [default=0]" << endl
+         << "    -d, --min-sec-delta N   mininum (primary - secondary) score delta to keep secondary alignment [default=0]" << endl
+         << "    -e, --min-pri-delta N   minimum (primary - secondary) score delta to keep primary alignment [default=0]" << endl
+         << "    -f, --frac-score        normalize score based on length" << endl
+         << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
+         << "    -u, --substitutions     use substitution count instead of score" << endl
+         << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=100]" << endl;
+}
+
+int main_filter(int argc, char** argv) {
+
+    if (argc <= 3) {
+        help_filter(argv);
+        return 1;
+    }
+
+    double min_secondary = 0.;
+    double min_primary = 0.;
+    double min_sec_delta = 0.;
+    double min_pri_delta = 0.;
+    bool frac_score = false;
+    bool frac_delta = false;
+    bool sub_score = false;
+    int max_overhang = 100;
+
+    int c;
+    optind = 2; // force optind past command positional arguments
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"min-secondary", required_argument, 0, 's'},
+                {"min-primary", required_argument, 0, 'r'},
+                {"min-sec-delta", required_argument, 0, 'd'},
+                {"min-pri-delta", required_argument, 0, 'e'},
+                {"frac-score", required_argument, 0, 'f'},
+                {"frac-delta", required_argument, 0, 'a'}, 
+                {"substitutions", required_argument, 0, 'u'},
+                {"max-overhang", required_argument, 0, 'o'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 's':
+            min_secondary = atof(optarg);
+            break;
+        case 'r':
+            min_primary = atof(optarg);
+            break;
+        case 'd':
+            min_sec_delta = atof(optarg);
+            break;
+        case 'e':
+            min_pri_delta = atof(optarg);
+            break;
+        case 'f':
+            frac_score = true;
+            break;
+        case 'a':
+            frac_delta = true;
+            break;
+        case 'u':
+            sub_score = true;
+            break;
+        case 'o':
+            max_overhang = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_filter(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    // read the graph
+    VG* graph;
+    string graph_file_name = argv[optind++];
+    if (graph_file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(graph_file_name.c_str());
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        graph = new VG(in);
+    }
+
+    // setup alignment stream
+    string alignments_file_name = argv[optind++];
+    istream* alignment_stream = NULL;
+    ifstream in;
+    if (alignments_file_name == "-") {
+        if (graph_file_name == "-") {
+            cerr << "error: graph and alignments can't both be from stdin." << endl;
+            exit(1);
+        }
+        alignment_stream = &std::cin;
+    } else {
+        in.open(alignments_file_name);
+        if (!in) {
+            cerr << "error: input file " << alignments_file_name << " not found." << endl;
+            exit(1);
+        }
+        alignment_stream = &in;
+    }
+
+    // buffered output
+    vector<Alignment> buffer;
+    static const int buffer_size = 1000; // we let this be off by 1
+    function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
+        return buffer[i];
+    };
+    
+    // for deltas, we keep track of last primary
+    bool prev_primary = false;
+    bool keep_prev = true;
+    double prev_score = -1.;
+
+    // we assume that every primary alignment has 0 or 1 secondary alignment
+    // immediately following in the stream
+    function<void(Alignment&)> lambda = [&](Alignment& aln) {
+        bool keep = true;
+        double score = (double)aln.score();
+        double denom = 2. * aln.sequence().length();
+        // toggle substitution score
+        if (sub_score == true) {
+            vector<int> mismatches;
+            Pileups::count_mismatches(*graph, aln.path(), mismatches, true);
+            denom = mismatches.size();
+            score = denom > 0 ? mismatches.size() - mismatches.back() : 0.;
+            assert(score <= denom);
+        }
+        // toggle absolute or fractional score
+        if (frac_score == true) {
+            if (denom > 0.) {
+                score /= denom;
+            }
+            else {
+                assert(score == 0.);
+            }
+        }
+        // compute overhang
+        int overhang = 0;
+        if (aln.path().mapping_size() > 0) {
+            const auto& left_mapping = aln.path().mapping(0);
+            if (left_mapping.edit_size() > 0) {
+                overhang = left_mapping.edit(0).to_length() - left_mapping.edit(0).from_length();
+            }
+            const auto& right_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
+            if (right_mapping.edit_size() > 0) {
+                const auto& edit = right_mapping.edit(right_mapping.edit_size() - 1);
+                overhang = max(overhang, edit.to_length() - edit.from_length());
+            }
+        } else {
+            overhang = aln.sequence().length();
+        }
+
+        if (aln.is_secondary()) {
+            assert(prev_primary && aln.name() == buffer.back().name());
+            double delta = prev_score - score;
+            if (frac_delta == true) {
+                delta = prev_score > 0 ? score / prev_score : 0.;
+            }
+            // filter (current) secondary
+            keep = score >= min_secondary && delta >= min_sec_delta && overhang <= max_overhang;
+
+            // filter unfiltered previous primary
+            if (keep_prev && delta >= min_pri_delta) {
+                keep_prev = false;
+                buffer.pop_back();
+            }
+            // add to write buffer
+            if (keep) {
+                buffer.push_back(aln);
+            }
+
+            // forget last primary
+            prev_primary = false;
+            prev_score = -1;
+            keep_prev = false;
+
+            // flush buffer
+            if (buffer.size() >= buffer_size) {
+                stream::write(cout, buffer.size(), write_buffer);
+                buffer.clear();
+            }
+
+        } else {
+            // flush buffer
+            if (buffer.size() >= buffer_size) {
+                stream::write(cout, buffer.size(), write_buffer);
+                buffer.clear();
+            }
+            
+            prev_primary = true;
+            prev_score = score;
+            keep_prev = score >= min_primary && overhang <= max_overhang;
+            if (keep_prev) {
+                buffer.push_back(aln);
+            }
+        }
+    };
+    stream::for_each(*alignment_stream, lambda);
+
+    // flush buffer
+    if (buffer.size() > 0) {
+        stream::write(cout, buffer.size(), write_buffer);
+        buffer.clear();
+    }
+    
+    delete graph;
+    return 0;
+}
+
 void help_validate(char** argv) {
     cerr << "usage: " << argv[0] << " validate [options] graph" << endl
         << "Validate the graph." << endl
@@ -503,19 +738,22 @@ int main_compare(int argc, char** argv) {
 
 void help_call(char** argv) {
     cerr << "usage: " << argv[0] << " call [options] <graph.vg> <pileup.vgpu> > sample_graph.vg" << endl
-        << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
-        << endl
-        << "options:" << endl
-        << "    -d, --min_depth         minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
-        << "    -e, --max_depth         maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
-        << "    -s, --min_support       minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
-        << "    -r, --het_prior         prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
-        << "    -q, --default_read_qual phred quality score to use if none found in the pileup (default="
-        << (int)Caller::Default_default_quality << ")" << endl
-        << "    -l, --leave_uncalled    leave un-called graph regions in output" << endl
-        << "    -j, --json              output in JSON" << endl
-        << "    -p, --progress          show progress" << endl
-        << "    -t, --threads N         number of threads to use" << endl;
+         << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
+         << endl
+         << "options:" << endl
+         << "    -d, --min_depth         minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
+         << "    -e, --max_depth         maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
+         << "    -s, --min_support       minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
+         << "    -f, --min_frac          minimum percentage of reads required to support snp(default=" << Caller::Default_min_frac <<")" << endl
+         << "    -r, --het_prior         prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
+         << "    -q, --default_read_qual phred quality score to use if none found in the pileup (default="
+         << (int)Caller::Default_default_quality << ")" << endl
+         << "    -b, --max_strand_bias N limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. (default=" << Caller::Default_max_strand_bias << ")" << endl
+         << "    -l, --leave_uncalled    leave un-called graph regions in output, producing augmented graph" << endl
+         << "    -c, --calls TSV         write extra call information in TSV (must use with -l)" << endl
+         << "    -j, --json              output in JSON" << endl
+         << "    -p, --progress          show progress" << endl
+         << "    -t, --threads N         number of threads to use" << endl;
 }
 
 int main_call(int argc, char** argv) {
@@ -529,8 +767,11 @@ int main_call(int argc, char** argv) {
     int min_depth = Caller::Default_min_depth;
     int max_depth = Caller::Default_max_depth;
     int min_support = Caller::Default_min_support;
+    double min_frac = Caller::Default_min_frac;
     int default_read_qual = Caller::Default_default_quality;
+    double max_strand_bias = Caller::Default_max_strand_bias;
     bool leave_uncalled = false;
+    string calls_file;
     bool output_json = false;
     bool show_progress = false;
     int thread_count = 1;
@@ -539,22 +780,25 @@ int main_call(int argc, char** argv) {
     optind = 2; // force optind past command positional arguments
     while (true) {
         static struct option long_options[] =
-        {
-            {"min_depth", required_argument, 0, 'd'},
-            {"max_depth", required_argument, 0, 'e'},
-            {"min_support", required_argument, 0, 's'},
-            {"default_read_qual", required_argument, 0, 'q'},
-            {"leave_uncalled", no_argument, 0, 'l'},
-            {"json", no_argument, 0, 'j'},
-            {"progress", no_argument, 0, 'p'},
-            {"het_prior", required_argument, 0, 'r'},
-            {"threads", required_argument, 0, 't'},
-            {0, 0, 0, 0}
-        };
+            {
+                {"min_depth", required_argument, 0, 'd'},
+                {"max_depth", required_argument, 0, 'e'},
+                {"min_support", required_argument, 0, 's'},
+                {"min_frac", required_argument, 0, 'f'},
+                {"default_read_qual", required_argument, 0, 'q'},
+                {"max_strand_bias", required_argument, 0, 'b'},
+                {"leave_uncalled", no_argument, 0, 'l'},
+                {"calls", required_argument, 0, 'c'},
+                {"json", no_argument, 0, 'j'},
+                {"progress", no_argument, 0, 'p'},
+                {"het_prior", required_argument, 0, 'r'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
+            };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:q:ljpr:t:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:lc:jpr:t:",
+                         long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -562,46 +806,59 @@ int main_call(int argc, char** argv) {
 
         switch (c)
         {
-            case 'd':
-                min_depth = atoi(optarg);
-                break;
-            case 'e':
-                max_depth = atoi(optarg);
-                break;
-            case 's':
-                min_support = atoi(optarg);
-                break;
-            case 'q':
-                default_read_qual = atoi(optarg);
-                break;
-            case 'l':
-                leave_uncalled = true;
-                break;
-            case 'j':
-                output_json = true;
-                break;
-            case 'p':
-                show_progress = true;
-                break;
-            case 'r':
-                het_prior = atof(optarg);
-                break;
-            case 't':
-                thread_count = atoi(optarg);
-                break;
-            case 'h':
-            case '?':
-                /* getopt_long already printed an error message. */
-                help_call(argv);
-                exit(1);
-                break;
-
-            default:
-                abort ();
+        case 'd':
+            min_depth = atoi(optarg);
+            break;
+        case 'e':
+            max_depth = atoi(optarg);
+            break;
+        case 's':
+            min_support = atoi(optarg);
+            break;
+        case 'f':
+            min_frac = atof(optarg);
+            break;            
+        case 'q':
+            default_read_qual = atoi(optarg);
+            break;
+        case 'b':
+            max_strand_bias = atof(optarg);
+            break;
+        case 'l':
+            leave_uncalled = true;
+            break;
+        case 'c':
+            calls_file = optarg;
+            break;
+        case 'j':
+            output_json = true;
+            break;
+        case 'p':
+            show_progress = true;
+            break;
+        case 'r':
+            het_prior = atof(optarg);
+            break;
+        case 't':
+            thread_count = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_call(argv);
+            exit(1);
+            break;
+        default:
+          abort ();
         }
     }
     omp_set_num_threads(thread_count);
     thread_count = get_thread_count();
+
+    if (!leave_uncalled && !calls_file.empty()) {
+        cerr << "-c can only be used with -l";
+        exit(1);
+    }
 
     // read the graph
     if (optind >= argc) {
@@ -623,8 +880,8 @@ int main_call(int argc, char** argv) {
             exit(1);
         }
         graph = new VG(in);
-    }
-
+    }    
+    
     // setup pileup stream
     if (optind >= argc) {
         help_call(argv);
@@ -648,17 +905,31 @@ int main_call(int argc, char** argv) {
         pileup_stream = &in;
     }
 
+    ofstream* text_file_stream = NULL;
+    if (!calls_file.empty()) {
+        text_file_stream = new ofstream(calls_file.c_str());
+        if (!text_file_stream) {
+            cerr << "error: calls file " << calls_file << " cannot be opened for writing." << endl;
+        }
+    }
+
     // compute the variants.
     if (show_progress) {
         cerr << "Computing variants" << endl;
     }
     Caller caller(graph,
-            het_prior, min_depth, max_depth, min_support,
-            Caller::Default_min_frac, Caller::Default_min_likelihood,
-            leave_uncalled, default_read_qual);
-
-    function<void(NodePileup&)> lambda = [&caller](NodePileup& pileup) {
-        caller.call_node_pileup(pileup);
+                  het_prior, min_depth, max_depth, min_support,
+                  min_frac, Caller::Default_min_likelihood,
+                  leave_uncalled, default_read_qual, max_strand_bias,
+                  text_file_stream);
+    
+    function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
+        for (int i = 0; i < pileup.node_pileups_size(); ++i) {
+            caller.call_node_pileup(pileup.node_pileups(i));
+        }
+        for (int i = 0; i < pileup.edge_pileups_size(); ++i) {
+            caller.call_edge_pileup(pileup.edge_pileups(i));
+        }
     };
     stream::for_each(*pileup_stream, lambda);
 
@@ -668,23 +939,39 @@ int main_call(int argc, char** argv) {
     }
     caller.update_call_graph();
 
+    // map the paths from the original graph
+    if (leave_uncalled) {
+        if (show_progress) {
+            cerr << "Mapping paths into call graph" << endl;
+        }
+        caller.map_paths();
+    }
+
     // write the call graph
     if (show_progress) {
         cerr << "Writing call graph" << endl;
     }
     caller.write_call_graph(cout, output_json);
 
+    // close text file
+    if (text_file_stream != NULL) {
+        delete text_file_stream;
+    }
+
     return 0;
 }
 
 void help_pileup(char** argv) {
     cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.vgpu" << endl
-        << "Calculate pileup for each position in graph and output in VG Pileup format (list of protobuf NodePileups)." << endl
-        << endl
-        << "options:" << endl
-        << "    -j, --json           output in JSON" << endl
-        << "    -p, --progress       show progress" << endl
-        << "    -t, --threads N      number of threads to use" << endl;
+         << "Calculate pileup for each position in graph and output in VG Pileup format (list of protobuf NodePileups)." << endl
+         << endl
+         << "options:" << endl
+         << "    -j, --json              output in JSON" << endl
+         << "    -q, --min-quality N     ignore bases with PHRED quality < N (default=0)" << endl
+         << "    -m, --max-mismatches N  ignore bases with > N mismatches within window centered on read (default=1)" << endl
+         << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
+         << "    -p, --progress          show progress" << endl
+         << "    -t, --threads N         number of threads to use" << endl;  
 }
 
 int main_pileup(int argc, char** argv) {
@@ -697,21 +984,27 @@ int main_pileup(int argc, char** argv) {
     bool output_json = false;
     bool show_progress = false;
     int thread_count = 1;
+    int min_quality = 0;
+    int max_mismatches = 1;
+    int window_size = 0;
 
     int c;
     optind = 2; // force optind past command positional arguments
     while (true) {
         static struct option long_options[] =
-        {
-            {"json", required_argument, 0, 'j'},
-            {"progress", required_argument, 0, 'p'},
-            {"threads", required_argument, 0, 't'},
-            {0, 0, 0, 0}
-        };
+            {
+                {"json", required_argument, 0, 'j'},
+                {"min-quality", required_argument, 0, 'q'},
+                {"max-mismatches", required_argument, 0, 'm'},
+                {"window-size", required_argument, 0, 'w'},
+                {"progress", required_argument, 0, 'p'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
+            };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "jpt:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "jq:m:w:pt:",
+                         long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1)
@@ -719,24 +1012,32 @@ int main_pileup(int argc, char** argv) {
 
         switch (c)
         {
-            case 'j':
-                output_json = true;
-                break;
-            case 'p':
-                show_progress = true;
-                break;
-            case 't':
-                thread_count = atoi(optarg);
-                break;
-            case 'h':
-            case '?':
-                /* getopt_long already printed an error message. */
-                help_pileup(argv);
-                exit(1);
-                break;
-
-            default:
-                abort ();
+        case 'j':
+            output_json = true;
+            break;
+        case 'q':
+            min_quality = atoi(optarg);
+            break;
+        case 'm':
+            max_mismatches = atoi(optarg);
+            break;
+        case 'w':
+            window_size = atoi(optarg);
+            break;            
+        case 'p':
+            show_progress = true;
+            break;
+        case 't':
+            thread_count = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_pileup(argv);
+            exit(1);
+            break;
+        default:
+          abort ();
         }
     }
     omp_set_num_threads(thread_count);
@@ -773,7 +1074,7 @@ int main_pileup(int argc, char** argv) {
     } else {
         in.open(alignments_file_name);
         if (!in) {
-            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            cerr << "error: input file " << alignments_file_name << " not found." << endl;
             exit(1);
         }
         alignment_stream = &in;
@@ -783,10 +1084,10 @@ int main_pileup(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing pileups" << endl;
     }
-    vector<Pileups> pileups(thread_count);
+    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size));
     function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
         int tid = omp_get_thread_num();
-        pileups[tid].compute_from_alignment(*graph, aln);
+        pileups[tid].compute_from_alignment(aln);
     };
     stream::for_each_parallel(*alignment_stream, lambda);
 
@@ -797,6 +1098,7 @@ int main_pileup(int argc, char** argv) {
     for (int i = 1; i < pileups.size(); ++i) {
         pileups[0].merge(pileups[i]);
     }
+
     // spit out the pileup
     if (show_progress) {
         cerr << "Writing pileups" << endl;
@@ -813,48 +1115,48 @@ int main_pileup(int argc, char** argv) {
 
 void help_msga(char** argv) {
     cerr << "usage: " << argv[0] << " msga [options] >graph.vg" << endl
-        << "Multiple sequence / graph aligner." << endl
-        << endl
-        << "options:" << endl
-        << "inputs:" << endl
-        << "    -f, --from FILE         use sequences in (fasta) FILE" << endl
-        << "    -n, --name NAME         include this sequence" << endl
-        << "                             (If any --name is specified, use only" << endl
-        << "                              specified sequences from FASTA files.)" << endl
-        << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
-        << "    -s, --seq SEQUENCE      literally include this sequence" << endl
-        << "    -g, --graph FILE        include this graph" << endl
-        << "mem mapping:" << endl
-        << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: 0/unset)" << endl
-        << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-        << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
-        << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
-        << "    -T, --thread-ex N       cluster nodes when successive ids are within this distance (default: 10)" << endl
-        << "    -P, --min-score N       accept alignment only if the normalized alignment score is >N (default: 0.75)" << endl
-        << "    -B, --band-width N      use this bandwidth when mapping (default: 256)" << endl
-        << "    -G, --greedy-accept     if a tested alignment achieves -S score/bp don't try clusters with fewer hits" << endl
-        << "    -S, --accept-score N    accept early alignment if the normalized alignment score is > N and -G is set" << endl
-        << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
-        << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
-        << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
-        << "index generation:" << endl
-        << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
-        << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
-        << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
-        << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
-        << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
-        << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
-        << "graph normalization:" << endl
-        << "    -N, --normalize         normalize the graph after assembly" << endl
-        << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
-        << "    -D, --debug             print debugging information about construction to stderr" << endl
-        << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
-        << "    -t, --threads N         number of threads to use" << endl
-        << endl
-        << "Construct a multiple sequence alignment from all sequences in the" << endl
-        << "input fasta-format files, graphs, and sequences. Uses the MEM mapping algorithm." << endl
-        << endl
-        << "Emits the resulting MSA as a (vg-format) graph." << endl;
+         << "Multiple sequence / graph aligner." << endl
+         << endl
+         << "options:" << endl
+         << "inputs:" << endl
+         << "    -f, --from FILE         use sequences in (fasta) FILE" << endl
+         << "    -n, --name NAME         include this sequence" << endl
+         << "                             (If any --name is specified, use only" << endl
+         << "                              specified sequences from FASTA files.)" << endl
+         << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
+         << "    -s, --seq SEQUENCE      literally include this sequence" << endl
+         << "    -g, --graph FILE        include this graph" << endl
+         << "mem mapping:" << endl
+         << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: 0/unset)" << endl
+         << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "    -H, --hit-max N         SMEMs which have >N hits in our index (default: 100)" << endl
+         << "    -c, --context-depth N   follow this many steps out from each subgraph for alignment (default: 7)" << endl
+         << "    -T, --thread-ex N       cluster nodes when successive ids are within this distance (default: 10)" << endl
+         << "    -P, --min-identity N    accept alignment only if the alignment-based identity is >= N (default: 0.75)" << endl
+         << "    -B, --band-width N      use this bandwidth when mapping (default: 256)" << endl
+         << "    -G, --greedy-accept     if a tested alignment achieves -S identity don't try clusters with fewer hits" << endl
+         << "    -S, --accept-identity N accept early alignment if the alignment identity is >= N and -G is set" << endl
+         << "    -M, --max-attempts N    only attempt the N best subgraphs ranked by SMEM support (default: 10)" << endl
+         << "    -q, --max-target-x N    skip cluster subgraphs with length > N*read_length (default: 100; 0=unset)" << endl
+         << "    -I, --max-multimaps N   if N>1, keep N best mappings of each band, resolve alignment by DP (default: 1)" << endl
+         << "index generation:" << endl
+         << "    -K, --idx-kmer-size N   use kmers of this size for building the GCSA indexes (default: 16)" << endl
+         << "    -O, --idx-no-recomb     index only embedded paths, not recombinations of them" << endl
+         << "    -E, --idx-edge-max N    reduce complexity of graph indexed by GCSA using this edge max (default: off)" << endl
+         << "    -Q, --idx-prune-subs N  prune subgraphs shorter than this length from input graph to GCSA (default: off)" << endl
+         << "    -m, --node-max N        chop nodes to be shorter than this length (default: 2* --idx-kmer-size)" << endl
+         << "    -X, --idx-doublings N   use this many doublings when building the GCSA indexes (default: 2)" << endl
+         << "graph normalization:" << endl
+         << "    -N, --normalize         normalize the graph after assembly" << endl
+         << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
+         << "    -D, --debug             print debugging information about construction to stderr" << endl
+         << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
+         << "    -t, --threads N         number of threads to use" << endl
+         << endl
+         << "Construct a multiple sequence alignment from all sequences in the" << endl
+         << "input fasta-format files, graphs, and sequences. Uses the MEM mapping algorithm." << endl
+         << endl
+         << "Emits the resulting MSA as a (vg-format) graph." << endl;
 }
 
 int main_msga(int argc, char** argv) {
@@ -881,7 +1183,7 @@ int main_msga(int argc, char** argv) {
     int context_depth = 7;
     // same here; initial clustering
     int thread_extension = 10;
-    float min_norm_score = 0.75;
+    float min_identity = 0.75;
     int band_width = 256;
     size_t doubling_steps = 2;
     bool debug = false;
@@ -896,7 +1198,7 @@ int main_msga(int argc, char** argv) {
     int max_mem_length = 0;
     int min_mem_length = 0;
     bool greedy_accept = false;
-    float accept_score = 0;
+    float accept_identity = 0;
     int max_target_factor = 100;
     bool idx_path_only = false;
 
@@ -905,38 +1207,38 @@ int main_msga(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
 
-        {
-            {"help", no_argument, 0, 'h'},
-            {"from", required_argument, 0, 'f'},
-            {"name", required_argument, 0, 'n'},
-            {"seq", required_argument, 0, 's'},
-            {"graph", required_argument, 0, 'g'},
-            {"base", required_argument, 0, 'b'},
-            {"idx-kmer-size", required_argument, 0, 'K'},
-            {"idx-no-recomb", no_argument, 0, 'O'},
-            {"idx-doublings", required_argument, 0, 'X'},
-            {"band-width", required_argument, 0, 'B'},
-            {"debug", no_argument, 0, 'D'},
-            {"debug-align", no_argument, 0, 'A'},
-            {"context-depth", required_argument, 0, 'c'},
-            {"min-score", required_argument, 0, 'P'},
-            {"idx-edge-max", required_argument, 0, 'E'},
-            {"idx-prune-subs", required_argument, 0, 'Q'},
-            {"normalize", no_argument, 0, 'N'},
-            {"allow-nonpath", no_argument, 0, 'z'},
-            {"min-mem-length", required_argument, 0, 'L'},
-            {"max-mem-length", required_argument, 0, 'Y'},
-            {"hit-max", required_argument, 0, 'H'},
-            {"threads", required_argument, 0, 't'},
-            {"node-max", required_argument, 0, 'm'},
-            {"greedy-accept", no_argument, 0, 'G'},
-            {"accept-score", required_argument, 0, 'S'},
-            {"max-attempts", required_argument, 0, 'M'},
-            {"thread-ex", required_argument, 0, 'T'},
-            {"max-target-x", required_argument, 0, 'q'},
-            {"max-multimaps", required_argument, 0, 'I'},
-            {0, 0, 0, 0}
-        };
+            {
+                {"help", no_argument, 0, 'h'},
+                {"from", required_argument, 0, 'f'},
+                {"name", required_argument, 0, 'n'},
+                {"seq", required_argument, 0, 's'},
+                {"graph", required_argument, 0, 'g'},
+                {"base", required_argument, 0, 'b'},
+                {"idx-kmer-size", required_argument, 0, 'K'},
+                {"idx-no-recomb", no_argument, 0, 'O'},
+                {"idx-doublings", required_argument, 0, 'X'},
+                {"band-width", required_argument, 0, 'B'},
+                {"debug", no_argument, 0, 'D'},
+                {"debug-align", no_argument, 0, 'A'},
+                {"context-depth", required_argument, 0, 'c'},
+                {"min-identity", required_argument, 0, 'P'},
+                {"idx-edge-max", required_argument, 0, 'E'},
+                {"idx-prune-subs", required_argument, 0, 'Q'},
+                {"normalize", no_argument, 0, 'N'},
+                {"allow-nonpath", no_argument, 0, 'z'},
+                {"min-mem-length", required_argument, 0, 'L'},
+                {"max-mem-length", required_argument, 0, 'Y'},
+                {"hit-max", required_argument, 0, 'H'},
+                {"threads", required_argument, 0, 't'},
+                {"node-max", required_argument, 0, 'm'},
+                {"greedy-accept", no_argument, 0, 'G'},
+                {"accept-identity", required_argument, 0, 'S'},
+                {"max-attempts", required_argument, 0, 'M'},
+                {"thread-ex", required_argument, 0, 'T'},
+                {"max-target-x", required_argument, 0, 'q'},
+                {"max-multimaps", required_argument, 0, 'I'},
+                {0, 0, 0, 0}
+            };
 
         int option_index = 0;
         c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:",
@@ -982,9 +1284,9 @@ int main_msga(int argc, char** argv) {
                 greedy_accept = true;
                 break;
 
-            case 'S':
-                accept_score = atof(optarg);
-                break;
+        case 'S':
+            accept_identity = atof(optarg);
+            break;
 
             case 'c':
                 context_depth = atoi(optarg);
@@ -1050,9 +1352,9 @@ int main_msga(int argc, char** argv) {
                 break;
 
 
-            case 'P':
-                min_norm_score = atof(optarg);
-                break;
+        case 'P':
+            min_identity = atof(optarg);
+            break;
 
             case 't':
                 omp_set_num_threads(atoi(optarg));
@@ -1185,7 +1487,7 @@ int main_msga(int argc, char** argv) {
             mapper->context_depth = context_depth;
             mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
-            mapper->min_norm_score = min_norm_score;
+            mapper->min_identity = min_identity;
             mapper->alignment_threads = alignment_threads;
             mapper->max_mem_length = max_mem_length;
             mapper->min_mem_length = min_mem_length;
@@ -1193,7 +1495,7 @@ int main_msga(int argc, char** argv) {
             mapper->greedy_accept = greedy_accept;
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
-            if (accept_score) mapper->accept_norm_score = accept_score;
+            mapper->accept_identity = accept_identity;
         }
     };
 
@@ -4555,9 +4857,9 @@ int main_align(int argc, char** argv) {
 void help_map(char** argv) {
     cerr << "usage: " << argv[0] << " map [options] <graph.vg> >alignments.vga" << endl
          << "options:" << endl
-         << "    -d, --db-name DIR     use this db (defaults to <graph>.index/)" << endl
+         << "    -d, --db-name DIR     use this db (defaults to <graph>.vg.index/)" << endl
          << "                          A graph is not required. But GCSA/xg take precedence if available." << endl
-         << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.xg)" << endl
+         << "    -x, --xg-name FILE    use this xg index (defaults to <graph>.vg.xg)" << endl
          << "    -g, --gcsa-name FILE  use this GCSA2 index (defaults to <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
          << "    -V, --in-memory       build the XG and GCSA2 indexes in-memory from the provided .vg file" << endl
          << "    -O, --in-mem-path-only  when making the in-memory temporary index, only look at embedded paths" << endl
@@ -4583,7 +4885,7 @@ void help_map(char** argv) {
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
-         << "    -P, --min-score N     accept alignment only if the normalized alignment score is > N (default: 0)" << endl
+         << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
          << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 5)" << endl
          << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
          << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
@@ -4593,8 +4895,8 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -t, --threads N       number of threads to use" << endl
-         << "    -G, --greedy-accept   if a tested alignment achieves -X score/bp don't try worse seeds" << endl
-         << "    -X, --accept-score N  accept early alignment if the normalized alignment score is > N and -F or -G is set" << endl
+         << "    -G, --greedy-accept   if a tested alignment achieves -X identity don't try worse seeds" << endl
+         << "    -X, --accept-identity N  accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
@@ -4649,7 +4951,7 @@ int main_map(int argc, char** argv) {
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
     float min_kmer_entropy = 0;
-    float accept_score = 0;
+    float accept_identity = 0;
     size_t kmer_min = 8;
     int softclip_threshold = 0;
     bool build_in_memory = false;
@@ -4690,7 +4992,7 @@ int main_map(int argc, char** argv) {
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
                 {"greedy-accept", no_argument, 0, 'G'},
-                {"accept-score", required_argument, 0, 'X'},
+                {"accept-identity", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"thread-ex", required_argument, 0, 'e'},
                 {"context-depth", required_argument, 0, 'n'},
@@ -4701,7 +5003,7 @@ int main_map(int argc, char** argv) {
                 {"interleaved", no_argument, 0, 'i'},
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},
-                {"min-score", required_argument, 0, 'P'},
+                {"min-identity", required_argument, 0, 'P'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
                 {"in-memory", no_argument, 0, 'V'},
@@ -4856,9 +5158,9 @@ int main_map(int argc, char** argv) {
                 greedy_accept = true;
                 break;
 
-            case 'X':
-                accept_score = atof(optarg);
-                break;
+        case 'X':
+            accept_identity = atof(optarg);
+            break;
 
             case 'J':
                 output_json = true;
@@ -4934,6 +5236,14 @@ int main_map(int argc, char** argv) {
 
     if (gcsa_name.empty() && !file_name.empty()) {
         gcsa_name = file_name + gcsa::GCSA::EXTENSION;
+    }
+    
+    if (xg_name.empty() && !file_name.empty()) {
+        xg_name = file_name + ".xg";
+    }
+    
+    if (db_name.empty() && !file_name.empty()) {
+        db_name = file_name + ".index";
     }
 
     // Load up our indexes.
@@ -5046,7 +5356,7 @@ int main_map(int argc, char** argv) {
         m->hit_max = hit_max;
         m->max_multimaps = max_multimaps;
         m->debug = debug;
-        if (accept_score) m->accept_norm_score = accept_score;
+        m->accept_identity = accept_identity;
         if (sens_step) m->kmer_sensitivity_step = sens_step;
         m->prefer_forward = prefer_forward;
         m->greedy_accept = greedy_accept;
@@ -5056,7 +5366,7 @@ int main_map(int argc, char** argv) {
         m->max_attempts = max_attempts;
         m->min_kmer_entropy = min_kmer_entropy;
         m->kmer_min = kmer_min;
-        m->min_norm_score = min_score;
+        m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
@@ -5701,37 +6011,37 @@ int main_view(int argc, char** argv) {
             }
             cout.flush();
             return 0;
-        } else if (input_type == "pileup") {
-            if (input_json == false) {
-                if (output_type == "json") {
-                    // convert values to printable ones
-                    function<void(NodePileup&)> lambda = [](NodePileup& p) {
-                        cout << pb2json(p) << "\n";
-                    };
-                    if (file_name == "-") {
-                        stream::for_each(std::cin, lambda);
-                    } else {
-                        ifstream in;
-                        in.open(file_name.c_str());
-                        stream::for_each(in, lambda);
-                    }
+    } else if (input_type == "pileup") {
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Pileup&)> lambda = [](Pileup& p) {
+                    cout << pb2json(p) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
                 } else {
-                    // todo
-                    cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
-                    return 1;
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
                 }
             } else {
-                if (output_type == "json" || output_type == "pileup") {
-                    JSONStreamHelper<NodePileup> json_helper(file_name);
-                    json_helper.write(cout, output_type == "json");
-                } else {
-                    cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
-                    return 1;
-                }
+                // todo
+                cerr << "[vg view] error: (binary) Pileup can only be converted to JSON" << endl;
+                return 1;
             }
-            cout.flush();
-            return 0;
+        } else {
+            if (output_type == "json" || output_type == "pileup") {
+                JSONStreamHelper<Pileup> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON Pileup can only be converted to Pileup or JSON" << endl;
+                return 1;
+            }
         }
+        cout.flush();
+        return 0;
+    }
 
         if(graph == nullptr) {
             // Make sure we didn't forget to implement an input format.
@@ -6124,6 +6434,8 @@ int main_view(int argc, char** argv) {
             return main_compare(argc, argv);
         } else if (command == "validate") {
             return main_validate(argc, argv);
+        } else if (command == "filter") {
+            return main_filter(argc, argv);
         } else if (command == "vectorize") {
             return main_vectorize(argc, argv);
         } else if (command == "filter"){

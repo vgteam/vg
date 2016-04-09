@@ -1222,7 +1222,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     auto& node_seq = n.sequence();
     string seq;
     // todo reverse the mapping
-    function<id_t(id_t)> lambda = [&node_seq](id_t i){return node_seq.size();};
+    function<int64_t(id_t)> lambda = [&node_seq](id_t i){return node_seq.size();};
     Mapping m = (mp.position().is_reverse()
                  ? reverse_complement_mapping(mp, lambda) : mp);
     // then edit in the forward direction (easier)
@@ -1254,7 +1254,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
 }
 
 Mapping reverse_complement_mapping(const Mapping& m,
-                                   const function<id_t(id_t)>& node_length) {
+                                   const function<int64_t(id_t)>& node_length) {
     // Make a new reversed mapping
     Mapping reversed = m;
 
@@ -1282,7 +1282,7 @@ Mapping reverse_complement_mapping(const Mapping& m,
 }
 
 Path reverse_complement_path(const Path& path,
-                             const function<id_t(id_t)>& node_length) {
+                             const function<int64_t(id_t)>& node_length) {
     // Make a new reversed path
     Path reversed = path;
 
@@ -1608,6 +1608,22 @@ double divergence(const Mapping& m) {
         }
     }
     return 1 - (matches*2.0 / (from_length + to_length));
+}
+
+double identity(const Path& path) {
+    double ident = 0;
+    size_t total_length = path_to_length(path);
+    size_t matched_length = 0;
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                matched_length += edit.from_length();
+            }
+        }
+    }
+    return (double) matched_length / (double) total_length;
 }
 
 }

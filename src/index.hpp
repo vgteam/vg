@@ -324,10 +324,18 @@ public:
 
 class indexOpenException: public exception
 {
+    string message;
+    
     virtual const char* what() const throw()
     {
-        return "unable to open variant graph index";
+        return message.c_str();
     }
+    
+public:
+    indexOpenException(string message = ""): message("unable to open variant graph index: " + message) {
+    }
+
+    
 };
 
 class keyNotFoundException: public exception
