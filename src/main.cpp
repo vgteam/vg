@@ -1737,9 +1737,13 @@ int main_surject(int argc, char** argv) {
             function<void(Alignment&)> lambda = [&index, &path_names, &buffer, &window](Alignment& src) {
                 int tid = omp_get_thread_num();
                 Alignment surj;
+                // Since we're outputting full GAM, we ignore all this info
+                // about where on the path the alignment falls. But we need to
+                // provide the space to the surject call anyway.
                 string path_name;
                 int64_t path_pos;
-                index.surject_alignment(src, path_names, surj, path_name, path_pos, window);
+                bool path_reverse;
+                index.surject_alignment(src, path_names, surj, path_name, path_pos, path_reverse, window);
                 buffer[tid].push_back(surj);
                 stream::write_buffered(cout, buffer[tid], 100);
             };
@@ -1779,7 +1783,7 @@ int main_surject(int argc, char** argv) {
             map<string, int64_t> path_length;
             index.path_layout(path_layout, path_length);
             int thread_count = get_thread_count();
-            vector<vector<tuple<string, int64_t, Alignment> > > buffer;
+            vector<vector<tuple<string, int64_t, bool, Alignment> > > buffer;
             buffer.resize(thread_count);
             map<string, string> rg_sample;
 
@@ -1795,7 +1799,7 @@ int main_surject(int argc, char** argv) {
             // handles buffers, possibly opening the output file if we're on the first record
             auto handle_buffer =
                 [&hdr, &header, &path_length, &rg_sample, &buffer_limit,
-                &out_mode, &out, &output_lock, &fasta_filename](vector<tuple<string, int64_t, Alignment> >& buf) {
+                &out_mode, &out, &output_lock, &fasta_filename](vector<tuple<string, int64_t, bool, Alignment> >& buf) {
                     if (buf.size() >= buffer_limit) {
                         // do we have enough data to open the file?
 #pragma omp critical (hts_header)
@@ -1824,12 +1828,14 @@ int main_surject(int argc, char** argv) {
                             for (auto& s : buf) {
                                 auto& path_nom = get<0>(s);
                                 auto& path_pos = get<1>(s);
-                                auto& surj = get<2>(s);
-                                string cigar = cigar_against_path(surj);
+                                auto& path_reverse = get<2>(s);
+                                auto& surj = get<3>(s);
+                                string cigar = cigar_against_path(surj, path_reverse);
                                 bam1_t* b = alignment_to_bam(header,
                                         surj,
                                         path_nom,
                                         path_pos,
+                                        path_reverse,
                                         cigar,
                                         "=",
                                         path_pos,
@@ -1862,7 +1868,8 @@ int main_surject(int argc, char** argv) {
                     Alignment surj;
                     string path_name;
                     int64_t path_pos;
-                    index.surject_alignment(src, path_names, surj, path_name, path_pos, window);
+                    bool path_reverse;
+                    index.surject_alignment(src, path_names, surj, path_name, path_pos, path_reverse, window);
                     if (!surj.path().mapping_size()) {
                         surj = src;
                     }
@@ -1872,7 +1879,7 @@ int main_surject(int argc, char** argv) {
                         rg_sample[surj.read_group()] = surj.sample_name();
                     }
 
-                    buffer[tid].push_back(make_tuple(path_name, path_pos, surj));
+                    buffer[tid].push_back(make_tuple(path_name, path_pos, path_reverse, surj));
                     handle_buffer(buffer[tid]);
 
                 };

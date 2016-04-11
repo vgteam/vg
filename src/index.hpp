@@ -255,11 +255,16 @@ public:
                                   list<pair<int64_t, bool>>& path_prev, int64_t& prev_pos, bool& prev_orientation,
                                   list<pair<int64_t, bool>>& path_next, int64_t& next_pos, bool& next_orientation);
 
+    // Surject an alignment. Fills in path_name with the path surjected onto,
+    // path_pos with the leftmost position along that path that is used, and
+    // path_reverse with whether the alignemnt lands on the path in a reverse
+    // orientation.
     bool surject_alignment(const Alignment& source,
                            set<string>& path_names,
                            Alignment& surjection,
                            string& path_name,
                            int64_t& path_pos,
+                           bool& path_reverse,
                            int window = 5);
     // Populates layout with path start and end nodes (and orientations),
     // indexed by path names, and lengths with path lengths indexed by path
