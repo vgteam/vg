@@ -46,6 +46,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const Alignment& alignment,
                          const string& refseq,
                          const int32_t refpos,
+                         const bool refrev,
                          const string& cigar,
                          const string& mateseq,
                          const int32_t matepos,
@@ -54,14 +55,15 @@ bam1_t* alignment_to_bam(const string& sam_header,
 string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
+                        const bool refrev,
                         const string& cigar,
                         const string& mateseq,
                         const int32_t matepos,
                         const int32_t tlen);
 
-string cigar_against_path(const Alignment& alignment);
+string cigar_against_path(const Alignment& alignment, bool on_reverse_strand);
 
-int32_t sam_flag(const Alignment& alignment);
+int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand);
 short quality_char_to_short(char c);
 char quality_short_to_char(short i);
 string string_quality_char_to_short(const string& quality);
