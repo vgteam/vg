@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 18
+plan tests 19
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -45,6 +45,8 @@ vg index -x giab.xg -g giab.gcsa -k 11 giab.vg
 is $(vg map -K -b minigiab/NA12878.chr22.tiny.bam -k 27 -x giab.xg -g giab.gcsa | vg view -a - | wc -l) $(samtools view minigiab/NA12878.chr22.tiny.bam | wc -l) "mapping of BAM file produces expected number of alignments"
 
 is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -k 27 | vg view -a - | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | grep ^@ | wc -l) "mapping from a fastq produces the expected number of alignments"
+
+is $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -M 2 -J | jq -c 'select(.is_secondary | not)' | wc -l) $(samtools bam2fq minigiab/NA12878.chr22.tiny.bam 2>/dev/null | vg map -f - -x giab.xg -g giab.gcsa -M 1 -J | wc -l) "allowing secondary alignments with MEM mapping does not change number of primary alignments"
 
 count_prev=$(samtools sort -no minigiab/NA12878.chr22.tiny.bam x | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa -k 27 | vg view -a - | jq .fragment_prev.name | grep null | wc -l)
 count_next=$(samtools sort -no minigiab/NA12878.chr22.tiny.bam x | samtools bam2fq - 2>/dev/null | vg map -if - -x giab.xg -g giab.gcsa -k 27 | vg view -a - | jq .fragment_next.name | grep null | wc -l)
