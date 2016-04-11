@@ -92,11 +92,12 @@ void GSSWAligner::align(Alignment& alignment, bool print_score_matrices) {
                                                     gap_extension);
 
 
-
     gssw_mapping_to_alignment(gm, alignment, print_score_matrices);
 
-
-    //gssw_print_graph_mapping(gm);
+#ifdef debug
+    gssw_print_graph_mapping(gm, stderr);
+#endif
+    
     gssw_graph_mapping_destroy(gm);
 
 }
@@ -146,7 +147,9 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
             int32_t length = e->length;
             //cerr << e->length << e->type << endl;
             switch (e->type) {
-            case 'M': {
+            case 'M':
+            case 'X':
+            case 'N': {
                 // do the sequences match?
                 // emit a stream of "SNPs" and matches
                 int h = from_pos;
