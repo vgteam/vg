@@ -1506,6 +1506,11 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         aln.clear_path();
         aln.set_score(0);
     }
+    
+    for(size_t i = 1; i < good.size(); i++) {
+        // Mark all but the first, best alignment as secondary
+        good[i].set_is_secondary(true);
+    }
 
     // Return all the multimappings
     return good;
