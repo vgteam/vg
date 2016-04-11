@@ -30,8 +30,8 @@ before_install:
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;fi
 script:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make && make test && make static; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make && make test; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && make test && make static -j4; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make -j4 && make test; fi
 
 os:
   - linux
