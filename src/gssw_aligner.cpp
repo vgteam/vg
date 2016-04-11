@@ -91,6 +91,7 @@ void GSSWAligner::align(Alignment& alignment, bool print_score_matrices) {
                                                     gap_open,
                                                     gap_extension);
 
+    //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
 
     gssw_mapping_to_alignment(gm, alignment, print_score_matrices);
 

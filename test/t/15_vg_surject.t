@@ -12,7 +12,7 @@ vg construct -r small/x.fa >j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -k 11 -d x.idx x.vg
 
-is $(vg map -r <(vg sim -s 1337 -n 100 j.vg) -d x.idx | vg surject -p x -d x.idx -t 1 - | vg view -a - | jq .score | grep 200 | wc -l) \
+is $(vg map -r <(vg sim -s 1337 -n 100 j.vg) -d x.idx | vg surject -p x -d x.idx -t 1 - | vg view -a - | jq .score | grep 100 | wc -l) \
     100 "vg surject works perfectly for perfect reads derived from the reference"
     
 is $(vg map -r <(vg sim -s 1337 -n 100 j.vg) -d x.idx | vg surject -p x -d x.idx -t 1 -s - | grep -v "@" | cut -f3 | grep x | wc -l) \

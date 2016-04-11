@@ -32,9 +32,9 @@ Mapper::Mapper(Index* idex,
     , max_mem_length(0)
     , min_mem_length(0)
     , max_target_factor(128)
-    , match(2)
-    , mismatch(2)
-    , gap_open(3)
+    , match(1)
+    , mismatch(4)
+    , gap_open(6)
     , gap_extend(1)
     , max_query_graph_ratio(128)
 {

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 17
+plan tests 18
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -13,14 +13,16 @@ vg index -sk 11 -d x.idx x.vg
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 -J | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "global alignment traverses the correct path"
 
-is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 -J | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 96 "alignment score is as expected"
+is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 -J | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 48 "alignment score is as expected"
+
+is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG --match 2 --mismatch 2 --gap-open 3 --gap-extend 1 -x x.xg -g x.gcsa -k 22 -J | tr ',' '\n' | grep score | sed "s/}//g" | awk '{ print $2 }') 96 "scoring parameters are respected"
 
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22  >/dev/null
 is $? 0 "vg map takes -d as input without a variant graph"
 
 is $(vg map -s TCAGATTCTCATCCCTCCTCAAGGGCGTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG -x x.xg -g x.gcsa -k 22 -J | jq . | grep '"sequence": "G"' | wc -l) 1 "vg map can align across a SNP"
 
-is $(vg map -r <(vg sim -s 69 -n 1000 -l 100 x.vg) -x x.xg -g x.gcsa -k 22  | vg view -a - | jq -c '.score == 200 // [.score, .sequence]' | grep -v true | wc -l) 0 "alignment works on a small graph"
+is $(vg map -r <(vg sim -s 69 -n 1000 -l 100 x.vg) -x x.xg -g x.gcsa -k 22  | vg view -a - | jq -c '.score == 100 // [.score, .sequence]' | grep -v true | wc -l) 0 "alignment works on a small graph"
 
 seq=TCAGATTCTCATCCCTCCTCAAGGGCTTCTAACTACTCCACATCAAAGCTACCCAGGCCATTTTAAGTTTCCTGTGGACTAAGGACAAAGGTGCGGGGAG
 is $(vg map -s $seq -x x.xg -g x.gcsa -k 22 | vg view -a - | jq -c '[.score, .sequence, .path.node_id]' | md5sum | awk '{print $1}') \
@@ -31,7 +33,8 @@ is $(vg map -b small/x.bam -x x.xg -g x.gcsa -k 22 -J | jq .quality | grep null 
 
 is $(vg map -s $seq -B 30 -x x.xg -g x.gcsa -k 22 | vg surject -d x.idx -s - | wc -l) 4 "banded alignment produces a correct alignment"
 
-is $(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -k 22 -J -M 2 | jq -r '.score' | tr '\n' ',') "62,54," "multiple alignments are returned in descending score order"
+scores=$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -k 22 -J -M 2 | jq -r '.score' | tr '\n' ',')
+is "${scores}" $(printf ${scores} | tr ',' '\n' | sort -nr | tr '\n' ',')  "multiple alignments are returned in descending score order"
 
 rm -f x.vg x.xg x.gcsa x.gcsa.lcp
 rm -rf x.vg.index
