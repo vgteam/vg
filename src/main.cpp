@@ -4788,7 +4788,7 @@ void help_map(char** argv) {
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
-         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 5)" << endl
+         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 7)" << endl
          << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
          << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
          << "    -m, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
@@ -4839,7 +4839,7 @@ int main_map(int argc, char** argv) {
     int max_multimaps = 1;
     int thread_count = 1;
     int thread_ex = 10;
-    int context_depth = 5;
+    int context_depth = 7;
     bool output_json = false;
     bool debug = false;
     bool prefer_forward = false;
