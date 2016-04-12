@@ -613,7 +613,7 @@ int main_vectorize(int argc, char** argv){
         }
     };
     if (alignment_file == "-"){
-        stream::for_each_parallel(cin, lambda);
+        stream::for_each(cin, lambda);
     }
     else{
         ifstream in;
