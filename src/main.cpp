@@ -364,9 +364,9 @@ int main_validate(int argc, char** argv) {
     }
 }
 
-void help_ngs(char** argv){
-    cerr << "usage: " << argv[0] << " ngs [options] <alignments.gam> > filtered.gam" << endl
-        << "Filter alignments by various common metrics in NGS." << endl
+void help_scrub(char** argv){
+    cerr << "usage: " << argv[0] << " scrub [options] <alignments.gam> > filtered.gam" << endl
+        << "Filter alignments by various common metrics." << endl
         << endl
         << "options: " << endl
         << "  -d --depth <DEPTH>    remove edits below DEPTH" << endl
@@ -377,7 +377,7 @@ void help_ngs(char** argv){
         << endl;
 }
 
-int main_ngs(int argc, char** argv){
+int main_scrub(int argc, char** argv){
     string alignment_file;
     int min_depth = 0;
     int min_qual = 0;
@@ -385,7 +385,7 @@ int main_ngs(int argc, char** argv){
     bool remove_failing_alignments = true;
 
     if (argc <= 2){
-        help_ngs(argv);
+        help_scrub(argv);
         exit(1);
     }
     int c;
@@ -417,7 +417,7 @@ int main_ngs(int argc, char** argv){
         {
             case '?':
             case 'h':
-                help_ngs(argv);
+                help_scrub(argv);
                 return 1;
             case 'd':
                 min_depth = atoi(optarg);
@@ -538,6 +538,7 @@ int main_vectorize(int argc, char** argv){
     bool show_header = false;
     bool map_alns = false;
     bool annotate = false;
+    bool a_hot = false;
 
     if (argc <= 2) {
         help_vectorize(argv);
@@ -554,11 +555,12 @@ int main_vectorize(int argc, char** argv){
             {"xg-name", required_argument,0, 'x'},
             {"threads", required_argument, 0, 't'},
             {"format", no_argument, 0, 'f'},
+            {"a-hot", no_argument, 0, 'a'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Ahfx:",
+        c = getopt_long (argc, argv, "Aahfx:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -573,6 +575,9 @@ int main_vectorize(int argc, char** argv){
                 return 1;
             case 'x':
                 xg_name = optarg;
+                break;
+            case 'a':
+                a_hot = true;
                 break;
             case 'f':
                 format = true;
@@ -600,18 +605,29 @@ int main_vectorize(int argc, char** argv){
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, format](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, format, a_hot](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
-        bit_vector v = vz.alignment_to_onehot(a);
-        if (format){
-            cout << a.name() << "\t";
-            cout << vz.format(v) << endl;
+
+        if (a_hot){
+            vector<int> v = vz.alignment_to_a_hot(a);
+            if (format){
+                cout << a.name() << "\t" << vz.format(v) << endl;
+            }
+            else{
+                cout << v << endl;
+            }
         }
         else{
-            cout << v << endl;
+            bit_vector v = vz.alignment_to_onehot(a);
+            if (format){
+                cout << a.name() << "\t" << vz.format(v) << endl;
+            }
+            else{
+                cout << v << endl;
+            }
         }
-    };
+            };
     if (alignment_file == "-"){
         stream::for_each(cin, lambda);
     }
@@ -6403,7 +6419,8 @@ int main_view(int argc, char** argv) {
             << "  -- pileup        build a pileup from a set of alignments" << endl
             << "  -- call          prune the graph by genotyping a pileup" << endl
             << "  -- compare       compare the kmer space of two graphs" << endl
-            << "  -- validate      validate the semantics of a graph" << endl;
+            << "  -- validate      validate the semantics of a graph" << endl
+            << "  -- scrub         remove poor-quality / low-depth edits from a set of alignments";
     }
 
     int main(int argc, char *argv[])
@@ -6463,8 +6480,8 @@ int main_view(int argc, char** argv) {
             return main_filter(argc, argv);
         } else if (command == "vectorize") {
             return main_vectorize(argc, argv);
-        } else if (command == "ngs"){
-            return main_ngs(argc, argv);
+        } else if (command == "scrub"){
+            return main_scrub(argc, argv);
         }else {
             cerr << "error:[vg] command " << command << " not found" << endl;
             vg_help(argv);
