@@ -21,6 +21,7 @@
 #include "caller.hpp"
 #include "deconstructor.hpp"
 #include "vectorizer.hpp"
+#include "sampler.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
 
@@ -2377,18 +2378,21 @@ int main_mod(int argc, char** argv) {
     return 0;
 }
 
+
+
 void help_sim(char** argv) {
-    cerr << "usage: " << argv[0] << " sim [options] <graph.vg>" << endl
-        << "Simulates reads from the graph(s). Output is a list of reads." << endl
-        << endl
-        << "options:" << endl
-        << "    -l, --read-length N   write reads of length N" << endl
-        << "    -n, --num-reads N     simulate N reads" << endl
-        << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
-        << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
-        << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
-        << "    -f, --forward-only    don't simulate from the reverse strand" << endl
-        << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl;
+    cerr << "usage: " << argv[0] << " sim [options]" << endl
+         << "Samples sequences from the xg-indexed graph." << endl
+         << endl
+         << "options:" << endl
+         << "    -x, --xg-name FILE    use the xg index in FILE" << endl
+         << "    -l, --read-length N   write reads of length N" << endl
+         << "    -n, --num-reads N     simulate N reads" << endl
+         << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
+         << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
+         << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
+         << "    -f, --forward-only    don't simulate from the reverse strand" << endl
+         << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -2405,6 +2409,7 @@ int main_sim(int argc, char** argv) {
     double indel_error = 0;
     bool forward_only = false;
     bool align_out = false;
+    string xg_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2412,6 +2417,7 @@ int main_sim(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
+            {"xg-name", required_argument, 0, 'x'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
@@ -2421,7 +2427,7 @@ int main_sim(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fa",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -2431,116 +2437,92 @@ int main_sim(int argc, char** argv) {
         switch (c)
         {
 
-            case 'l':
-                read_length = atoi(optarg);
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'n':
-                num_reads = atoi(optarg);
-                break;
+        case 'l':
+            read_length = atoi(optarg);
+            break;
 
-            case 's':
-                seed_val = atoi(optarg);
-                break;
+        case 'n':
+            num_reads = atoi(optarg);
+            break;
 
-            case 'e':
-                base_error = atof(optarg);
-                break;
+        case 's':
+            seed_val = atoi(optarg);
+            break;
 
-            case 'i':
-                indel_error = atof(optarg);
-                break;
+        case 'e':
+            base_error = atof(optarg);
+            break;
 
-            case 'f':
-                forward_only = true;
-                break;
+        case 'i':
+            indel_error = atof(optarg);
+            break;
 
-            case 'a':
-                align_out = true;
-                break;
+        case 'f':
+            forward_only = true;
+            break;
 
-            case 'h':
-            case '?':
-                help_sim(argv);
-                exit(1);
-                break;
+        case 'a':
+            align_out = true;
+            break;
 
-            default:
-                abort ();
+        case 'h':
+        case '?':
+            help_sim(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
-    VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
-        graph = new VG(in);
+    if (xg_name.empty()) {
+        cerr << "[vg sim] error: we need an xg index to sample reads from" << endl;
+        return 1;
     }
-
-    int64_t max_id = graph->max_node_id();
-    int64_t min_id = graph->min_node_id();
 
     mt19937 rng;
     rng.seed(seed_val);
+    
+    xg::XG* xgidx = nullptr;
+    ifstream xg_stream(xg_name);
+    if(xg_stream) {
+        xgidx = new xg::XG(xg_stream);
+    }
+    if (!xg_stream || xgidx == nullptr) {
+        cerr << "[vg sim] error: could not open xg index" << endl;
+        return 1;
+    }
 
-    string bases = "ATGC";
-    uniform_real_distribution<double> rprob(0, 1);
-    uniform_int_distribution<int> rbase(0, 3);
-
-    function<string(const string&)> introduce_read_errors
-        = [&rng, &rprob, &rbase, &bases, base_error, indel_error](const string& perfect_read) {
-
-            if (base_error == 0 && indel_error == 0) return perfect_read;
-            string read;
-            for (auto c : perfect_read) {
-                if (rprob(rng) <= base_error) {
-                    // pick another base than what c is
-                    char e;
-                    do {
-                        e = bases[rbase(rng)];
-                    } while (e == c);
-                    c = e;
-                }
-                if (rprob(rng) <= indel_error) {
-                    if (rprob(rng) < 0.5) {
-                        read.push_back(bases[rbase(rng)]);
-                    } // else do nothing, == deletion of base
-                } else {
-                    read.push_back(c);
-                }
-            }
-            return read;
-        };
-
+    Sampler sampler(xgidx, seed_val);
     size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
-        auto perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
-        // avoid short reads at the end of the graph by retrying
-        int iter = 0;
-        while (perfect_read.sequence().size() < read_length && ++iter < max_iter) {
-            perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
-            // if we can't make a suitable read in 1000 tries, then maybe the graph is too small?
-        }
-        if (iter == max_iter) {
-            cerr << "couldn't simulate read, perhaps the chosen length is too long for this graph?" << endl;
-        } else {
-            // apply errors
-            if (!align_out) {
-                string readseq = introduce_read_errors(perfect_read.sequence());
-                cout << readseq << endl;
-            } else {
-                function<Alignment(uint64_t)> lambda =
-                    [&perfect_read] (uint64_t n) {
-                        return perfect_read;
-                    };
-                stream::write(cout, 1, lambda);
+        auto perfect_read = sampler.sequence(read_length);
+        size_t iter = 0;
+        while (iter++ < max_iter) {
+            if (perfect_read.size() < read_length) {
+                perfect_read = sampler.sequence(read_length);
             }
         }
+        introduce_read_errors(perfect_read);//.sequence());
+        // apply errors
+        if (!align_out) {
+
+            cout << readseq << endl;
+        } else {
+            /*
+            function<Alignment(uint64_t)> lambda =
+                [&perfect_read] (uint64_t n) {
+                return perfect_read;
+            };
+            stream::write(cout, 1, lambda);
+            */
+        }
     }
-    delete graph;
 
     return 0;
 }
