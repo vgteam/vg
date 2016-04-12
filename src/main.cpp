@@ -5815,6 +5815,14 @@ int main_view(int argc, char** argv) {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
                     alignment_quality_short_to_char(a);
+                    
+                    if(std::isnan(a.identity())) {
+                        // Fix up NAN identities that can't be serialized in
+                        // JSON. We shouldn't generate these any more, and they
+                        // are out of spec, but they can be in files.
+                        a.set_identity(0);
+                    }
+                    
                     cout << pb2json(a) << "\n";
                 };
                 if (file_name == "-") {
