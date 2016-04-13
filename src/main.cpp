@@ -528,6 +528,7 @@ void help_vectorize(char** argv){
         << "  -x --xg-name FILE  An xg index for the graph of interest" << endl
         << "  -f --format        Tab-delimit output so it can be used in R." << endl
         << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
+        << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
         << endl;
 }
 
