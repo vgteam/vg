@@ -2508,11 +2508,11 @@ int main_sim(int argc, char** argv) {
                 perfect_read = sampler.sequence(read_length);
             }
         }
-        introduce_read_errors(perfect_read);//.sequence());
+        //introduce_read_errors(perfect_read);//.sequence());
         // apply errors
         if (!align_out) {
 
-            cout << readseq << endl;
+            cout << perfect_read << endl;
         } else {
             /*
             function<Alignment(uint64_t)> lambda =
@@ -3361,11 +3361,8 @@ int main_paths(int argc, char** argv) {
 
 void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
-        << "options:" << endl
-        << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
-        // TODO, dump these from the index
-        //<< "    -a, --alignments       write all stored alignments in sorted order (in GAM)" << endl
-        //<< "    -m, --mappings         write stored mappings in sorted order (in json)" << endl
+         << "options:" << endl
+         << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
          << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
          << "graph features:" << endl
          << "    -n, --node ID          find node, return 1-hop context as graph" << endl
@@ -3375,6 +3372,9 @@ void help_find(char** argv) {
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
+         << "alignments: (rocksdb only)" << endl
+         << "    -a, --alignments       writes alignments from index, sorted by node id" << endl
+         << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
@@ -3385,7 +3385,6 @@ void help_find(char** argv) {
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
          << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl;
-
 
 }
 
@@ -3402,7 +3401,6 @@ int main_find(int argc, char** argv) {
     int kmer_stride = 1;
     vector<string> kmers;
     string output_format;
-    int64_t end_id=0, start_id=0;
     vector<int64_t> node_ids;
     int context_size=0;
     bool count_kmers = false;
@@ -3410,11 +3408,14 @@ int main_find(int argc, char** argv) {
     string target;
     string path_name;
     string range;
-    bool get_alignments = false;
-    bool get_mappings = false;
     string gcsa_in;
     string xg_name;
     bool get_mems = false;
+    bool get_alignments = false;
+    bool get_mappings = false;
+    string node_id_range;
+    vg::id_t start_id = 0;
+    vg::id_t end_id = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3442,11 +3443,12 @@ int main_find(int argc, char** argv) {
                 {"node-range", required_argument, 0, 'r'},
                 {"alignments", no_argument, 0, 'a'},
                 {"mappings", no_argument, 0, 'm'},
+                {"alns-in", required_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:i:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -3455,25 +3457,25 @@ int main_find(int argc, char** argv) {
 
         switch (c)
         {
-            case 'd':
-                db_name = optarg;
-                break;
+        case 'd':
+            db_name = optarg;
+            break;
 
-            case 'x':
-                xg_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'g':
-                gcsa_in = optarg;
-                break;
+        case 'g':
+            gcsa_in = optarg;
+            break;
 
-            case 'k':
-                kmers.push_back(optarg);
-                break;
+        case 'k':
+            kmers.push_back(optarg);
+            break;
 
-            case 'S':
-                sequence = optarg;
-                break;
+        case 'S':
+            sequence = optarg;
+            break;
 
         case 'M':
             sequence = optarg;
@@ -3484,66 +3486,70 @@ int main_find(int argc, char** argv) {
             kmer_stride = atoi(optarg);
             break;
 
-            case 'z':
-                kmer_size = atoi(optarg);
-                break;
+        case 'z':
+            kmer_size = atoi(optarg);
+            break;
 
-            case 'C':
-                count_kmers = true;
-                break;
+        case 'C':
+            count_kmers = true;
+            break;
 
-            case 'p':
-                target = optarg;
-                break;
+        case 'p':
+            target = optarg;
+            break;
 
-            case 'P':
-                path_name = optarg;
-                break;
+        case 'P':
+            path_name = optarg;
+            break;
 
-            case 'c':
-                context_size = atoi(optarg);
-                break;
+        case 'c':
+            context_size = atoi(optarg);
+            break;
 
-            case 'n':
-                node_ids.push_back(atoi(optarg));
-                break;
+        case 'n':
+            node_ids.push_back(atoi(optarg));
+            break;
 
-            case 'e':
-                end_id = atoi(optarg);
-                break;
+        case 'e':
+            end_id = atoi(optarg);
+            break;
 
-            case 's':
-                start_id = atoi(optarg);
-                break;
+        case 's':
+            start_id = atoi(optarg);
+            break;
 
-            case 'T':
-                kmer_table = true;
-                break;
+        case 'T':
+            kmer_table = true;
+            break;
 
-            case 'r':
-                range = optarg;
-                break;
+        case 'r':
+            range = optarg;
+            break;
 
-            case 'a':
-                get_alignments = true;
-                break;
+        case 'a':
+            get_alignments = true;
+            break;
 
-            case 'm':
-                get_mappings = true;
-                break;
+        case 'i':
+            node_id_range = optarg;
+            break;
 
-            case 'o':
-                output_format = optarg;
-                break;
+        case 'm':
+            get_mappings = true;
+            break;
 
-            case 'h':
-            case '?':
-                help_find(argv);
-                exit(1);
-                break;
+        case 'o':
+            output_format = optarg;
+            break;
 
-            default:
-                abort ();
+        case 'h':
+        case '?':
+            help_find(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
     if (optind < argc) {
@@ -3568,7 +3574,28 @@ int main_find(int argc, char** argv) {
     }
 
     if (get_alignments) {
-        // todo
+        assert(!db_name.empty());
+        vector<Alignment> output_buf;
+        auto lambda = [&output_buf](const Alignment& aln) {
+            output_buf.push_back(aln);
+            stream::write_buffered(cout, output_buf, 100);
+        };
+        vindex->for_each_alignment(lambda);
+        stream::write_buffered(cout, output_buf, 0);
+    }
+
+    if (!node_id_range.empty()) {
+        assert(!db_name.empty());
+        vector<string> parts = split_delims(node_id_range, ":");
+        convert(parts.front(), start_id);
+        convert(parts.back(), end_id);
+        vector<Alignment> output_buf;
+        auto lambda = [&output_buf](const Alignment& aln) {
+            output_buf.push_back(aln);
+            stream::write_buffered(cout, output_buf, 100);
+        };
+        vindex->for_alignment_in_range(start_id, end_id, lambda);
+        stream::write_buffered(cout, output_buf, 0);
     }
 
     if (!xg_name.empty()) {

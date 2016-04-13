@@ -937,6 +937,26 @@ void Index::get_alignments(int64_t node_id, vector<Alignment>& alignments) {
         });
 }
 
+void Index::get_alignments(int64_t id1, int64_t id2, vector<Alignment>& alignments) {
+    string start = key_for_alignment_prefix(id1);
+    string end = key_for_alignment_prefix(id2) + end_sep;
+    for_range(start, end, [this, &alignments](string& key, string& value) {
+            alignments.emplace_back();
+            Alignment& alignment = alignments.back();
+            alignment.ParseFromString(value);
+        });
+}
+
+void Index::for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda) {
+    string start = key_for_alignment_prefix(id1);
+    string end = key_for_alignment_prefix(id2) + end_sep;
+    for_range(start, end, [this, &lambda](string& key, string& value) {
+            Alignment alignment;
+            alignment.ParseFromString(value);
+            lambda(alignment);
+        });
+}
+
 int Index::get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, bool& backward, Mapping& mapping) {
     string value;
     string key = key_prefix_for_node_path(node_id, path_id);
