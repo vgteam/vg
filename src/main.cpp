@@ -23,6 +23,12 @@
 #include "vectorizer.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
+#include "vg_git_version.hpp"
+
+// Make sure the version macro is a thing
+#ifndef VG_GIT_VERSION
+    #define VG_GIT_VERSION "missing"
+#endif
 
 using namespace std;
 using namespace google::protobuf;
@@ -6002,7 +6008,7 @@ int main_view(int argc, char** argv) {
             << "options: " << endl
             << endl;
     }
-int main_deconstruct(int argc, char** argv){
+    int main_deconstruct(int argc, char** argv){
         cerr << "WARNING: EXPERIMENTAL" << endl;
             if (argc <= 2) {
             help_deconstruct(argv);
@@ -6249,15 +6255,33 @@ int main_deconstruct(int argc, char** argv){
 
         return 0;
     }
+    
+    void help_version(char** argv){
+        cerr << "usage: " << argv[0] << " version" << endl
+            << "options: " << endl
+            << endl;
+    }
+    int main_version(int argc, char** argv){
+    
+        if (argc != 2) {
+            help_version(argv);
+            return 1;
+        }
+    
+        cout << VG_GIT_VERSION << endl;
+        return 0;
+    }
 
     void vg_help(char** argv) {
-        cerr << "usage: " << argv[0] << " <command> [options]" << endl
+        cerr << "vg: variation graph tool, version " << VG_GIT_VERSION << endl
+             << endl
+             << "usage: " << argv[0] << " <command> [options]" << endl
              << endl
              << "commands:" << endl
              << "  -- construct     graph construction" << endl
              << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
              << "  -- view          format conversions for graphs and alignments" << endl
-             << "  -- vectorize     Transform alignments to one-hot vectors." << endl
+             << "  -- vectorize     transform alignments to one-hot vectors" << endl
              << "  -- index         index features of the graph in a disk-backed key/value store" << endl
              << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
              << "  -- paths         traverse paths in the graph" << endl
@@ -6275,7 +6299,8 @@ int main_deconstruct(int argc, char** argv){
              << "  -- pileup        build a pileup from a set of alignments" << endl
              << "  -- call          prune the graph by genotyping a pileup" << endl
              << "  -- compare       compare the kmer space of two graphs" << endl
-             << "  -- validate      validate the semantics of a graph" << endl;
+             << "  -- validate      validate the semantics of a graph" << endl
+             << "  -- version       version information" << endl;
     }
 
     int main(int argc, char *argv[])
@@ -6335,6 +6360,8 @@ int main_deconstruct(int argc, char** argv){
             return main_filter(argc, argv);
         } else if (command == "vectorize") {
             return main_vectorize(argc, argv);
+        } else if (command == "version") {
+            return main_version(argc, argv);
         }else {
             cerr << "error:[vg] command " << command << " not found" << endl;
             vg_help(argv);
