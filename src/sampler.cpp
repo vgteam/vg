@@ -31,6 +31,48 @@ string Sampler::sequence(size_t length) {
     return seq;
 }
 
+
+Edit Sampler::mutate_edit(const Edit& edit,
+                          const Mapping& mapping, // so we can tell what the ref base is
+                          double base_error,
+                          double indel_error,
+                          const string& bases,
+                          uniform_real_distribution<double>& rprob,
+                          uniform_int_distribution<int>& rbase) {
+
+    Edit new_edit;
+
+    if (edit_is_match(edit)) {
+    } else if (edit_is_sub(edit)) {
+    } else if (edit_is_insertion(edit)) {
+    } else if (edit_is_deletion(edit)) {
+    }
+
+    // for each base in the edit
+    /*
+    for (size_t k = 0; k < edit.to_length(); ++k) {
+        
+        if (rprob(rng) <= base_error) {
+            // pick another base than what c is
+            char e;
+            do {
+                e = bases[rbase(rng)];
+            } while (e == c);
+            c = e;
+        }
+
+        if (rprob(rng) <= indel_error) {
+            if (rprob(rng) < 0.5) {
+                read.push_back(bases[rbase(rng)]);
+            } // else do nothing, == deletion of base
+        } else {
+            read.push_back(c);
+        }
+    */
+    return new_edit;
+
+}
+
 Alignment Sampler::mutate(const Alignment& aln,
                           double base_error,
                           double indel_error) {
@@ -42,26 +84,16 @@ Alignment Sampler::mutate(const Alignment& aln,
     uniform_int_distribution<int> rbase(0, 3);
 
     Alignment mutaln;
-    for (size_t i = 0; i < aln.mapping_size(); ++i) {
-        auto& base_mapping = aln.mapping(i);
-        Mapping* new_mapping = mutaln.add_mapping();
-        // for each base in the mapping
-        // decide if we should introduce an error
-        // if so, edit the alignment and its sequence as appropriate
-        if (rprob(rng) <= base_error) {
-            // pick another base than what c is
-            char e;
-            do {
-                e = bases[rbase(rng)];
-            } while (e == c);
-            c = e;
-        }
-        if (rprob(rng) <= indel_error) {
-            if (rprob(rng) < 0.5) {
-                read.push_back(bases[rbase(rng)]);
-            } // else do nothing, == deletion of base
-        } else {
-            read.push_back(c);
+    for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+        auto& orig_mapping = aln.path().mapping(i);
+        Mapping* new_mapping = mutaln.mutable_path()->add_mapping();
+        // for each edit in the mapping
+        for (size_t j = 0; j < orig_mapping.edit_size(); ++j) {
+            auto& orig_edit = orig_mapping.edit(j);
+            Edit* new_edit = new_mapping->add_edit();
+            *new_edit = mutate_edit(orig_edit, orig_mapping,
+                                    base_error, indel_error,
+                                    bases, rprob, rbase);
         }
     }
     return mutaln;
