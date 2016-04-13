@@ -89,10 +89,10 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
                 int64_t edge_key = my_xg->edge_rank_as_entity(prev_node_id, false, node_id, false);
                 vector<size_t> edge_paths = my_xg->paths_of_entity(edge_key);
                 if (edge_paths.size() > 0){
-                    ret[edge_key - 1] = 2;
+                    ret[edge_key - 1] = 1;
                 }
                 else{
-                    ret[edge_key - 1] = 1;
+                    ret[edge_key - 1] = 2;
                 }
             }
         }
