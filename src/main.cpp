@@ -217,7 +217,7 @@ int main_filter(int argc, char** argv) {
             keep = score >= min_secondary && delta >= min_sec_delta && overhang <= max_overhang;
 
             // filter unfiltered previous primary
-            if (keep_prev && delta >= min_pri_delta) {
+            if (keep_prev && delta < min_pri_delta) {
                 keep_prev = false;
                 buffer.pop_back();
             }
