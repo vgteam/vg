@@ -111,6 +111,9 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
 
 }
 
+//vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
+    
+//}
 
 bit_vector Vectorizer::alignment_to_onehot(Alignment a){
     // Make a vector as large as the | |nodes| + |edges| | space

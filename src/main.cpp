@@ -529,6 +529,8 @@ void help_vectorize(char** argv){
         << "  -f --format        Tab-delimit output so it can be used in R." << endl
         << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
         << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
+        << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
+        << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
         << endl;
 }
 
@@ -540,6 +542,8 @@ int main_vectorize(int argc, char** argv){
     bool map_alns = false;
     bool annotate = false;
     bool a_hot = false;
+    bool output_wabbit = false;
+    bool use_identity_hot = false;
 
     if (argc <= 2) {
         help_vectorize(argv);
@@ -557,11 +561,13 @@ int main_vectorize(int argc, char** argv){
             {"threads", required_argument, 0, 't'},
             {"format", no_argument, 0, 'f'},
             {"a-hot", no_argument, 0, 'a'},
+            {"wabbit", no_argument, 0, 'w'},
+            {"identity-hot", no_argument, 0, 'i'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aahfx:",
+        c = getopt_long (argc, argv, "Aaihwfx:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -579,6 +585,12 @@ int main_vectorize(int argc, char** argv){
                 break;
             case 'a':
                 a_hot = true;
+                break;
+            case 'w':
+                output_wabbit = true;
+                break;
+            case 'i':
+                use_identity_hot = true;
                 break;
             case 'f':
                 format = true;
