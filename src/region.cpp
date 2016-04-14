@@ -1,3 +1,6 @@
+#include <iostream>
+#include <fstream>
+#include <cassert>
 #include "region.hpp"
 
 namespace vg {
@@ -40,5 +43,38 @@ void parse_region(
         }
     }
 }
+
+void parse_bed_regions(const string& bed_path,
+                       vector<Region>& out_regions) {
+    out_regions.clear();
+    ifstream bedstream(bed_path);
+    if (!bedstream) {
+        cerr << "Unable to open bed file: " << bed_path << endl;
+        return;
+    }
+    string row;
+    string sbuf;
+    string ebuf;
+    while (getline(bedstream, row)) {
+        Region region;
+        istringstream ss(row);
+        if (!getline(ss, region.seq, '\t') ||
+            !getline(ss, sbuf, '\t') ||
+            !getline(ss, ebuf, '\t')) {
+            cerr << "Error parsing bed line: " << row << endl;
+            out_regions.clear();
+            return;
+        }
+        region.start = std::stoi(sbuf);
+        region.end = std::stoi(ebuf);
+        assert(region.end > region.start);
+        
+        // convert from BED-style to VCF-style coordinates
+        region.start += 1;
+
+        out_regions.push_back(region);
+    }
+}
+
 
 }
