@@ -147,6 +147,10 @@ int main_filter(int argc, char** argv) {
         }
     }
 
+    if (optind >= argc) {
+        help_filter(argv);
+        return 1;
+    }
     string graph_file_name = argv[optind++];
 
     // name helper for output
@@ -232,6 +236,10 @@ int main_filter(int argc, char** argv) {
     }
     
     // setup alignment stream
+    if (optind >= argc) {
+        help_filter(argv);
+        return 1;
+    }
     string alignments_file_name = argv[optind++];
     istream* alignment_stream = NULL;
     ifstream in;
