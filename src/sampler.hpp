@@ -46,6 +46,8 @@ public:
                              uniform_real_distribution<double>& rprob,
                              uniform_int_distribution<int>& rbase);
 
+    string alignment_seq(const Alignment& aln);
+
 };
 
 }

@@ -5,11 +5,12 @@ namespace vg {
 pos_t Sampler::position(void) {
     uniform_int_distribution<size_t> xdist(1, xgidx->seq_length);
     size_t offset = xdist(rng);
-    //cerr << "offset " << offset << endl;
-    //cerr << "id at " << xgidx->node_at_seq_pos(offset) << endl;
     id_t id = xgidx->node_at_seq_pos(offset);
-    size_t node_offset = offset - xgidx->node_start(id);
-    return make_pos_t(id, false, node_offset);
+    uniform_int_distribution<size_t> flip(0, 1);
+    bool rev = flip(rng);
+    // 1-0 base conversion
+    size_t node_offset = offset - xgidx->node_start(id) - 1;
+    return make_pos_t(id, rev, node_offset);
 }
 
 string Sampler::sequence(size_t length) {
@@ -54,8 +55,8 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
         for (size_t k = 0; k < to_length; ++k) {
             char c = 'N'; // in the case that we are in an insertion
             if (!edit_is_insertion(edit)) {
-                ++get_offset(curr_pos);
                 c = pos_char(curr_pos);
+                ++get_offset(curr_pos);
             }
             if (rprob(rng) <= base_error) {
                 // pick another base than what c is
@@ -65,7 +66,8 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
                 } while (n == c);
                 // make the edit for the sub
                 Edit* e = new_mapping.add_edit();
-                e->set_sequence(std::to_string(n));
+                string s(1, c);
+                e->set_sequence(s);
                 e->set_from_length(1);
                 e->set_to_length(1);
             } else {
@@ -80,7 +82,8 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
                 if (rprob(rng) < 0.5) {
                     char n = bases[rbase(rng)];
                     Edit* e = new_mapping.add_edit();
-                    e->set_sequence(std::to_string(n));
+                    string s(1, c);
+                    e->set_sequence(s);
                     e->set_to_length(1);
                 } else {
                     Edit* e = new_mapping.add_edit();
@@ -101,7 +104,6 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
     }
     // and send them back
     return new_edits;
-
 }
 
 Alignment Sampler::mutate(const Alignment& aln,
@@ -118,6 +120,7 @@ Alignment Sampler::mutate(const Alignment& aln,
     for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
         auto& orig_mapping = aln.path().mapping(i);
         Mapping* new_mapping = mutaln.mutable_path()->add_mapping();
+        *new_mapping->mutable_position() = orig_mapping.position();
         // for each edit in the mapping
         for (size_t j = 0; j < orig_mapping.edit_size(); ++j) {
             auto& orig_edit = orig_mapping.edit(j);
@@ -129,13 +132,62 @@ Alignment Sampler::mutate(const Alignment& aln,
             }
         }
     }
+    // re-derive the alignment's sequence
+    mutaln = simplify(mutaln);
+    mutaln.set_sequence(alignment_seq(mutaln));
     return mutaln;
 }
 
+string Sampler::alignment_seq(const Alignment& aln) {
+    // get the graph corresponding to the alignment path
+    Graph sub;
+    for (int i = 0; i < aln.path().mapping_size(); ++ i) {
+        auto& m = aln.path().mapping(i);
+        if (m.has_position() && m.position().node_id()) {
+            auto id = aln.path().mapping(i).position().node_id();
+            xgidx->neighborhood(id, 2, sub);
+        }
+    }
+    VG g; g.extend(sub);
+    return g.path_string(aln.path());
+}
 
+// generates a perfect alignment from the graph
 Alignment Sampler::alignment(size_t length) {
+    string seq;
     Alignment aln;
-    return aln;
+    Path* path = aln.mutable_path();
+    pos_t pos = position();
+    char c = pos_char(pos);
+    // we do something wildly inefficient but conceptually clean
+    // for each position in the mapping we add a mapping
+    // at the end we will simplify the alignment, merging redundant mappings
+    do {
+        // add in the char for the current position
+        seq += c;
+        Mapping* mapping = path->add_mapping();
+        *mapping->mutable_position() = make_position(pos);
+        Edit* edit = mapping->add_edit();
+        edit->set_from_length(1);
+        edit->set_to_length(1);
+        // decide the next position
+        auto nextc = next_pos_chars(pos);
+        // no new positions mean we are done; we've reached the end of the graph
+        if (nextc.empty()) break;
+        // what positions do we go to next?
+        vector<pos_t> nextp;
+        for (auto& n : nextc) nextp.push_back(n.first);
+        // pick one at random
+        uniform_int_distribution<int> next_dist(0, nextc.size()-1);
+        // update our position
+        pos = nextp.at(next_dist(rng));
+        // update our char
+        c = nextc[pos];
+    } while (seq.size() < length);
+    // save our sequence in the alignment
+    aln.set_sequence(seq);
+    // and simplify it
+    return simplify(aln);
 }
 
 char Sampler::pos_char(pos_t pos) {

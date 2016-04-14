@@ -2392,7 +2392,8 @@ void help_sim(char** argv) {
          << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
          << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
          << "    -f, --forward-only    don't simulate from the reverse strand" << endl
-         << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl;
+         << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl
+         << "    -J, --json-out        write alignments in json" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -2409,6 +2410,7 @@ int main_sim(int argc, char** argv) {
     double indel_error = 0;
     bool forward_only = false;
     bool align_out = false;
+    bool json_out = false;
     string xg_name;
 
     int c;
@@ -2423,11 +2425,12 @@ int main_sim(int argc, char** argv) {
             {"random-seed", required_argument, 0, 's'},
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
+            {"json-out", no_argument, 0, 'J'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:J",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -2469,6 +2472,11 @@ int main_sim(int argc, char** argv) {
             align_out = true;
             break;
 
+        case 'J':
+            json_out = true;
+            align_out = true;
+            break;
+
         case 'h':
         case '?':
             help_sim(argv);
@@ -2501,26 +2509,28 @@ int main_sim(int argc, char** argv) {
     Sampler sampler(xgidx, seed_val);
     size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
-        auto perfect_read = sampler.sequence(read_length);
+        
+        auto aln = sampler.alignment(read_length);
         size_t iter = 0;
         while (iter++ < max_iter) {
-            if (perfect_read.size() < read_length) {
-                perfect_read = sampler.sequence(read_length);
+            if (aln.sequence().size() < read_length) {
+                aln = sampler.alignment(read_length);
             }
         }
-        //introduce_read_errors(perfect_read);//.sequence());
         // apply errors
-        if (!align_out) {
-
-            cout << perfect_read << endl;
+        if (base_error || indel_error) {
+            aln = sampler.mutate(aln, base_error, indel_error);
+        }
+        // write the alignment or its string
+        if (align_out) {
+            if (json_out) {
+                cout << pb2json(aln) << endl;
+            } else {
+                function<Alignment(uint64_t)> lambda = [&aln](uint64_t n) { return aln; };
+                stream::write(cout, 1, lambda);
+            }
         } else {
-            /*
-            function<Alignment(uint64_t)> lambda =
-                [&perfect_read] (uint64_t n) {
-                return perfect_read;
-            };
-            stream::write(cout, 1, lambda);
-            */
+            cout << aln.sequence() << endl;
         }
     }
 
