@@ -115,7 +115,7 @@ $(LIB_DIR)/libxg.a: $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.
 $(LIB_DIR)/libvcflib.a: .pre-build
 	+. ./source_me.sh && cd $(VCFLIB_DIR) && $(MAKE) libvcflib.a && cp lib/* $(CWD)/$(LIB_DIR)/ && cp include/* $(CWD)/$(INC_DIR)/ && cp src/*.h* $(CWD)/$(INC_DIR)/
 
-$(LIB_DIR)/libgssw.a: .pre-build
+$(LIB_DIR)/libgssw.a: .pre-build $(GSSW_DIR)/src/gssw.c $(GSSW_DIR)/src/gssw.h
 	+cd $(GSSW_DIR) && $(MAKE) && cp lib/* $(CWD)/$(LIB_DIR)/ && cp obj/* $(CWD)/$(OBJ_DIR) && cp src/*.h $(CWD)/$(INC_DIR)
 
 $(INC_DIR)/lru_cache.h: .pre-build
@@ -154,6 +154,11 @@ $(LIB_DIR)/libraptor2.a: .pre-build
 $(INC_DIR)/sha1.hpp: $(OBJ_DIR)/sha1.o
 $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp .pre-build
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
+	
+# Auto-versioning
+$(INC_DIR)/vg_git_version.hpp: .pre-build .git/HEAD .git/index
+	echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags || echo unknown)\"" > $@
+	
 
 ###################################
 ## VG source code compilation begins here
@@ -183,7 +188,7 @@ $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.h
 $(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libxg.a
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(LIB_DIR)/libvcflib.a $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/librocksdb.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libxg.a $(INC_DIR)/gcsa.h $(LIB_DIR)/libhts.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/progress_bar.o $(INC_DIR)/lru_cache.h $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(LIB_DIR)/libsdsl.a
+$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(INC_DIR)/vg_git_version.hpp $(LIB_DIR)/libvcflib.a $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/librocksdb.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libxg.a $(INC_DIR)/gcsa.h $(LIB_DIR)/libhts.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/progress_bar.o $(INC_DIR)/lru_cache.h $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(LIB_DIR)/libsdsl.a
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map

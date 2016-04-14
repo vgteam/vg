@@ -6646,6 +6646,11 @@ Alignment VG::align(const Alignment& alignment,
                     bool print_score_matrices) {
 
     auto aln = alignment;
+    
+    for(auto& character : *(aln.mutable_sequence())) {
+        // Make sure everything is upper-case for alignment.
+        character = toupper(character);
+    }
 
     map<id_t, pair<id_t, bool> > unfold_trans;
     map<id_t, pair<id_t, bool> > dagify_trans;
@@ -6667,6 +6672,13 @@ Alignment VG::align(const Alignment& alignment,
         return aln;
     }
     */
+    
+    dag.for_each_node_parallel([](Node* node) {
+         for(auto& character : *(node->mutable_sequence())) {
+            // Make sure everything is upper-case for alignment.
+            character = toupper(character);
+        }
+    });
 
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
@@ -6707,6 +6719,9 @@ Alignment VG::align(const Alignment& alignment,
             return get_node(node_id)->sequence().size();
         });
     //check_aln(*this, aln);
+
+    // Copy back the not-case-corrected sequence
+    aln.set_sequence(alignment.sequence());
 
     return aln;
 }

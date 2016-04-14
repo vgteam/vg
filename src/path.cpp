@@ -1623,7 +1623,7 @@ double identity(const Path& path) {
             }
         }
     }
-    return (double) matched_length / (double) total_length;
+    return total_length == 0 ? 0.0 : (double) matched_length / (double) total_length;
 }
 
 }

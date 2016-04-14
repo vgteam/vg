@@ -32,9 +32,9 @@ Mapper::Mapper(Index* idex,
     , max_mem_length(0)
     , min_mem_length(0)
     , max_target_factor(128)
-    , match(2)
-    , mismatch(2)
-    , gap_open(3)
+    , match(1)
+    , mismatch(4)
+    , gap_open(6)
     , gap_extend(1)
     , max_query_graph_ratio(128)
 {
@@ -1505,6 +1505,11 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         aln = alignment;
         aln.clear_path();
         aln.set_score(0);
+    }
+    
+    for(size_t i = 1; i < good.size(); i++) {
+        // Mark all but the first, best alignment as secondary
+        good[i].set_is_secondary(true);
     }
 
     // Return all the multimappings

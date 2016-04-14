@@ -24,6 +24,12 @@
 #include "filter.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
+#include "vg_git_version.hpp"
+
+// Make sure the version macro is a thing
+#ifndef VG_GIT_VERSION
+    #define VG_GIT_VERSION "missing"
+#endif
 
 using namespace std;
 using namespace google::protobuf;
@@ -167,6 +173,7 @@ int main_filter(int argc, char** argv) {
     bool prev_primary = false;
     bool keep_prev = true;
     double prev_score = -1.;
+    string prev_name;
 
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
@@ -208,7 +215,7 @@ int main_filter(int argc, char** argv) {
         }
 
         if (aln.is_secondary()) {
-            assert(prev_primary && aln.name() == buffer.back().name());
+            assert(prev_primary && aln.name() == prev_name);
             double delta = prev_score - score;
             if (frac_delta == true) {
                 delta = prev_score > 0 ? score / prev_score : 0.;
@@ -217,7 +224,7 @@ int main_filter(int argc, char** argv) {
             keep = score >= min_secondary && delta >= min_sec_delta && overhang <= max_overhang;
 
             // filter unfiltered previous primary
-            if (keep_prev && delta >= min_pri_delta) {
+            if (keep_prev && delta < min_pri_delta) {
                 keep_prev = false;
                 buffer.pop_back();
             }
@@ -230,6 +237,7 @@ int main_filter(int argc, char** argv) {
             prev_primary = false;
             prev_score = -1;
             keep_prev = false;
+            prev_name.clear();
 
             // flush buffer
             if (buffer.size() >= buffer_size) {
@@ -246,6 +254,7 @@ int main_filter(int argc, char** argv) {
 
             prev_primary = true;
             prev_score = score;
+            prev_name = aln.name();
             keep_prev = score >= min_primary && overhang <= max_overhang;
             if (keep_prev) {
                 buffer.push_back(aln);
@@ -1180,6 +1189,11 @@ void help_msga(char** argv) {
          << "    -b, --base NAME         use this sequence as the graph basis if graph is empty" << endl
          << "    -s, --seq SEQUENCE      literally include this sequence" << endl
          << "    -g, --graph FILE        include this graph" << endl
+         << "local alignment parameters:" << endl
+         << "    -a, --match N         use this match score (default: 1)" << endl
+         << "    -i, --mismatch N      use this mismatch penalty (default: 4)" << endl
+         << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
+         << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "mem mapping:" << endl
          << "    -L, --min-mem-length N  ignore SMEMs shorter than this length (default: 0/unset)" << endl
          << "    -Y, --max-mem-length N  ignore SMEMs longer than this length by stopping backward search (default: 0/unset)" << endl
@@ -1255,6 +1269,10 @@ int main_msga(int argc, char** argv) {
     float accept_identity = 0;
     int max_target_factor = 100;
     bool idx_path_only = false;
+    int match = 1;
+    int mismatch = 4;
+    int gap_open = 6;
+    int gap_extend = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1291,12 +1309,16 @@ int main_msga(int argc, char** argv) {
                 {"thread-ex", required_argument, 0, 'T'},
                 {"max-target-x", required_argument, 0, 'q'},
                 {"max-multimaps", required_argument, 0, 'I'},
+                {"match", required_argument, 0, 'a'},
+                {"mismatch", required_argument, 0, 'i'},
+                {"gap-open", required_argument, 0, 'o'},
+                {"gap-extend", required_argument, 0, 'e'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:",
-                long_options, &option_index);
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:",
+                         long_options, &option_index);
 
         // Detect the end of the options.
         if (c == -1)
@@ -1346,10 +1368,9 @@ int main_msga(int argc, char** argv) {
                 context_depth = atoi(optarg);
                 break;
 
-
-            case 'f':
-                fasta_files.push_back(optarg);
-                break;
+        case 'f':
+            fasta_files.push_back(optarg);
+            break;
 
             case 'n':
                 seq_names.insert(optarg);
@@ -1425,6 +1446,22 @@ int main_msga(int argc, char** argv) {
 
             case 'z':
                 allow_nonpath = true;
+                break;
+                
+            case 'a':
+                match = atoi(optarg);
+                break;
+
+            case 'i':
+                mismatch = atoi(optarg);
+                break;
+
+            case 'o':
+                gap_open = atoi(optarg);
+                break;
+
+            case 'e':
+                gap_extend = atoi(optarg);
                 break;
 
             case 'h':
@@ -1550,6 +1587,10 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
+            mapper->match = match;
+            mapper->mismatch = mismatch;
+            mapper->gap_open = gap_open;
+            mapper->gap_extend = gap_extend;
         }
     };
 
@@ -1899,9 +1940,13 @@ int main_surject(int argc, char** argv) {
             function<void(Alignment&)> lambda = [&index, &path_names, &buffer, &window](Alignment& src) {
                 int tid = omp_get_thread_num();
                 Alignment surj;
+                // Since we're outputting full GAM, we ignore all this info
+                // about where on the path the alignment falls. But we need to
+                // provide the space to the surject call anyway.
                 string path_name;
                 int64_t path_pos;
-                index.surject_alignment(src, path_names, surj, path_name, path_pos, window);
+                bool path_reverse;
+                index.surject_alignment(src, path_names, surj, path_name, path_pos, path_reverse, window);
                 buffer[tid].push_back(surj);
                 stream::write_buffered(cout, buffer[tid], 100);
             };
@@ -1941,7 +1986,7 @@ int main_surject(int argc, char** argv) {
             map<string, int64_t> path_length;
             index.path_layout(path_layout, path_length);
             int thread_count = get_thread_count();
-            vector<vector<tuple<string, int64_t, Alignment> > > buffer;
+            vector<vector<tuple<string, int64_t, bool, Alignment> > > buffer;
             buffer.resize(thread_count);
             map<string, string> rg_sample;
 
@@ -1957,7 +2002,7 @@ int main_surject(int argc, char** argv) {
             // handles buffers, possibly opening the output file if we're on the first record
             auto handle_buffer =
                 [&hdr, &header, &path_length, &rg_sample, &buffer_limit,
-                &out_mode, &out, &output_lock, &fasta_filename](vector<tuple<string, int64_t, Alignment> >& buf) {
+                &out_mode, &out, &output_lock, &fasta_filename](vector<tuple<string, int64_t, bool, Alignment> >& buf) {
                     if (buf.size() >= buffer_limit) {
                         // do we have enough data to open the file?
 #pragma omp critical (hts_header)
@@ -1986,12 +2031,14 @@ int main_surject(int argc, char** argv) {
                             for (auto& s : buf) {
                                 auto& path_nom = get<0>(s);
                                 auto& path_pos = get<1>(s);
-                                auto& surj = get<2>(s);
-                                string cigar = cigar_against_path(surj);
+                                auto& path_reverse = get<2>(s);
+                                auto& surj = get<3>(s);
+                                string cigar = cigar_against_path(surj, path_reverse);
                                 bam1_t* b = alignment_to_bam(header,
                                         surj,
                                         path_nom,
                                         path_pos,
+                                        path_reverse,
                                         cigar,
                                         "=",
                                         path_pos,
@@ -2024,7 +2071,8 @@ int main_surject(int argc, char** argv) {
                     Alignment surj;
                     string path_name;
                     int64_t path_pos;
-                    index.surject_alignment(src, path_names, surj, path_name, path_pos, window);
+                    bool path_reverse;
+                    index.surject_alignment(src, path_names, surj, path_name, path_pos, path_reverse, window);
                     if (!surj.path().mapping_size()) {
                         surj = src;
                     }
@@ -2034,7 +2082,7 @@ int main_surject(int argc, char** argv) {
                         rg_sample[surj.read_group()] = surj.sample_name();
                     }
 
-                    buffer[tid].push_back(make_tuple(path_name, path_pos, surj));
+                    buffer[tid].push_back(make_tuple(path_name, path_pos, path_reverse, surj));
                     handle_buffer(buffer[tid]);
 
                 };
@@ -4924,11 +4972,15 @@ void help_align(char** argv) {
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value" << endl
          << "    -j, --json            output alignments in JSON format (default GAM)" << endl
-         << "    -m, --match N         use this match score (default: 2)" << endl
-         << "    -M, --mismatch N      use this mismatch penalty (default: 2)" << endl
-         << "    -g, --gap-open N      use this gap open penalty (default: 3)" << endl
+         << "    -m, --match N         use this match score (default: 1)" << endl
+         << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
+         << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
-         << "    -D, --debug           print out score matrices and other debugging info" << endl;
+         << "    -D, --debug           print out score matrices and other debugging info" << endl
+         << "options:" << endl
+         << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -Q, --seq-name STR    name the sequence using this value" << endl
+         << "    -j, --json            output alignments in JSON format (default GAM)" << endl;
 }
 
 int main_align(int argc, char** argv) {
@@ -4943,9 +4995,9 @@ int main_align(int argc, char** argv) {
 
     bool print_cigar = false;
     bool output_json = false;
-    int match = 2;
-    int mismatch = 2;
-    int gap_open = 3;
+    int match = 1;
+    int mismatch = 4;
+    int gap_open = 6;
     int gap_extend = 1;
     bool debug = false;
 
@@ -5077,14 +5129,14 @@ void help_map(char** argv) {
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
-         << "    -q, --match N         use this match score (default: 2)" << endl
-         << "    -z, --mismatch N      use this mismatch penalty (default: 2)" << endl
-         << "    -o, --gap-open N      use this gap open penalty (default: 3)" << endl
+         << "    -q, --match N         use this match score (default: 1)" << endl
+         << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
+         << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
-         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 5)" << endl
+         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 7)" << endl
          << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
          << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
          << "    -m, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
@@ -5135,7 +5187,7 @@ int main_map(int argc, char** argv) {
     int max_multimaps = 1;
     int thread_count = 1;
     int thread_ex = 10;
-    int context_depth = 5;
+    int context_depth = 7;
     bool output_json = false;
     bool debug = false;
     bool prefer_forward = false;
@@ -5158,9 +5210,9 @@ int main_map(int argc, char** argv) {
     int max_target_factor = 100;
     bool in_mem_path_only = false;
     int buffer_size = 100;
-    int match = 2;
-    int mismatch = 2;
-    int gap_open = 3;
+    int match = 1;
+    int mismatch = 4;
+    int gap_open = 6;
     int gap_extend = 1;
 
     int c;
@@ -5281,15 +5333,13 @@ int main_map(int argc, char** argv) {
             case 'A':
                 max_attempts = atoi(optarg);
                 break;
-
-            case 'm':
-                hit_max = atoi(optarg);
-                break;
-
-            case 'M':
-                max_multimaps = atoi(optarg);
-                break;
-
+        case 'm':
+            hit_max = atoi(optarg);
+            break;
+            
+        case 'M':
+            max_multimaps = atoi(optarg);
+            break;
             case 'k':
                 kmer_size = atoi(optarg);
                 break;
@@ -5519,7 +5569,7 @@ int main_map(int argc, char** argv) {
     // Make sure to flush the buffer at the end of the program!
     auto output_alignments = [&output_buffer, &output_json, &buffer_size](vector<Alignment>& alignments) {
         // for(auto& alignment : alignments){
-        // 		cerr << "This is in output_alignments" << alignment.DebugString() << endl;
+        //     cerr << "This is in output_alignments" << alignment.DebugString() << endl;
         // }
 
         if (output_json) {
@@ -6105,7 +6155,7 @@ int main_view(int argc, char** argv) {
         if (file_name == "-") {
             graph->from_turtle("/dev/stdin", rdf_base_uri);
         } else {
-            graph->from_turtle(file_name, rdf_base_uri);
+             graph->from_turtle(file_name, rdf_base_uri);
         }
     } else if (input_type == "gam") {
         if (input_json == false) {
@@ -6113,6 +6163,14 @@ int main_view(int argc, char** argv) {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
                     alignment_quality_short_to_char(a);
+                    
+                    if(std::isnan(a.identity())) {
+                        // Fix up NAN identities that can't be serialized in
+                        // JSON. We shouldn't generate these any more, and they
+                        // are out of spec, but they can be in files.
+                        a.set_identity(0);
+                    }
+                    
                     cout << pb2json(a) << "\n";
                 };
                 if (file_name == "-") {
@@ -6550,34 +6608,54 @@ int main_view(int argc, char** argv) {
 
         return 0;
     }
+    
+    void help_version(char** argv){
+        cerr << "usage: " << argv[0] << " version" << endl
+            << "options: " << endl
+            << endl;
+    }
+    int main_version(int argc, char** argv){
+    
+        if (argc != 2) {
+            help_version(argv);
+            return 1;
+        }
+    
+        cout << VG_GIT_VERSION << endl;
+        return 0;
+    }
 
     void vg_help(char** argv) {
-        cerr << "usage: " << argv[0] << " <command> [options]" << endl
-            << endl
-            << "commands:" << endl
-            << "  -- construct     graph construction" << endl
-            << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
-            << "  -- view          format conversions for graphs and alignments" << endl
-            << "  -- vectorize     Transform alignments to one-hot vectors." << endl
-            << "  -- index         index features of the graph in a disk-backed key/value store" << endl
-            << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
-            << "  -- paths         traverse paths in the graph" << endl
-            << "  -- align         local alignment" << endl
-            << "  -- map           global alignment" << endl
-            << "  -- stats         metrics describing graph properties" << endl
-            << "  -- join          combine graphs via a new head" << endl
-            << "  -- ids           manipulate node ids" << endl
-            << "  -- concat        concatenate graphs tail-to-head" << endl
-            << "  -- kmers         enumerate kmers of the graph" << endl
-            << "  -- sim           simulate reads from the graph" << endl
-            << "  -- mod           filter, transform, and edit the graph" << endl
-            << "  -- surject       map alignments onto specific paths" << endl
-            << "  -- msga          multiple sequence graph alignment" << endl
-            << "  -- pileup        build a pileup from a set of alignments" << endl
-            << "  -- call          prune the graph by genotyping a pileup" << endl
-            << "  -- compare       compare the kmer space of two graphs" << endl
-            << "  -- validate      validate the semantics of a graph" << endl
-            << "  -- scrub         remove poor-quality / low-depth edits from a set of alignments";
+        cerr << "vg: variation graph tool, version " << VG_GIT_VERSION << endl
+             << endl
+             << "usage: " << argv[0] << " <command> [options]" << endl
+             << endl
+             << "commands:" << endl
+             << "  -- construct     graph construction" << endl
+             << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
+             << "  -- view          format conversions for graphs and alignments" << endl
+             << "  -- vectorize     transform alignments to simple ML-compatible vectors" << endl
+             << "  -- index         index features of the graph in a disk-backed key/value store" << endl
+             << "  -- find          use an index to find nodes, edges, kmers, or positions" << endl
+             << "  -- paths         traverse paths in the graph" << endl
+             << "  -- align         local alignment" << endl
+             << "  -- map           global alignment" << endl
+             << "  -- stats         metrics describing graph properties" << endl
+             << "  -- join          combine graphs via a new head" << endl
+             << "  -- ids           manipulate node ids" << endl
+             << "  -- concat        concatenate graphs tail-to-head" << endl
+             << "  -- kmers         enumerate kmers of the graph" << endl
+             << "  -- sim           simulate reads from the graph" << endl
+             << "  -- mod           filter, transform, and edit the graph" << endl
+             << "  -- surject       map alignments onto specific paths" << endl
+             << "  -- msga          multiple sequence graph alignment" << endl
+             << "  -- pileup        build a pileup from a set of alignments" << endl
+             << "  -- call          prune the graph by genotyping a pileup" << endl
+             << "  -- compare       compare the kmer space of two graphs" << endl
+             << "  -- scrub         remove poor-quality / low-depth edits from a set of alignments" << endl
+             << "  -- circularize   circularize a path within a graph." << endl
+             << "  -- validate      validate the semantics of a graph" << endl
+             << "  -- version       version information" << endl;
     }
 
     int main(int argc, char *argv[])
@@ -6641,9 +6719,9 @@ int main_view(int argc, char** argv) {
             return main_scrub(argc, argv);
         } else if (command == "circularize"){
             return main_circularize(argc, argv);
-        }
-        
-        else {
+        }  else if (command == "version") {
+            return main_version(argc, argv);
+        }else {
             cerr << "error:[vg] command " << command << " not found" << endl;
             vg_help(argv);
             return 1;

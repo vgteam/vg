@@ -6,13 +6,13 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 9
+plan tests 11
 
 vg construct -r small/x.fa >j.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -s -k 11 -d x.idx x.vg
 
-is $(vg map -r <(vg sim -s 1337 -n 100 j.vg) -d x.idx | vg surject -p x -d x.idx -t 1 - | vg view -a - | jq .score | grep 200 | wc -l) \
+is $(vg map -r <(vg sim -s 1337 -n 100 j.vg) -d x.idx | vg surject -p x -d x.idx -t 1 - | vg view -a - | jq .score | grep 100 | wc -l) \
     100 "vg surject works perfectly for perfect reads derived from the reference"
     
 is $(vg map -r <(vg sim -s 1337 -n 100 j.vg) -d x.idx | vg surject -p x -d x.idx -t 1 -s - | grep -v "@" | cut -f3 | grep x | wc -l) \
@@ -23,6 +23,15 @@ is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) -d x.idx | vg surject -p x -d x.idx
 
 is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) -d x.idx | vg surject -p x -d x.idx -s - | grep -v ^@ | wc -l) \
     100 "vg surject produces valid SAM output"
+    
+is $(vg map -r <(vg sim -s 1337 -n 100 j.vg) -d x.idx -J | jq '.name = "Alignment"' | vg view -JGa - | vg surject -p x -d x.idx - | vg view -aj - | jq -c 'select(.name)' | wc -l) \
+    100 "vg surject retains read names"
+
+# These sequences have edits in them, so we can test CIGAR reversal as well
+SEQ="ACCGTCATCTTCAAGTTTGAAAATTGCATCTCAAATCTAAGACCCAGAGGGCTCACCCAGAGTCGAGGCTCAAGGACAGCTCTCCTTTGTGTCCAGAGTG"
+SEQ_RC="CACTCTGGACACAAAGGAGAGCTGTCCTTGAGCCTCGACTCTGGGTGAGCCCTCTGGGTCTTAGATTTGAGATGCAATTTTCAAACTTGAAGATGACGGT"
+
+is "$(vg map -s $SEQ -d x.idx | vg surject -p x -d x.idx - -s | cut -f1,3,4,5,6,7,8,9,10)" "$(vg map -s $SEQ_RC -d x.idx | vg surject -p x -d x.idx - -s | cut -f1,3,4,5,6,7,8,9,10)" "forward and reverse orientations of a read produce the same surjected SAM, ignoring flags"
 
 is $(vg map -r <(vg sim -s 1337 -n 100 x.vg) -d x.idx | vg surject -p x -d x.idx -b - | samtools view - | wc -l) \
     100 "vg surject produces valid BAM output"
