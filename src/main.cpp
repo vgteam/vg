@@ -172,6 +172,7 @@ int main_filter(int argc, char** argv) {
     bool prev_primary = false;
     bool keep_prev = true;
     double prev_score = -1.;
+    string prev_name;
 
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
@@ -213,7 +214,7 @@ int main_filter(int argc, char** argv) {
         }
 
         if (aln.is_secondary()) {
-            assert(prev_primary && aln.name() == buffer.back().name());
+            assert(prev_primary && aln.name() == prev_name);
             double delta = prev_score - score;
             if (frac_delta == true) {
                 delta = prev_score > 0 ? score / prev_score : 0.;
@@ -222,7 +223,7 @@ int main_filter(int argc, char** argv) {
             keep = score >= min_secondary && delta >= min_sec_delta && overhang <= max_overhang;
 
             // filter unfiltered previous primary
-            if (keep_prev && delta >= min_pri_delta) {
+            if (keep_prev && delta < min_pri_delta) {
                 keep_prev = false;
                 buffer.pop_back();
             }
@@ -235,6 +236,7 @@ int main_filter(int argc, char** argv) {
             prev_primary = false;
             prev_score = -1;
             keep_prev = false;
+            prev_name.clear();
 
             // flush buffer
             if (buffer.size() >= buffer_size) {
@@ -251,6 +253,7 @@ int main_filter(int argc, char** argv) {
             
             prev_primary = true;
             prev_score = score;
+            prev_name = aln.name();
             keep_prev = score >= min_primary && overhang <= max_overhang;
             if (keep_prev) {
                 buffer.push_back(aln);
