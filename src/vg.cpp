@@ -257,6 +257,38 @@ void VG::add_edge(const Edge& edge) {
     }
 }
 
+void VG::circularize(id_t head, id_t tail){
+  Edge* e = create_edge(tail, head);
+  add_edge(*e);
+}
+
+void VG::circularize(vector<string> pathnames){
+    for(auto p : pathnames){
+        Path curr_path = paths.path(p);
+        Position start_pos = path_start(curr_path);
+        Position end_pos = path_end(curr_path);
+        id_t head = start_pos.node_id();
+        id_t tail = end_pos.node_id();
+        if (start_pos.offset() != 0){
+            //VG::divide_node(Node* node, int pos, Node*& left, Node*& right)
+            Node* left; Node* right;
+            Node* head_node = get_node(head);
+            divide_node(head_node, start_pos.offset(), left, right);
+            head = left->id();
+            paths.compact_ranks();
+        }
+        if (start_pos.offset() != 0){
+            Node* left; Node* right;
+            Node* tail_node = get_node(tail);
+            divide_node(tail_node, end_pos.offset(), left, right);
+            tail = right->id();
+            paths.compact_ranks();
+        }
+        Edge* e = create_edge(tail, head, false, false);
+        add_edge(*e);
+    }
+}
+
 id_t VG::node_count(void) {
     return graph.node_size();
 }
