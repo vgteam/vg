@@ -32,44 +32,75 @@ string Sampler::sequence(size_t length) {
 }
 
 
-Edit Sampler::mutate_edit(const Edit& edit,
-                          const Mapping& mapping, // so we can tell what the ref base is
-                          double base_error,
-                          double indel_error,
-                          const string& bases,
-                          uniform_real_distribution<double>& rprob,
-                          uniform_int_distribution<int>& rbase) {
+vector<Edit> Sampler::mutate_edit(const Edit& edit,
+                                  const pos_t& position,
+                                  double base_error,
+                                  double indel_error,
+                                  const string& bases,
+                                  uniform_real_distribution<double>& rprob,
+                                  uniform_int_distribution<int>& rbase) {
 
-    Edit new_edit;
-
-    if (edit_is_match(edit)) {
-    } else if (edit_is_sub(edit)) {
-    } else if (edit_is_insertion(edit)) {
+    // we will build up a mapping representing the modified edit
+    Mapping new_mapping;
+    // determine to-length of edit
+    size_t to_length = edit.to_length();
+    // we will keep track of the current base using this
+    pos_t curr_pos = position;
+    /// TODO we should punt if we aren't a pure edit
+    // as in, we are something with mixed to and from lengths; like a block sub with an indel
+    if (edit_is_match(edit) || edit_is_sub(edit)
+        || edit_is_insertion(edit)) {
+        // distribute mutations across this length
+        for (size_t k = 0; k < to_length; ++k) {
+            char c = 'N'; // in the case that we are in an insertion
+            if (!edit_is_insertion(edit)) {
+                ++get_offset(curr_pos);
+                c = pos_char(curr_pos);
+            }
+            if (rprob(rng) <= base_error) {
+                // pick another base than what c is
+                char n;
+                do {
+                    n = bases[rbase(rng)];
+                } while (n == c);
+                // make the edit for the sub
+                Edit* e = new_mapping.add_edit();
+                e->set_sequence(std::to_string(n));
+                e->set_from_length(1);
+                e->set_to_length(1);
+            } else {
+                // make the edit for the 1bp match
+                Edit* e = new_mapping.add_edit();
+                e->set_from_length(1);
+                e->set_to_length(1);
+            }
+            // if we've got a indel
+            // note that we're using a simple geometric indel dsitribution here
+            if (rprob(rng) <= indel_error) {
+                if (rprob(rng) < 0.5) {
+                    char n = bases[rbase(rng)];
+                    Edit* e = new_mapping.add_edit();
+                    e->set_sequence(std::to_string(n));
+                    e->set_to_length(1);
+                } else {
+                    Edit* e = new_mapping.add_edit();
+                    e->set_from_length(1);
+                }
+            }
+        }
     } else if (edit_is_deletion(edit)) {
+        // special case: 0 (deletion)
+        // maybe we do nothing; as there is no length in the read
     }
-
-    // for each base in the edit
-    /*
-    for (size_t k = 0; k < edit.to_length(); ++k) {
-        
-        if (rprob(rng) <= base_error) {
-            // pick another base than what c is
-            char e;
-            do {
-                e = bases[rbase(rng)];
-            } while (e == c);
-            c = e;
-        }
-
-        if (rprob(rng) <= indel_error) {
-            if (rprob(rng) < 0.5) {
-                read.push_back(bases[rbase(rng)]);
-            } // else do nothing, == deletion of base
-        } else {
-            read.push_back(c);
-        }
-    */
-    return new_edit;
+    // simplify the mapping
+    new_mapping = simplify(new_mapping);
+    // copy the new edits
+    vector<Edit> new_edits;
+    for (size_t i = 0; i < new_mapping.edit_size(); ++i) {
+        new_edits.push_back(new_mapping.edit(i));
+    }
+    // and send them back
+    return new_edits;
 
 }
 
@@ -90,10 +121,12 @@ Alignment Sampler::mutate(const Alignment& aln,
         // for each edit in the mapping
         for (size_t j = 0; j < orig_mapping.edit_size(); ++j) {
             auto& orig_edit = orig_mapping.edit(j);
-            Edit* new_edit = new_mapping->add_edit();
-            *new_edit = mutate_edit(orig_edit, orig_mapping,
-                                    base_error, indel_error,
-                                    bases, rprob, rbase);
+            auto new_edits = mutate_edit(orig_edit, make_pos_t(orig_mapping.position()),
+                                         base_error, indel_error,
+                                         bases, rprob, rbase);
+            for (auto& edit : new_edits) {
+                *new_mapping->add_edit() = edit;
+            }
         }
     }
     return mutaln;

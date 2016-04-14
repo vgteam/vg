@@ -38,13 +38,13 @@ public:
                      double base_error,
                      double indel_error);
 
-    Edit mutate_edit(const Edit& edit,
-                     const Mapping& mapping,
-                     double base_error,
-                     double indel_error,
-                     const string& bases,
-                     uniform_real_distribution<double>& rprob,
-                     uniform_int_distribution<int>& rbase);
+    vector<Edit> mutate_edit(const Edit& edit,
+                             const pos_t& position,
+                             double base_error,
+                             double indel_error,
+                             const string& bases,
+                             uniform_real_distribution<double>& rprob,
+                             uniform_int_distribution<int>& rbase);
 
 };
 
