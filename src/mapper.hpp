@@ -87,6 +87,9 @@ public:
     vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
     vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
 
+    // Return true of the two alignments are consistent for paired reads, and false otherwise
+    bool alignments_consistent(const Alignment& aln1, const Alignment& aln2, int pair_window);
+
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
