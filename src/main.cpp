@@ -47,7 +47,7 @@ void help_filter(char** argv) {
          << "    -f, --frac-score        normalize score based on length" << endl
          << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
-         << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=100]" << endl
+         << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -x, --xg-name FILE      use this xg index (required for -R)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl;
@@ -56,7 +56,7 @@ void help_filter(char** argv) {
 
 int main_filter(int argc, char** argv) {
 
-    if (argc <= 3) {
+    if (argc <= 2) {
         help_filter(argv);
         return 1;
     }
@@ -68,7 +68,7 @@ int main_filter(int argc, char** argv) {
     bool frac_score = false;
     bool frac_delta = false;
     bool sub_score = false;
-    int max_overhang = 100;
+    int max_overhang = 99999;
     string xg_name;
     string regions_file;
     string outbase;
@@ -287,11 +287,11 @@ int main_filter(int argc, char** argv) {
     function<void()> flush_buffer = [&buffer, &cur_buffer, &write_buffer, &chunk_names, &chunk_append]() {
         ofstream outfile;
         auto& outbuf = chunk_names[cur_buffer] == "-" ? cout : outfile;
-        if (&outbuf == &outfile) {
+        if (chunk_names[cur_buffer] != "-") {
             outfile.open(chunk_names[cur_buffer], chunk_append[cur_buffer] ? ios::app : ios_base::out);
             chunk_append[cur_buffer] = true;
         }
-        stream::write(outfile, buffer[cur_buffer].size(), write_buffer);
+        stream::write(outbuf, buffer[cur_buffer].size(), write_buffer);
         buffer[cur_buffer].clear();
     };
 
