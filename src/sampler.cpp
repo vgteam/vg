@@ -43,6 +43,7 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
 
     // we will build up a mapping representing the modified edit
     Mapping new_mapping;
+    //*new_mapping.mutable_position() = make_position(position);
     // determine to-length of edit
     size_t to_length = edit.to_length();
     // we will keep track of the current base using this
@@ -70,15 +71,9 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
                 e->set_sequence(s);
                 e->set_from_length(1);
                 e->set_to_length(1);
-            } else {
-                // make the edit for the 1bp match
-                Edit* e = new_mapping.add_edit();
-                e->set_from_length(1);
-                e->set_to_length(1);
-            }
             // if we've got a indel
             // note that we're using a simple geometric indel dsitribution here
-            if (rprob(rng) <= indel_error) {
+            } else if (rprob(rng) <= indel_error) {
                 if (rprob(rng) < 0.5) {
                     char n = bases[rbase(rng)];
                     Edit* e = new_mapping.add_edit();
@@ -89,7 +84,13 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
                     Edit* e = new_mapping.add_edit();
                     e->set_from_length(1);
                 }
+            } else {
+                // make the edit for the 1bp match
+                Edit* e = new_mapping.add_edit();
+                e->set_from_length(1);
+                e->set_to_length(1);
             }
+
         }
     } else if (edit_is_deletion(edit)) {
         // special case: 0 (deletion)

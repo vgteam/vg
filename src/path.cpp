@@ -1066,11 +1066,12 @@ Path simplify(const Path& p) {
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = simplify(p.mapping(i));
+        //cerr << "simplified " << pb2json(m) << endl;
         // remove wholly-deleted or empty mappings as these are redundant
         if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))
             || m.edit_size() == 0) continue;
-        // if this isn't the first mapping
-        if (i > 0) {
+        if (s.mapping_size()) {
+            // if this isn't the first mapping
             // refer to the last mapping
             Mapping* l = s.mutable_mapping(s.mapping_size()-1);
             // split off any insertions from the start
