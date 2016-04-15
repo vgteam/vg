@@ -24,6 +24,7 @@
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
 #include "vg_git_version.hpp"
+#include "IntervalTree.h"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -35,7 +36,7 @@ using namespace google::protobuf;
 using namespace vg;
 
 void help_filter(char** argv) {
-    cerr << "usage: " << argv[0] << " filter [options] <graph.vg> <alignment.gam> > out.gam" << endl
+    cerr << "usage: " << argv[0] << " filter [options] <alignment.gam> > out.gam" << endl
          << "Filter low-scoring alignments using different heuristics." << endl
          << endl
          << "options:" << endl
@@ -47,9 +48,9 @@ void help_filter(char** argv) {
          << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=100]" << endl
-         << "    -x, --xg-name FILE      use this xg index (defaults to <graph>.vg.xg)" << endl
-         << "    -R, --regions-file      only output alignments that intersect regions (non-overlapping BED file with 0-based coordinates expected)" << endl
-         << "    -B, --output-basename   output to file(s)" << endl;
+         << "    -x, --xg-name FILE      use this xg index (required for -R)" << endl
+         << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
+         << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl;
          
 }
 
@@ -71,7 +72,6 @@ int main_filter(int argc, char** argv) {
     string xg_name;
     string regions_file;
     string outbase;
-
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -147,23 +147,15 @@ int main_filter(int argc, char** argv) {
         }
     }
 
-    if (optind >= argc) {
-        help_filter(argv);
-        return 1;
-    }
-    string graph_file_name = argv[optind++];
-
     // name helper for output
     function<string(int)> chunk_name = [&outbase](int num) -> string {
         stringstream ss;
         ss << outbase << "-" << num << ".gam";
         return ss.str();
     };
-    
-    // map [a, b) node id range -> output chunk
-    // in map, we store chunk number for min position, and -1 for
-    // max+1 (if its not min of somewhere else). no overlaps
-    map<int64_t, int> region_map; 
+
+    // index regions by their inclusive ranges
+    vector<Interval<int, int64_t> > interval_list;
     vector<Region> regions;
     // use strings instead of ofstreams because worried about too many handles
     vector<string> chunk_names;
@@ -184,18 +176,21 @@ int main_filter(int argc, char** argv) {
     
     // empty region, do everything
     if (regions.empty()) {
-        region_map[0] = 0;
-        region_map[numeric_limits<int64_t>::max()] = -1;
+        // we handle empty intervals as special case when looking up, otherwise,
+        // need to insert giant interval here. 
         chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
     }
     
     // otherwise, need to extract regions with xg
     else {
+        if (xg_name.empty()) {
+            cerr << "xg index required for -R option" << endl;
+            exit(1);
+        }
         // read the xg index
-        string xg_file_name = !xg_name.empty() ? xg_name : graph_file_name + ".xg";
-        ifstream xg_stream(xg_file_name);
+        ifstream xg_stream(xg_name);
         if(!xg_stream) {
-            cerr << "Unable to open xg index: " << xg_file_name << endl;
+            cerr << "Unable to open xg index: " << xg_name << endl;
             exit(1);
         }
         xg::XG xindex(xg_stream);
@@ -207,33 +202,36 @@ int main_filter(int argc, char** argv) {
             Graph graph;
             int rank = xindex.path_rank(regions[i].seq);
             int path_size = rank == 0 ? 0 : xindex.path_length(regions[i].seq);
-            if (path_size < regions[i].end) {
+
+            if (regions[i].start >= path_size) {
                 cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
                      << "-" << regions[i].end << endl;
             } else {
+                // clip region on end of path            
+                regions[i].end = min(path_size - 1, regions[i].end);
+                // do path node query
                 xindex.get_path_range(regions[i].seq, regions[i].start, regions[i].end, graph);
             }
-
+            // find node range of graph, without bothering to build vg indices..
             int64_t min_id = numeric_limits<int64_t>::max();
             int64_t max_id = 0;
             for (int j = 0; j < graph.node_size(); ++j) {
                 min_id = min(min_id, (int64_t)graph.node(j).id());
                 max_id = max(max_id, (int64_t)graph.node(j).id());
             }
+            // map the chunk id to a name
             chunk_names.push_back(chunk_name(i));
 
+            // map the node range to the chunk id.  
             if (graph.node_size() > 0) {
-                // sanity check for overlaps
-                assert(region_map.find(min_id) == region_map.end() ||
-                       region_map[min_id] == -1);
-                region_map[min_id] = i;
+                interval_list.push_back(Interval<int, int64_t>(min_id, max_id, i));
                 assert(chunk_names.size() == i + 1);
-                if (region_map.find(max_id + 1) == region_map.end()) {
-                    region_map[max_id + 1] = -1;
-                }
             }
         }
     }
+
+    // index chunk regions
+    IntervalTree<int, int64_t> region_map(interval_list);
     
     // setup alignment stream
     if (optind >= argc) {
@@ -267,14 +265,10 @@ int main_filter(int argc, char** argv) {
                 min_aln_id = min(min_aln_id, (int64_t)mapping.position().node_id());
                 max_aln_id = max(max_aln_id, (int64_t)mapping.position().node_id());
             }
-            // find first chunk
-            auto it = region_map.lower_bound(min_aln_id);
-            auto it2 = it;
-            // walk until we've stepped off the range
-            for (++it2; it != region_map.end() && it->first <= max_aln_id; ++it, ++it2) {
-                if (it->second != -1) {
-                    chunks.push_back(it->second);
-                }
+            vector<Interval<int, int64_t> > found_ranges;
+            region_map.findOverlapping(min_aln_id, max_aln_id, found_ranges);
+            for (auto& interval : found_ranges) {
+                chunks.push_back(interval.value);
             }
         }
     };
