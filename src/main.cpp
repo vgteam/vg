@@ -50,7 +50,9 @@ void help_filter(char** argv) {
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
          << "    -x, --xg-name FILE      use this xg index (required for -R)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
-         << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl;
+         << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
+         << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl;
+         
          
 }
 
@@ -72,6 +74,7 @@ int main_filter(int argc, char** argv) {
     string xg_name;
     string regions_file;
     string outbase;
+    int context_size = 0;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -89,11 +92,12 @@ int main_filter(int argc, char** argv) {
                 {"xg-name", required_argument, 0, 'x'},
                 {"regions-file",  required_argument, 0, 'R'},
                 {"output-basename",  required_argument, 0, 'B'},
+                {"context",  required_argument, 0, 'c'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -135,6 +139,10 @@ int main_filter(int argc, char** argv) {
         case 'B':
             outbase = optarg;
             break;
+        case 'c':
+            context_size = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -211,6 +219,9 @@ int main_filter(int argc, char** argv) {
                 regions[i].end = min(path_size - 1, regions[i].end);
                 // do path node query
                 xindex.get_path_range(regions[i].seq, regions[i].start, regions[i].end, graph);
+                if (context_size > 0) {
+                    xindex.expand_context(graph, context_size);
+                }
             }
             // find node range of graph, without bothering to build vg indices..
             int64_t min_id = numeric_limits<int64_t>::max();
