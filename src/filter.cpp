@@ -34,13 +34,63 @@ namespace vg{
     remove_failing_alignments = fm;
   }
 
+  /**
+   *
+   * Looks for alignments that transition from one path to another
+   * over their length. This may occur for one of several reasons:
+   * 1. The read covers a translocation
+   * 2. The read looks a lot like two different (but highly-similar paths)
+   * 3. The read is shattered (e.g. as in chromothripsis)
+   *
+   * Default behavior: if the Alignment is path divergent, return an empty Alignment
+   * Inverse behavior: if the Alignment is path divergent, return the Alignment
+   */
   Alignment Filter::path_divergence_filter(Alignment& aln){
 
   }
 
-  void Filter::set_softclip_filter(bool dsc){
-    do_softclip = dsc;
+  /**
+   * Looks for alignments that change direction over their length.
+   * This may happen because of:
+   * 1. Mapping artifacts
+   * 2. Cycles
+   * 3. Highly repetitive regions
+   * 4. Inversions (if you're lucky enough)
+   *
+   * Default behavior: if the Alignment reverses, return an empty Alignment.
+   * inverse behavior: if the Alignment reverses, return the Alignment.
+   */
+  Alignment Filter::reversing_filter(Alignment& aln){
+      
+      Path path = aln.path();
+      bool prev = false;
+
+      for (int i = 1; i < path.mapping_size(); i++){
+        Mapping mapping = path.mapping(i);
+        Position pos = mapping.position();
+        bool prev = path.mapping(i - 1).position().is_reverse();
+        if (prev | pos.is_reverse()){
+                return (inverse ? aln : Alignment());
+        }
+        
+      }
+      return inverse ? Alignment() : aln;
+
   }
+
+  /**
+   * Looks for Alignments that have large overhangs at the end of them.
+   *
+   * Default behavior: if an alignment has a right- or left- clip that is longer
+   * than the maximum allowed, return an empty alignment.
+   *
+   * Inverse Behavior: if the alignment has a clip that is larger than the 
+   * maximum allowed at either end, return the alignment.
+   */
+  void Filter::set_softclip_filter(int max_clip){
+    max_softclip = max_clip;
+  }
+
 
   void Filter::set_splitread_filter(bool dsr){
     do_splitread = dsr;
@@ -76,6 +126,7 @@ namespace vg{
         stringstream est;
         est <<  ee.from_length() << "_" << ee.to_length() << "_" + ee.sequence();
         string e_hash = est.str();
+        #pragma omp critical(write)
         pos_to_edit_to_depth[p_hash][e_hash] += 1;
         /**
         * If an edit fails the filter, either return a new empty alignment
@@ -106,10 +157,9 @@ namespace vg{
 
   Alignment Filter::qual_filter(Alignment& aln){
     string quals = aln.quality();
-    int offset = 40;
-
+    int offset = 0;
     for (int i = 0; i < quals.size(); i++){
-      if ((quals[i] - offset) < min_qual){
+      if (((int) quals[i] - offset) < min_qual){
         if (remove_failing_alignments){
           return Alignment();
         }
@@ -130,6 +180,9 @@ namespace vg{
   }
   Alignment Filter::avg_qual_filter(Alignment& aln){
     double total_qual = 0.0;
+    // If the parameter for window size is zero, set the local equivalent
+    // to the entire size of the qual scores.
+    int win_len = window_len; // >= 1 ? window_len : aln.quality().size();
 
     cerr << "UNTESTED" << endl;
     exit(1);
@@ -138,16 +191,38 @@ namespace vg{
       return ((double) total_qual / (double) length);
     };
 
+    /**
+     * Helper function.
+     * Sums qual scores from start : start + window_length
+     * if start + window_len > qualstr.size(), return a negative float
+     * otherwise return the average quality within the window
+     *
+     */
+    std::function<double(string, int, int)> window_qual = [&](string qualstr, int start, int window_length){
+        if (start + window_length > qualstr.size()){
+            return -1.0;
+        }
+
+        total_qual = 0.0;
+        for (int i = start; i < start + window_length; i++){
+            total_qual += (int) qualstr[i];
+        }
+
+        return calc_avg_qual(total_qual, window_length);
+    };
 
 
-    Path path = aln.path();
+
     //TODO: handle reversing alignments
-
-    for (int i = 0; i < aln.quality().size(); i++){
-      cerr << aln.quality()[i] << endl;
-    }
-    if (calc_avg_qual(total_qual, aln.sequence().size()) < min_avg_qual){
-      return Alignment();
+    string quals = aln.quality();
+    for (int i = 0; i < quals.size() - win_len; i++){
+       double w_qual = window_qual(quals, i, win_len);
+       if ( w_qual < 1){
+        break;
+       }
+       if (w_qual < min_avg_qual){
+            return Alignment();
+       }
     }
 
     return aln;
@@ -156,10 +231,32 @@ namespace vg{
 
 
   Alignment Filter::soft_clip_filter(Alignment& aln){
+    //Find overhangs - portions of the read that
+    // are inserted at the ends.
+    if (aln.path().mapping_size() > 0){
+        Path path = aln.path();
+        Edit left_edit = path.mapping(0).edit(0);
+        Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(0).edit_size() - 1);
+        int left_overhang = left_edit.to_length() - left_edit.from_length();
+        int right_overhang = right_edit.to_length() - right_edit.from_length();
+        if (left_overhang > max_softclip || right_overhang > max_softclip){
+            return Alignment();
+        }
+        return aln;
+    }
+    else{
+        if (aln.sequence().length() > max_softclip){
+            return Alignment();
+        }
+        cerr << "WARNING: SHORT ALIGNMENT: " << aln.sequence().size() << "bp" << endl
+            << "WITH NO MAPPINGS TO REFERENCE" << endl
+            << "CONSIDER REMOVING IT FROM ANALYSIS" << endl;
+        return aln;
+    }
 
   }
   /**
-  * Split reads map to two separate paths OR vastly separated non-consecutive
+  * Split reads map to two separate paths in the graph OR vastly separated non-consecutive
   * nodes in a single path.
   *
   * They're super important for detecting structural variants, so we may want to
@@ -168,6 +265,36 @@ namespace vg{
   Alignment Filter::split_read_filter(Alignment& aln){
 
     //TODO binary search for breakpoint in read would be awesome.
+    Path path = aln.path();
+    //check if nodes are on same path(s)
+    
+    int top_side = path.mapping_size();
+    int bottom_side = 0;
+    bool diverges = false;
+
+    string main_path = "";
+    while (top_side > bottom_side){
+       //main_path = path_of_node(path.mapping(bottom_side);
+       //
+        //Check if paths are different
+        //if (divergent(node1, node2){
+        //    diverges = true;
+        //}
+        top_side--;
+        bottom_side++;
+    }
+
+    //TODO check this; I'm not sure this is a fully safe conditional:
+    // reg: diverges: return ALN()
+    // reg: !diverges: return aln
+    // inv: diverges: return return aln;
+    // inv: !diverges: return ALN()
+    if ((diverges && !inverse) || (!diverges && inverse)){
+        return Alignment();
+    }
+    else{
+        return aln;
+    }
 
   }
   /**

@@ -392,6 +392,10 @@ int main_scrub(int argc, char** argv){
     int min_qual = 0;
     double min_percent_identity = 0.0;
     bool remove_failing_alignments = true;
+    bool do_split_read = false;
+    int soft_clip_limit = -1;
+    int sliding_window_len = -1;
+    bool do_inverse = false;
 
     if (argc <= 2){
         help_scrub(argv);
@@ -405,17 +409,19 @@ int main_scrub(int argc, char** argv){
             {"help", no_argument, 0, 'h'},
             {"depth", required_argument, 0, 'd'},
             {"quality", required_argument,0, 'q'},
+            {"avg_quality", required_argument, 0, 'a'},
             {"percent-identity", required_argument, 0, 'p'},
             {"remove-alignments", no_argument, 0, 'r'},
             {"path-divergence", no_argument, 0, 'D'},
             {"softclip", no_argument, 0, 's'},
             {"split-read", no_argument, 0, 'S'},
             {"inverse", no_argument, 0, 'v'},
+            {"window-length", required_argument, 0, 'w'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:d:q:r",
+        c = getopt_long (argc, argv, "s:Shp:d:q:a:r",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -439,6 +445,18 @@ int main_scrub(int argc, char** argv){
                 break;
             case 'r':
                 remove_failing_alignments = true;
+                break;
+            case 'S':
+                do_split_read = true;
+                break;
+            case 's':
+                soft_clip_limit = atoi(optarg);
+                break;
+            case 'w':
+                sliding_window_len = atoi(optarg);
+                break;
+            case 'v':
+                do_inverse = true;
                 break;
             default:
                 abort();
@@ -494,7 +512,7 @@ int main_scrub(int argc, char** argv){
         if (min_depth > 0){
             stream::for_each(cin, depth_fil);
         }
-        if (min_qual > 0){
+        if (min_qual >= 0){
             stream::for_each(cin, qual_fil);
         }
         if (min_percent_identity > 0.0){
@@ -508,7 +526,7 @@ int main_scrub(int argc, char** argv){
             if (min_depth > 0){
                 stream::for_each(in, depth_fil);
             }
-            if (min_qual > 0){
+            if (min_qual >= 0){
                 stream::for_each(in, qual_fil);
             }
             if (min_percent_identity > 0.0){
