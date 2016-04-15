@@ -51,15 +51,16 @@ num_records=$(vg index -D -d x.idx | wc -l)
 is $? 0 "dumping graph index"
 is $num_records 3207 "correct number of records in graph index"
 
-vg map -r <(vg sim -s 1337 -n 100 x.vg) -d x.idx | vg index -a - -d x.vg.aln
+vg index -x x.xg x.vg
+vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg index -a - -d x.vg.aln
 is $(vg index -D -d x.vg.aln | wc -l) 100 "index can store alignments"
 is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignments"
 
-vg map -r <(vg sim -s 1337 -n 100 x.vg) -d x.idx | vg index -m - -d x.vg.map
-is $(vg index -D -d x.vg.map | wc -l) $(vg map -r <(vg sim -s 1337 -n 100 x.vg) -d x.idx | vg view -a - | jq -c '.path.mapping[]' | sort | uniq | wc -l) "index stores all unique mappings"
+vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg index -m - -d x.vg.map
+is $(vg index -D -d x.vg.map | wc -l) $(vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg view -a - | jq -c '.path.mapping[]' | sort | uniq | wc -l) "index stores all unique mappings"
 
 rm -rf x.idx x.vg.map x.vg.aln
-rm -f x.vg
+rm -f x.vg x.xg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg construct -r small/x.fa -v small/x.vcf.gz >y.vg
@@ -108,16 +109,18 @@ is $? 0 "backward node index contains data"
 vg index -k 16 -d r.idx reversing/reversing_x.vg
 is $? 0 "can index kmers for backward nodes"
 
+vg index -x r.xg reversing/reversing_x.vg
+
 is $(vg index -D -d r.idx | grep "TATTAGCCATGTGACT" | wc -l) 1 "kmers crossing reversing edges are in index"
 
 is $(vg index -D -d r.idx | grep '"from": 55' | grep '"from_start": true' | wc -l) 2 "from_start edges in index"
 
 is $(vg index -D -d r.idx | grep '"to": 55' | grep '"to_end": true' | wc -l) 2 "to_end edges in index"
 
-vg map -r <(vg sim -s 1337 -n 100 reversing/reversing_x.vg) -d r.idx | vg index -a - -d r.aln.idx
+vg map -r <(vg sim -s 1337 -n 100 -x r.xg) -d r.idx | vg index -a - -d r.aln.idx
 is $(vg index -D -d r.aln.idx | wc -l) 100 "index can store alignments to backward nodes"
 
-rm -rf r.idx r.aln.idx
+rm -rf r.idx r.aln.idx r.xg
 
 vg index -k 16 -s -d c.idx cyclic/all.vg
 is $? 0 "index can store a cyclic graph"
