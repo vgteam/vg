@@ -31,6 +31,9 @@ public:
     pos_t position(void);
     string sequence(size_t length);
     Alignment alignment(size_t length);
+    Alignment alignment_with_error(size_t length,
+                                   double base_error,
+                                   double indel_error);
     char pos_char(pos_t pos);
     map<pos_t, char> next_pos_chars(pos_t pos);
 

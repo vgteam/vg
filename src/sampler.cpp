@@ -191,6 +191,34 @@ Alignment Sampler::alignment(size_t length) {
     return simplify(aln);
 }
 
+Alignment Sampler::alignment_with_error(size_t length,
+                                        double base_error,
+                                        double indel_error) {
+    size_t maxiter = 100;
+    Alignment aln;
+    if (base_error || indel_error) {
+        // sample a longer-than necessary alignment, then trim
+        size_t iter = 0;
+        while (iter++ < maxiter) {
+            aln = alignment(length + 2 * ((double) length * indel_error));
+            if (aln.sequence().size() == length) {
+                break;
+            } else if (aln.sequence().size() > length) {
+                aln = strip_from_end(aln, aln.sequence().size() - length);
+                break;
+            }
+        }
+        if (iter == maxiter) {
+            cerr << "[vg::Sampler] Warning: could not generate alignment of sufficient length. "
+                 << "Graph may be too small, or indel rate too high." << endl;
+        }
+    } else {
+        aln = alignment(length);
+    }
+    return aln;
+}
+
+
 char Sampler::pos_char(pos_t pos) {
     return xgidx->pos_char(id(pos), is_rev(pos), offset(pos));
 }

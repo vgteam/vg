@@ -2514,12 +2514,8 @@ int main_sim(int argc, char** argv) {
         size_t iter = 0;
         while (iter++ < max_iter) {
             if (aln.sequence().size() < read_length) {
-                aln = sampler.alignment(read_length);
+                aln = sampler.alignment_with_error(read_length, base_error, indel_error);
             }
-        }
-        // apply errors
-        if (base_error || indel_error) {
-            aln = sampler.mutate(aln, base_error, indel_error);
         }
         // write the alignment or its string
         if (align_out) {
