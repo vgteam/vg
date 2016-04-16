@@ -117,7 +117,7 @@ is $(vg index -D -d r.idx | grep '"from": 55' | grep '"from_start": true' | wc -
 
 is $(vg index -D -d r.idx | grep '"to": 55' | grep '"to_end": true' | wc -l) 2 "to_end edges in index"
 
-vg map -r <(vg sim -s 1337 -n 100 -x r.xg) -d r.idx | vg index -a - -d r.aln.idx
+vg map -r <(vg sim -s 1338 -n 100 -x r.xg) -d r.idx | vg index -a - -d r.aln.idx
 is $(vg index -D -d r.aln.idx | wc -l) 100 "index can store alignments to backward nodes"
 
 rm -rf r.idx r.aln.idx r.xg
