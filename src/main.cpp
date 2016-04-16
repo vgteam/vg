@@ -25,6 +25,7 @@
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
 #include "vg_git_version.hpp"
+#include "IntervalTree.h"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -36,7 +37,7 @@ using namespace google::protobuf;
 using namespace vg;
 
 void help_filter(char** argv) {
-    cerr << "usage: " << argv[0] << " filter [options] <graph.vg> <alignment.gam> > out.gam" << endl
+    cerr << "usage: " << argv[0] << " filter [options] <alignment.gam> > out.gam" << endl
          << "Filter low-scoring alignments using different heuristics." << endl
          << endl
          << "options:" << endl
@@ -47,12 +48,18 @@ void help_filter(char** argv) {
          << "    -f, --frac-score        normalize score based on length" << endl
          << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
-         << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=100]" << endl;
+         << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
+         << "    -x, --xg-name FILE      use this xg index (required for -R)" << endl
+         << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
+         << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
+         << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl;
+         
+         
 }
 
 int main_filter(int argc, char** argv) {
 
-    if (argc <= 3) {
+    if (argc <= 2) {
         help_filter(argv);
         return 1;
     }
@@ -64,7 +71,11 @@ int main_filter(int argc, char** argv) {
     bool frac_score = false;
     bool frac_delta = false;
     bool sub_score = false;
-    int max_overhang = 100;
+    int max_overhang = 99999;
+    string xg_name;
+    string regions_file;
+    string outbase;
+    int context_size = 0;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -79,11 +90,15 @@ int main_filter(int argc, char** argv) {
                 {"frac-delta", required_argument, 0, 'a'}, 
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
+                {"xg-name", required_argument, 0, 'x'},
+                {"regions-file",  required_argument, 0, 'R'},
+                {"output-basename",  required_argument, 0, 'B'},
+                {"context",  required_argument, 0, 'c'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -116,6 +131,19 @@ int main_filter(int argc, char** argv) {
         case 'o':
             max_overhang = atoi(optarg);
             break;
+        case 'x':
+            xg_name = optarg;
+            break;
+        case 'R':
+            regions_file = optarg;
+            break;
+        case 'B':
+            outbase = optarg;
+            break;
+        case 'c':
+            context_size = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -128,30 +156,104 @@ int main_filter(int argc, char** argv) {
         }
     }
 
-    // read the graph
-    VG* graph;
-    string graph_file_name = argv[optind++];
-    if (graph_file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(graph_file_name.c_str());
-        if (!in) {
-            cerr << "error: input file " << graph_file_name << " not found." << endl;
+    // name helper for output
+    function<string(int)> chunk_name = [&outbase](int num) -> string {
+        stringstream ss;
+        ss << outbase << "-" << num << ".gam";
+        return ss.str();
+    };
+
+    // index regions by their inclusive ranges
+    vector<Interval<int, int64_t> > interval_list;
+    vector<Region> regions;
+    // use strings instead of ofstreams because worried about too many handles
+    vector<string> chunk_names;
+    vector<bool> chunk_new; // flag if write or append
+
+    // parse a bed, for now this is only way to do regions.  note
+    // this operation converts from 0-based BED to 1-based inclusive VCF
+    if (!regions_file.empty()) {
+        if (outbase.empty()) {
+            cerr << "-B option required with -R" << endl;
             exit(1);
         }
-        graph = new VG(in);
+        parse_bed_regions(regions_file, regions);
+        if (regions.empty()) {
+            cerr << "No regions read from BED file, doing whole graph" << endl;
+        }
+    }
+    
+    // empty region, do everything
+    if (regions.empty()) {
+        // we handle empty intervals as special case when looking up, otherwise,
+        // need to insert giant interval here. 
+        chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
+    }
+    
+    // otherwise, need to extract regions with xg
+    else {
+        if (xg_name.empty()) {
+            cerr << "xg index required for -R option" << endl;
+            exit(1);
+        }
+        // read the xg index
+        ifstream xg_stream(xg_name);
+        if(!xg_stream) {
+            cerr << "Unable to open xg index: " << xg_name << endl;
+            exit(1);
+        }
+        xg::XG xindex(xg_stream);
+
+        // fill in the map using xg index
+        // relies entirely on the assumption that are path chunks
+        // are perfectly spanned by an id range
+        for (int i = 0; i < regions.size(); ++i) {
+            Graph graph;
+            int rank = xindex.path_rank(regions[i].seq);
+            int path_size = rank == 0 ? 0 : xindex.path_length(regions[i].seq);
+
+            if (regions[i].start >= path_size) {
+                cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
+                     << "-" << regions[i].end << endl;
+            } else {
+                // clip region on end of path            
+                regions[i].end = min(path_size - 1, regions[i].end);
+                // do path node query
+                xindex.get_path_range(regions[i].seq, regions[i].start, regions[i].end, graph);
+                if (context_size > 0) {
+                    xindex.expand_context(graph, context_size);
+                }
+            }
+            // find node range of graph, without bothering to build vg indices..
+            int64_t min_id = numeric_limits<int64_t>::max();
+            int64_t max_id = 0;
+            for (int j = 0; j < graph.node_size(); ++j) {
+                min_id = min(min_id, (int64_t)graph.node(j).id());
+                max_id = max(max_id, (int64_t)graph.node(j).id());
+            }
+            // map the chunk id to a name
+            chunk_names.push_back(chunk_name(i));
+
+            // map the node range to the chunk id.  
+            if (graph.node_size() > 0) {
+                interval_list.push_back(Interval<int, int64_t>(min_id, max_id, i));
+                assert(chunk_names.size() == i + 1);
+            }
+        }
     }
 
+    // index chunk regions
+    IntervalTree<int, int64_t> region_map(interval_list);
+    
     // setup alignment stream
+    if (optind >= argc) {
+        help_filter(argv);
+        return 1;
+    }
     string alignments_file_name = argv[optind++];
     istream* alignment_stream = NULL;
     ifstream in;
     if (alignments_file_name == "-") {
-        if (graph_file_name == "-") {
-            cerr << "error: graph and alignments can't both be from stdin." << endl;
-            exit(1);
-        }
         alignment_stream = &std::cin;
     } else {
         in.open(alignments_file_name);
@@ -162,18 +264,70 @@ int main_filter(int argc, char** argv) {
         alignment_stream = &in;
     }
 
-    // buffered output
-    vector<Alignment> buffer;
+    // which chunk(s) does a gam belong to?
+    function<void(Alignment&, vector<int>&)> get_chunks = [&region_map, &regions](Alignment& aln, vector<int>& chunks) {
+        // speed up case where no chunking
+        if (regions.empty()) {
+            chunks.push_back(0);
+        } else {
+            int64_t min_aln_id = numeric_limits<int64_t>::max();
+            int64_t max_aln_id = -1;
+            for (int i = 0; i < aln.path().mapping_size(); ++i) {
+                const Mapping& mapping = aln.path().mapping(i);
+                min_aln_id = min(min_aln_id, (int64_t)mapping.position().node_id());
+                max_aln_id = max(max_aln_id, (int64_t)mapping.position().node_id());
+            }
+            vector<Interval<int, int64_t> > found_ranges;
+            region_map.findOverlapping(min_aln_id, max_aln_id, found_ranges);
+            for (auto& interval : found_ranges) {
+                chunks.push_back(interval.value);
+            }
+        }
+    };
+
+    // buffered output (one buffer per chunk)
+    vector<vector<Alignment> > buffer(chunk_names.size());
+    int cur_buffer = -1;
     static const int buffer_size = 1000; // we let this be off by 1
-    function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
-        return buffer[i];
+    function<Alignment&(uint64_t)> write_buffer = [&buffer, &cur_buffer](uint64_t i) -> Alignment& {
+        return buffer[cur_buffer][i];
+    };
+    // remember if write or append
+    vector<bool> chunk_append(chunk_names.size(), false);
+
+    // flush a buffer specified by cur_buffer to target in chunk_names, and clear it
+    function<void()> flush_buffer = [&buffer, &cur_buffer, &write_buffer, &chunk_names, &chunk_append]() {
+        ofstream outfile;
+        auto& outbuf = chunk_names[cur_buffer] == "-" ? cout : outfile;
+        if (chunk_names[cur_buffer] != "-") {
+            outfile.open(chunk_names[cur_buffer], chunk_append[cur_buffer] ? ios::app : ios_base::out);
+            chunk_append[cur_buffer] = true;
+        }
+        stream::write(outbuf, buffer[cur_buffer].size(), write_buffer);
+        buffer[cur_buffer].clear();
+    };
+
+    // add alignment to all appropriate buffers, flushing as necessary
+    // (note cur_buffer variable used here as a hack to specify which buffer is written to)
+    function<void(Alignment&)> update_buffers = [&buffer, &cur_buffer, &region_map,
+                                                 &write_buffer, &get_chunks, &flush_buffer](Alignment& aln) {
+        vector<int> aln_chunks;
+        get_chunks(aln, aln_chunks);
+        for (auto chunk : aln_chunks) {
+            buffer[chunk].push_back(aln);
+            if (buffer[chunk].size() >= buffer_size) {
+                // flush buffer
+                cur_buffer = chunk;
+                flush_buffer();
+            }
+        }
     };
     
     // for deltas, we keep track of last primary
+    Alignment prev;
     bool prev_primary = false;
     bool keep_prev = true;
-    double prev_score = -1.;
-    string prev_name;
+    double prev_score;
 
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
@@ -183,10 +337,9 @@ int main_filter(int argc, char** argv) {
         double denom = 2. * aln.sequence().length();
         // toggle substitution score
         if (sub_score == true) {
-            vector<int> mismatches;
-            Pileups::count_mismatches(*graph, aln.path(), mismatches, true);
-            denom = mismatches.size();
-            score = denom > 0 ? mismatches.size() - mismatches.back() : 0.;
+            // hack in ident to replace old counting logic.
+            score = aln.identity() * aln.sequence().length();
+            denom = aln.sequence().length();
             assert(score <= denom);
         }
         // toggle absolute or fractional score
@@ -215,7 +368,7 @@ int main_filter(int argc, char** argv) {
         }
 
         if (aln.is_secondary()) {
-            assert(prev_primary && aln.name() == prev_name);
+            assert(prev_primary && aln.name() == prev.name());
             double delta = prev_score - score;
             if (frac_delta == true) {
                 delta = prev_score > 0 ? score / prev_score : 0.;
@@ -226,50 +379,47 @@ int main_filter(int argc, char** argv) {
             // filter unfiltered previous primary
             if (keep_prev && delta < min_pri_delta) {
                 keep_prev = false;
-                buffer.pop_back();
             }
             // add to write buffer
             if (keep) {
-                buffer.push_back(aln);
+                update_buffers(aln);
+            }
+            if (keep_prev) {
+                update_buffers(prev);
             }
 
             // forget last primary
             prev_primary = false;
             prev_score = -1;
             keep_prev = false;
-            prev_name.clear();
-
-            // flush buffer
-            if (buffer.size() >= buffer_size) {
-                stream::write(cout, buffer.size(), write_buffer);
-                buffer.clear();
-            }
 
         } else {
-            // flush buffer
-            if (buffer.size() >= buffer_size) {
-                stream::write(cout, buffer.size(), write_buffer);
-                buffer.clear();
+            // this awkward logic where we keep the primary and write in the secondary
+            // is because we can only stream one at a time with for_each, but we need
+            // to look at pairs (if secondary exists)...
+            if (keep_prev) {
+                update_buffers(prev);
             }
             
             prev_primary = true;
             prev_score = score;
-            prev_name = aln.name();
+            prev = aln;
             keep_prev = score >= min_primary && overhang <= max_overhang;
-            if (keep_prev) {
-                buffer.push_back(aln);
-            }
         }
     };
     stream::for_each(*alignment_stream, lambda);
 
-    // flush buffer
-    if (buffer.size() > 0) {
-        stream::write(cout, buffer.size(), write_buffer);
-        buffer.clear();
+    // flush buffer if trailing primary to keep
+    if (keep_prev) {
+        update_buffers(prev);
     }
-    
-    delete graph;
+    for (int i = 0; i < buffer.size(); ++i) {
+        if (buffer[i].size() > 0) {
+            cur_buffer = i;
+            flush_buffer();
+        }
+    }
+
     return 0;
 }
 
