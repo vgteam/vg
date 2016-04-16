@@ -721,6 +721,10 @@ public:
     void for_each_edge(function<void(Edge*)> lambda);
     void for_each_edge_parallel(function<void(Edge*)> lambda);
 
+
+    // Circularize a subgraph / path using the head / tail nodes.
+    void circularize(id_t head, id_t tail);
+    void circularize(vector<string> pathnames);
     // connect node -> nodes
     // Connects from the right side of the first to the left side of the second
     void connect_node_to_nodes(NodeTraversal node, vector<NodeTraversal>& nodes);
