@@ -21,6 +21,7 @@
 #include "caller.hpp"
 #include "deconstructor.hpp"
 #include "vectorizer.hpp"
+#include "sampler.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
 #include "vg_git_version.hpp"
@@ -2386,18 +2387,22 @@ int main_mod(int argc, char** argv) {
     return 0;
 }
 
+
+
 void help_sim(char** argv) {
-    cerr << "usage: " << argv[0] << " sim [options] <graph.vg>" << endl
-        << "Simulates reads from the graph(s). Output is a list of reads." << endl
-        << endl
-        << "options:" << endl
-        << "    -l, --read-length N   write reads of length N" << endl
-        << "    -n, --num-reads N     simulate N reads" << endl
-        << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
-        << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
-        << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
-        << "    -f, --forward-only    don't simulate from the reverse strand" << endl
-        << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl;
+    cerr << "usage: " << argv[0] << " sim [options]" << endl
+         << "Samples sequences from the xg-indexed graph." << endl
+         << endl
+         << "options:" << endl
+         << "    -x, --xg-name FILE    use the xg index in FILE" << endl
+         << "    -l, --read-length N   write reads of length N" << endl
+         << "    -n, --num-reads N     simulate N reads" << endl
+         << "    -s, --random-seed N   use this specific seed for the PRNG" << endl
+         << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
+         << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
+         << "    -f, --forward-only    don't simulate from the reverse strand" << endl
+         << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl
+         << "    -J, --json-out        write alignments in json" << endl;
 }
 
 int main_sim(int argc, char** argv) {
@@ -2414,6 +2419,8 @@ int main_sim(int argc, char** argv) {
     double indel_error = 0;
     bool forward_only = false;
     bool align_out = false;
+    bool json_out = false;
+    string xg_name;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2421,16 +2428,18 @@ int main_sim(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
+            {"xg-name", required_argument, 0, 'x'},
             {"read-length", required_argument, 0, 'l'},
             {"num-reads", required_argument, 0, 'n'},
             {"random-seed", required_argument, 0, 's'},
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
+            {"json-out", no_argument, 0, 'J'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fa",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:J",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -2440,116 +2449,95 @@ int main_sim(int argc, char** argv) {
         switch (c)
         {
 
-            case 'l':
-                read_length = atoi(optarg);
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'n':
-                num_reads = atoi(optarg);
-                break;
+        case 'l':
+            read_length = atoi(optarg);
+            break;
 
-            case 's':
-                seed_val = atoi(optarg);
-                break;
+        case 'n':
+            num_reads = atoi(optarg);
+            break;
 
-            case 'e':
-                base_error = atof(optarg);
-                break;
+        case 's':
+            seed_val = atoi(optarg);
+            break;
 
-            case 'i':
-                indel_error = atof(optarg);
-                break;
+        case 'e':
+            base_error = atof(optarg);
+            break;
 
-            case 'f':
-                forward_only = true;
-                break;
+        case 'i':
+            indel_error = atof(optarg);
+            break;
 
-            case 'a':
-                align_out = true;
-                break;
+        case 'f':
+            forward_only = true;
+            break;
 
-            case 'h':
-            case '?':
-                help_sim(argv);
-                exit(1);
-                break;
+        case 'a':
+            align_out = true;
+            break;
 
-            default:
-                abort ();
+        case 'J':
+            json_out = true;
+            align_out = true;
+            break;
+
+        case 'h':
+        case '?':
+            help_sim(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
-    VG* graph;
-    string file_name = argv[optind];
-    if (file_name == "-") {
-        graph = new VG(std::cin);
-    } else {
-        ifstream in;
-        in.open(file_name.c_str());
-        graph = new VG(in);
+    if (xg_name.empty()) {
+        cerr << "[vg sim] error: we need an xg index to sample reads from" << endl;
+        return 1;
     }
-
-    int64_t max_id = graph->max_node_id();
-    int64_t min_id = graph->min_node_id();
 
     mt19937 rng;
     rng.seed(seed_val);
+    
+    xg::XG* xgidx = nullptr;
+    ifstream xg_stream(xg_name);
+    if(xg_stream) {
+        xgidx = new xg::XG(xg_stream);
+    }
+    if (!xg_stream || xgidx == nullptr) {
+        cerr << "[vg sim] error: could not open xg index" << endl;
+        return 1;
+    }
 
-    string bases = "ATGC";
-    uniform_real_distribution<double> rprob(0, 1);
-    uniform_int_distribution<int> rbase(0, 3);
-
-    function<string(const string&)> introduce_read_errors
-        = [&rng, &rprob, &rbase, &bases, base_error, indel_error](const string& perfect_read) {
-
-            if (base_error == 0 && indel_error == 0) return perfect_read;
-            string read;
-            for (auto c : perfect_read) {
-                if (rprob(rng) <= base_error) {
-                    // pick another base than what c is
-                    char e;
-                    do {
-                        e = bases[rbase(rng)];
-                    } while (e == c);
-                    c = e;
-                }
-                if (rprob(rng) <= indel_error) {
-                    if (rprob(rng) < 0.5) {
-                        read.push_back(bases[rbase(rng)]);
-                    } // else do nothing, == deletion of base
-                } else {
-                    read.push_back(c);
-                }
-            }
-            return read;
-        };
-
+    Sampler sampler(xgidx, seed_val);
     size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
-        auto perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
-        // avoid short reads at the end of the graph by retrying
-        int iter = 0;
-        while (perfect_read.sequence().size() < read_length && ++iter < max_iter) {
-            perfect_read = graph->random_read(read_length, rng, min_id, max_id, !forward_only);
-            // if we can't make a suitable read in 1000 tries, then maybe the graph is too small?
-        }
-        if (iter == max_iter) {
-            cerr << "couldn't simulate read, perhaps the chosen length is too long for this graph?" << endl;
-        } else {
-            // apply errors
-            if (!align_out) {
-                string readseq = introduce_read_errors(perfect_read.sequence());
-                cout << readseq << endl;
-            } else {
-                function<Alignment(uint64_t)> lambda =
-                    [&perfect_read] (uint64_t n) {
-                        return perfect_read;
-                    };
-                stream::write(cout, 1, lambda);
+        
+        auto aln = sampler.alignment(read_length);
+        size_t iter = 0;
+        while (iter++ < max_iter) {
+            if (aln.sequence().size() < read_length) {
+                aln = sampler.alignment_with_error(read_length, base_error, indel_error);
             }
         }
+        // write the alignment or its string
+        if (align_out) {
+            if (json_out) {
+                cout << pb2json(aln) << endl;
+            } else {
+                function<Alignment(uint64_t)> lambda = [&aln](uint64_t n) { return aln; };
+                stream::write(cout, 1, lambda);
+            }
+        } else {
+            cout << aln.sequence() << endl;
+        }
     }
-    delete graph;
 
     return 0;
 }
@@ -3388,11 +3376,8 @@ int main_paths(int argc, char** argv) {
 
 void help_find(char** argv) {
     cerr << "usage: " << argv[0] << " find [options] <graph.vg> >sub.vg" << endl
-        << "options:" << endl
-        << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
-        // TODO, dump these from the index
-        //<< "    -a, --alignments       write all stored alignments in sorted order (in GAM)" << endl
-        //<< "    -m, --mappings         write stored mappings in sorted order (in json)" << endl
+         << "options:" << endl
+         << "    -d, --db-name DIR      use this db (defaults to <graph>.index/)" << endl
          << "    -x, --xg-name FILE     use this xg index (instead of rocksdb db)" << endl
          << "graph features:" << endl
          << "    -n, --node ID          find node, return 1-hop context as graph" << endl
@@ -3402,6 +3387,9 @@ void help_find(char** argv) {
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
+         << "alignments: (rocksdb only)" << endl
+         << "    -a, --alignments       writes alignments from index, sorted by node id" << endl
+         << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
@@ -3412,7 +3400,6 @@ void help_find(char** argv) {
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
          << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl;
-
 
 }
 
@@ -3429,7 +3416,6 @@ int main_find(int argc, char** argv) {
     int kmer_stride = 1;
     vector<string> kmers;
     string output_format;
-    int64_t end_id=0, start_id=0;
     vector<int64_t> node_ids;
     int context_size=0;
     bool count_kmers = false;
@@ -3437,11 +3423,14 @@ int main_find(int argc, char** argv) {
     string target;
     string path_name;
     string range;
-    bool get_alignments = false;
-    bool get_mappings = false;
     string gcsa_in;
     string xg_name;
     bool get_mems = false;
+    bool get_alignments = false;
+    bool get_mappings = false;
+    string node_id_range;
+    vg::id_t start_id = 0;
+    vg::id_t end_id = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3469,11 +3458,12 @@ int main_find(int argc, char** argv) {
                 {"node-range", required_argument, 0, 'r'},
                 {"alignments", no_argument, 0, 'a'},
                 {"mappings", no_argument, 0, 'm'},
+                {"alns-in", required_argument, 0, 'i'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:i:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -3482,25 +3472,25 @@ int main_find(int argc, char** argv) {
 
         switch (c)
         {
-            case 'd':
-                db_name = optarg;
-                break;
+        case 'd':
+            db_name = optarg;
+            break;
 
-            case 'x':
-                xg_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'g':
-                gcsa_in = optarg;
-                break;
+        case 'g':
+            gcsa_in = optarg;
+            break;
 
-            case 'k':
-                kmers.push_back(optarg);
-                break;
+        case 'k':
+            kmers.push_back(optarg);
+            break;
 
-            case 'S':
-                sequence = optarg;
-                break;
+        case 'S':
+            sequence = optarg;
+            break;
 
         case 'M':
             sequence = optarg;
@@ -3511,66 +3501,70 @@ int main_find(int argc, char** argv) {
             kmer_stride = atoi(optarg);
             break;
 
-            case 'z':
-                kmer_size = atoi(optarg);
-                break;
+        case 'z':
+            kmer_size = atoi(optarg);
+            break;
 
-            case 'C':
-                count_kmers = true;
-                break;
+        case 'C':
+            count_kmers = true;
+            break;
 
-            case 'p':
-                target = optarg;
-                break;
+        case 'p':
+            target = optarg;
+            break;
 
-            case 'P':
-                path_name = optarg;
-                break;
+        case 'P':
+            path_name = optarg;
+            break;
 
-            case 'c':
-                context_size = atoi(optarg);
-                break;
+        case 'c':
+            context_size = atoi(optarg);
+            break;
 
-            case 'n':
-                node_ids.push_back(atoi(optarg));
-                break;
+        case 'n':
+            node_ids.push_back(atoi(optarg));
+            break;
 
-            case 'e':
-                end_id = atoi(optarg);
-                break;
+        case 'e':
+            end_id = atoi(optarg);
+            break;
 
-            case 's':
-                start_id = atoi(optarg);
-                break;
+        case 's':
+            start_id = atoi(optarg);
+            break;
 
-            case 'T':
-                kmer_table = true;
-                break;
+        case 'T':
+            kmer_table = true;
+            break;
 
-            case 'r':
-                range = optarg;
-                break;
+        case 'r':
+            range = optarg;
+            break;
 
-            case 'a':
-                get_alignments = true;
-                break;
+        case 'a':
+            get_alignments = true;
+            break;
 
-            case 'm':
-                get_mappings = true;
-                break;
+        case 'i':
+            node_id_range = optarg;
+            break;
 
-            case 'o':
-                output_format = optarg;
-                break;
+        case 'm':
+            get_mappings = true;
+            break;
 
-            case 'h':
-            case '?':
-                help_find(argv);
-                exit(1);
-                break;
+        case 'o':
+            output_format = optarg;
+            break;
 
-            default:
-                abort ();
+        case 'h':
+        case '?':
+            help_find(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
     if (optind < argc) {
@@ -3595,7 +3589,28 @@ int main_find(int argc, char** argv) {
     }
 
     if (get_alignments) {
-        // todo
+        assert(!db_name.empty());
+        vector<Alignment> output_buf;
+        auto lambda = [&output_buf](const Alignment& aln) {
+            output_buf.push_back(aln);
+            stream::write_buffered(cout, output_buf, 100);
+        };
+        vindex->for_each_alignment(lambda);
+        stream::write_buffered(cout, output_buf, 0);
+    }
+
+    if (!node_id_range.empty()) {
+        assert(!db_name.empty());
+        vector<string> parts = split_delims(node_id_range, ":");
+        convert(parts.front(), start_id);
+        convert(parts.back(), end_id);
+        vector<Alignment> output_buf;
+        auto lambda = [&output_buf](const Alignment& aln) {
+            output_buf.push_back(aln);
+            stream::write_buffered(cout, output_buf, 100);
+        };
+        vindex->for_alignment_in_range(start_id, end_id, lambda);
+        stream::write_buffered(cout, output_buf, 0);
     }
 
     if (!xg_name.empty()) {

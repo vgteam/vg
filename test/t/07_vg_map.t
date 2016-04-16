@@ -84,7 +84,7 @@ rm -Rf g.idx
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.vg.idx -g x.vg.gcsa -k 16 -X 2 x.vg
-vg sim -s 1337 -n 1000 x.vg >x.reads
+vg sim -s 1337 -n 1000 -x x.vg.idx >x.reads
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
 
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -n 5 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "mem mapping works"

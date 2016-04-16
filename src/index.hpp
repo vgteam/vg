@@ -152,6 +152,8 @@ public:
     int get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, bool& backward, Mapping& mapping);
     void get_mappings(int64_t node_id, vector<Mapping>& mappings);
     void get_alignments(int64_t node_id, vector<Alignment>& alignments);
+    void get_alignments(int64_t id1, int64_t id2, vector<Alignment>& alignments);
+    void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
 
     // obtain the key corresponding to each entity
     const string key_for_node(int64_t id);
