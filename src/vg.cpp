@@ -257,6 +257,38 @@ void VG::add_edge(const Edge& edge) {
     }
 }
 
+void VG::circularize(id_t head, id_t tail){
+  Edge* e = create_edge(tail, head);
+  add_edge(*e);
+}
+
+void VG::circularize(vector<string> pathnames){
+    for(auto p : pathnames){
+        Path curr_path = paths.path(p);
+        Position start_pos = path_start(curr_path);
+        Position end_pos = path_end(curr_path);
+        id_t head = start_pos.node_id();
+        id_t tail = end_pos.node_id();
+        if (start_pos.offset() != 0){
+            //VG::divide_node(Node* node, int pos, Node*& left, Node*& right)
+            Node* left; Node* right;
+            Node* head_node = get_node(head);
+            divide_node(head_node, start_pos.offset(), left, right);
+            head = left->id();
+            paths.compact_ranks();
+        }
+        if (start_pos.offset() != 0){
+            Node* left; Node* right;
+            Node* tail_node = get_node(tail);
+            divide_node(tail_node, end_pos.offset(), left, right);
+            tail = right->id();
+            paths.compact_ranks();
+        }
+        Edge* e = create_edge(tail, head, false, false);
+        add_edge(*e);
+    }
+}
+
 id_t VG::node_count(void) {
     return graph.node_size();
 }
@@ -1541,7 +1573,7 @@ bool VG::has_node(const Node& node) {
 bool VG::has_node(id_t id) {
     return node_by_id.find(id) != node_by_id.end();
 }
-    
+
 Node* VG::find_node_by_name_or_add_new(string name) {
 //TODO we need to have real names on id's;
   int namespace_end = name.find_last_of("/#");
@@ -1655,7 +1687,7 @@ void VG::remove_duplicates(void) {
          n != nodes_to_destroy.end(); ++n) {
         destroy_node(get_node((*n)->id()));
     }
-    
+
     map<pair<NodeSide, NodeSide>, size_t> edge_counts;
     for (id_t i = 0; i < graph.edge_size(); ++i) {
         edge_counts[NodeSide::pair_from_edge(graph.edge(i))]++;
@@ -1973,62 +2005,62 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                                 map<pair<long, int>, vector<pair<string, int>>>* alt_allele_visits,
                                 bool flat_input_vcf) {
 
-    
+
 
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
-        
+
         // What name should we use for the variant? We need to make sure it is
         // unique, even if there are multiple variant records at the same
         // position in the VCF. Also, we don't necessarily have every variant in
         // the VCF in our records vector.
         string var_name = get_or_make_variant_id(var);
-        
+
         // decompose to alts
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
         map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
-            
+
         // This holds a map from alt index (0 for ref) to the phase sets
         // visiting it as a bool vector. No bit vector means no visits.
         map<int, vector<bool>> alt_usages;
-            
+
         if(phase_visits != nullptr) {
-        
+
             // Parse out what alleles each sample uses in its phase sets at this
             // VCF record.
-            
+
             // Get all the sample names in order.
             auto& sample_names = var.vcf->sampleNames;
-            
+
             for(int64_t j = 0; j < sample_names.size(); j++) {
                 // For every sample, see if at this variant it uses this
                 // allele in one or both phase sets.
-                
+
                 // Grab the genotypes
                 string genotype = var.getGenotype(sample_names[j]);
-                
+
                 // Find the phasing bar
                 auto bar_pos = genotype.find('|');
-                
+
                 if(bar_pos == string::npos || bar_pos == 0 || bar_pos + 1 >= genotype.size()) {
                     // Not phased here, or otherwise invalid
                     continue;
                 }
-                
-                
+
+
                 // Parse out the two alt indexes.
                 // TODO: complain if there are more.
                 int alt1index = stoi(genotype.substr(0, bar_pos));
                 int alt2index = stoi(genotype.substr(bar_pos + 1));
-                
+
                 if(!alt_usages.count(alt1index)) {
                     // Make a new bit vector for the alt visited by 1
                     alt_usages[alt1index] = vector<bool>(var.getNumSamples() * 2, false);
                 }
                 // First phase of this phase set visits here.
                 alt_usages[alt1index][j * 2] = true;
-                
+
                 if(!alt_usages.count(alt2index)) {
                     // Make a new bit vector for the alt visited by 2
                     alt_usages[alt2index] = vector<bool>(var.getNumSamples() * 2, false);
@@ -2037,30 +2069,30 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                 alt_usages[alt2index][j * 2 + 1] = true;
             }
         }
-            
+
         for (auto& alleles : alternates) {
-        
+
             // We'll point this to a vector flagging all the phase visits to
             // this alt (which may be the ref alt), if we want to record those.
             vector<bool>* visits = nullptr;
-            
+
             // What alt number is this alt? (0 for ref)
             // -1 for nothing needs to visit it and we don't care.
             int alt_number = -1;
-            
+
 #ifdef debug
             cerr << "Considering alt " << alleles.first << " at " << var.position << endl;
             cerr << var << endl;
 #endif
-            
+
             if(phase_visits != nullptr || alt_allele_visits != nullptr) {
                 // We actually have visits to look for. We need to know what
                 // alt number we have here.
-                
+
                 // We need to copy out the alt sequence to appease the vcflib API
                 string alt_sequence = alleles.first;
-                
-                // What alt number are we looking at 
+
+                // What alt number are we looking at
                 if(alt_sequence == var.ref) {
                     // This is the ref allele
                     alt_number = 0;
@@ -2068,23 +2100,23 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     // This is an alternate allele
                     alt_number = var.getAltAlleleIndex(alt_sequence) + 1;
                 }
-                
+
 #ifdef debug
                 cerr << "Alt is number " << alt_number << endl;
 #endif
-                
+
                 if(alt_usages.count(alt_number)) {
                     // Something did indeed visit. Point the pointer at the
                     // vector describing what visited.
                     visits = &alt_usages[alt_number];
                 }
             }
-        
+
             for (auto& allele : alleles.second) {
                 // For each of the alignment bubbles or matches, add it in as something we'll need for the graph.
                 // These may overlap between alleles, and not every allele will have one at all positions.
                 // In general it has to be that way, because the alleles themselves can overlap.
-                
+
                 // TODO: we need these to be unique but also ordered by addition
                 // order. For now we just check all previous entries before
                 // adding and suffer being n^2 in vcf alts per variant. We
@@ -2105,20 +2137,20 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     // position.
                     altp[allele.position].push_back(allele);
                 }
-                
+
                 if(visits != nullptr && phase_visits != nullptr) {
                     // We have to record a phase visit
-                
+
                     // What position, allele index pair are we visiting when we
                     // visit this alt?
                     auto visited = make_pair(allele.position, found_at);
-                    
+
                     if(!phase_visits->count(visited)) {
                         // Make sure we have a vector for visits to this allele, not
                         // just this alt. It needs an entry for each phase of each sample.
                         (*phase_visits)[visited] = vector<bool>(var.getNumSamples() * 2, false);
                     }
-                
+
                     for(size_t j = 0; j < visits->size(); j++) {
                         // We need to toggle on all the phase sets that visited
                         // this alt as using this allele at this position.
@@ -2128,27 +2160,27 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                             // in it.
                             (*phase_visits)[visited][j] = true;
                         }
-                        
+
                     }
                 }
-                
+
                 if(alt_allele_visits != nullptr && alt_number != -1) {
                     // We have to record a visit of this alt of this variant to
                     // this VariantAllele bubble/reference patch.
-                    
+
                     // What position, allele index pair are we visiting when we
                     // visit this alt?
                     auto visited = make_pair(allele.position, found_at);
-                    
+
 #ifdef debug
                     cerr << var_name << " alt " << alt_number << " visits allele #" << found_at
                         << " at position " << allele.position << " of " << allele.ref << " -> " << allele.alt << endl;
 #endif
-                    
+
                     // Say we visit this allele as part of this alt of this variant.
                     (*alt_allele_visits)[visited].push_back(make_pair(var_name, alt_number));
-                }                
-                
+                }
+
             }
         }
     }
@@ -2220,7 +2252,7 @@ void VG::dice_nodes(int max_node_size) {
                     ++div;
                 }
                 int segment_size = node_size/div;
-                
+
                 // Make up all the positions to divide at
                 vector<int> divisions;
                 int last_division = 0;
@@ -2229,10 +2261,10 @@ void VG::dice_nodes(int max_node_size) {
                     last_division += segment_size;
                     divisions.push_back(last_division);
                 }
-                
+
                 // What segments are we making?
                 vector<Node*> segments;
-                
+
                 // Do the actual division
                 divide_node(n, divisions, segments);
             }
@@ -2258,7 +2290,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     this->name = name;
 
     int tid = omp_get_thread_num();
-    
+
 #ifdef debug
 #pragma omp critical (cerr)
     {
@@ -2286,10 +2318,10 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
     // store it as a map for now, and add it in in the real Paths structure
     // later.
     seq_node_ids[0] = seq_node->id();
-    
+
     // TODO: dice nodes now so we can work only with small ref nodes?
     // But what if we then had a divided middle node?
-    
+
     // We can't reasonably track visits to the "previous" bunch of alleles
     // because they may really overlap this bunch of alleles and not be properly
     // previous, path-wise. We'll just assume all the phasings visit all the
@@ -2310,8 +2342,8 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             Node* l = NULL; Node* r = NULL;
             divide_path(seq_node_ids, va.first, l, r);
         }
-        
-        
+
+
         // If all the alleles here are perfect reference matches, and no
         // variants visit them, we'll have nothing to do.
         bool all_perfect_matches = true;
@@ -2321,30 +2353,30 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 break;
             }
         }
-        
+
         // Are all the alleles here clear of visits by variants?
         bool no_variant_visits = true;
-        
+
         for (size_t allele_number = 0; allele_number < alleles.size(); allele_number++) {
             if(variant_alts.count(make_pair(va.first, allele_number))) {
                 no_variant_visits = false;
                 break;
             }
         }
-        
+
         if(all_perfect_matches && no_variant_visits) {
             // No need to break anything here.
-            
+
 #ifdef debug
 #pragma omp critical (cerr)
             {
                 cerr << tid << ": Skipping entire allele site at " << va.first << endl;
             }
 #endif
-            
+
             continue;
         }
-        
+
         // We also need to sort the allele numbers by the lengths of their
         // alleles' reference sequences, to properly handle inserts followed by
         // matches.
@@ -2352,21 +2384,21 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         // Fill with sequentially increasing integers.
         // Sometimes the STL actually *does* have the function you want.
         iota(allele_numbers_by_ref_length.begin(), allele_numbers_by_ref_length.end(), 0);
-        
+
         // Sort the allele numbers by reference length, ascending
         std::sort(allele_numbers_by_ref_length.begin(), allele_numbers_by_ref_length.end(),
             [&](const int& a, const int& b) -> bool {
             // Sort alleles with shorter ref sequences first.
             return alleles[a].ref.size() < alleles[b].ref.size();
         });
-        
+
 #ifdef debug
 #pragma omp critical (cerr)
                 {
                     cerr << tid << ": Processing " << allele_numbers_by_ref_length.size() << " alleles at " << va.first << endl;
                 }
 #endif
-        
+
         // Is this allele the first one processed? Because the first one
         // processed gets to handle adding mappings to the intervening sequence
         // from the previous allele to here.
@@ -2376,9 +2408,9 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
             // Go through all the alleles with their numbers, in order of
             // increasing reference sequence length (so inserts come first)
             auto& allele = alleles[allele_number];
-            
+
             auto allele_key = make_pair(va.first, allele_number);
-            
+
             // 0/1 based conversion happens in offset
             long allele_start_pos = allele.position;
             long allele_end_pos = allele_start_pos + allele.ref.size();
@@ -2391,22 +2423,22 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 // alleles, which means we don't actually need any cuts if the
                 // allele is not visited. If other alleles here are visited,
                 // we'll get cuts from them.
-                
+
 #ifdef debug
 #pragma omp critical (cerr)
                 {
-                    cerr << tid << ": Skipping variant at " << allele_start_pos 
+                    cerr << tid << ": Skipping variant at " << allele_start_pos
                          << " allele " << allele.ref << " -> " << allele.alt << endl;
                 }
 #endif
-                
+
                 continue;
             }
 
 #ifdef debug
 #pragma omp critical (cerr)
             {
-                cerr << tid << ": Handling variant at " << allele_start_pos 
+                cerr << tid << ": Handling variant at " << allele_start_pos
                      << " allele " << allele.ref << " -> " << allele.alt << endl;
             }
 #endif
@@ -2419,7 +2451,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 nodes_by_start_position[-1].insert(root);
                 nodes_by_end_position[0].insert(root);
             }
-            
+
 
 
             // We grab all the nodes involved in this allele: before, being
@@ -2435,7 +2467,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         allele_start_pos,
                         left_seq_node,
                         right_seq_node);
-                        
+
             // if the ref portion of the allele is not empty, then we may need
             // to make another cut. If so, we'll have some middle nodes.
             if (!allele.ref.empty()) {
@@ -2444,22 +2476,22 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                             allele_end_pos,
                             last_middle_node,
                             right_seq_node);
-                 
-                 
+
+
                 // Now find all the middle nodes between left_seq_node and
                 // last_middle_node along the primary path.
-                         
+
                 // Find the node starting at or before, and including,
                 // allele_end_pos.
                 map<long, id_t>::iterator target = seq_node_ids.upper_bound(allele_end_pos);
                 --target;
-                
+
                 // That should be the node to the right of the variant
                 assert(target->second == right_seq_node->id());
-                
+
                 // Everything left of there, stopping (exclusive) at
                 // left_seq_node if set, should be middle nodes.
-                
+
                 while(target != seq_node_ids.begin()) {
                     // Don't use the first node we start with, and do use the
                     // begin node.
@@ -2468,16 +2500,16 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         // Don't put the left node in as a middle node
                         break;
                     }
-                    
+
                     // If we get here we want to take this node as a middle node
                     middle_seq_nodes.push_front(get_node(target->second));
                 }
-                
+
                 // There need to be some nodes in the list when we're done.
                 // Otherwise something has gone wrong.
                 assert(middle_seq_nodes.size() > 0);
             }
-            
+
             // What nodes actually represent the alt allele?
             std::list<Node*> alt_nodes;
             // create a new alt node and connect the pieces from before
@@ -2514,7 +2546,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 create_edge(left_seq_node, alt_node);
                 create_edge(alt_node, right_seq_node);
                 alt_nodes.push_back(alt_node);
-                
+
                 // We know the alt nodes list isn't empty.
                 // We'rr immediately pulling the node out of the list again for consistency.
                 nodes_by_end_position[allele_end_pos].insert(alt_nodes.back());
@@ -2529,12 +2561,12 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 nodes_by_start_position[allele_start_pos].insert(left_seq_node);
 
             }
-            
+
 #ifdef debug
 #pragma omp critical (cerr)
             {
                 if (left_seq_node) cerr << tid << ": left_ref " << left_seq_node->id()
-                                        << " " 
+                                        << " "
                                         << (left_seq_node->sequence().size() < 100 ? left_seq_node->sequence() : "...")
                                         << endl;
                 for(Node* middle_seq_node : middle_seq_nodes) {
@@ -2546,7 +2578,7 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                                 << " " << alt_node->sequence() << endl;
                 }
                 if (right_seq_node) cerr << tid << ": right_ref " << right_seq_node->id()
-                                         << " " 
+                                         << " "
                                          << (right_seq_node->sequence().size() < 100 ? right_seq_node->sequence() : "...")
                                          << endl;
             }
@@ -2560,49 +2592,49 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                 // all of them visit the left node. We know the left node will
                 // be the same on subsequent passes for other alleles starting
                 // here, and we only want to make these left node visits once.
-                
+
                 // However, we can only do this if there actually is a node
                 // between the last set of alleles and here.
-                
+
                 // TODO: what if some of these phasings aren't actually phased
                 // here? We'll need to break up their paths to just have some
                 // ref matching paths between variants where they aren't
                 // phased...
-                
+
                 for(size_t i = 0; i < num_phasings; i++) {
                     // Everything uses this node to our left, which won't be
                     // broken again.
                     paths.append_mapping("_phase" + to_string(i), left_seq_node->id());
                 }
-                
+
                 // The next allele won't be the first one actually processed.
                 first_allele_processed = false;
             }
             if(!alt_nodes.empty() && visits.count(allele_key)) {
                 // At least one phased path visits this allele, and we have some
                 // nodes to path it through.
-                
+
                 // Get the vector of bools for that phasings visit
                 auto& visit_vector = visits.at(allele_key);
-                
+
                 for(size_t i = 0; i < visit_vector.size(); i++) {
                     // For each phasing
                     if(visit_vector[i]) {
                         // If we visited this allele, say we did. TODO: use a
                         // nice rank/select thing here to make this not have to
                         // be a huge loop.
-                        
+
                         string phase_name = "_phase" + to_string(i);
-                        
+
                         for(Node* alt_node : alt_nodes) {
                             // Problem: we may have visited other alleles that also used some of these nodes.
                             // Solution: only add on the mappings for new nodes.
-                            
+
                             // TODO: this assumes we'll not encounter
                             // contradictory alleles, only things like "both
                             // shorter ref match and longer ref match are
                             // visited".
-                            
+
                             if(!paths.get_node_mapping(alt_node).count(phase_name)) {
                                 // This node has not yet been visited on this path.
                                 paths.append_mapping(phase_name, alt_node->id());
@@ -2611,31 +2643,31 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                     }
                 }
             }
-            
+
             if(variant_alts.count(allele_key)) {
-            
+
                 for(auto name_and_alt : variant_alts.at(allele_key)) {
                     // For each of the alts using this allele, put mappings for this path
                     string path_name = "_alt_" + name_and_alt.first + "_" + to_string(name_and_alt.second);
-                    
+
                     if(!alt_nodes.empty()) {
                         // This allele has some physical presence and is used by some
                         // variants.
-                        
+
                         for(auto alt_node : alt_nodes) {
                             // Put a mapping on each alt node
-                            
+
                             // TODO: assert that there's an edge from the
                             // previous mapping's node (if any) to this one's
                             // node.
-                            
+
                             paths.append_mapping(path_name, alt_node->id());
                         }
-                        
+
 #ifdef debug
                         cerr << "Path " << path_name << " uses these alts" << endl;
 #endif
-                        
+
                     } else {
                         // TODO: alts that are deletions don't always have nodes
                         // on both sides to visit. Either anchor your VCF
@@ -2643,14 +2675,14 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
                         // mappings to other alleles (allele 0) in this variant
                         // but not this allele to indicate the deletion of
                         // nodes.
-                        
+
 #ifdef debug
                         cerr << "Path " << path_name << " would use these alts if there were any" << endl;
 #endif
                     }
                 }
             }
-            
+
             if (allele_end_pos == seq.size()) {
                 // ensures that we can handle variation at last position (important when aligning)
                 Node* end = create_node("");
@@ -2715,14 +2747,14 @@ void VG::from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
         while (!nodes_by_start_position.empty() && nodes_by_start_position.begin()->first < va.first) {
             nodes_by_start_position.erase(nodes_by_start_position.begin()->first);
         }
-        
+
         // Now we just have to update where our end was, so the next group of
         // alleles knows if there was any intervening sequence.
         // The (past the) end position is equal to the number of bases not yet used.
         last_variant_end = seq.size() - get_node((*seq_node_ids.rbegin()).second)->sequence().size();
 
     }
-    
+
     // Now we're done breaking nodes. This means the node holding the end of the
     // reference sequence can finally be given its mappings for phasings, if
     // applicable.
@@ -2808,7 +2840,7 @@ void VG::from_gfa(istream& in, bool showp) {
         const string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
         const string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
 
-        bool reverse = pred == vg_reverse_of_node_p; 
+        bool reverse = pred == vg_reverse_of_node_p;
         if (pred == (vg_node_p) || reverse) {
             Node* node = vg->find_node_by_name_or_add_new(obj);
             Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
@@ -2865,14 +2897,14 @@ void VG::from_turtle(string filename, string baseuri, bool showp) {
 	exit(1);
     }
     raptor_parser* rdf_parser;
-    const unsigned char *filename_uri_string; 
+    const unsigned char *filename_uri_string;
     raptor_uri  *uri_base, *uri_file;
     rdf_parser = raptor_new_parser(world, "turtle");
     //We use a paths object with its convience methods to build up path objects.
     Paths* paths = new Paths();
     std::pair<VG*, Paths*> user_data = make_pair(this, paths);
-   
-    //The user_data is cast in the triple_to_vg method. 
+
+    //The user_data is cast in the triple_to_vg method.
     raptor_parser_set_statement_handler(rdf_parser, &user_data, triple_to_vg);
 
 
@@ -3003,7 +3035,6 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
     // our chunk size isn't going to reach into the range where we'll have issues (>several megs)
     // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
     //
-    //
     
     std::function<bool(string)> all_upper = [](string s){
         //GO until [size() - 1 ] to avoid the newline char
@@ -3063,12 +3094,12 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         create_progress("loading variants for " + target, stop_pos-start_pos);
         // get records
         vector<vcflib::Variant> records;
-        
+
         // This is going to hold the alleles that occur at certain reference
         // positions, in addition to the reference allele. We keep them ordered
         // so we can refer to them by number.
         map<long,vector<vcflib::VariantAllele> > alleles;
-        
+
         // This is going to hold, for each position, allele combination, a
         // vector of bools marking which phases of which samples visit that
         // allele. Each sample is stored at (sample number * 2) for phase 0 and
@@ -3076,22 +3107,22 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         // an allele, but if anything is reference it will show up as an
         // overlapping allele elsewhere.
         map<pair<long, int>, vector<bool>> phase_visits;
-        
+
         // This is going to hold visits to VariantAlleles by the reference and
         // nonreference alts of variants. We map from VariantAllele index and
         // number to a list of the variant ID and alt number pairs that use the
         // VariantAllele.
         map<pair<long, int>, vector<pair<string, int>>> variant_alts;
-        
+
         // We don't want to load all the vcf records into memory at once, since
         // the vcflib internal data structures are big compared to the info we
         // need.
         int64_t variant_chunk_size = 1000;
-        
+
         auto parse_loaded_variants = [&]() {
             // Parse the variants we have loaded, and clear them out, so we can
             // go back and load a new batch of variants.
-            
+
             // decompose records into alleles with offsets against our target
             // sequence Dump the collections of alleles (which are ref, alt
             // pairs) into the alleles map. Populate the phase visit map if
@@ -3103,7 +3134,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                 flat_input_vcf);
             records.clear(); // clean up
         };
-        
+
         int64_t i = 0;
         while (variantCallFile.is_open() && variantCallFile.getNextVariant(var)) {
             // this ... maybe we should remove it as for when we have calls against N
@@ -3122,7 +3153,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         }
         // Finish up any remaining unparsed variants
         parse_loaded_variants();
-        
+
         destroy_progress();
 
         // store our construction plans
@@ -3164,7 +3195,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                     // Go through every allele that occurs at this position, and
                     // update it to the offset position in new_alleles
                     auto& allele = pos_alleles[j];
-                    
+
                     // We'll clone and modify it.
                     auto new_allele = allele;
                     int ref_end = new_allele.ref.size() + new_allele.position;
@@ -3176,7 +3207,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                     // Copy the modified allele over.
                     // No need to deduplicate.
                     curr_pos.push_back(new_allele);
-                    
+
                     // Also handle any visits to this allele
                     // We need the key, consisting of the old position and the allele number there.
                     auto old_allele_key = make_pair(alleles.begin()->first, j);
@@ -3184,19 +3215,19 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                     auto new_allele_key = make_pair(pos, j);
                     if(phase_visits.count(old_allele_key)) {
                         // We have some usages of this allele for phase paths. We need to move them over.
-                        
+
                         // Move over the value and insert into the new map. See <http://stackoverflow.com/a/14816487/402891>
                         // TODO: would it be clearer with the braces instead?
                         new_phase_visits.insert(make_pair(new_allele_key, std::move(phase_visits.at(old_allele_key))));
-                        
+
                         // Now we've emptied out/made-undefined the old vector,
                         // so we probably should drop it from the old map.
                         phase_visits.erase(old_allele_key);
                     }
-                    
+
                     if(variant_alts.count(old_allele_key)) {
                         // We have some usages of this allele by variant alts. We need to move them over.
-                        
+
                         // Do a move operation
                         new_variant_alts.insert(make_pair(new_allele_key, std::move(variant_alts.at(old_allele_key))));
                         // Delete the olkd entry (just so we don't keep it around wasting time/space/being unspecified)
@@ -3239,7 +3270,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 #endif
         graphq_size = graphq.size();
         destroy_progress();
-        
+
         // this system is not entirely general
         // there will be a problem when the regions of overlapping deletions become too large
         // then the inter-dependence of each region will make parallel construction in this way difficult
@@ -3312,12 +3343,12 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                                       plan->variant_alts,
                                       plan->seq,
                                       plan->name);
-                                      
+
             // Break up the nodes ourselves
             if(max_node_size > 0) {
                 plan->graph->dice_nodes(max_node_size);
             }
-                                      
+
 #pragma omp critical (graphq)
             {
                 update_progress(++graphs_completed);
@@ -3393,25 +3424,25 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
     // rebuild the mapping ranks now that we've combined everything
     paths.clear_mapping_ranks();
     paths.rebuild_mapping_aux();
-    
+
     if(load_phasing_paths) {
         // Trace through all the phase paths, and, where they take edges that
         // don't exist, break them. TODO: we still might get spurious phasing
         // through a deletion where the two pahsed bits but up against each
         // other.
-        
+
         create_progress("dividing phasing paths", num_phasings);
         for(size_t i = 0; i < num_phasings; i++) {
             // What's the path we want to trace?
             string original_path_name = "_phase" + to_string(i);
-            
+
             list<Mapping>& path_mappings = paths.get_path(original_path_name);
-            
+
             // What section of this phasing do we want to be outputting?
             size_t subpath = 0;
             // Make a name for it
             string subpath_name = "_phase" + to_string(i) + "_" + to_string(subpath);
-            
+
             // For each mapping, we want to be able to look at the previous
             // mapping.
             list<Mapping>::iterator prev_mapping = path_mappings.end();
@@ -3419,7 +3450,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
                 // For each mapping in the path
                 if(prev_mapping != path_mappings.end()) {
                     // We have the previous mapping and this one
-                    
+
                     // Make the two sides of nodes that should be connected.
                     auto s1 = NodeSide(prev_mapping->position().node_id(),
                         (prev_mapping->position().is_reverse() ? false : true));
@@ -3435,21 +3466,21 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 
                 // Now we just drop this node onto the current subpath
                 paths.append_mapping(subpath_name, *mapping);
-            
+
                 // Save this mapping as the prev one
                 prev_mapping = mapping;
             }
-            
+
             // Now delete the original full phase path.
             // This invalidates the path_mappings reference!!!
             // We use the variant that actually unthreads the path from the indexes and doesn't erase and rebuild them.
             paths.remove_path(original_path_name);
-            
+
             update_progress(i);
         }
         destroy_progress();
-        
-        
+
+
     }
 }
 
@@ -3626,7 +3657,7 @@ int VG::node_rank(Node* node) {
 int VG::node_rank(id_t id) {
     return node_index[get_node(id)];
 }
-    
+
 vector<Edge> VG::break_cycles(void) {
     // ensure we are sorted
     sort();
@@ -4143,7 +4174,7 @@ void VG::remove_node_forwarding_edges(Node* node) {
     vector<pair<id_t, bool>>& start = edges_start(node);
     // Grab all the nodes attached to our end, with true if the edge goes to their end
     vector<pair<id_t, bool>>& end = edges_end(node);
-        
+
     // We instantiate the whole cross product first to avoid working on
     // references to the contents of containers we are modifying. This holds the
     // (node ID, relative orientation) pairs above.
@@ -4298,9 +4329,9 @@ void VG::keep_path(string& path_name) {
 void VG::divide_node(Node* node, int pos, Node*& left, Node*& right) {
     vector<Node*> parts;
     vector<int> positions{pos};
-    
+
     divide_node(node, positions, parts);
-    
+
     // Pull out the nodes we made
     left = parts.front();
     right = parts.back();
@@ -4338,11 +4369,11 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
         last_pos = pos;
         parts.push_back(new_node);
     }
-    
+
     // Make the last node with the remaining sequence
     Node* last_node = create_node(node->sequence().substr(last_pos));
     parts.push_back(last_node);
-    
+
 #ifdef debug_divide
 
 #pragma omp critical (cerr)
@@ -4351,7 +4382,7 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
             cerr << "\tCreated node " << part->id() << ": " << part->sequence() << endl;
         }
     }
-            
+
 #endif
 
     // Our leftmost new node is now parts.front(), and our rightmost parts.back()
@@ -4428,26 +4459,26 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
             string path_name = paths.mapping_path_name(m);
             // OK, we're somewhat N^2 in mapping division, if there are edits to
             // copy. But we're nearly linear!
-            
+
             // We can only work on full-length perfect matches, because we make the cuts in mapping space.
             // TODO: implement cut_mapping on Positions for reverse mappings, so we can use that and work on all mappings.
             assert(m->position().offset() == 0);
             assert(mapping_is_match(*m));
             assert(m->edit_size() == 0 || from_length(*m) == node->sequence().size());
-            
+
             vector<Mapping> mapping_parts;
             Mapping remainder = *m;
             int local_offset = 0;
-            
+
             for(int i = 0; i < positions.size(); i++) {
                 // At this position
                 auto& pos = positions[i];
                 // Break off the mapping
                 // Note that we are cutting at mapping-relative locations and not node-relative locations.
                 pair<Mapping, Mapping> halves;
-                
-                
-                
+
+
+
                 if(remainder.position().is_reverse()) {
                     // Cut positions are measured from the end of the original node.
                     halves = cut_mapping(remainder, node->sequence().size() - pos);
@@ -4460,15 +4491,15 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
                 // TODO: since there are no edits to move, none of that is
                 // strictly necessary, because both mapping halves will be
                 // identical.
-                
+
                 // This is the one we have produced
                 Mapping& chunk = halves.first;
-                
+
                 // Tell it what it's mapping to
                 // We'll take all of this node.
                 chunk.mutable_position()->set_node_id(parts[i]->id());
                 chunk.mutable_position()->set_offset(0);
-                
+
                 mapping_parts.push_back(chunk);
                 remainder = halves.second;
                 // The remainder needs to be divided at a position relative to
@@ -4480,7 +4511,7 @@ void VG::divide_node(Node* node, vector<int> positions, vector<Node*>& parts) {
             remainder.mutable_position()->set_node_id(parts.back()->id());
             remainder.mutable_position()->set_offset(0);
             mapping_parts.push_back(remainder);
-            
+
             //divide_mapping
             // with the mapping divided, insert the pieces where the old one was
             bool is_rev = m->position().is_reverse();
@@ -5294,7 +5325,7 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
         cerr << pos << " " << (p.second != nullptr?pb2json(*p.second):"null") << endl;
     }
     */
-    
+
     if(!path.name().empty()) {
         // If the path has a name, we're going to add it to our collection of
         // paths, as we make all the new nodes and edges it requires. But, we
@@ -5403,11 +5434,11 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     Mapping nm;
                     nm.mutable_position()->set_node_id(new_node->id());
                     nm.mutable_position()->set_is_reverse(m.position().is_reverse());
-                    
+
                     // Don't set a rank; since we're going through the input
                     // path in order, the auto-generated ranks will put our
                     // newly created mappings in order.
-                    
+
                     Edit* e = nm.add_edit();
                     size_t l = new_node->sequence().size();
                     e->set_from_length(l);
@@ -5454,11 +5485,11 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                                                        edit_last_position,
                                                        m.position().is_reverse())) {
                         //cerr << "in match, adding " << pb2json(nm) << endl;
-                        
+
                         // Don't set a rank; since we're going through the input
                         // path in order, the auto-generated ranks will put our
                         // newly created mappings in order.
-                            
+
                         paths.append_mapping(path.name(), nm);
                     }
                 }
@@ -6254,14 +6285,14 @@ void VG::to_gfa(ostream& out) {
 }
 
 void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
-    
+
     out << "@base <http://example.org/vg/> . " << endl;
     if (precompress) {
        out << "@prefix : <" <<  rdf_base_uri <<"node/> . " << endl;
        out << "@prefix p: <" <<  rdf_base_uri <<"path/> . " << endl;
        out << "@prefix s: <" <<  rdf_base_uri <<"step/> . " << endl;
        out << "@prefix r: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . " << endl;
-    
+
     } else {
        out << "@prefix node: <" <<  rdf_base_uri <<"node/> . " << endl;
        out << "@prefix path: <" <<  rdf_base_uri <<"path/> . " << endl;
@@ -6278,7 +6309,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
             out << "node:" << n->id() << " rdf:value \"" << n->sequence() << "\" . " << endl ;
         }
     }
-    function<void(const string&)> url_encode = [&out] 
+    function<void(const string&)> url_encode = [&out]
         (const string& value) {
         out.fill('0');
         for (string::const_iterator i = value.begin(), n = value.end(); i != n; ++i) {
@@ -6341,7 +6372,7 @@ void VG::to_turtle(ostream& out, const string& rdf_base_uri, bool precompress) {
         } else {
             out << "node:" << e->from();
 	    }
-    
+
         if (e->from_start() && e->to_end()) {
             out << " <linksReverseToReverse> " ; // <--
         } else if (e->from_start() && !e->to_end()) {
@@ -7755,6 +7786,7 @@ void VG::get_gcsa_kmers(int kmer_size, bool path_only,
             // successor.
 
             thread_output.emplace_back(tokens, alpha, successor_index);
+
 
             // Mark kmers that go to the sink node as "sorted", since they have stop
             // characters in them and can't be extended.
