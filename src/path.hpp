@@ -76,6 +76,10 @@ public:
     set<id_t> head_tail_nodes;
     bool is_head_or_tail_node(id_t);
     vector<string> all_path_names(void);
+    // records which paths are circular
+    set<string> circular;
+    void make_circular(const string& name);
+    void make_linear(const string& name);
     
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);

@@ -31,6 +31,10 @@ void Paths::write(ostream& out) {
             Mapping* nm = path.add_mapping();
             *nm = m;
         }
+        path.set_name(path_names.at(i));
+        if (circular.count(path_names.at(i))) {
+            path.set_is_circular(true);
+        }
         return path;
     };
     stream::write(out, _paths.size(), lambda);
@@ -42,6 +46,9 @@ void Paths::to_graph(Graph& g) {
         list<Mapping>& mappings = p.second;
         Path* path = g.add_path();
         path->set_name(name);
+        if (circular.count(name)) {
+            path->set_is_circular(true);
+        }
         for (auto& m : mappings) {
             Mapping* nm = path->add_mapping();
             *nm = m;
@@ -60,6 +67,9 @@ Path Paths::path(const string& name) {
     for (auto& m : mappings) {
         Mapping* nm = path.add_mapping();
         *nm = m;
+    }
+    if (circular.count(name)) {
+        path.set_is_circular(true);
     }
     return path;
 }
@@ -93,12 +103,23 @@ void Paths::for_each_stream(istream& in, const function<void(Path&)>& lambda) {
     stream::for_each(in, lambda, handle_count);
 }
 
+void Paths::make_circular(const string& name) {
+    circular.insert(name);
+}
+
+void Paths::make_linear(const string& name) {
+    circular.erase(name);
+}
+
 void Paths::extend(const Path& p) {
     const string& name = p.name();
     list<Mapping>& path = get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
         append_mapping(name, m);
+    }
+    if (p.is_circular()) {
+        make_circular(name);
     }
     // re-sort?
     sort_by_mapping_rank();
@@ -113,6 +134,9 @@ void Paths::extend(Paths& p) {
         for (auto& m : path) {
             append_mapping(name, m);
         }
+        if (p.circular.count(name)) {
+            make_circular(name);
+        }
     }
     sort_by_mapping_rank();
     rebuild_mapping_aux();
@@ -125,6 +149,9 @@ void Paths::append(Paths& paths) {
         for (auto& m : path) {
             append_mapping(name, m);
         }
+        if (paths.circular.count(name)) {
+            make_circular(name);
+        }
     }
     sort_by_mapping_rank();
     rebuild_mapping_aux();
@@ -136,6 +163,9 @@ void Paths::append(Graph& g) {
         for (int j = 0; j < p.mapping_size(); ++j) {
             const Mapping& m = p.mapping(j);
             append_mapping(p.name(), m);
+            if (p.is_circular()) {
+                make_circular(p.name());
+            }
         }
     }
 }

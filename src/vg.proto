@@ -87,6 +87,7 @@ message Position {
 message Path {
     string name = 1;
     repeated Mapping mapping = 2;
+    bool is_circular = 3;
 }
 
 // Alignments link query strings, such as other genomes or reads, to paths.
@@ -144,14 +145,14 @@ message NodePileup {
 // Keep pileup-like record for reads that span edges
 message EdgePileup {
     Edge edge = 1;
- 	 int32 num_reads = 2;
-	 bytes qualities = 3;
+ 	int32 num_reads = 2;
+	bytes qualities = 3;
 }
 
 // Bundle up Node and Edge pileups
 message Pileup {
     repeated NodePileup node_pileups = 1;
-	 repeated EdgePileup edge_pileups = 2;
+    repeated EdgePileup edge_pileups = 2;
 }
 
 message Genotype {
