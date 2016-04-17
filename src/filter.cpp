@@ -42,11 +42,13 @@ namespace vg{
    * 2. The read looks a lot like two different (but highly-similar paths)
    * 3. The read is shattered (e.g. as in chromothripsis)
    *
-   * Default behavior: if the Alignment is path divergent, return an empty Alignment
-   * Inverse behavior: if the Alignment is path divergent, return the Alignment
+   * Default behavior: if the Alignment is path divergent, return an empty Alignment, else return aln
+   * Inverse behavior: if the Alignment is path divergent, return aln, else return an empty Alignment
    */
   Alignment Filter::path_divergence_filter(Alignment& aln){
+    
 
+      return inverse ? Alignment() : aln;
   }
 
   /**
@@ -136,7 +138,7 @@ namespace vg{
         */
         if (pos_to_edit_to_depth[p_hash][e_hash] < min_depth){
           if (remove_failing_alignments){
-            return Alignment();
+            return inverse ? aln : Alignment();
           }
 
           else {
@@ -148,7 +150,7 @@ namespace vg{
           }
         }
       }
-      return aln;
+      return inverse ? Alignment() : aln;
     }
 
 
@@ -166,12 +168,12 @@ namespace vg{
         else{
           //TODO: Should we really edit out poor-quality bases??
           // It's complex and awkward.
-          return Alignment();
+          return inverse ? aln : Alignment();
         }
       }
     }
 
-    return aln;
+    return inverse ? Alignment() : aln;
   }
 
 
@@ -217,15 +219,15 @@ namespace vg{
     string quals = aln.quality();
     for (int i = 0; i < quals.size() - win_len; i++){
        double w_qual = window_qual(quals, i, win_len);
-       if ( w_qual < 1){
+       if ( w_qual < 0.0){
         break;
        }
        if (w_qual < min_avg_qual){
-            return Alignment();
+            return inverse ? aln : Alignment();
        }
     }
 
-    return aln;
+    return inverse ? Alignment() : aln;
 
   }
 
@@ -242,7 +244,7 @@ namespace vg{
         if (left_overhang > max_softclip || right_overhang > max_softclip){
             return Alignment();
         }
-        return aln;
+        return inverse ? Alignment() : aln;
     }
     else{
         if (aln.sequence().length() > max_softclip){
@@ -251,7 +253,7 @@ namespace vg{
         cerr << "WARNING: SHORT ALIGNMENT: " << aln.sequence().size() << "bp" << endl
             << "WITH NO MAPPINGS TO REFERENCE" << endl
             << "CONSIDER REMOVING IT FROM ANALYSIS" << endl;
-        return aln;
+        return inverse ? Alignment() : aln;
     }
 
   }
@@ -289,11 +291,11 @@ namespace vg{
     // reg: !diverges: return aln
     // inv: diverges: return return aln;
     // inv: !diverges: return ALN()
-    if ((diverges && !inverse) || (!diverges && inverse)){
-        return Alignment();
+    if ((diverges)){
+        return inverse ? aln : Alignment();
     }
     else{
-        return aln;
+        return inverse ? Alignment() : aln;
     }
 
   }
@@ -330,10 +332,10 @@ namespace vg{
       }
     }
     if (calc_pct_id(aln_match_len, aln_total_len) < min_percent_identity){
-      return Alignment();
+      return inverse ? aln : Alignment();
     }
 
-    return aln;
+    return inverse ? Alignment() : aln;
 
 
   }
