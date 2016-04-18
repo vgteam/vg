@@ -1387,6 +1387,8 @@ void help_msga(char** argv) {
          << "graph normalization:" << endl
          << "    -N, --normalize         normalize the graph after assembly" << endl
          << "    -z, --allow-nonpath     don't remove parts of the graph that aren't in the paths of the inputs" << endl
+         << "    -C, --circularize       the input sequences are from circular genomes, circularize them after inclusion" << endl
+         << "generic parameters:" << endl
          << "    -D, --debug             print debugging information about construction to stderr" << endl
          << "    -A, --debug-align       print debugging information about alignment to stderr" << endl
          << "    -t, --threads N         number of threads to use" << endl
@@ -1411,7 +1413,6 @@ int main_msga(int argc, char** argv) {
     string base_seq_name;
     int idx_kmer_size = 16;
     int idx_doublings = 2;
-    int best_clusters = 0;
     int hit_max = 100;
     int max_attempts = 10;
     // if we set this above 1, we use a dynamic programming process to determine the
@@ -1443,6 +1444,7 @@ int main_msga(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    bool circularize = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -1483,11 +1485,12 @@ int main_msga(int argc, char** argv) {
                 {"mismatch", required_argument, 0, 'i'},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'e'},
+                {"circularize", no_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:",
+        c = getopt_long (argc, argv, "hf:n:s:g:b:K:X:B:DAc:P:E:Q:NzI:L:Y:H:t:m:GS:M:T:q:OI:a:i:o:e:C",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -1497,151 +1500,153 @@ int main_msga(int argc, char** argv) {
         switch (c)
         {
 
+        case 'L':
+            min_mem_length = atoi(optarg);
+            break;
 
-            case 'L':
-                min_mem_length = atoi(optarg);
-                break;
+        case 'Y':
+            max_mem_length = atoi(optarg);
+            break;
 
-            case 'Y':
-                max_mem_length = atoi(optarg);
-                break;
+        case 'H':
+            hit_max = atoi(optarg);
+            break;
 
-            case 'H':
-                hit_max = atoi(optarg);
-                break;
+        case 'I':
+            max_multimaps = atoi(optarg);
+            break;
 
-            case 'I':
-                max_multimaps = atoi(optarg);
-                break;
+        case 'q':
+            max_target_factor = atoi(optarg);
+            break;
 
-            case 'q':
-                max_target_factor = atoi(optarg);
-                break;
+        case 'M':
+            max_attempts = atoi(optarg);
+            break;
 
-            case 'M':
-                max_attempts = atoi(optarg);
-                break;
+        case 'T':
+            thread_extension = atoi(optarg);
+            break;
 
-            case 'T':
-                thread_extension = atoi(optarg);
-                break;
-
-            case 'G':
-                greedy_accept = true;
-                break;
+        case 'G':
+            greedy_accept = true;
+            break;
 
         case 'S':
             accept_identity = atof(optarg);
             break;
 
-            case 'c':
-                context_depth = atoi(optarg);
-                break;
+        case 'c':
+            context_depth = atoi(optarg);
+            break;
 
         case 'f':
             fasta_files.push_back(optarg);
             break;
 
-            case 'n':
-                seq_names.insert(optarg);
-                break;
+        case 'n':
+            seq_names.insert(optarg);
+            break;
 
-            case 's':
-                sequences.push_back(optarg);
-                break;
+        case 's':
+            sequences.push_back(optarg);
+            break;
 
-            case 'b':
-                base_seq_name = optarg;
-                break;
+        case 'b':
+            base_seq_name = optarg;
+            break;
 
-            case 'g':
-                if (graph_files.size() != 0) {
-                    cerr << "[vg msga] Error: graph-graph alignment is not yet implemented." << endl
-                        << "We can only use one input graph." << endl;
-                    return 1;
-                }
-                graph_files.push_back(optarg);
-                break;
+        case 'g':
+            if (graph_files.size() != 0) {
+                cerr << "[vg msga] Error: graph-graph alignment is not yet implemented." << endl
+                     << "We can only use one input graph." << endl;
+                return 1;
+            }
+            graph_files.push_back(optarg);
+            break;
 
-            case 'B':
-                band_width = atoi(optarg);
-                break;
+        case 'B':
+            band_width = atoi(optarg);
+            break;
 
-            case 'D':
-                debug = true;
-                break;
+        case 'D':
+            debug = true;
+            break;
 
-            case 'A':
-                debug_align = true;
-                break;
+        case 'A':
+            debug_align = true;
+            break;
 
-            case 'X':
-                doubling_steps = atoi(optarg);
-                break;
+        case 'X':
+            doubling_steps = atoi(optarg);
+            break;
 
-            case 'K':
-                idx_kmer_size = atoi(optarg);
-                break;
-
-
-            case 'O':
-                idx_path_only = true;
-                break;
-
-            case 'm':
-                node_max = atoi(optarg);
-                break;
-
-            case 'N':
-                normalize = true;
-                break;
+        case 'K':
+            idx_kmer_size = atoi(optarg);
+            break;
 
 
+        case 'O':
+            idx_path_only = true;
+            break;
+
+        case 'm':
+            node_max = atoi(optarg);
+            break;
+
+        case 'N':
+            normalize = true;
+            break;
+
+        case 'C':
+            circularize = true;
+            break;
+            
         case 'P':
             min_identity = atof(optarg);
             break;
 
-            case 't':
-                omp_set_num_threads(atoi(optarg));
-                alignment_threads = atoi(optarg);
-                break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            alignment_threads = atoi(optarg);
+            break;
 
-            case 'Q':
-                subgraph_prune = atoi(optarg);
-                break;
+        case 'Q':
+            subgraph_prune = atoi(optarg);
+            break;
 
-            case 'E':
-                edge_max = atoi(optarg);
-                break;
+        case 'E':
+            edge_max = atoi(optarg);
+            break;
 
-            case 'z':
-                allow_nonpath = true;
-                break;
+        case 'z':
+            allow_nonpath = true;
+            break;
                 
-            case 'a':
-                match = atoi(optarg);
-                break;
+        case 'a':
+            match = atoi(optarg);
+            break;
 
-            case 'i':
-                mismatch = atoi(optarg);
-                break;
+        case 'i':
+            mismatch = atoi(optarg);
+            break;
 
-            case 'o':
-                gap_open = atoi(optarg);
-                break;
+        case 'o':
+            gap_open = atoi(optarg);
+            break;
 
-            case 'e':
-                gap_extend = atoi(optarg);
-                break;
+        case 'e':
+            gap_extend = atoi(optarg);
+            break;
 
-            case 'h':
-            case '?':
-                help_msga(argv);
-                exit(1);
-                break;
+        case 'h':
+        case '?':
+            help_msga(argv);
+            exit(1);
+            break;
 
-            default:
-                abort ();
+        default:
+            abort ();
         }
     }
 
@@ -1824,6 +1829,11 @@ int main_msga(int argc, char** argv) {
             //if (!graph->is_valid()) cerr << "invalid after sort" << endl;
             graph->compact_ids(); // xg can't work unless IDs are compacted.
             //if (!graph->is_valid()) cerr << "invalid after compact" << endl;
+            if (circularize) {
+                if (debug) cerr << name << ": circularizing" << endl;
+                graph->circularize({name});
+                graph->serialize_to_file(name + "-post-circularize.vg");
+            }
 
             // the edit needs to cut nodes at mapping starts and ends
             // thus allowing paths to be included that map directly to entire nodes
