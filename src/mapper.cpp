@@ -126,6 +126,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
         // should have callback here
         xindex->get_id_range(first, idf, graph->graph);
         xindex->get_id_range(idl, last, graph->graph);
+        
         // don't get the paths (this isn't yet threadsafe in sdsl-lite)
         xindex->expand_context(graph->graph, context_depth, false);
         graph->rebuild_indexes();
@@ -255,71 +256,25 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     };
     
-    // We have a rescue operation that aligns an alignment and gives all the
-    // unique alignments from all the given anchors
-    auto try_rescue = [&](const vector<Alignment>& anchors, const Alignment& to_rescue) -> vector<Alignment> {
-        // We need to try aligning the mate near each of the places we aligned.
-        
-        // This is the collection we actually return
-        vector<Alignment> to_return;
-
-        for(auto& anchor : anchors) {
-            if(anchor.has_path() && anchor.path().mapping_size() > 0) {
-                // Anchor is usefully mapped
-        
-                // Align the mate the best way for each alignment of the anchor
-                Alignment mate = to_rescue;
-                align_mate(anchor, mate);
-                to_return.push_back(mate);
-            }
-        }
-
-        return to_return;
-
-    };
+    // Do the initial alignments, making sure to get some extras
+    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width, max_multimaps * 2 + 2);
+    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width, max_multimaps * 2 + 2);
     
-    // We need something to deduplicate mappings
-    auto deduplicate_alignments = [&](const vector<Alignment>& input) -> vector<Alignment> {
-        set<string> serializedAlignments;
-        
-        vector<Alignment> unique;
-        
-        for(auto& alignment : input) {
-            // Make each alignment a serialized string
-            string serialized;
-            alignment.SerializeToString(&serialized);
-            if(!serializedAlignments.count(serialized)) {
-                // If it hasn't been seen before, keep it
-                serializedAlignments.insert(serialized);
-                unique.push_back(alignment);
-            }
-        }
-        
-        return unique;
-    };
+    // Rescue only if the top alignment on one side has no mappings
+    if((alignments1.empty() || alignments1[0].score() == 0) && !(alignments2.empty() || alignments2[0].score() == 0)) {
+        // Can rescue 1 off of 2
+        Alignment mate = read1;
+        align_mate(alignments2[0], mate);
+        alignments1.clear();
+        alignments1.push_back(mate);
+    } else if(!(alignments1.empty() || alignments1[0].score() == 0) && (alignments2.empty() || alignments2[0].score() == 0)) {
+        // Can rescue 2 off of 1
+        Alignment mate = read2;
+        align_mate(alignments1[0], mate);
+        alignments2.clear();
+        alignments2.push_back(mate);
+    }
     
-    // Do the initial alignments
-    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width);
-    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width);
-    
-    // Always try the rescues.
-    
-#ifdef debug
-    cerr << "Attempting rescues" << endl;
-#endif
-    
-    // Try rescues. Don't touch the vectors we're rescuing from yet.
-    vector<Alignment> rescues1 = try_rescue(alignments2, read1);
-    vector<Alignment> rescues2 = try_rescue(alignments1, read2);
-    
-    // Concatenate originals and rescues
-    alignments1.insert(alignments1.end(), rescues1.begin(), rescues1.end());
-    alignments2.insert(alignments2.end(), rescues2.begin(), rescues2.end());
-    
-    // Deduplicate
-    alignments1 = deduplicate_alignments(alignments1);
-    alignments2 = deduplicate_alignments(alignments2);
-
     // Find the consistent pair with highest total score and promote to primary.
     // We can do this by going down each list in order.
     int best_score = 0;
@@ -346,9 +301,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         iter_swap(best1, alignments1.begin());
         iter_swap(best2, alignments2.begin());
         
-#ifdef debug
-        cerr << "Found consistent pair" << endl;
-#endif
+        if(debug) cerr << "Found consistent pair" << endl;
 
         // Truncate to max multimaps
         if(alignments1.size() > max_multimaps) {
@@ -368,9 +321,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     } else {
         // We could not find any consistent pairs
-#ifdef debug
-        cerr << "Could not find any consistent pairs" << endl;
-#endif
+        if(debug) cerr << "Could not find any consistent pairs" << endl;
 
         // Truncate to max multimaps
         if(alignments1.size() > max_multimaps) {
@@ -793,7 +744,7 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     return graph.adjacent(pos1, pos2);
 }
 
-vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width) {
+vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width, int multimaps) {
     // trigger a banded alignment if we need to
     // note that this will in turn call align_multi on fragments of the read
     if (aln.sequence().size() > band_width) {
@@ -802,18 +753,23 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
     }
     if (kmer_size || index != nullptr) {
         // if we've defined a kmer size, use the legacy style mapper
-        return align_multi_kmers(aln, kmer_size, stride, band_width);
+        return align_multi_kmers(aln, kmer_size, stride, band_width, multimaps);
     } else {
         // otherwise use the mem mapper, which is a banded multi mapper by default
-        return align_mem(aln);
+        return align_mem(aln, multimaps);
     }
 }
 
-vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size, int stride, int band_width) {
+vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size, int stride, int band_width, int multimaps) {
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
     if (debug) start_both = std::chrono::system_clock::now();
     const string& sequence = aln.sequence();
+    
+    if(multimaps == 0) {
+        // Fill in real default multimap limit
+        multimaps = max_multimaps;
+    }
 
     // we assume a kmer size to be specified
     if (!kmer_size && !kmer_sizes.empty()) {
@@ -926,7 +882,7 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
     size_t next_r = 0;
 
     // TODO: Apply a minimum score threshold?
-    while(merged.size() < max_multimaps) {
+    while(merged.size() < multimaps) {
         if(next_f < alignments_f.size()) {
             // We have an available forward alignment
             if(next_r < alignments_r.size()) {
@@ -1298,12 +1254,17 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
     return alns;
 }
 
-vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
+vector<Alignment> Mapper::align_mem(const Alignment& alignment, int multimaps) {
 
     if (debug) cerr << "aligning " << pb2json(alignment) << endl;
     if (!gcsa || !xindex) {
         cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
         exit(1);
+    }
+    
+    if(multimaps == 0) {
+        // Fill in real default multimap limit
+        multimaps = max_multimaps;
     }
 
     // use the GCSA index to determine the approximate MEMs of the read
@@ -1319,7 +1280,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
     if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
 
-    return align_mem_multi(alignment, mems);
+    return align_mem_multi(alignment, mems, multimaps);
 
     /*
     // TODO
@@ -1697,7 +1658,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (debug) {
             cerr << "softclip before " << sc_start << " " << sc_end << endl;
         }
-        double avg_node_size = graph.length() / graph.size();
+        double avg_node_size = graph.length() / (double)graph.size();
         if (debug) cerr << "average node size " << avg_node_size << endl;
         // step towards the side where there were soft clips
         if (sc_start) {
@@ -2150,7 +2111,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                          << graph->distance_to_tail(NodeTraversal(graph->get_node(idl), false), sc_end*3)
                          << endl;
                 }
-                double avg_node_size = graph->length() / graph->size();
+                double avg_node_size = graph->length() / (double)graph->size();
                 if (debug) cerr << "average node size " << avg_node_size << endl;
                 // step towards the side where there were soft clips
                 if (sc_start) {

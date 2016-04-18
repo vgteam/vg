@@ -81,11 +81,11 @@ public:
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
     Alignment align(const Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Align the given read with multi-mapping. Returns the alignments in score
-    // order, up to max_multimaps. Does not update the alignment passed in.
+    // order, up to multimaps (or max_multimaps if multimaps is 0). Does not update the alignment passed in.
     // If the sequence is longer than the band_width, will only produce a single best banded alignment.
     // All alignments but the first are marked as secondary.
-    vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
-    vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000, int multimaps = 0);
+    vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000, int multimaps = 0);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const Alignment& aln1, const Alignment& aln2, int pair_window);
@@ -150,7 +150,7 @@ public:
     // stepping step between each one
     vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1);
     // alignment based on the MEM approach
-    vector<Alignment> align_mem(const Alignment& alignment);
+    vector<Alignment> align_mem(const Alignment& alignment, int multimaps = 0);
     Alignment align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems);
     vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int max_multi = 0);
     // use BFS to expand the graph in an attempt to resolve soft clips
