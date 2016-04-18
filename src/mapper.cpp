@@ -93,22 +93,45 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     auto& path = read1.path();
     int64_t idf = path.mapping(0).position().node_id();
     int64_t idl = path.mapping(path.mapping_size()-1).position().node_id();
-    // but which way should we expand? this will make things much easier
-    // just use the whole "window" for now
+    if(idf > idl) {
+        swap(idf, idl);
+    }
+    // but which way should we expand? this will make things much easier.
+    
+    // We'll look near the leftmost and rightmost nodes, but we won't try and
+    // bridge the whole area of the read, because there may be an ID
+    // discontinuity.
     int64_t first = max((int64_t)0, idf - pair_window);
     int64_t last = idl + (int64_t) pair_window;
+    
+    // Now make sure the ranges don't overlap, because if they do we'll
+    // duplicate nodes They can only overlap as idf on top of idl, since we
+    // swapped them above. TODO: account at all for orientation? Maybe our left
+    // end is in higher numbers but really does need to look left and not right.
+    while(idf >= idl) {
+        idf--;
+    }
+    
     VG* graph = new VG;
+
+    if(debug) {
+        cerr << "Rescuing in " << first << "-" << idf << " and " << idl << "-" << last << endl;
+    }
+    
+    // TODO: how do we account for orientation when using ID ranges?
 
     // Now we need to get the neighborhood by ID and expand outward by actual
     // edges. How we do this depends on what indexing structures we have.
     if(xindex) {
         // should have callback here
-        xindex->get_id_range(first, last, graph->graph);
+        xindex->get_id_range(first, idf, graph->graph);
+        xindex->get_id_range(idl, last, graph->graph);
         // don't get the paths (this isn't yet threadsafe in sdsl-lite)
         xindex->expand_context(graph->graph, context_depth, false);
         graph->rebuild_indexes();
     } else if(index) {
-        index->get_range(first, last, *graph);
+        index->get_range(first, idf, *graph);
+        index->get_range(idl, last, *graph);
         index->expand_context(*graph, context_depth);
     } else {
         cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
@@ -117,6 +140,11 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
 
 
     graph->remove_orphan_edges();
+    
+    if(debug) {
+        cerr << "Rescue graph size: " << graph->size() << endl;
+    }
+    
     read2.clear_path();
     read2.set_score(0);
 
