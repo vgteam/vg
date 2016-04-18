@@ -530,25 +530,40 @@ void help_scrub(char** argv){
         << "Filter alignments by various common metrics." << endl
         << endl
         << "options: " << endl
-        << "  -d --depth <DEPTH>    remove edits below DEPTH" << endl
-        << "  -q --qual <QUAL>      remove edits with a per-base quality below <QUAL>" << endl
+        << "  -d --depth <DEPTH>    filter any edits seen fewer than DEPTH times." << endl
+        << "  -q --qual <QUAL>      filter edits with a per-base quality below <QUAL>" << endl
+        << "  -a --average-qual <AQUAL>  filter alignments with an average quality below <AQUAL>" << endl
+        << "  -w --window-size <WIN>     when filtering by average quality or average depth, use a sliding window if size <WIN>." << endl
         << "  -p --percent-identity <PCTID> remove alignments that arbelow <PCTID>" << endl
-        << "  -r --remove-alignments if an alignment fails return an empty one" << endl
-        << "(default behavior: remove failing edits but return the alignment)" << endl
+        << "  -r --remove-edits     scrub failing edits and return the modified original alignment" << endl
+        << "               (default behavior: return an empty alignment if it fails any filter.)" << endl
+        << "  -v --inverse          invert a filter so that failing alignments are returned (like grep -v)" << endl
+        << "  -m --filter-matches   filter both mismatches to the graph and matches to the graph." << endl
+        << "  -P --path-divergence  filter alignments that map across two distinct paths." << endl
+        << "  -S --split-read <DIST>      filter alignments that are split across more than <DIST> bp." << endl
+        << "  -R --reversing        filter alignments that have both forward and reverse segments." << endl
+        << "  -C --soft-clip <CLIP>       filter alignments with more than <CLIP> bases hanging off their ends." << endl
+
         << endl;
 }
 
 int main_scrub(int argc, char** argv){
     string alignment_file;
+    int threads = 1;
+
     int min_depth = 0;
     int min_qual = 0;
-    double min_percent_identity = 0.0;
-    bool remove_failing_alignments = true;
-    bool do_split_read = false;
     int soft_clip_limit = -1;
-    int sliding_window_len = -1;
+    int split_read_limit = -1;
+    int sliding_window_length = -1;
+    double min_percent_identity = 0.0;
+    double min_avg_qual = 0.0;
     bool do_inverse = false;
-
+    bool do_path_div = false;
+    bool do_reversing = false;
+    bool remove_failing_edits  = false;
+    bool filter_matches = false;
+    
     if (argc <= 2){
         help_scrub(argv);
         exit(1);
@@ -561,19 +576,22 @@ int main_scrub(int argc, char** argv){
             {"help", no_argument, 0, 'h'},
             {"depth", required_argument, 0, 'd'},
             {"quality", required_argument,0, 'q'},
-            {"avg_quality", required_argument, 0, 'a'},
+            {"average-quality", required_argument, 0, 'a'},
             {"percent-identity", required_argument, 0, 'p'},
-            {"remove-alignments", no_argument, 0, 'r'},
-            {"path-divergence", no_argument, 0, 'D'},
-            {"softclip", no_argument, 0, 's'},
-            {"split-read", no_argument, 0, 'S'},
+            {"remove-edits", no_argument, 0, 'r'},
+            {"filter-matches", no_argument, 0, 'm'},
+            {"path-divergence", no_argument, 0, 'P'},
+            {"reversing", no_argument, 0, 'R'},
+            {"soft-clip", required_argument, 0, 'C'},
+            {"split-read", required_argument, 0, 'S'},
             {"inverse", no_argument, 0, 'v'},
             {"window-length", required_argument, 0, 'w'},
+            {"threads", required_argument, 0, 't'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:Shp:d:q:a:r",
+        c = getopt_long (argc, argv, "hvmrRPd:p:q:a:w:C:S:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -586,26 +604,41 @@ int main_scrub(int argc, char** argv){
             case 'h':
                 help_scrub(argv);
                 return 1;
+            case 't':
+                threads = atoi(optarg);
+                break;
             case 'd':
                 min_depth = atoi(optarg);
                 break;
             case 'q':
                 min_qual = atoi(optarg);
                 break;
+            case 'm':
+                filter_matches = true;
+                break;
+            case 'a':
+                min_avg_qual = atof(optarg);
+                break;
             case 'p':
                 min_percent_identity = atof(optarg);
                 break;
             case 'r':
-                remove_failing_alignments = true;
+                remove_failing_edits = true;
                 break;
             case 'S':
-                do_split_read = true;
+                split_read_limit = atoi(optarg);
                 break;
-            case 's':
+            case 'C':
                 soft_clip_limit = atoi(optarg);
                 break;
+            case 'P':
+                do_path_div = true;
+                break;
+            case 'R':
+                do_reversing = true;
+                break;
             case 'w':
-                sliding_window_len = atoi(optarg);
+                sliding_window_length = atoi(optarg);
                 break;
             case 'v':
                 do_inverse = true;
@@ -614,6 +647,8 @@ int main_scrub(int argc, char** argv){
                 abort();
         }
     }
+
+   omp_set_num_threads(threads); 
 
     alignment_file = argv[optind];
 
@@ -627,28 +662,17 @@ int main_scrub(int argc, char** argv){
     ff.set_min_depth(min_depth);
     ff.set_min_qual(min_qual);
     ff.set_min_percent_identity(min_percent_identity);
-    ff.set_remove_failing_alignments(remove_failing_alignments);
 
-    std::function<void(Alignment&)> depth_fil = [&ff, &buffer](Alignment& aln){
-            //std::function<Alignment(uint64_t)>([&ff, &aln](uint64_t n) { return ff.depth_filter(aln); });
+    ff.set_remove_failing_edits(remove_failing_edits);
+    ff.set_inverse(do_inverse);
+    ff.set_filter_matches(filter_matches);
 
-            aln = ff.depth_filter(aln);
-            if (aln.sequence().size() > 0){
-              buffer.push_back(aln);
-            }
-
-            // if (aln.sequence().size() == 0){
-            //     cout << "FAIL" << endl;
-            // }
-            // else {cout <<  "PASS" << endl;}
-    };
-
-    std::function<void(Alignment&)> pct_fil = [&ff, &buffer](Alignment& aln){
-        aln = ff.percent_identity_filter(aln);
-        if (aln.sequence().size() > 0){
-          buffer.push_back(aln);
-        }
-    };
+    ff.set_avg_qual(min_avg_qual);
+    ff.set_window_length(sliding_window_length);
+    ff.set_soft_clip_limit(soft_clip_limit);
+    ff.set_split_read_limit(split_read_limit);
+    ff.set_path_divergence(do_path_div);
+    ff.set_reversing(do_reversing);
 
     std::function<void(Alignment&)> qual_fil = [&ff, &buffer](Alignment& aln){
         aln = ff.qual_filter(aln);
@@ -657,33 +681,66 @@ int main_scrub(int argc, char** argv){
         }
     };
 
+    /**
+     * Depth and (later) average depth should be done in serial.
+     */
+    std::function<void(Alignment&)> serial_filters_lambda = [&ff, &buffer](Alignment& aln){
+       if (ff.get_min_depth() > 0){
+            aln = ff.depth_filter(aln);
+       }
 
+
+       if (aln.sequence().size() > 0){
+            buffer.push_back(aln);
+       }
+
+    };
+
+    /**
+     * Quality, average quality, soft clipping, reversing, split_read, percent identity, and path
+     * divergence can likely all safely be done in parallel.
+     */
+    std::function<void(Alignment&)> parallel_filters_lambda = [&ff, &buffer](Alignment& aln){
+        if (ff.get_min_qual() > 0){
+            aln = ff.qual_filter(aln);
+        }
+        if (ff.get_do_reversing()){
+            aln = ff.reversing_filter(aln);
+        }
+        if (ff.get_soft_clip_limit() > 0){
+            aln = ff.soft_clip_filter(aln);
+        }
+        if (ff.get_split_read_limit() > 0){
+            aln = ff.split_read_filter(aln);
+        }
+        if (ff.get_do_path_divergence()){
+            aln = ff.path_divergence_filter(aln);
+        }
+        if (ff.get_min_avg_qual() > 0.0){
+            aln = ff.avg_qual_filter(aln);
+        }
+        if (ff.get_min_percent_identity() > 0.0){
+            aln = ff.percent_identity_filter(aln);
+        }
+
+
+        if (aln.sequence().size() > 0){
+            buffer.push_back(aln);
+        }
+    };
 
 
     if (alignment_file == "-"){
-        if (min_depth > 0){
-            stream::for_each(cin, depth_fil);
-        }
-        if (min_qual >= 0){
-            stream::for_each(cin, qual_fil);
-        }
-        if (min_percent_identity > 0.0){
-            stream::for_each(cin, pct_fil);
-        }
+        stream::for_each(cin, serial_filters_lambda);
+        stream::for_each_parallel(cin, parallel_filters_lambda);
     }
     else{
         ifstream in;
         in.open(alignment_file);
         if (in.good()){
-            if (min_depth > 0){
-                stream::for_each(in, depth_fil);
-            }
-            if (min_qual >= 0){
-                stream::for_each(in, qual_fil);
-            }
-            if (min_percent_identity > 0.0){
-                stream::for_each(in, pct_fil);
-            }
+            stream::for_each(in, serial_filters_lambda);
+            stream::for_each_parallel(in, parallel_filters_lambda);
+
         }
         else{
             cerr << "Could not open " << alignment_file << endl;
