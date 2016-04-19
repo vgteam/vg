@@ -37,6 +37,8 @@ Mapper::Mapper(Index* idex,
     , gap_open(6)
     , gap_extend(1)
     , max_query_graph_ratio(128)
+    , promote_consistent_pairs(false)
+    , extra_pairing_multimaps(4)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -256,9 +258,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     };
     
-    // Do the initial alignments, making sure to get some extras
-    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width, max_multimaps * 2 + 2);
-    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width, max_multimaps * 2 + 2);
+    // Do the initial alignments, making sure to get some extras if we're going to check consistency.
+    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width,
+        max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
+    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width,
+        max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
     
     // Rescue only if the top alignment on one side has no mappings
     if((alignments1.empty() || alignments1[0].score() == 0) && !(alignments2.empty() || alignments2[0].score() == 0)) {
@@ -280,17 +284,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     int best_score = 0;
     vector<Alignment>::iterator best1;
     vector<Alignment>::iterator best2;
-    for(auto aln1 = alignments1.begin(); aln1 != alignments1.end(); ++aln1) {
-        for(auto aln2 = alignments2.begin(); aln2 != alignments2.end(); ++aln2) {
-            // TODO: this is quadradic in number of alignments looked at. Is there a better way?
-            int pair_score = (*aln1).score() + (*aln2).score();
-            if(pair_score > best_score && alignments_consistent(*aln1, *aln2, pair_window)) {
-                // This is the new best consistent pair
-                best_score = pair_score;
-                best1 = aln1;
-                best2 = aln2;
-            }
-        } 
+    if(promote_consistent_pairs) {
+        for(auto aln1 = alignments1.begin(); aln1 != alignments1.end(); ++aln1) {
+            for(auto aln2 = alignments2.begin(); aln2 != alignments2.end(); ++aln2) {
+                // TODO: this is quadradic in number of alignments looked at. Is there a better way?
+                int pair_score = (*aln1).score() + (*aln2).score();
+                if(pair_score > best_score && alignments_consistent(*aln1, *aln2, pair_window)) {
+                    // This is the new best consistent pair
+                    best_score = pair_score;
+                    best1 = aln1;
+                    best2 = aln2;
+                }
+            } 
+        }
     }
     
     if(best_score > 0) {

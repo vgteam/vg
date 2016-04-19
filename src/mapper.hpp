@@ -208,6 +208,9 @@ public:
     // soft clip resolution
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
     float min_identity; // require that alignment identity is at least this much to accept alignment
+    // paired-end consistency enforcement
+    bool promote_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
+    int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
 
 };
 
