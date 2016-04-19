@@ -9,7 +9,8 @@ namespace vg {
     }
 
     Deconstructor::Deconstructor(VG* v) {
-        my_vg = v;;
+        my_vg = v;
+        
 
         init();
     }
@@ -18,6 +19,30 @@ namespace vg {
     }
 
     void Deconstructor::init(){
+    }
+
+    void Deconstructor::unroll_my_graph(int steps){
+       *my_graph = my_graph->unfold(steps, my_unroll_translation);
+        if (my_translation.size() > 0){
+            my_graph->overlay_node_translation(my_unroll_translation, my_translation);
+        }
+
+    }
+
+    void Deconstructor::dagify_my_graph(int steps){
+        *my_graph = my_graph->dagify(steps, my_dagify_translation, 0, my_max_length);
+        if (my_translation.size() > 0){
+            my_graph->overlay_node_translation(my_dagify_translation, my_translation);
+        }
+    }
+
+    vg::VG* Deconstructor::compact(vg::VG* graph){
+        
+
+    }
+
+    id_t Deconstructor::translate_id(id_t transformed){
+
     }
 
     /**

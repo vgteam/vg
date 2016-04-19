@@ -6621,6 +6621,7 @@ int main_view(int argc, char** argv) {
 
         bool print_sbs = false;
         string outfile = "";
+        bool dagify = false;
         int unroll_steps = 0;
         int compact_steps = 0;
         string mask_file = "";
@@ -6638,6 +6639,7 @@ int main_view(int argc, char** argv) {
                 {"unroll", required_argument, 0, 'u'},
                 {"compact", required_argument, 0, 'c'},
                 {"mask", required_argument, 0, 'm'},
+                {"dagify", no_argument, 0, 'd'},
                 {"superbubbles", no_argument, 0, 's'},
                 {0, 0, 0, 0}
 
@@ -6670,6 +6672,9 @@ int main_view(int argc, char** argv) {
                 case 'm':
                     mask_file = optarg;
                     break;
+                case 'd':
+                    dagify = true;
+                    break;
                 case '?':
                 case 'h':
                     help_deconstruct(argv);
@@ -6691,12 +6696,21 @@ int main_view(int argc, char** argv) {
             graph = new VG(in);
         }
         Deconstructor decon = Deconstructor(graph);
-
+                
 				if (unroll_steps > 0){
 					cerr << "Unrolling " << unroll_steps << " steps..." << endl;
-
+                            
 					cerr << "Done." << endl;
 				}
+
+                if (dagify){
+                    cerr << "DAGifying..." << endl;
+
+                    cerr << "Done." << endl;
+                }
+
+                // At this point, we can detect the superbubbles
+
 
 				if (compact_steps > 0){
 					cerr << "Compacting superbubbles of graph " << compact_steps << " steps..." << endl;
