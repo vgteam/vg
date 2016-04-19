@@ -34,6 +34,31 @@ namespace vg {
         return false;
     }
 
+    void Deconstructor::sb2vcf(vector<SuperBubble> sbs){
+        Header h;
+        h.set_date();
+        h.set_source("VG");
+        h.set_reference("");
+        h.set_version("VCF4.2");
+
+        cout << h << endl;
+        for (auto s : sbs){
+          map<int, vector<id_t> >::iterator it;
+          for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); ++it){
+                vcflib::Variant v;
+                v.sequenceName = "x";
+                v.ref = "A";
+                v.position = 100;
+                v.alt = vector<string>();
+                v.alt.push_back("T");
+                cout << v << endl;
+            }
+            
+        }
+
+        
+    }
+
     /**
      * Uses a BFS between nodes in the graph
      * labeled as the endpoints of superbubbles
@@ -72,7 +97,7 @@ namespace vg {
                     nq.push(edges_on_end[j].first);
                     id_t next_id = (edges_on_end[j].first);
                     if (next_id == endpoints.second){
-                        ret[i].nodes = alleles;
+                        ret[i].level_to_nodes = level_to_nodes;
                         ret[i].start_node = endpoints.first;
                         ret[i].end_node = endpoints.second;
                         break;

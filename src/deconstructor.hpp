@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include <climits>
 #include <queue>
+#include <fstream>
+#include <cstdlib>
+#include <sstream>
 #include <stack>
 #include "Variant.h"
 #include "index.hpp"
@@ -18,9 +21,6 @@
 #include "xg.hpp"
 #include "position.hpp"
 #include "vcfheader.hpp"
-#include <fstream>
-#include <cstdlib>
-
 /**
 * Deconstruct is getting rewritten.
 * New functionality:
@@ -37,7 +37,7 @@ namespace vg{
     using namespace vcfh;
     struct SuperBubble{
       //A vector of topologically-sorted nodes in the superbubble.
-      vector<id_t> nodes;
+      map<int, vector<id_t> > level_to_nodes;
       id_t start_node;
       id_t end_node;
       bool isNested;
@@ -52,6 +52,7 @@ namespace vg{
             bool is_nested(SuperBubble sb);
             SuperBubble report_superbubble(int64_t start, int64_t end);
             vector<SuperBubble> get_all_superbubbles();
+            void sb2vcf(vector<SuperBubble> sbs);
             
 
         private:

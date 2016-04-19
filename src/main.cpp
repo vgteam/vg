@@ -54,8 +54,8 @@ void help_filter(char** argv) {
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl;
-         
-         
+
+
 }
 
 int main_filter(int argc, char** argv) {
@@ -183,14 +183,14 @@ int main_filter(int argc, char** argv) {
             cerr << "No regions read from BED file, doing whole graph" << endl;
         }
     }
-    
+
     // empty region, do everything
     if (regions.empty()) {
         // we handle empty intervals as special case when looking up, otherwise,
-        // need to insert giant interval here. 
+        // need to insert giant interval here.
         chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
     }
-    
+
     // otherwise, need to extract regions with xg
     else {
         if (xg_name.empty()) {
@@ -217,7 +217,7 @@ int main_filter(int argc, char** argv) {
                 cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
                      << "-" << regions[i].end << endl;
             } else {
-                // clip region on end of path            
+                // clip region on end of path
                 regions[i].end = min(path_size - 1, regions[i].end);
                 // do path node query
                 xindex.get_path_range(regions[i].seq, regions[i].start, regions[i].end, graph);
@@ -235,7 +235,7 @@ int main_filter(int argc, char** argv) {
             // map the chunk id to a name
             chunk_names.push_back(chunk_name(i));
 
-            // map the node range to the chunk id.  
+            // map the node range to the chunk id.
             if (graph.node_size() > 0) {
                 interval_list.push_back(Interval<int, int64_t>(min_id, max_id, i));
                 assert(chunk_names.size() == i + 1);
@@ -245,7 +245,7 @@ int main_filter(int argc, char** argv) {
 
     // index chunk regions
     IntervalTree<int, int64_t> region_map(interval_list);
-    
+
     // setup alignment stream
     if (optind >= argc) {
         help_filter(argv);
@@ -563,7 +563,7 @@ int main_scrub(int argc, char** argv){
     bool do_reversing = false;
     bool remove_failing_edits  = false;
     bool filter_matches = false;
-    
+
     if (argc <= 2){
         help_scrub(argv);
         exit(1);
@@ -648,7 +648,7 @@ int main_scrub(int argc, char** argv){
         }
     }
 
-   omp_set_num_threads(threads); 
+   omp_set_num_threads(threads);
 
     alignment_file = argv[optind];
 
@@ -767,12 +767,14 @@ void help_vectorize(char** argv){
         << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
         << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
         << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
+        << "  -l --aln-label     Label all vectors with a custom label" << endl
         << endl;
 }
 
 int main_vectorize(int argc, char** argv){
 
     string xg_name;
+    string aln_label = "";
     bool format = false;
     bool show_header = false;
     bool map_alns = false;
@@ -799,11 +801,12 @@ int main_vectorize(int argc, char** argv){
             {"a-hot", no_argument, 0, 'a'},
             {"wabbit", no_argument, 0, 'w'},
             {"identity-hot", no_argument, 0, 'i'},
+            {"aln-label", required_argument, 0, 'l'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfx:",
+        c = getopt_long (argc, argv, "Aaihwfx:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -825,6 +828,8 @@ int main_vectorize(int argc, char** argv){
             case 'w':
                 output_wabbit = true;
                 break;
+            case 'l':
+                aln_label = optarg;
             case 'i':
                 use_identity_hot = true;
                 break;
@@ -854,13 +859,16 @@ int main_vectorize(int argc, char** argv){
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, format, a_hot](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, output_wabbit, format, a_hot, aln_label](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
 
         if (a_hot){
             vector<int> v = vz.alignment_to_a_hot(a);
-            if (format){
+            if (output_wabbit){
+                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
+            }
+            else if (format){
                 cout << a.name() << "\t" << vz.format(v) << endl;
             }
             else{
@@ -869,7 +877,10 @@ int main_vectorize(int argc, char** argv){
         }
         else{
             bit_vector v = vz.alignment_to_onehot(a);
-            if (format){
+            if (output_wabbit){
+                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
+            }
+            else if (format){
                 cout << a.name() << "\t" << vz.format(v) << endl;
             }
             else{
@@ -887,12 +898,6 @@ int main_vectorize(int argc, char** argv){
             stream::for_each(in, lambda);
         }
     }
-
-
-
-    //TODO handle custom scores settings.
-
-    vz.emit(cout, format, annotate);
 
 
 
@@ -1658,7 +1663,7 @@ int main_msga(int argc, char** argv) {
         case 'C':
             circularize = true;
             break;
-            
+
         case 'P':
             min_identity = atof(optarg);
             break;
@@ -1679,7 +1684,7 @@ int main_msga(int argc, char** argv) {
         case 'z':
             allow_nonpath = true;
             break;
-                
+
         case 'a':
             match = atoi(optarg);
             break;
@@ -2376,7 +2381,7 @@ int main_circularize(int argc, char** argv){
     int c;
     optind = 2;
     while (true){
-        static struct option long_options[] = 
+        static struct option long_options[] =
         {
             {"path", required_argument, 0, 'p'},
             {"pathfile", required_argument, 0, 'P'},
@@ -2385,7 +2390,7 @@ int main_circularize(int argc, char** argv){
             {"describe", required_argument, 0, 'd'},
             {0,0,0,0}
         };
-    
+
 
     int option_index = 0;
     c = getopt_long (argc, argv, "hdp:P:a:z:",
@@ -2444,7 +2449,7 @@ int main_circularize(int argc, char** argv){
     else if (path != ""){
         paths_to_circularize.push_back(path);
     }
-    
+
     VG* graph;
     string file_name = argv[optind];
     if (file_name == "-"){
@@ -2463,7 +2468,7 @@ int main_circularize(int argc, char** argv){
             cerr << "ERROR: PATH NOT IN GRAPH - " << p << endl;
             paths_in_graph = false;
         }
-        
+
         if (!paths_in_graph){
             exit(1);
         }
@@ -2476,7 +2481,7 @@ int main_circularize(int argc, char** argv){
        }
        exit(0);
     }
-    
+
     if (head > 0 && tail > head){
         graph->circularize(head, tail);
     }
@@ -3078,7 +3083,7 @@ int main_sim(int argc, char** argv) {
 
     mt19937 rng;
     rng.seed(seed_val);
-    
+
     xg::XG* xgidx = nullptr;
     ifstream xg_stream(xg_name);
     if(xg_stream) {
@@ -3092,7 +3097,7 @@ int main_sim(int argc, char** argv) {
     Sampler sampler(xgidx, seed_val);
     size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
-        
+
         auto aln = sampler.alignment(read_length);
         size_t iter = 0;
         while (iter++ < max_iter) {
@@ -5587,7 +5592,7 @@ int main_map(int argc, char** argv) {
         case 'm':
             hit_max = atoi(optarg);
             break;
-            
+
         case 'M':
             max_multimaps = atoi(optarg);
             break;
@@ -6414,14 +6419,14 @@ int main_view(int argc, char** argv) {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
                     alignment_quality_short_to_char(a);
-                    
+
                     if(std::isnan(a.identity())) {
                         // Fix up NAN identities that can't be serialized in
                         // JSON. We shouldn't generate these any more, and they
                         // are out of spec, but they can be in files.
                         a.set_identity(0);
                     }
-                    
+
                     cout << pb2json(a) << "\n";
                 };
                 if (file_name == "-") {
@@ -6599,7 +6604,11 @@ int main_view(int argc, char** argv) {
     void help_deconstruct(char** argv){
         cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
             << "options: " << endl
-            << "-s, --superbubbles  print the superbubbles of the graph and exit."
+            << " -s, --superbubbles  Print the superbubbles of the graph and exit." << endl
+            << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
+            << " -u -- unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
+            << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
+            << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
             << endl;
     }
     int main_deconstruct(int argc, char** argv){
@@ -6608,7 +6617,15 @@ int main_view(int argc, char** argv) {
             help_deconstruct(argv);
             return 1;
         }
+
+
         bool print_sbs = false;
+        string outfile = "";
+        int unroll_steps = 0;
+        int compact_steps = 0;
+        string mask_file = "";
+        string xg_name = "";
+
 
         int c;
         optind = 2; // force optind past command positional argument
@@ -6617,12 +6634,16 @@ int main_view(int argc, char** argv) {
             {
                 {"help", no_argument, 0, 'h'},
                 {"xg-name", required_argument,0, 'x'},
+                {"output", required_argument, 0, 'o'},
+                {"unroll", required_argument, 0, 'u'},
+                {"compact", required_argument, 0, 'c'},
+                {"mask", required_argument, 0, 'm'},
                 {"superbubbles", no_argument, 0, 's'},
                 {0, 0, 0, 0}
 
             };
             int option_index = 0;
-            c = getopt_long (argc, argv, "hsx:",
+            c = getopt_long (argc, argv, "ho:u:c:m:sx:",
                     long_options, &option_index);
 
             // Detect the end of the options.
@@ -6634,6 +6655,21 @@ int main_view(int argc, char** argv) {
                 case 's':
                     print_sbs = true;
                     break;
+                case 'x':
+                    xg_name = optarg;
+                    break;
+                case 'o':
+                    outfile = optarg;
+                    break;
+                case 'u':
+                    unroll_steps = atoi(optarg);
+                    break;
+                case 'c':
+                    compact_steps = atoi(optarg);
+                    break;
+                case 'm':
+                    mask_file = optarg;
+                    break;
                 case '?':
                 case 'h':
                     help_deconstruct(argv);
@@ -6642,6 +6678,8 @@ int main_view(int argc, char** argv) {
                     abort();
             }
         }
+
+
 
         VG* graph;
         string file_name = argv[optind];
@@ -6653,16 +6691,30 @@ int main_view(int argc, char** argv) {
             graph = new VG(in);
         }
         Deconstructor decon = Deconstructor(graph);
+
+				if (unroll_steps > 0){
+					cerr << "Unrolling " << unroll_steps << " steps..." << endl;
+
+					cerr << "Done." << endl;
+				}
+
+				if (compact_steps > 0){
+					cerr << "Compacting superbubbles of graph " << compact_steps << " steps..." << endl;
+
+					cerr << "Done." << endl;
+				}
         if (print_sbs){
             vector<SuperBubble> sbs = decon.get_all_superbubbles();
             for (auto s: sbs){
                 cout << s.start_node << "\t";
-                for (auto i : s.nodes){
-                    cout << i << ",";
-                }
+                //for (auto i : s.nodes){
+                //    cout << i << ",";
+                //}
                 cout << "\t" << s.end_node << endl;
             }
         }
+
+
 
         /* Find superbubbles */
 
@@ -6859,19 +6911,19 @@ int main_view(int argc, char** argv) {
 
         return 0;
     }
-    
+
     void help_version(char** argv){
         cerr << "usage: " << argv[0] << " version" << endl
             << "options: " << endl
             << endl;
     }
     int main_version(int argc, char** argv){
-    
+
         if (argc != 2) {
             help_version(argv);
             return 1;
         }
-    
+
         cout << VG_GIT_VERSION << endl;
         return 0;
     }
