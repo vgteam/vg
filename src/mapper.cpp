@@ -107,10 +107,12 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     int64_t last = idl + (int64_t) pair_window;
     
     // Now make sure the ranges don't overlap, because if they do we'll
-    // duplicate nodes They can only overlap as idf on top of idl, since we
-    // swapped them above. TODO: account at all for orientation? Maybe our left
-    // end is in higher numbers but really does need to look left and not right.
-    while(idf >= idl) {
+    // duplicate nodes.
+    
+    // They can only overlap as idf on top of idl, since we swapped them above.
+    // TODO: account at all for orientation? Maybe our left end is in higher
+    // numbers but really does need to look left and not right.
+    if(idf >= idl) {
         idf--;
     }
     
@@ -214,8 +216,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     // use paired-end resolution techniques
     //
-    // map both reads independently
-    // try rescuing off each independent mapping
+    // map both reads independently, fetching some extra lower-score alignments
     // put them all in lists, try and find the best consistent pair
     // put that first, sort the rest by score, trim to requested number of multi-mappings, and return
     
