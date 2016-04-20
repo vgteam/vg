@@ -49,28 +49,29 @@ namespace vg{
             Deconstructor();
             Deconstructor(VG* graph);
             ~Deconstructor();
-            void unroll_my_graph(int steps);
-            void dagify_my_graph(int steps);
-            vg::VG* compact(vg::VG* graph);
+            void unroll_my_vg(int steps);
+            void dagify_my_vg(int steps);
+            vg::VG* compact(int compact_steps);
             bool is_nested(SuperBubble sb);
             SuperBubble report_superbubble(int64_t start, int64_t end);
             vector<SuperBubble> get_all_superbubbles();
-            void sb2vcf(vector<SuperBubble> sbs);
+            void sb2vcf(ostream ofi);
             
 
         private:
 
 		  VG* my_vg;
           map<id_t, pair<id_t, bool> > my_translation;
-          map<id_t, pair<id_t, bool> > my_unroll_trans;
-          map<id_t, pair<id_t, bool> > my_dagify_trans;
+          map<id_t, pair<id_t, bool> > my_unroll_translation;
+          map<id_t, pair<id_t, bool> > my_dagify_translation;
+          map<id_t, SuperBubble> id_to_bub;
 
-          vector<SuperBubble> my_super_bubbles;
+          vector<SuperBubble> my_superbubbles;
           size_t my_max_length;
           size_t my_max_component_length;
 
 		  vector<int64_t> nt_to_ids(deque<NodeTraversal>& nt);
-          id_t translate_id(id_t id);
+          SuperBubble translate_id(id_t id);
 		  void init();
 
     };

@@ -6695,30 +6695,33 @@ int main_view(int argc, char** argv) {
             in.open(file_name.c_str());
             graph = new VG(in);
         }
+        
         Deconstructor decon = Deconstructor(graph);
                 
-				if (unroll_steps > 0){
-					cerr << "Unrolling " << unroll_steps << " steps..." << endl;
-                            
-					cerr << "Done." << endl;
-				}
+		if (unroll_steps > 0){
+			cerr << "Unrolling " << unroll_steps << " steps..." << endl;
+            decon.unroll_my_vg(unroll_steps);
+			cerr << "Done." << endl;
+		}
 
-                if (dagify){
-                    cerr << "DAGifying..." << endl;
+        if (dagify){
+            int dagify_steps = 1;
+            cerr << "DAGifying..." << endl;
+            decon.dagify_my_vg(dagify_steps);
+            cerr << "Done." << endl;
+        }
 
-                    cerr << "Done." << endl;
-                }
+        // At this point, we can detect the superbubbles
 
-                // At this point, we can detect the superbubbles
+        vector<SuperBubble> sbs = decon.get_all_superbubbles();
 
 
-				if (compact_steps > 0){
-					cerr << "Compacting superbubbles of graph " << compact_steps << " steps..." << endl;
-
-					cerr << "Done." << endl;
-				}
+		if (compact_steps > 0){
+			cerr << "Compacting superbubbles of graph " << compact_steps << " steps..." << endl;
+            decon.compact(compact_steps);
+			cerr << "Done." << endl;
+		}
         if (print_sbs){
-            vector<SuperBubble> sbs = decon.get_all_superbubbles();
             for (auto s: sbs){
                 cout << s.start_node << "\t";
                 //for (auto i : s.nodes){
@@ -6726,6 +6729,13 @@ int main_view(int argc, char** argv) {
                 //}
                 cout << "\t" << s.end_node << endl;
             }
+        }
+        else{
+            ostream ostr;
+            if (outfile != ""){
+                ostr.open(outfile);
+            }
+            decon.sb2vcf( (outfile == "" ? cout : ostr) );
         }
 
 

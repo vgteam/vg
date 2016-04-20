@@ -21,27 +21,39 @@ namespace vg {
     void Deconstructor::init(){
     }
 
-    void Deconstructor::unroll_my_graph(int steps){
-       *my_graph = my_graph->unfold(steps, my_unroll_translation);
+    void Deconstructor::unroll_my_vg(int steps){
+       *my_vg = my_vg->unfold(steps, my_unroll_translation);
         if (my_translation.size() > 0){
-            my_graph->overlay_node_translation(my_unroll_translation, my_translation);
+            my_vg->overlay_node_translations(my_unroll_translation, my_translation);
         }
 
     }
 
-    void Deconstructor::dagify_my_graph(int steps){
-        *my_graph = my_graph->dagify(steps, my_dagify_translation, 0, my_max_length);
+    void Deconstructor::dagify_my_vg(int steps){
+        *my_vg = my_vg->dagify(steps, my_dagify_translation, 0, my_max_length);
         if (my_translation.size() > 0){
-            my_graph->overlay_node_translation(my_dagify_translation, my_translation);
+            my_vg->overlay_node_translations(my_dagify_translation, my_translation);
         }
     }
-
-    vg::VG* Deconstructor::compact(vg::VG* graph){
+    
+    /**
+     * For each superbubble in the graph:
+     *  If a superbubble is nested and simple (contains no superbubbles),
+     *  transform it into a node.
+     *  Record the translation from new node in the graph -> old superbubble
+     *  map<id_t, SuperBubble>
+     *
+     *  At each step, find the new superbubbles of the graph and continue with this process.
+     *
+     *
+     */
+    vg::VG* Deconstructor::compact(int compact_steps){
         
-
+        
     }
 
-    id_t Deconstructor::translate_id(id_t transformed){
+    SuperBubble Deconstructor::translate_id(id_t transformed){
+        return id_to_bub[transformed];
 
     }
 
@@ -59,7 +71,7 @@ namespace vg {
         return false;
     }
 
-    void Deconstructor::sb2vcf(vector<SuperBubble> sbs){
+    void Deconstructor::sb2vcf(ostream ostr){
         Header h;
         h.set_date();
         h.set_source("VG");
@@ -67,7 +79,7 @@ namespace vg {
         h.set_version("VCF4.2");
 
         cout << h << endl;
-        for (auto s : sbs){
+        for (auto s : my_superbubbles){
           map<int, vector<id_t> >::iterator it;
           for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); ++it){
                 vcflib::Variant v;
