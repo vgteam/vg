@@ -55,7 +55,7 @@ namespace vg{
             bool is_nested(SuperBubble sb);
             SuperBubble report_superbubble(int64_t start, int64_t end);
             vector<SuperBubble> get_all_superbubbles();
-            void sb2vcf(ostream ofi);
+            void sb2vcf(string outfile);
             
 
         private:

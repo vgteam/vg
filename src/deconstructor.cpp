@@ -71,7 +71,7 @@ namespace vg {
         return false;
     }
 
-    void Deconstructor::sb2vcf(ostream ostr){
+    void Deconstructor::sb2vcf(string outfile){
         Header h;
         h.set_date();
         h.set_source("VG");

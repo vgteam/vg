@@ -6731,11 +6731,7 @@ int main_view(int argc, char** argv) {
             }
         }
         else{
-            ostream ostr;
-            if (outfile != ""){
-                ostr.open(outfile);
-            }
-            decon.sb2vcf( (outfile == "" ? cout : ostr) );
+            decon.sb2vcf(outfile);
         }
 
 
