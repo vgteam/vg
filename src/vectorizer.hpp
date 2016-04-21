@@ -45,6 +45,9 @@ class Vectorizer{
     // names. This allows things like generating simulated data with true cluster as the name.
     vector<bit_vector> my_vectors;
     vector<string> my_names;
+    output_tabbed = false;
+    output_names = false;
+    output_wabbit = false;
 
 };
 
