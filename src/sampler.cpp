@@ -227,7 +227,17 @@ char Sampler::pos_char(pos_t pos) {
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
     map<pos_t, char> nexts;
-    Node node = xgidx->node(id(pos));
+    
+    // See if the node is cached (did we just visit it?)
+    pair<Node, bool> cached = node_cache.retrieve(id(pos));
+    
+    if(!cached.second) {
+        // If it's not in the cache, put it in
+        cached.first = xgidx->node(id(pos));
+        node_cache.put(id(pos), cached.first);
+    }
+    
+    Node& node = cached.first;
     // if we are still in the node, return the next position and character
     if (offset(pos) < node.sequence().size()-1) {
         ++get_offset(pos);

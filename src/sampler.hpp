@@ -10,6 +10,7 @@
 #include "alignment.hpp"
 #include "path.hpp"
 #include "json2pb.h"
+#include "lru_cache.h"
 
 namespace vg {
 
@@ -20,8 +21,11 @@ class Sampler {
 public:
 
     xg::XG* xgidx;
+    // We need this so we don't re-load the node for every character we visit in
+    // it.
+    LRUCache<id_t, Node> node_cache;
     mt19937 rng;
-    Sampler(xg::XG* x, int seed = 0) : xgidx(x) {
+    Sampler(xg::XG* x, int seed = 0) : xgidx(x), node_cache(100) {
         if (!seed) {
             seed = time(NULL);
         }
