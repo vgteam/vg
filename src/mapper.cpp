@@ -268,17 +268,21 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // Rescue only if the top alignment on one side has no mappings
     if((alignments1.empty() || alignments1[0].score() == 0) && !(alignments2.empty() || alignments2[0].score() == 0)) {
         // Can rescue 1 off of 2
+        if (debug) cerr << "Rescue read 1 off of read 2" << endl;
         Alignment mate = read1;
         align_mate(alignments2[0], mate);
         alignments1.clear();
         alignments1.push_back(mate);
     } else if(!(alignments1.empty() || alignments1[0].score() == 0) && (alignments2.empty() || alignments2[0].score() == 0)) {
         // Can rescue 2 off of 1
+        if (debug) cerr << "Rescue read 2 off of read 1" << endl;
         Alignment mate = read2;
         align_mate(alignments1[0], mate);
         alignments2.clear();
         alignments2.push_back(mate);
     }
+    
+    if (debug) cerr << alignments1.size() << " alignments for read 1, " << alignments2.size() << " for read 2" << endl;
     
     // Find the consistent pair with highest total score and promote to primary.
     // We can do this by going down each list in order.
@@ -328,7 +332,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     } else {
         // We could not find any consistent pairs
-        if(debug) cerr << "Could not find any consistent pairs" << endl;
+        if(debug && promote_consistent_pairs) cerr << "Could not find any consistent pairs" << endl;
 
         // Truncate to max multimaps
         if(alignments1.size() > max_multimaps) {
