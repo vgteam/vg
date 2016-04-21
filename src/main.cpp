@@ -4669,7 +4669,7 @@ int main_index(int argc, char** argv) {
         // TODO: a better way to store path metadata
         map<string, Path> alt_paths;
         // This is matched against the entire string.
-        //regex is_alt("_alt_.+_[0-9]+");
+        regex is_alt("_alt_.+_[0-9]+");
 
         // store the graphs
         VGset graphs(file_names);
