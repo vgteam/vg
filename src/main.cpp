@@ -4156,6 +4156,18 @@ int main_find(int argc, char** argv) {
                 cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
             }
         }
+        if (!node_ids.empty() && !path_name.empty()) {
+            // Note: this isn't at all consistent with -P option with rocksdb, which couts a range
+            // and then mapping, but need this info right now for scripts/chunked_call
+            for (auto node_id : node_ids) {
+                cout << node_id;
+                vector<size_t> positions = xindex.node_positions_in_path(node_id, path_name);
+                for (auto pos : positions) {
+                    cout << "\t" << pos;
+                }
+                cout << endl;
+            }
+        }
         if (!target.empty()) {
             string name;
             int64_t start, end;
