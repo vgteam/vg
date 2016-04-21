@@ -166,6 +166,7 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
     pair<const Mapping*, int64_t> open_del(NULL, -1);
     for (int i = 0; i < path.mapping_size(); ++i) {
         const Mapping& mapping = path.mapping(i);
+        int rank = mapping.rank() <= 0 ? i + 1 : mapping.rank(); 
         if (_graph->has_node(mapping.position().node_id())) {
             const Node* node = _graph->get_node(mapping.position().node_id());
             NodePileup* pileup = get_create_node_pileup(node);
@@ -184,14 +185,21 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
                                   alignment, mapping, edit, mismatch_counts, last_match, last_del, open_del);
             }
             out_read_offsets[i] = read_offset - 1;
-        }
-        int rank = mapping.rank() <= 0 ? i + 1 : mapping.rank();
-        if (rank <= 0 || rank >= ranks.size() || ranks[rank] != -1) {
+
+            if (rank <= 0 || rank >= ranks.size() || ranks[rank] != -1) {
             cerr << "Error determining rank of mapping " << i << " in path " << path.name() << ": "
                  << pb2json(mapping) << endl;
-        }
-        else {
-            ranks[rank] = i;
+            }
+            else {
+                ranks[rank] = i;
+            }
+        } else {
+            // node not in graph. that's okay, we do nothing but update the read_offset to
+            // not trigger assert at end of this function
+            for (int j = 0; j < mapping.edit_size(); ++j) {
+                read_offset += mapping.edit(j).to_length();
+            }
+            ranks[rank] = -1;
         }
     }
     // loop again over all the edges crossed by the mapping alignment, using
@@ -199,7 +207,7 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
     for (int i = 2; i < ranks.size(); ++i) {
         int rank1_idx = ranks[i-1];
         int rank2_idx = ranks[i];
-        if (rank1_idx > 0 || rank2_idx > 0) {
+        if ((rank1_idx > 0 || rank2_idx > 0) && (rank1_idx >= 0 && rank2_idx >= 0)) {
             auto& m1 = path.mapping(rank1_idx);
             auto& m2 = path.mapping(rank2_idx);
             auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
@@ -444,6 +452,14 @@ void Pileups::count_mismatches(VG& graph, const Path& path,
                     int64_t delta = is_reverse ? -edit.from_length() : edit.from_length();
                     // stay put on read, move left/right depending on strand on reference
                     node_offset += delta;
+                }
+            }
+        } else {
+            // node not in graph: count 0 mismatches for each absent position
+            for (int j = 0; j < mapping.edit_size(); ++j) {
+                read_offset += mapping.edit(j).to_length();
+                for (int k = 0; k < mapping.edit(j).to_length(); ++k) {
+                    mismatches.push_back(0);
                 }
             }
         }
