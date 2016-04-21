@@ -5315,7 +5315,6 @@ void help_map(char** argv) {
          << "    -K, --keep-secondary  produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
          << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
-         << "    -p, --pair-window N   align to a graph up to N ids away from the mapping location of one mate for the other" << endl
          << "    -N, --sample NAME     for --reads input, add this sample" << endl
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "output:" << endl
@@ -5327,6 +5326,10 @@ void help_map(char** argv) {
          << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "paired end alignment parameters:" << endl
+         << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
+         << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
+         << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
@@ -5408,6 +5411,8 @@ int main_map(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    bool promote_consistent_pairs = false;
+    int extra_pairing_multimaps = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5461,11 +5466,13 @@ int main_map(int argc, char** argv) {
                 {"mismatch", required_argument, 0, 'z'},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
+                {"promote-paired", no_argument, 0, 'a'},
+                {"pairing-multimaps", required_argument, 0, 'u'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:au:",
                          long_options, &option_index);
 
 
@@ -5651,6 +5658,15 @@ int main_map(int argc, char** argv) {
         case 'y':
             gap_extend = atoi(optarg);
             break;
+            
+        case 'a':
+            promote_consistent_pairs = true;
+            break;
+        
+        case 'u':
+            extra_pairing_multimaps = atoi(optarg);
+            break;
+            
 
         case 'h':
         case '?':
@@ -5817,6 +5833,8 @@ int main_map(int argc, char** argv) {
         m->mismatch = mismatch;
         m->gap_open = gap_open;
         m->gap_extend = gap_extend;
+        m->promote_consistent_pairs = promote_consistent_pairs;
+        m->extra_pairing_multimaps = extra_pairing_multimaps;
         mapper[i] = m;
     }
 
