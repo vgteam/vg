@@ -4,6 +4,7 @@
 #include <sstream>
 #include "sdsl/bit_vectors.hpp"
 #include <vector>
+#include <unordered_map>
 #include "vg.hpp"
 #include "xg.hpp"
 #include "vg.pb.h"
@@ -39,6 +40,21 @@ class Vectorizer{
         }
         return sout.str();
     }
+    template<typename T> string wabbitize(string name, T v){
+        stringstream sout;
+        if (!(wabbit_map.count(name) > 0)){
+            wabbit_map[name] = wabbit_map.size();
+        }
+        sout << wabbit_map[name] << " " << "1.0" << " " << "'" << name
+            << " " << "|" << " " << "vectorspace" << " ";
+        for (int i = 0; i < v.size(); i++){
+            sout << i << ":" << v[i];
+            if (i < v.size() - 1){
+                sout << " ";
+            }
+        }
+        return sout.str();
+    }
   private:
     xg::XG* my_xg;
     //We use vectors for both names and bit vectors because we want to allow the use of duplicate
@@ -48,6 +64,7 @@ class Vectorizer{
     output_tabbed = false;
     output_names = false;
     output_wabbit = false;
+    unordered_map<string, int> wabbit_map;
 
 };
 

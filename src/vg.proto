@@ -87,6 +87,7 @@ message Position {
 message Path {
     string name = 1;
     repeated Mapping mapping = 2;
+    bool is_circular = 3;
 }
 
 // Alignments link query strings, such as other genomes or reads, to paths.
@@ -104,7 +105,7 @@ message Alignment {
     Alignment fragment_prev = 11; // e.g. contains an alignment with only a name, or only a graph mapping position
     Alignment fragment_next = 12; // same thing for next in fragment
     bool is_secondary = 15; // All but one maximal-scoring alignment of a given read in a GAM file must be secondary.
-    double identity = 16;
+    double identity = 16; // Portion of aligned bases that are perfect matches, or 0 if no bases are aligned.
 }
 
 // Fragments represent the library fragments that yield pairs of alignments
@@ -144,14 +145,14 @@ message NodePileup {
 // Keep pileup-like record for reads that span edges
 message EdgePileup {
     Edge edge = 1;
- 	 int32 num_reads = 2;
-	 bytes qualities = 3;
+ 	int32 num_reads = 2;
+	bytes qualities = 3;
 }
 
 // Bundle up Node and Edge pileups
 message Pileup {
     repeated NodePileup node_pileups = 1;
-	 repeated EdgePileup edge_pileups = 2;
+    repeated EdgePileup edge_pileups = 2;
 }
 
 message Genotype {

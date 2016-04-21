@@ -47,9 +47,9 @@ vg index -x x.idx x.vg 2>/dev/null
 is $(vg find -x x.idx -p x:200-300 -c 2 | vg view - | grep CTACTGACAGCAGA | cut -f 2) 72 "a path can be queried from the xg index"
 is $(vg find -x x.idx -n 203 -c 1 | vg view - | grep CTACCCAGGCCATTTTAAGTTTCCTGT | wc -l) 1 "a node near another can be obtained using context from the xg index"
 
-vg index -g x.gcsa -k 16 x.vg
-is $(( for seq in $(vg sim -l 50 -n 100 x.vg); do vg find -M $seq -g x.gcsa; done ) | jq length | grep ^1$ | wc -l) 100 "each perfect read contains one maximal exact match"
-rm -f x.idx x.gcsa x.gcsa.lcp x.vg
+vg index -x x.xg -g x.gcsa -k 16 x.vg
+is $(( for seq in $(vg sim -l 50 -n 100 -x x.xg); do vg find -M $seq -g x.gcsa; done ) | jq length | grep ^1$ | wc -l) 100 "each perfect read contains one maximal exact match"
+rm -f x.idx x.xg x.gcsa x.gcsa.lcp x.vg
 
 vg construct -rmem/h.fa >h.vg
 vg index -g h.gcsa -k 16 h.vg

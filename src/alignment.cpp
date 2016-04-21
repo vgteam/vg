@@ -407,13 +407,14 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const Alignment& alignment,
                          const string& refseq,
                          const int32_t refpos,
+                         const bool refrev,
                          const string& cigar,
                          const string& mateseq,
                          const int32_t matepos,
                          const int32_t tlen) {
 
     assert(!sam_header.empty());
-    string sam_file = "data:" + sam_header + alignment_to_sam(alignment, refseq, refpos, cigar, mateseq, matepos, tlen);
+    string sam_file = "data:" + sam_header + alignment_to_sam(alignment, refseq, refpos, refrev, cigar, mateseq, matepos, tlen);
     const char* sam = sam_file.c_str();
     samFile *in = sam_open(sam, "r");
     bam_hdr_t *header = sam_hdr_read(in);
@@ -432,14 +433,19 @@ bam1_t* alignment_to_bam(const string& sam_header,
 string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
+                        const bool refrev,
                         const string& cigar,
                         const string& mateseq,
                         const int32_t matepos,
                         const int32_t tlen) {
+                        
+    // Determine flags, using orientation.
+    int32_t flags = sam_flag(alignment, refrev);
+    
     stringstream sam;
 
     sam << (!alignment.name().empty() ? alignment.name() : "*") << "\t"
-        << sam_flag(alignment) << "\t"
+        << flags << "\t"
         << (refseq.empty() ? "*" : refseq) << "\t"
         << refpos + 1 << "\t"
         //<< (alignment.path().mapping_size() ? refpos + 1 : 0) << "\t" // positions are 1-based in SAM, 0 means unmapped
@@ -448,7 +454,8 @@ string alignment_to_sam(const Alignment& alignment,
         << (mateseq == refseq ? "=" : mateseq) << "\t"
         << matepos + 1 << "\t"
         << tlen << "\t"
-        << (!alignment.sequence().empty() ? alignment.sequence() : "*") << "\t";
+        // Make sure sequence always comes out in reference forward orientation by looking at the flags.
+        << (!alignment.sequence().empty() ? (refrev ? reverse_complement(alignment.sequence()) : alignment.sequence()) : "*") << "\t";
     // hack much?
     if (!alignment.quality().empty()) {
         const string& quality = alignment.quality();
@@ -467,7 +474,8 @@ string alignment_to_sam(const Alignment& alignment,
 
 // act like the path this is against is the reference
 // and generate an equivalent cigar
-string cigar_against_path(const Alignment& alignment) {
+// Produces CIGAR in forward strand space of the reference sequence.
+string cigar_against_path(const Alignment& alignment, bool on_reverse_strand) {
     vector<pair<int, char> > cigar;
     if (!alignment.has_path()) return "";
     const Path& path = alignment.path();
@@ -475,10 +483,16 @@ string cigar_against_path(const Alignment& alignment) {
     for (const auto& mapping : path.mapping()) {
         mapping_cigar(mapping, cigar);
     }
+    
+    if(on_reverse_strand) {
+        // Flip CIGAR ops into forward strand ordering
+        reverse(cigar.begin(), cigar.end());
+    }
+    
     return cigar_string(cigar);
 }
 
-int32_t sam_flag(const Alignment& alignment) {
+int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand) {
     int16_t flag = 0;
 
     if (alignment.score() == 0) {
@@ -488,10 +502,7 @@ int32_t sam_flag(const Alignment& alignment) {
         // correctly aligned
         flag |= BAM_FPROPER_PAIR;
     }
-    // HACKZ -- you can't determine orientation from a single part of the mapping
-    // unless the graph is a DAG
-    if (alignment.has_path()
-        && alignment.path().mapping(0).position().is_reverse()) {
+    if (on_reverse_strand) {
         flag |= BAM_FREVERSE;
     }
     if (alignment.is_secondary()) {

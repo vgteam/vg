@@ -76,6 +76,10 @@ public:
     set<id_t> head_tail_nodes;
     bool is_head_or_tail_node(id_t);
     vector<string> all_path_names(void);
+    // records which paths are circular
+    set<string> circular;
+    void make_circular(const string& name);
+    void make_linear(const string& name);
     
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);
@@ -233,6 +237,8 @@ bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
 // Return true if a mapping is a perfect match (i.e. contains no non-match edits)
 bool mapping_is_match(const Mapping& m);
 double divergence(const Mapping& m);
+// Return the identity for the path: perfect matches over total length.
+// For zero-length paths, returns 0.
 double identity(const Path& path);
 
 }

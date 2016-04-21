@@ -124,6 +124,8 @@ void VG::serialize_to_ostream(ostream& out, id_t chunk_size) {
             }
         }
 
+        // record our circular paths
+        g.paths.circular = this->paths.circular;
         // but this is broken as our paths have been reordered as
         // the nodes they cross are stored in graph.nodes
         g.paths.to_graph(g.graph);
@@ -254,6 +256,40 @@ void VG::add_edge(const Edge& edge) {
         *new_edge = edge;
         set_edge(new_edge);
         edge_index[new_edge] = graph.edge_size()-1;
+    }
+}
+
+void VG::circularize(id_t head, id_t tail) {
+    Edge* e = create_edge(tail, head);
+    add_edge(*e);
+}
+
+void VG::circularize(vector<string> pathnames){
+    for(auto p : pathnames){
+        Path curr_path = paths.path(p);
+        Position start_pos = path_start(curr_path);
+        Position end_pos = path_end(curr_path);
+        id_t head = start_pos.node_id();
+        id_t tail = end_pos.node_id();
+        if (start_pos.offset() != 0){
+            //VG::divide_node(Node* node, int pos, Node*& left, Node*& right)
+            Node* left; Node* right;
+            Node* head_node = get_node(head);
+            divide_node(head_node, start_pos.offset(), left, right);
+            head = left->id();
+            paths.compact_ranks();
+        }
+        if (start_pos.offset() != 0){
+            Node* left; Node* right;
+            Node* tail_node = get_node(tail);
+            divide_node(tail_node, end_pos.offset(), left, right);
+            tail = right->id();
+            paths.compact_ranks();
+        }
+        Edge* e = create_edge(tail, head, false, false);
+        add_edge(*e);
+        // record a flag in the path object to indicate that it is circular
+        paths.make_circular(p);
     }
 }
 
@@ -1050,6 +1086,19 @@ void VG::remove_non_path(void) {
             assert(has_edge(s1, s2));
             Edge* edge = get_edge(s1, s2);
             path_edges.insert(edge);
+        }
+        // if circular, include the cycle-closing edge
+        if (path.is_circular()) {
+            auto& m1 = path.mapping(path.mapping_size()-1);
+            auto& m2 = path.mapping(0);
+            //if (!adjacent_mappings(m1, m2)) continue; // the path is completely represented here
+            auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
+            auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
+            // check that we always have an edge between the two nodes in the correct direction
+            assert(has_edge(s1, s2));
+            Edge* edge = get_edge(s1, s2);
+            path_edges.insert(edge);
+
         }
     };
     paths.for_each(lambda);
@@ -5921,6 +5970,18 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     // Say that edge should have this symbol
                     symbols_for_edge[edge_used].insert(make_pair(path_label, color));
                 }
+                if (path.is_circular()) {
+                    // make a connection from tail to head
+                    const Mapping& m1 = path.mapping(path.mapping_size()-1);
+                    const Mapping& m2 = path.mapping(0);
+                    // skip if they are not contiguous
+                    //if (!adjacent_mappings(m1, m2)) continue;
+                    // Find the Edge connecting the mappings in the order they occur in the path.
+                    Edge* edge_used = get_edge(NodeTraversal(get_node(m1.position().node_id()), m1.position().is_reverse()),
+                                               NodeTraversal(get_node(m2.position().node_id()), m2.position().is_reverse()));
+                    // Say that edge should have this symbol
+                    symbols_for_edge[edge_used].insert(make_pair(path_label, color));
+                }
             }
         };
         paths.for_each(lambda);
@@ -6084,6 +6145,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             out << "    " << alnid << " -> " << alnid-1 << " [dir=none,color=black];" << endl;
         }
         alnid++;
+        // todo --- circular alignments
     }
 
     // include paths
@@ -6091,11 +6153,13 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         int pathid = alnid;
         Pictographs picts(random_seed);
         Colors colors(random_seed);
+        map<string, int> path_starts;
         function<void(const Path&)> lambda =
-            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings]
+            [this,&pathid,&out,&picts,&colors,show_paths,walk_paths,show_mappings,&path_starts]
             (const Path& path) {
             string path_label = picts.hashed(path.name());
             string color = colors.hashed(path.name());
+            path_starts[path.name()] = pathid;
             if (show_paths) {
                 for (int i = 0; i < path.mapping_size(); ++i) {
                     const Mapping& m = path.mapping(i);
@@ -6121,10 +6185,18 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     if (i > 0 && adjacent_mappings(path.mapping(i-1), m)) {
                         out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
                     }
-                    out << "    " << pathid << " -> " << m.position().node_id() << " [dir=none,color=\"" << color << "\", style=invis];" << endl;
-                    //out << "    " << pathid << " -> " << m.position().node_id() << "[headport=n,tailport=s,color=\"" << color << "\"];" << endl;
+                    out << "    " << pathid << " -> " << m.position().node_id()
+                        << " [dir=none,color=\"" << color << "\", style=invis];" << endl;
                     out << "    { rank = same; " << pathid << "; " << m.position().node_id() << "; };" << endl;
                     pathid++;
+                    // if we're at the end
+                    // and the path is circular
+                    if (path.is_circular() && i+1 == path.mapping_size()) {
+                        // connect to the head of the path
+                        out << "    " << pathid-1 << " -> " << path_starts[path.name()]
+                            << " [dir=none,color=\"" << color << "\"];" << endl;
+                    }
+                    
                 }
             }
             if (walk_paths) {
@@ -6132,8 +6204,17 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     const Mapping& m1 = path.mapping(i);
                     if (i < path.mapping_size()-1) {
                         const Mapping& m2 = path.mapping(i+1);
-                        out << m1.position().node_id() << " -> " << m2.position().node_id() << " [dir=none,tailport=ne,headport=nw,color=\"" << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\"];" << endl;
+                        out << m1.position().node_id() << " -> " << m2.position().node_id()
+                            << " [dir=none,tailport=ne,headport=nw,color=\""
+                            << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\"];" << endl;
                     }
+                }
+                if (path.is_circular()) {
+                    const Mapping& m1 = path.mapping(path.mapping_size()-1);
+                    const Mapping& m2 = path.mapping(0);
+                    out << m1.position().node_id() << " -> " << m2.position().node_id()
+                    << " [dir=none,tailport=ne,headport=nw,color=\""
+                    << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\"];" << endl;
                 }
             }
         };
@@ -6614,6 +6695,11 @@ Alignment VG::align(const Alignment& alignment,
                     bool print_score_matrices) {
 
     auto aln = alignment;
+    
+    for(auto& character : *(aln.mutable_sequence())) {
+        // Make sure everything is upper-case for alignment.
+        character = toupper(character);
+    }
 
     map<id_t, pair<id_t, bool> > unfold_trans;
     map<id_t, pair<id_t, bool> > dagify_trans;
@@ -6635,6 +6721,13 @@ Alignment VG::align(const Alignment& alignment,
         return aln;
     }
     */
+    
+    dag.for_each_node_parallel([](Node* node) {
+         for(auto& character : *(node->mutable_sequence())) {
+            // Make sure everything is upper-case for alignment.
+            character = toupper(character);
+        }
+    });
 
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
@@ -6675,6 +6768,9 @@ Alignment VG::align(const Alignment& alignment,
             return get_node(node_id)->sequence().size();
         });
     //check_aln(*this, aln);
+
+    // Copy back the not-case-corrected sequence
+    aln.set_sequence(alignment.sequence());
 
     return aln;
 }

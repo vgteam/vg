@@ -721,6 +721,10 @@ public:
     void for_each_edge(function<void(Edge*)> lambda);
     void for_each_edge_parallel(function<void(Edge*)> lambda);
 
+
+    // Circularize a subgraph / path using the head / tail nodes.
+    void circularize(id_t head, id_t tail);
+    void circularize(vector<string> pathnames);
     // connect node -> nodes
     // Connects from the right side of the first to the left side of the second
     void connect_node_to_nodes(NodeTraversal node, vector<NodeTraversal>& nodes);
@@ -790,16 +794,16 @@ public:
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
     Alignment align(const Alignment& alignment,
-                    int32_t match = 2,
-                    int32_t mismatch = 2,
-                    int32_t gap_open = 3,
+                    int32_t match = 1,
+                    int32_t mismatch = 4,
+                    int32_t gap_open = 6,
                     int32_t gap_extension = 1,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
     Alignment align(const string& sequence,
-                    int32_t match = 2,
-                    int32_t mismatch = 2,
-                    int32_t gap_open = 3,
+                    int32_t match = 1,
+                    int32_t mismatch = 4,
+                    int32_t gap_open = 6,
                     int32_t gap_extension = 1,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);

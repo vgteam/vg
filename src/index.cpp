@@ -937,6 +937,26 @@ void Index::get_alignments(int64_t node_id, vector<Alignment>& alignments) {
         });
 }
 
+void Index::get_alignments(int64_t id1, int64_t id2, vector<Alignment>& alignments) {
+    string start = key_for_alignment_prefix(id1);
+    string end = key_for_alignment_prefix(id2) + end_sep;
+    for_range(start, end, [this, &alignments](string& key, string& value) {
+            alignments.emplace_back();
+            Alignment& alignment = alignments.back();
+            alignment.ParseFromString(value);
+        });
+}
+
+void Index::for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda) {
+    string start = key_for_alignment_prefix(id1);
+    string end = key_for_alignment_prefix(id2) + end_sep;
+    for_range(start, end, [this, &lambda](string& key, string& value) {
+            Alignment alignment;
+            alignment.ParseFromString(value);
+            lambda(alignment);
+        });
+}
+
 int Index::get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, bool& backward, Mapping& mapping) {
     string value;
     string key = key_prefix_for_node_path(node_id, path_id);
@@ -1259,6 +1279,7 @@ bool Index::surject_alignment(const Alignment& source,
                               Alignment& surjection,
                               string& path_name,
                               int64_t& path_pos,
+                              bool& path_reverse,
                               int window) {
     VG graph;
     // get start and end nodes in path
@@ -1303,7 +1324,8 @@ bool Index::surject_alignment(const Alignment& source,
     // What is our alignment to surject spelled the other way around? We can't
     // just use the normal alignment RC function because the mappings reference
     // nonexistent nodes.
-    Alignment source_rc;
+    // Make sure to copy all the things about the alignment (name, etc.)
+    Alignment source_rc = source;
     source_rc.set_sequence(reverse_complement(source.sequence()));
     
     // Align the old alignment to the graph in both orientations. Apparently
@@ -1338,7 +1360,7 @@ bool Index::surject_alignment(const Alignment& source,
 
     if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
         // determine the paths of the node we mapped into
-        //  ... get the id of the first node, get the pahs of it
+        //  ... get the id of the first node, get the paths of it
         assert(kept_paths.size() == 1);
         path_name = *kept_paths.begin();
 
@@ -1357,6 +1379,33 @@ bool Index::surject_alignment(const Alignment& source,
         // as a surjection this node must be in the path
         // the nearest place we map should be the head of this node
         assert(path_prev.size()==1 && hit_id == path_prev.front().first && hit_backward == path_prev.front().second);
+        
+        if(prev_orientation) {
+            // We really are running backward along the path.
+            // Get a version for which the path runs forward
+            Alignment path_oriented_surjection = reverse_complement_alignment(surjection, node_length);
+            
+            // Use that instead
+            hit_id = path_oriented_surjection.path().mapping(0).position().node_id();
+            get_node(hit_id, hit_node);
+            hit_backward = path_oriented_surjection.path().mapping(0).position().is_reverse();
+            pos = path_oriented_surjection.path().mapping(0).position().offset();
+            get_node_path_relative_position(hit_id, hit_backward, path_id, path_prev, prev_pos, prev_orientation,
+                                            path_next, next_pos, next_orientation);
+                                            
+            assert(path_prev.size()==1 && hit_id == path_prev.front().first && hit_backward == path_prev.front().second);
+            assert(!prev_orientation);
+            
+            path_reverse = true;
+        } else {
+            // The orientation of the best alignment runs forward along the path.
+            path_reverse = false;
+        }
+        
+        // Make sure we're landing in the right direction.
+        assert(next_pos >= prev_pos);
+        assert(prev_orientation == next_orientation);
+        
         // we then add the position of this node against the path to our offset in the node (from the left side)
         // to get the final chrom+position for the surjection
         path_pos = prev_pos + (hit_backward ? hit_node.sequence().size() - pos - 1 : pos);

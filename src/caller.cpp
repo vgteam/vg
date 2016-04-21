@@ -91,7 +91,7 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
     _insert_likelihoods.assign(_node->sequence().length(), safe_log(0));
 
     // process each base in pileup individually
-    #pragma omp parallel
+    #pragma omp parallel for
     for (int i = 0; i < pileup.base_pileup_size(); ++i) {
         int num_inserts = 0;
         for (auto b : pileup.base_pileup(i).bases()) {
@@ -907,13 +907,13 @@ list<Mapping> NodeDivider::map_node(int64_t node_id, int64_t start_offset, int64
                 } else {
                     mapping.mutable_position()->set_offset(call_node->sequence().length() - 1);
                 }
-                // switch up to new-style offset (todo: revise whole function)
-                mapping.mutable_position()->set_offset(call_node->sequence().length() - 1 -
-                                                       mapping.position().offset());
                 int map_len = mapping.position().offset() + 1;
                 if (map_len + cur_len > length) {
                     map_len = length - cur_len;
                 }
+                // switch up to new-style offset (todo: revise whole function)
+                mapping.mutable_position()->set_offset(call_node->sequence().length() - 1 -
+                                                       mapping.position().offset());
                 assert(map_len <= call_node->sequence().length());
                 assert(mapping.position().offset() >= 0 &&
                        mapping.position().offset() < call_node->sequence().length());

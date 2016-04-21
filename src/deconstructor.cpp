@@ -9,7 +9,8 @@ namespace vg {
     }
 
     Deconstructor::Deconstructor(VG* v) {
-        my_vg = v;;
+        my_vg = v;
+        
 
         init();
     }
@@ -18,6 +19,42 @@ namespace vg {
     }
 
     void Deconstructor::init(){
+    }
+
+    void Deconstructor::unroll_my_vg(int steps){
+       *my_vg = my_vg->unfold(steps, my_unroll_translation);
+        if (my_translation.size() > 0){
+            my_vg->overlay_node_translations(my_unroll_translation, my_translation);
+        }
+
+    }
+
+    void Deconstructor::dagify_my_vg(int steps){
+        *my_vg = my_vg->dagify(steps, my_dagify_translation, 0, my_max_length);
+        if (my_translation.size() > 0){
+            my_vg->overlay_node_translations(my_dagify_translation, my_translation);
+        }
+    }
+    
+    /**
+     * For each superbubble in the graph:
+     *  If a superbubble is nested and simple (contains no superbubbles),
+     *  transform it into a node.
+     *  Record the translation from new node in the graph -> old superbubble
+     *  map<id_t, SuperBubble>
+     *
+     *  At each step, find the new superbubbles of the graph and continue with this process.
+     *
+     *
+     */
+    vg::VG* Deconstructor::compact(int compact_steps){
+        
+        
+    }
+
+    SuperBubble Deconstructor::translate_id(id_t transformed){
+        return id_to_bub[transformed];
+
     }
 
     /**
@@ -32,6 +69,31 @@ namespace vg {
 
     bool Deconstructor::is_nested(SuperBubble sb){
         return false;
+    }
+
+    void Deconstructor::sb2vcf(ostream ostr){
+        Header h;
+        h.set_date();
+        h.set_source("VG");
+        h.set_reference("");
+        h.set_version("VCF4.2");
+
+        cout << h << endl;
+        for (auto s : my_superbubbles){
+          map<int, vector<id_t> >::iterator it;
+          for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); ++it){
+                vcflib::Variant v;
+                v.sequenceName = "x";
+                v.ref = "A";
+                v.position = 100;
+                v.alt = vector<string>();
+                v.alt.push_back("T");
+                cout << v << endl;
+            }
+            
+        }
+
+        
     }
 
     /**
@@ -72,7 +134,7 @@ namespace vg {
                     nq.push(edges_on_end[j].first);
                     id_t next_id = (edges_on_end[j].first);
                     if (next_id == endpoints.second){
-                        ret[i].nodes = alleles;
+                        ret[i].level_to_nodes = level_to_nodes;
                         ret[i].start_node = endpoints.first;
                         ret[i].end_node = endpoints.second;
                         break;
