@@ -4806,7 +4806,9 @@ void help_find(char** argv) {
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
          << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
-         << "    -D, --distance         return distance on path between pair of nodes (-n). if -P not used, best path chosen heurstically" << endl;
+         << "    -D, --distance         return distance on path between pair of nodes (-n). if -P not used, best path chosen heurstically" << endl
+         << "haplotypes:" << endl
+         << "    -H, --haplotypes FILE  count xg threads in agreement with alignments in the GAM" << endl;
 
 }
 
@@ -4840,6 +4842,7 @@ int main_find(int argc, char** argv) {
     vg::id_t start_id = 0;
     vg::id_t end_id = 0;
     bool pairwise_distance = false;
+    string haplotype_alignments;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4870,11 +4873,12 @@ int main_find(int argc, char** argv) {
                 {"alns-in", required_argument, 0, 'i'},
                 {"alns-on", required_argument, 0, 'o'},
                 {"distance", no_argument, 0, 'D'},
+                {"haplotypes", required_argument, 0, 'H'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:D",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4974,6 +4978,10 @@ int main_find(int argc, char** argv) {
 
         case 'D':
             pairwise_distance = true;
+            break;
+            
+        case 'H':
+            haplotype_alignments = optarg;
             break;
 
         case 'h':
@@ -5154,6 +5162,31 @@ int main_find(int argc, char** argv) {
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();
             vgg.serialize_to_ostream(cout);
+        }
+        if(!haplotype_alignments.empty()) {
+            // What should we do with each alignment?
+            function<void(Alignment&)> lambda = [&xindex](Alignment& aln) {
+                // Count the amtches to the path. The path might be empty, in
+                // which case it will yield the biggest size_t you can have.
+                size_t matches = xindex.count_matches(aln.path());
+                
+                // We do this single-threaded, at least for now, so we don't
+                // need to worry about coordinating output, and we can just
+                // spit out the counts as bare numbers.
+                cout << matches << endl;
+            };
+            if (haplotype_alignments == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(haplotype_alignments.c_str());
+                if(!in.is_open()) {
+                    cerr << "[vg find] error: could not open alignments file " << haplotype_alignments << endl;
+                    exit(1);
+                }
+                stream::for_each(in, lambda);
+            }
+            
         }
     } else if (!db_name.empty()) {
         if (!node_ids.empty() && path_name.empty()) {
