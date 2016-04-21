@@ -207,7 +207,7 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
     for (int i = 2; i < ranks.size(); ++i) {
         int rank1_idx = ranks[i-1];
         int rank2_idx = ranks[i];
-        if (rank1_idx > 0 || rank2_idx > 0 && (rank1_idx >= 0 && rank2_idx >= 0)) {
+        if ((rank1_idx > 0 || rank2_idx > 0) && (rank1_idx >= 0 && rank2_idx >= 0)) {
             auto& m1 = path.mapping(rank1_idx);
             auto& m2 = path.mapping(rank2_idx);
             auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
