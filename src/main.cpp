@@ -3032,7 +3032,7 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
-    Sampler sampler(xgidx, seed_val);
+    Sampler sampler(xgidx, seed_val, forward_only);
     size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
         
