@@ -138,8 +138,8 @@ def sort_vcf(vcf_path, sorted_vcf_path):
     run("grep -v \"^#\" {} | sort -k1,1d -k2,2n >> {}".format(
         vcf_path, sorted_vcf_path))
     
-def call_chunk(xg_path, out_dir, chunks, chunk_i, overlap, pileup_opts,
-               call_options, sample_name, threads, overwrite):
+def call_chunk(xg_path, out_dir, chunks, chunk_i, path_size, overlap,
+               pileup_opts, call_options, sample_name, threads, overwrite):
     """ create VCF from a given chunk """
     # make the graph chunk
     chunk_vg(xg_path, out_dir, chunks, chunk_i, overwrite)
@@ -172,8 +172,8 @@ def call_chunk(xg_path, out_dir, chunks, chunk_i, overlap, pileup_opts,
     vcf_path = chunk_base_name(path_name, out_dir, chunk_i, ".vcf")
     if overwrite or not os.path.isfile(vcf_path + ".gz"):
         offset = xg_path_node_offset(xg_path, chunk[0], chunk[1] + 1)
-        run("glenn2vcf {} {} -o {} -c {} -s {} > {} 2> {}".format(
-            ag_path, tsv_path, offset, chunk[0], sample_name,
+        run("glenn2vcf {} {} -o {} -c {} -s {} -l {} > {} 2> {}".format(
+            ag_path, tsv_path, offset, chunk[0], sample_name, path_size,
             vcf_path + ".us", vcf_path + ".log"))
         sort_vcf(vcf_path + ".us", vcf_path)
         run("rm {}".format(vcf_path + ".us"))
@@ -190,9 +190,9 @@ def call_chunk(xg_path, out_dir, chunks, chunk_i, overlap, pileup_opts,
             chunk[2] - right_clip, vcf_path + ".gz", clip_path))
 
             
-def merge_vcf_chunks(out_dir, path_name, path_size, chunks, overwrite):
-    """ merge a bunch of clipped vcfs created above, taking care to 
-    fix up the headers.  everything expected to be sorted already """
+def merge_vcf_chunks(out_dir, path_name, chunks, overwrite):
+    """ merge a bunch of clipped vcfs created above. everything expected to be
+    sorted already """
     vcf_path = os.path.join(out_dir, path_name + ".vcf")
     if overwrite or not os.path.isfile(vcf_path):
         first = True
@@ -200,38 +200,17 @@ def merge_vcf_chunks(out_dir, path_name, path_size, chunks, overwrite):
             clip_path = chunk_base_name(path_name, out_dir, chunk_i, "_clip.vcf")
             if os.path.isfile(clip_path):
                 if first is True:
-                    # start a new header with the full path size in it
-                    create_vcf_header(clip_path, path_name, path_size, vcf_path)
+                    # copy everything including the header
+                    run("cat {} > {}".format(clip_path, vcf_path), check=False)
                     first = False
-                # add on everythin but header
-                run("grep -v \"^#\" {} >> {}".format(clip_path, vcf_path), check=False)
+                else:
+                    # add on everything but header
+                    run("grep -v \"^#\" {} >> {}".format(clip_path, vcf_path), check=False)
                 
     # add a compressed indexed version
     if overwrite or not os.path.isfile(vcf_path + ".gz"):
         run("bgzip -c {} > {}".format(vcf_path, vcf_path + ".gz"))
         run("tabix -f -p vcf {}".format(vcf_path + ".gz"))
-
-def create_vcf_header(clip_path, path_name, path_size, vcf_path):
-    """ copy header from clip_path, changing only the path size.
-    probably more elegant way to do this... """
-
-    # we are assuming that glenn2vcf created something that looks 
-    # like: ##contig=<ID=21,length=9994011>
-    with open(clip_path) as in_file, open(vcf_path, "w") as out_file:
-        contig = False
-        for line in in_file:
-            if len(line) > 0 and line[0] == "#":
-                if line.find("##contig=<ID={},length=".format(path_name)) == 0:
-                    assert contig == False
-                    out_file.write("##contig=<ID={},length={}>\n".format(
-                        path_name, path_size))
-                    contig = True
-                else:
-                    out_file.write(line)
-            else:
-                # end of header
-                break
-        assert contig is True    
 
 def main(args):
     
@@ -256,14 +235,13 @@ def main(args):
     # call every chunk in series
     for chunk_i, chunk in enumerate(chunks):
         call_chunk(options.xg_path, options.out_dir, chunks, chunk_i,
-                   options.overlap,
+                   options.path_size, options.overlap,
                    options.pileup_opts, options.call_opts,
                    options.sample_name, options.threads,
                    options.overwrite)
     
     # stitch together the vcf
     merge_vcf_chunks(options.out_dir, options.path_name,
-                     options.path_size,
                      chunks, options.overwrite)
     
 if __name__ == "__main__" :
