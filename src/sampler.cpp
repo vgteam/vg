@@ -7,7 +7,7 @@ pos_t Sampler::position(void) {
     size_t offset = xdist(rng);
     id_t id = xgidx->node_at_seq_pos(offset);
     uniform_int_distribution<size_t> flip(0, 1);
-    bool rev = flip(rng);
+    bool rev = forward_only ? false : flip(rng);
     // 1-0 base conversion
     size_t node_offset = offset - xgidx->node_start(id) - 1;
     return make_pos_t(id, rev, node_offset);

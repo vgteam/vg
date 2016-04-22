@@ -25,7 +25,10 @@ public:
     // it.
     LRUCache<id_t, Node> node_cache;
     mt19937 rng;
-    Sampler(xg::XG* x, int seed = 0) : xgidx(x), node_cache(100) {
+    // If set, only sample positions/start reads on the forward strands of their
+    // nodes.
+    bool forward_only;
+    Sampler(xg::XG* x, int seed = 0, bool forward_only = false) : xgidx(x), node_cache(100), forward_only(forward_only) {
         if (!seed) {
             seed = time(NULL);
         }
