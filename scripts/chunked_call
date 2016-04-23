@@ -97,23 +97,35 @@ def chunk_gam(gam_path, xg_path, path_name, out_dir, chunks, filter_opts, overwr
             gam_path, xg_path, chunk_path,
             os.path.join(out_dir, path_name + "-chunk"), filter_opts))
 
-                    
+def xg_path_node_id(xg_path, path_name, offset):
+    """ use vg find to get the node containing a given path position """
+    #NOTE: vg find -p range offsets are 0-based inclusive.  
+    stdout, stderr = run("vg find -x {} -p {}:{}-{} | vg mod -o - | vg view -j - | jq .node[0].id".format(
+        xg_path, path_name, offset, offset),
+                         proc_stdout=subprocess.PIPE)
+    return int(stdout)
+
 def chunk_vg(xg_path, out_dir, chunks, chunk_i, overwrite):
     """ use vg find to make one chunk of the graph """
     chunk = chunks[chunk_i]
     vg_chunk_path = chunk_base_name(chunk[0], out_dir, chunk_i, ".vg")
     if overwrite or not os.path.isfile(vg_chunk_path):
-        run("vg find -x {} -p {}:{}-{} | vg mod -o - > {}".format(
-            xg_path, chunk[0], int(chunk[1]) + 1, chunk[2], vg_chunk_path))
-
+        first_node = xg_path_node_id(xg_path, chunk[0], int(chunk[1]))
+        # xg_path query takes 0-based inclusive coordinates, so we
+        # subtract 1 below to convert from BED chunk (0-based exlcusive)
+        last_node = xg_path_node_id(xg_path, chunk[0], chunk[2] - 1)
+        assert first_node > 0 and last_node >= first_node
+        # the +1 for first_node is to offset the context expansion of 1
+        # as we really want our graph to start exactly at start_node
+        # in order to be able to pass the offset to glenn2vcf
+        run("vg find -x {} -r {}:{} -c 1 | vg mod -o - > {}".format(
+            xg_path, first_node + 1, last_node, vg_chunk_path))
+        
 def xg_path_node_offset(xg_path, path_name, offset):
     """ get the offset of the node containing the given position of a path
     """
     # first we find the node
-    stdout, stderr = run("vg find -x {} -p {}:{}-{} | vg view -j - | jq .node[0].id".format(
-        xg_path, path_name, offset, offset),
-                         proc_stdout=subprocess.PIPE)
-    node_id = int(stdout)
+    node_id = xg_path_node_id(xg_path, path_name, offset)
 
     # now we find the offset of the beginning of the node
     stdout, stderr = run("vg find -x {} -P {} -n {}".format(
@@ -171,7 +183,7 @@ def call_chunk(xg_path, out_dir, chunks, chunk_i, overlap, pileup_opts,
     # do the vcf export.
     vcf_path = chunk_base_name(path_name, out_dir, chunk_i, ".vcf")
     if overwrite or not os.path.isfile(vcf_path + ".gz"):
-        offset = xg_path_node_offset(xg_path, chunk[0], chunk[1] + 1)
+        offset = xg_path_node_offset(xg_path, chunk[0], chunk[1])
         run("glenn2vcf {} {} -o {} -c {} -s {} > {} 2> {}".format(
             ag_path, tsv_path, offset, chunk[0], sample_name,
             vcf_path + ".us", vcf_path + ".log"))

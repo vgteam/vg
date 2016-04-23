@@ -220,7 +220,8 @@ int main_filter(int argc, char** argv) {
                 // clip region on end of path            
                 regions[i].end = min(path_size - 1, regions[i].end);
                 // do path node query
-                xindex.get_path_range(regions[i].seq, regions[i].start, regions[i].end, graph);
+                // convert to 0-based coordinates as this seems to be what xg wants
+                xindex.get_path_range(regions[i].seq, regions[i].start - 1, regions[i].end - 1, graph);
                 if (context_size > 0) {
                     xindex.expand_context(graph, context_size);
                 }
