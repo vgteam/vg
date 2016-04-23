@@ -130,7 +130,7 @@ void Pileups::extend(Pileup& pileup) {
 bool Pileups::insert_node_pileup(NodePileup* pileup) {
     NodePileup* existing = get_node_pileup(pileup->node_id());
     if (existing != NULL) {
-        merge_node_pileups(*existing, *pileup);
+        merge_node_pileups(*existing, *pileup, _max_depth);
         delete pileup;
     } else {
         _node_pileups[pileup->node_id()] = pileup;
@@ -221,9 +221,11 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             }
             if (edge_qual >= _min_quality) {
                 EdgePileup* edge_pileup = get_create_edge_pileup(pair<NodeSide, NodeSide>(s1, s2));
-                edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
-                if (!alignment.quality().empty()) {
+                if (edge_pileup->num_reads() < _max_depth) {
+                  edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
+                  if (!alignment.quality().empty()) {
                     *edge_pileup->mutable_qualities() += edge_qual;
+                  }
                 }
             }
         }
@@ -256,22 +258,23 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         for (int64_t i = 0; i < edit.from_length(); ++i) {
             if (pass_filter(alignment, read_offset, mismatch_counts)) {
                 BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
-                // reference_base if empty
-                if (base_pileup->num_bases() == 0) {
-                    base_pileup->set_ref_base(node.sequence()[node_offset]);
-                } else {
-                    assert(base_pileup->ref_base() == node.sequence()[node_offset]);
+                if (base_pileup->num_bases() < _max_depth) {
+                    // reference_base if empty
+                    if (base_pileup->num_bases() == 0) {
+                        base_pileup->set_ref_base(node.sequence()[node_offset]);
+                    } else {
+                        assert(base_pileup->ref_base() == node.sequence()[node_offset]);
+                    }
+                    // add base to bases field (converting to ,. if match)
+                    char base = seq[i];
+                    *base_pileup->mutable_bases() += base;
+                    // add quality if there
+                    if (!alignment.quality().empty()) {
+                        *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                    }
+                    // pileup size increases by 1
+                    base_pileup->set_num_bases(base_pileup->num_bases() + 1);
                 }
-                // add base to bases field (converting to ,. if match)
-                char base = seq[i];
-                *base_pileup->mutable_bases() += base;
-                // add quality if there
-                if (!alignment.quality().empty()) {
-                    *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
-                }
-                // pileup size increases by 1
-                base_pileup->set_num_bases(base_pileup->num_bases() + 1);
-
                 // close off any open deletion
                 if (open_del.first != NULL) {
                     string del_seq;
@@ -292,18 +295,20 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                     Node* dp_node = _graph->get_node(dp_node_id);
                     NodePileup* dp_node_pileup = get_create_node_pileup(dp_node);
                     BasePileup* dp_base_pileup = get_create_base_pileup(*dp_node_pileup, dp_node_offset);
-                    // reference_base if empty
-                    if (dp_base_pileup->num_bases() == 0) {
-                        dp_base_pileup->set_ref_base(dp_node->sequence()[dp_node_offset]);
-                    } else {
-                        assert(dp_base_pileup->ref_base() == dp_node->sequence()[dp_node_offset]);
+                    if (dp_base_pileup->num_bases() < _max_depth) {
+                        // reference_base if empty
+                        if (dp_base_pileup->num_bases() == 0) {
+                            dp_base_pileup->set_ref_base(dp_node->sequence()[dp_node_offset]);
+                        } else {
+                            assert(dp_base_pileup->ref_base() == dp_node->sequence()[dp_node_offset]);
+                        }
+                        *dp_base_pileup->mutable_bases() += del_seq;
+                        if (!alignment.quality().empty()) {
+                            // we only use quality of one endpoint here.  should average
+                            *dp_base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                        }
+                        dp_base_pileup->set_num_bases(dp_base_pileup->num_bases() + 1);
                     }
-                    *dp_base_pileup->mutable_bases() += del_seq;
-                    if (!alignment.quality().empty()) {
-                        // we only use quality of one endpoint here.  should average
-                        *dp_base_pileup->mutable_qualities() += alignment.quality()[read_offset];
-                    }
-                    dp_base_pileup->set_num_bases(dp_base_pileup->num_bases() + 1);
                     open_del = make_pair((Mapping*)NULL, -1);
                     last_del = make_pair((Mapping*)NULL, -1);
                 }
@@ -326,19 +331,21 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
             int64_t insert_offset =  map_reverse ? node_offset : node_offset - 1;
             if (insert_offset >= 0) {        
                 BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
-                // reference_base if empty
-                if (base_pileup->num_bases() == 0) {
-                    base_pileup->set_ref_base(node.sequence()[insert_offset]);
-                } else {
-                    assert(base_pileup->ref_base() == node.sequence()[insert_offset]);
+                if (base_pileup->num_bases() < _max_depth) {
+                    // reference_base if empty
+                    if (base_pileup->num_bases() == 0) {
+                        base_pileup->set_ref_base(node.sequence()[insert_offset]);
+                    } else {
+                        assert(base_pileup->ref_base() == node.sequence()[insert_offset]);
+                    }
+                    // add insertion string to bases field
+                    base_pileup->mutable_bases()->append(seq);
+                    if (!alignment.quality().empty()) {
+                        *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                    }
+                    // pileup size increases by 1
+                    base_pileup->set_num_bases(base_pileup->num_bases() + 1);
                 }
-                // add insertion string to bases field
-                base_pileup->mutable_bases()->append(seq);
-                if (!alignment.quality().empty()) {
-                    *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
-                }
-                // pileup size increases by 1
-                base_pileup->set_num_bases(base_pileup->num_bases() + 1);
             }
             else {
                 // need to check with aligner to make sure this doesn't happen, ie
@@ -521,12 +528,15 @@ BasePileup& Pileups::merge_base_pileups(BasePileup& p1, BasePileup& p2) {
     return p1;
 }
 
-NodePileup& Pileups::merge_node_pileups(NodePileup& p1, NodePileup& p2) {
+NodePileup& Pileups::merge_node_pileups(NodePileup& p1, NodePileup& p2, int max_depth) {
     assert(p1.node_id() == p2.node_id());
     for (int i = 0; i < p2.base_pileup_size(); ++i) {
         BasePileup* bp1 = get_create_base_pileup(p1, i);
         BasePileup* bp2 = get_base_pileup(p2, i);
-        merge_base_pileups(*bp1, *bp2);
+        // todo: cut off at exactly max_depth
+        if (bp1->num_bases() < max_depth) {
+            merge_base_pileups(*bp1, *bp2);
+        }
     }
     p2.clear_base_pileup();
     return p1;
