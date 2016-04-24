@@ -7,7 +7,7 @@ specified.
 """
 
 import argparse, sys, os, os.path, random, subprocess, shutil, itertools, glob
-
+import json
 
 def parse_args(args):
     parser = argparse.ArgumentParser(description=__doc__, 
@@ -52,9 +52,9 @@ def run(cmd, proc_stdout = sys.stdout, proc_stderr = sys.stderr,
         check = True):
     """ run command in shell and throw exception if it doesn't work 
     """
+    print cmd
     proc = subprocess.Popen(cmd, shell=True, bufsize=-1,
                             stdout=proc_stdout, stderr=proc_stderr)
-    sys.stdout.write("{}\n".format(cmd))
     output, errors = proc.communicate()
     sts = proc.wait()
     if check is True and sts != 0:
@@ -105,7 +105,28 @@ def xg_path_node_id(xg_path, path_name, offset):
                          proc_stdout=subprocess.PIPE)
     return int(stdout)
 
-def chunk_vg(xg_path, out_dir, chunks, chunk_i, overwrite):
+def xg_path_predecessors(xg_path, path_name, node_id, context = 1):
+    """ get nodes before given node in a path. """
+    stdout, stderr = run("vg find -x {} -n {} -c {} | vg view -j -".format(
+        xg_path, node_id, context), proc_stdout=subprocess.PIPE)
+
+    # get our json graph
+    j = json.loads(stdout)
+    paths = j["path"]
+    path = [x for x in paths if x["name"] == path_name][0]
+    mappings = path["mapping"]
+    assert len(mappings) > 0
+    # check that we have a node_mapping
+    assert len([x for x in mappings if x["position"]["node_id"] == node_id]) == 1
+    # collect mappings that come before
+    out_ids = []
+    for mapping in mappings:
+        if mapping["position"]["node_id"] == node_id:
+            break
+        out_ids.append(mapping["position"]["node_id"])
+    return out_ids
+
+def chunk_vg(xg_path, path_name, out_dir, chunks, chunk_i, overwrite):
     """ use vg find to make one chunk of the graph """
     chunk = chunks[chunk_i]
     vg_chunk_path = chunk_base_name(chunk[0], out_dir, chunk_i, ".vg")
@@ -115,12 +136,20 @@ def chunk_vg(xg_path, out_dir, chunks, chunk_i, overwrite):
         # subtract 1 below to convert from BED chunk (0-based exlcusive)
         last_node = xg_path_node_id(xg_path, chunk[0], chunk[2] - 1)
         assert first_node > 0 and last_node >= first_node
-        # the +1 for first_node is to offset the context expansion of 1
-        # as we really want our graph to start exactly at start_node
-        # in order to be able to pass the offset to glenn2vcf
-        run("vg find -x {} -r {}:{} -c 1 | vg mod -o - > {}".format(
-            xg_path, first_node + 1, last_node, vg_chunk_path))
-        
+        # todo: would be cleaner to not have to pad context here
+        run("vg find -x {} -r {}:{} -c 1 > {}".format(
+            xg_path, first_node, last_node, vg_chunk_path))
+        # but because we got a context, manually go in and make sure
+        # our path starts at first_node by deleting everything before
+        left_path_padding = xg_path_predecessors(xg_path, path_name, first_node,
+                                                 context = 1)
+        for destroy_id in left_path_padding:
+            # destroy should take node list
+            run("vg mod -y {} {} | vg mod -o - > {}".format(
+                destroy_id, vg_chunk_path, vg_chunk_path + ".destroy"))
+            run("mv {} {}".format(
+                vg_chunk_path + ".destroy", vg_chunk_path))
+                
 def xg_path_node_offset(xg_path, path_name, offset):
     """ get the offset of the node containing the given position of a path
     """
@@ -150,11 +179,11 @@ def sort_vcf(vcf_path, sorted_vcf_path):
     run("grep -v \"^#\" {} | sort -k1,1d -k2,2n >> {}".format(
         vcf_path, sorted_vcf_path))
     
-def call_chunk(xg_path, out_dir, chunks, chunk_i, overlap, pileup_opts,
-               call_options, sample_name, threads, overwrite):
+def call_chunk(xg_path, path_name, out_dir, chunks, chunk_i, overlap,
+               pileup_opts, call_options, sample_name, threads, overwrite):
     """ create VCF from a given chunk """
     # make the graph chunk
-    chunk_vg(xg_path, out_dir, chunks, chunk_i, overwrite)
+    chunk_vg(xg_path, path_name, out_dir, chunks, chunk_i, overwrite)
 
     chunk = chunks[chunk_i]
     path_name = chunk[0]
@@ -267,7 +296,8 @@ def main(args):
 
     # call every chunk in series
     for chunk_i, chunk in enumerate(chunks):
-        call_chunk(options.xg_path, options.out_dir, chunks, chunk_i,
+        call_chunk(options.xg_path, options.path_name,
+                   options.out_dir, chunks, chunk_i,
                    options.overlap,
                    options.pileup_opts, options.call_opts,
                    options.sample_name, options.threads,

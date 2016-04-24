@@ -2482,6 +2482,7 @@ void help_mod(char** argv) {
         << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
+        << "    -y, --destroy-node ID   remove node with given id" << endl
         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -2525,6 +2526,7 @@ int main_mod(int argc, char** argv) {
     uint32_t dagify_to = 0;
     uint32_t dagify_component_length_max = 0;
     bool orient_forward = false;
+    int64_t destroy_node_id = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2568,11 +2570,12 @@ int main_mod(int argc, char** argv) {
             {"max-branch", required_argument, 0, 'B'},
             {"break-cycles", no_argument, 0, 'b'},
             {"orient-forward", no_argument, 0, 'O'},
+            {"destroy-node", required_argument, 0, 'y'},            
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:L:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:L:y:",
                 long_options, &option_index);
 
 
@@ -2720,6 +2723,10 @@ int main_mod(int argc, char** argv) {
             case 'R':
                 remove_null = true;
                 break;
+
+            case 'y':
+                destroy_node_id = atoi(optarg);
+                break;                
 
             case 'h':
             case '?':
@@ -2896,6 +2903,10 @@ int main_mod(int argc, char** argv) {
         Node* head_node = NULL;
         Node* tail_node = NULL;
         graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
+    }
+
+    if (destroy_node_id > 0) {
+        graph->destroy_node(destroy_node_id);
     }
 
     graph->serialize_to_ostream(std::cout);
