@@ -130,7 +130,7 @@ void Pileups::extend(Pileup& pileup) {
 bool Pileups::insert_node_pileup(NodePileup* pileup) {
     NodePileup* existing = get_node_pileup(pileup->node_id());
     if (existing != NULL) {
-        merge_node_pileups(*existing, *pileup, _max_depth);
+        merge_node_pileups(*existing, *pileup);
         delete pileup;
     } else {
         _node_pileups[pileup->node_id()] = pileup;
@@ -519,24 +519,32 @@ BasePileup& Pileups::merge_base_pileups(BasePileup& p1, BasePileup& p2) {
     if (p1.num_bases() == 0) {
         p1.set_ref_base(p2.ref_base());
     }
-    p1.mutable_bases()->append(p2.bases());
-    p1.mutable_qualities()->append(p2.qualities());
-    p1.set_num_bases(p1.num_bases() + p2.num_bases());
+    int merge_size = min(p2.num_bases(), _max_depth - p1.num_bases());
+    p1.set_num_bases(p1.num_bases() + merge_size);
+    if (merge_size == p2.num_bases()) {    
+        p1.mutable_bases()->append(p2.bases());
+        p1.mutable_qualities()->append(p2.qualities());
+    } else if (merge_size > 0) {
+        vector<pair<int64_t, int64_t> > offsets;
+        parse_base_offsets(p2, offsets);
+        int merge_length = offsets[merge_size].first;
+        p1.mutable_bases()->append(p2.bases().substr(0, merge_length));
+        if (!p2.qualities().empty()) {
+            p1.mutable_qualities()->append(p2.qualities().substr(0, merge_size));
+        }
+    }
     p2.set_num_bases(0);
     p2.clear_bases();
     p2.clear_qualities();
     return p1;
 }
 
-NodePileup& Pileups::merge_node_pileups(NodePileup& p1, NodePileup& p2, int max_depth) {
+NodePileup& Pileups::merge_node_pileups(NodePileup& p1, NodePileup& p2) {
     assert(p1.node_id() == p2.node_id());
     for (int i = 0; i < p2.base_pileup_size(); ++i) {
         BasePileup* bp1 = get_create_base_pileup(p1, i);
         BasePileup* bp2 = get_base_pileup(p2, i);
-        // todo: cut off at exactly max_depth
-        if (bp1->num_bases() < max_depth) {
-            merge_base_pileups(*bp1, *bp2);
-        }
+        merge_base_pileups(*bp1, *bp2);
     }
     p2.clear_base_pileup();
     return p1;
@@ -547,9 +555,13 @@ EdgePileup& Pileups::merge_edge_pileups(EdgePileup& p1, EdgePileup& p2) {
     assert(p1.edge().to() == p2.edge().to());
     assert(p1.edge().from_start() == p2.edge().from_start());
     assert(p1.edge().to_end() == p2.edge().to_end());
-    
-    p1.set_num_reads(p1.num_reads() + p2.num_reads());
-    p1.mutable_qualities()->append(p2.qualities());
+    int merge_size = min(p2.num_reads(), _max_depth - p1.num_reads());
+    p1.set_num_reads(p1.num_reads() + merge_size);
+    if (merge_size == p2.num_reads()) {
+        p1.mutable_qualities()->append(p2.qualities());
+    } else if (!p2.qualities().empty()) {
+        p1.mutable_qualities()->append(p2.qualities().substr(0, merge_size));
+    }
     p2.set_num_reads(0);
     p2.clear_qualities();
     return p1;
