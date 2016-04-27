@@ -111,9 +111,48 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
 
 }
 
-//vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
-    
-//}
+vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
+    int64_t entity_size = my_xg->node_count + my_xg->edge_count;
+    vector<double> ret(entity_size, 0.0);
+
+    Path path = a.path();
+    for (int i = 0; i < path.mapping_size(); i ++){
+        Mapping mapping = path.mapping(i);
+        Position pos = mapping.position();
+        int64_t node_id = pos.node_id();
+        int64_t key = my_xg->node_rank_as_entity(node_id);
+
+        //Calculate % identity by walking the edits and counting matches.
+        double pct_id = 0.0;
+        double match_len = 0.0;
+        double total_len = 0.0;
+        for (int j = 0; j < mapping.edit_size(); j++){
+            Edit e = mapping.edit(j);
+            total_len += e.sequence().length();
+            if (e.from_length() == e.to_length()){
+                match_len += (double) e.from_length();
+            }
+            else{
+                // TODO if we map but don't match exactly, add half the average length to match_length
+                match_len += (double) (0.5 * ((double) e.from_length() + (double) e.to_length()) / 2.0);
+            }
+        }
+        total_len = (double) ( my_xg->node_sequence(node_id) ).length();
+        pct_id = match_len / total_len;
+        ret[key - 1] = pct_id;
+
+        if (i > 0){
+            Mapping prev_mapping = path.mapping(i - 1);
+            Position prev_pos = prev_mapping.position();
+            int64_t prev_node_id = prev_pos.node_id();
+            if (my_xg->has_edge(prev_node_id, false, node_id, false)){
+                int64_t edge_key = my_xg->edge_rank_as_entity(prev_node_id, false, node_id, false);
+                ret[edge_key - 1] = 1.0;
+            }
+        }
+    }
+    return ret;
+}
 
 bit_vector Vectorizer::alignment_to_onehot(Alignment a){
     // Make a vector as large as the | |nodes| + |edges| | space
@@ -155,7 +194,7 @@ bit_vector Vectorizer::alignment_to_onehot(Alignment a){
 
 vector<double> Vectorizer::alignment_to_custom_score(Alignment a, std::function<double(Alignment)> lambda ){
     vector<double> ret;
-
+    
 
     return ret;
 }

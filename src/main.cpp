@@ -830,6 +830,7 @@ int main_vectorize(int argc, char** argv){
                 break;
             case 'l':
                 aln_label = optarg;
+                break;
             case 'i':
                 use_identity_hot = true;
                 break;
@@ -859,7 +860,7 @@ int main_vectorize(int argc, char** argv){
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, output_wabbit, format, a_hot, aln_label](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, output_wabbit, use_identity_hot, format, a_hot, aln_label](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
 
@@ -875,6 +876,18 @@ int main_vectorize(int argc, char** argv){
                 cout << v << endl;
             }
         }
+        else if (use_identity_hot){
+            vector<double> v = vz.alignment_to_identity_hot(a);
+            if (output_wabbit){
+                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
+            }
+            else if (format){
+                cout << a.name() << "\t" << vz.format(v) << endl;
+            }
+            else {
+                cout << vz.format(v) << endl;
+            }
+        }
         else{
             bit_vector v = vz.alignment_to_onehot(a);
             if (output_wabbit){
@@ -887,7 +900,7 @@ int main_vectorize(int argc, char** argv){
                 cout << v << endl;
             }
         }
-            };
+    };
     if (alignment_file == "-"){
         stream::for_each(cin, lambda);
     }
