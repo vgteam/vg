@@ -35,6 +35,18 @@ namespace vg {
             my_vg->overlay_node_translations(my_dagify_translation, my_translation);
         }
     }
+
+    /**
+     * detect if there are superbubbles contained within the current superbubble
+     * (defined by Start and End)
+     *
+     *
+     *
+     */
+    bool Deconstructor::contains_nested(pair<int64_t, int64_t> start_and_end){
+                
+        return false;
+    }
     
     /**
      * For each superbubble in the graph:
@@ -44,10 +56,32 @@ namespace vg {
      *  map<id_t, SuperBubble>
      *
      *  At each step, find the new superbubbles of the graph and continue with this process.
-     *
+     *  
      *
      */
     vg::VG* Deconstructor::compact(int compact_steps){
+        map<id_t, SuperBubble> node_to_sb;
+        for (int i = 0; i < compact_steps; i++){
+            vector<pair<int64_t, int64_t> > supbubs = my_vg->get_superbubbles();
+            if (supbubs.size() == 0){
+                break;
+            }
+            for (pair<int64_t, int64_t> s : supbubs){
+                if (!contains_nested(s)){
+                    // Swap out the superbubble for its start node.
+                    
+                    // Record the translation.
+
+                    // Link up the right edges
+                    
+
+                }
+                
+            }
+            
+        }
+
+        return my_vg;
         
         
     }
