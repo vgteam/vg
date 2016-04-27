@@ -53,6 +53,7 @@ namespace vg{
             void dagify_my_vg(int steps);
             vg::VG* compact(int compact_steps);
             bool is_nested(SuperBubble sb);
+            bool contains_nested(pair<int64_t, int64_t> start_and_end);
             SuperBubble report_superbubble(int64_t start, int64_t end);
             vector<SuperBubble> get_all_superbubbles();
             void sb2vcf(string outfile);
