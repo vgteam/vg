@@ -390,6 +390,11 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
                 base_call.second = ".";
             }
         }
+        // double up the first call if there's enough support
+        // (this could stand cleaning)
+        if (base_call.second == "-" && top_count >= min_support * 2) {
+            base_call.second = base_call.first;
+        }
     }
     if (base_call.first == "-" && base_call.second != "-") {
         swap(base_call.first, base_call.second);
@@ -607,11 +612,17 @@ void Caller::create_node_calls(const NodePileup& np) {
             _insert_calls[next-1].first[0] == '+' || _insert_calls[next-1].second[0] == '+') {
 
             if (cat == 0 && !_leave_uncalled) {
-
+                // uncalled: do nothing (unless writing augmented graph)
             }        
             else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
                 // add reference
-                int cn = cat == 1 ? 2 : 0;
+                int cn = 0;
+                if (_node_calls[cur].first == ".") {
+                    ++cn;
+                }
+                if (_node_calls[cur].second == ".") {
+                    ++cn;
+                }
                 string new_seq = seq.substr(cur, next - cur);
                 Node* node = _call_graph.create_node(new_seq, ++_max_id);
                 _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref, (char)cn);
@@ -634,6 +645,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                     if (call1 == "." || (_leave_uncalled && altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
                         // reference base
                         int cn = call1 == "." ? 1 : 0;
+                        assert(call2 != "."); // should be handled above
                         string new_seq = seq.substr(cur, 1);
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
                         _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref, (char)cn);
@@ -646,11 +658,14 @@ void Caller::create_node_calls(const NodePileup& np) {
                         no2 = NodeOffSide(NodeSide(_node->id(), false), next);
                         _augmented_edges[make_pair(no1, no2)] = 'R';
                     }
-                    if (call1 != "." && call1[0] != '-' && call1[0] != '+' && call1[0] != '-') {
+                    if (call1 != "." && call1[0] != '-' && call1[0] != '+' && (
+                            // we only want to process a homozygous snp once:
+                            call1 != call2 || altCat == NodeDivider::EntryCat::Alt1)) {
+                        int cn = call1 != call2 ? 1 : 2;
                         // snp base
                         string new_seq = call1;
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
-                        _node_divider.add_fragment(_node, cur, node, altCat, (char)1);
+                        _node_divider.add_fragment(_node, cur, node, altCat, (char)cn);
                         // bridge to node
                         NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
                         NodeOffSide no2(NodeSide(_node->id(), false), cur);
@@ -660,7 +675,9 @@ void Caller::create_node_calls(const NodePileup& np) {
                         no2 = NodeOffSide(NodeSide(_node->id(), false), next);
                         _augmented_edges[make_pair(no1, no2)] = 'S';
                     }
-                    else if (call1 != "." && call1[0] == '-' && call1.length() > 1) {
+                    else if (call1 != "." && call1[0] == '-' && call1.length() > 1 && (
+                                 // we only want to process homozygous delete once
+                                 call1 != call2 || altCat == NodeDivider::EntryCat::Alt1)) {
                         // delete
                         int64_t del_len;
                         bool from_start;
@@ -709,15 +726,17 @@ void Caller::create_node_calls(const NodePileup& np) {
             }
 
             // inserts done separate at end since they take start between cur and next
-            function<void(string&, string&)>  call_inserts = [&](string& ins_call1, string& ins_call2) {
-                if (ins_call1[0] == '+') {
+            function<void(string&, string&, NodeDivider::EntryCat)>  call_inserts = [&](string& ins_call1, string& ins_call2, NodeDivider::EntryCat altCat) {
+                if (ins_call1[0] == '+' && (
+                        // we only want to process homozygous insert once
+                        ins_call1 != ins_call2 || altCat == NodeDivider::EntryCat::Alt1)) {
                     int64_t ins_len;
                     string ins_seq;
                     bool ins_rev;
                     Pileups::parse_insert(ins_call1, ins_len, ins_seq, ins_rev);
                     // todo: check reverse?
                     Node* node = _call_graph.create_node(ins_seq, ++_max_id);
-                    int cn = ins_call2[0] == '+' ? 2 : 1;
+                    int cn = ins_call1 == ins_call2 ? 2 : 1;
                     _inserted_nodes.push_back(make_pair(node, cn));
 
                     // bridge to insert
@@ -731,8 +750,8 @@ void Caller::create_node_calls(const NodePileup& np) {
                 }
             };
             
-            call_inserts(_insert_calls[next-1].first, _insert_calls[next-1].second);
-            call_inserts(_insert_calls[next-1].second, _insert_calls[next-1].first);
+            call_inserts(_insert_calls[next-1].first, _insert_calls[next-1].second, NodeDivider::EntryCat::Alt1);
+            call_inserts(_insert_calls[next-1].second, _insert_calls[next-1].first, NodeDivider::EntryCat::Alt2);
                 
             // shift right
             cur = next;
