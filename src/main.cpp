@@ -702,21 +702,24 @@ int main_scrub(int argc, char** argv){
 
 void help_vectorize(char** argv){
     cerr << "usage: " << argv[0] << " vectorize [options] -x <index.xg> <alignments.gam>" << endl
-        << "Vectorize a set of alignments to a variety of vector formats." << endl
-        << endl
-        << "options: " << endl
-        << "  -x --xg-name FILE  An xg index for the graph of interest" << endl
-        << "  -f --format        Tab-delimit output so it can be used in R." << endl
-        << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
-        << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
-        << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
-        << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
-        << endl;
+         << "Vectorize a set of alignments to a variety of vector formats." << endl
+         << endl
+         << "options: " << endl
+         << "  -x --xg FILE       An xg index for the graph of interest" << endl
+         << "  -g --gcsa FILE     A gcsa2 index to use if generating MEM sketches" << endl
+         << "  -f --format        Tab-delimit output so it can be used in R." << endl
+         << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
+         << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
+         << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
+         << "  -m --mem-sketch    Generate a MEM sketch of a given read based on the GCSA" << endl
+         << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
+         << endl;
 }
 
 int main_vectorize(int argc, char** argv){
 
     string xg_name;
+    string gcsa_name;
     bool format = false;
     bool show_header = false;
     bool map_alns = false;
@@ -724,6 +727,7 @@ int main_vectorize(int argc, char** argv){
     bool a_hot = false;
     bool output_wabbit = false;
     bool use_identity_hot = false;
+    bool mem_sketch = false;
 
     if (argc <= 2) {
         help_vectorize(argv);
@@ -737,17 +741,19 @@ int main_vectorize(int argc, char** argv){
         {
             {"help", no_argument, 0, 'h'},
             {"annotate", no_argument, 0, 'A'},
-            {"xg-name", required_argument,0, 'x'},
+            {"xg", required_argument,0, 'x'},
+            {"gcsa", required_argument,0, 'g'},
             {"threads", required_argument, 0, 't'},
             {"format", no_argument, 0, 'f'},
             {"a-hot", no_argument, 0, 'a'},
             {"wabbit", no_argument, 0, 'w'},
+            {"mem-sketch", no_argument, 0, 'm'},
             {"identity-hot", no_argument, 0, 'i'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfx:",
+        c = getopt_long (argc, argv, "Aaihwfmx:g:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -756,71 +762,106 @@ int main_vectorize(int argc, char** argv){
 
         switch (c)
         {
-            case '?':
-            case 'h':
-                help_vectorize(argv);
-                return 1;
-            case 'x':
-                xg_name = optarg;
-                break;
-            case 'a':
-                a_hot = true;
-                break;
-            case 'w':
-                output_wabbit = true;
-                break;
-            case 'i':
-                use_identity_hot = true;
-                break;
-            case 'f':
-                format = true;
-                break;
-            case 'A':
-                annotate = true;
-                format = true;
-                break;
-            default:
-                abort();
+        case '?':
+        case 'h':
+            help_vectorize(argv);
+            return 1;
+        case 'x':
+            xg_name = optarg;
+            break;
+        case 'g':
+            gcsa_name = optarg;
+            break;
+        case 'm':
+            mem_sketch = true;
+            break;
+        case 'a':
+            a_hot = true;
+            break;
+        case 'w':
+            output_wabbit = true;
+            break;
+        case 'i':
+            use_identity_hot = true;
+            break;
+        case 'f':
+            format = true;
+            break;
+        case 'A':
+            annotate = true;
+            format = true;
+            break;
+        default:
+            abort();
         }
     }
 
-    xg::XG* xindex;
+    xg::XG* xg_index;
     if (!xg_name.empty()) {
         ifstream in(xg_name);
-        xindex = new xg::XG(in);
+        xg_index = new xg::XG(in);
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     }
 
-    Vectorizer vz(xindex);
+    gcsa::GCSA gcsa_index;
+    gcsa::LCPArray lcp_index;
+    if (!gcsa_name.empty()) {
+        ifstream in_gcsa(gcsa_name.c_str());
+        gcsa_index.load(in_gcsa);
+        // default LCP is the gcsa base name +.lcp
+        string lcp_in = gcsa_name + ".lcp";
+        ifstream in_lcp(lcp_in.c_str());
+        lcp_index.load(in_lcp);
+    }
+
+    Mapper mapper;
+    if (mem_sketch) {
+        if (gcsa_name.empty()) {
+            cerr << "[vg vectorize] error : an xg index and gcsa index are required when making MEM sketches" << endl;
+            return 1;
+        } else {
+            mapper.gcsa = &gcsa_index;
+            mapper.lcp = &lcp_index;            
+        }
+    }
+ 
+    Vectorizer vz(xg_index);
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, format, a_hot](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, &mapper, mem_sketch, format, a_hot](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
-
-        if (a_hot){
+        if (a_hot) {
             vector<int> v = vz.alignment_to_a_hot(a);
             if (format){
                 cout << a.name() << "\t" << vz.format(v) << endl;
-            }
-            else{
+            } else{
                 cout << v << endl;
             }
-        }
-        else{
+        } else if (mem_sketch) {
+            // get the mems
+            map<string, int> mem_to_count;
+            for (auto& mem : mapper.find_smems(a.sequence())) {
+                mem_to_count[mem.sequence()]++;
+            }
+            cout << " |mems";
+            for (auto m : mem_to_count) {
+                cout << " " << m.first << ":" << m.second;
+            }
+            cout << endl;
+        } else {
             bit_vector v = vz.alignment_to_onehot(a);
-            if (format){
+            if (format) {
                 cout << a.name() << "\t" << vz.format(v) << endl;
-            }
-            else{
+            } else{
                 cout << v << endl;
             }
         }
-            };
+    };
     if (alignment_file == "-"){
         stream::for_each(cin, lambda);
     }
@@ -2970,6 +3011,8 @@ int main_sim(int argc, char** argv) {
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
+            {"base-error", required_argument, 0, 'e'},
+            {"indel-error", required_argument, 0, 'i'},
             {0, 0, 0, 0}
         };
 
@@ -3053,8 +3096,7 @@ int main_sim(int argc, char** argv) {
     Sampler sampler(xgidx, seed_val);
     size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
-        
-        auto aln = sampler.alignment(read_length);
+        auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
         size_t iter = 0;
         while (iter++ < max_iter) {
             if (aln.sequence().size() < read_length) {
