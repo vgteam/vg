@@ -340,6 +340,8 @@ public:
     Node* merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
+    // remove redundant overlaps
+    void bluntify(void);
     // turn the graph into a dag by copying strongly connected components expand_scc_steps times
     // and translating the edges in the component to flow through the copies in one direction
     VG dagify(uint32_t expand_scc_steps,

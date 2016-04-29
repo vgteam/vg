@@ -2805,99 +2805,128 @@ void VG::from_gfa(istream& in, bool showp) {
         exit(1);
     };
 
-		GFAKluge gg;
-		gg.parse_gfa_file(in);
+    bool reduce_overlaps = false;
+    GFAKluge gg;
+    gg.parse_gfa_file(in);
 
-		map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
-		map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
+    map<string, sequence_elem, custom_key> name_to_seq = gg.get_name_to_seq();
+    map<std::string, vector<link_elem> > seq_to_link = gg.get_seq_to_link();
     map<string, vector<path_elem> > seq_to_paths = gg.get_seq_to_paths();
-		map<string, sequence_elem>::iterator it;
-		for (it = name_to_seq.begin(); it != name_to_seq.end(); it++){
-			auto source_id = atol((it->second).name.c_str());
-			//Make us some nodes
-			Node n;
-			n.set_sequence((it->second).sequence);
-			n.set_id(source_id);
-			add_node(n);
-			// Now some edges. Since they're placed in this map
-			// by their from_node, it's no big deal to just iterate
-			// over them.
-			for (link_elem l : seq_to_link[(it->second).name]){
-				auto sink_id = atol(l.sink_name.c_str());
-				Edge e;
-				e.set_from(source_id);
-				e.set_to(sink_id);
-				e.set_from_start(!l.source_orientation_forward);
-				e.set_to_end(!l.sink_orientation_forward);
-				add_edge(e);
-			}
-      for (path_elem p: seq_to_paths[(it->second).name]){
-        paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
-      }
-
-		}
-
+    map<string, sequence_elem>::iterator it;
+    id_t curr_id = 1;
+    map<string, id_t> id_names;
+    auto get_add_id = [&](const string& name) {
+        auto id = id_names.find(name);
+        if (id == id_names.end()) {
+            id_names[name] = curr_id;
+            return curr_id++;
+        } else {
+            return id->second;
+        }
+    };
+    for (it = name_to_seq.begin(); it != name_to_seq.end(); it++){
+        auto source_id = get_add_id((it->second).name);
+        //Make us some nodes
+        Node n;
+        n.set_sequence((it->second).sequence);
+        n.set_id(source_id);
+        n.set_name((it->second).name);
+        add_node(n);
+        // Now some edges. Since they're placed in this map
+        // by their from_node, it's no big deal to just iterate
+        // over them.
+        for (link_elem l : seq_to_link[(it->second).name]){
+            auto sink_id = get_add_id(l.sink_name);
+            Edge e;
+            e.set_from(source_id);
+            e.set_to(sink_id);
+            e.set_from_start(!l.source_orientation_forward);
+            e.set_to_end(!l.sink_orientation_forward);
+            // get the cigar
+            auto cigar_elems = vcflib::splitCigar(l.cigar);
+            if (cigar_elems.size() == 1
+                && cigar_elems.front().first > 0
+                && cigar_elems.front().second == "M") {
+                    reduce_overlaps = true;
+                    e.set_overlap(cigar_elems.front().first);
+            }
+            add_edge(e);
+        }
+        for (path_elem p: seq_to_paths[(it->second).name]){
+            paths.append_mapping(p.name, source_id, p.rank ,p.is_reverse);
+        }
+        // remove overlapping sequences from the graph
+    }
+    if (reduce_overlaps) {
+        bluntify();
+    }
 }
-    static
-    void
-    triple_to_vg(void* user_data, raptor_statement* triple)
-    {
-        VG* vg = ((std::pair<VG*, Paths*>*) user_data)->first;
-        Paths* paths = ((std::pair<VG*, Paths*>*) user_data)->second;
-        const string vg_ns ="<http://example.org/vg/";
-        const string vg_node_p = vg_ns + "node>" ;
-        const string vg_rank_p = vg_ns + "rank>" ;
-        const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
-        const string vg_path_p = vg_ns + "path>" ;
-        const string vg_linkrr_p = vg_ns + "linksReverseToReverse>";
-        const string vg_linkrf_p = vg_ns + "linksReverseToForward>";
-        const string vg_linkfr_p = vg_ns + "linksForwardToReverse>";
-        const string vg_linkff_p = vg_ns + "linksForwardToForward>";
-        const string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
-        const string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
-        const string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
 
-        bool reverse = pred == vg_reverse_of_node_p;
-        if (pred == (vg_node_p) || reverse) {
-            Node* node = vg->find_node_by_name_or_add_new(obj);
-            Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
-            const string pathname = sub.substr(1, sub.find_last_of("/#"));
+void VG::bluntify(void) {
+    // TODO
+    cerr << "should bluntify" << endl;
+}
 
-            //TODO we are using a nasty trick here, which needs to be fixed.
+static
+void
+triple_to_vg(void* user_data, raptor_statement* triple)
+{
+    VG* vg = ((std::pair<VG*, Paths*>*) user_data)->first;
+    Paths* paths = ((std::pair<VG*, Paths*>*) user_data)->second;
+    const string vg_ns ="<http://example.org/vg/";
+    const string vg_node_p = vg_ns + "node>" ;
+    const string vg_rank_p = vg_ns + "rank>" ;
+    const string vg_reverse_of_node_p = vg_ns + "reverseOfNode>" ;
+    const string vg_path_p = vg_ns + "path>" ;
+    const string vg_linkrr_p = vg_ns + "linksReverseToReverse>";
+    const string vg_linkrf_p = vg_ns + "linksReverseToForward>";
+    const string vg_linkfr_p = vg_ns + "linksForwardToReverse>";
+    const string vg_linkff_p = vg_ns + "linksForwardToForward>";
+    const string sub(reinterpret_cast<char*>(raptor_term_to_string(triple->subject)));
+    const string pred(reinterpret_cast<char*>(raptor_term_to_string(triple->predicate)));
+    const string obj(reinterpret_cast<char*>(raptor_term_to_string(triple->object)));
+
+    bool reverse = pred == vg_reverse_of_node_p;
+    if (pred == (vg_node_p) || reverse) {
+        Node* node = vg->find_node_by_name_or_add_new(obj);
+        Mapping* mapping = new Mapping(); //TODO will this cause a memory leak
+        const string pathname = sub.substr(1, sub.find_last_of("/#"));
+
+        //TODO we are using a nasty trick here, which needs to be fixed.
 	    //We are using knowledge about the uri format to determine the rank of the step.
-            try {
+        try {
 	        int rank = stoi(sub.substr(sub.find_last_of("-")+1, sub.length()-2));
 	        mapping->set_rank(rank);
 	    } catch(exception& e) {
 	        cerr << "[vg view] assumption about rdf structure was wrong, parsing failed" << endl;
-		exit(1);
+            exit(1);
 	    }
-            Position* p = mapping->mutable_position();
-            p->set_offset(0);
-            p->set_node_id(node->id());
+        Position* p = mapping->mutable_position();
+        p->set_offset(0);
+        p->set_node_id(node->id());
 	    p->set_is_reverse(reverse);
-            paths->append_mapping(pathname, *mapping);
-        } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
-            Node* node = vg->find_node_by_name_or_add_new(sub);
-            node->set_sequence(obj.substr(1,obj.length()-2));
-        } else if (pred == vg_linkrr_p){
-            Node* from = vg->find_node_by_name_or_add_new(sub);
-            Node* to = vg->find_node_by_name_or_add_new(obj);
-            vg->create_edge(from, to, true, true);
-        } else if (pred == vg_linkrf_p){
-            Node* from = vg->find_node_by_name_or_add_new(sub);
-            Node* to = vg->find_node_by_name_or_add_new(obj);
-            vg->create_edge(from, to, false, true);
-        } else if (pred == vg_linkfr_p){
-            Node* from = vg->find_node_by_name_or_add_new(sub);
-            Node* to = vg->find_node_by_name_or_add_new(obj);
-            vg->create_edge(from, to, true, false);
-        } else if (pred == vg_linkff_p){
-            Node* from = vg->find_node_by_name_or_add_new(sub);
-            Node* to = vg->find_node_by_name_or_add_new(obj);
-            vg->create_edge(from, to, false, false);
-        }
+        paths->append_mapping(pathname, *mapping);
+    } else if (pred=="<http://www.w3.org/1999/02/22-rdf-syntax-ns#value>"){
+        Node* node = vg->find_node_by_name_or_add_new(sub);
+        node->set_sequence(obj.substr(1,obj.length()-2));
+    } else if (pred == vg_linkrr_p){
+        Node* from = vg->find_node_by_name_or_add_new(sub);
+        Node* to = vg->find_node_by_name_or_add_new(obj);
+        vg->create_edge(from, to, true, true);
+    } else if (pred == vg_linkrf_p){
+        Node* from = vg->find_node_by_name_or_add_new(sub);
+        Node* to = vg->find_node_by_name_or_add_new(obj);
+        vg->create_edge(from, to, false, true);
+    } else if (pred == vg_linkfr_p){
+        Node* from = vg->find_node_by_name_or_add_new(sub);
+        Node* to = vg->find_node_by_name_or_add_new(obj);
+        vg->create_edge(from, to, true, false);
+    } else if (pred == vg_linkff_p){
+        Node* from = vg->find_node_by_name_or_add_new(sub);
+        Node* to = vg->find_node_by_name_or_add_new(obj);
+        vg->create_edge(from, to, false, false);
     }
+}
 
 void VG::from_turtle(string filename, string baseuri, bool showp) {
     raptor_world* world;
@@ -6279,7 +6308,7 @@ void VG::to_gfa(ostream& out) {
         l.sink_name = to_string(e->to());
         l.source_orientation_forward = ! e->from_start();
         l.sink_orientation_forward =  ! e->to_end();
-        l.cigar = "0M";
+        l.cigar = std::to_string(e->overlap()) + "M";
         gg.add_link(l.source_name, l);
     }
     out << gg;
