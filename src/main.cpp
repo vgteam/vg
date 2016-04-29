@@ -845,9 +845,11 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            for (auto& mem : mapper.find_smems(a.sequence())) {
+            auto mems = mapper.find_smems(a.sequence());
+            for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
+            cout << " |info count:" << mems.size() << " unique:" << mem_to_count.size();
             cout << " |mems";
             for (auto m : mem_to_count) {
                 cout << " " << m.first << ":" << m.second;
