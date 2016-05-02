@@ -10,7 +10,7 @@ namespace vg {
 
     Deconstructor::Deconstructor(VG* v) {
         my_vg = v;
-        
+
 
         init();
     }
@@ -22,7 +22,7 @@ namespace vg {
     }
 
     void Deconstructor::unroll_my_vg(int steps){
-       *my_vg = my_vg->unfold(steps, my_unroll_translation);
+        *my_vg = my_vg->unfold(steps, my_unroll_translation);
         if (my_translation.size() > 0){
             my_vg->overlay_node_translations(my_unroll_translation, my_translation);
         }
@@ -44,10 +44,11 @@ namespace vg {
      *
      */
     bool Deconstructor::contains_nested(pair<int64_t, int64_t> start_and_end){
-                
+
         return false;
     }
-    
+
+
     /**
      * For each superbubble in the graph:
      *  If a superbubble is nested and simple (contains no superbubbles),
@@ -68,22 +69,27 @@ namespace vg {
             }
             for (pair<int64_t, int64_t> s : supbubs){
                 if (!contains_nested(s)){
+                    //Generate a SuperBubble object,
+                    //which contains the startnode, endnode, and a trace through the interior.
+                    SuperBubble bub = report_superbubble(s.first, s.second);
+
                     // Swap out the superbubble for its start node.
-                    
+
                     // Record the translation.
 
+
                     // Link up the right edges
-                    
+
 
                 }
-                
+
             }
-            
+
         }
 
         return my_vg;
-        
-        
+
+
     }
 
     SuperBubble Deconstructor::translate_id(id_t transformed){
@@ -98,6 +104,30 @@ namespace vg {
     SuperBubble Deconstructor::report_superbubble(int64_t start, int64_t end){
 
         SuperBubble sb;
+        sb.start_node = start;
+        sb.end_node = end;
+
+        //BFS through interior and fill out level_to_nodes
+
+        queue<id_t> nq;
+        nq.push(start);
+        int level = 0;
+        map<int, vector<id_t> > level_to_nodes;
+        while(!nq.empty()){
+            id_t current = nq.front(); nq.pop();
+            level_to_nodes[level].push_back(current);
+            vector<pair<id_t, bool>> edges_on_end = my_vg->edges_end(current);
+            for (int j = 0; j < edges_on_end.size(); j++){
+                nq.push(edges_on_end[j].first);
+                id_t next_id = (edges_on_end[j].first);
+                if (next_id == end){
+                    sb.level_to_nodes = level_to_nodes;
+                    break;
+                }
+                
+            }
+            level++;
+        }
         return sb;
     }
 
@@ -114,8 +144,20 @@ namespace vg {
 
         cout << h << endl;
         for (auto s : my_superbubbles){
-          map<int, vector<id_t> >::iterator it;
-          for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); ++it){
+            int offset = 0;
+
+            map<int, vector<id_t> >::iterator it;
+            for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); ++it){
+                offset = it->first;
+                vector<id_t> level_interior = it->second;
+                for (int j = 0; j < level_interior.size(); j++){
+                    // Check if is_ref
+
+                    //Otherwise it's an alt
+
+                }
+
+
                 vcflib::Variant v;
                 v.sequenceName = "x";
                 v.ref = "A";
@@ -124,10 +166,10 @@ namespace vg {
                 v.alt.push_back("T");
                 cout << v << endl;
             }
-            
+
         }
 
-        
+
     }
 
     /**
@@ -179,15 +221,15 @@ namespace vg {
             }
 
         }
-        
+
         //Use the DFS interface instead
-        
+
         // vector<
         // function<void(Node*)> is_end = [](Node* node){
-            
+
         // };
         // function<void(Node*)> is_start = [](Node* node){
-            
+
         // };
         // my_vg->dfs(is_start, is_end);
 

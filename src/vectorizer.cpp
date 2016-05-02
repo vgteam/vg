@@ -128,16 +128,19 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
         double total_len = 0.0;
         for (int j = 0; j < mapping.edit_size(); j++){
             Edit e = mapping.edit(j);
-            total_len += e.sequence().length();
-            if (e.from_length() == e.to_length()){
-                match_len += (double) e.from_length();
+            total_len += e.from_length();
+            if (e.from_length() == e.to_length() && e.sequence() == ""){
+                match_len += (double) e.to_length();
+            }
+            else if (e.from_length() == e.to_length() && e.sequence() != ""){
+                // TODO if we map but don't match exactly, add half the average length to match_length
+                //match_len += (double) (0.5 * ((double) e.to_length()));
             }
             else{
-                // TODO if we map but don't match exactly, add half the average length to match_length
-                match_len += (double) (0.5 * ((double) e.from_length() + (double) e.to_length()) / 2.0);
+                
             }
+            
         }
-        total_len = (double) ( my_xg->node_sequence(node_id) ).length();
         pct_id = match_len / total_len;
         ret[key - 1] = pct_id;
 

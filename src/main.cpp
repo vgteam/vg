@@ -701,13 +701,16 @@ int main_scrub(int argc, char** argv){
      * divergence can likely all safely be done in parallel.
      */
     std::function<void(Alignment&)> parallel_filters_lambda = [&ff, &buffer](Alignment& aln){
+        if (ff.get_min_depth() >= 0){
+            aln = ff.depth_filter(aln);
+        }
         if (ff.get_min_qual() > 0){
             aln = ff.qual_filter(aln);
         }
         if (ff.get_do_reversing()){
             aln = ff.reversing_filter(aln);
         }
-        if (ff.get_soft_clip_limit() > 0){
+        if (ff.get_soft_clip_limit() >= 0){
             aln = ff.soft_clip_filter(aln);
         }
         if (ff.get_split_read_limit() > 0){
@@ -731,7 +734,7 @@ int main_scrub(int argc, char** argv){
 
 
     if (alignment_file == "-"){
-        stream::for_each(cin, serial_filters_lambda);
+        //stream::for_each(cin, serial_filters_lambda);
         stream::for_each_parallel(cin, parallel_filters_lambda);
     }
     else{
@@ -739,7 +742,7 @@ int main_scrub(int argc, char** argv){
         in.open(alignment_file);
         if (in.good()){
             stream::for_each(in, serial_filters_lambda);
-            stream::for_each_parallel(in, parallel_filters_lambda);
+            stream::for_each(in, parallel_filters_lambda);
 
         }
         else{

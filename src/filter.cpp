@@ -201,7 +201,7 @@ namespace vg{
                 stringstream est;
                 est <<  ee.from_length() << "_" << ee.to_length() << "_" + ee.sequence();
                 string e_hash = est.str();
-#pragma omp critical(write)
+                #pragma omp critical(write)
                 pos_to_edit_to_depth[p_hash][e_hash] += 1;
                 /**
                  * If an edit fails the filter, either return a new empty alignment
@@ -311,11 +311,11 @@ namespace vg{
         if (aln.path().mapping_size() > 0){
             Path path = aln.path();
             Edit left_edit = path.mapping(0).edit(0);
-            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(0).edit_size() - 1);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
             int left_overhang = left_edit.to_length() - left_edit.from_length();
             int right_overhang = right_edit.to_length() - right_edit.from_length();
             if (left_overhang > soft_clip_limit || right_overhang > soft_clip_limit){
-                return Alignment();
+                return inverse ? aln : Alignment();
             }
             return inverse ? Alignment() : aln;
         }
