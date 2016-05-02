@@ -90,6 +90,12 @@ string wrap_text(const string& str, size_t width) {
     return w.str();
 }
 
+bool is_number(const std::string& s) {
+    return !s.empty()
+        && std::find_if(s.begin(), s.end(),
+                        [](char c) { return !std::isdigit(c); }) == s.end();
+}
+
 bool allATGC(const string& s) {
     for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
         char b = *c;
