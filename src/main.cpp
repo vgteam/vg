@@ -825,7 +825,7 @@ int main_vectorize(int argc, char** argv){
 
         switch (c)
         {
-            case '?':
+ /*           case '?':
             case 'h':
                 help_vectorize(argv);
                 return 1;
@@ -853,7 +853,7 @@ int main_vectorize(int argc, char** argv){
                 break;
             default:
                 abort();
-=======
+*/
         case '?':
         case 'h':
             help_vectorize(argv);
@@ -885,7 +885,6 @@ int main_vectorize(int argc, char** argv){
             break;
         default:
             abort();
->>>>>>> 3349f1ff18b43486719f4f8d0a996b156d6a821c
         }
     }
 
