@@ -707,6 +707,7 @@ int main_scrub(int argc, char** argv){
         if (ff.get_do_reversing()){
             aln = ff.reversing_filter(aln);
         }
+
         if (ff.get_soft_clip_limit() > 0){
             aln = ff.soft_clip_filter(aln);
         }

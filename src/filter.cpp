@@ -311,11 +311,11 @@ namespace vg{
         if (aln.path().mapping_size() > 0){
             Path path = aln.path();
             Edit left_edit = path.mapping(0).edit(0);
-            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(0).edit_size() - 1);
+            Edit right_edit = path.mapping(path.mapping_size() - 1).edit(path.mapping(path.mapping_size() - 1).edit_size() - 1);
             int left_overhang = left_edit.to_length() - left_edit.from_length();
             int right_overhang = right_edit.to_length() - right_edit.from_length();
             if (left_overhang > soft_clip_limit || right_overhang > soft_clip_limit){
-                return Alignment();
+                return inverse ? aln : Alignment();
             }
             return inverse ? Alignment() : aln;
         }
