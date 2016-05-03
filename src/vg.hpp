@@ -340,6 +340,8 @@ public:
     Node* merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
     void normalize(void);
+    // remove redundant overlaps
+    void bluntify(void);
     // turn the graph into a dag by copying strongly connected components expand_scc_steps times
     // and translating the edges in the component to flow through the copies in one direction
     VG dagify(uint32_t expand_scc_steps,
@@ -675,6 +677,7 @@ public:
     // converts the stored paths in this graph to alignments
     const vector<Alignment> paths_as_alignments(void);
     const string path_sequence(const Path& path);
+    string trav_sequence(const NodeTraversal& trav);
 
     SB_Input vg_to_sb_input();
     vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);

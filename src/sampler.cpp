@@ -196,11 +196,13 @@ Alignment Sampler::alignment_with_error(size_t length,
                                         double indel_error) {
     size_t maxiter = 100;
     Alignment aln;
-    if (base_error || indel_error) {
+    if (base_error > 0 || indel_error > 0) {
         // sample a longer-than necessary alignment, then trim
         size_t iter = 0;
         while (iter++ < maxiter) {
-            aln = alignment(length + 2 * ((double) length * indel_error));
+            aln = mutate(
+                alignment(length + 2 * ((double) length * indel_error)),
+                base_error, indel_error);
             if (aln.sequence().size() == length) {
                 break;
             } else if (aln.sequence().size() > length) {

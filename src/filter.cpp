@@ -201,7 +201,7 @@ namespace vg{
                 stringstream est;
                 est <<  ee.from_length() << "_" << ee.to_length() << "_" + ee.sequence();
                 string e_hash = est.str();
-#pragma omp critical(write)
+                #pragma omp critical(write)
                 pos_to_edit_to_depth[p_hash][e_hash] += 1;
                 /**
                  * If an edit fails the filter, either return a new empty alignment
