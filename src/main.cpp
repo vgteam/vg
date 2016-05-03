@@ -220,7 +220,8 @@ int main_filter(int argc, char** argv) {
                 // clip region on end of path
                 regions[i].end = min(path_size - 1, regions[i].end);
                 // do path node query
-                xindex.get_path_range(regions[i].seq, regions[i].start, regions[i].end, graph);
+                // convert to 0-based coordinates as this seems to be what xg wants
+                xindex.get_path_range(regions[i].seq, regions[i].start - 1, regions[i].end - 1, graph);
                 if (context_size > 0) {
                     xindex.expand_context(graph, context_size);
                 }
@@ -761,23 +762,26 @@ int main_scrub(int argc, char** argv){
 
 void help_vectorize(char** argv){
     cerr << "usage: " << argv[0] << " vectorize [options] -x <index.xg> <alignments.gam>" << endl
-        << "Vectorize a set of alignments to a variety of vector formats." << endl
-        << endl
-        << "options: " << endl
-        << "  -x --xg-name FILE  An xg index for the graph of interest" << endl
-        << "  -f --format        Tab-delimit output so it can be used in R." << endl
-        << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
-        << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
-        << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
-        << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
-        << "  -l --aln-label     Label all vectors with a custom label" << endl
-        << endl;
+
+         << "Vectorize a set of alignments to a variety of vector formats." << endl
+         << endl
+         << "options: " << endl
+         << "  -x --xg FILE       An xg index for the graph of interest" << endl
+         << "  -g --gcsa FILE     A gcsa2 index to use if generating MEM sketches" << endl
+         << "  -f --format        Tab-delimit output so it can be used in R." << endl
+         << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
+         << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
+         << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
+         << "  -m --mem-sketch    Generate a MEM sketch of a given read based on the GCSA" << endl
+         << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
+         << endl;
 }
 
 int main_vectorize(int argc, char** argv){
 
     string xg_name;
     string aln_label = "";
+    string gcsa_name;
     bool format = false;
     bool show_header = false;
     bool map_alns = false;
@@ -785,6 +789,7 @@ int main_vectorize(int argc, char** argv){
     bool a_hot = false;
     bool output_wabbit = false;
     bool use_identity_hot = false;
+    bool mem_sketch = false;
 
     if (argc <= 2) {
         help_vectorize(argv);
@@ -798,18 +803,20 @@ int main_vectorize(int argc, char** argv){
         {
             {"help", no_argument, 0, 'h'},
             {"annotate", no_argument, 0, 'A'},
-            {"xg-name", required_argument,0, 'x'},
+            {"xg", required_argument,0, 'x'},
+            {"gcsa", required_argument,0, 'g'},
             {"threads", required_argument, 0, 't'},
             {"format", no_argument, 0, 'f'},
             {"a-hot", no_argument, 0, 'a'},
             {"wabbit", no_argument, 0, 'w'},
+            {"mem-sketch", no_argument, 0, 'm'},
             {"identity-hot", no_argument, 0, 'i'},
             {"aln-label", required_argument, 0, 'l'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfx:l:",
+        c = getopt_long (argc, argv, "Aaihwfmx:g:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -846,36 +853,89 @@ int main_vectorize(int argc, char** argv){
                 break;
             default:
                 abort();
+=======
+        case '?':
+        case 'h':
+            help_vectorize(argv);
+            return 1;
+        case 'x':
+            xg_name = optarg;
+            break;
+        case 'g':
+            gcsa_name = optarg;
+            break;
+        case 'm':
+            mem_sketch = true;
+            break;
+        case 'a':
+            a_hot = true;
+            break;
+        case 'w':
+            output_wabbit = true;
+            break;
+        case 'i':
+            use_identity_hot = true;
+            break;
+        case 'f':
+            format = true;
+            break;
+        case 'A':
+            annotate = true;
+            format = true;
+            break;
+        default:
+            abort();
+>>>>>>> 3349f1ff18b43486719f4f8d0a996b156d6a821c
         }
     }
 
-    xg::XG* xindex;
+    xg::XG* xg_index;
     if (!xg_name.empty()) {
         ifstream in(xg_name);
-        xindex = new xg::XG(in);
+        xg_index = new xg::XG(in);
     }
     else{
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     }
 
-    Vectorizer vz(xindex);
+    gcsa::GCSA gcsa_index;
+    gcsa::LCPArray lcp_index;
+    if (!gcsa_name.empty()) {
+        ifstream in_gcsa(gcsa_name.c_str());
+        gcsa_index.load(in_gcsa);
+        // default LCP is the gcsa base name +.lcp
+        string lcp_in = gcsa_name + ".lcp";
+        ifstream in_lcp(lcp_in.c_str());
+        lcp_index.load(in_lcp);
+    }
+
+    Mapper mapper;
+    if (mem_sketch) {
+        if (gcsa_name.empty()) {
+            cerr << "[vg vectorize] error : an xg index and gcsa index are required when making MEM sketches" << endl;
+            return 1;
+        } else {
+            mapper.gcsa = &gcsa_index;
+            mapper.lcp = &lcp_index;            
+        }
+    }
+ 
+    Vectorizer vz(xg_index);
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, output_wabbit, use_identity_hot, format, a_hot, aln_label](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, format, a_hot](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
-
-        if (a_hot){
+        if (a_hot) {
             vector<int> v = vz.alignment_to_a_hot(a);
             if (output_wabbit){
                 cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
             }
             else if (format){
                 cout << a.name() << "\t" << vz.format(v) << endl;
-            }
-            else{
+            } else{
                 cout << v << endl;
             }
         }
@@ -890,16 +950,25 @@ int main_vectorize(int argc, char** argv){
             else {
                 cout << vz.format(v) << endl;
             }
-        }
-        else{
+        
+        } else if (mem_sketch) {
+            // get the mems
+            map<string, int> mem_to_count;
+            auto mems = mapper.find_smems(a.sequence());
+            for (auto& mem : mems) {
+                mem_to_count[mem.sequence()]++;
+            }
+            cout << " |info count:" << mems.size() << " unique:" << mem_to_count.size();
+            cout << " |mems";
+            for (auto m : mem_to_count) {
+                cout << " " << m.first << ":" << m.second;
+            }
+            cout << endl;
+        } else {
             bit_vector v = vz.alignment_to_onehot(a);
-            if (output_wabbit){
-                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
-            }
-            else if (format){
+            if (format) {
                 cout << a.name() << "\t" << vz.format(v) << endl;
-            }
-            else{
+            } else{
                 cout << v << endl;
             }
         }
@@ -1281,6 +1350,7 @@ void help_pileup(char** argv) {
          << "    -q, --min-quality N     ignore bases with PHRED quality < N (default=0)" << endl
          << "    -m, --max-mismatches N  ignore bases with > N mismatches within window centered on read (default=1)" << endl
          << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
+         << "    -d, --max-depth N       maximum depth pileup to create (further maps ignored) (default=1000)" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1298,6 +1368,7 @@ int main_pileup(int argc, char** argv) {
     int min_quality = 0;
     int max_mismatches = 1;
     int window_size = 0;
+    int max_depth = 1000; // used to prevent protobuf messages getting to big
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1309,12 +1380,13 @@ int main_pileup(int argc, char** argv) {
                 {"max-mismatches", required_argument, 0, 'm'},
                 {"window-size", required_argument, 0, 'w'},
                 {"progress", required_argument, 0, 'p'},
+                {"max-depth", max_depth, 0, 'd'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "jq:m:w:pt:",
+        c = getopt_long (argc, argv, "jq:m:w:pd:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1335,6 +1407,9 @@ int main_pileup(int argc, char** argv) {
         case 'w':
             window_size = atoi(optarg);
             break;
+        case 'd':
+            max_depth = atoi(optarg);
+            break;            
         case 'p':
             show_progress = true;
             break;
@@ -1395,7 +1470,7 @@ int main_pileup(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing pileups" << endl;
     }
-    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size));
+    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth));
     function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
         int tid = omp_get_thread_num();
         pileups[tid].compute_from_alignment(aln);
@@ -2559,6 +2634,7 @@ void help_mod(char** argv) {
         << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
+        << "    -y, --destroy-node ID   remove node with given id" << endl
         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -2602,6 +2678,7 @@ int main_mod(int argc, char** argv) {
     uint32_t dagify_to = 0;
     uint32_t dagify_component_length_max = 0;
     bool orient_forward = false;
+    int64_t destroy_node_id = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2645,11 +2722,12 @@ int main_mod(int argc, char** argv) {
             {"max-branch", required_argument, 0, 'B'},
             {"break-cycles", no_argument, 0, 'b'},
             {"orient-forward", no_argument, 0, 'O'},
+            {"destroy-node", required_argument, 0, 'y'},            
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:L:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:L:y:",
                 long_options, &option_index);
 
 
@@ -2797,6 +2875,10 @@ int main_mod(int argc, char** argv) {
             case 'R':
                 remove_null = true;
                 break;
+
+            case 'y':
+                destroy_node_id = atoi(optarg);
+                break;                
 
             case 'h':
             case '?':
@@ -2975,6 +3057,10 @@ int main_mod(int argc, char** argv) {
         graph->add_start_end_markers(path_length, '#', '$', head_node, tail_node);
     }
 
+    if (destroy_node_id > 0) {
+        graph->destroy_node(destroy_node_id);
+    }
+
     graph->serialize_to_ostream(std::cout);
 
     delete graph;
@@ -3030,6 +3116,8 @@ int main_sim(int argc, char** argv) {
             {"forward-only", no_argument, 0, 'f'},
             {"align-out", no_argument, 0, 'a'},
             {"json-out", no_argument, 0, 'J'},
+            {"base-error", required_argument, 0, 'e'},
+            {"indel-error", required_argument, 0, 'i'},
             {0, 0, 0, 0}
         };
 
@@ -3113,8 +3201,7 @@ int main_sim(int argc, char** argv) {
     Sampler sampler(xgidx, seed_val);
     size_t max_iter = 1000;
     for (int i = 0; i < num_reads; ++i) {
-
-        auto aln = sampler.alignment(read_length);
+        auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
         size_t iter = 0;
         while (iter++ < max_iter) {
             if (aln.sequence().size() < read_length) {
@@ -4232,6 +4319,18 @@ int main_find(int argc, char** argv) {
         } else if (start_id != 0) {
             for (auto& e : xindex.edges_on_start(start_id)) {
                 cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
+            }
+        }
+        if (!node_ids.empty() && !path_name.empty()) {
+            // Note: this isn't at all consistent with -P option with rocksdb, which couts a range
+            // and then mapping, but need this info right now for scripts/chunked_call
+            for (auto node_id : node_ids) {
+                cout << node_id;
+                vector<size_t> positions = xindex.node_positions_in_path(node_id, path_name);
+                for (auto pos : positions) {
+                    cout << "\t" << pos;
+                }
+                cout << endl;
             }
         }
         if (!target.empty()) {
@@ -5393,7 +5492,6 @@ void help_map(char** argv) {
          << "    -K, --keep-secondary  produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
          << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
-         << "    -p, --pair-window N   align to a graph up to N ids away from the mapping location of one mate for the other" << endl
          << "    -N, --sample NAME     for --reads input, add this sample" << endl
          << "    -R, --read-group NAME for --reads input, add this read group" << endl
          << "output:" << endl
@@ -5405,6 +5503,10 @@ void help_map(char** argv) {
          << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "paired end alignment parameters:" << endl
+         << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
+         << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
+         << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
@@ -5486,6 +5588,8 @@ int main_map(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    bool promote_consistent_pairs = false;
+    int extra_pairing_multimaps = 4;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5539,11 +5643,13 @@ int main_map(int argc, char** argv) {
                 {"mismatch", required_argument, 0, 'z'},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
+                {"promote-paired", no_argument, 0, 'a'},
+                {"pairing-multimaps", required_argument, 0, 'u'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:au:",
                          long_options, &option_index);
 
 
@@ -5729,6 +5835,15 @@ int main_map(int argc, char** argv) {
         case 'y':
             gap_extend = atoi(optarg);
             break;
+            
+        case 'a':
+            promote_consistent_pairs = true;
+            break;
+        
+        case 'u':
+            extra_pairing_multimaps = atoi(optarg);
+            break;
+            
 
         case 'h':
         case '?':
@@ -5895,6 +6010,8 @@ int main_map(int argc, char** argv) {
         m->mismatch = mismatch;
         m->gap_open = gap_open;
         m->gap_extend = gap_extend;
+        m->promote_consistent_pairs = promote_consistent_pairs;
+        m->extra_pairing_multimaps = extra_pairing_multimaps;
         mapper[i] = m;
     }
 

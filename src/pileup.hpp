@@ -23,12 +23,12 @@ class Pileups {
 public:
     
     Pileups(VG* graph, int min_quality = 0, int max_mismatches = 1, int window_size = 0,
-            double max_insert_frac_read_end = 0.1) :
+            int max_depth = 1000) :
         _graph(graph),
         _min_quality(min_quality),
         _max_mismatches(max_mismatches),
         _window_size(window_size),
-        _max_insert_frac_read_end(max_insert_frac_read_end) {}
+        _max_depth(max_depth){}
     
     // copy constructor
     Pileups(const Pileups& other) {
@@ -40,7 +40,7 @@ public:
             _min_quality = other._min_quality;
             _max_mismatches = other._max_mismatches;
             _window_size = other._window_size;
-            _max_insert_frac_read_end = other._max_insert_frac_read_end;
+            _max_depth = other._max_depth;
         }
     }
 
@@ -52,7 +52,7 @@ public:
         _min_quality = other._min_quality;
         _max_mismatches = other._max_mismatches;
         _window_size = other._window_size;
-        _max_insert_frac_read_end = other._max_insert_frac_read_end;        
+        _max_depth = other._max_depth;
     }
 
     // copy assignment operator
@@ -70,7 +70,7 @@ public:
         _min_quality = other._min_quality;
         _max_mismatches = other._max_mismatches;
         _window_size = other._window_size;
-        _max_insert_frac_read_end = other._max_insert_frac_read_end;
+        _max_depth = other._max_depth;
         return *this;
     }
 
@@ -95,15 +95,15 @@ public:
     int _max_mismatches;
     // number of bases to scan in each direction for mismatches
     int _window_size;
-    // to work around clipping issues, we skip last read bases if there too many inserts
-    double _max_insert_frac_read_end;
+    // prevent giant protobufs
+    int _max_depth;
 
     // write to JSON
     void to_json(ostream& out);
     // read from protobuf
     void load(istream& in);
     // write to protobuf
-    void write(ostream& out, uint64_t buffer_size = 1000);
+    void write(ostream& out, uint64_t buffer_size = 5);
 
     // apply function to each pileup in table
     void for_each_node_pileup(const function<void(NodePileup&)>& lambda);
@@ -174,13 +174,13 @@ public:
     Pileups& merge(Pileups& other);
 
     // merge p2 into p1 and return 1. p2 is left an empty husk
-    static BasePileup& merge_base_pileups(BasePileup& p1, BasePileup& p2);
+    BasePileup& merge_base_pileups(BasePileup& p1, BasePileup& p2);
 
     // merge p2 into p1 and return 1. p2 is lef an empty husk
-    static NodePileup& merge_node_pileups(NodePileup& p1, NodePileup& p2);
+    NodePileup& merge_node_pileups(NodePileup& p1, NodePileup& p2);
     
     // merge p2 into p1 and return 1. p2 is lef an empty husk
-    static EdgePileup& merge_edge_pileups(EdgePileup& p1, EdgePileup& p2);
+    EdgePileup& merge_edge_pileups(EdgePileup& p1, EdgePileup& p2);
 
     // get ith BasePileup record
     static BasePileup* get_base_pileup(NodePileup& np, int64_t offset) {

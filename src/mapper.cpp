@@ -37,6 +37,8 @@ Mapper::Mapper(Index* idex,
     , gap_open(6)
     , gap_extend(1)
     , max_query_graph_ratio(128)
+    , promote_consistent_pairs(false)
+    , extra_pairing_multimaps(4)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -93,22 +95,48 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     auto& path = read1.path();
     int64_t idf = path.mapping(0).position().node_id();
     int64_t idl = path.mapping(path.mapping_size()-1).position().node_id();
-    // but which way should we expand? this will make things much easier
-    // just use the whole "window" for now
+    if(idf > idl) {
+        swap(idf, idl);
+    }
+    // but which way should we expand? this will make things much easier.
+    
+    // We'll look near the leftmost and rightmost nodes, but we won't try and
+    // bridge the whole area of the read, because there may be an ID
+    // discontinuity.
     int64_t first = max((int64_t)0, idf - pair_window);
     int64_t last = idl + (int64_t) pair_window;
+    
+    // Now make sure the ranges don't overlap, because if they do we'll
+    // duplicate nodes.
+    
+    // They can only overlap as idf on top of idl, since we swapped them above.
+    // TODO: account at all for orientation? Maybe our left end is in higher
+    // numbers but really does need to look left and not right.
+    if(idf >= idl) {
+        idf--;
+    }
+    
     VG* graph = new VG;
+
+    if(debug) {
+        cerr << "Rescuing in " << first << "-" << idf << " and " << idl << "-" << last << endl;
+    }
+    
+    // TODO: how do we account for orientation when using ID ranges?
 
     // Now we need to get the neighborhood by ID and expand outward by actual
     // edges. How we do this depends on what indexing structures we have.
     if(xindex) {
         // should have callback here
-        xindex->get_id_range(first, last, graph->graph);
+        xindex->get_id_range(first, idf, graph->graph);
+        xindex->get_id_range(idl, last, graph->graph);
+        
         // don't get the paths (this isn't yet threadsafe in sdsl-lite)
         xindex->expand_context(graph->graph, context_depth, false);
         graph->rebuild_indexes();
     } else if(index) {
-        index->get_range(first, last, *graph);
+        index->get_range(first, idf, *graph);
+        index->get_range(idl, last, *graph);
         index->expand_context(*graph, context_depth);
     } else {
         cerr << "error:[vg::Mapper] cannot align mate with no graph data" << endl;
@@ -117,6 +145,11 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
 
 
     graph->remove_orphan_edges();
+    
+    if(debug) {
+        cerr << "Rescue graph size: " << graph->size() << endl;
+    }
+    
     read2.clear_path();
     read2.set_score(0);
 
@@ -124,134 +157,215 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     delete graph;
 }
 
+bool Mapper::alignments_consistent(const Alignment& aln1, const Alignment& aln2, int pair_window) {
+    // Simple first hack: alignments are consistent if any of their node IDs are within pair_window of each other.
+    
+    // TODO: Do an actual neighborhood extension with the index instead to try and find touching neighborhoods
+    
+    // TODO: really we should do a proper graph walk.
+    
+    // We need the sets of nodes visited by each alignment
+    set<id_t> ids1;
+    set<id_t> ids2;
+    
+    for(size_t i = 0; i < aln1.path().mapping_size(); i++) {
+        // Collect all the unique nodes visited by the first algnment
+        ids1.insert(aln1.path().mapping(i).position().node_id());
+    }
+    
+    for(size_t i = 0; i < aln2.path().mapping_size(); i++) {
+        // Collect all the unique nodes visited by the second algnment
+        ids2.insert(aln2.path().mapping(i).position().node_id());
+    }
+    
+    for(auto id : ids2) {
+        // For every node that the second alignment visited
+        
+        // Find the smallest node visited by the other alignment that isn't less
+        // than this one.
+        auto nearest_above = ids1.lower_bound(id);
+        
+        if(nearest_above != ids1.end()) {
+            // There is such a node
+            if(*nearest_above - id <= pair_window) {
+                // And it's in the window! We're consistent!
+                return true;
+            }
+        }
+        
+        if(nearest_above != ids1.begin()) {
+            // There's a node ID smaller than this one that might be closer.
+            auto& nearest_below = --nearest_above;
+            
+            if(id - *nearest_below <= pair_window) {
+                // And it's in the window! We're consistent!
+                return true;
+            }
+        }
+        
+    }
+    
+    // We couldn't find any nodes sufficiently close in ID space.
+    return false;
+    
+    
+}
+
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     const Alignment& read1, const Alignment& read2, int kmer_size, int stride, int band_width, int pair_window) {
 
     // use paired-end resolution techniques
     //
-    // map both reads independently
-    // if both map, return the pair of all the mappings
-    // if one maps but not the other, attempt to rescue by mapping the other nearby in both orientations
-    //     for each mapping of the mapped read, pick the best mapping of the unmapped read near it
-
+    // map both reads independently, fetching some extra lower-score alignments
+    // put them all in lists, try and find the best consistent pair
+    // put that first, sort the rest by score, trim to requested number of multi-mappings, and return
+    
     // problem: need to develop model of pair orientations
     // solution: collect a buffer of alignments and then align them using unpaired approach
     //           detect read orientation and mean (and sd) of pair distance
 
-    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width);
-    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width);
-
+    // TODO: what we *really* should be doing is using paired MEM seeding, so we
+    // don't have to make loads of full alignments of each read to search for
+    // good pairs.
+    
     // We have some logic around align_mate_in_window to handle orientation
     // Since we now support reversing edges, we have to at least try opposing orientations for the reads.
-    auto align_mate = [&](Alignment& read, Alignment& mate) {
+    auto align_mate = [&](const Alignment& read, Alignment& mate) {
         // Make an alignment to align in the same local orientation as the read
         Alignment aln_same = mate;
         // And one to align in the opposite local orientation
         Alignment aln_opposite = mate;
 
-        // Is reverse going to be preferable in a tie?
-        if (read.has_path() && read.path().mapping(0).position().is_reverse()) {
-            // If so, reverse the "same direction" Alignment sequence
-            aln_same.set_sequence(reverse_complement(aln_same.sequence()));
-        } else {
-            // Otherwise reverse the opposite direction sequence
-            aln_opposite.set_sequence(reverse_complement(aln_opposite.sequence()));
-        }
+        // We can't rescue off an unmapped read
+        assert(read.has_path() && read.path().mapping_size() > 0);
+
+        // Always reverse the opposite direction sequence
+        aln_opposite.set_sequence(reverse_complement(aln_opposite.sequence()));
 
         // Do both the alignments
         align_mate_in_window(read, aln_same, pair_window);
         align_mate_in_window(read, aln_opposite, pair_window);
 
         if(aln_same.score() >= aln_opposite.score()) {
-            // The alignment in the same direction is best
+            // TODO: we should prefer opposign local orientations, but we can't
+            // really measure them well.
             mate = aln_same;
         } else {
-            // We have to say this pair has opposing local orientations
+            // Flip the winning reverse alignment back to the original read orientation
+            aln_opposite = reverse_complement_alignment(aln_opposite, [&](id_t id) {
+                return get_node_length(id);
+            });
             mate = aln_opposite;
         }
     };
+    
+    // Do the initial alignments, making sure to get some extras if we're going to check consistency.
+    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width,
+        max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
+    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width,
+        max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
+    
+    // Rescue only if the top alignment on one side has no mappings
+    if((alignments1.empty() || alignments1[0].score() == 0) && !(alignments2.empty() || alignments2[0].score() == 0)) {
+        // Can rescue 1 off of 2
+        Alignment mate = read1;
+        align_mate(alignments2[0], mate);
+        alignments1.clear();
+        alignments1.push_back(mate);
+    } else if(!(alignments1.empty() || alignments1[0].score() == 0) && (alignments2.empty() || alignments2[0].score() == 0)) {
+        // Can rescue 2 off of 1
+        Alignment mate = read2;
+        align_mate(alignments1[0], mate);
+        alignments2.clear();
+        alignments2.push_back(mate);
+    }
+    
+    // Find the consistent pair with highest total score and promote to primary.
+    // We can do this by going down each list in order.
+    int best_score = 0;
+    vector<Alignment>::iterator best1;
+    vector<Alignment>::iterator best2;
+    if(promote_consistent_pairs) {
+        for(auto aln1 = alignments1.begin(); aln1 != alignments1.end(); ++aln1) {
+            for(auto aln2 = alignments2.begin(); aln2 != alignments2.end(); ++aln2) {
+                // TODO: this is quadradic in number of alignments looked at. Is there a better way?
+                int pair_score = (*aln1).score() + (*aln2).score();
+                if(pair_score > best_score && alignments_consistent(*aln1, *aln2, pair_window)) {
+                    // This is the new best consistent pair
+                    best_score = pair_score;
+                    best1 = aln1;
+                    best2 = aln2;
+                }
+            } 
+        }
+    }
+    
+    if(best_score > 0) {
+        // There is a best consistent pair.
+        // Swap the best alignments first.
+        // We know we have at least one alignment on each side.
+        
+        iter_swap(best1, alignments1.begin());
+        iter_swap(best2, alignments2.begin());
+        
+        if(debug) cerr << "Found consistent pair" << endl;
 
-    // Try to rescue the unmapped end with each of the mapped end's  alignments.
-    if(alignments1.empty() && !alignments2.empty()) {
-        // We need to try aligning the mate near each of the places we aligned
-        // the read. But we need to deduplicate those alignments. So we
-        // serialize them into this set.
-        set<string> serializedAlignmentsUsed;
-
-        for(auto& aln2 : alignments2) {
-            // Align the mate the best way for each alignment of read 2
-            Alignment mate = read1;
-            align_mate(aln2, mate);
-
-            // Work out what it is as a string
-            string serialized;
-            mate.SerializeToString(&serialized);
-
-            if(!serializedAlignmentsUsed.count(serialized)) {
-                // It's not a duplicate
-                alignments1.push_back(mate);
-                serializedAlignmentsUsed.insert(serialized);
-            }
+        // Truncate to max multimaps
+        if(alignments1.size() > max_multimaps) {
+            alignments1.resize(max_multimaps);
+        }
+        if(alignments2.size() > max_multimaps) {
+            alignments2.resize(max_multimaps);
         }
 
-        // Sort these alignments by score, descending
-        sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
+        // Sort the secondary alignments by score, descending
+        sort(alignments1.begin() + 1, alignments1.end(), [](const Alignment& a, const Alignment& b) {
+            return a.score() > b.score();
+        });
+        sort(alignments2.begin() + 1, alignments2.end(), [](const Alignment& a, const Alignment& b) {
             return a.score() > b.score();
         });
 
-        // Set the secondary bits on all but the first rescued alignment
-        for(size_t i = 1; i < alignments1.size(); i++) {
-            alignments1[i].set_is_secondary(true);
+    } else {
+        // We could not find any consistent pairs
+        if(debug) cerr << "Could not find any consistent pairs" << endl;
+
+        // Truncate to max multimaps
+        if(alignments1.size() > max_multimaps) {
+            alignments1.resize(max_multimaps);
         }
-    } else if(alignments2.empty() && !alignments1.empty()) {
-        // We need to try aligning the mate near each of the places we aligned
-        // the read. But we need to deduplicate those alignments. So we
-        // serialize them into this set.
-        set<string> serializedAlignmentsUsed;
-
-        for(auto& aln1 : alignments1) {
-            // Align the mate the best way for each alignment of read 1
-            Alignment mate = read2;
-            align_mate(aln1, mate);
-
-            // Work out what it is as a string
-            string serialized;
-            mate.SerializeToString(&serialized);
-
-            if(!serializedAlignmentsUsed.count(serialized)) {
-                // It's not a duplicate
-                alignments2.push_back(mate);
-                serializedAlignmentsUsed.insert(serialized);
-            }
+        if(alignments2.size() > max_multimaps) {
+            alignments2.resize(max_multimaps);
         }
 
-        // Sort these alignments by score, descending
+        // Sort all the alignments by score, descending
+        sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
+            return a.score() > b.score();
+        });
         sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
             return a.score() > b.score();
         });
 
-        // Set the secondary bits on all but the first rescued alignment
-        for(size_t i = 1; i < alignments2.size(); i++) {
-            alignments2[i].set_is_secondary(true);
-        }
     }
 
-    // link the fragments
+
+    // link the fragments and set primary/secondary
     for(size_t i = 0; i < alignments1.size(); i++) {
         alignments1[i].mutable_fragment_next()->set_name(read2.name());
+        alignments1[i].set_is_secondary(i > 0);
     }
     for(size_t i = 0; i < alignments2.size(); i++) {
         alignments2[i].mutable_fragment_prev()->set_name(read1.name());
+        alignments2[i].set_is_secondary(i > 0);
     }
 
-    // TODO: sort in order of best overall score, if the alignments happen to actually correspond?
     // TODO: pathfind between alignments?
+
 
     // TODO
     // mark them as discordant if there is an issue?
     // this needs to be detected with care using statistics built up from a bunch of reads
     return make_pair(alignments1, alignments2);
-
 }
 
 pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Alignment& read2, int kmer_size, int stride,
@@ -637,7 +751,7 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     return graph.adjacent(pos1, pos2);
 }
 
-vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width) {
+vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width, int multimaps) {
     // trigger a banded alignment if we need to
     // note that this will in turn call align_multi on fragments of the read
     if (aln.sequence().size() > band_width) {
@@ -646,18 +760,23 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
     }
     if (kmer_size || index != nullptr) {
         // if we've defined a kmer size, use the legacy style mapper
-        return align_multi_kmers(aln, kmer_size, stride, band_width);
+        return align_multi_kmers(aln, kmer_size, stride, band_width, multimaps);
     } else {
         // otherwise use the mem mapper, which is a banded multi mapper by default
-        return align_mem(aln);
+        return align_mem(aln, multimaps);
     }
 }
 
-vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size, int stride, int band_width) {
+vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size, int stride, int band_width, int multimaps) {
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
     if (debug) start_both = std::chrono::system_clock::now();
     const string& sequence = aln.sequence();
+    
+    if(multimaps == 0) {
+        // Fill in real default multimap limit
+        multimaps = max_multimaps;
+    }
 
     // we assume a kmer size to be specified
     if (!kmer_size && !kmer_sizes.empty()) {
@@ -770,7 +889,7 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
     size_t next_r = 0;
 
     // TODO: Apply a minimum score threshold?
-    while(merged.size() < max_multimaps) {
+    while(merged.size() < multimaps) {
         if(next_f < alignments_f.size()) {
             // We have an available forward alignment
             if(next_r < alignments_r.size()) {
@@ -1142,12 +1261,17 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
     return alns;
 }
 
-vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
+vector<Alignment> Mapper::align_mem(const Alignment& alignment, int multimaps) {
 
     if (debug) cerr << "aligning " << pb2json(alignment) << endl;
     if (!gcsa || !xindex) {
         cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
         exit(1);
+    }
+    
+    if(multimaps == 0) {
+        // Fill in real default multimap limit
+        multimaps = max_multimaps;
     }
 
     // use the GCSA index to determine the approximate MEMs of the read
@@ -1163,7 +1287,7 @@ vector<Alignment> Mapper::align_mem(const Alignment& alignment) {
     for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
     if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
 
-    return align_mem_multi(alignment, mems);
+    return align_mem_multi(alignment, mems, multimaps);
 
     /*
     // TODO
@@ -1541,7 +1665,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (debug) {
             cerr << "softclip before " << sc_start << " " << sc_end << endl;
         }
-        double avg_node_size = graph.length() / graph.size();
+        double avg_node_size = graph.length() / (double)graph.size();
         if (debug) cerr << "average node size " << avg_node_size << endl;
         // step towards the side where there were soft clips
         if (sc_start) {
@@ -1994,7 +2118,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                          << graph->distance_to_tail(NodeTraversal(graph->get_node(idl), false), sc_end*3)
                          << endl;
                 }
-                double avg_node_size = graph->length() / graph->size();
+                double avg_node_size = graph->length() / (double)graph->size();
                 if (debug) cerr << "average node size " << avg_node_size << endl;
                 // step towards the side where there were soft clips
                 if (sc_start) {

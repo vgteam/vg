@@ -20,6 +20,7 @@ char reverse_complement(const char& c);
 string reverse_complement(const string& seq);
 int get_thread_count(void);
 string wrap_text(const string& str, size_t width);
+bool is_number(const string& s);
 
 // split a string on any character found in the string of delimiters (delims)
 std::vector<std::string>& split_delims(const std::string &s, const std::string& delims, std::vector<std::string> &elems);

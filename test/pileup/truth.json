@@ -86,7 +86,48 @@
           "bases": ".,"
         }
       ]
+    }
+  ],
+  "edge_pileups": [
+    {
+      "edge": {
+        "to": 8,
+        "from": 6
+      },
+      "num_reads": 1
     },
+    {
+      "edge": {
+        "to": 2,
+        "from": 1
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "to": 3,
+        "from": 1
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "to": 4,
+        "from": 3
+      },
+      "num_reads": 1
+    },
+    {
+      "edge": {
+        "to": 9,
+        "from": 8
+      },
+      "num_reads": 1
+    }
+  ]
+}
+{
+  "node_pileups": [
     {
       "node_id": 7,
       "base_pileup": [
@@ -175,57 +216,22 @@
   "edge_pileups": [
     {
       "edge": {
-        "from": 6,
-        "to": 8
+        "to": 7,
+        "from": 6
       },
       "num_reads": 1
     },
     {
       "edge": {
-        "from": 1,
-        "to": 2
-      },
-      "num_reads": 1
-    },
-    {
-      "edge": {
-        "from": 1,
-        "to": 3
-      },
-      "num_reads": 1
-    },
-    {
-      "edge": {
-        "from": 3,
-        "to": 4
-      },
-      "num_reads": 1
-    },
-    {
-      "edge": {
-        "from": 8,
-        "to": 9
-      },
-      "num_reads": 1
-    },
-    {
-      "edge": {
-        "from": 6,
-        "to": 7
-      },
-      "num_reads": 1
-    },
-    {
-      "edge": {
-        "from": 4,
-        "to": 6
+        "to": 6,
+        "from": 4
       },
       "num_reads": 2
     },
     {
       "edge": {
-        "from": 2,
-        "to": 4
+        "to": 4,
+        "from": 2
       },
       "num_reads": 1
     }

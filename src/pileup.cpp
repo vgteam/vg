@@ -166,6 +166,7 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
     pair<const Mapping*, int64_t> open_del(NULL, -1);
     for (int i = 0; i < path.mapping_size(); ++i) {
         const Mapping& mapping = path.mapping(i);
+        int rank = mapping.rank() <= 0 ? i + 1 : mapping.rank(); 
         if (_graph->has_node(mapping.position().node_id())) {
             const Node* node = _graph->get_node(mapping.position().node_id());
             NodePileup* pileup = get_create_node_pileup(node);
@@ -184,14 +185,21 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
                                   alignment, mapping, edit, mismatch_counts, last_match, last_del, open_del);
             }
             out_read_offsets[i] = read_offset - 1;
-        }
-        int rank = mapping.rank() <= 0 ? i + 1 : mapping.rank();
-        if (rank <= 0 || rank >= ranks.size() || ranks[rank] != -1) {
+
+            if (rank <= 0 || rank >= ranks.size() || ranks[rank] != -1) {
             cerr << "Error determining rank of mapping " << i << " in path " << path.name() << ": "
                  << pb2json(mapping) << endl;
-        }
-        else {
-            ranks[rank] = i;
+            }
+            else {
+                ranks[rank] = i;
+            }
+        } else {
+            // node not in graph. that's okay, we do nothing but update the read_offset to
+            // not trigger assert at end of this function
+            for (int j = 0; j < mapping.edit_size(); ++j) {
+                read_offset += mapping.edit(j).to_length();
+            }
+            ranks[rank] = -1;
         }
     }
     // loop again over all the edges crossed by the mapping alignment, using
@@ -199,7 +207,7 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
     for (int i = 2; i < ranks.size(); ++i) {
         int rank1_idx = ranks[i-1];
         int rank2_idx = ranks[i];
-        if (rank1_idx > 0 || rank2_idx > 0) {
+        if ((rank1_idx > 0 || rank2_idx > 0) && (rank1_idx >= 0 && rank2_idx >= 0)) {
             auto& m1 = path.mapping(rank1_idx);
             auto& m2 = path.mapping(rank2_idx);
             auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
@@ -213,9 +221,11 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             }
             if (edge_qual >= _min_quality) {
                 EdgePileup* edge_pileup = get_create_edge_pileup(pair<NodeSide, NodeSide>(s1, s2));
-                edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
-                if (!alignment.quality().empty()) {
+                if (edge_pileup->num_reads() < _max_depth) {
+                  edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
+                  if (!alignment.quality().empty()) {
                     *edge_pileup->mutable_qualities() += edge_qual;
+                  }
                 }
             }
         }
@@ -248,22 +258,23 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         for (int64_t i = 0; i < edit.from_length(); ++i) {
             if (pass_filter(alignment, read_offset, mismatch_counts)) {
                 BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
-                // reference_base if empty
-                if (base_pileup->num_bases() == 0) {
-                    base_pileup->set_ref_base(node.sequence()[node_offset]);
-                } else {
-                    assert(base_pileup->ref_base() == node.sequence()[node_offset]);
+                if (base_pileup->num_bases() < _max_depth) {
+                    // reference_base if empty
+                    if (base_pileup->num_bases() == 0) {
+                        base_pileup->set_ref_base(node.sequence()[node_offset]);
+                    } else {
+                        assert(base_pileup->ref_base() == node.sequence()[node_offset]);
+                    }
+                    // add base to bases field (converting to ,. if match)
+                    char base = seq[i];
+                    *base_pileup->mutable_bases() += base;
+                    // add quality if there
+                    if (!alignment.quality().empty()) {
+                        *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                    }
+                    // pileup size increases by 1
+                    base_pileup->set_num_bases(base_pileup->num_bases() + 1);
                 }
-                // add base to bases field (converting to ,. if match)
-                char base = seq[i];
-                *base_pileup->mutable_bases() += base;
-                // add quality if there
-                if (!alignment.quality().empty()) {
-                    *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
-                }
-                // pileup size increases by 1
-                base_pileup->set_num_bases(base_pileup->num_bases() + 1);
-
                 // close off any open deletion
                 if (open_del.first != NULL) {
                     string del_seq;
@@ -284,18 +295,20 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                     Node* dp_node = _graph->get_node(dp_node_id);
                     NodePileup* dp_node_pileup = get_create_node_pileup(dp_node);
                     BasePileup* dp_base_pileup = get_create_base_pileup(*dp_node_pileup, dp_node_offset);
-                    // reference_base if empty
-                    if (dp_base_pileup->num_bases() == 0) {
-                        dp_base_pileup->set_ref_base(dp_node->sequence()[dp_node_offset]);
-                    } else {
-                        assert(dp_base_pileup->ref_base() == dp_node->sequence()[dp_node_offset]);
+                    if (dp_base_pileup->num_bases() < _max_depth) {
+                        // reference_base if empty
+                        if (dp_base_pileup->num_bases() == 0) {
+                            dp_base_pileup->set_ref_base(dp_node->sequence()[dp_node_offset]);
+                        } else {
+                            assert(dp_base_pileup->ref_base() == dp_node->sequence()[dp_node_offset]);
+                        }
+                        *dp_base_pileup->mutable_bases() += del_seq;
+                        if (!alignment.quality().empty()) {
+                            // we only use quality of one endpoint here.  should average
+                            *dp_base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                        }
+                        dp_base_pileup->set_num_bases(dp_base_pileup->num_bases() + 1);
                     }
-                    *dp_base_pileup->mutable_bases() += del_seq;
-                    if (!alignment.quality().empty()) {
-                        // we only use quality of one endpoint here.  should average
-                        *dp_base_pileup->mutable_qualities() += alignment.quality()[read_offset];
-                    }
-                    dp_base_pileup->set_num_bases(dp_base_pileup->num_bases() + 1);
                     open_del = make_pair((Mapping*)NULL, -1);
                     last_del = make_pair((Mapping*)NULL, -1);
                 }
@@ -318,19 +331,21 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
             int64_t insert_offset =  map_reverse ? node_offset : node_offset - 1;
             if (insert_offset >= 0) {        
                 BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
-                // reference_base if empty
-                if (base_pileup->num_bases() == 0) {
-                    base_pileup->set_ref_base(node.sequence()[insert_offset]);
-                } else {
-                    assert(base_pileup->ref_base() == node.sequence()[insert_offset]);
+                if (base_pileup->num_bases() < _max_depth) {
+                    // reference_base if empty
+                    if (base_pileup->num_bases() == 0) {
+                        base_pileup->set_ref_base(node.sequence()[insert_offset]);
+                    } else {
+                        assert(base_pileup->ref_base() == node.sequence()[insert_offset]);
+                    }
+                    // add insertion string to bases field
+                    base_pileup->mutable_bases()->append(seq);
+                    if (!alignment.quality().empty()) {
+                        *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                    }
+                    // pileup size increases by 1
+                    base_pileup->set_num_bases(base_pileup->num_bases() + 1);
                 }
-                // add insertion string to bases field
-                base_pileup->mutable_bases()->append(seq);
-                if (!alignment.quality().empty()) {
-                    *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
-                }
-                // pileup size increases by 1
-                base_pileup->set_num_bases(base_pileup->num_bases() + 1);
             }
             else {
                 // need to check with aligner to make sure this doesn't happen, ie
@@ -446,6 +461,14 @@ void Pileups::count_mismatches(VG& graph, const Path& path,
                     node_offset += delta;
                 }
             }
+        } else {
+            // node not in graph: count 0 mismatches for each absent position
+            for (int j = 0; j < mapping.edit_size(); ++j) {
+                read_offset += mapping.edit(j).to_length();
+                for (int k = 0; k < mapping.edit(j).to_length(); ++k) {
+                    mismatches.push_back(0);
+                }
+            }
         }
     }
     assert(skipIndels || read_offset == mismatches.size());
@@ -496,9 +519,20 @@ BasePileup& Pileups::merge_base_pileups(BasePileup& p1, BasePileup& p2) {
     if (p1.num_bases() == 0) {
         p1.set_ref_base(p2.ref_base());
     }
-    p1.mutable_bases()->append(p2.bases());
-    p1.mutable_qualities()->append(p2.qualities());
-    p1.set_num_bases(p1.num_bases() + p2.num_bases());
+    int merge_size = min(p2.num_bases(), _max_depth - p1.num_bases());
+    p1.set_num_bases(p1.num_bases() + merge_size);
+    if (merge_size == p2.num_bases()) {    
+        p1.mutable_bases()->append(p2.bases());
+        p1.mutable_qualities()->append(p2.qualities());
+    } else if (merge_size > 0) {
+        vector<pair<int64_t, int64_t> > offsets;
+        parse_base_offsets(p2, offsets);
+        int merge_length = offsets[merge_size].first;
+        p1.mutable_bases()->append(p2.bases().substr(0, merge_length));
+        if (!p2.qualities().empty()) {
+            p1.mutable_qualities()->append(p2.qualities().substr(0, merge_size));
+        }
+    }
     p2.set_num_bases(0);
     p2.clear_bases();
     p2.clear_qualities();
@@ -521,9 +555,13 @@ EdgePileup& Pileups::merge_edge_pileups(EdgePileup& p1, EdgePileup& p2) {
     assert(p1.edge().to() == p2.edge().to());
     assert(p1.edge().from_start() == p2.edge().from_start());
     assert(p1.edge().to_end() == p2.edge().to_end());
-    
-    p1.set_num_reads(p1.num_reads() + p2.num_reads());
-    p1.mutable_qualities()->append(p2.qualities());
+    int merge_size = min(p2.num_reads(), _max_depth - p1.num_reads());
+    p1.set_num_reads(p1.num_reads() + merge_size);
+    if (merge_size == p2.num_reads()) {
+        p1.mutable_qualities()->append(p2.qualities());
+    } else if (!p2.qualities().empty()) {
+        p1.mutable_qualities()->append(p2.qualities().substr(0, merge_size));
+    }
     p2.set_num_reads(0);
     p2.clear_qualities();
     return p1;
