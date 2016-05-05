@@ -768,6 +768,7 @@ void help_vectorize(char** argv){
          << "options: " << endl
          << "  -x --xg FILE       An xg index for the graph of interest" << endl
          << "  -g --gcsa FILE     A gcsa2 index to use if generating MEM sketches" << endl
+         << "  -l --aln-label LABEL   Rename every alignment to LABEL when outputting alignment name." << endl
          << "  -f --format        Tab-delimit output so it can be used in R." << endl
          << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
          << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
@@ -816,7 +817,7 @@ int main_vectorize(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfmx:g:",
+        c = getopt_long (argc, argv, "Aaihwfmx:g:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -837,10 +838,10 @@ int main_vectorize(int argc, char** argv){
                 break;
             case 'w':
                 output_wabbit = true;
-                break;
+                break; */
             case 'l':
                 aln_label = optarg;
-                break;
+                break;/*
             case 'i':
                 use_identity_hot = true;
                 break;
@@ -4801,6 +4802,11 @@ int main_index(int argc, char** argv) {
     while (optind < argc) {
         string file_name = argv[optind++];
         file_names.push_back(file_name);
+    }
+
+    if (file_names.size() <= 0){
+        cerr << "No graph provided for indexing. Please provide a .vg file to index." << endl;
+        return 1;
     }
 
     if(kmer_size == 0 && !gcsa_name.empty() && dbg_names.empty()) {

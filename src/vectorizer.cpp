@@ -126,6 +126,7 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
         double pct_id = 0.0;
         double match_len = 0.0;
         double total_len = 0.0;
+
         for (int j = 0; j < mapping.edit_size(); j++){
             Edit e = mapping.edit(j);
             total_len += e.from_length();
@@ -141,7 +142,7 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
             }
             
         }
-        pct_id = match_len / total_len;
+        pct_id = (match_len == 0.0 && total_len == 0.0) ? 0.0 : (match_len / total_len);
         ret[key - 1] = pct_id;
 
         if (i > 0){
