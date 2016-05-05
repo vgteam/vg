@@ -18,6 +18,7 @@
 #include "gcsa.h"
 #include "lcp.h"
 #include "gssw_aligner.hpp"
+#include "ssw_aligner.hpp"
 #include "region.hpp"
 #include "path.hpp"
 #include "utility.hpp"
