@@ -31,6 +31,7 @@ class Vectorizer{
     vector<int> alignment_to_a_hot(Alignment a);
     vector<double> alignment_to_custom_score(Alignment a, std::function<double(Alignment)> lambda);
     vector<double> alignment_to_identity_hot(Alignment a);
+    string output_wabbit_map();
     template<typename T> string format(T v){
         stringstream sout;
         for (int i = 0; i < v.size(); i++){

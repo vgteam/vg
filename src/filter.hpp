@@ -36,7 +36,9 @@ class Filter{
         Alignment split_read_filter(Alignment& aln);
         Alignment path_divergence_filter(Alignment& aln);
         Alignment reversing_filter(Alignment& aln);
+        Alignment kmer_filter(Alignment& aln);
         void set_min_depth(int depth);
+        //void set_min_kmer_depth(int d);
         void set_min_qual(int qual);
         void set_min_percent_identity(double pct_id);
         void set_avg_qual(double avg_qual);

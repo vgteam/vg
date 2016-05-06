@@ -131,6 +131,12 @@ namespace vg{
         return inverse ? Alignment() : aln;
     }
 
+    Alignment Filter::kmer_filter(Alignment& aln){
+
+
+        return inverse ? Alignment() : aln;
+    }
+
     /**
      * Looks for alignments that change direction over their length.
      * This may happen because of:

@@ -12,6 +12,14 @@ Vectorizer::~Vectorizer(){
     delete my_xg;
 }
 
+string Vectorizer::output_wabbit_map(){
+    unordered_map<string, int>::iterator wab_it;
+    stringstream sout;
+    for (wab_it = wabbit_map.begin(); wab_it != wabbit_map.end(); wab_it++){
+        sout << wab_it->second << "\t" << wab_it->first << "\n";
+    }
+    return sout.str();
+}
 
 void Vectorizer::emit(ostream &out, bool r_format=false, bool annotate=false){
     /**TODO print header*/
