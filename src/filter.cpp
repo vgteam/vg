@@ -185,6 +185,10 @@ namespace vg{
     Alignment Filter::depth_filter(Alignment& aln){
         Path path = aln.path();
         //TODO handle reversing mappings
+        vector<int>* qual_window;
+        if (window_length > 0){
+            qual_window = new vector<int>();
+        }
 
         for (int i = 0; i < path.mapping_size(); i++){
             Mapping mapping = path.mapping(i);
