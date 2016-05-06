@@ -3044,16 +3044,15 @@ void VG::bluntify(void) {
     // to the new translation
     // link them in
     // and get rid of the updated edges
+    vector<Edge*> edges_to_destroy;
     for_each_edge([&](Edge* edge) {
-            /*
-            if (overlaps.find(edge) != overlap_node.end()) {
-                cerr << "edge : " << pb2json(*edge) << " is an overlap " << endl;
-                cerr << pb2json(*overlap_node[edge]) << endl;
-            } else {
-                cerr << "edge : " << pb2json(*edge) << " is not overlap edge" << endl;
+            if (edge->overlap() > 0) {
+                edges_to_destroy.push_back(edge);
             }
-            */
         });
+    for (auto& edge : edges_to_destroy) {
+        destroy_edge(edge);
+    }
     
 }
 
