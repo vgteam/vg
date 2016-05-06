@@ -18,9 +18,9 @@ public:
 
     GSSWAligner(
         Graph& g,
-        int32_t _match = 2,
-        int32_t _mismatch = 2,
-        int32_t _gap_open = 3,
+        int32_t _match = 1,
+        int32_t _mismatch = 4,
+        int32_t _gap_open = 6,
         int32_t _gap_extension = 1);
 
     ~GSSWAligner(void);
