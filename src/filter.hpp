@@ -84,6 +84,7 @@ class Filter{
         int min_qual = 0;
         int min_cov = 0;
         int window_length = 0;
+        int qual_offset = 0;
         int soft_clip_limit = -1;
         int split_read_limit = -1;
         double min_percent_identity = 0.0;

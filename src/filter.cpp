@@ -242,11 +242,11 @@ namespace vg{
 
     Alignment Filter::qual_filter(Alignment& aln){
         string quals = aln.quality();
-        int offset = 0;
+        int offset = qual_offset;
         for (int i = 0; i < quals.size(); i++){
             if (((int) quals[i] - offset) < min_qual){
                 if (!remove_failing_edits){
-                    return Alignment();
+                    return inverse ? aln : Alignment();
                 }
                 else{
                     //TODO: Should we really edit out poor-quality bases??
@@ -355,7 +355,9 @@ namespace vg{
 
         int top_side = path.mapping_size();
         int bottom_side = 0;
-        bool diverges = false;
+
+        Mapping bottom_mapping;
+        Mapping top_mapping;
 
         string main_path = "";
         while (top_side > bottom_side){
@@ -363,23 +365,22 @@ namespace vg{
             //
             //Check if paths are different
             //if (divergent(node1, node2){
-            //    diverges = true;
+            //    return inverse ? aln : Alignment();
             //}
+            top_mapping = path.mapping(top_side);
+            bottom_mapping = path.mapping(bottom_side);
+            Position top_pos = top_mapping.position();
+            Position bot_pos = bottom_mapping.position();
+            id_t top_id = top_pos.node_id();
+            id_t bottom_id = bottom_pos.node_id();
+
+
+
             top_side--;
             bottom_side++;
         }
 
-        //TODO check this; I'm not sure this is a fully safe conditional:
-        // reg: diverges: return ALN()
-        // reg: !diverges: return aln
-        // inv: diverges: return return aln;
-        // inv: !diverges: return ALN()
-        if ((diverges)){
-            return inverse ? aln : Alignment();
-        }
-        else{
             return inverse ? Alignment() : aln;
-        }
 
     }
     /**
