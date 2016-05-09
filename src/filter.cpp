@@ -126,9 +126,28 @@ namespace vg{
      * Inverse behavior: if the Alignment is path divergent, return aln, else return an empty Alignment
      */
     Alignment Filter::path_divergence_filter(Alignment& aln){
-        
+        Path path = aln.path();
+        for (int i = 1; i < path.mapping_size(); i++){
+            Mapping mapping = path.mapping(i);
+            Position pos = mapping.position();
+            id_t current_node = pos.node_id();
+            id_t prev_node = path.mapping(i - 1).position().node_id();
+            bool paths_match = false;
+            vector<size_t> paths_of_prev = my_xg_idx->paths_of_node(prev_node);
+            for (int i = 0; i < paths_of_prev.size(); i++){
+                string p_name = path_name(paths_of_prev[i]);
+                if (path_contains_node(p_name, current_node)){
+                    paths_match = true;
+                }
+            }
+            if (!paths_match){
+                return inverse ? Alignment() : aln;
+            }
+            else{
+                return inverse ? aln : Alignment();
+            }
 
-        return inverse ? Alignment() : aln;
+        }
     }
 
     Alignment Filter::kmer_filter(Alignment& aln){
