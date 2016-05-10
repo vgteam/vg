@@ -14,6 +14,7 @@
 #include "path.hpp"
 #include "json2pb.h"
 #include "entropy.hpp"
+#include "gssw_aligner.hpp"
 
 namespace vg {
 
@@ -60,6 +61,8 @@ private:
     // indexing structures null, for example if being called from the default
     // constructor.
     Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
+    
+    bool adjust_alignments_for_base_quality;
 
 public:
     // Make a Mapper that pulls from a RocksDB index and optionally a GCSA2 kmer index.
@@ -75,6 +78,13 @@ public:
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
+    // GSSW aligner
+    Aligner aligner;
+    
+    double estimate_gc_content();
+    void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
+    void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
+    void set_base_quality_adjusted_alignments(bool do_adjustments);
 
     // Align the given string and return an Alignment.
     Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
@@ -196,11 +206,6 @@ public:
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
     int max_target_factor; // the maximum multiple of the read length we'll try to align to
 
-    // local alignment parameters
-    int32_t match;
-    int32_t mismatch;
-    int32_t gap_open;
-    int32_t gap_extend;
     size_t max_query_graph_ratio;
 
     // multimapping

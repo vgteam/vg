@@ -1,31 +1,53 @@
+#include <cmath>
 #include "gssw_aligner.hpp"
+
+// log(10)
+static const double LN10 = 2.3025850929940457;
 
 using namespace vg;
 
-GSSWAligner::~GSSWAligner(void) {
+Aligner::~Aligner(void) {
     gssw_graph_destroy(graph);
     free(nt_table);
     free(score_matrix);
 }
 
-GSSWAligner::GSSWAligner(
-    Graph& g,
-    int32_t _match,
-    int32_t _mismatch,
-    int32_t _gap_open,
-    int32_t _gap_extension
-) {
-
+Aligner::Aligner(
+                 int32_t _match,
+                 int32_t _mismatch,
+                 int32_t _gap_open,
+                 int32_t _gap_extension
+                 )
+{
     match = _match;
     mismatch = _mismatch;
     gap_open = _gap_open;
     gap_extension = _gap_extension;
-
+    
     // these are used when setting up the nodes
     // they can be cleaned up via destroy_alignable_graph()
     nt_table = gssw_create_nt_table();
-	score_matrix = gssw_create_score_matrix(match, mismatch);
+    score_matrix = gssw_create_score_matrix(match, mismatch);
+    graph = nullptr;
+    log_base = 0.0;
+}
 
+Aligner::Aligner(
+    Graph& g,
+    int32_t _match,
+    int32_t _mismatch,
+    int32_t _gap_open,
+    int32_t _gap_extension) : Aligner(_match, _mismatch, _gap_open, _gap_extension)
+{
+    set_graph(g);
+}
+
+void Aligner::set_graph(Graph& g) {
+
+    if (graph) {
+        gssw_graph_destroy(graph);
+    }
+    
     graph = gssw_graph_create(g.node_size());
 
     for (int i = 0; i < g.node_size(); ++i) {
@@ -73,8 +95,7 @@ GSSWAligner::GSSWAligner(
 
 }
 
-
-void GSSWAligner::align(Alignment& alignment, bool print_score_matrices) {
+void Aligner::align(Alignment& alignment, bool print_score_matrices) {
 
     const string& sequence = alignment.sequence();
 
@@ -86,8 +107,8 @@ void GSSWAligner::align(Alignment& alignment, bool print_score_matrices) {
     gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
                                                     sequence.c_str(),
                                                     sequence.size(),
-                                                    match,
-                                                    mismatch,
+                                                    nt_table,
+                                                    score_matrix,
                                                     gap_open,
                                                     gap_extension);
 
@@ -103,7 +124,7 @@ void GSSWAligner::align(Alignment& alignment, bool print_score_matrices) {
 
 }
 
-void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
+void Aligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                                             Alignment& alignment,
                                             bool print_score_matrices) {
 
@@ -206,7 +227,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
                 to_pos += length;
                 break;
             default:
-                cerr << "error [GSSWAligner::gssw_mapping_to_alignment] "
+                cerr << "error [Aligner::gssw_mapping_to_alignment] "
                      << "unsupported cigar op type " << e->type << endl;
                 exit(1);
                 break;
@@ -222,7 +243,7 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
 
 }
 
-string GSSWAligner::graph_cigar(gssw_graph_mapping* gm) {
+string Aligner::graph_cigar(gssw_graph_mapping* gm) {
     stringstream s;
     gssw_graph_cigar* gc = &gm->cigar;
     gssw_node_cigar* nc = gc->elements;
@@ -245,4 +266,156 @@ string GSSWAligner::graph_cigar(gssw_graph_mapping* gm) {
         }
     }
     return s.str();
+}
+
+void Aligner::init_mapping_quality(double gc_content) {
+    log_base = gssw_dna_recover_log_base(match, mismatch, gc_content, 1e-12);
+}
+
+uint8_t Aligner::mapping_quality(vector<Alignment>& alignments) {
+    if (log_base <= 0.0) {
+        cerr << "error:[Aligner] must call mapping_quality_init before computing mapping qualities" << endl;
+        exit(EXIT_FAILURE);
+    }
+    
+    size_t size = alignments.size();
+    
+    if (size == 0) {
+        return 0;
+    }
+    
+    vector<int32_t> scores = new vector<int32_t>(size);
+    
+    int32_t max_idx = 0;
+    scores[0] = alignments[0].score();
+    
+    for (int32_t i = 1; i < size; i++) {
+        int32_t score = alignments[i].score()
+        scores[i] = score;
+        if (score > scores[max_idx]) {
+            max_idx = i;
+        }
+    }
+    
+    double numer = 0.0, denom = 0.0;
+    for (int32_t i = 0; i < size; i++) {
+        double likelihood = exp(log_base * scores[i]);
+        denom += likelihood;
+        if (i != max_idx) {
+            numer += likelihood;
+        }
+    }
+    
+    delete scores;
+    
+    double quality = -log10(denom / numer);
+    if (quality < std::numeric_limits<uint8_t>::max()) {
+        return std::numeric_limits<uint8_t>::max();
+    }
+    else {
+        return (uint8_t) quality;
+    }
+}
+
+uint8_t Aligner::mapping_quality_approx(vector<Alignment>& alignments) {
+    if (log_base <= 0.0) {
+        cerr << "error:[Aligner] must call mapping_quality_init before computing mapping qualities" << endl;
+        exit(EXIT_FAILURE);
+    }
+    
+    size_t size = alignments.size();
+    
+    if (size == 0) {
+        return 0;
+    }
+    
+    int32_t max_score = std::numeric_limits<int32_t>::lowest();
+    int32_t next_score = std::numeric_limits<int32_t>::lowest();
+    int32_t next_count = 0;
+    
+    for (int32_t i = 0; i < size; i++) {
+        int32_t score = alignments[i].score();
+        if (score > max_score) {
+            if (next_score == max_score) {
+                next_count++;
+            }
+            else {
+                next_score = max_score;
+                next_count = 1;
+            }
+            max_score = score;
+        }
+        else if (score > next_score) {
+            next_score = score;
+            next_count = 1;
+        }
+        else if (score == next_score) {
+            next_count++;
+        }
+    }
+    
+    double quality = (log_base / LN10) * (max_score - next_count * next_score);
+    if (quality < std::numeric_limits<uint8_t>::max()) {
+        return std::numeric_limits<uint8_t>::max();
+    }
+    else {
+        return (uint8_t) quality;
+    }
+}
+
+QualAdjAligner::QualAdjAligner(
+        Graph& g,
+        int8_t _match,
+        int8_t _mismatch,
+        int8_t _gap_open,
+        int8_t _gap_extension,
+        int8_t _max_scaled_score,
+        int8_t _max_qual_score,
+        double gc_content) : Aligner(g, _match, _mismatch, _gap_open, _gap_extension) {
+
+    max_qual_score = _max_qual_score;
+    scaled_gap_open = gap_open;
+    scaled_gap_extension = gap_extension;
+    
+    adjusted_score_matrix = gssw_dna_scaled_adjusted_qual_matrix(_max_scaled_score, max_qual_score, &scaled_gap_open,
+                                                                &scaled_gap_extension, match, mismatch,
+                                                                gc_content, 1e-12);
+    log_base = init_mapping_quality(gc_content);
+}
+
+void QualAdjAligner::init_mapping_quality(double gc_content) {
+    log_base = gssw_dna_recover_log_base(match, mismatch, gc_content, 1e-12);
+    // adjust to scaled matrix (a bit hacky but correct)
+    log_base /= (scaled_gap_open / gap_open);
+}
+
+GSSWQualAdjAligner::~GSSWQualAdjAligner(void) {
+    free(adjusted_score_matrix);
+}
+
+void GSSWQualAdjAligner::align(Alignment& alignment, bool print_score_matrices) {
+
+    const string& sequence = alignment.sequence();
+    const string& quality = alignment.quality();
+
+    gssw_graph_fill_qual_adj(graph, sequence.c_str(), (int8_t)* quality.c_str(),
+                             nt_table, adjusted_score_matrix,
+                             scaled_gap_open, scaled_gap_extension, 15);
+
+    gssw_graph_mapping* gm = gssw_graph_trace_back_qual_adj (graph,
+                                                             sequence.c_str(),
+                                                             quality.c_str(),
+                                                             sequence.size(),
+                                                             nt_table,
+                                                             adjusted_score_matrix,
+                                                             gap_open,
+                                                             gap_extension);
+
+    gssw_mapping_to_alignment(gm, alignment, print_score_matrices);
+
+#ifdef debug
+    gssw_print_graph_mapping(gm, stderr);
+#endif
+
+    gssw_graph_mapping_destroy(gm);
 }

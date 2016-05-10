@@ -793,23 +793,25 @@ public:
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
+    
     Alignment align(const Alignment& alignment,
-                    int32_t match = 1,
-                    int32_t mismatch = 4,
-                    int32_t gap_open = 6,
-                    int32_t gap_extension = 1,
+                    Aligner& aligner,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
+    // use default Aligner
+    Alignment align(const Alignment& alignment,
+                    size_t max_query_graph_ratio = 0,
+                    bool print_score_matrices = false);
+    
     Alignment align(const string& sequence,
-                    int32_t match = 1,
-                    int32_t mismatch = 4,
-                    int32_t gap_open = 6,
-                    int32_t gap_extension = 1,
+                    Aligner& aligner,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
-    void destroy_alignable_graph(void);
+    // use default Aligner
+    Alignment align(const string& sequence,
+                    size_t max_query_graph_ratio = 0,
+                    bool print_score_matrices = false);
 
-    GSSWAligner* gssw_aligner;
 
     // returns all node-crossing paths with up to length across node boundaries
     // considers each node in forward orientation to produce the kpaths around it

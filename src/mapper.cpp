@@ -32,15 +32,12 @@ Mapper::Mapper(Index* idex,
     , max_mem_length(0)
     , min_mem_length(0)
     , max_target_factor(128)
-    , match(1)
-    , mismatch(4)
-    , gap_open(6)
-    , gap_extend(1)
     , max_query_graph_ratio(128)
     , promote_consistent_pairs(false)
     , extra_pairing_multimaps(4)
+    , adjust_for_base_quality(false)
 {
-    // Nothing to do. We just hold the default parameter values.
+    init_aligner(1, 4, 6, 1);
 }
 
 Mapper::Mapper(Index* idex, gcsa::GCSA* g, gcsa::LCPArray* a) : Mapper(idex, nullptr, g, a)
@@ -79,7 +76,66 @@ Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr, nullptr) {
 }
 
 Mapper::~Mapper(void) {
-    // noop
+    delete aligner;
+}
+    
+double Mapper::estimate_gc_content() {
+    uint64_t at, gc;
+    if (gcsa) {
+        at = gsca::Range::length(gcsa->find("A")) + gsca::Range::length(gcsa->find("T"));
+        gc = gsca::Range::length(gcsa->find("G")) + gsca::Range::length(gcsa->find("C"));
+    }
+    else if (index) {
+        at = index->approx_size_of_kmer_matches("A") + index->approx_size_of_kmer_matches("T");
+        gc = index->approx_size_of_kmer_matches("G") + index->approx_size_of_kmer_matches("C");
+    }
+    else {
+        cerr << "warning:[vg::Mapper] no index to estimate GC content, using default of 0.5" << endl;
+        at = 1;
+        gc = 1;
+    }
+    return ((double) gc) / (at + gc);
+}
+
+    
+void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
+    if (adjust_alignments_for_base_quality) {
+        // hacky, find max score so that scaling doesn't change score
+        int32_t max_score = match;
+        if (mismatch > max_score) max_score = mismatch;
+        if (gap_open > max_score) max_score = gap_open;
+        if (gap_extend > max_score) max_score = gap_extend;
+        
+        double gc_content = estimate_gc_content();
+        
+        aligner = QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score, 127, gc_content);
+        // mapping quality automatically initialized in QualAdjAligner
+    }
+    else {
+        aligner = Aligner(match, mismatch, gap_open, gap_extend);
+        aligner.init_mapping_quality(estimate_gc_content());
+    }
+}
+    
+    
+void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
+    delete aligner;
+    init_aligner(match, mismatch, gap_open, gap_extend);
+}
+    
+void Mapper::set_base_quality_adjusted_alignments(bool do_adjustments) {
+    if (do_adjustments == adjust_alignments_for_base_quality) {
+        return;
+    }
+    
+    adjust_alignments_for_base_quality = do_adjustments;
+    
+    int32_t match = aligner->match;
+    int32_t mismatch = aligner->mismatch;
+    int32_t gap_open = aligner->gap_open;
+    int32_t gap_extend = aligner->gap_extension;
+    
+    set_alignment_scores(match, mismatch, gap_open, gap_extend);
 }
 
 Alignment Mapper::align(const string& seq, int kmer_size, int stride, int band_width) {
@@ -153,7 +209,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     read2.clear_path();
     read2.set_score(0);
 
-    read2 = graph->align(read2, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+    read2 = graph->align(read2, aligner, max_query_graph_ratio);
     delete graph;
 }
 
@@ -944,7 +1000,7 @@ Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int ban
         return failed;
     }
 
-    // Otherwise, just repoirt the best alignment, since we know one exists
+    // Otherwise, just report the best alignment, since we know one exists
     return best[0];
 }
 
@@ -1412,7 +1468,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     for (auto& mem : mems) {
         //if (debug) cerr << "on mem " << mem.sequence() << endl;
         size_t len = mem.begin - mem.end;
-        // collect ids and orienations of hits to them on the forward mem
+        // collect ids and orientations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
             id_to_mems[id].push_back(&mem);
@@ -1449,7 +1505,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         }
     }
 
-    // rank the clusters by the fraction of the read which they cover
+    // rank the clusters by the fraction of the read that they cover
     map<vector<id_t>*, int> cluster_query_coverage;
     std::for_each(clusters.begin(), clusters.end(),
                   [&cluster_query_coverage,
@@ -1549,7 +1605,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             });
         if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
         if (fw_mems) {
-            Alignment aln = sub.align(aln_fw, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+            Alignment aln = sub.align(aln_fw, aligner, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(aln);
             if (attempts >= max_multimaps &&
@@ -1559,7 +1615,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             }
         }
         if (rc_mems) {
-            Alignment aln = sub.align(aln_rc, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+            Alignment aln = sub.align(aln_rc, aligner, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(reverse_complement_alignment(aln,
                                                         (function<int64_t(int64_t)>)
@@ -1692,7 +1748,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (max_target_factor && graph.length() >= max_target_length) break;
 
         // otherwise, align
-        aln = graph.align(aln, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+        aln = graph.align(aln, aligner, max_query_graph_ratio);
 
         sc_start = softclip_start(aln);
         sc_end = softclip_end(aln);
@@ -2085,7 +2141,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             ta.clear_path();
             ta.set_score(0);
 
-            ta = graph->align(ta, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+            ta = graph->align(ta, aligner, max_query_graph_ratio);
 
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
@@ -2155,7 +2211,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 ta.clear_path();
                 ta.set_score(0);
 
-                ta = graph->align(ta, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+                ta = graph->align(ta, aligner, max_query_graph_ratio);
 
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);
