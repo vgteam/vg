@@ -2815,7 +2815,7 @@ void VG::from_gfa(istream& in, bool showp) {
     map<string, sequence_elem>::iterator it;
     id_t curr_id = 1;
     map<string, id_t> id_names;
-    std::function<id_t(const string&)> get_add_id = [&](const string& name) {
+    std::function<id_t(const string&)> get_add_id = [&](const string& name) -> id_t { 
         if (is_number(name)) {
             return std::stol(name);
         } else {
