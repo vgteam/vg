@@ -393,6 +393,15 @@ namespace vg{
             id_t top_id = top_pos.node_id();
             id_t bottom_id = bottom_pos.node_id();
 
+            if (abs(top_id - bottom_id) > 10){
+                return inverse ? aln : Alignment();
+            }
+
+            // Check if two mappings are far apart 
+            //
+            // Check if a single mapping has a huge indel
+
+
 
 
             top_side--;
@@ -402,6 +411,8 @@ namespace vg{
             return inverse ? Alignment() : aln;
 
     }
+
+
     /**
      * Filter reads that are less than <PCTID> reference.
      * I.E. if a read matches the reference along 80% of its
