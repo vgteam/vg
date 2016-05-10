@@ -18,7 +18,7 @@ const int Caller::Default_min_support = 1;
 const double Caller::Default_min_frac = 0.25;
 const double Caller::Default_min_likelihood = 1e-50;
 const char Caller::Default_default_quality = 30;
-const double Caller::Default_max_strand_bias = 0.25;
+const double Caller::Default_max_strand_bias = 0.5;
 
 Caller::Caller(VG* graph,
                double het_prior,
