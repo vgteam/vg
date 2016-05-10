@@ -240,7 +240,7 @@ $(OBJ_DIR)/vectorizer.o: $(SRC_DIR)/vectorizer.cpp $(SRC_DIR)/vectorizer.hpp $(L
 $(OBJ_DIR)/sampler.o: $(SRC_DIR)/sampler.cpp $(SRC_DIR)/sampler.hpp $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libxg.a $(LIB_DIR)/libprotobuf.a .pre-build
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/filter.o: $(SRC_DIR)/filter.cpp $(SRC_DIR)/filter.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a .pre-build
+$(OBJ_DIR)/filter.o: $(SRC_DIR)/filter.cpp $(SRC_DIR)/filter.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h .pre-build
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 .pre-build:
