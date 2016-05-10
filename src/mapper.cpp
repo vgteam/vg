@@ -1670,7 +1670,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         // step towards the side where there were soft clips
         if (sc_start) {
             Graph flank;
-            xindex->get_id_range(idf-1, idf, flank);
+            xindex->get_id_range(idf, idf, flank);
             xindex->expand_context(flank,
                                    max(context_depth, (int)(sc_start/avg_node_size)),
                                    false);
@@ -1678,7 +1678,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         }
         if (sc_end) {
             Graph flank;
-            xindex->get_id_range(idl, idl+1, flank);
+            xindex->get_id_range(idl, idl, flank);
             xindex->expand_context(flank,
                                    max(context_depth, (int)(sc_end/avg_node_size)),
                                    false);
