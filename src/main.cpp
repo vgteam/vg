@@ -4806,7 +4806,7 @@ int main_index(int argc, char** argv) {
 
     if (file_names.size() <= 0){
         cerr << "No graph provided for indexing. Please provide a .vg file to index." << endl;
-        return 1;
+        //return 1;
     }
 
     if(kmer_size == 0 && !gcsa_name.empty() && dbg_names.empty()) {
