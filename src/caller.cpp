@@ -18,7 +18,7 @@ const int Caller::Default_min_support = 1;
 const double Caller::Default_min_frac = 0.25;
 const double Caller::Default_min_likelihood = 1e-50;
 const char Caller::Default_default_quality = 30;
-const double Caller::Default_max_strand_bias = 0.25;
+const double Caller::Default_max_strand_bias = 0.5;
 
 Caller::Caller(VG* graph,
                double het_prior,
@@ -390,6 +390,11 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
                 base_call.second = ".";
             }
         }
+        // double up the first call if there's enough support
+        // (this could stand cleaning)
+        if (base_call.second == "-" && top_count >= min_support * 2) {
+            base_call.second = base_call.first;
+        }
     }
     if (base_call.first == "-" && base_call.second != "-") {
         swap(base_call.first, base_call.second);
@@ -409,7 +414,8 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
 
     total_count = 0;
     const string& bases = bp.bases();
-
+    string ref_base = string(1, ::toupper(bp.ref_base()));
+    
     // compute histogram from pileup
     for (auto i : base_offsets) {
         string val = Pileups::extract(bp, i.first);
@@ -448,31 +454,64 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
         }
     }
 
-    // find highest occurring string (reference breaks ties)
+    // tie-breaker heuristic:
+    // reference > transition > transversion > delete > insert > N
+    function<int(const string&)> base_priority = [&ref_base](const string& base) {
+        if (base == ".") {
+            return 6; // Ref: 6 Points
+        } else if (base == "-" || base == "") {
+            return 0; // Uncalled: 0 Points
+        } // Transition: 5 points.  Transversion: 4 points 
+        else if (base == "A" || base == "t") {
+            return ref_base == "G" ? 5 : 4;
+        } else if (base == "C" || base == "g") {
+            return ref_base == "T" ? 5 : 4;
+        } else if (base == "G" || base == "c") {
+            return ref_base == "A" ? 5 : 4;
+        } else if (base == "T" || base == "a") {
+            return ref_base == "C" ? 5 : 4;
+        } else if (base[0] == '-') {
+            return 3; // Deletion: 3 Points
+        } else if (base[0] == '+') {
+            return 2; // Insertion: 2 Points
+        }
+        // Anything else (N?): 1 Point
+        return 1;
+    };
+
+    // compare to pileup entries, to see which has greater count, use tie breaker logic
+    // if count is the same
+    function<bool(const string&, int, const string&, int)> base_greater = [&base_priority] (
+        const string& base1, int count1, const string& base2, int count2) {
+        if (count1 == count2) {
+            int p1 = base_priority(base1);
+            int p2 = base_priority(base2);
+            if (p1 == p2) {
+                return base1 > base2;
+            } else {
+                return p1 > p2;
+            }
+        }
+        return count1 > count2;
+    };
+        
+    // find highest occurring string
     top_base.clear();
     top_count = 0;
-    string ref_base = string(1, ::toupper(bp.ref_base()));
-    if (hist.find(ref_base) != hist.end()) {
-        top_base = ref_base;
-        top_count = hist[ref_base];
-    }   
     for (auto i : hist) {
-        if (i.second > top_count) {
+        if (base_greater(i.first, i.second, top_base, top_count)) {
             top_base = i.first;
             top_count = i.second;
         }
     }
 
-    // find second highest occurring string (reference breaks ties)
+    // find second highest occurring string
     // todo: do it in same pass as above
     second_base.clear();
     second_count = 0;
-    if (top_base != ref_base && hist.find(ref_base) != hist.end()) {
-        second_base = ref_base;
-        second_count = hist[ref_base];
-    }
     for (auto i : hist) {
-        if (i.first != top_base && i.second > second_count) {
+        if (i.first != top_base &&
+            base_greater(i.first, i.second, second_base, second_count)) {
             second_base = i.first;
             second_count = i.second;
         }
@@ -607,11 +646,17 @@ void Caller::create_node_calls(const NodePileup& np) {
             _insert_calls[next-1].first[0] == '+' || _insert_calls[next-1].second[0] == '+') {
 
             if (cat == 0 && !_leave_uncalled) {
-
+                // uncalled: do nothing (unless writing augmented graph)
             }        
             else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
                 // add reference
-                int cn = cat == 1 ? 2 : 0;
+                int cn = 0;
+                if (_node_calls[cur].first == ".") {
+                    ++cn;
+                }
+                if (_node_calls[cur].second == ".") {
+                    ++cn;
+                }
                 string new_seq = seq.substr(cur, next - cur);
                 Node* node = _call_graph.create_node(new_seq, ++_max_id);
                 _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref, (char)cn);
@@ -634,6 +679,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                     if (call1 == "." || (_leave_uncalled && altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
                         // reference base
                         int cn = call1 == "." ? 1 : 0;
+                        assert(call2 != "."); // should be handled above
                         string new_seq = seq.substr(cur, 1);
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
                         _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref, (char)cn);
@@ -646,11 +692,14 @@ void Caller::create_node_calls(const NodePileup& np) {
                         no2 = NodeOffSide(NodeSide(_node->id(), false), next);
                         _augmented_edges[make_pair(no1, no2)] = 'R';
                     }
-                    if (call1 != "." && call1[0] != '-' && call1[0] != '+' && call1[0] != '-') {
+                    if (call1 != "." && call1[0] != '-' && call1[0] != '+' && (
+                            // we only want to process a homozygous snp once:
+                            call1 != call2 || altCat == NodeDivider::EntryCat::Alt1)) {
+                        int cn = call1 != call2 ? 1 : 2;
                         // snp base
                         string new_seq = call1;
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
-                        _node_divider.add_fragment(_node, cur, node, altCat, (char)1);
+                        _node_divider.add_fragment(_node, cur, node, altCat, (char)cn);
                         // bridge to node
                         NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
                         NodeOffSide no2(NodeSide(_node->id(), false), cur);
@@ -660,7 +709,9 @@ void Caller::create_node_calls(const NodePileup& np) {
                         no2 = NodeOffSide(NodeSide(_node->id(), false), next);
                         _augmented_edges[make_pair(no1, no2)] = 'S';
                     }
-                    else if (call1 != "." && call1[0] == '-' && call1.length() > 1) {
+                    else if (call1 != "." && call1[0] == '-' && call1.length() > 1 && (
+                                 // we only want to process homozygous delete once
+                                 call1 != call2 || altCat == NodeDivider::EntryCat::Alt1)) {
                         // delete
                         int64_t del_len;
                         bool from_start;
@@ -709,15 +760,17 @@ void Caller::create_node_calls(const NodePileup& np) {
             }
 
             // inserts done separate at end since they take start between cur and next
-            function<void(string&, string&)>  call_inserts = [&](string& ins_call1, string& ins_call2) {
-                if (ins_call1[0] == '+') {
+            function<void(string&, string&, NodeDivider::EntryCat)>  call_inserts = [&](string& ins_call1, string& ins_call2, NodeDivider::EntryCat altCat) {
+                if (ins_call1[0] == '+' && (
+                        // we only want to process homozygous insert once
+                        ins_call1 != ins_call2 || altCat == NodeDivider::EntryCat::Alt1)) {
                     int64_t ins_len;
                     string ins_seq;
                     bool ins_rev;
                     Pileups::parse_insert(ins_call1, ins_len, ins_seq, ins_rev);
                     // todo: check reverse?
                     Node* node = _call_graph.create_node(ins_seq, ++_max_id);
-                    int cn = ins_call2[0] == '+' ? 2 : 1;
+                    int cn = ins_call1 == ins_call2 ? 2 : 1;
                     _inserted_nodes.push_back(make_pair(node, cn));
 
                     // bridge to insert
@@ -731,8 +784,8 @@ void Caller::create_node_calls(const NodePileup& np) {
                 }
             };
             
-            call_inserts(_insert_calls[next-1].first, _insert_calls[next-1].second);
-            call_inserts(_insert_calls[next-1].second, _insert_calls[next-1].first);
+            call_inserts(_insert_calls[next-1].first, _insert_calls[next-1].second, NodeDivider::EntryCat::Alt1);
+            call_inserts(_insert_calls[next-1].second, _insert_calls[next-1].first, NodeDivider::EntryCat::Alt2);
                 
             // shift right
             cur = next;
