@@ -677,6 +677,7 @@ public:
     // converts the stored paths in this graph to alignments
     const vector<Alignment> paths_as_alignments(void);
     const string path_sequence(const Path& path);
+    string trav_sequence(const NodeTraversal& trav);
 
     SB_Input vg_to_sb_input();
     vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
