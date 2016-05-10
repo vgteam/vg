@@ -2498,6 +2498,7 @@ void help_mod(char** argv) {
          << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
+         << "    -U, --until-normal N    iterate normalization until convergence, or at most N times" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
          << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
@@ -2506,7 +2507,6 @@ void help_mod(char** argv) {
          << "                            edges from old to new copies to convert the graph into a DAG" << endl
          << "                            until the shortest path through each SCC is N bases long" << endl
          << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
-         << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
          << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
          << "                            component of the graph" << endl
          << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
@@ -2567,9 +2567,7 @@ int main_mod(int argc, char** argv) {
     int32_t context_steps;
     bool remove_null;
     bool strong_connect = false;
-    uint32_t unroll_to = 0;
     uint32_t unfold_to = 0;
-    uint32_t unroll_max_branch = 0;
     bool break_cycles = false;
     uint32_t dagify_steps = 0;
     uint32_t dagify_to = 0;
@@ -2577,6 +2575,7 @@ int main_mod(int argc, char** argv) {
     bool orient_forward = false;
     int64_t destroy_node_id = 0;
     bool bluntify = false;
+    int until_normal_iter = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2603,6 +2602,7 @@ int main_mod(int argc, char** argv) {
             {"simplify", no_argument, 0, 's'},
             {"unchop", no_argument, 0, 'u'},
             {"normalize", no_argument, 0, 'n'},
+            {"until-normal", required_argument, 0, 'U'},
             {"sort", no_argument, 0, 'z'},
             {"remove-non-path", no_argument, 0, 'N'},
             {"orient-forward", no_argument, 0, 'O'},
@@ -2616,7 +2616,6 @@ int main_mod(int argc, char** argv) {
             {"dagify-steps", required_argument, 0, 'd'},
             {"dagify-to", required_argument, 0, 'w'},
             {"dagify-len-max", required_argument, 0, 'L'},
-            {"unroll", required_argument, 0, 'U'},
             {"bluntify", no_argument, 0, 'B'},
             {"break-cycles", no_argument, 0, 'b'},
             {"orient-forward", no_argument, 0, 'O'},
@@ -2733,7 +2732,7 @@ int main_mod(int argc, char** argv) {
                 break;
 
             case 'U':
-                unroll_to = atoi(optarg);
+                until_normal_iter = atoi(optarg);
                 break;
 
             case 'd':
@@ -2752,7 +2751,6 @@ int main_mod(int argc, char** argv) {
             case 'B':
                 bluntify = true;
                 break;
-
 
             case 'z':
                 sort_graph = true;
@@ -2831,6 +2829,10 @@ int main_mod(int argc, char** argv) {
         graph->normalize();
     }
 
+    if (until_normal_iter) {
+        graph->normalize(until_normal_iter);
+    }
+
     if (strong_connect) {
         graph->keep_multinode_strongly_connected_components();
     }
@@ -2857,11 +2859,6 @@ int main_mod(int argc, char** argv) {
         map<int64_t, pair<int64_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
         *graph = graph->dagify(dagify_to, node_translation, dagify_to, dagify_component_length_max);
-    }
-
-    if (unroll_to) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
-        *graph = graph->backtracking_unroll(unroll_to, unroll_max_branch, node_translation);
     }
 
     if (unfold_to) {
@@ -6478,7 +6475,6 @@ int main_view(int argc, char** argv) {
                         // are out of spec, but they can be in files.
                         a.set_identity(0);
                     }
-                    
                     cout << pb2json(a) << "\n";
                 };
                 if (file_name == "-") {

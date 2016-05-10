@@ -1052,25 +1052,41 @@ void VG::unchop(void) {
     paths.compact_ranks();
 }
 
-void VG::normalize(void) {
-    // convert edges that go from_start -> to_end to the equivalent "regular" edge
-    flip_doubly_reversed_edges();
-    //if (!is_valid()) cerr << "invalid after doubly flip" << endl;
-    // combine diced/chopped nodes (subpaths with no branching)
-    unchop();
-    //if (!is_valid()) cerr << "invalid after unchop" << endl;
-    // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
-    simplify_siblings();
-    //if (!is_valid()) cerr << "invalid after simplify sibs" << endl;
-    // compact node ranks
-    paths.compact_ranks();
-    //if (!is_valid()) cerr << "invalid after compact ranks" << endl;
-    // there may now be some cut nodes that can be simplified
-    unchop();
-    //if (!is_valid()) cerr << "invalid after unchop two" << endl;
-    // compact node ranks (again)
-    paths.compact_ranks();
-    //if (!is_valid()) cerr << "invalid after compact ranks two  " << endl;
+void VG::normalize(int max_iter) {
+    size_t last_len = 0;
+    if (max_iter > 1) {
+        last_len = length();
+    }
+    int iter = 0;
+    do {
+        // convert edges that go from_start -> to_end to the equivalent "regular" edge
+        flip_doubly_reversed_edges();
+        //if (!is_valid()) cerr << "invalid after doubly flip" << endl;
+        // combine diced/chopped nodes (subpaths with no branching)
+        unchop();
+        //if (!is_valid()) cerr << "invalid after unchop" << endl;
+        // merge redundancy across multiple nodes into single nodes (requires flip_doubly_reversed_edges)
+        simplify_siblings();
+        //if (!is_valid()) cerr << "invalid after simplify sibs" << endl;
+        // compact node ranks
+        paths.compact_ranks();
+        //if (!is_valid()) cerr << "invalid after compact ranks" << endl;
+        // there may now be some cut nodes that can be simplified
+        unchop();
+        //if (!is_valid()) cerr << "invalid after unchop two" << endl;
+        // compact node ranks (again)
+        paths.compact_ranks();
+        //if (!is_valid()) cerr << "invalid after compact ranks two  " << endl;
+        if (max_iter > 1) {
+            size_t curr_len = length();
+            cerr << "[VG::normalize] iteration " << iter+1 << " current length " << curr_len << endl;
+            if (curr_len == last_len) break;
+            last_len = curr_len;
+        }
+    } while (++iter < max_iter);
+    if (max_iter > 1) {
+        cerr << "[VG::normalize] normalized in " << iter << " steps" << endl;
+    }
 }
 
 void VG::remove_non_path(void) {
