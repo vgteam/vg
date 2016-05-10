@@ -135,8 +135,8 @@ namespace vg{
             bool paths_match = false;
             vector<size_t> paths_of_prev = my_xg_idx->paths_of_node(prev_node);
             for (int i = 0; i < paths_of_prev.size(); i++){
-                string p_name = path_name(paths_of_prev[i]);
-                if (path_contains_node(p_name, current_node)){
+                string p_name = my_xg_idx->path_name(paths_of_prev[i]);
+                if (my_xg_idx->path_contains_node(p_name, current_node)){
                     paths_match = true;
                 }
             }
@@ -391,7 +391,7 @@ namespace vg{
             Position top_pos = top_mapping.position();
             Position bot_pos = bottom_mapping.position();
             id_t top_id = top_pos.node_id();
-            id_t bottom_id = bottom_pos.node_id();
+            id_t bottom_id = bot_pos.node_id();
 
             if (abs(top_id - bottom_id) > 10){
                 return inverse ? aln : Alignment();
