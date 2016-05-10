@@ -776,11 +776,23 @@ void Caller::create_node_calls(const NodePileup& np) {
                     // bridge to insert
                     NodeOffSide no1(NodeSide(_node->id(), true), next-1);
                     NodeOffSide no2(NodeSide(node->id(), false), 0);
-                    _augmented_edges[make_pair(no2, no1)] = 'I';
+                    _augmented_edges[make_pair(no1, no2)] = 'I';
                     // bridge from insert
-                    no1 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
-                    no2 = NodeOffSide(NodeSide(_node->id(), false), next);
-                    _augmented_edges[make_pair(no2, no1)] = 'I';
+                    if (next < _node->sequence().length()) {
+                        no1 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
+                        no2 = NodeOffSide(NodeSide(_node->id(), false), next);
+                        _augmented_edges[make_pair(no1, no2)] = 'I';
+                    } else {
+                        // we have to link all outgoing edges to our insert if
+                        // we're at end of node (unlike snps, the fragment structure doesn't
+                        // handle these cases)
+                        vector<pair<id_t, bool>> next_nodes = _graph->edges_end(_node->id());
+                        no1 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
+                        for (auto nn : next_nodes) {
+                            no2 = NodeOffSide(NodeSide(nn.first, nn.second), 0);
+                            _augmented_edges[make_pair(no1, no2)] = 'I';
+                        }
+                    }
                 }
             };
             
