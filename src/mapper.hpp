@@ -79,7 +79,7 @@ public:
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
     // GSSW aligner
-    Aligner aligner;
+    Aligner* aligner;
     
     double estimate_gc_content();
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);

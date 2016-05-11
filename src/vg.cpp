@@ -6766,9 +6766,8 @@ Alignment VG::align(const Alignment& alignment,
 Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
                     bool print_score_matrices) {
-    Aligner default_aligner = new Aligner();
+    Aligner default_aligner = Aligner();
     Alignment filled_alignment = align(alignment, default_aligner, max_query_graph_ratio, print_score_matrices);
-    delete default_aligner;
     return filled_alignment;
 }
 

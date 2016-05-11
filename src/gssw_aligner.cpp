@@ -2,7 +2,7 @@
 #include "gssw_aligner.hpp"
 
 // log(10)
-static const double LN10 = 2.3025850929940457;
+static const double LN10 = 2.30258509299404568402;
 
 using namespace vg;
 
@@ -12,12 +12,10 @@ Aligner::~Aligner(void) {
     free(score_matrix);
 }
 
-Aligner::Aligner(
-                 int32_t _match,
+Aligner::Aligner(int32_t _match,
                  int32_t _mismatch,
                  int32_t _gap_open,
-                 int32_t _gap_extension
-                 )
+                 int32_t _gap_extension)
 {
     match = _match;
     mismatch = _mismatch;
@@ -32,12 +30,11 @@ Aligner::Aligner(
     log_base = 0.0;
 }
 
-Aligner::Aligner(
-    Graph& g,
-    int32_t _match,
-    int32_t _mismatch,
-    int32_t _gap_open,
-    int32_t _gap_extension) : Aligner(_match, _mismatch, _gap_open, _gap_extension)
+Aligner::Aligner(Graph& g,
+                 int32_t _match,
+                 int32_t _mismatch,
+                 int32_t _gap_open,
+                 int32_t _gap_extension) : Aligner(_match, _mismatch, _gap_open, _gap_extension)
 {
     set_graph(g);
 }
@@ -284,13 +281,17 @@ uint8_t Aligner::mapping_quality(vector<Alignment>& alignments) {
         return 0;
     }
     
-    vector<int32_t> scores = new vector<int32_t>(size);
+    if (size == 1) {
+        return std::numeric_limits<uint8_t>::max();
+    }
+    
+    vector<int32_t> scores = vector<int32_t>(size);
     
     int32_t max_idx = 0;
     scores[0] = alignments[0].score();
     
     for (int32_t i = 1; i < size; i++) {
-        int32_t score = alignments[i].score()
+        int32_t score = alignments[i].score();
         scores[i] = score;
         if (score > scores[max_idx]) {
             max_idx = i;
@@ -305,8 +306,6 @@ uint8_t Aligner::mapping_quality(vector<Alignment>& alignments) {
             numer += likelihood;
         }
     }
-    
-    delete scores;
     
     double quality = -log10(denom / numer);
     if (quality < std::numeric_limits<uint8_t>::max()) {
@@ -327,6 +326,9 @@ uint8_t Aligner::mapping_quality_approx(vector<Alignment>& alignments) {
     
     if (size == 0) {
         return 0;
+    }
+    if (size == 1) {
+        return std::numeric_limits<uint8_t>::max();
     }
     
     int32_t max_score = std::numeric_limits<int32_t>::lowest();
@@ -363,16 +365,33 @@ uint8_t Aligner::mapping_quality_approx(vector<Alignment>& alignments) {
     }
 }
 
-QualAdjAligner::QualAdjAligner(
-        Graph& g,
-        int8_t _match,
-        int8_t _mismatch,
-        int8_t _gap_open,
-        int8_t _gap_extension,
-        int8_t _max_scaled_score,
-        int8_t _max_qual_score,
-        double gc_content) : Aligner(g, _match, _mismatch, _gap_open, _gap_extension) {
+QualAdjAligner::QualAdjAligner(Graph& g,
+                               int8_t _match,
+                               int8_t _mismatch,
+                               int8_t _gap_open,
+                               int8_t _gap_extension,
+                               int8_t _max_scaled_score,
+                               uint8_t _max_qual_score,
+                               double gc_content) : Aligner(g, _match, _mismatch, _gap_open, _gap_extension) {
+    
+    init_quality_adjusted_scores(_max_scaled_score, _max_qual_score, gc_content);
 
+}
+
+QualAdjAligner::QualAdjAligner(int8_t _match,
+                               int8_t _mismatch,
+                               int8_t _gap_open,
+                               int8_t _gap_extension,
+                               int8_t _max_scaled_score,
+                               uint8_t _max_qual_score,
+                               double gc_content) : Aligner(_match, _mismatch, _gap_open, _gap_extension) {
+    
+    init_quality_adjusted_scores(_max_scaled_score, _max_qual_score, gc_content);
+}
+
+void QualAdjAligner::init_quality_adjusted_scores(int8_t _max_scaled_score,
+                                                  uint8_t _max_qual_score,
+                                                  double gc_content) {
     max_qual_score = _max_qual_score;
     scaled_gap_open = gap_open;
     scaled_gap_extension = gap_extension;
@@ -380,7 +399,7 @@ QualAdjAligner::QualAdjAligner(
     adjusted_score_matrix = gssw_dna_scaled_adjusted_qual_matrix(_max_scaled_score, max_qual_score, &scaled_gap_open,
                                                                 &scaled_gap_extension, match, mismatch,
                                                                 gc_content, 1e-12);
-    log_base = init_mapping_quality(gc_content);
+    init_mapping_quality(gc_content);
 }
 
 void QualAdjAligner::init_mapping_quality(double gc_content) {
@@ -389,18 +408,18 @@ void QualAdjAligner::init_mapping_quality(double gc_content) {
     log_base /= (scaled_gap_open / gap_open);
 }
 
-GSSWQualAdjAligner::~GSSWQualAdjAligner(void) {
+QualAdjAligner::~QualAdjAligner(void) {
     free(adjusted_score_matrix);
 }
 
-void GSSWQualAdjAligner::align(Alignment& alignment, bool print_score_matrices) {
+void QualAdjAligner::align(Alignment& alignment, bool print_score_matrices) {
 
     const string& sequence = alignment.sequence();
     const string& quality = alignment.quality();
 
-    gssw_graph_fill_qual_adj(graph, sequence.c_str(), (int8_t)* quality.c_str(),
+    gssw_graph_fill_qual_adj(graph, sequence.c_str(), quality.c_str(),
                              nt_table, adjusted_score_matrix,
-                             scaled_gap_open, scaled_gap_extension, 15);
+                             scaled_gap_open, scaled_gap_extension, 15, 2);
 
     gssw_graph_mapping* gm = gssw_graph_trace_back_qual_adj (graph,
                                                              sequence.c_str(),

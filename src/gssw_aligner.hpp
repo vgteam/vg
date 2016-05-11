@@ -15,7 +15,7 @@ static const int8_t default_mismatch = 4;
 static const int8_t default_gap_open = 6;
 static const int8_t default_gap_extension = 1;
 static const int8_t default_max_scaled_score = 32;
-static const int8_t default_max_qual_score = 60;
+static const uint8_t default_max_qual_score = 255;
 static const double default_gc_content = 0.5;
 
 namespace vg {
@@ -73,28 +73,40 @@ namespace vg {
     };
 
     class QualAdjAligner : public Aligner {
-        public:
-        QualAdjAligner(
-                Graph& g,
-                int32_t _match = default_match,
-                int32_t _mismatch = default_mismatch,
-                int32_t _gap_open = default_gap_open,
-                int32_t _gap_extension = default_gap_extension,
-                int8_t max_scaled_score = default_max_scaled_score,
-                int8_t max_qual_score = default_max_qual_score,
-                double gc_content = default_gc_content);
+    public:
+        QualAdjAligner(Graph& g,
+                       int8_t _match = default_match,
+                       int8_t _mismatch = default_mismatch,
+                       int8_t _gap_open = default_gap_open,
+                       int8_t _gap_extension = default_gap_extension,
+                       int8_t _max_scaled_score = default_max_scaled_score,
+                       uint8_t _max_qual_score = default_max_qual_score,
+                       double gc_content = default_gc_content);
+        
+        QualAdjAligner(int8_t _match = default_match,
+                       int8_t _mismatch = default_mismatch,
+                       int8_t _gap_open = default_gap_open,
+                       int8_t _gap_extension = default_gap_extension,
+                       int8_t _max_scaled_score = default_max_scaled_score,
+                       uint8_t _max_qual_score = default_max_qual_score,
+                       double gc_content = default_gc_content);
 
         ~QualAdjAligner(void);
 
         void align(Alignment& alignment, bool print_score_matrices = false);
         void init_mapping_quality(double gc_content);
 
-        int8_t max_qual_score;
+        uint8_t max_qual_score;
         int8_t scaled_gap_open;
         int8_t scaled_gap_extension;
         int8_t* adjusted_score_matrix;
+        
+    private:
+        void init_quality_adjusted_scores(int8_t _max_scaled_score,
+                                          uint8_t _max_qual_score,
+                                          double gc_content);
 
-    }
+    };
 } // end namespace vg
 
 #endif

@@ -35,7 +35,7 @@ Mapper::Mapper(Index* idex,
     , max_query_graph_ratio(128)
     , promote_consistent_pairs(false)
     , extra_pairing_multimaps(4)
-    , adjust_for_base_quality(false)
+    , adjust_alignments_for_base_quality(false)
 {
     init_aligner(1, 4, 6, 1);
 }
@@ -82,8 +82,8 @@ Mapper::~Mapper(void) {
 double Mapper::estimate_gc_content() {
     uint64_t at, gc;
     if (gcsa) {
-        at = gsca::Range::length(gcsa->find("A")) + gsca::Range::length(gcsa->find("T"));
-        gc = gsca::Range::length(gcsa->find("G")) + gsca::Range::length(gcsa->find("C"));
+        at = gcsa::Range::length(gcsa->find(string("A"))) + gcsa::Range::length(gcsa->find(string("T")));
+        gc = gcsa::Range::length(gcsa->find(string("G"))) + gcsa::Range::length(gcsa->find(string("C")));
     }
     else if (index) {
         at = index->approx_size_of_kmer_matches("A") + index->approx_size_of_kmer_matches("T");
@@ -106,14 +106,13 @@ void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int
         if (gap_open > max_score) max_score = gap_open;
         if (gap_extend > max_score) max_score = gap_extend;
         
-        double gc_content = estimate_gc_content();
-        
-        aligner = QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score, 127, gc_content);
+        aligner = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
+                                     255, estimate_gc_content());
         // mapping quality automatically initialized in QualAdjAligner
     }
     else {
-        aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        aligner.init_mapping_quality(estimate_gc_content());
+        aligner = new Aligner(match, mismatch, gap_open, gap_extend);
+        aligner->init_mapping_quality(estimate_gc_content());
     }
 }
     
@@ -209,7 +208,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     read2.clear_path();
     read2.set_score(0);
 
-    read2 = graph->align(read2, aligner, max_query_graph_ratio);
+    read2 = graph->align(read2, *aligner, max_query_graph_ratio);
     delete graph;
 }
 
@@ -1300,7 +1299,7 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         edit->set_from_length(match_len);
         edit->set_to_length(match_len);
     }
-    aln.set_score(aln.sequence().size()*match);
+    aln.set_score(aln.sequence().size()*(aligner->match));
     return aln;
 }
 
@@ -1605,7 +1604,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             });
         if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
         if (fw_mems) {
-            Alignment aln = sub.align(aln_fw, aligner, max_query_graph_ratio);
+            Alignment aln = sub.align(aln_fw, *aligner, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(aln);
             if (attempts >= max_multimaps &&
@@ -1615,7 +1614,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             }
         }
         if (rc_mems) {
-            Alignment aln = sub.align(aln_rc, aligner, max_query_graph_ratio);
+            Alignment aln = sub.align(aln_rc, *aligner, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(reverse_complement_alignment(aln,
                                                         (function<int64_t(int64_t)>)
@@ -1748,7 +1747,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (max_target_factor && graph.length() >= max_target_length) break;
 
         // otherwise, align
-        aln = graph.align(aln, aligner, max_query_graph_ratio);
+        aln = graph.align(aln, *aligner, max_query_graph_ratio);
 
         sc_start = softclip_start(aln);
         sc_end = softclip_end(aln);
@@ -2141,7 +2140,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             ta.clear_path();
             ta.set_score(0);
 
-            ta = graph->align(ta, aligner, max_query_graph_ratio);
+            ta = graph->align(ta, *aligner, max_query_graph_ratio);
 
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
@@ -2211,7 +2210,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 ta.clear_path();
                 ta.set_score(0);
 
-                ta = graph->align(ta, aligner, max_query_graph_ratio);
+                ta = graph->align(ta, *aligner, max_query_graph_ratio);
 
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);
@@ -2229,7 +2228,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
             delete graph;
 
-            if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*match) << endl;
+            if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*(aligner->match)) << endl;
             if (greedy_accept && ta.identity() >= accept_identity) {
                 if (debug) cerr << "greedy accept" << endl;
                 accepted = true;

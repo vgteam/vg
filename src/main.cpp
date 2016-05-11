@@ -1769,10 +1769,7 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
-            mapper->match = match;
-            mapper->mismatch = mismatch;
-            mapper->gap_open = gap_open;
-            mapper->gap_extend = gap_extend;
+            mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         }
     };
 
@@ -5307,7 +5304,8 @@ int main_align(int argc, char** argv) {
         graph = new VG(in);
     }
 
-    Alignment alignment = graph->align(seq, match, mismatch, gap_open, gap_extend, 0, debug);
+    Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
+    Alignment alignment = graph->align(seq, aligner, 0, debug);
 
     if (output_json) {
         cout << pb2json(alignment) << endl;
@@ -5859,10 +5857,7 @@ int main_map(int argc, char** argv) {
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
         m->max_target_factor = max_target_factor;
-        m->match = match;
-        m->mismatch = mismatch;
-        m->gap_open = gap_open;
-        m->gap_extend = gap_extend;
+        m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->promote_consistent_pairs = promote_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
         mapper[i] = m;
