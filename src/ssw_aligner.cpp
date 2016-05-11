@@ -2,7 +2,7 @@
 
 namespace vg {
 
-static void PrintAlignment(const StripedSmithWaterman::Alignment& alignment){
+void SSWAligner::PrintAlignment(const StripedSmithWaterman::Alignment& alignment){
   cout << "===== SSW result =====" << endl;
   cout << "Best Smith-Waterman score:\t" << alignment.sw_score << endl
        << "Next-best Smith-Waterman score:\t" << alignment.sw_score_next_best << endl
@@ -31,7 +31,7 @@ Alignment SSWAligner::ssw_to_vg(const StripedSmithWaterman::Alignment& ssw_aln,
                                 const string& query, const string& ref) {
 
     int from_pos = ssw_aln.ref_begin;
-    int to_pos = ssw_aln.query_begin;
+    int to_pos = 0;
 
     auto& to_seq = query;
     auto& from_seq = ref;
@@ -41,13 +41,6 @@ Alignment SSWAligner::ssw_to_vg(const StripedSmithWaterman::Alignment& ssw_aln,
     
     Mapping* mapping = path->add_mapping();
     mapping->mutable_position()->set_offset(from_pos);
-
-    // handle any soft clips
-    if (ssw_aln.query_begin) {
-        Edit* edit = mapping->add_edit();
-        edit->set_to_length(ssw_aln.query_begin);
-        edit->set_sequence(to_seq.substr(0, ssw_aln.query_begin));
-    }
 
     for (auto& elem : vcflib::splitCigar(ssw_aln.cigar_string)) {
         int32_t length = elem.first;
@@ -120,13 +113,6 @@ Alignment SSWAligner::ssw_to_vg(const StripedSmithWaterman::Alignment& ssw_aln,
 
         }
 
-    }
-
-    // handle any soft clips
-    if (ssw_aln.query_end < to_seq.size()) {
-        Edit* edit = mapping->add_edit();
-        edit->set_to_length(to_seq.size() - ssw_aln.query_end);
-        edit->set_sequence(to_seq.substr(ssw_aln.query_end));
     }
 
     // set identity

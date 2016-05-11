@@ -2485,54 +2485,54 @@ int main_circularize(int argc, char** argv){
 
 void help_mod(char** argv) {
     cerr << "usage: " << argv[0] << " mod [options] <graph.vg> >[mod.vg]" << endl
-        << "Modifies graph, outputs modified on stdout." << endl
-        << endl
-        << "options:" << endl
-        << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
-        << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
-        << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
-        << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
-        << "    -z, --sort              sort the graph using an approximate topological sort" << endl
-        << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
-        << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
-        << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
-        << "                            and edges that do not introduce new paths are removed and neighboring" << endl
-        << "                            nodes are merged)" << endl
-        << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
-        << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
-        << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
-        << "                            edges from old to new copies to convert the graph into a DAG" << endl
-        << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
-        << "                            edges from old to new copies to convert the graph into a DAG" << endl
-        << "                            until the shortest path through each SCC is N bases long" << endl
-        << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
-        << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
-        << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
-        << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
-        << "                            component of the graph" << endl
-        << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
-        << "    -D, --drop-paths        remove the paths of the graph" << endl
-        << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
-        << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
-        << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
-        << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
-        << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
-        << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
-        << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
-        << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
-        << "                            cross more than --edge-max edges" << endl
-        << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
-        << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
-        << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
-        << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
-        << "                            replace the pair with a single node that is the concatenation of their labels" << endl
-        << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
-        << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
-        << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
-        << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
-        << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
-        << "    -y, --destroy-node ID   remove node with given id" << endl
-        << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
+         << "Modifies graph, outputs modified on stdout." << endl
+         << endl
+         << "options:" << endl
+         << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
+         << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
+         << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
+         << "    -z, --sort              sort the graph using an approximate topological sort" << endl
+         << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
+         << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
+         << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
+         << "                            and edges that do not introduce new paths are removed and neighboring" << endl
+         << "                            nodes are merged)" << endl
+         << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
+         << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "                            until the shortest path through each SCC is N bases long" << endl
+         << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
+         << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
+         << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
+         << "                            component of the graph" << endl
+         << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
+         << "    -D, --drop-paths        remove the paths of the graph" << endl
+         << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
+         << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
+         << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
+         << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
+         << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
+         << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
+         << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
+         << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
+         << "                            cross more than --edge-max edges" << endl
+         << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
+         << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
+         << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
+         << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
+         << "                            replace the pair with a single node that is the concatenation of their labels" << endl
+         << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
+         << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
+         << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
+         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
+         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
+         << "    -y, --destroy-node ID   remove node with given id" << endl
+         << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
+         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -2576,6 +2576,7 @@ int main_mod(int argc, char** argv) {
     uint32_t dagify_component_length_max = 0;
     bool orient_forward = false;
     int64_t destroy_node_id = 0;
+    bool bluntify = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2616,7 +2617,7 @@ int main_mod(int argc, char** argv) {
             {"dagify-to", required_argument, 0, 'w'},
             {"dagify-len-max", required_argument, 0, 'L'},
             {"unroll", required_argument, 0, 'U'},
-            {"max-branch", required_argument, 0, 'B'},
+            {"bluntify", no_argument, 0, 'B'},
             {"break-cycles", no_argument, 0, 'b'},
             {"orient-forward", no_argument, 0, 'O'},
             {"destroy-node", required_argument, 0, 'y'},            
@@ -2624,7 +2625,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:L:y:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:",
                 long_options, &option_index);
 
 
@@ -2749,7 +2750,7 @@ int main_mod(int argc, char** argv) {
                 break;
 
             case 'B':
-                unroll_max_branch = atoi(optarg);
+                bluntify = true;
                 break;
 
 
@@ -2798,6 +2799,10 @@ int main_mod(int argc, char** argv) {
         graph = new VG(in);
     }
 
+    if (bluntify) {
+        graph->bluntify();
+    }
+    
     if (!path_name.empty()) {
         graph->keep_path(path_name);
     }
@@ -5248,6 +5253,7 @@ void help_align(char** argv) {
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value" << endl
+         << "    -r, --reference STR   don't use an input graph--- run SSW alignment between -s and -r" << endl
          << "    -j, --json            output alignments in JSON format (default GAM)" << endl;
 }
 
@@ -5267,6 +5273,7 @@ int main_align(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    string ref_seq;
     bool debug = false;
 
     int c;
@@ -5283,12 +5290,13 @@ int main_align(int argc, char** argv) {
             {"mismatch", required_argument, 0, 'M'},
             {"gap-open", required_argument, 0, 'g'},
             {"gap-extend", required_argument, 0, 'e'},
+            {"reference", required_argument, 0, 'r'},
             {"debug", no_argument, 0, 'D'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:D",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -5325,6 +5333,10 @@ int main_align(int argc, char** argv) {
             gap_extend = atoi(optarg);
             break;
 
+        case 'r':
+            ref_seq = optarg;
+            break;
+
         case 'D':
             debug = true;
             break;
@@ -5341,17 +5353,26 @@ int main_align(int argc, char** argv) {
         }
     }
 
-    VG* graph;
-    string file_name = argv[optind];
+    VG* graph = nullptr;
+    string file_name;
+    if (optind < argc) {
+        file_name = argv[optind];
+    }
     if (file_name == "-") {
         graph = new VG(std::cin);
-    } else {
+    } else if (ref_seq.empty()) {
         ifstream in;
         in.open(file_name.c_str());
         graph = new VG(in);
     }
 
-    Alignment alignment = graph->align(seq, match, mismatch, gap_open, gap_extend, 0, debug);
+    Alignment alignment;
+    if (!ref_seq.empty()) {
+        SSWAligner ssw;
+        alignment = ssw.align(seq, ref_seq);
+    } else {
+        alignment = graph->align(seq, match, mismatch, gap_open, gap_extend, 0, debug);
+    }
 
     if (output_json) {
         cout << pb2json(alignment) << endl;
@@ -5366,7 +5387,9 @@ int main_align(int argc, char** argv) {
         stream::write(cout, 1, lambda);
     }
 
-    delete graph;
+    if (graph != nullptr) {
+        delete graph;
+    }
 
     return 0;
 

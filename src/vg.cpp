@@ -2822,7 +2822,6 @@ void VG::from_gfa(istream& in, bool showp) {
             auto id = id_names.find(name);
             if (id == id_names.end()) {
                 id_names[name] = curr_id;
-                cerr << name << " = " << curr_id << endl;
                 return curr_id++;
             } else {
                 return id->second;
@@ -2863,7 +2862,7 @@ void VG::from_gfa(istream& in, bool showp) {
         // remove overlapping sequences from the graph
     }
     if (reduce_overlaps) {
-        bluntify();
+        //bluntify();
     }
 }
 
@@ -2883,10 +2882,12 @@ void VG::bluntify(void) {
 
     // in sketch: for each node, we chop the node at all overlap starts
     // then, we retain a translation from edge to the new node traversal
-    map<Edge*, Node*> overlap_node; // records new nodes that replace each edge overlap 
+    set<Node*> overlap_nodes;
+    map<Edge*, Node*> from_edge_to_overlap;
+    map<Edge*, Node*> to_edge_from_overlap;
     for_each_edge([&](Edge* edge) {
             if (edge->overlap() > 0) {
-                cerr << "claimed overlap " << edge->overlap() << endl;
+                //cerr << "claimed overlap " << edge->overlap() << endl;
                 // derive and check the overlap seqs
                 auto from_seq = trav_sequence(NodeTraversal(get_node(edge->from()), edge->from_start()));
                 //string from_overlap = 
@@ -2900,66 +2901,99 @@ void VG::bluntify(void) {
                 // an approximate overlap graph will violate this assumption
                 // so perhaps we should simply choose the first and throw a warning
                 if (from_overlap != to_overlap) {
-                    cerr << "[VG::bluntify] warning! overlaps of "
-                         << pb2json(*edge) << " are not identical " << endl;
-                    cerr << "o1: " << from_overlap << endl
-                         << "o2: " << to_overlap << endl;
-
-                    /*
-                    VG overlap;
-                    overlap.create_node(from_seq);
-                    auto aln = overlap.align(to_seq);
-                    if (!aln.has_path() || aln.path().mapping_size() == 0) {
-                        cerr << "couldn't align" << endl;
+                    SSWAligner aligner;
+                    auto aln = aligner.align(from_overlap, to_overlap);
+                    // find the central match
+                    // the alignment from the first to second should match at the very beginning of the from_seq
+                    int correct_overlap = 0;
+                    if (aln.path().mapping(0).edit_size() <= 2
+                        && edit_is_match(aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1))) {
+                        // get the length of the first match
+                        correct_overlap = aln.path().mapping(0).edit(aln.path().mapping(0).edit_size()-1).from_length();
+                        //cerr << "correct overlap is " << correct_overlap << endl;
+                        edge->set_overlap(correct_overlap);
+                        // create the edges for the overlaps
+                        auto overlap = create_node(to_seq.substr(0, correct_overlap));
+                        overlap_nodes.insert(overlap);
+                        auto e1 = create_edge(edge->from(), overlap->id(), edge->from_start(), false);
+                        auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
+                        from_edge_to_overlap[e1] = overlap;
+                        to_edge_from_overlap[e2] = overlap;
+                        //cerr << "created overlap node " << overlap->id() << endl;
                     } else {
-                        cerr << "alignment: " << pb2json(aln) << endl;
+                        cerr << "[VG::bluntify] warning! overlaps of "
+                             << pb2json(*edge)
+                             << " are not identical and could not be resolved by alignment" << endl;
+                        cerr << "o1:  " << from_overlap << endl
+                             << "o2:  " << to_overlap << endl
+                             << "aln: " << pb2json(aln) << endl;
+                        // the effect is that we don't resolve this overlap
+                        edge->set_overlap(0);
+                        // we should axe the edge so as to not generate spurious sequences in the graph
                     }
-                    */
-
-                    cerr << "n1: " << get_node(edge->from())->sequence() << endl
-                         << "n2: " << get_node(edge->to())->sequence() << endl;
-                    cerr << "t1: " << trav_sequence(
-                        NodeTraversal(get_node(edge->from()), edge->from_start())) << endl
-                         << "t2: " << trav_sequence(
-                             NodeTraversal(get_node(edge->to()), edge->to_end())) << endl;
+                    
                 } else {
-                    cerr << "overlap as expected" << endl;
-                    overlap_node[edge] = create_node(from_overlap);
+                    //cerr << "overlap as expected" << endl;
+                    //overlap_node[edge] = create_node(to_seq);
+                    auto overlap = create_node(to_overlap);
+                    overlap_nodes.insert(overlap);
+                    auto e1 = create_edge(edge->from(), overlap->id(), edge->from_start(), false);
+                    auto e2 = create_edge(overlap->id(), edge->to(), false, edge->to_end());
+                    from_edge_to_overlap[e1] = overlap;
+                    to_edge_from_overlap[e2] = overlap;
+                    //cerr << "created overlap node " << overlap->id() << endl;
                 }
             }
         });
 
-    map<Edge*, pair<NodeTraversal, NodeTraversal> > trans; // maps from old edge to new nodetravs
     // we need to record a translation from cut point to overlap+edge
+    set<Node*> cut_nodes;
+    vector<Node*> to_process;
     for_each_node([&](Node* node) {
-            // cut at every position where there is an overlap ending
-            // record a map from the new node ends to the original overlap edge
-            id_t orig_id = node->id();
-            string orig_seq = node->sequence();
-            size_t orig_len = orig_seq.size();
-            set<pos_t> cut_pos;
-            map<Edge*, pos_t> from_edge;
-            map<Edge*, pos_t> to_edge;
-            for (auto& edge : edges_of(node)) {
-                // if we have an overlap
-                if (edge->overlap() > 0) {
-                    // check which of the four edge types this is
-                    // and record that we should cut the node at the appropriate place
-                    if (edge->from() == node->id()) {
-                        auto p = make_pos_t(node->id(),
-                                            edge->from_start(),
-                                            orig_len - edge->overlap());
-                        cut_pos.insert(p);
-                        from_edge[edge] = p;
-                    } else {
-                        auto p = make_pos_t(node->id(),
-                                            edge->to_end(),
-                                            edge->overlap());
-                        cut_pos.insert(p);
-                        to_edge[edge] = p;
-                    }
+            to_process.push_back(node);
+        });
+    for (auto node : to_process) {
+        // cut at every position where there is an overlap ending
+        // record a map from the new node ends to the original overlap edge
+        id_t orig_id = node->id();
+        string orig_seq = node->sequence();
+        size_t orig_len = orig_seq.size();
+        set<pos_t> cut_pos;
+        map<Edge*, pos_t> from_edge;
+        map<Edge*, pos_t> to_edge;
+        map<NodeSide, int> to_overlaps;
+        map<NodeSide, int> from_overlaps;
+        // as we handle the edges which have overlaps
+        // we will find the intermediate nodes which have the overlap seq on them
+
+        for (auto& edge : edges_of(node)) {
+            // if we have an overlap
+            if (edge->overlap() > 0) {
+                // if the edge has been handled
+                // don't do any re-jiggering of it
+
+                // check which of the four edge types this is
+                // and record that we should cut the node at the appropriate place
+                if (edge->from() == node->id()) {
+                    auto p = make_pos_t(node->id(),
+                                        edge->from_start(),
+                                        orig_len - edge->overlap());
+                    cut_pos.insert(p);
+                    from_edge[edge] = p;
+                    from_overlaps[NodeSide(edge->to(), edge->to_end())] = edge->overlap();
+                } else {
+                    auto p = make_pos_t(node->id(),
+                                        edge->to_end(),
+                                        edge->overlap());
+                    cut_pos.insert(p);
+                    to_edge[edge] = p;
+                    to_overlaps[NodeSide(edge->from(), edge->from_start())] = edge->overlap();
                 }
+                //destroy_edge(edge);
             }
+        }
+
+        if (!overlap_nodes.count(node)) {
             set<int> cut_at;
             for (auto p : cut_pos) {
                 if (is_rev(p)) {
@@ -2967,73 +3001,185 @@ void VG::bluntify(void) {
                 }
                 cut_at.insert(offset(p));
             }
+            //cerr << "will cut " << cut_at.size() << " times" << endl;
             vector<int> cut_at_pos;
-            std::copy(cut_at.begin(), cut_at.end(), cut_at_pos.begin());
+            for (auto i : cut_at) {
+                cut_at_pos.push_back(i);
+            }
             // replace the node with a cut up node
             vector<Node*> parts;
+            // copy the node
             divide_node(node, cut_at_pos, parts);
-            // first establish which nodes are on each side of the cuts
-            // this is easy, we just zip through the positions
-            // and the nodes in the parts at the same time
-            // store the result in a map from positions to node traversals
-            map<pos_t, pair<NodeTraversal, NodeTraversal> > pos_trans;
-            auto n = parts.begin();
-            for (auto x : cut_at_pos) {
-                auto p = make_pos_t(orig_id, false, x);
-                auto r = reverse(p, orig_len);
-                auto n1 = n;
-                ++n;
-                auto n2 = n;
-                if (n != parts.end()) {
-                    auto& fwd_travs = pos_trans[p];
-                    fwd_travs.first = NodeTraversal(*n1, false);
-                    fwd_travs.second = NodeTraversal(*n2, false);
-                    auto& rev_travs = pos_trans[r];
-                    rev_travs.first = NodeTraversal(*n2, true);
-                    rev_travs.second = NodeTraversal(*n2, true);
+            for (auto p : parts) {
+                cut_nodes.insert(p);
+                //cerr << "cut " << orig_id << " into " << p->id() << endl;
+            }
+            Node* head = parts.front();
+            Node* tail = parts.back();
+            //map<NodeSide, int> to_overlaps;
+            //map<NodeSide, int> from_overlaps;
+            // re-set the overlaps
+            for (auto& e : edges_of(head)) {
+                if (e->to() == head->id()) {
+                    e->set_overlap(to_overlaps[NodeSide(e->from(), e->from_start())]);
                 } else {
-                    break;
+                    e->set_overlap(from_overlaps[NodeSide(e->to(), e->to_end())]);
                 }
             }
-
-            // map<Edge*, pair<NodeTraversal, NodeTraversal> > trans;
-            // remember
-            // map<Edge*, pos_t> from_edge;
-            // map<Edge*, pos_t> to_edge;
-            // now that we've divided, recover the translation
-            for (auto e : from_edge) {
-                trans[e.first].first = pos_trans[e.second].first;
+            for (auto& e : edges_of(tail)) {
+                if (e->from() == tail->id()) {
+                    e->set_overlap(from_overlaps[NodeSide(e->to(), e->to_end())]);
+                } else {
+                    e->set_overlap(to_overlaps[NodeSide(e->from(), e->from_start())]);
+                }
             }
-            for (auto e : to_edge) {
-                trans[e.first].second = pos_trans[e.second].second;
+        }
+    }
+
+
+    // now, we've cut up everything
+    // we have these dangling nodes
+    // what to do
+    // we need to map from the old edge overlap nodes
+    // to the new translation
+    // link them in
+    set<NodeTraversal> overlap_from;
+    set<NodeTraversal> overlap_to;
+    set<pair<NodeSide, NodeSide> > edges_to_destroy;
+    set<pair<NodeTraversal, NodeTraversal> > edges_to_create;
+    for (auto node : overlap_nodes) {
+        // walk back until we reach a bifurcation
+        // or we are no longer matching sequence
+        auto node_trav = NodeTraversal(node, false);
+        auto node_seq = node->sequence();
+        int matched_next = 0;
+        // get the travs from, note that the ovrelap nodes are in the natural orientation
+        auto tn = travs_from(node_trav);
+        auto next_trav = *tn.begin();
+        if (tn.size() == 1) {
+            overlap_to.insert(*tn.begin());
+        }
+        while (tn.size() == 1) {
+            // check if we match the next node
+            // starting from our match point
+            // if we do, set the next nodes to travs_from
+            // otherwise clear
+            next_trav = *tn.begin();
+            auto next_seq = trav_sequence(next_trav);
+            if (node_seq.substr(matched_next, next_seq.size()) == next_seq) {
+                tn = travs_from(next_trav);
+                matched_next += next_seq.size();
+            } else {
+                tn.clear();
             }
-
-            // and patch it into the map from edge to nodetraversal
-            //map<Edge*, pair<Node*, Node*> > trans;
-            
-        });
-
-    vector<Edge*> edges_to_destroy;
-    for_each_edge([&](Edge* edge) {
-            // look up where we should link using the cut->edge / edge->cut table(s)
-            if (trans.find(edge) != trans.end()) {
-                auto& c = trans[edge];
-                auto from_trav = c.first;
-                auto to_trav = c.second;
-                assert(overlap_node.find(edge) != overlap_node.end());
-                auto over_trav = NodeTraversal(overlap_node[edge]);
-                // connect edges with the node representing the overlap
-                create_edge(from_trav, over_trav);
-                create_edge(over_trav, to_trav);
-                // mark this edge for deletion
-                edges_to_destroy.push_back(edge);
+        }
+        //cerr << "next " << pb2json(*node) << " matched " << matched_next << " until " << next_trav << endl;
+        if (matched_next == node_seq.size()) {
+            // remove the forward edge from the overlap node
+            // and attach it to the next_trav
+            tn = travs_from(node_trav);
+            assert(tn.size() == 1);
+            edges_to_destroy.insert(NodeSide::pair_from_edge(*get_edge(node_trav, *tn.begin())));
+            edges_to_create.insert(make_pair(node_trav, next_trav));
+        }
+        // the previous
+        int matched_prev = 0;
+        // get the travs from, note that the ovrelap nodes are in the natural orientation
+        auto tp = travs_to(node_trav);
+        auto prev_trav = *tp.begin();
+        if (tp.size() == 1) {
+            overlap_from.insert(*tp.begin());
+        }
+        while (tp.size() == 1) {
+            // check if we match the next node
+            // starting from our match point
+            // if we do, set the next nodes to travs_from
+            // otherwise clear
+            prev_trav = *tp.begin();
+            auto prev_seq = trav_sequence(prev_trav);
+            if (node_seq.substr(matched_prev, prev_seq.size()) == prev_seq) {
+                tp = travs_to(prev_trav);
+                matched_prev += prev_seq.size();
+            } else {
+                tp.clear();
             }
-        });
+        }
+        //cerr << "prev " << pb2json(*node) << " matched " << matched_prev << " until " << prev_trav << endl;
+        if (matched_prev == node_seq.size()) {
+            // remove the forward edge from the overlap node
+            // and attach it to the next_trav
+            tp = travs_to(node_trav);
+            assert(tp.size() == 1);
+            edges_to_destroy.insert(NodeSide::pair_from_edge(*get_edge(*tp.begin(), node_trav)));
+            edges_to_create.insert(make_pair(prev_trav, node_trav));
+        }
 
+        // if we matched 
+        // walk forward until we reach a bifurcation
+        // or we are no longer matching sequence
+        
+        // we reattach the overlap node to that point
+        // later, normalization will remove the superfluous parts
+    }
+
+    for (auto& p : edges_to_create) {
+        create_edge(p.first, p.second);
+    }
     for (auto& e : edges_to_destroy) {
-        // Destroy the edge (only one can exist between any two nodes)
         destroy_edge(e);
     }
+
+    // TODO
+    // walk back from the overlap edges
+    // and remove the nodes until we meet a bifurcation
+    vector<Edge*> overlap_edges_to_destroy;
+    for_each_edge([&](Edge* edge) {
+            if (edge->overlap() > 0) {
+                overlap_edges_to_destroy.push_back(edge);
+            }
+        });
+    for (auto& edge : overlap_edges_to_destroy) {
+        destroy_edge(edge);
+    }
+
+    // walk the graph starting with the dangling overlap neighbors
+    // until we reach a bifurcation, which by definition is where we've reconnected
+    set<id_t> nodes_to_destroy;
+    for (auto& trav : overlap_to) {
+        // walk forward until there's a bifurcation
+        // if we have no inbound nodes
+        if (travs_to(trav).size() > 0) continue;
+        nodes_to_destroy.insert(trav.node->id());
+        auto tn = travs_from(trav);
+        auto next_trav = *tn.begin();
+        while (tn.size() == 1) {
+            next_trav = *tn.begin();
+            if (travs_to(next_trav).size() > 0
+                || !cut_nodes.count(next_trav.node)) break;
+            nodes_to_destroy.insert(next_trav.node->id());
+            tn = travs_from(next_trav);
+        }
+    }
+    for (auto& trav : overlap_from) {
+        // walk forward until there's a bifurcation
+        // if we have no inbound nodes
+        if (travs_from(trav).size() > 0) continue;
+        nodes_to_destroy.insert(trav.node->id());
+        auto tp = travs_to(trav);
+        auto prev_trav = *tp.begin();
+        while (tp.size() == 1) {
+            prev_trav = *tp.begin();
+            if (travs_from(prev_trav).size() > 0
+                || !cut_nodes.count(prev_trav.node)) break;
+            nodes_to_destroy.insert(prev_trav.node->id());
+            tp = travs_to(prev_trav);
+        }
+    }
+
+    for (auto& id : nodes_to_destroy) {
+        destroy_node(id);
+    }
+    
 }
 
 static
