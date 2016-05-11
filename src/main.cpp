@@ -4240,6 +4240,11 @@ int main_find(int argc, char** argv) {
             int64_t start, end;
             Graph graph;
             parse_region(target, name, start, end);
+            if(xindex.path_rank(name) == 0) {
+                // Passing a nonexistent path to get_path_range produces Undefined Behavior
+                cerr << "[vg find] error, path " << name << " not found in index" << endl;
+                exit(1);
+            }
             xindex.get_path_range(name, start, end, graph);
             if (context_size > 0) {
                 xindex.expand_context(graph, context_size);
