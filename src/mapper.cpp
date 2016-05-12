@@ -242,6 +242,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
         // Always reverse the opposite direction sequence
         aln_opposite.set_sequence(reverse_complement(aln_opposite.sequence()));
+        
+        // TODO: when we have quality-dependent alignment, reverse the qualities
+        // too.
 
         // Do both the alignments
         align_mate_in_window(read, aln_same, pair_window);
@@ -266,36 +269,56 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width,
         max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
     
-    if(!alignments1.empty() && alignments1[0].score() == 0) {
-        // Get rid of any bogus unaligned alignments
-        alignments1.clear();
-    }
-    if(!alignments2.empty() && alignments2[0].score() == 0) {
-        alignments2.clear();
+    size_t best_score1 = 0;
+    for(auto& aligned : alignments1) {
+        // Go through all the read 1 alignments
+        if(aligned.score() > best_score1 && aligned.has_path() && aligned.path().mapping_size() > 0) {
+            // Find the top score among alignments that aren't unaligned.
+            best_score1 = aligned.score();
+        }
     }
     
+    size_t best_score2 = 0;
+    for(auto& aligned : alignments2) {
+        // Go through all the read 2 alignments
+        if(aligned.score() > best_score2 && aligned.has_path() && aligned.path().mapping_size() > 0) {
+            // Find the top score among alignments that aren't unaligned.
+            best_score2 = aligned.score();
+        }
+    }
+    
+    // A nonzero best score means we have any valid alignments of that read.
+    
     // Rescue only if the top alignment on one side has no mappings
-    if(alignments1.empty() && !alignments2.empty()) {
-        // Can rescue 1 off of 2
+    if(best_score1 == 0 && best_score2 != 0) {
+        // Must rescue 1 off of 2
         alignments1.clear();
         for(auto base : alignments2) {
+            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
+                // Can't rescue off this
+                continue;
+            }
             Alignment mate = read1;
             align_mate(base, mate);
             alignments1.push_back(mate);
             if(!always_rescue) {
-                // We only want to rescue off the best one
+                // We only want to rescue off the best one, and they're sorted
                 break;
             }
         }
-    } else if(!alignments1.empty() && alignments2.empty()) {
-        // Can rescue 2 off of 1
+    } else if(best_score1 != 0 && best_score2 == 0) {
+        // Must rescue 2 off of 1
         alignments2.clear();
         for(auto base : alignments1) {
+            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
+                // Can't rescue off this
+                continue;
+            }
             Alignment mate = read2;
             align_mate(base, mate);
             alignments2.push_back(mate);
             if(!always_rescue) {
-                // We only want to rescue off the best one
+                // We only want to rescue off the best one, and they're sorted
                 break;
             }
         }
@@ -309,6 +332,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         
         for(auto base : alignments1) {
             // Do 2 off of 1
+            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
+                // Can't rescue off this
+                continue;
+            }
             Alignment mate = read2;
             align_mate(base, mate);
             extra2.push_back(mate);
@@ -316,6 +343,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         
         for(auto base : alignments2) {
             // Do 1 off of 2
+            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
+                // Can't rescue off this
+                continue;
+            }
             Alignment mate = read1;
             align_mate(base, mate);
             extra1.push_back(mate);
@@ -392,20 +423,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             return a.score() > b.score();
         });
 
-    }
-
-    if(alignments1.empty()) {
-        // Couldn't find anything. Add back the bogus alignment
-        auto fake = read1;
-        fake.set_score(0);
-        fake.clear_path();
-        alignments1.push_back(fake);
-    }
-    if(alignments2.empty()) {
-        auto fake = read2;
-        fake.set_score(0);
-        fake.clear_path();
-        alignments2.push_back(fake);
     }
 
     // link the fragments and set primary/secondary
