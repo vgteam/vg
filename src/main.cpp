@@ -6126,7 +6126,8 @@ int main_map(int argc, char** argv) {
              &keep_secondary,
              &kmer_size,
              &kmer_stride,
-             &band_width]
+             &band_width,
+             &compare_gam]
                 (Alignment& alignment) {
                     int tid = omp_get_thread_num();
                     vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
