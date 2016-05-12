@@ -4237,6 +4237,11 @@ int main_find(int argc, char** argv) {
             int64_t start, end;
             Graph graph;
             parse_region(target, name, start, end);
+            if(xindex.path_rank(name) == 0) {
+                // Passing a nonexistent path to get_path_range produces Undefined Behavior
+                cerr << "[vg find] error, path " << name << " not found in index" << endl;
+                exit(1);
+            }
             xindex.get_path_range(name, start, end, graph);
             if (context_size > 0) {
                 xindex.expand_context(graph, context_size);
@@ -5426,6 +5431,7 @@ void help_map(char** argv) {
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
+         << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
@@ -5492,6 +5498,7 @@ int main_map(int argc, char** argv) {
     int pair_window = 64; // ~11bp/node
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
+    bool always_rescue = false;
     float min_kmer_entropy = 0;
     float accept_identity = 0;
     size_t kmer_min = 8;
@@ -5550,6 +5557,7 @@ int main_map(int argc, char** argv) {
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},
                 {"min-identity", required_argument, 0, 'P'},
+                {"always-rescue", no_argument, 0, 'U'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
                 {"in-memory", no_argument, 0, 'V'},
@@ -5570,7 +5578,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:au:w",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:au:",
                          long_options, &option_index);
 
 
@@ -5720,6 +5728,10 @@ int main_map(int argc, char** argv) {
 
         case 'P':
             min_score = atof(optarg);
+            break;
+                
+        case 'U':
+            always_rescue = true;
             break;
 
         case 'l':
@@ -5937,6 +5949,7 @@ int main_map(int argc, char** argv) {
         m->gap_extend = gap_extend;
         m->promote_consistent_pairs = promote_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
+        m->always_rescue = always_rescue;
         mapper[i] = m;
     }
 

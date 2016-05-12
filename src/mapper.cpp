@@ -39,6 +39,7 @@ Mapper::Mapper(Index* idex,
     , max_query_graph_ratio(128)
     , promote_consistent_pairs(false)
     , extra_pairing_multimaps(4)
+    , always_rescue(false)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -265,23 +266,68 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width,
         max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
     
-    // Rescue only if the top alignment on one side has no mappings
-    if((alignments1.empty() || alignments1[0].score() == 0) && !(alignments2.empty() || alignments2[0].score() == 0)) {
-        // Can rescue 1 off of 2
-        Alignment mate = read1;
-        align_mate(alignments2[0], mate);
+    if(!alignments1.empty() && alignments1[0].score() == 0) {
+        // Get rid of any bogus unaligned alignments
         alignments1.clear();
-        alignments1.push_back(mate);
-    } else if(!(alignments1.empty() || alignments1[0].score() == 0) && (alignments2.empty() || alignments2[0].score() == 0)) {
-        // Can rescue 2 off of 1
-        Alignment mate = read2;
-        align_mate(alignments1[0], mate);
+    }
+    if(!alignments2.empty() && alignments2[0].score() == 0) {
         alignments2.clear();
-        alignments2.push_back(mate);
+    }
+    
+    // Rescue only if the top alignment on one side has no mappings
+    if(alignments1.empty() && !alignments2.empty()) {
+        // Can rescue 1 off of 2
+        alignments1.clear();
+        for(auto base : alignments2) {
+            Alignment mate = read1;
+            align_mate(base, mate);
+            alignments1.push_back(mate);
+            if(!always_rescue) {
+                // We only want to rescue off the best one
+                break;
+            }
+        }
+    } else if(!alignments1.empty() && alignments2.empty()) {
+        // Can rescue 2 off of 1
+        alignments2.clear();
+        for(auto base : alignments1) {
+            Alignment mate = read2;
+            align_mate(base, mate);
+            alignments2.push_back(mate);
+            if(!always_rescue) {
+                // We only want to rescue off the best one
+                break;
+            }
+        }
+    } else if(always_rescue) {
+        // Try rescuing each off all of the other
+        
+        // We need temp places to hold the extra alignments we make so as to not
+        // rescue off rescues.
+        vector<Alignment> extra1;
+        vector<Alignment> extra2;
+        
+        for(auto base : alignments1) {
+            // Do 2 off of 1
+            Alignment mate = read2;
+            align_mate(base, mate);
+            extra2.push_back(mate);
+        }
+        
+        for(auto base : alignments2) {
+            // Do 1 off of 2
+            Alignment mate = read1;
+            align_mate(base, mate);
+            extra1.push_back(mate);
+        }
+        
+        // Copy over the new alignments
+        alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
+        alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
     }
     
     // Find the consistent pair with highest total score and promote to primary.
-    // We can do this by going down each list in order.
+    // We can do this by going down each list.
     int best_score = 0;
     vector<Alignment>::iterator best1;
     vector<Alignment>::iterator best2;
@@ -348,6 +394,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     }
 
+    if(alignments1.empty()) {
+        // Couldn't find anything. Add back the bogus alignment
+        auto fake = read1;
+        fake.set_score(0);
+        fake.clear_path();
+        alignments1.push_back(fake);
+    }
+    if(alignments2.empty()) {
+        auto fake = read2;
+        fake.set_score(0);
+        fake.clear_path();
+        alignments2.push_back(fake);
+    }
 
     // link the fragments and set primary/secondary
     for(size_t i = 0; i < alignments1.size(); i++) {

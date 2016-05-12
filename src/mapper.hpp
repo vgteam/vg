@@ -211,6 +211,7 @@ public:
     // paired-end consistency enforcement
     bool promote_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
+    bool always_rescue; // Should rescue be attempted for all imperfect alignments?
 
 };
 

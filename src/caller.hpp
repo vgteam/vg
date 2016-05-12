@@ -242,12 +242,8 @@ public:
         return g.first == "." && (g.second == "." || g.second == "-");
     }
 
-    // call is snp
-    static bool snp_call(const Genotype& g) {
-        return !missing_call(g) && !ref_call(g);
-    }
-
     // classify call as 0: missing 1: reference 2: snp
+    // (holdover from before indels)
     static int call_cat(const Genotype&g) {
         if (missing_call(g)) {
             return 0;
