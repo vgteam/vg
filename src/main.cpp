@@ -1196,7 +1196,7 @@ int main_call(int argc, char** argv) {
     }
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
-                  min_frac, Caller::Default_min_likelihood,
+                  min_frac, Caller::Default_min_log_likelihood,
                   leave_uncalled, default_read_qual, max_strand_bias,
                   text_file_stream);
 

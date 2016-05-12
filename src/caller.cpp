@@ -16,7 +16,7 @@ const int Caller::Default_min_depth = 10;
 const int Caller::Default_max_depth = 200;
 const int Caller::Default_min_support = 1;
 const double Caller::Default_min_frac = 0.25;
-const double Caller::Default_min_likelihood = 1e-50;
+const double Caller::Default_min_log_likelihood = -5000.0;
 const char Caller::Default_default_quality = 30;
 const double Caller::Default_max_strand_bias = 0.5;
 
@@ -26,7 +26,7 @@ Caller::Caller(VG* graph,
                int max_depth,
                int min_support,
                double min_frac,
-               double min_likelihood, 
+               double min_log_likelihood, 
                bool leave_uncalled,
                int default_quality,
                double max_strand_bias,
@@ -38,7 +38,7 @@ Caller::Caller(VG* graph,
     _max_depth(max_depth),
     _min_support(min_support),
     _min_frac(min_frac),
-    _min_log_likelihood(safe_log(min_likelihood)),
+    _min_log_likelihood(min_log_likelihood),
     _leave_uncalled(leave_uncalled),
     _default_quality(default_quality),
     _max_strand_bias(max_strand_bias),

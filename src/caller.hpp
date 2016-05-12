@@ -87,7 +87,7 @@ public:
     // same as min_support, but as fraction of total depth
     static const double Default_min_frac;
     // minimum likelihood to call a snp
-    static const double Default_min_likelihood;
+    static const double Default_min_log_likelihood;
     // use this score when pileup is missing quality
     static const char Default_default_quality;
     // use to balance alignments to forward and reverse strand
@@ -99,7 +99,7 @@ public:
            int max_depth = Default_max_depth,
            int min_support = Default_min_support,
            double min_frac = Default_min_frac,
-           double min_likelihood = Default_min_likelihood, 
+           double min_log_likelihood = Default_min_log_likelihood, 
            bool leave_uncalled = false,
            int default_quality = Default_default_quality,
            double max_strand_bias = Default_max_strand_bias,
