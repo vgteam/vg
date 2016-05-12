@@ -5406,6 +5406,7 @@ void help_map(char** argv) {
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
+         << "    -G, --gam-input FILE  realign GAM input" << endl
          << "    -K, --keep-secondary  produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
          << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
@@ -5414,6 +5415,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
+         << "    -w, --check           if using GAM input (-G), write a comparison of before/after alignments to stdout" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match N         use this match score (default: 1)" << endl
@@ -5436,7 +5438,6 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -t, --threads N       number of threads to use" << endl
-         << "    -G, --greedy-accept   if a tested alignment achieves -X identity don't try worse seeds" << endl
          << "    -X, --accept-identity N  accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "maximal exact match (MEM) mapper:" << endl
@@ -5507,6 +5508,8 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     bool promote_consistent_pairs = false;
     int extra_pairing_multimaps = 4;
+    string gam_input;
+    bool compare_gam;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5534,7 +5537,7 @@ int main_map(int argc, char** argv) {
                 {"max-multimaps", required_argument, 0, 'N'},
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
-                {"greedy-accept", no_argument, 0, 'G'},
+                {"gam-input", required_argument, 0, 'G'},
                 {"accept-identity", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"thread-ex", required_argument, 0, 'e'},
@@ -5562,11 +5565,12 @@ int main_map(int argc, char** argv) {
                 {"gap-extend", required_argument, 0, 'y'},
                 {"promote-paired", no_argument, 0, 'a'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
+                {"compare", required_argument, 0, 'w'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:au:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:au:w",
                          long_options, &option_index);
 
 
@@ -5576,58 +5580,58 @@ int main_map(int argc, char** argv) {
 
         switch (c)
         {
-            case 's':
-                seq = optarg;
-                break;
+        case 's':
+            seq = optarg;
+            break;
 
-            case 'V':
-                build_in_memory = true;
-                break;
+        case 'V':
+            build_in_memory = true;
+            break;
 
-            case 'd':
-                db_name = optarg;
-                break;
+        case 'd':
+            db_name = optarg;
+            break;
 
-            case 'x':
-                xg_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'g':
-                gcsa_name = optarg;
-                break;
+        case 'g':
+            gcsa_name = optarg;
+            break;
 
-            case 'j':
-                kmer_stride = atoi(optarg);
-                break;
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
 
 
-            case 'O':
-                in_mem_path_only = true;
-                break;
+        case 'O':
+            in_mem_path_only = true;
+            break;
 
-            case 'Q':
-                seq_name = optarg;
-                break;
+        case 'Q':
+            seq_name = optarg;
+            break;
 
-            case 'S':
-                sens_step = atoi(optarg);
-                break;
+        case 'S':
+            sens_step = atoi(optarg);
+            break;
 
-            case 'c':
-                best_clusters = atoi(optarg);
-                break;
+        case 'c':
+            best_clusters = atoi(optarg);
+            break;
 
-            case 'C':
-                cluster_min = atoi(optarg);
-                break;
+        case 'C':
+            cluster_min = atoi(optarg);
+            break;
 
-            case 'E':
-                min_kmer_entropy = atof(optarg);
-                break;
+        case 'E':
+            min_kmer_entropy = atof(optarg);
+            break;
 
-            case 'A':
-                max_attempts = atoi(optarg);
-                break;
+        case 'A':
+            max_attempts = atoi(optarg);
+            break;
         case 'm':
             hit_max = atoi(optarg);
             break;
@@ -5635,103 +5639,104 @@ int main_map(int argc, char** argv) {
         case 'M':
             max_multimaps = atoi(optarg);
             break;
-            case 'k':
-                kmer_size = atoi(optarg);
-                break;
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
 
-            case 'e':
-                thread_ex = atoi(optarg);
-                break;
+        case 'e':
+            thread_ex = atoi(optarg);
+            break;
 
-            case 'n':
-                context_depth = atoi(optarg);
-                break;
+        case 'n':
+            context_depth = atoi(optarg);
+            break;
 
-            case 'T':
-                softclip_threshold = atoi(optarg);
-                break;
+        case 'T':
+            softclip_threshold = atoi(optarg);
+            break;
 
-            case 'r':
-                read_file = optarg;
-                break;
+        case 'r':
+            read_file = optarg;
+            break;
 
-            case 'R':
-                read_group = optarg;
-                break;
+        case 'R':
+            read_group = optarg;
+            break;
 
-            case 'N':
-                sample_name = optarg;
-                break;
+        case 'N':
+            sample_name = optarg;
+            break;
 
-            case 'b':
-                hts_file = optarg;
-                break;
+        case 'b':
+            hts_file = optarg;
+            break;
 
-            case 'K':
-                keep_secondary = true;
-                break;
+        case 'K':
+            keep_secondary = true;
+            break;
 
-            case 'f':
-                if (fastq1.empty()) fastq1 = optarg;
-                else if (fastq2.empty()) fastq2 = optarg;
-                else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
-                break;
+        case 'f':
+            if (fastq1.empty()) fastq1 = optarg;
+            else if (fastq2.empty()) fastq2 = optarg;
+            else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
+            break;
 
-            case 'i':
-                interleaved_fastq = true;
-                break;
+        case 'i':
+            interleaved_fastq = true;
+            break;
 
-            case 'p':
-                pair_window = atoi(optarg);
-                break;
+        case 'p':
+            pair_window = atoi(optarg);
+            break;
 
-            case 't':
-                omp_set_num_threads(atoi(optarg));
-                break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
 
-            case 'D':
-                debug = true;
-                break;
+        case 'D':
+            debug = true;
+            break;
 
-            case 'F':
-                prefer_forward = true;
-                break;
+        case 'F':
+            prefer_forward = true;
+            break;
 
-            case 'G':
-                greedy_accept = true;
-                break;
+        case 'G':
+            gam_input = optarg;
+            break;
 
         case 'X':
             accept_identity = atof(optarg);
+            greedy_accept = true;
             break;
 
-            case 'J':
-                output_json = true;
-                break;
+        case 'J':
+            output_json = true;
+            break;
 
-            case 'B':
-                band_width = atoi(optarg);
-                break;
+        case 'B':
+            band_width = atoi(optarg);
+            break;
 
-            case 'P':
-                min_score = atof(optarg);
-                break;
+        case 'P':
+            min_score = atof(optarg);
+            break;
 
-            case 'l':
-                kmer_min = atoi(optarg);
-                break;
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
 
-            case 'L':
-                min_mem_length = atoi(optarg);
-                break;
+        case 'L':
+            min_mem_length = atoi(optarg);
+            break;
 
-            case 'Y':
-                max_mem_length = atoi(optarg);
-                break;
+        case 'Y':
+            max_mem_length = atoi(optarg);
+            break;
 
-            case 'H':
-                max_target_factor = atoi(optarg);
-                break;
+        case 'H':
+            max_target_factor = atoi(optarg);
+            break;
 
         case 'Z':
             buffer_size = atoi(optarg);
@@ -5760,7 +5765,10 @@ int main_map(int argc, char** argv) {
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
             break;
-            
+
+        case 'w':
+            compare_gam = true;
+            break;
 
         case 'h':
         case '?':
@@ -6096,6 +6104,33 @@ int main_map(int argc, char** argv) {
                     };
             fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
         }
+    }
+
+    if (!gam_input.empty()) {
+        function<void(Alignment&)> lambda =
+            [&mapper,
+             &output_alignments,
+             &keep_secondary,
+             &kmer_size,
+             &kmer_stride,
+             &band_width]
+                (Alignment& alignment) {
+                    int tid = omp_get_thread_num();
+                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+                    if(alignments.empty()) {
+                        alignments.push_back(alignment);
+                    }
+                    if (compare_gam) {
+#pragma omp critical (cout)
+                        cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path()) << endl;
+                    } else {
+                        // Output the alignments in JSON or protobuf as appropriate.
+                        output_alignments(alignments);
+                    }
+                };
+        ifstream gam_in(gam_input);
+        stream::for_each_parallel(gam_in, lambda);
+        gam_in.close();
     }
 
     // clean up

@@ -240,6 +240,8 @@ double divergence(const Mapping& m);
 // Return the identity for the path: perfect matches over total length.
 // For zero-length paths, returns 0.
 double identity(const Path& path);
+// compare the agreement between two alignments
+double overlap(const Path& p1, const Path& p2);
 
 }
 
