@@ -340,7 +340,7 @@ public:
     // use the sequence of the first node as the basis
     Node* merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
-    void normalize(void);
+    void normalize(int max_iter = 1);
     // remove redundant overlaps
     void bluntify(void);
     // turn the graph into a dag by copying strongly connected components expand_scc_steps times
