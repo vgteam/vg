@@ -40,7 +40,7 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland-utils
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
