@@ -30,7 +30,8 @@ Caller::Caller(VG* graph,
                bool leave_uncalled,
                int default_quality,
                double max_strand_bias,
-               ostream* text_calls):
+               ostream* text_calls,
+               bool bridge_alts):
     _graph(graph),
     _het_log_prior(safe_log(het_prior)),
     _hom_log_prior(safe_log(.5 * (1. - het_prior))),
@@ -42,7 +43,8 @@ Caller::Caller(VG* graph,
     _leave_uncalled(leave_uncalled),
     _default_quality(default_quality),
     _max_strand_bias(max_strand_bias),
-    _text_calls(text_calls) {
+    _text_calls(text_calls),
+    _bridge_alts(bridge_alts) {
     _max_id = _graph->max_node_id();
     _node_divider._max_id = &_max_id;
 }
@@ -322,16 +324,29 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
     for (int i = 0; i < (int)NodeDivider::EntryCat::Last; ++i) {
         for (int j = 0; j < (int)NodeDivider::EntryCat::Last; ++j) {
             if (call_sides1[i] != NULL && call_sides2[j] != NULL) {
-                NodeSide side1(call_sides1[i]->id(), !left_side1);
-                NodeSide side2(call_sides2[j]->id(), !left_side2);
-                if (!_call_graph.has_edge(side1, side2)) {
-                    Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
-                                                         left_side1, !left_side2);
-                    // can edges be written more than once with different cats?
-                    // if so, first one will prevail. should check if this
-                    // can impact vcf converter...
-                    if (_text_calls != NULL) {
-                        write_edge_tsv(edge, cat);
+                // always make an edge if the bridge flag is set
+                // otherwise, only make links between alts and reference
+                // (be more strict on deletion edges, only linking two reference)
+                // there is a possibility of disconnecting the graph in
+                // certain cases here, maybe it should be relaxed to make
+                // at least one edge in all cases? 
+                if (_bridge_alts ||
+                    (i == (int)NodeDivider::EntryCat::Ref &&
+                     j == (int)NodeDivider::EntryCat::Ref) ||
+                    ((i == (int)NodeDivider::EntryCat::Ref || 
+                      j == (int)NodeDivider::EntryCat::Ref) &&
+                     cat != 'L')) {                    
+                    NodeSide side1(call_sides1[i]->id(), !left_side1);
+                    NodeSide side2(call_sides2[j]->id(), !left_side2);
+                    if (!_call_graph.has_edge(side1, side2)) {
+                        Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
+                                                             left_side1, !left_side2);
+                        // can edges be written more than once with different cats?
+                        // if so, first one will prevail. should check if this
+                        // can impact vcf converter...
+                        if (_text_calls != NULL) {
+                            write_edge_tsv(edge, cat);
+                        }
                     }
                 }
             }

@@ -103,7 +103,8 @@ public:
            bool leave_uncalled = false,
            int default_quality = Default_default_quality,
            double max_strand_bias = Default_max_strand_bias,
-           ostream* text_calls = NULL);
+           ostream* text_calls = NULL,
+           bool bridge_alts = false);
     ~Caller();
     void clear();
 
@@ -165,6 +166,13 @@ public:
     char _default_quality;
     // min deviation from .5 in proportion of negative strand reads
     double _max_strand_bias;
+    // the base-by-base calling is very limited, and adjacent
+    // variants are not properly phased according to the reads.
+    // so we choose either to add all edges between neighboring
+    // positions (true) or none except via reference (false)
+    // (default to latter as most haplotypes rarely contain
+    // pairs of consecutive alts). 
+    bool _bridge_alts;
 
     // write the call graph
     void write_call_graph(ostream& out, bool json);
