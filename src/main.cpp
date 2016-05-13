@@ -1028,6 +1028,7 @@ void help_call(char** argv) {
          << "    -b, --max_strand_bias N limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. (default=" << Caller::Default_max_strand_bias << ")" << endl
          << "    -l, --leave_uncalled    leave un-called graph regions in output, producing augmented graph" << endl
          << "    -c, --calls TSV         write extra call information in TSV (must use with -l)" << endl
+         << "    -a, --link-alts         add all possible edges between adjacent alts" << endl       
          << "    -j, --json              output in JSON" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -1049,6 +1050,7 @@ int main_call(int argc, char** argv) {
     double max_strand_bias = Caller::Default_max_strand_bias;
     bool leave_uncalled = false;
     string calls_file;
+    bool bridge_alts = false;
     bool output_json = false;
     bool show_progress = false;
     int thread_count = 1;
@@ -1066,6 +1068,7 @@ int main_call(int argc, char** argv) {
                 {"max_strand_bias", required_argument, 0, 'b'},
                 {"leave_uncalled", no_argument, 0, 'l'},
                 {"calls", required_argument, 0, 'c'},
+                {"link-alts", no_argument, 0, 'a'},
                 {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
                 {"het_prior", required_argument, 0, 'r'},
@@ -1074,7 +1077,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:lc:jpr:t:",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:lc:ajpr:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1119,6 +1122,9 @@ int main_call(int argc, char** argv) {
         case 't':
             thread_count = atoi(optarg);
             break;
+        case 'a':
+            bridge_alts = true;
+            break;            
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -1196,9 +1202,9 @@ int main_call(int argc, char** argv) {
     }
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
-                  min_frac, Caller::Default_min_likelihood,
+                  min_frac, Caller::Default_min_log_likelihood,
                   leave_uncalled, default_read_qual, max_strand_bias,
-                  text_file_stream);
+                  text_file_stream, bridge_alts);
 
     function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
         for (int i = 0; i < pileup.node_pileups_size(); ++i) {

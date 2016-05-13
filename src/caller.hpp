@@ -87,7 +87,7 @@ public:
     // same as min_support, but as fraction of total depth
     static const double Default_min_frac;
     // minimum likelihood to call a snp
-    static const double Default_min_likelihood;
+    static const double Default_min_log_likelihood;
     // use this score when pileup is missing quality
     static const char Default_default_quality;
     // use to balance alignments to forward and reverse strand
@@ -99,11 +99,12 @@ public:
            int max_depth = Default_max_depth,
            int min_support = Default_min_support,
            double min_frac = Default_min_frac,
-           double min_likelihood = Default_min_likelihood, 
+           double min_log_likelihood = Default_min_log_likelihood, 
            bool leave_uncalled = false,
            int default_quality = Default_default_quality,
            double max_strand_bias = Default_max_strand_bias,
-           ostream* text_calls = NULL);
+           ostream* text_calls = NULL,
+           bool bridge_alts = false);
     ~Caller();
     void clear();
 
@@ -165,6 +166,13 @@ public:
     char _default_quality;
     // min deviation from .5 in proportion of negative strand reads
     double _max_strand_bias;
+    // the base-by-base calling is very limited, and adjacent
+    // variants are not properly phased according to the reads.
+    // so we choose either to add all edges between neighboring
+    // positions (true) or none except via reference (false)
+    // (default to latter as most haplotypes rarely contain
+    // pairs of consecutive alts). 
+    bool _bridge_alts;
 
     // write the call graph
     void write_call_graph(ostream& out, bool json);
