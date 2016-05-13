@@ -6485,7 +6485,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             if (i > 0) {
                 out << "    "
                     << alnid-1 << " -> "
-                    << alnid << "[dir=none,color=\"black\"];" << endl;
+                    << alnid << "[dir=none,color=\"black\",constraint=false];" << endl;
             }
             out << "    "
                 << alnid << " -> " << m.position().node_id()
