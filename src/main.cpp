@@ -6782,8 +6782,9 @@ int main_view(int argc, char** argv) {
             << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
             << "                          sequence name could be inadvertently parsed as a region)" << endl
             << "    -z, --region-size N   variants per region to parallelize" << endl
-            << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
+            << "    -m, --node-max N      limit the maximum allowable node sequence size (defaults to 1000)" << endl
             << "                          nodes greater than this threshold will be divided" << endl
+            << "                          Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
             << "    -p, --progress        show progress" << endl
             << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
             << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
@@ -6802,7 +6803,7 @@ int main_view(int argc, char** argv) {
         string output_type = "VG";
         bool progress = false;
         int vars_per_region = 25000;
-        int max_node_size = 0;
+        int max_node_size = 1000;
         string ref_paths_file;
         bool flat_alts = false;
         // Should we make paths out of phasing blocks in the called samples?

@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 21
+plan tests 22
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -23,6 +23,8 @@ edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
 is $edges 115357 "the 1mb graph has the expected number of edges"
 
 rm -f z.vg
+
+is $(vg construct -r 1mb1kgp/z.fa | vg view -j - | jq -c '.node[] | select((.sequence | length) >= 1024)' | wc -l) 0 "node size is manageable by default"
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz >c.vg
 is $? 0 "construction of a very complex region succeeds"
