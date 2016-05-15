@@ -107,6 +107,9 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
 Alignment simplify(const Alignment& a);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
 
+// quality information; a kind of poor man's pileup
+map<id_t, int> alignment_quality_per_node(const Alignment& aln);
+
 }
 
 #endif
