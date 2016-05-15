@@ -21,14 +21,12 @@ static const double default_gc_content = 0.5;
 namespace vg {
 
     class Aligner {
+    protected:
+        gssw_graph* create_gssw_graph(Graph& g);
+        
     public:
         
         Aligner(int32_t _match = default_match,
-                int32_t _mismatch = default_mismatch,
-                int32_t _gap_open = default_gap_open,
-                int32_t _gap_extension = default_gap_extension);
-        Aligner(Graph& g,
-                int32_t _match = default_match,
                 int32_t _mismatch = default_mismatch,
                 int32_t _gap_open = default_gap_open,
                 int32_t _gap_extension = default_gap_extension);
@@ -41,11 +39,13 @@ namespace vg {
                         list<gssw_node*>& sorted_nodes,
                         set<gssw_node*>& unmarked_nodes,
                         set<gssw_node*>& temporary_marks);
-        void set_graph(Graph& g);
 
         // alignment functions
-        void align(Alignment& alignment, bool print_score_matrices = false);
-        void gssw_mapping_to_alignment(gssw_graph_mapping* gm, Alignment& alignment, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void gssw_mapping_to_alignment(gssw_graph* graph,
+                                       gssw_graph_mapping* gm,
+                                       Alignment& alignment,
+                                       bool print_score_matrices = false);
         string graph_cigar(gssw_graph_mapping* gm);
         
         // must be called before querying mapping_quality
@@ -59,7 +59,6 @@ namespace vg {
 
         // members
         map<int64_t, gssw_node*> nodes;
-        gssw_graph* graph;
         int8_t* nt_table;
         int8_t* score_matrix;
         int32_t match;
@@ -74,14 +73,6 @@ namespace vg {
 
     class QualAdjAligner : public Aligner {
     public:
-        QualAdjAligner(Graph& g,
-                       int8_t _match = default_match,
-                       int8_t _mismatch = default_mismatch,
-                       int8_t _gap_open = default_gap_open,
-                       int8_t _gap_extension = default_gap_extension,
-                       int8_t _max_scaled_score = default_max_scaled_score,
-                       uint8_t _max_qual_score = default_max_qual_score,
-                       double gc_content = default_gc_content);
         
         QualAdjAligner(int8_t _match = default_match,
                        int8_t _mismatch = default_mismatch,
@@ -93,7 +84,7 @@ namespace vg {
 
         ~QualAdjAligner(void);
 
-        void align(Alignment& alignment, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         void init_mapping_quality(double gc_content);
 
         uint8_t max_qual_score;

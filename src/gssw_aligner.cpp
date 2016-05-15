@@ -7,7 +7,6 @@ static const double LN10 = 2.30258509299404568402;
 using namespace vg;
 
 Aligner::~Aligner(void) {
-    gssw_graph_destroy(graph);
     free(nt_table);
     free(score_matrix);
 }
@@ -26,26 +25,13 @@ Aligner::Aligner(int32_t _match,
     // they can be cleaned up via destroy_alignable_graph()
     nt_table = gssw_create_nt_table();
     score_matrix = gssw_create_score_matrix(match, mismatch);
-    graph = nullptr;
     log_base = 0.0;
 }
 
-Aligner::Aligner(Graph& g,
-                 int32_t _match,
-                 int32_t _mismatch,
-                 int32_t _gap_open,
-                 int32_t _gap_extension) : Aligner(_match, _mismatch, _gap_open, _gap_extension)
-{
-    set_graph(g);
-}
 
-void Aligner::set_graph(Graph& g) {
-
-    if (graph) {
-        gssw_graph_destroy(graph);
-    }
+gssw_graph* Aligner::create_gssw_graph(Graph& g) {
     
-    graph = gssw_graph_create(g.node_size());
+    gssw_graph* graph = gssw_graph_create(g.node_size());
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
@@ -89,11 +75,15 @@ void Aligner::set_graph(Graph& g) {
             exit(1);
         }
     }
+    
+    return graph;
 
 }
 
-void Aligner::align(Alignment& alignment, bool print_score_matrices) {
+void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
 
+    gssw_graph* graph = create_gssw_graph(g);
+    
     const string& sequence = alignment.sequence();
 
 
@@ -111,19 +101,21 @@ void Aligner::align(Alignment& alignment, bool print_score_matrices) {
 
     //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
 
-    gssw_mapping_to_alignment(gm, alignment, print_score_matrices);
+    gssw_mapping_to_alignment(graph, gm, alignment, print_score_matrices);
 
 #ifdef debug
     gssw_print_graph_mapping(gm, stderr);
 #endif
     
     gssw_graph_mapping_destroy(gm);
+    gssw_graph_destroy(graph);
 
 }
 
-void Aligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
-                                            Alignment& alignment,
-                                            bool print_score_matrices) {
+void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
+                                        gssw_graph_mapping* gm,
+                                        Alignment& alignment,
+                                        bool print_score_matrices) {
 
     alignment.clear_path();
     alignment.set_score(gm->score);
@@ -365,19 +357,6 @@ uint8_t Aligner::mapping_quality_approx(vector<Alignment>& alignments) {
     }
 }
 
-QualAdjAligner::QualAdjAligner(Graph& g,
-                               int8_t _match,
-                               int8_t _mismatch,
-                               int8_t _gap_open,
-                               int8_t _gap_extension,
-                               int8_t _max_scaled_score,
-                               uint8_t _max_qual_score,
-                               double gc_content) : Aligner(g, _match, _mismatch, _gap_open, _gap_extension) {
-    
-    init_quality_adjusted_scores(_max_scaled_score, _max_qual_score, gc_content);
-
-}
-
 QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _mismatch,
                                int8_t _gap_open,
@@ -412,8 +391,10 @@ QualAdjAligner::~QualAdjAligner(void) {
     free(adjusted_score_matrix);
 }
 
-void QualAdjAligner::align(Alignment& alignment, bool print_score_matrices) {
-
+void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
+    
+    gssw_graph* graph = create_gssw_graph(g);
+    
     const string& sequence = alignment.sequence();
     const string& quality = alignment.quality();
 
@@ -430,11 +411,12 @@ void QualAdjAligner::align(Alignment& alignment, bool print_score_matrices) {
                                                              gap_open,
                                                              gap_extension);
 
-    gssw_mapping_to_alignment(gm, alignment, print_score_matrices);
+    gssw_mapping_to_alignment(graph, gm, alignment, print_score_matrices);
 
 #ifdef debug
     gssw_print_graph_mapping(gm, stderr);
 #endif
 
     gssw_graph_mapping_destroy(gm);
+    gssw_graph_destroy(graph);
 }

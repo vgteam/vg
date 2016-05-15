@@ -36,6 +36,7 @@ Mapper::Mapper(Index* idex,
     , promote_consistent_pairs(false)
     , extra_pairing_multimaps(4)
     , adjust_alignments_for_base_quality(false)
+    , aligner(nullptr)
 {
     init_aligner(1, 4, 6, 1);
 }
@@ -76,7 +77,9 @@ Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr, nullptr) {
 }
 
 Mapper::~Mapper(void) {
-    delete aligner;
+    if (aligner) {
+        delete aligner;
+    }
 }
     
 double Mapper::estimate_gc_content() {
@@ -90,7 +93,7 @@ double Mapper::estimate_gc_content() {
         gc = index->approx_size_of_kmer_matches("G") + index->approx_size_of_kmer_matches("C");
     }
     else {
-        cerr << "warning:[vg::Mapper] no index to estimate GC content, using default of 0.5" << endl;
+        //cerr << "warning:[vg::Mapper] no index to estimate GC content, using default of 0.5" << endl;
         at = 1;
         gc = 1;
     }
@@ -820,6 +823,7 @@ vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int s
         // otherwise use the mem mapper, which is a banded multi mapper by default
         return align_mem(aln, multimaps);
     }
+
 }
 
 vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size, int stride, int band_width, int multimaps) {
@@ -1035,7 +1039,7 @@ Mapper::find_smems(const string& seq) {
                               gcsa::range_type(0, gcsa->size() - 1)));
         return mems;
     }
-
+    
     // find MEMs using GCSA+LCP array
     // algorithm sketch:
     // set up a cursor pointing to the last position in the sequence
@@ -1558,8 +1562,8 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     auto aln_fw = alignment;
     aln_fw.clear_path();
     aln_fw.set_score(0);
-    auto aln_rc = aln_fw;
-    aln_rc.set_sequence(reverse_complement(aln_fw.sequence()));
+    auto aln_rc = reverse_complement_alignment(aln_fw, (function<int64_t(int64_t)>)
+                                               ([&](int64_t id) { return get_node_length(id); }));
 
     int max_target_length = alignment.sequence().size() * max_target_factor;
 

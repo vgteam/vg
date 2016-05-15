@@ -6729,8 +6729,7 @@ Alignment VG::align(const Alignment& alignment,
     Node* root = dag.join_heads();
     dag.sort();
 
-    aligner.set_graph(dag.graph);
-    aligner.align(aln, print_score_matrices);
+    aligner.align(aln, dag.graph, print_score_matrices);
 
     /*
     auto check_aln = [&](VG& graph, const Alignment& a) {
