@@ -296,7 +296,8 @@ public:
        bool flat_input_vcf = false,
        bool load_phasing_paths = false,
        bool load_variant_alt_paths = false,
-       bool showprog = false);
+       bool showprog = false,
+       set<string>* allowed_variants = nullptr);
        
     // Build the graph from a bunch of alleles, organized by position.
     void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,

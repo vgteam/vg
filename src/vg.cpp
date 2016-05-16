@@ -3378,7 +3378,8 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
        bool flat_input_vcf,
        bool load_phasing_paths,
        bool load_variant_alt_paths,
-       bool showprog) {
+       bool showprog,
+       set<string>* allowed_variants) {
 
     init();
 
@@ -3522,7 +3523,10 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             // only work with DNA sequences
             if (isDNA) {
                 var.position -= 1; // convert to 0-based
-                records.push_back(var);
+                if (allowed_variants == nullptr
+                    || allowed_variants->count(var.vrepr())) {
+                    records.push_back(var);                    
+                }
             }
             if (++i % 1000 == 0) update_progress(var.position-start_pos);
             // Periodically parse the records down to what we need and throw away the rest.
