@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 24
+plan tests 28
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -51,7 +51,13 @@ vg index -x x.xg -g x.gcsa -k 16 x.vg
 is $(( for seq in $(vg sim -l 50 -n 100 -x x.xg); do vg find -M $seq -g x.gcsa; done ) | jq length | grep ^1$ | wc -l) 100 "each perfect read contains one maximal exact match"
 
 vg index -x x.xg -g x.gcsa -k 16 x.vg
+is $(vg find -n 1 -n 2 -D -x x.idx ) 0 "vg find -D finds distance 0 between 2 adjacent nodes"
+is $(vg find -n 1 -n 3 -D -x x.idx ) 0 "vg find -D finds distance 0 between node and adjacent snp"
+is $(vg find -n 16 -n 20 -D -x x.idx ) 6 "vg find -D jumps deletion"
+is $(vg find -n 17 -n 20 -D -x x.idx ) 6 "vg find -D jumps deletion from snp"
+
 is $(vg find -n 2 -n 3 -c 1 -L -x x.idx | vg view -g - | wc -l) 15 "vg find -L finds same number of nodes (with -c 1)"
+
 rm -f x.idx x.xg x.gcsa x.gcsa.lcp x.vg
 
 vg index -x m.xg inverting/m.vg
