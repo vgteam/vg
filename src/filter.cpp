@@ -141,13 +141,11 @@ namespace vg{
                 }
             }
             if (!paths_match){
-                return inverse ? Alignment() : aln;
-            }
-            else{
                 return inverse ? aln : Alignment();
             }
 
         }
+        return inverse ? Alignment() : aln;
     }
 
     Alignment Filter::kmer_filter(Alignment& aln){
@@ -176,8 +174,8 @@ namespace vg{
             Mapping mapping = path.mapping(i);
             Position pos = mapping.position();
             bool prev = path.mapping(i - 1).position().is_reverse();
-            if (prev | pos.is_reverse()){
-                return (inverse ? aln : Alignment());
+            if (prev != pos.is_reverse()){
+                return inverse ? aln : Alignment();
             }
 
         }
@@ -372,7 +370,7 @@ namespace vg{
         Path path = aln.path();
         //check if nodes are on same path(s)
 
-        int top_side = path.mapping_size();
+        int top_side = path.mapping_size() - 1;
         int bottom_side = 0;
 
         Mapping bottom_mapping;

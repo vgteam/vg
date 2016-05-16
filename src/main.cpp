@@ -544,6 +544,7 @@ void help_scrub(char** argv){
         << "  -S --split-read <DIST>      filter alignments that are split across more than <DIST> bp." << endl
         << "  -R --reversing        filter alignments that have both forward and reverse segments." << endl
         << "  -C --soft-clip <CLIP>       filter alignments with more than <CLIP> bases hanging off their ends." << endl
+        << "  -x --xg-index <INDEX> An xg index, required for path divergence" << endl
 
         << endl;
 }
@@ -564,6 +565,8 @@ int main_scrub(int argc, char** argv){
     bool do_reversing = false;
     bool remove_failing_edits  = false;
     bool filter_matches = false;
+    string xg_name;
+    xg::XG* xg_index;
 
     if (argc <= 2){
         help_scrub(argv);
@@ -588,11 +591,12 @@ int main_scrub(int argc, char** argv){
             {"inverse", no_argument, 0, 'v'},
             {"window-length", required_argument, 0, 'w'},
             {"threads", required_argument, 0, 't'},
+            {"xg-index", required_argument, 0, 'x'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hvmrRPd:p:q:a:w:C:S:t:",
+        c = getopt_long (argc, argv, "hvmxrRPd:p:q:a:w:C:S:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -619,6 +623,9 @@ int main_scrub(int argc, char** argv){
                 break;
             case 'a':
                 min_avg_qual = atof(optarg);
+                break;
+            case 'x':
+                xg_name = optarg;
                 break;
             case 'p':
                 min_percent_identity = atof(optarg);
@@ -672,8 +679,18 @@ int main_scrub(int argc, char** argv){
     ff.set_window_length(sliding_window_length);
     ff.set_soft_clip_limit(soft_clip_limit);
     ff.set_split_read_limit(split_read_limit);
-    ff.set_path_divergence(do_path_div);
     ff.set_reversing(do_reversing);
+
+    if (do_path_div && xg_name.empty()){
+        cerr << "Error: an xg index must be provided for path divergence filtering." << endl;
+        return 1;
+    }
+    ff.set_path_divergence(do_path_div);
+    if (!xg_name.empty()){
+        ifstream in(xg_name);
+        xg_index = new xg::XG(in);
+        ff.set_my_xg_idx(xg_index);
+    }
 
     std::function<void(Alignment&)> qual_fil = [&ff, &buffer](Alignment& aln){
         aln = ff.qual_filter(aln);
@@ -711,7 +728,7 @@ int main_scrub(int argc, char** argv){
         if (ff.get_do_reversing()){
             aln = ff.reversing_filter(aln);
         }
-        if (ff.get_soft_clip_limit() >= 0){
+        if (ff.get_soft_clip_limit() > 0){
             aln = ff.soft_clip_filter(aln);
         }
         if (ff.get_split_read_limit() > 0){

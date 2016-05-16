@@ -40,7 +40,8 @@ namespace vg {
      * detect if there are superbubbles contained within the current superbubble
      * (defined by Start and End)
      *
-     *
+     * This is easiest done using a simple linear search between the nodes
+     * in topologically order.
      *
      */
     bool Deconstructor::contains_nested(pair<int64_t, int64_t> start_and_end){
@@ -187,6 +188,9 @@ namespace vg {
 
 
         vector<pair<id_t, id_t> > supbubs = my_vg->get_superbubbles();
+        for (auto pp : supbubs){
+            cerr << pp.first << " " << pp.second << endl;
+        }
         SuperBubble x;
         vector<SuperBubble> ret(supbubs.size(), x);
         map<int, vector<id_t> > level_to_node;
@@ -196,7 +200,7 @@ namespace vg {
          * For each superbubble, BFS through it and record
          * possible paths.
          *
-         */
+         *
         map<int, vector<id_t> > level_to_nodes;
         for (int i = 0; i < supbubs.size(); i++){
             vector<id_t> alleles;
@@ -232,7 +236,7 @@ namespace vg {
 
         // };
         // my_vg->dfs(is_start, is_end);
-
+        */
 
         return ret;
     }
