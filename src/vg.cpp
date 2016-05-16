@@ -3508,9 +3508,10 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
             }
             // only work with DNA sequences
             if (isDNA) {
+                string vrepr = var.vrepr();
                 var.position -= 1; // convert to 0-based
                 if (allowed_variants == nullptr
-                    || allowed_variants->count(var.vrepr())) {
+                    || allowed_variants->count(vrepr)) {
                     records.push_back(var);                    
                 }
             }
