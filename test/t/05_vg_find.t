@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 24
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -49,7 +49,16 @@ is $(vg find -x x.idx -n 203 -c 1 | vg view - | grep CTACCCAGGCCATTTTAAGTTTCCTGT
 
 vg index -x x.xg -g x.gcsa -k 16 x.vg
 is $(( for seq in $(vg sim -l 50 -n 100 -x x.xg); do vg find -M $seq -g x.gcsa; done ) | jq length | grep ^1$ | wc -l) 100 "each perfect read contains one maximal exact match"
+
+vg index -x x.xg -g x.gcsa -k 16 x.vg
+is $(vg find -n 2 -n 3 -c 1 -L -x x.idx | vg view -g - | wc -l) 15 "vg find -L finds same number of nodes (with -c 1)"
 rm -f x.idx x.xg x.gcsa x.gcsa.lcp x.vg
+
+vg index -x m.xg inverting/m.vg
+is $(vg find -n 174 -c 200 -L -x m.xg | vg view -g - | grep S | wc -l) 7 "vg find -L only follows alternating paths"
+is $(vg find -n 2308 -c 10 -L -x m.xg | vg view -g - | grep S | wc -l) 10 "vg find -L tracks length"
+is $(vg find -n 2315 -n 183 -n 176 -c 1 -L -x m.xg | vg view -g - | grep S | wc -l) 7 "vg find -L works with more than one input node"
+rm m.xg
 
 vg construct -rmem/h.fa >h.vg
 vg index -g h.gcsa -k 16 h.vg
@@ -61,3 +70,4 @@ vg index -x giab.xg -g giab.gcsa -k 11 giab.vg
 is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) a7bce59dd511e6fb003720b8d5a788a0 "we can find the right MEMs for a sequence with Ns"
 is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(vg find -M ATTCATNNNNNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) "we find the same MEMs sequences with different lengths of Ns"
 rm -f giab.vg giab.xg giab.gcsa
+
