@@ -131,18 +131,18 @@ vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 
 # alternatively, store in a rocksdb backed index
-vg index -s -k 11 x.vg
+vg index -s -k 11 -d x.vg.index x.vg
 
 # align a read to the indexed version of the graph
 # note that the graph file is not opened, but x.vg.index is assumed
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 >read.gam
 
 # simulate a bunch of 150bp reads from the graph and map them
-vg map -r <(vg sim -n 1000 -l 150 x.vg) -x x.xg -g x.gcsa -k 22 >aln.gam
+vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa -k 22 >aln.gam
 
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
 # NB: currently requires the rocksdb-backed index
-vg surject -p x -b aln.gam >aln.bam
+vg surject -p x -b -d x.vg.index aln.gam >aln.bam
 ```
 ### Variant Calling
 
