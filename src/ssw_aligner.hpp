@@ -35,7 +35,7 @@ public:
     Alignment align(const string& query, const string& ref);
     Alignment ssw_to_vg(const StripedSmithWaterman::Alignment& ssw_aln,
                         const string& query, const string& ref);
-    static void PrintAlignment(const StripedSmithWaterman::Alignment& alignment);
+    void PrintAlignment(const StripedSmithWaterman::Alignment& alignment);
 
 };
 

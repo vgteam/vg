@@ -1148,6 +1148,7 @@ void help_call(char** argv) {
          << "    -b, --max_strand_bias N limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. (default=" << Caller::Default_max_strand_bias << ")" << endl
          << "    -l, --leave_uncalled    leave un-called graph regions in output, producing augmented graph" << endl
          << "    -c, --calls TSV         write extra call information in TSV (must use with -l)" << endl
+         << "    -a, --link-alts         add all possible edges between adjacent alts" << endl       
          << "    -j, --json              output in JSON" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -1169,6 +1170,7 @@ int main_call(int argc, char** argv) {
     double max_strand_bias = Caller::Default_max_strand_bias;
     bool leave_uncalled = false;
     string calls_file;
+    bool bridge_alts = false;
     bool output_json = false;
     bool show_progress = false;
     int thread_count = 1;
@@ -1186,6 +1188,7 @@ int main_call(int argc, char** argv) {
                 {"max_strand_bias", required_argument, 0, 'b'},
                 {"leave_uncalled", no_argument, 0, 'l'},
                 {"calls", required_argument, 0, 'c'},
+                {"link-alts", no_argument, 0, 'a'},
                 {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
                 {"het_prior", required_argument, 0, 'r'},
@@ -1194,7 +1197,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:lc:jpr:t:",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:lc:ajpr:t:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1239,6 +1242,9 @@ int main_call(int argc, char** argv) {
         case 't':
             thread_count = atoi(optarg);
             break;
+        case 'a':
+            bridge_alts = true;
+            break;            
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -1316,9 +1322,9 @@ int main_call(int argc, char** argv) {
     }
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
-                  min_frac, Caller::Default_min_likelihood,
+                  min_frac, Caller::Default_min_log_likelihood,
                   leave_uncalled, default_read_qual, max_strand_bias,
-                  text_file_stream);
+                  text_file_stream, bridge_alts);
 
     function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
         for (int i = 0; i < pileup.node_pileups_size(); ++i) {
@@ -2605,54 +2611,54 @@ int main_circularize(int argc, char** argv){
 
 void help_mod(char** argv) {
     cerr << "usage: " << argv[0] << " mod [options] <graph.vg> >[mod.vg]" << endl
-        << "Modifies graph, outputs modified on stdout." << endl
-        << endl
-        << "options:" << endl
-        << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
-        << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
-        << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
-        << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
-        << "    -z, --sort              sort the graph using an approximate topological sort" << endl
-        << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
-        << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
-        << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
-        << "                            and edges that do not introduce new paths are removed and neighboring" << endl
-        << "                            nodes are merged)" << endl
-        << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
-        << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
-        << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
-        << "                            edges from old to new copies to convert the graph into a DAG" << endl
-        << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
-        << "                            edges from old to new copies to convert the graph into a DAG" << endl
-        << "                            until the shortest path through each SCC is N bases long" << endl
-        << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
-        << "    -U, --unroll N          using backtracking to unroll cycles in the graph, preserving paths of length N" << endl
-        << "    -B, --max-branch N      maximum number of branchings to consider when unrolling" << endl
-        << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
-        << "                            component of the graph" << endl
-        << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
-        << "    -D, --drop-paths        remove the paths of the graph" << endl
-        << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
-        << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
-        << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
-        << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
-        << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
-        << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
-        << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
-        << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
-        << "                            cross more than --edge-max edges" << endl
-        << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
-        << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
-        << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
-        << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
-        << "                            replace the pair with a single node that is the concatenation of their labels" << endl
-        << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
-        << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
-        << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
-        << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
-        << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
-        << "    -y, --destroy-node ID   remove node with given id" << endl
-        << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
+         << "Modifies graph, outputs modified on stdout." << endl
+         << endl
+         << "options:" << endl
+         << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
+         << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
+         << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
+         << "    -C, --compact-ranks     compact mapping ranks in paths" << endl
+         << "    -z, --sort              sort the graph using an approximate topological sort" << endl
+         << "    -b, --break-cycles      use an approximate topological sort to break cycles in the graph" << endl
+         << "    -n, --normalize         normalize the graph so that edges are always non-redundant" << endl
+         << "                            (nodes have unique starting and ending bases relative to neighbors," << endl
+         << "                            and edges that do not introduce new paths are removed and neighboring" << endl
+         << "                            nodes are merged)" << endl
+         << "    -U, --until-normal N    iterate normalization until convergence, or at most N times" << endl
+         << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
+         << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
+         << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "    -w, --dagify-to N       copy strongly connected components of the graph forwarding" << endl
+         << "                            edges from old to new copies to convert the graph into a DAG" << endl
+         << "                            until the shortest path through each SCC is N bases long" << endl
+         << "    -L, --dagify-len-max N  stop a dagification step if the unrolling component has this much sequence" << endl
+         << "    -f, --unfold N          represent inversions accesible up to N from the forward" << endl
+         << "                            component of the graph" << endl
+         << "    -O, --orient-forward    orient the nodes in the graph forward" << endl
+         << "    -D, --drop-paths        remove the paths of the graph" << endl
+         << "    -r, --retain-path NAME  remove any path not specified for retention" << endl
+         << "    -k, --keep-path NAME    keep only nodes and edges in the path" << endl
+         << "    -N, --remove-non-path   keep only nodes and edges which are part of paths" << endl
+         << "    -o, --remove-orphans    remove orphan edges from graph (edge specified but node missing)" << endl
+         << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
+         << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
+         << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
+         << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
+         << "                            cross more than --edge-max edges" << endl
+         << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
+         << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
+         << "    -X, --chop N            chop nodes in the graph so they are not more than N bp long" << endl
+         << "    -u, --unchop            where two nodes are only connected to each other and by one edge" << endl
+         << "                            replace the pair with a single node that is the concatenation of their labels" << endl
+         << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
+         << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
+         << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
+         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
+         << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
+         << "    -y, --destroy-node ID   remove node with given id" << endl
+         << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
+         << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
 int main_mod(int argc, char** argv) {
@@ -2687,15 +2693,15 @@ int main_mod(int argc, char** argv) {
     int32_t context_steps;
     bool remove_null;
     bool strong_connect = false;
-    uint32_t unroll_to = 0;
     uint32_t unfold_to = 0;
-    uint32_t unroll_max_branch = 0;
     bool break_cycles = false;
     uint32_t dagify_steps = 0;
     uint32_t dagify_to = 0;
     uint32_t dagify_component_length_max = 0;
     bool orient_forward = false;
     int64_t destroy_node_id = 0;
+    bool bluntify = false;
+    int until_normal_iter = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2722,6 +2728,7 @@ int main_mod(int argc, char** argv) {
             {"simplify", no_argument, 0, 's'},
             {"unchop", no_argument, 0, 'u'},
             {"normalize", no_argument, 0, 'n'},
+            {"until-normal", required_argument, 0, 'U'},
             {"sort", no_argument, 0, 'z'},
             {"remove-non-path", no_argument, 0, 'N'},
             {"orient-forward", no_argument, 0, 'O'},
@@ -2735,8 +2742,7 @@ int main_mod(int argc, char** argv) {
             {"dagify-steps", required_argument, 0, 'd'},
             {"dagify-to", required_argument, 0, 'w'},
             {"dagify-len-max", required_argument, 0, 'L'},
-            {"unroll", required_argument, 0, 'U'},
-            {"max-branch", required_argument, 0, 'B'},
+            {"bluntify", no_argument, 0, 'B'},
             {"break-cycles", no_argument, 0, 'b'},
             {"orient-forward", no_argument, 0, 'O'},
             {"destroy-node", required_argument, 0, 'y'},            
@@ -2744,7 +2750,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:B:bd:Ow:L:y:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:",
                 long_options, &option_index);
 
 
@@ -2852,7 +2858,7 @@ int main_mod(int argc, char** argv) {
                 break;
 
             case 'U':
-                unroll_to = atoi(optarg);
+                until_normal_iter = atoi(optarg);
                 break;
 
             case 'd':
@@ -2869,9 +2875,8 @@ int main_mod(int argc, char** argv) {
                 break;
 
             case 'B':
-                unroll_max_branch = atoi(optarg);
+                bluntify = true;
                 break;
-
 
             case 'z':
                 sort_graph = true;
@@ -2918,6 +2923,10 @@ int main_mod(int argc, char** argv) {
         graph = new VG(in);
     }
 
+    if (bluntify) {
+        graph->bluntify();
+    }
+    
     if (!path_name.empty()) {
         graph->keep_path(path_name);
     }
@@ -2946,6 +2955,10 @@ int main_mod(int argc, char** argv) {
         graph->normalize();
     }
 
+    if (until_normal_iter) {
+        graph->normalize(until_normal_iter);
+    }
+
     if (strong_connect) {
         graph->keep_multinode_strongly_connected_components();
     }
@@ -2972,11 +2985,6 @@ int main_mod(int argc, char** argv) {
         map<int64_t, pair<int64_t, bool> > node_translation;
         // use the walk as our maximum number of steps; it's the worst case
         *graph = graph->dagify(dagify_to, node_translation, dagify_to, dagify_component_length_max);
-    }
-
-    if (unroll_to) {
-        map<int64_t, pair<int64_t, bool> > node_translation;
-        *graph = graph->backtracking_unroll(unroll_to, unroll_max_branch, node_translation);
     }
 
     if (unfold_to) {
@@ -4355,6 +4363,11 @@ int main_find(int argc, char** argv) {
             int64_t start, end;
             Graph graph;
             parse_region(target, name, start, end);
+            if(xindex.path_rank(name) == 0) {
+                // Passing a nonexistent path to get_path_range produces Undefined Behavior
+                cerr << "[vg find] error, path " << name << " not found in index" << endl;
+                exit(1);
+            }
             xindex.get_path_range(name, start, end, graph);
             if (context_size > 0) {
                 xindex.expand_context(graph, context_size);
@@ -5373,6 +5386,7 @@ void help_align(char** argv) {
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
          << "    -Q, --seq-name STR    name the sequence using this value" << endl
+         << "    -r, --reference STR   don't use an input graph--- run SSW alignment between -s and -r" << endl
          << "    -j, --json            output alignments in JSON format (default GAM)" << endl;
 }
 
@@ -5392,6 +5406,7 @@ int main_align(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    string ref_seq;
     bool debug = false;
 
     int c;
@@ -5408,12 +5423,13 @@ int main_align(int argc, char** argv) {
             {"mismatch", required_argument, 0, 'M'},
             {"gap-open", required_argument, 0, 'g'},
             {"gap-extend", required_argument, 0, 'e'},
+            {"reference", required_argument, 0, 'r'},
             {"debug", no_argument, 0, 'D'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:D",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -5450,6 +5466,10 @@ int main_align(int argc, char** argv) {
             gap_extend = atoi(optarg);
             break;
 
+        case 'r':
+            ref_seq = optarg;
+            break;
+
         case 'D':
             debug = true;
             break;
@@ -5466,17 +5486,26 @@ int main_align(int argc, char** argv) {
         }
     }
 
-    VG* graph;
-    string file_name = argv[optind];
+    VG* graph = nullptr;
+    string file_name;
+    if (optind < argc) {
+        file_name = argv[optind];
+    }
     if (file_name == "-") {
         graph = new VG(std::cin);
-    } else {
+    } else if (ref_seq.empty()) {
         ifstream in;
         in.open(file_name.c_str());
         graph = new VG(in);
     }
 
-    Alignment alignment = graph->align(seq, match, mismatch, gap_open, gap_extend, 0, debug);
+    Alignment alignment;
+    if (!ref_seq.empty()) {
+        SSWAligner ssw;
+        alignment = ssw.align(seq, ref_seq);
+    } else {
+        alignment = graph->align(seq, match, mismatch, gap_open, gap_extend, 0, debug);
+    }
 
     if (output_json) {
         cout << pb2json(alignment) << endl;
@@ -5491,7 +5520,9 @@ int main_align(int argc, char** argv) {
         stream::write(cout, 1, lambda);
     }
 
-    delete graph;
+    if (graph != nullptr) {
+        delete graph;
+    }
 
     return 0;
 
@@ -5511,6 +5542,7 @@ void help_map(char** argv) {
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
+         << "    -G, --gam-input FILE  realign GAM input" << endl
          << "    -K, --keep-secondary  produce alignments for secondary input alignments in addition to primary ones" << endl
          << "    -f, --fastq FILE      input fastq (possibly compressed), two are allowed, one for each mate" << endl
          << "    -i, --interleaved     fastq is interleaved paired-ended" << endl
@@ -5519,6 +5551,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
+         << "    -w, --check           if using GAM input (-G), write a comparison of before/after alignments to stdout" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match N         use this match score (default: 1)" << endl
@@ -5529,6 +5562,7 @@ void help_map(char** argv) {
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
+         << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "generic mapping parameters:" << endl
          << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
          << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
@@ -5541,7 +5575,6 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
          << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -t, --threads N       number of threads to use" << endl
-         << "    -G, --greedy-accept   if a tested alignment achieves -X identity don't try worse seeds" << endl
          << "    -X, --accept-identity N  accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
          << "maximal exact match (MEM) mapper:" << endl
@@ -5596,6 +5629,7 @@ int main_map(int argc, char** argv) {
     int pair_window = 64; // ~11bp/node
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
+    bool always_rescue = false;
     float min_kmer_entropy = 0;
     float accept_identity = 0;
     size_t kmer_min = 8;
@@ -5612,6 +5646,8 @@ int main_map(int argc, char** argv) {
     int gap_extend = 1;
     bool promote_consistent_pairs = false;
     int extra_pairing_multimaps = 4;
+    string gam_input;
+    bool compare_gam;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5639,7 +5675,7 @@ int main_map(int argc, char** argv) {
                 {"max-multimaps", required_argument, 0, 'N'},
                 {"threads", required_argument, 0, 't'},
                 {"prefer-forward", no_argument, 0, 'F'},
-                {"greedy-accept", no_argument, 0, 'G'},
+                {"gam-input", required_argument, 0, 'G'},
                 {"accept-identity", required_argument, 0, 'X'},
                 {"sens-step", required_argument, 0, 'S'},
                 {"thread-ex", required_argument, 0, 'e'},
@@ -5652,6 +5688,7 @@ int main_map(int argc, char** argv) {
                 {"pair-window", required_argument, 0, 'p'},
                 {"band-width", required_argument, 0, 'B'},
                 {"min-identity", required_argument, 0, 'P'},
+                {"always-rescue", no_argument, 0, 'U'},
                 {"kmer-min", required_argument, 0, 'l'},
                 {"softclip-trig", required_argument, 0, 'T'},
                 {"in-memory", no_argument, 0, 'V'},
@@ -5667,11 +5704,12 @@ int main_map(int argc, char** argv) {
                 {"gap-extend", required_argument, 0, 'y'},
                 {"promote-paired", no_argument, 0, 'a'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
+                {"compare", required_argument, 0, 'w'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:au:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:au:",
                          long_options, &option_index);
 
 
@@ -5681,58 +5719,58 @@ int main_map(int argc, char** argv) {
 
         switch (c)
         {
-            case 's':
-                seq = optarg;
-                break;
+        case 's':
+            seq = optarg;
+            break;
 
-            case 'V':
-                build_in_memory = true;
-                break;
+        case 'V':
+            build_in_memory = true;
+            break;
 
-            case 'd':
-                db_name = optarg;
-                break;
+        case 'd':
+            db_name = optarg;
+            break;
 
-            case 'x':
-                xg_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'g':
-                gcsa_name = optarg;
-                break;
+        case 'g':
+            gcsa_name = optarg;
+            break;
 
-            case 'j':
-                kmer_stride = atoi(optarg);
-                break;
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
 
 
-            case 'O':
-                in_mem_path_only = true;
-                break;
+        case 'O':
+            in_mem_path_only = true;
+            break;
 
-            case 'Q':
-                seq_name = optarg;
-                break;
+        case 'Q':
+            seq_name = optarg;
+            break;
 
-            case 'S':
-                sens_step = atoi(optarg);
-                break;
+        case 'S':
+            sens_step = atoi(optarg);
+            break;
 
-            case 'c':
-                best_clusters = atoi(optarg);
-                break;
+        case 'c':
+            best_clusters = atoi(optarg);
+            break;
 
-            case 'C':
-                cluster_min = atoi(optarg);
-                break;
+        case 'C':
+            cluster_min = atoi(optarg);
+            break;
 
-            case 'E':
-                min_kmer_entropy = atof(optarg);
-                break;
+        case 'E':
+            min_kmer_entropy = atof(optarg);
+            break;
 
-            case 'A':
-                max_attempts = atoi(optarg);
-                break;
+        case 'A':
+            max_attempts = atoi(optarg);
+            break;
         case 'm':
             hit_max = atoi(optarg);
             break;
@@ -5740,103 +5778,108 @@ int main_map(int argc, char** argv) {
         case 'M':
             max_multimaps = atoi(optarg);
             break;
-            case 'k':
-                kmer_size = atoi(optarg);
-                break;
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
 
-            case 'e':
-                thread_ex = atoi(optarg);
-                break;
+        case 'e':
+            thread_ex = atoi(optarg);
+            break;
 
-            case 'n':
-                context_depth = atoi(optarg);
-                break;
+        case 'n':
+            context_depth = atoi(optarg);
+            break;
 
-            case 'T':
-                softclip_threshold = atoi(optarg);
-                break;
+        case 'T':
+            softclip_threshold = atoi(optarg);
+            break;
 
-            case 'r':
-                read_file = optarg;
-                break;
+        case 'r':
+            read_file = optarg;
+            break;
 
-            case 'R':
-                read_group = optarg;
-                break;
+        case 'R':
+            read_group = optarg;
+            break;
 
-            case 'N':
-                sample_name = optarg;
-                break;
+        case 'N':
+            sample_name = optarg;
+            break;
 
-            case 'b':
-                hts_file = optarg;
-                break;
+        case 'b':
+            hts_file = optarg;
+            break;
 
-            case 'K':
-                keep_secondary = true;
-                break;
+        case 'K':
+            keep_secondary = true;
+            break;
 
-            case 'f':
-                if (fastq1.empty()) fastq1 = optarg;
-                else if (fastq2.empty()) fastq2 = optarg;
-                else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
-                break;
+        case 'f':
+            if (fastq1.empty()) fastq1 = optarg;
+            else if (fastq2.empty()) fastq2 = optarg;
+            else { cerr << "[vg map] error: more than two fastqs specified" << endl; exit(1); }
+            break;
 
-            case 'i':
-                interleaved_fastq = true;
-                break;
+        case 'i':
+            interleaved_fastq = true;
+            break;
 
-            case 'p':
-                pair_window = atoi(optarg);
-                break;
+        case 'p':
+            pair_window = atoi(optarg);
+            break;
 
-            case 't':
-                omp_set_num_threads(atoi(optarg));
-                break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
 
-            case 'D':
-                debug = true;
-                break;
+        case 'D':
+            debug = true;
+            break;
 
-            case 'F':
-                prefer_forward = true;
-                break;
+        case 'F':
+            prefer_forward = true;
+            break;
 
-            case 'G':
-                greedy_accept = true;
-                break;
+        case 'G':
+            gam_input = optarg;
+            break;
 
         case 'X':
             accept_identity = atof(optarg);
+            greedy_accept = true;
             break;
 
-            case 'J':
-                output_json = true;
-                break;
+        case 'J':
+            output_json = true;
+            break;
 
-            case 'B':
-                band_width = atoi(optarg);
-                break;
+        case 'B':
+            band_width = atoi(optarg);
+            break;
 
-            case 'P':
-                min_score = atof(optarg);
-                break;
+        case 'P':
+            min_score = atof(optarg);
+            break;
+                
+        case 'U':
+            always_rescue = true;
+            break;
 
-            case 'l':
-                kmer_min = atoi(optarg);
-                break;
+        case 'l':
+            kmer_min = atoi(optarg);
+            break;
 
-            case 'L':
-                min_mem_length = atoi(optarg);
-                break;
+        case 'L':
+            min_mem_length = atoi(optarg);
+            break;
 
-            case 'Y':
-                max_mem_length = atoi(optarg);
-                break;
+        case 'Y':
+            max_mem_length = atoi(optarg);
+            break;
 
-            case 'H':
-                max_target_factor = atoi(optarg);
-                break;
+        case 'H':
+            max_target_factor = atoi(optarg);
+            break;
 
         case 'Z':
             buffer_size = atoi(optarg);
@@ -5865,7 +5908,10 @@ int main_map(int argc, char** argv) {
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
             break;
-            
+
+        case 'w':
+            compare_gam = true;
+            break;
 
         case 'h':
         case '?':
@@ -6034,6 +6080,7 @@ int main_map(int argc, char** argv) {
         m->gap_extend = gap_extend;
         m->promote_consistent_pairs = promote_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
+        m->always_rescue = always_rescue;
         mapper[i] = m;
     }
 
@@ -6201,6 +6248,34 @@ int main_map(int argc, char** argv) {
                     };
             fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
         }
+    }
+
+    if (!gam_input.empty()) {
+        function<void(Alignment&)> lambda =
+            [&mapper,
+             &output_alignments,
+             &keep_secondary,
+             &kmer_size,
+             &kmer_stride,
+             &band_width,
+             &compare_gam]
+                (Alignment& alignment) {
+                    int tid = omp_get_thread_num();
+                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+                    if(alignments.empty()) {
+                        alignments.push_back(alignment);
+                    }
+                    if (compare_gam) {
+#pragma omp critical (cout)
+                        cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path()) << endl;
+                    } else {
+                        // Output the alignments in JSON or protobuf as appropriate.
+                        output_alignments(alignments);
+                    }
+                };
+        ifstream gam_in(gam_input);
+        stream::for_each_parallel(gam_in, lambda);
+        gam_in.close();
     }
 
     // clean up
@@ -6574,14 +6649,12 @@ int main_view(int argc, char** argv) {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
                     alignment_quality_short_to_char(a);
-
                     if(std::isnan(a.identity())) {
                         // Fix up NAN identities that can't be serialized in
                         // JSON. We shouldn't generate these any more, and they
                         // are out of spec, but they can be in files.
                         a.set_identity(0);
                     }
-
                     cout << pb2json(a) << "\n";
                 };
                 if (file_name == "-") {
@@ -6907,8 +6980,9 @@ int main_view(int argc, char** argv) {
             << "    -C, --region-is-chrom don't attempt to parse the region (use when the reference" << endl
             << "                          sequence name could be inadvertently parsed as a region)" << endl
             << "    -z, --region-size N   variants per region to parallelize" << endl
-            << "    -m, --node-max N      limit the maximum allowable node sequence size" << endl
+            << "    -m, --node-max N      limit the maximum allowable node sequence size (defaults to 1000)" << endl
             << "                          nodes greater than this threshold will be divided" << endl
+            << "                          Note: nodes larger than ~1024 bp can't be GCSA2-indexed" << endl
             << "    -p, --progress        show progress" << endl
             << "    -t, --threads N       use N threads to construct graph (defaults to numCPUs)" << endl
             << "    -f, --flat-alts N     don't chop up alternate alleles from input vcf" << endl;
@@ -6927,7 +7001,7 @@ int main_view(int argc, char** argv) {
         string output_type = "VG";
         bool progress = false;
         int vars_per_region = 25000;
-        int max_node_size = 0;
+        int max_node_size = 1000;
         string ref_paths_file;
         bool flat_alts = false;
         // Should we make paths out of phasing blocks in the called samples?

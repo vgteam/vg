@@ -39,6 +39,7 @@ Mapper::Mapper(Index* idex,
     , max_query_graph_ratio(128)
     , promote_consistent_pairs(false)
     , extra_pairing_multimaps(4)
+    , always_rescue(false)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -241,6 +242,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
         // Always reverse the opposite direction sequence
         aln_opposite.set_sequence(reverse_complement(aln_opposite.sequence()));
+        
+        // TODO: when we have quality-dependent alignment, reverse the qualities
+        // too.
 
         // Do both the alignments
         align_mate_in_window(read, aln_same, pair_window);
@@ -265,23 +269,96 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width,
         max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
     
+    size_t best_score1 = 0;
+    for(auto& aligned : alignments1) {
+        // Go through all the read 1 alignments
+        if(aligned.score() > best_score1 && aligned.has_path() && aligned.path().mapping_size() > 0) {
+            // Find the top score among alignments that aren't unaligned.
+            best_score1 = aligned.score();
+        }
+    }
+    
+    size_t best_score2 = 0;
+    for(auto& aligned : alignments2) {
+        // Go through all the read 2 alignments
+        if(aligned.score() > best_score2 && aligned.has_path() && aligned.path().mapping_size() > 0) {
+            // Find the top score among alignments that aren't unaligned.
+            best_score2 = aligned.score();
+        }
+    }
+    
+    // A nonzero best score means we have any valid alignments of that read.
+    
     // Rescue only if the top alignment on one side has no mappings
-    if((alignments1.empty() || alignments1[0].score() == 0) && !(alignments2.empty() || alignments2[0].score() == 0)) {
-        // Can rescue 1 off of 2
-        Alignment mate = read1;
-        align_mate(alignments2[0], mate);
+    if(best_score1 == 0 && best_score2 != 0) {
+        // Must rescue 1 off of 2
         alignments1.clear();
-        alignments1.push_back(mate);
-    } else if(!(alignments1.empty() || alignments1[0].score() == 0) && (alignments2.empty() || alignments2[0].score() == 0)) {
-        // Can rescue 2 off of 1
-        Alignment mate = read2;
-        align_mate(alignments1[0], mate);
+        for(auto base : alignments2) {
+            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
+                // Can't rescue off this
+                continue;
+            }
+            Alignment mate = read1;
+            align_mate(base, mate);
+            alignments1.push_back(mate);
+            if(!always_rescue) {
+                // We only want to rescue off the best one, and they're sorted
+                break;
+            }
+        }
+    } else if(best_score1 != 0 && best_score2 == 0) {
+        // Must rescue 2 off of 1
         alignments2.clear();
-        alignments2.push_back(mate);
+        for(auto base : alignments1) {
+            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
+                // Can't rescue off this
+                continue;
+            }
+            Alignment mate = read2;
+            align_mate(base, mate);
+            alignments2.push_back(mate);
+            if(!always_rescue) {
+                // We only want to rescue off the best one, and they're sorted
+                break;
+            }
+        }
+    } else if(always_rescue) {
+        // Try rescuing each off all of the other
+        
+        // We need temp places to hold the extra alignments we make so as to not
+        // rescue off rescues.
+        vector<Alignment> extra1;
+        vector<Alignment> extra2;
+        
+        for(auto base : alignments1) {
+            // Do 2 off of 1
+            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
+                // Can't rescue off this
+                continue;
+            }
+            Alignment mate = read2;
+            align_mate(base, mate);
+            extra2.push_back(mate);
+        }
+        
+        for(auto base : alignments2) {
+            // Do 1 off of 2
+            if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
+                // Can't rescue off this
+                continue;
+            }
+            Alignment mate = read1;
+            align_mate(base, mate);
+            extra1.push_back(mate);
+        }
+        
+        // Copy over the new alignments
+        alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
+        alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
     }
     
     // Find the consistent pair with highest total score and promote to primary.
-    // We can do this by going down each list in order.
+    // We can do this by going down each list.
     int best_score = 0;
     vector<Alignment>::iterator best1;
     vector<Alignment>::iterator best2;
@@ -347,7 +424,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         });
 
     }
-
 
     // link the fragments and set primary/secondary
     for(size_t i = 0; i < alignments1.size(); i++) {
@@ -1670,7 +1746,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         // step towards the side where there were soft clips
         if (sc_start) {
             Graph flank;
-            xindex->get_id_range(idf-1, idf, flank);
+            xindex->get_id_range(idf, idf, flank);
             xindex->expand_context(flank,
                                    max(context_depth, (int)(sc_start/avg_node_size)),
                                    false);
@@ -1678,7 +1754,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         }
         if (sc_end) {
             Graph flank;
-            xindex->get_id_range(idl, idl+1, flank);
+            xindex->get_id_range(idl, idl, flank);
             xindex->expand_context(flank,
                                    max(context_depth, (int)(sc_end/avg_node_size)),
                                    false);
