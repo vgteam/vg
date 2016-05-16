@@ -3432,6 +3432,7 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
         if (!all_upper(target)){
             cerr << "WARNING: Lower case letters found during construction" << endl;
             cerr << "Sequences may not map to this reference." << endl;
+            cerr << target << endl;
         }
         int start_pos = 0, stop_pos = 0;
         // nasty hack for handling single regions
