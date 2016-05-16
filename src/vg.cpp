@@ -3414,26 +3414,11 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
     // so we'll run this for regions of moderate size, scaling up in the case that we run into a big deletion
     //
     
-    std::function<bool(string)> all_upper = [](string s){
-        //GO until [size() - 1 ] to avoid the newline char
-        for (int i = 0; i < s.size() - 1; i++){
-            if (!isupper(s[i])){
-                return false;
-            }
-        }
-        return true;
-    };
-
     for (vector<string>::iterator t = targets.begin(); t != targets.end(); ++t) {
 
         //string& seq_name = *t;
         string seq_name;
         string target = *t;
-        if (!all_upper(target)){
-            cerr << "WARNING: Lower case letters found during construction" << endl;
-            cerr << "Sequences may not map to this reference." << endl;
-            cerr << target << endl;
-        }
         int start_pos = 0, stop_pos = 0;
         // nasty hack for handling single regions
         if (!target_is_chrom) {
@@ -3864,6 +3849,25 @@ VG::VG(vcflib::VariantCallFile& variantCallFile,
 
 
     }
+
+    std::function<bool(string)> all_upper = [](string s){
+        //GO until [size() - 1 ] to avoid the newline char
+        for (int i = 0; i < s.size() - 1; i++){
+            if (!isupper(s[i])){
+                return false;
+            }
+        }
+        return true;
+    };
+    
+    for_each_node([&](Node* node) {
+            if (!all_upper(node->sequence())){
+                cerr << "WARNING: Lower case letters found during construction" << endl;
+                cerr << "Sequences may not map to this graph." << endl;
+                cerr << pb2json(*node) << endl;
+            }
+        });
+
 }
 
 void VG::sort(void) {
