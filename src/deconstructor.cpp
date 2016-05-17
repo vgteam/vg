@@ -186,13 +186,16 @@ namespace vg {
         //uint32_t dag_len = 1;
         //my_vg->dagify(dag_len, node_translation);
 
+        vector<SuperBubble> ret;
 
         vector<pair<id_t, id_t> > supbubs = my_vg->get_superbubbles();
         for (auto pp : supbubs){
-            cerr << pp.first << " " << pp.second << endl;
+            SuperBubble bub;
+            bub.start_node = pp.first;
+            bub.end_node = pp.second;
+            ret.push_back(bub);
         }
         SuperBubble x;
-        vector<SuperBubble> ret(supbubs.size(), x);
         map<int, vector<id_t> > level_to_node;
         int level = 0;
 
