@@ -91,6 +91,11 @@ double Mapper::estimate_gc_content() {
     else if (index) {
         at = index->approx_size_of_kmer_matches("A") + index->approx_size_of_kmer_matches("T");
         gc = index->approx_size_of_kmer_matches("G") + index->approx_size_of_kmer_matches("C");
+        if (at == 0 || gc == 0) {
+            //cerr << "warning:[vg::Mapper] index insufficiently complete to estimate GC content, using default of 0.5" << endl;
+            at = 1;
+            gc = 1;
+        }
     }
     else {
         //cerr << "warning:[vg::Mapper] no index to estimate GC content, using default of 0.5" << endl;
@@ -125,7 +130,7 @@ void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_o
     init_aligner(match, mismatch, gap_open, gap_extend);
 }
     
-void Mapper::set_base_quality_adjusted_alignments(bool do_adjustments) {
+void Mapper::set_base_quality_adjusted_alignment(bool do_adjustments) {
     if (do_adjustments == adjust_alignments_for_base_quality) {
         return;
     }
@@ -812,6 +817,8 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
 vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width, int multimaps) {
     // trigger a banded alignment if we need to
     // note that this will in turn call align_multi on fragments of the read
+    //cerr << "mapper: align_multi " << aln.sequence() << endl;
+    
     if (aln.sequence().size() > band_width) {
         if (debug) cerr << "switching to banded alignment" << endl;
         return vector<Alignment>{align_banded(aln, kmer_size, stride, band_width)};

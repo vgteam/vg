@@ -6730,7 +6730,7 @@ Alignment VG::align(const Alignment& alignment,
     dag.sort();
 
     aligner.align(aln, dag.graph, print_score_matrices);
-
+    
     /*
     auto check_aln = [&](VG& graph, const Alignment& a) {
         cerr << "checking alignment" << endl;

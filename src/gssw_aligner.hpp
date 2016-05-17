@@ -50,6 +50,7 @@ namespace vg {
         
         // must be called before querying mapping_quality
         void init_mapping_quality(double gc_content);
+        bool is_mapping_quality_initialized();
         // returns -log_10(P_err) where P_err is the probability that the maximum scoring alignment
         // in this vector is not the correct one (assuming that one of the alignments is correct)
         // alignments must have been created with this Aligner for quality score to be valid
@@ -58,7 +59,6 @@ namespace vg {
         uint8_t mapping_quality_approx(vector<Alignment>& alignments);
 
         // members
-        map<int64_t, gssw_node*> nodes;
         int8_t* nt_table;
         int8_t* score_matrix;
         int32_t match;

@@ -84,7 +84,7 @@ public:
     double estimate_gc_content();
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
-    void set_base_quality_adjusted_alignments(bool do_adjustments);
+    void set_base_quality_adjusted_alignment(bool do_adjustments);
 
     // Align the given string and return an Alignment.
     Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);

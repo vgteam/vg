@@ -22,7 +22,6 @@ Aligner::Aligner(int32_t _match,
     gap_extension = _gap_extension;
     
     // these are used when setting up the nodes
-    // they can be cleaned up via destroy_alignable_graph()
     nt_table = gssw_create_nt_table();
     score_matrix = gssw_create_score_matrix(match, mismatch);
     log_base = 0.0;
@@ -32,6 +31,7 @@ Aligner::Aligner(int32_t _match,
 gssw_graph* Aligner::create_gssw_graph(Graph& g) {
     
     gssw_graph* graph = gssw_graph_create(g.node_size());
+    map<int64_t, gssw_node*> nodes;
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
@@ -81,16 +81,20 @@ gssw_graph* Aligner::create_gssw_graph(Graph& g) {
 }
 
 void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
-
-    gssw_graph* graph = create_gssw_graph(g);
     
+    //fprintf(stderr, "thread %d creating gssw_graph\n", omp_get_thread_num());
+    gssw_graph* graph = create_gssw_graph(g);
+    //fprintf(stderr, "thread %d gssw graph created at %p\n", omp_get_thread_num(), graph);
+    //fprintf(stderr, "thread %d getting sequence\n", omp_get_thread_num());
     const string& sequence = alignment.sequence();
-
+    
+    //fprintf(stderr, "thread %d entering gssw_graph_fill\n", omp_get_thread_num());
 
     gssw_graph_fill(graph, sequence.c_str(),
                     nt_table, score_matrix,
                     gap_open, gap_extension, 15, 2);
-
+    
+    //fprintf(stderr, "thread %d completed gssw_graph_fill\n", omp_get_thread_num());
     gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
                                                     sequence.c_str(),
                                                     sequence.size(),
@@ -261,6 +265,10 @@ void Aligner::init_mapping_quality(double gc_content) {
     log_base = gssw_dna_recover_log_base(match, mismatch, gc_content, 1e-12);
 }
 
+bool Aligner::is_mapping_quality_initialized() {
+    return (log_base <= 0.0);
+}
+
 uint8_t Aligner::mapping_quality(vector<Alignment>& alignments) {
     if (log_base <= 0.0) {
         cerr << "error:[Aligner] must call mapping_quality_init before computing mapping qualities" << endl;
@@ -397,6 +405,10 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
     
     const string& sequence = alignment.sequence();
     const string& quality = alignment.quality();
+    
+    if (quality.empty()) {
+        cerr << "error:[Aligner] cannot perform base quality adjusted alignment without base quality string" << endl
+    }
 
     gssw_graph_fill_qual_adj(graph, sequence.c_str(), quality.c_str(),
                              nt_table, adjusted_score_matrix,
