@@ -407,7 +407,7 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
     const string& quality = alignment.quality();
     
     if (quality.empty()) {
-        cerr << "error:[Aligner] cannot perform base quality adjusted alignment without base quality string" << endl
+        cerr << "error:[Aligner] cannot perform base quality adjusted alignment without base quality string" << endl;
     }
 
     gssw_graph_fill_qual_adj(graph, sequence.c_str(), quality.c_str(),
