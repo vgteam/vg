@@ -3971,7 +3971,7 @@ void help_find(char** argv) {
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
-         << "    -L, --context-use-length use length in base pairs instead of STEPS for context" << endl
+         << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
@@ -4007,7 +4007,7 @@ int main_find(int argc, char** argv) {
     string output_format;
     vector<int64_t> node_ids;
     int context_size=0;
-    bool context_use_length = false;
+    bool use_length = false;
     bool count_kmers = false;
     bool kmer_table = false;
     string target;
@@ -4043,7 +4043,7 @@ int main_find(int argc, char** argv) {
                 {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
                 {"context", required_argument, 0, 'c'},
-                {"context-length", no_argument, 0, 'L'},
+                {"use-length", no_argument, 0, 'L'},
                 {"kmer-count", no_argument, 0, 'C'},
                 {"path", required_argument, 0, 'p'},
                 {"position-in", required_argument, 0, 'P'},
@@ -4115,7 +4115,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'L':
-            context_use_length = true;
+            use_length = true;
             break;            
 
         case 'n':
@@ -4174,7 +4174,7 @@ int main_find(int argc, char** argv) {
         return 1;
     }
 
-    if (context_size > 0 && context_use_length == true && xg_name.empty()) {
+    if (context_size > 0 && use_length == true && xg_name.empty()) {
         cerr << "[vg find] error, -L not supported without -x" << endl;
         exit(1);
     }
@@ -4225,7 +4225,7 @@ int main_find(int argc, char** argv) {
             vector<Graph> graphs;
             for (auto node_id : node_ids) {
                 Graph g;
-                xindex.neighborhood(node_id, context_size, g, !context_use_length);
+                xindex.neighborhood(node_id, context_size, g, !use_length);
                 graphs.push_back(g);
             }
             VG result_graph;
@@ -4281,7 +4281,7 @@ int main_find(int argc, char** argv) {
             }
             xindex.get_path_range(name, start, end, graph);
             if (context_size > 0) {
-                xindex.expand_context(graph, context_size, true, !context_use_length);
+                xindex.expand_context(graph, context_size, true, !use_length);
             }
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.serialize_to_ostream(cout);
@@ -4296,9 +4296,14 @@ int main_find(int argc, char** argv) {
             }
             convert(parts.front(), id_start);
             convert(parts.back(), id_end);
-            xindex.get_id_range(id_start, id_end, graph);
+            if (!use_length) {
+                xindex.get_id_range(id_start, id_end, graph);
+            } else {
+                // treat id_end as length instead.
+                xindex.get_id_range_by_length(id_start, id_end, graph, true);
+            }
             if (context_size > 0) {
-                xindex.expand_context(graph, context_size, true, !context_use_length);
+                xindex.expand_context(graph, context_size, true, !use_length);
             }
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();

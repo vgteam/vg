@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 28
+plan tests 29
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -56,7 +56,9 @@ is $(vg find -n 1 -n 3 -D -x x.idx ) 0 "vg find -D finds distance 0 between node
 is $(vg find -n 16 -n 20 -D -x x.idx ) 6 "vg find -D jumps deletion"
 is $(vg find -n 17 -n 20 -D -x x.idx ) 6 "vg find -D jumps deletion from snp"
 
-is $(vg find -n 2 -n 3 -c 1 -L -x x.idx | vg view -g - | wc -l) 15 "vg find -L finds same number of nodes (with -c 1)"
+is $(vg find -n 2 -n 3 -c 1 -L -x x.xg | vg view -g - | wc -l) 15 "vg find -L finds same number of nodes (with -c 1)"
+
+is $(vg find -r 6:2 -L -x x.xg | vg view -g - | grep S | wc -l) 3 "vg find -L works with -r "
 
 rm -f x.idx x.xg x.gcsa x.gcsa.lcp x.vg
 
