@@ -3,6 +3,7 @@
 #include <ctime>
 #include <cstdio>
 #include <getopt.h>
+#include <sys/stat.h>
 #include "gcsa.h"
 // From gcsa2
 #include "files.h"
@@ -6916,6 +6917,16 @@ int main_view(int argc, char** argv) {
 
         vcflib::VariantCallFile variant_file;
         if (!vcf_file_name.empty()) {
+            // Make sure the file exists. Otherwise Tabix++ may exit with a non-
+            // helpful message.
+            
+            // We can't invoke stat woithout a place for it to write. But all we
+            // really want is its return value.
+            struct stat temp;
+            if(stat(vcf_file_name.c_str(), &temp)) {
+                cerr << "error:[vg construct] file \"" << vcf_file_name << "\" not found" << endl;
+                return 1;
+            }
             variant_file.open(vcf_file_name);
             if (!variant_file.is_open()) {
                 cerr << "error:[vg construct] could not open" << vcf_file_name << endl;
