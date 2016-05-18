@@ -211,7 +211,7 @@ void Caller::update_call_graph() {
         write_nd_tsv();
         // add on the inserted nodes
         for (auto n : _inserted_nodes) {
-            write_node_tsv(n.first, 'I', n.second);
+            write_node_tsv(n.node, 'I', n.cn, n.orig_id, n.orig_offset);
         }
     }    
 }
@@ -786,7 +786,8 @@ void Caller::create_node_calls(const NodePileup& np) {
                     // todo: check reverse?
                     Node* node = _call_graph.create_node(ins_seq, ++_max_id);
                     int cn = ins_call1 == ins_call2 ? 2 : 1;
-                    _inserted_nodes.push_back(make_pair(node, cn));
+                    InsertionRecord ins_rec = {node, cn, _node->id(), next-1};
+                    _inserted_nodes.push_back(ins_rec);
 
                     // bridge to insert
                     NodeOffSide no1(NodeSide(_node->id(), true), next-1);
@@ -821,29 +822,32 @@ void Caller::create_node_calls(const NodePileup& np) {
     }
 }
 
-void Caller::write_node_tsv(Node* node, char call, char cn)
+void Caller::write_node_tsv(Node* node, char call, char cn, int64_t orig_id, int orig_offset)
 {
-    *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << (int)cn << "\n";
+    *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << (int)cn << "\t"
+                 << orig_id << "\t" << orig_offset << endl;
 }
 
 void Caller::write_edge_tsv(Edge* edge, char call, char cn)
 {
     *_text_calls << "E\t" << edge->from() << "," << edge->from_start() << "," 
-                 << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << cn << "\n";
+                 << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << cn << "\t.\t.\n";
 }
 
 void Caller::write_nd_tsv()
 {
     for (auto& i : _node_divider.index) {
+        int64_t orig_node_id = i.first;
         for (auto& j : i.second) {
+            int64_t orig_node_offset = j.first;
             NodeDivider::Entry& entry = j.second;
             char call = entry.cn_ref == 0 ? 'U' : 'R';
-            write_node_tsv(entry.ref, call, entry.cn_ref);
+            write_node_tsv(entry.ref, call, entry.cn_ref, orig_node_id, orig_node_offset);
             if (entry.alt1 != NULL) {
-                write_node_tsv(entry.alt1, 'S', entry.cn_alt1);
+                write_node_tsv(entry.alt1, 'S', entry.cn_alt1, orig_node_id, orig_node_offset);
             }
             if (entry.alt2 != NULL) {
-                write_node_tsv(entry.alt2, 'S', entry.cn_alt2);
+                write_node_tsv(entry.alt2, 'S', entry.cn_alt2, orig_node_id, orig_node_offset);
             }
         }
     }
