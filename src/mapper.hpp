@@ -79,10 +79,10 @@ public:
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
     // GSSW aligner
-    QualAdjAligner* qual_adj_aligner;
+    QualAdjAligner* aligner;
     
     double estimate_gc_content();
-    void init_aligners(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
+    void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
 
     // Align the given string and return an Alignment.

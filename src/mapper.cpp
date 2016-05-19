@@ -36,9 +36,9 @@ Mapper::Mapper(Index* idex,
     , promote_consistent_pairs(false)
     , extra_pairing_multimaps(4)
     , adjust_alignments_for_base_quality(false)
-    , qual_adj_aligner(nullptr)
+    , aligner(nullptr)
 {
-    init_aligners(default_match, default_mismatch, default_gap_open, default_gap_extension);
+    init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
 }
 
 Mapper::Mapper(Index* idex, gcsa::GCSA* g, gcsa::LCPArray* a) : Mapper(idex, nullptr, g, a)
@@ -77,13 +77,15 @@ Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr, nullptr) {
 }
 
 Mapper::~Mapper(void) {
-    if (qual_adj_aligner) {
-        delete qual_adj_aligner;
+    if (aligner) {
+        delete aligner;
     }
 }
     
 double Mapper::estimate_gc_content() {
+    
     uint64_t at = 0, gc = 0;
+    
     if (gcsa) {
         at = gcsa::Range::length(gcsa->find(string("A"))) + gcsa::Range::length(gcsa->find(string("T")));
         gc = gcsa::Range::length(gcsa->find(string("G"))) + gcsa::Range::length(gcsa->find(string("C")));
@@ -96,11 +98,12 @@ double Mapper::estimate_gc_content() {
     if (at == 0 || gc == 0) {
         return default_gc_content;
     }
+    
     return ((double) gc) / (at + gc);
 }
 
     
-void Mapper::init_aligners(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
+void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
     // hacky, find max score so that scaling doesn't change score
     int32_t max_score = match;
     if (mismatch > max_score) max_score = mismatch;
@@ -109,29 +112,29 @@ void Mapper::init_aligners(int32_t match, int32_t mismatch, int32_t gap_open, in
     
     double gc_content = estimate_gc_content();
     
-    qual_adj_aligner = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
+    aligner = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
                                           255, gc_content);
 }
     
     
 void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
-    if (qual_adj_aligner) {
-        if (match == qual_adj_aligner->match && mismatch == qual_adj_aligner->mismatch &&
-            gap_open == qual_adj_aligner->gap_open && gap_extend == qual_adj_aligner->gap_extension) {
+    if (aligner) {
+        if (match == aligner->match && mismatch == aligner->mismatch &&
+            gap_open == aligner->gap_open && gap_extend == aligner->gap_extension) {
             return;
         }
-        delete qual_adj_aligner;
+        delete aligner;
     }
     
-    init_aligners(match, mismatch, gap_open, gap_extend);
+    init_aligner(match, mismatch, gap_open, gap_extend);
 }
     
 Alignment Mapper::align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio) {
     if (adjust_alignments_for_base_quality) {
-        return vg.align_qual_adjusted(aln, *qual_adj_aligner, max_query_graph_ratio);
+        return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
     }
     else  {
-        return vg.align(aln, *qual_adj_aligner, max_query_graph_ratio);
+        return vg.align(aln, *aligner, max_query_graph_ratio);
     }
 }
 
@@ -1298,7 +1301,7 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         edit->set_from_length(match_len);
         edit->set_to_length(match_len);
     }
-    aln.set_score(aln.sequence().size()*(qual_adj_aligner->match));
+    aln.set_score(aln.sequence().size()*(aligner->match));
     return aln;
 }
 
@@ -2229,7 +2232,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
             delete graph;
 
-            if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*(qual_adj_aligner->match)) << endl;
+            if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*(aligner->match)) << endl;
             if (greedy_accept && ta.identity() >= accept_identity) {
                 if (debug) cerr << "greedy accept" << endl;
                 accepted = true;
