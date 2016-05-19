@@ -54,7 +54,8 @@ void help_filter(char** argv) {
          << "    -x, --xg-name FILE      use this xg index (required for -R)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
-         << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl;
+         << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
+         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl;
          
          
 }
@@ -78,6 +79,7 @@ int main_filter(int argc, char** argv) {
     string regions_file;
     string outbase;
     int context_size = 0;
+    bool verbose = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -96,11 +98,12 @@ int main_filter(int argc, char** argv) {
                 {"regions-file",  required_argument, 0, 'R'},
                 {"output-basename",  required_argument, 0, 'B'},
                 {"context",  required_argument, 0, 'c'},
+                {"verbose",  no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:v",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -145,6 +148,9 @@ int main_filter(int argc, char** argv) {
         case 'c':
             context_size = atoi(optarg);
             break;
+        case 'v':
+            verbose = true;
+            break;
 
         case 'h':
         case '?':
@@ -157,7 +163,7 @@ int main_filter(int argc, char** argv) {
             abort ();
         }
     }
-
+    
     // name helper for output
     function<string(int)> chunk_name = [&outbase](int num) -> string {
         stringstream ss;
@@ -326,6 +332,18 @@ int main_filter(int argc, char** argv) {
         }
     };
 
+    // keep track of how many reads were dropped by which option
+    size_t pri_read_count = 0;
+    size_t sec_read_count = 0;
+    size_t sec_filtered_count = 0;
+    size_t pri_filtered_count = 0;
+    size_t min_sec_count = 0;
+    size_t min_pri_count = 0;
+    size_t min_sec_delta_count = 0;
+    size_t min_pri_delta_count = 0;
+    size_t max_sec_overhang_count = 0;
+    size_t max_pri_overhang_count = 0;
+
     // for deltas, we keep track of last primary
     Alignment prev;
     bool prev_primary = false;
@@ -371,16 +389,35 @@ int main_filter(int argc, char** argv) {
         }
 
         if (aln.is_secondary()) {
+            ++sec_read_count;
             assert(prev_primary && aln.name() == prev.name());
             double delta = prev_score - score;
             if (frac_delta == true) {
                 delta = prev_score > 0 ? score / prev_score : 0.;
             }
+
             // filter (current) secondary
-            keep = score >= min_secondary && delta >= min_sec_delta && overhang <= max_overhang;
+            keep = true;
+            if (score < min_secondary) {
+                ++min_sec_count;
+                keep = false;
+            }
+            if (delta < min_sec_delta) {
+                ++min_sec_delta_count;
+                keep = false;
+            }
+            if (overhang > max_overhang) {
+                ++max_sec_overhang_count;
+                keep = false;
+            }
+            if (!keep) {
+                ++sec_filtered_count;
+            }
 
             // filter unfiltered previous primary
             if (keep_prev && delta < min_pri_delta) {
+                ++min_pri_delta_count;
+                ++pri_filtered_count;
                 keep_prev = false;
             }
             // add to write buffer
@@ -400,6 +437,7 @@ int main_filter(int argc, char** argv) {
             // this awkward logic where we keep the primary and write in the secondary
             // is because we can only stream one at a time with for_each, but we need
             // to look at pairs (if secondary exists)...
+            ++pri_read_count;
             if (keep_prev) {
                 update_buffers(prev);
             }
@@ -407,7 +445,18 @@ int main_filter(int argc, char** argv) {
             prev_primary = true;
             prev_score = score;
             prev = aln;
-            keep_prev = score >= min_primary && overhang <= max_overhang;
+            keep_prev = true;
+            if (score < min_primary) {
+                ++min_pri_count;
+                keep_prev = false;
+            }
+            if (overhang > max_overhang) {
+                ++max_pri_overhang_count;
+                keep_prev = false;
+            }
+            if (!keep_prev) {
+                ++pri_filtered_count;
+            }
         }
     };
     stream::for_each(*alignment_stream, lambda);
@@ -422,6 +471,22 @@ int main_filter(int argc, char** argv) {
             cur_buffer = i;
             flush_buffer();
         }
+    }
+    
+    if (verbose) {
+        size_t tot_reads = pri_read_count + sec_read_count;
+        size_t tot_filtered = pri_filtered_count + sec_filtered_count;
+        cerr << "Total Filtered (primary):          " << pri_filtered_count << " / "
+             << pri_read_count << endl
+             << "Total Filtered (secondary):        " << sec_filtered_count << " / "
+             << sec_read_count << endl
+             << "Min Identity Filter (primary):     " << min_pri_count << endl
+             << "Min Identity Filter (secondary):   " << min_sec_count << endl
+             << "Min Delta Filter (primary):        " << min_pri_delta_count << endl
+             << "Min Delta Filter (secondary):      " << min_sec_delta_count << endl
+             << "Max Overhang Filter (primary):     " << max_pri_overhang_count << endl
+             << "Max Overhang Filter (secondary):   " << max_sec_overhang_count << endl
+             << endl;
     }
 
     return 0;
@@ -1256,7 +1321,8 @@ void help_pileup(char** argv) {
          << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
          << "    -d, --max-depth N       maximum depth pileup to create (further maps ignored) (default=1000)" << endl
          << "    -p, --progress          show progress" << endl
-         << "    -t, --threads N         number of threads to use" << endl;
+         << "    -t, --threads N         number of threads to use" << endl
+         << "    -v, --verbose           print stats on bases filtered" << endl;
 }
 
 int main_pileup(int argc, char** argv) {
@@ -1273,6 +1339,7 @@ int main_pileup(int argc, char** argv) {
     int max_mismatches = 1;
     int window_size = 0;
     int max_depth = 1000; // used to prevent protobuf messages getting to big
+    bool verbose = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1286,11 +1353,12 @@ int main_pileup(int argc, char** argv) {
                 {"progress", required_argument, 0, 'p'},
                 {"max-depth", max_depth, 0, 'd'},
                 {"threads", required_argument, 0, 't'},
+                {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "jq:m:w:pd:t:",
+        c = getopt_long (argc, argv, "jq:m:w:pd:t:v",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1320,6 +1388,9 @@ int main_pileup(int argc, char** argv) {
         case 't':
             thread_count = atoi(optarg);
             break;
+        case 'v':
+            verbose = true;
+            break;            
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -1400,6 +1471,14 @@ int main_pileup(int argc, char** argv) {
     }
 
     delete graph;
+
+    // number of bases filtered
+    if (verbose) {
+        cerr << "Bases filtered by min. quality: " << pileups[0]._min_quality_count << endl
+             << "Bases filtered by max mismatch: " << pileups[0]._max_mismatch_count << endl
+             << "Total bases:                    " << pileups[0]._bases_count << endl << endl;
+    }
+
     return 0;
 }
 
