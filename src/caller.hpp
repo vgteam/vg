@@ -121,11 +121,13 @@ public:
     typedef pair<string, string> Genotype;
     vector<Genotype> _node_calls;
     vector<double> _node_likelihoods;
+    vector<pair<int, int> > _node_supports;
     // separate structure for isnertion calls since they
     // don't really have reference coordinates (instead happen just to
     // right of offset).  
     vector<Genotype> _insert_calls;
     vector<double> _insert_likelihoods;
+    vector<pair<int, int> > _insert_supports;
     // buffer for current node;
     const Node* _node;
     // max id in call_graph
