@@ -4348,19 +4348,15 @@ int main_find(int argc, char** argv) {
 //                mapper->lcp = &lcp_index;
 //                // get the mems
 //                auto mems = mapper->find_smems(sequence);
-//                cerr << "main: destroying mapper" << endl;
 //                delete mapper;
-//                cerr << "main: finished destroying mapper" << endl;
                 
                 Mapper mapper;
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
                 // get the mems
                 auto mems = mapper.find_smems(sequence);
-                //cerr << "main: found smems, filling nodes" << endl;
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
-                //cerr << "main: filled nodes" << endl;
                 // dump them to stdout
                 cout << mems_to_json(mems)  << endl;
                 
@@ -5354,6 +5350,7 @@ void help_map(char** argv) {
          << "    -O, --in-mem-path-only  when making the in-memory temporary index, only look at embedded paths" << endl
          << "input:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -w, --quality STR     Phred+33 base quality of sequence (for base quality adjusted alignment)" << endl
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
@@ -5371,6 +5368,7 @@ void help_map(char** argv) {
          << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -U, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
@@ -5412,6 +5410,7 @@ int main_map(int argc, char** argv) {
     }
 
     string seq;
+    string qual;
     string seq_name;
     string db_name;
     string xg_name;
@@ -5456,6 +5455,7 @@ int main_map(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
+    bool qual_adjust_alignments = false;
     bool promote_consistent_pairs = false;
     int extra_pairing_multimaps = 4;
 
@@ -5468,6 +5468,7 @@ int main_map(int argc, char** argv) {
                 /* These options set a flag. */
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"sequence", required_argument, 0, 's'},
+                {"quality", required_argument, 0, 'w'},
                 {"seq-name", required_argument, 0, 'Q'},
                 {"db-name", required_argument, 0, 'd'},
                 {"xg-name", required_argument, 0, 'x'},
@@ -5511,13 +5512,14 @@ int main_map(int argc, char** argv) {
                 {"mismatch", required_argument, 0, 'z'},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
+                {"qual-adjust", no_argument, 0, 'U'},
                 {"promote-paired", no_argument, 0, 'a'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:au:",
+        c = getopt_long (argc, argv, "s:w:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:Uau:",
                          long_options, &option_index);
 
 
@@ -5529,6 +5531,10 @@ int main_map(int argc, char** argv) {
         {
             case 's':
                 seq = optarg;
+                break;
+                
+            case 'w':
+                qual = string_quality_char_to_short(string(optarg));
                 break;
 
             case 'V':
@@ -5704,6 +5710,10 @@ int main_map(int argc, char** argv) {
             gap_extend = atoi(optarg);
             break;
             
+        case 'U':
+            qual_adjust_alignments = true;
+            break;
+            
         case 'a':
             promote_consistent_pairs = true;
             break;
@@ -5730,6 +5740,20 @@ int main_map(int argc, char** argv) {
         cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
         return 1;
     }
+
+    if (!qual.empty() && (seq.length() != qual.length())) {
+        cerr << "error:[vg map] sequence and base quality string must be the same length" << endl;
+        return 1;
+    }
+    
+    if (qual_adjust_alignments && ((fastq1.empty() && hts_file.empty() && qual.empty()) // must have some quality input
+                                   || (!seq.empty() && qual.empty())                    // can't provide sequence without quality
+                                   || !read_file.empty()))                              // can't provide sequence list without qualities
+    {
+        cerr << "error:[vg map] quality adjusted alignments require base quality scores for all sequences" << endl;
+        return 1;
+    }
+    // note: still possible that hts file types don't have quality, but have to check the file to know
 
     // should probably disable this
     string file_name;
@@ -5845,7 +5869,7 @@ int main_map(int argc, char** argv) {
             stream::write_buffered(cout, output_buf, buffer_size);
         }
     };
-
+    
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m;
         if(xindex && gcsa && lcp) {
@@ -5875,6 +5899,7 @@ int main_map(int argc, char** argv) {
         m->max_mem_length = max_mem_length;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+        m->adjust_alignments_for_base_quality = qual_adjust_alignments;
         m->promote_consistent_pairs = promote_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
         mapper[i] = m;
@@ -5885,19 +5910,24 @@ int main_map(int argc, char** argv) {
 
         Alignment unaligned;
         unaligned.set_sequence(seq);
+        
+        if (!qual.empty()) {
+            unaligned.set_quality(qual);
+        }
+        
         vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
         if(alignments.size() == 0) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
         }
-
+        
 
         for(auto& alignment : alignments) {
             if (!sample_name.empty()) alignment.set_sample_name(sample_name);
             if (!read_group.empty()) alignment.set_read_group(read_group);
             if (!seq_name.empty()) alignment.set_name(seq_name);
         }
-
+        
         // Output the alignments in JSON or protobuf as appropriate.
         output_alignments(alignments);
     }

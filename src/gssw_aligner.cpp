@@ -82,19 +82,14 @@ gssw_graph* Aligner::create_gssw_graph(Graph& g) {
 
 void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
     
-    //fprintf(stderr, "thread %d creating gssw_graph\n", omp_get_thread_num());
     gssw_graph* graph = create_gssw_graph(g);
-    //fprintf(stderr, "thread %d gssw graph created at %p\n", omp_get_thread_num(), graph);
-    //fprintf(stderr, "thread %d getting sequence\n", omp_get_thread_num());
     const string& sequence = alignment.sequence();
     
-    //fprintf(stderr, "thread %d entering gssw_graph_fill\n", omp_get_thread_num());
 
     gssw_graph_fill(graph, sequence.c_str(),
                     nt_table, score_matrix,
                     gap_open, gap_extension, 15, 2);
     
-    //fprintf(stderr, "thread %d completed gssw_graph_fill\n", omp_get_thread_num());
     gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
                                                     sequence.c_str(),
                                                     sequence.size(),
@@ -406,8 +401,8 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
     const string& sequence = alignment.sequence();
     const string& quality = alignment.quality();
     
-    if (quality.empty()) {
-        cerr << "error:[Aligner] cannot perform base quality adjusted alignment without base quality string" << endl;
+    if (quality.length() != sequence.length()) {
+        cerr << "error:[Aligner] sequence and quality strings different lengths, cannot perform base quality adjusted alignment" << endl;
     }
 
     gssw_graph_fill_qual_adj(graph, sequence.c_str(), quality.c_str(),

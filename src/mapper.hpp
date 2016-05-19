@@ -62,7 +62,7 @@ private:
     // constructor.
     Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     
-    bool adjust_alignments_for_base_quality;
+    Alignment align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio);
 
 public:
     // Make a Mapper that pulls from a RocksDB index and optionally a GCSA2 kmer index.
@@ -79,12 +79,11 @@ public:
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
     // GSSW aligner
-    Aligner* aligner;
+    QualAdjAligner* qual_adj_aligner;
     
     double estimate_gc_content();
-    void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
+    void init_aligners(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
-    void set_base_quality_adjusted_alignment(bool do_adjustments);
 
     // Align the given string and return an Alignment.
     Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
@@ -216,6 +215,8 @@ public:
     // paired-end consistency enforcement
     bool promote_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
+    
+    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
 
 };
 

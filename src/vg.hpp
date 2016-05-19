@@ -794,23 +794,35 @@ public:
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
     
-    Alignment align(const Alignment& alignment,
+    // align with base quality adjusted scores
+    Alignment align(const string& sequence,
                     Aligner& aligner,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
-    // use default Aligner
     Alignment align(const Alignment& alignment,
+                    Aligner& aligner,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
     
-    Alignment align(const string& sequence,
-                    Aligner& aligner,
+    // align with default Aligner
+    Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
-    // use default Aligner
     Alignment align(const string& sequence,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
+    
+    // align without base quality adjusted scores
+    Alignment align_qual_adjusted(const Alignment& alignment,
+                                  QualAdjAligner& qual_adj_aligner,
+                                  size_t max_query_graph_ratio = 0,
+                                  bool print_score_matrices = false);
+    Alignment align_qual_adjusted(const string& sequence,
+                                  QualAdjAligner& qual_adj_aligner,
+                                  size_t max_query_graph_ratio = 0,
+                                  bool print_score_matrices = false);
+    
+    
 
 
     // returns all node-crossing paths with up to length across node boundaries
@@ -1056,6 +1068,13 @@ private:
                         bool allow_dups,
                         bool allow_negatives,
                         Node* node = nullptr);
+    
+    // private method to funnel other align options into
+    Alignment align(const Alignment& alignment,
+                    Aligner* aligner,
+                    QualAdjAligner* qual_adj_aligner,
+                    size_t max_query_graph_ratio,
+                    bool print_score_matrices);
 
 
 public:
