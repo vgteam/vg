@@ -45,7 +45,7 @@ struct NodeDivider {
     // offset in original graph node -> up to 3 nodes in call graph
     typedef map<int, Entry> NodeMap;
     // Node id in original graph to map above
-    typedef hash_map<int, NodeMap> NodeHash;
+    typedef hash_map<int64_t, NodeMap> NodeHash;
     NodeHash index;
     int64_t* _max_id;
     // map given node to offset i of node with id in original graph
@@ -142,7 +142,13 @@ public:
     typedef unordered_map<pair<NodeOffSide, NodeOffSide>, char> EdgeHash;
     EdgeHash _augmented_edges;
     // keep track of inserted nodes for tsv output
-    vector<pair<Node*, int> > _inserted_nodes;
+    struct InsertionRecord {
+        Node* node;
+        int cn;
+        int64_t orig_id;
+        int orig_offset;
+    };
+    vector<InsertionRecord> _inserted_nodes;
 
     // used to favour homozygous genotype (r from MAQ paper)
     double _het_log_prior;
@@ -223,7 +229,7 @@ public:
                                Node* node2, int to_offset, bool left_side2, bool aug2, char cat);
 
     // write calling info to tsv to help with VCF conversion
-    void write_node_tsv(Node* node, char call, char cn);
+    void write_node_tsv(Node* node, char call, char cn, int64_t orig_id, int orig_offset);
     void write_edge_tsv(Edge* edge, char call, char cn = '.');
     void write_nd_tsv();
 
