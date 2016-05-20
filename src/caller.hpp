@@ -27,19 +27,19 @@ struct NodeDivider {
     // up to three fragments per position in augmented graph (basically a Node 3-tuple,
     // avoiding aweful C++ tuple syntax)
     enum EntryCat {Ref = 0, Alt1, Alt2, Last};
-    struct Entry { Entry(Node* r = 0, char cn_r = (char)0,
-                         Node* a1 = 0, char cn_a1 = (char)0,
-                         Node* a2 = 0, char cn_a2 = (char)0) : ref(r), alt1(a1), alt2(a2),
-                                                               cn_ref(cn_r), cn_alt1(cn_a1), cn_alt2(cn_a2){}
+    struct Entry { Entry(Node* r = 0, int sup_r = 0,
+                         Node* a1 = 0, int sup_a1 = 0,
+                         Node* a2 = 0, int sup_a2 = 0) : ref(r), alt1(a1), alt2(a2),
+                                                               sup_ref(sup_r), sup_alt1(sup_a1), sup_alt2(sup_a2){}
         Node* ref; Node* alt1; Node* alt2;
-        char cn_ref; char cn_alt1; char cn_alt2;
+        int sup_ref; int sup_alt1; int sup_alt2;
         Node*& operator[](int i) {
             assert(i >= 0 && i <= 2);
             return i == EntryCat::Ref ? ref : (i == EntryCat::Alt1 ? alt1 : alt2);
         }
-        char& cn(int i) {
+        int& sup(int i) {
             assert(i >= 0 && i <= 2);
-            return i == EntryCat::Ref ? cn_ref : (i == EntryCat::Alt1 ? cn_alt1 : cn_alt2);
+            return i == EntryCat::Ref ? sup_ref : (i == EntryCat::Alt1 ? sup_alt1 : sup_alt2);
         }
     };
     // offset in original graph node -> up to 3 nodes in call graph
@@ -50,7 +50,7 @@ struct NodeDivider {
     int64_t* _max_id;
     // map given node to offset i of node with id in original graph
     // this function can never handle overlaps (and should only be called before break_end)
-    void add_fragment(const Node* orig_node, int offset, Node* subnode, EntryCat cat, int cn);
+    void add_fragment(const Node* orig_node, int offset, Node* subnode, EntryCat cat, int sup);
     // break node if necessary so that we can attach edge at specified side
     // this function wil return NULL if there's no node covering the given location
     Entry break_end(const Node* orig_node, VG* graph, int offset, bool left_side);
@@ -146,7 +146,7 @@ public:
     // keep track of inserted nodes for tsv output
     struct InsertionRecord {
         Node* node;
-        int cn;
+        int sup;
         int64_t orig_id;
         int orig_offset;
     };
@@ -231,8 +231,8 @@ public:
                                Node* node2, int to_offset, bool left_side2, bool aug2, char cat);
 
     // write calling info to tsv to help with VCF conversion
-    void write_node_tsv(Node* node, char call, char cn, int64_t orig_id, int orig_offset);
-    void write_edge_tsv(Edge* edge, char call, char cn = '.');
+    void write_node_tsv(Node* node, char call, int support, int64_t orig_id, int orig_offset);
+    void write_edge_tsv(Edge* edge, char call, int support);
     void write_nd_tsv();
 
     // log function that tries to avoid 0s
