@@ -127,7 +127,7 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
 
         // to do: factor in likelihood?
         Edge edge = pileup.edge(); // gcc not happy about passing directly
-        _called_edges.insert(NodeSide::pair_from_edge(edge));
+        _called_edges[NodeSide::pair_from_edge(edge)] = pileup.num_reads();
     }
 }
 
@@ -138,7 +138,7 @@ void Caller::update_call_graph() {
         function<void(Node*)> add_node = [&](Node* node) {
             if (_visited_nodes.find(node->id()) == _visited_nodes.end()) {
                 Node* call_node = _call_graph.create_node(node->sequence(), node->id());
-                _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref, (char)0);
+                _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref, 0);
             }
         };
         _graph->for_each_node(add_node);
@@ -149,10 +149,12 @@ void Caller::update_call_graph() {
     function<void(Edge*)> map_edge = [&](Edge* edge) {
         pair<NodeSide, NodeSide> sides = NodeSide::pair_from_edge(edge);
         // skip uncalled edges if not writing augmented graph
-        bool called = _called_edges.find(sides) != _called_edges.end();
+        auto called_it = _called_edges.find(sides);
+        bool called = called_it != _called_edges.end();
         if (!_leave_uncalled && !called) {
             return;
         }
+        int support = called ? called_it->second : 0;
         
         Node* side1 = _graph->get_node(sides.first.node);
         Node* side2 = _graph->get_node(sides.second.node);
@@ -161,7 +163,8 @@ void Caller::update_call_graph() {
         int to_offset = sides.second.is_end ? side2->sequence().length() - 1 : 0;
         char cat = called ? 'R' : 'U';
         create_augmented_edge(side1, from_offset, !sides.first.is_end, true,
-                              side2, to_offset, !sides.second.is_end, true, cat);
+                              side2, to_offset, !sides.second.is_end, true, cat,
+                              support);
     };            
 
     function<void(bool)> process_augmented_edges = [&](bool pass1) {
@@ -194,11 +197,24 @@ void Caller::update_call_graph() {
                 node2 = _call_graph.get_node(os2.first.node);
                 aug2 = false;
             }
+            // only need to pass support for here insertions, other cases handled elsewhere
+            int support = -1;
+            if (cat == 'I') {
+                auto ins_it = _inserted_nodes.find(os1.first.node);
+                if (ins_it != _inserted_nodes.end()) {
+                    support = ins_it->second.sup;
+                } else {
+                    ins_it = _inserted_nodes.find(os2.first.node);
+                    assert(ins_it != _inserted_nodes.end());
+                    support = ins_it->second.sup;
+                }
+                assert(support >= 0);
+            }
             int to_offset = os2.second;
             bool left2 = !os2.first.is_end;
             // todo: clean this up
             if (!pass1) {
-                create_augmented_edge(node1, from_offset, left1, aug1,  node2, to_offset, left2, aug2, cat);
+              create_augmented_edge(node1, from_offset, left1, aug1,  node2, to_offset, left2, aug2, cat, support);
             } else {
                 _node_divider.break_end(node1, &_call_graph, from_offset, left1);
                 _node_divider.break_end(node2, &_call_graph, to_offset, left2);
@@ -216,7 +232,8 @@ void Caller::update_call_graph() {
     if (_text_calls != NULL) {
         write_nd_tsv();
         // add on the inserted nodes
-        for (auto n : _inserted_nodes) {
+        for (auto i : _inserted_nodes) {
+            auto& n = i.second; 
             write_node_tsv(n.node, 'I', n.sup, n.orig_id, n.orig_offset);
         }
     }    
@@ -309,7 +326,8 @@ void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
 }
 
 void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
-                                   Node* node2, int to_offset, bool left_side2, bool aug2, char cat) {
+                                   Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
+                                   int support) {
     NodeDivider::Entry call_sides1;
     NodeDivider::Entry call_sides2;
 
@@ -317,13 +335,13 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
         call_sides1 = _node_divider.break_end(node1, &_call_graph, from_offset,
                                               left_side1);
     } else {
-        call_sides1 = NodeDivider::Entry(node1);
+        call_sides1 = NodeDivider::Entry(node1, support);
     }
     if (aug2) {
         call_sides2 = _node_divider.break_end(node2, &_call_graph, to_offset,
                                               left_side2);
     } else {
-        call_sides2 = NodeDivider::Entry(node2);
+        call_sides2 = NodeDivider::Entry(node2, support);
     }
     
     // make up to 9 edges connecting them in the call graph
@@ -347,11 +365,12 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                     if (!_call_graph.has_edge(side1, side2)) {
                         Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
                                                              left_side1, !left_side2);
+                        int edge_support = min(call_sides1.sup(i), call_sides2.sup(j));
                         // can edges be written more than once with different cats?
                         // if so, first one will prevail. should check if this
                         // can impact vcf converter...
                         if (_text_calls != NULL) {
-                          write_edge_tsv(edge, cat, -1);
+                            write_edge_tsv(edge, cat, edge_support);
                         }
                     }
                 }
@@ -797,7 +816,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                     Node* node = _call_graph.create_node(ins_seq, ++_max_id);
                     int sup = ins_support1;
                     InsertionRecord ins_rec = {node, sup, _node->id(), next-1};
-                    _inserted_nodes.push_back(ins_rec);
+                    _inserted_nodes[node->id()] = ins_rec;
 
                     // bridge to insert
                     NodeOffSide no1(NodeSide(_node->id(), true), next-1);
