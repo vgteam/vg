@@ -136,7 +136,7 @@ public:
     // to figure out where edges go
     NodeDivider _node_divider;
     unordered_set<int64_t> _visited_nodes;
-    unordered_set<pair<NodeSide, NodeSide> > _called_edges;
+    unordered_map<pair<NodeSide, NodeSide>, int> _called_edges; // map to support
     // deletes can don't necessarily need to be in incident to node ends
     // so we throw in an offset into the mix. 
     typedef pair<NodeSide, int> NodeOffSide;
@@ -150,7 +150,8 @@ public:
         int64_t orig_id;
         int orig_offset;
     };
-    vector<InsertionRecord> _inserted_nodes;
+    typedef unordered_map<int64_t, InsertionRecord> InsertionHash;
+    InsertionHash _inserted_nodes;
 
     // used to favour homozygous genotype (r from MAQ paper)
     double _het_log_prior;
@@ -228,7 +229,8 @@ public:
     void create_node_calls(const NodePileup& np);
 
     void create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
-                               Node* node2, int to_offset, bool left_side2, bool aug2, char cat);
+                               Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
+                               int support);
 
     // write calling info to tsv to help with VCF conversion
     void write_node_tsv(Node* node, char call, int support, int64_t orig_id, int orig_offset);
