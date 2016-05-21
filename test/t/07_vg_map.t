@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 20
+plan tests 21
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -84,6 +84,7 @@ rm -Rf g.idx
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.vg.idx -g x.vg.gcsa -k 16 -X 2 x.vg
+vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg sim -s 1337 -n 1000 -x x.vg.idx >x.reads
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
 
@@ -93,4 +94,9 @@ is $(vg map -r x.reads -V x.vg -k 11 -t 1 -J | jq -c '.path.mapping[0].position.
 
 is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -a -u 4 -J | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "paired-end reads are pulled to consistent locations at the cost of non-optimal individual alignments"
 
-rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads
+vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -J -U | jq -c '.score' > temp_scores_full_qual.txt
+vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -J -U | jq -c '.score' > temp_scores_reduced_qual.txt
+is $(paste temp_scores_full_qual.txt temp_scores_reduced_qual.txt | column -s $'\t' -t | awk '{if ($1 < $2) count++} END{print count}') $(wc -l temp_scores_full_qual.txt) "base quality adjusted alignment produces higher scores if mismatches have low quality"
+rm temp_scores_full_qual.txt temp_scores_reduced_qual.txt
+
+rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa
