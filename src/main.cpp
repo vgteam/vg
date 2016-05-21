@@ -190,14 +190,14 @@ int main_filter(int argc, char** argv) {
             cerr << "No regions read from BED file, doing whole graph" << endl;
         }
     }
-    
+
     // empty region, do everything
     if (regions.empty()) {
         // we handle empty intervals as special case when looking up, otherwise,
-        // need to insert giant interval here. 
+        // need to insert giant interval here.
         chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
     }
-    
+
     // otherwise, need to extract regions with xg
     else {
         if (xg_name.empty()) {
@@ -224,7 +224,7 @@ int main_filter(int argc, char** argv) {
                 cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
                      << "-" << regions[i].end << endl;
             } else {
-                // clip region on end of path            
+                // clip region on end of path
                 regions[i].end = min(path_size - 1, regions[i].end);
                 // do path node query
                 // convert to 0-based coordinates as this seems to be what xg wants
@@ -243,7 +243,7 @@ int main_filter(int argc, char** argv) {
             // map the chunk id to a name
             chunk_names.push_back(chunk_name(i));
 
-            // map the node range to the chunk id.  
+            // map the node range to the chunk id.
             if (graph.node_size() > 0) {
                 interval_list.push_back(Interval<int, int64_t>(min_id, max_id, i));
                 assert(chunk_names.size() == i + 1);
@@ -253,7 +253,7 @@ int main_filter(int argc, char** argv) {
 
     // index chunk regions
     IntervalTree<int, int64_t> region_map(interval_list);
-    
+
     // setup alignment stream
     if (optind >= argc) {
         help_filter(argv);
@@ -597,24 +597,42 @@ void help_scrub(char** argv){
         << "Filter alignments by various common metrics." << endl
         << endl
         << "options: " << endl
-        << "  -d --depth <DEPTH>    remove edits below DEPTH" << endl
-        << "  -q --qual <QUAL>      remove edits with a per-base quality below <QUAL>" << endl
+        << "  -d --depth <DEPTH>    filter any edits seen fewer than DEPTH times." << endl
+        << "  -q --qual <QUAL>      filter edits with a per-base quality below <QUAL>" << endl
+        << "  -a --average-qual <AQUAL>  filter alignments with an average quality below <AQUAL>" << endl
+        << "  -w --window-size <WIN>     when filtering by average quality or average depth, use a sliding window if size <WIN>." << endl
         << "  -p --percent-identity <PCTID> remove alignments that arbelow <PCTID>" << endl
-        << "  -r --remove-alignments if an alignment fails return an empty one" << endl
-        << "(default behavior: remove failing edits but return the alignment)" << endl
+        << "  -r --remove-edits     scrub failing edits and return the modified original alignment" << endl
+        << "               (default behavior: return an empty alignment if it fails any filter.)" << endl
+        << "  -v --inverse          invert a filter so that failing alignments are returned (like grep -v)" << endl
+        << "  -m --filter-matches   filter both mismatches to the graph and matches to the graph." << endl
+        << "  -P --path-divergence  filter alignments that map across two distinct paths." << endl
+        << "  -S --split-read <DIST>      filter alignments that are split across more than <DIST> bp." << endl
+        << "  -R --reversing        filter alignments that have both forward and reverse segments." << endl
+        << "  -C --soft-clip <CLIP>       filter alignments with more than <CLIP> bases hanging off their ends." << endl
+        << "  -x --xg-index <INDEX> An xg index, required for path divergence" << endl
+
         << endl;
 }
 
 int main_scrub(int argc, char** argv){
     string alignment_file;
+    int threads = 1;
+
     int min_depth = 0;
     int min_qual = 0;
-    double min_percent_identity = 0.0;
-    bool remove_failing_alignments = true;
-    bool do_split_read = false;
     int soft_clip_limit = -1;
-    int sliding_window_len = -1;
+    int split_read_limit = -1;
+    int sliding_window_length = -1;
+    double min_percent_identity = 0.0;
+    double min_avg_qual = 0.0;
     bool do_inverse = false;
+    bool do_path_div = false;
+    bool do_reversing = false;
+    bool remove_failing_edits  = false;
+    bool filter_matches = false;
+    string xg_name;
+    xg::XG* xg_index;
 
     if (argc <= 2){
         help_scrub(argv);
@@ -628,19 +646,23 @@ int main_scrub(int argc, char** argv){
             {"help", no_argument, 0, 'h'},
             {"depth", required_argument, 0, 'd'},
             {"quality", required_argument,0, 'q'},
-            {"avg_quality", required_argument, 0, 'a'},
+            {"average-quality", required_argument, 0, 'a'},
             {"percent-identity", required_argument, 0, 'p'},
-            {"remove-alignments", no_argument, 0, 'r'},
-            {"path-divergence", no_argument, 0, 'D'},
-            {"softclip", no_argument, 0, 's'},
-            {"split-read", no_argument, 0, 'S'},
+            {"remove-edits", no_argument, 0, 'r'},
+            {"filter-matches", no_argument, 0, 'm'},
+            {"path-divergence", no_argument, 0, 'P'},
+            {"reversing", no_argument, 0, 'R'},
+            {"soft-clip", required_argument, 0, 'C'},
+            {"split-read", required_argument, 0, 'S'},
             {"inverse", no_argument, 0, 'v'},
             {"window-length", required_argument, 0, 'w'},
+            {"threads", required_argument, 0, 't'},
+            {"xg-index", required_argument, 0, 'x'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:Shp:d:q:a:r",
+        c = getopt_long (argc, argv, "hvmxrRPd:p:q:a:w:C:S:t:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -653,26 +675,44 @@ int main_scrub(int argc, char** argv){
             case 'h':
                 help_scrub(argv);
                 return 1;
+            case 't':
+                threads = atoi(optarg);
+                break;
             case 'd':
                 min_depth = atoi(optarg);
                 break;
             case 'q':
                 min_qual = atoi(optarg);
                 break;
+            case 'm':
+                filter_matches = true;
+                break;
+            case 'a':
+                min_avg_qual = atof(optarg);
+                break;
+            case 'x':
+                xg_name = optarg;
+                break;
             case 'p':
                 min_percent_identity = atof(optarg);
                 break;
             case 'r':
-                remove_failing_alignments = true;
+                remove_failing_edits = true;
                 break;
             case 'S':
-                do_split_read = true;
+                split_read_limit = atoi(optarg);
                 break;
-            case 's':
+            case 'C':
                 soft_clip_limit = atoi(optarg);
                 break;
+            case 'P':
+                do_path_div = true;
+                break;
+            case 'R':
+                do_reversing = true;
+                break;
             case 'w':
-                sliding_window_len = atoi(optarg);
+                sliding_window_length = atoi(optarg);
                 break;
             case 'v':
                 do_inverse = true;
@@ -681,6 +721,8 @@ int main_scrub(int argc, char** argv){
                 abort();
         }
     }
+
+   omp_set_num_threads(threads);
 
     alignment_file = argv[optind];
 
@@ -694,28 +736,27 @@ int main_scrub(int argc, char** argv){
     ff.set_min_depth(min_depth);
     ff.set_min_qual(min_qual);
     ff.set_min_percent_identity(min_percent_identity);
-    ff.set_remove_failing_alignments(remove_failing_alignments);
 
-    std::function<void(Alignment&)> depth_fil = [&ff, &buffer](Alignment& aln){
-            //std::function<Alignment(uint64_t)>([&ff, &aln](uint64_t n) { return ff.depth_filter(aln); });
+    ff.set_remove_failing_edits(remove_failing_edits);
+    ff.set_inverse(do_inverse);
+    ff.set_filter_matches(filter_matches);
 
-            aln = ff.depth_filter(aln);
-            if (aln.sequence().size() > 0){
-              buffer.push_back(aln);
-            }
+    ff.set_avg_qual(min_avg_qual);
+    ff.set_window_length(sliding_window_length);
+    ff.set_soft_clip_limit(soft_clip_limit);
+    ff.set_split_read_limit(split_read_limit);
+    ff.set_reversing(do_reversing);
 
-            // if (aln.sequence().size() == 0){
-            //     cout << "FAIL" << endl;
-            // }
-            // else {cout <<  "PASS" << endl;}
-    };
-
-    std::function<void(Alignment&)> pct_fil = [&ff, &buffer](Alignment& aln){
-        aln = ff.percent_identity_filter(aln);
-        if (aln.sequence().size() > 0){
-          buffer.push_back(aln);
-        }
-    };
+    if (do_path_div && xg_name.empty()){
+        cerr << "Error: an xg index must be provided for path divergence filtering." << endl;
+        return 1;
+    }
+    ff.set_path_divergence(do_path_div);
+    if (!xg_name.empty()){
+        ifstream in(xg_name);
+        xg_index = new xg::XG(in);
+        ff.set_my_xg_idx(xg_index);
+    }
 
     std::function<void(Alignment&)> qual_fil = [&ff, &buffer](Alignment& aln){
         aln = ff.qual_filter(aln);
@@ -724,33 +765,69 @@ int main_scrub(int argc, char** argv){
         }
     };
 
+    /**
+     * Depth and (later) average depth should be done in serial.
+     */
+    std::function<void(Alignment&)> serial_filters_lambda = [&ff, &buffer](Alignment& aln){
+       if (ff.get_min_depth() > 0){
+            aln = ff.depth_filter(aln);
+       }
 
+
+       if (aln.sequence().size() > 0){
+            buffer.push_back(aln);
+       }
+
+    };
+
+    /**
+     * Quality, average quality, soft clipping, reversing, split_read, percent identity, and path
+     * divergence can likely all safely be done in parallel.
+     */
+    std::function<void(Alignment&)> parallel_filters_lambda = [&ff, &buffer](Alignment& aln){
+        if (ff.get_min_depth() >= 0){
+            aln = ff.depth_filter(aln);
+        }
+        if (ff.get_min_qual() > 0){
+            aln = ff.qual_filter(aln);
+        }
+        if (ff.get_do_reversing()){
+            aln = ff.reversing_filter(aln);
+        }
+        if (ff.get_soft_clip_limit() > 0){
+            aln = ff.soft_clip_filter(aln);
+        }
+        if (ff.get_split_read_limit() > 0){
+            aln = ff.split_read_filter(aln);
+        }
+        if (ff.get_do_path_divergence()){
+            aln = ff.path_divergence_filter(aln);
+        }
+        if (ff.get_min_avg_qual() > 0.0){
+            aln = ff.avg_qual_filter(aln);
+        }
+        if (ff.get_min_percent_identity() > 0.0){
+            aln = ff.percent_identity_filter(aln);
+        }
+
+
+        if (aln.sequence().size() > 0){
+            buffer.push_back(aln);
+        }
+    };
 
 
     if (alignment_file == "-"){
-        if (min_depth > 0){
-            stream::for_each(cin, depth_fil);
-        }
-        if (min_qual >= 0){
-            stream::for_each(cin, qual_fil);
-        }
-        if (min_percent_identity > 0.0){
-            stream::for_each(cin, pct_fil);
-        }
+        //stream::for_each(cin, serial_filters_lambda);
+        stream::for_each_parallel(cin, parallel_filters_lambda);
     }
     else{
         ifstream in;
         in.open(alignment_file);
         if (in.good()){
-            if (min_depth > 0){
-                stream::for_each(in, depth_fil);
-            }
-            if (min_qual >= 0){
-                stream::for_each(in, qual_fil);
-            }
-            if (min_percent_identity > 0.0){
-                stream::for_each(in, pct_fil);
-            }
+            stream::for_each(in, serial_filters_lambda);
+            stream::for_each(in, parallel_filters_lambda);
+
         }
         else{
             cerr << "Could not open " << alignment_file << endl;
@@ -768,11 +845,13 @@ int main_scrub(int argc, char** argv){
 
 void help_vectorize(char** argv){
     cerr << "usage: " << argv[0] << " vectorize [options] -x <index.xg> <alignments.gam>" << endl
+
          << "Vectorize a set of alignments to a variety of vector formats." << endl
          << endl
          << "options: " << endl
          << "  -x --xg FILE       An xg index for the graph of interest" << endl
          << "  -g --gcsa FILE     A gcsa2 index to use if generating MEM sketches" << endl
+         << "  -l --aln-label LABEL   Rename every alignment to LABEL when outputting alignment name." << endl
          << "  -f --format        Tab-delimit output so it can be used in R." << endl
          << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
          << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
@@ -785,6 +864,7 @@ void help_vectorize(char** argv){
 int main_vectorize(int argc, char** argv){
 
     string xg_name;
+    string aln_label = "";
     string gcsa_name;
     bool format = false;
     bool show_header = false;
@@ -815,11 +895,12 @@ int main_vectorize(int argc, char** argv){
             {"wabbit", no_argument, 0, 'w'},
             {"mem-sketch", no_argument, 0, 'm'},
             {"identity-hot", no_argument, 0, 'i'},
+            {"aln-label", required_argument, 0, 'l'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfmx:g:",
+        c = getopt_long (argc, argv, "Aaihwfmx:g:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -828,6 +909,35 @@ int main_vectorize(int argc, char** argv){
 
         switch (c)
         {
+ /*           case '?':
+            case 'h':
+                help_vectorize(argv);
+                return 1;
+            case 'x':
+                xg_name = optarg;
+                break;
+            case 'a':
+                a_hot = true;
+                break;
+            case 'w':
+                output_wabbit = true;
+                break; */
+            case 'l':
+                aln_label = optarg;
+                break;/*
+            case 'i':
+                use_identity_hot = true;
+                break;
+            case 'f':
+                format = true;
+                break;
+            case 'A':
+                annotate = true;
+                format = true;
+                break;
+            default:
+                abort();
+*/
         case '?':
         case 'h':
             help_vectorize(argv);
@@ -898,16 +1008,32 @@ int main_vectorize(int argc, char** argv){
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, &mapper, mem_sketch, format, a_hot](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, format, a_hot](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
         if (a_hot) {
             vector<int> v = vz.alignment_to_a_hot(a);
-            if (format){
+            if (output_wabbit){
+                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
+            }
+            else if (format){
                 cout << a.name() << "\t" << vz.format(v) << endl;
             } else{
                 cout << v << endl;
             }
+        }
+        else if (use_identity_hot){
+            vector<double> v = vz.alignment_to_identity_hot(a);
+            if (output_wabbit){
+                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
+            }
+            else if (format){
+                cout << a.name() << "\t" << vz.format(v) << endl;
+            }
+            else {
+                cout << vz.format(v) << endl;
+            }
+        
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
@@ -940,12 +1066,6 @@ int main_vectorize(int argc, char** argv){
             stream::for_each(in, lambda);
         }
     }
-
-
-
-    //TODO handle custom scores settings.
-
-    vz.emit(cout, format, annotate);
 
 
 
@@ -1737,7 +1857,7 @@ int main_msga(int argc, char** argv) {
         case 'C':
             circularize = true;
             break;
-            
+
         case 'P':
             min_identity = atof(optarg);
             break;
@@ -1758,7 +1878,7 @@ int main_msga(int argc, char** argv) {
         case 'z':
             allow_nonpath = true;
             break;
-                
+
         case 'a':
             match = atoi(optarg);
             break;
@@ -2455,7 +2575,7 @@ int main_circularize(int argc, char** argv){
     int c;
     optind = 2;
     while (true){
-        static struct option long_options[] = 
+        static struct option long_options[] =
         {
             {"path", required_argument, 0, 'p'},
             {"pathfile", required_argument, 0, 'P'},
@@ -2464,7 +2584,7 @@ int main_circularize(int argc, char** argv){
             {"describe", required_argument, 0, 'd'},
             {0,0,0,0}
         };
-    
+
 
     int option_index = 0;
     c = getopt_long (argc, argv, "hdp:P:a:z:",
@@ -2523,7 +2643,7 @@ int main_circularize(int argc, char** argv){
     else if (path != ""){
         paths_to_circularize.push_back(path);
     }
-    
+
     VG* graph;
     string file_name = argv[optind];
     if (file_name == "-"){
@@ -2542,7 +2662,7 @@ int main_circularize(int argc, char** argv){
             cerr << "ERROR: PATH NOT IN GRAPH - " << p << endl;
             paths_in_graph = false;
         }
-        
+
         if (!paths_in_graph){
             exit(1);
         }
@@ -2555,7 +2675,7 @@ int main_circularize(int argc, char** argv){
        }
        exit(0);
     }
-    
+
     if (head > 0 && tail > head){
         graph->circularize(head, tail);
     }
@@ -3172,7 +3292,7 @@ int main_sim(int argc, char** argv) {
 
     mt19937 rng;
     rng.seed(seed_val);
-    
+
     xg::XG* xgidx = nullptr;
     ifstream xg_stream(xg_name);
     if(xg_stream) {
@@ -4794,6 +4914,11 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
+    if (file_names.size() <= 0){
+        cerr << "No graph provided for indexing. Please provide a .vg file to index." << endl;
+        //return 1;
+    }
+
     if(kmer_size == 0 && !gcsa_name.empty() && dbg_names.empty()) {
         // gcsa doesn't do anything if we tell it a kmer size of 0.
         cerr << "error:[vg index] kmer size for GCSA2 index must be >0" << endl;
@@ -5729,7 +5854,7 @@ int main_map(int argc, char** argv) {
         case 'm':
             hit_max = atoi(optarg);
             break;
-            
+
         case 'M':
             max_multimaps = atoi(optarg);
             break;
@@ -6787,7 +6912,11 @@ int main_view(int argc, char** argv) {
     void help_deconstruct(char** argv){
         cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
             << "options: " << endl
-            << "-s, --superbubbles  print the superbubbles of the graph and exit."
+            << " -s, --superbubbles  Print the superbubbles of the graph and exit." << endl
+            << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
+            << " -u -- unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
+            << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
+            << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
             << endl;
     }
     int main_deconstruct(int argc, char** argv){
@@ -6796,7 +6925,16 @@ int main_view(int argc, char** argv) {
             help_deconstruct(argv);
             return 1;
         }
+
+
         bool print_sbs = false;
+        string outfile = "";
+        bool dagify = false;
+        int unroll_steps = 0;
+        int compact_steps = 0;
+        string mask_file = "";
+        string xg_name = "";
+
 
         int c;
         optind = 2; // force optind past command positional argument
@@ -6805,12 +6943,17 @@ int main_view(int argc, char** argv) {
             {
                 {"help", no_argument, 0, 'h'},
                 {"xg-name", required_argument,0, 'x'},
+                {"output", required_argument, 0, 'o'},
+                {"unroll", required_argument, 0, 'u'},
+                {"compact", required_argument, 0, 'c'},
+                {"mask", required_argument, 0, 'm'},
+                {"dagify", no_argument, 0, 'd'},
                 {"superbubbles", no_argument, 0, 's'},
                 {0, 0, 0, 0}
 
             };
             int option_index = 0;
-            c = getopt_long (argc, argv, "hsx:",
+            c = getopt_long (argc, argv, "ho:u:c:m:sx:",
                     long_options, &option_index);
 
             // Detect the end of the options.
@@ -6822,6 +6965,24 @@ int main_view(int argc, char** argv) {
                 case 's':
                     print_sbs = true;
                     break;
+                case 'x':
+                    xg_name = optarg;
+                    break;
+                case 'o':
+                    outfile = optarg;
+                    break;
+                case 'u':
+                    unroll_steps = atoi(optarg);
+                    break;
+                case 'c':
+                    compact_steps = atoi(optarg);
+                    break;
+                case 'm':
+                    mask_file = optarg;
+                    break;
+                case 'd':
+                    dagify = true;
+                    break;
                 case '?':
                 case 'h':
                     help_deconstruct(argv);
@@ -6830,6 +6991,8 @@ int main_view(int argc, char** argv) {
                     abort();
             }
         }
+
+
 
         VG* graph;
         string file_name = argv[optind];
@@ -6840,17 +7003,46 @@ int main_view(int argc, char** argv) {
             in.open(file_name.c_str());
             graph = new VG(in);
         }
+        
         Deconstructor decon = Deconstructor(graph);
+                
+		if (unroll_steps > 0){
+			cerr << "Unrolling " << unroll_steps << " steps..." << endl;
+            decon.unroll_my_vg(unroll_steps);
+			cerr << "Done." << endl;
+		}
+
+        if (dagify){
+            int dagify_steps = 1;
+            cerr << "DAGifying..." << endl;
+            decon.dagify_my_vg(dagify_steps);
+            cerr << "Done." << endl;
+        }
+
+        // At this point, we can detect the superbubbles
+
+        vector<SuperBubble> sbs = decon.get_all_superbubbles();
+
+
+		if (compact_steps > 0){
+			cerr << "Compacting superbubbles of graph " << compact_steps << " steps..." << endl;
+            decon.compact(compact_steps);
+			cerr << "Done." << endl;
+		}
         if (print_sbs){
-            vector<SuperBubble> sbs = decon.get_all_superbubbles();
             for (auto s: sbs){
                 cout << s.start_node << "\t";
-                for (auto i : s.nodes){
-                    cout << i << ",";
-                }
+                //for (auto i : s.nodes){
+                //    cout << i << ",";
+                //}
                 cout << "\t" << s.end_node << endl;
             }
         }
+        else{
+            decon.sb2vcf(outfile);
+        }
+
+
 
         /* Find superbubbles */
 
@@ -7058,19 +7250,19 @@ int main_view(int argc, char** argv) {
 
         return 0;
     }
-    
+
     void help_version(char** argv){
         cerr << "usage: " << argv[0] << " version" << endl
             << "options: " << endl
             << endl;
     }
     int main_version(int argc, char** argv){
-    
+
         if (argc != 2) {
             help_version(argv);
             return 1;
         }
-    
+
         cout << VG_GIT_VERSION << endl;
         return 0;
     }

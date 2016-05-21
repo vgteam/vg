@@ -8,6 +8,9 @@
 #include <unordered_map>
 #include <climits>
 #include <queue>
+#include <fstream>
+#include <cstdlib>
+#include <sstream>
 #include <stack>
 #include "Variant.h"
 #include "index.hpp"
@@ -18,9 +21,6 @@
 #include "xg.hpp"
 #include "position.hpp"
 #include "vcfheader.hpp"
-#include <fstream>
-#include <cstdlib>
-
 /**
 * Deconstruct is getting rewritten.
 * New functionality:
@@ -37,7 +37,7 @@ namespace vg{
     using namespace vcfh;
     struct SuperBubble{
       //A vector of topologically-sorted nodes in the superbubble.
-      vector<id_t> nodes;
+      map<int, vector<id_t> > level_to_nodes;
       id_t start_node;
       id_t end_node;
       bool isNested;
@@ -49,16 +49,30 @@ namespace vg{
             Deconstructor();
             Deconstructor(VG* graph);
             ~Deconstructor();
+            void unroll_my_vg(int steps);
+            void dagify_my_vg(int steps);
+            vg::VG* compact(int compact_steps);
             bool is_nested(SuperBubble sb);
+            bool contains_nested(pair<int64_t, int64_t> start_and_end);
             SuperBubble report_superbubble(int64_t start, int64_t end);
             vector<SuperBubble> get_all_superbubbles();
+            void sb2vcf(string outfile);
             
 
         private:
 
 		  VG* my_vg;
-          vector<SuperBubble> my_super_bubbles;
+          map<id_t, pair<id_t, bool> > my_translation;
+          map<id_t, pair<id_t, bool> > my_unroll_translation;
+          map<id_t, pair<id_t, bool> > my_dagify_translation;
+          map<id_t, SuperBubble> id_to_bub;
+
+          vector<SuperBubble> my_superbubbles;
+          size_t my_max_length;
+          size_t my_max_component_length;
+
 		  vector<int64_t> nt_to_ids(deque<NodeTraversal>& nt);
+          SuperBubble translate_id(id_t id);
 		  void init();
 
     };
