@@ -7039,7 +7039,7 @@ int main_view(int argc, char** argv) {
             }
         }
         else{
-            decon.sb2vcf(outfile);
+            decon.sb2vcf(sbs, outfile);
         }
 
 

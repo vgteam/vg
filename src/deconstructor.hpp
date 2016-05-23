@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <unordered_map>
+#include <map>
 #include <climits>
 #include <queue>
 #include <fstream>
@@ -56,7 +57,7 @@ namespace vg{
             bool contains_nested(pair<int64_t, int64_t> start_and_end);
             SuperBubble report_superbubble(int64_t start, int64_t end);
             vector<SuperBubble> get_all_superbubbles();
-            void sb2vcf(string outfile);
+            void sb2vcf(vector<SuperBubble> sbs, string outfile);
             
 
         private:

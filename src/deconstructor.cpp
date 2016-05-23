@@ -136,7 +136,7 @@ namespace vg {
         return false;
     }
 
-    void Deconstructor::sb2vcf(string outfile){
+    void Deconstructor::sb2vcf(vector<SuperBubble> bubs, string outfile){
         Header h;
         h.set_date();
         h.set_source("VG");
@@ -144,29 +144,10 @@ namespace vg {
         h.set_version("VCF4.2");
 
         cout << h << endl;
-        for (auto s : my_superbubbles){
-            int offset = 0;
+        for (auto s : bubs){
+            cout << s.start_node << endl;
+            cout << s.level_to_nodes.size() <<endl;
 
-            map<int, vector<id_t> >::iterator it;
-            for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); ++it){
-                offset = it->first;
-                vector<id_t> level_interior = it->second;
-                for (int j = 0; j < level_interior.size(); j++){
-                    // Check if is_ref
-
-                    //Otherwise it's an alt
-
-                }
-
-
-                vcflib::Variant v;
-                v.sequenceName = "x";
-                v.ref = "A";
-                v.position = 100;
-                v.alt = vector<string>();
-                v.alt.push_back("T");
-                cout << v << endl;
-            }
 
         }
 
@@ -187,12 +168,18 @@ namespace vg {
         //my_vg->dagify(dag_len, node_translation);
 
         vector<SuperBubble> ret;
+        unordered_map<id_t, SuperBubble> entrance_to_SB;
+        unordered_map<id_t, SuperBubble> exit_to_SB;
 
         vector<pair<id_t, id_t> > supbubs = my_vg->get_superbubbles();
         for (auto pp : supbubs){
             SuperBubble bub;
             bub.start_node = pp.first;
             bub.end_node = pp.second;
+
+            entrance_to_SB[bub.start_node] = bub;
+            exit_to_SB[bub.end_node] = bub;
+
             ret.push_back(bub);
         }
         SuperBubble x;
@@ -228,18 +215,69 @@ namespace vg {
             }
 
         }
-
+        */
         //Use the DFS interface instead
 
-        // vector<
-        // function<void(Node*)> is_end = [](Node* node){
+        vector<id_t> rto;
 
-        // };
-        // function<void(Node*)> is_start = [](Node* node){
+        ret.clear();
 
-        // };
-        // my_vg->dfs(is_start, is_end);
-        */
+        function<bool(id_t)> is_exit_node = [&exit_to_SB](id_t id){
+            try{
+                exit_to_SB.at(id);
+                return true;
+            }
+            catch (const std::out_of_range& oor){
+                return false;
+            }
+        };
+
+        function<bool(id_t)> is_entrance_node = [&entrance_to_SB](id_t id){
+            try{
+                entrance_to_SB.at(id);
+                return true;
+            }
+            catch (const std::out_of_range& oor){
+                return false;
+            }
+        };
+
+        function<void(Node*)> on_node_end = [&rto](Node* node){
+            //cerr << "is_end: " << node->id() << endl;
+            rto.push_back(node->id());
+         };
+         function<void(Node*)> on_node_start = [&ret](Node* node){
+            //cerr << "is_start: " << node->id() << endl;
+            
+         };
+         my_vg->dfs(on_node_start, on_node_end);
+        
+         /**
+          * Go through nodes in reverse topo order
+          * If they are entrance/exits, switch to concat mode
+          * concat middle nodes to superbubble
+          * if node is exit, switch off concat mode
+          * Need to maintain a pointer to SBs in map
+          * Then, do a linear pass over map, create the set of pointers
+          * and return
+          */
+        bool in_bub = false;
+        SuperBubble current;
+        for (int i = 0; i < rto.size(); i++){
+            if (is_entrance_node(rto[i])){
+                ret.push_back(current);
+                in_bub = false;
+            }
+
+            if (is_exit_node(rto[i])){
+                in_bub = true;
+                current = exit_to_SB[rto[i]];
+            }
+            if (in_bub){
+                current.level_to_nodes[0].push_back(rto[i]);
+            }
+        }
+        
 
         return ret;
     }
