@@ -683,7 +683,8 @@ public:
 
     SB_Input vg_to_sb_input();
     vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
-    vector<pair<id_t, id_t> > get_superbubbles();
+    vector<pair<id_t, id_t> > get_superbubbles(void);
+    map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
     // edges
     // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.

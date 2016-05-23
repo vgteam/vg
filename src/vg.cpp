@@ -194,7 +194,7 @@ vector<pair<id_t, id_t> > VG::get_superbubbles(SB_Input sbi){
     }
     return ret;
 }
-vector<pair<id_t, id_t> > VG::get_superbubbles(){
+vector<pair<id_t, id_t> > VG::get_superbubbles(void){
     vector<pair<id_t, id_t> > ret;
     supbub::Graph sbg (this->edge_count());
     //load up the sbgraph with edges
@@ -216,6 +216,26 @@ vector<pair<id_t, id_t> > VG::get_superbubbles(){
     return ret;
 }
 // check for conflict (duplicate nodes and edges) occurs within add_* functions
+
+map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
+    map<pair<id_t, id_t>, vector<id_t> > bubbles;
+    // ensure we're sorted
+    sort();
+    // if we have a DAG, then we can find all the nodes in each superbubble
+    // in constant time as they lie in the range between the entry and exit node
+    auto supbubs = get_superbubbles();
+    //     hash_map<Node*, int> node_index;
+    for (auto& bub : supbubs) {
+        auto start = node_index[get_node(bub.first)];
+        auto end = node_index[get_node(bub.second)];
+        // get the nodes in the range
+        auto& b = bubbles[bub];
+        for (int i = start; i <= end; ++i) {
+            b.push_back(graph.node(i).id());
+        }
+    }
+    return bubbles;
+}
 
 void VG::add_nodes(const set<Node*>& nodes) {
     for (auto node : nodes) {

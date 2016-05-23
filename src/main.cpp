@@ -3581,19 +3581,20 @@ int main_join(int argc, char** argv) {
 
 void help_stats(char** argv) {
     cerr << "usage: " << argv[0] << " stats [options] <graph.vg>" << endl
-        << "options:" << endl
-        << "    -z, --size            size of graph" << endl
-        << "    -N, --node-count      number of nodes in graph" << endl
-        << "    -E, --edge-count      number of edges in graph" << endl
-        << "    -l, --length          length of sequences in graph" << endl
-        << "    -s, --subgraphs       describe subgraphs of graph" << endl
-        << "    -H, --heads           list the head nodes of the graph" << endl
-        << "    -T, --tails           list the tail nodes of the graph" << endl
-        << "    -S, --siblings        describe the siblings of each node" << endl
-        << "    -c, --components      print the strongly connected components of the graph" << endl
-        << "    -n, --node ID         consider node with the given id" << endl
-        << "    -d, --to-head         show distance to head for each provided node" << endl
-        << "    -t, --to-tail         show distance to head for each provided node" << endl;
+         << "options:" << endl
+         << "    -z, --size            size of graph" << endl
+         << "    -N, --node-count      number of nodes in graph" << endl
+         << "    -E, --edge-count      number of edges in graph" << endl
+         << "    -l, --length          length of sequences in graph" << endl
+         << "    -s, --subgraphs       describe subgraphs of graph" << endl
+         << "    -H, --heads           list the head nodes of the graph" << endl
+         << "    -T, --tails           list the tail nodes of the graph" << endl
+         << "    -S, --siblings        describe the siblings of each node" << endl
+         << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
+         << "    -c, --components      print the strongly connected components of the graph" << endl
+         << "    -n, --node ID         consider node with the given id" << endl
+         << "    -d, --to-head         show distance to head for each provided node" << endl
+         << "    -t, --to-tail         show distance to head for each provided node" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -3614,6 +3615,7 @@ int main_stats(int argc, char** argv) {
     bool distance_to_tail = false;
     bool node_count = false;
     bool edge_count = false;
+    bool superbubbles = false;
     set<vg::id_t> ids;
 
     int c;
@@ -3634,11 +3636,12 @@ int main_stats(int argc, char** argv) {
             {"to-head", no_argument, 0, 'd'},
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
+            {"superbubbles", no_argument, 0, 'b'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NE",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEb",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -3647,62 +3650,66 @@ int main_stats(int argc, char** argv) {
 
         switch (c)
         {
-            case 'z':
-                stats_size = true;
-                break;
+        case 'z':
+            stats_size = true;
+            break;
 
-            case 'N':
-                node_count = true;
-                break;
+        case 'N':
+            node_count = true;
+            break;
 
-            case 'E':
-                edge_count = true;
-                break;
+        case 'E':
+            edge_count = true;
+            break;
 
-            case 'l':
-                stats_length = true;
-                break;
+        case 'l':
+            stats_length = true;
+            break;
 
-            case 's':
-                stats_subgraphs = true;
-                break;
+        case 's':
+            stats_subgraphs = true;
+            break;
 
-            case 'H':
-                stats_heads = true;
-                break;
+        case 'H':
+            stats_heads = true;
+            break;
 
-            case 'T':
-                stats_tails = true;
-                break;
+        case 'T':
+            stats_tails = true;
+            break;
 
-            case 'S':
-                show_sibs = true;
-                break;
+        case 'S':
+            show_sibs = true;
+            break;
 
-            case 'c':
-                show_components = true;
-                break;
+        case 'c':
+            show_components = true;
+            break;
 
-            case 'd':
-                distance_to_head = true;
-                break;
+        case 'd':
+            distance_to_head = true;
+            break;
 
-            case 't':
-                distance_to_tail = true;
-                break;
+        case 't':
+            distance_to_tail = true;
+            break;
 
-            case 'n':
-                ids.insert(atoi(optarg));
-                break;
+        case 'n':
+            ids.insert(atoi(optarg));
+            break;
 
-            case 'h':
-            case '?':
-                help_stats(argv);
-                exit(1);
-                break;
+        case 'b':
+            superbubbles = true;
+            break;
 
-            default:
-                abort ();
+        case 'h':
+        case '?':
+            help_stats(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
@@ -3769,15 +3776,27 @@ int main_stats(int argc, char** argv) {
         }
     }
 
+    if (superbubbles) {
+        for (auto& i : graph->superbubbles()) {
+            auto& b = i.first;
+            auto& v = i.second;
+            cout << b.first << "\t" << b.second << "\t";
+            for (auto& n : v) {
+                cout << n << ",";
+            }
+            cout << endl;
+        }
+    }
+
     if (show_sibs) {
         graph->for_each_node([graph](Node* n) {
                 for (auto trav : graph->full_siblings_to(NodeTraversal(n, false))) {
-                cout << n->id() << "\t" << "to-sib" << "\t" << trav.node->id() << endl;
+                    cout << n->id() << "\t" << "to-sib" << "\t" << trav.node->id() << endl;
                 }
                 for (auto trav : graph->full_siblings_from(NodeTraversal(n, false))) {
-                cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
+                    cout << n->id() << "\t" << "from-sib" << "\t" << trav.node->id() << endl;
                 }
-                });
+            });
     }
 
     if (show_components) {
