@@ -133,6 +133,7 @@ namespace vg {
     }
 
     bool Deconstructor::is_nested(SuperBubble sb){
+
         return false;
     }
 
@@ -144,10 +145,28 @@ namespace vg {
         h.set_version("VCF4.2");
 
         cout << h << endl;
-        for (auto s : bubs){
-            cout << s.start_node << endl;
-            cout << s.level_to_nodes.size() <<endl;
 
+        // for each superbubble:
+        // Fill out a vcflib Variant
+        // Check if it is masked by an input vcf
+        // if not, print it to stdout
+        
+        vcflib::VariantCallFile mask;
+        if (!mask_file.empty()){
+
+        }
+        for (auto s : bubs){
+            vcflib::Variant var;
+            //cout << s.start_node << "_" << s.end_node << "\t";
+            map<int, vector<id_t> >::iterator it;
+            for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); it++){
+                vector<id_t> middle_nodes = it->second;
+                for (int ind = 0; ind < middle_nodes.size(); ind++){
+                    //cout << middle_nodes[ind] << "\t";
+                }
+            }
+
+            //cout << endl;
 
         }
 
@@ -159,6 +178,10 @@ namespace vg {
      * labeled as the endpoints of superbubbles
      * to enumerate the nodes between them.
      *TODO: the dagify transform records the node translation
+
+     * IDEALLY: return the topological order, the starts/ends of superbubbles,
+     * and an index from node -> location in topo order. This makes
+     * checking if things are nested trivial.
      */
     vector<SuperBubble> Deconstructor::get_all_superbubbles(){
 
@@ -180,9 +203,8 @@ namespace vg {
             entrance_to_SB[bub.start_node] = bub;
             exit_to_SB[bub.end_node] = bub;
 
-            ret.push_back(bub);
+            //ret.push_back(bub);
         }
-        SuperBubble x;
         map<int, vector<id_t> > level_to_node;
         int level = 0;
 
@@ -220,7 +242,6 @@ namespace vg {
 
         vector<id_t> rto;
 
-        ret.clear();
 
         function<bool(id_t)> is_exit_node = [&exit_to_SB](id_t id){
             try{
@@ -253,7 +274,7 @@ namespace vg {
          my_vg->dfs(on_node_start, on_node_end);
         
          /**
-          * Go through nodes in reverse topo order
+          * Go through nodes in topo order
           * If they are entrance/exits, switch to concat mode
           * concat middle nodes to superbubble
           * if node is exit, switch off concat mode
@@ -268,19 +289,27 @@ namespace vg {
                 ret.push_back(current);
                 in_bub = false;
             }
+            else if (in_bub){
+                current.level_to_nodes[0].push_back(rto[i]);
+            }
 
             if (is_exit_node(rto[i])){
                 in_bub = true;
                 current = exit_to_SB[rto[i]];
             }
-            if (in_bub){
-                current.level_to_nodes[0].push_back(rto[i]);
-            }
+
+            
         }
+
+        reverse_topo_order = rto;
         
 
         return ret;
     }
+
+/*    map<id_t, int> cache_path_distances(){
+
+    } */
 
 
     vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal>& nt){
