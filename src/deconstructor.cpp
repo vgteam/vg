@@ -157,16 +157,16 @@ namespace vg {
         }
         for (auto s : bubs){
             vcflib::Variant var;
-            //cout << s.start_node << "_" << s.end_node << "\t";
+            cout << s.start_node << "_" << s.end_node << "\t";
             map<int, vector<id_t> >::iterator it;
             for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); it++){
                 vector<id_t> middle_nodes = it->second;
                 for (int ind = 0; ind < middle_nodes.size(); ind++){
-                    //cout << middle_nodes[ind] << "\t";
+                    cout << middle_nodes[ind] << "\t";
                 }
             }
 
-            //cout << endl;
+            cout << endl;
 
         }
 
@@ -281,10 +281,8 @@ namespace vg {
           * Need to maintain a pointer to SBs in map
           * Then, do a linear pass over map, create the set of pointers
           * and return
-          */
-        bool in_bub = false;
-        SuperBubble current;
-        for (int i = 0; i < rto.size(); i++){
+          *
+          *for (int i = 0; i < rto.size(); i++){
             if (is_entrance_node(rto[i])){
                 ret.push_back(current);
                 in_bub = false;
@@ -296,6 +294,25 @@ namespace vg {
             if (is_exit_node(rto[i])){
                 in_bub = true;
                 current = exit_to_SB[rto[i]];
+            }
+
+            
+        }
+          */
+        bool in_bub = false;
+        SuperBubble current;
+        for (int i = rto.size() - 1; i > 0; i--){
+            if (is_exit_node(rto[i])){
+                ret.push_back(current);
+                in_bub = false;
+            }
+            else if (in_bub){
+                current.level_to_nodes[0].push_back(rto[i]);
+            }
+
+            if (is_entrance_node(rto[i])){
+                in_bub = true;
+                current = entrance_to_SB[rto[i]];
             }
 
             

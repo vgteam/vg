@@ -68,6 +68,10 @@ namespace vg{
           map<id_t, pair<id_t, bool> > my_dagify_translation;
           map<id_t, SuperBubble> id_to_bub;
 
+          vector<id_t> reverse_topo_order;
+
+          string mask_file = "";
+
           vector<SuperBubble> my_superbubbles;
           size_t my_max_length;
           size_t my_max_component_length;
