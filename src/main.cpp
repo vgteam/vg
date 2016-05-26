@@ -6916,7 +6916,8 @@ int main_view(int argc, char** argv) {
             << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
             << " -u -- unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
             << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
-            << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
+            << " -m --mask <vcf>.vcf     Look for variants not in <vcf> in the graph" << endl
+            << " -v --inverse            Invert the mask; only look for variants in <vcf>.vcf. (Requires -m)" << endl
             << endl;
     }
     int main_deconstruct(int argc, char** argv){
@@ -6930,6 +6931,7 @@ int main_view(int argc, char** argv) {
         bool print_sbs = false;
         string outfile = "";
         bool dagify = false;
+        bool invert = false;
         int unroll_steps = 0;
         int compact_steps = 0;
         string mask_file = "";
@@ -6949,11 +6951,12 @@ int main_view(int argc, char** argv) {
                 {"mask", required_argument, 0, 'm'},
                 {"dagify", no_argument, 0, 'd'},
                 {"superbubbles", no_argument, 0, 's'},
+                {"invert", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
 
             };
             int option_index = 0;
-            c = getopt_long (argc, argv, "ho:u:c:m:sx:",
+            c = getopt_long (argc, argv, "ho:u:c:vm:sx:",
                     long_options, &option_index);
 
             // Detect the end of the options.
@@ -6982,6 +6985,9 @@ int main_view(int argc, char** argv) {
                     break;
                 case 'd':
                     dagify = true;
+                    break;
+                case 'v':
+                    invert = true;
                     break;
                 case '?':
                 case 'h':

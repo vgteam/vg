@@ -66,7 +66,7 @@ namespace vg{
           map<id_t, pair<id_t, bool> > my_translation;
           map<id_t, pair<id_t, bool> > my_unroll_translation;
           map<id_t, pair<id_t, bool> > my_dagify_translation;
-          map<id_t, SuperBubble> id_to_bub;
+          map<id_t, SuperBubble> id_to_bub; 
 
           vector<id_t> reverse_topo_order;
 
@@ -77,6 +77,7 @@ namespace vg{
           size_t my_max_component_length;
 
 		  vector<int64_t> nt_to_ids(deque<NodeTraversal>& nt);
+
           SuperBubble translate_id(id_t id);
 		  void init();
 

@@ -154,9 +154,10 @@ namespace vg {
         
         
         
+        map<id_t, vcflib::Variant> node_to_var;
         vcflib::VariantCallFile mask;
         if (!mask_file.empty()){
-
+            //node_to_var = my_vg->get_node_to_variant(mask);
         }
         for (auto s : bubs){
             vcflib::Variant var;

@@ -182,6 +182,43 @@ SB_Input VG::vg_to_sb_input(){
   return sbi;
 }
 
+    id_t VG::get_node_at_nucleotide(string pathname, int nuc){
+        Path p = paths.path(pathname);
+        
+        int nt_start = 0;
+        int nt_end = 0;
+        for (int i = 0; i < p.mapping_size(); i++){
+            Mapping m = p.mapping(i);
+            Position pos = m.position();
+            id_t n_id = pos.node_id();
+            Node* node = get_node(n_id);
+            nt_end += node->sequence().length();
+            if (nuc < nt_end && nuc >= nt_start){
+                return n_id;
+            }
+            nt_start += node->sequence().length();
+            if (nt_start > nuc && nt_end > nuc){
+                throw std::out_of_range("Nucleotide position not found in path.");
+            }
+        }
+
+    }
+ 
+ map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
+    map<id_t, vcflib::Variant> ret;
+    vcflib::Variant var;
+
+    while(vfile.getNextVariant(var)){
+        long nuc = var.position;
+        id_t node_id = get_node_at_nucleotide(var.sequenceName, nuc);
+        ret[node_id] = var;
+    }
+
+    return ret;
+ }
+
+
+
 vector<pair<id_t, id_t> > VG::get_superbubbles(SB_Input sbi){
     vector<pair<id_t, id_t> > ret;
     supbub::Graph sbg (sbi.num_vertices);
