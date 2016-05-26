@@ -367,6 +367,14 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                         Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
                                                              left_side1, !left_side2);
                         int edge_support = support >= 0 ? support : min(call_sides1.sup(i), call_sides2.sup(j));
+                        // hack to decrease support for an edge that spans an insertion, by subtracting
+                        // that insertion's copy number.  
+                        NodeOffSide no1(NodeSide(node1->id(), !left_side1), from_offset);
+                        NodeOffSide no2(NodeSide(node2->id(), !left_side2), to_offset);
+                        auto is_it = _insertion_supports.find(make_pair(no1, no2));
+                        if (is_it != _insertion_supports.end()) {
+                            edge_support = max(0, edge_support - is_it->second);
+                        }
                         // can edges be written more than once with different cats?
                         // if so, first one will prevail. should check if this
                         // can impact vcf converter...
@@ -825,18 +833,24 @@ void Caller::create_node_calls(const NodePileup& np) {
                     _augmented_edges[make_pair(no1, no2)] = 'I';
                     // bridge from insert
                     if (next < _node->sequence().length()) {
-                        no1 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
-                        no2 = NodeOffSide(NodeSide(_node->id(), false), next);
-                        _augmented_edges[make_pair(no1, no2)] = 'I';
+                        NodeOffSide no3 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
+                        NodeOffSide no4 = NodeOffSide(NodeSide(_node->id(), false), next);
+                        _augmented_edges[make_pair(no3, no4)] = 'I';
+                        // bridge across insert
+                        _augmented_edges[make_pair(no1, no4)] = 'R';
+                        _insertion_supports[make_pair(no1, no4)] = sup;
                     } else {
                         // we have to link all outgoing edges to our insert if
                         // we're at end of node (unlike snps, the fragment structure doesn't
                         // handle these cases)
                         vector<pair<id_t, bool>> next_nodes = _graph->edges_end(_node->id());
-                        no1 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
+                        NodeOffSide no3 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
                         for (auto nn : next_nodes) {
-                            no2 = NodeOffSide(NodeSide(nn.first, nn.second), 0);
-                            _augmented_edges[make_pair(no1, no2)] = 'I';
+                            NodeOffSide no4 = NodeOffSide(NodeSide(nn.first, nn.second), 0);
+                            _augmented_edges[make_pair(no3, no4)] = 'I';
+                            // bridge across insert
+                            _augmented_edges[make_pair(no1, no4)] = 'R';
+                            _insertion_supports[make_pair(no1, no4)] = sup;
                         }
                     }
                 }

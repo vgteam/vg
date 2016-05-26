@@ -152,6 +152,10 @@ public:
     };
     typedef unordered_map<int64_t, InsertionRecord> InsertionHash;
     InsertionHash _inserted_nodes;
+    // hack for better estimating support for edges that go around
+    // insertions (between the adjacent ref nodes)
+    typedef unordered_map<pair<NodeOffSide, NodeOffSide>, int> EdgeSupHash;
+    EdgeSupHash _insertion_supports;
 
     // used to favour homozygous genotype (r from MAQ paper)
     double _het_log_prior;
