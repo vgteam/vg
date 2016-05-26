@@ -155,6 +155,7 @@ void Caller::update_call_graph() {
             return;
         }
         int support = called ? called_it->second : 0;
+        assert(support >= 0);
         
         Node* side1 = _graph->get_node(sides.first.node);
         Node* side2 = _graph->get_node(sides.second.node);
@@ -365,7 +366,7 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                     if (!_call_graph.has_edge(side1, side2)) {
                         Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
                                                              left_side1, !left_side2);
-                        int edge_support = min(call_sides1.sup(i), call_sides2.sup(j));
+                        int edge_support = support >= 0 ? support : min(call_sides1.sup(i), call_sides2.sup(j));
                         // can edges be written more than once with different cats?
                         // if so, first one will prevail. should check if this
                         // can impact vcf converter...
