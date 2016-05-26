@@ -134,6 +134,7 @@ namespace vg {
 
     bool Deconstructor::is_nested(SuperBubble sb){
 
+
         return false;
     }
 
@@ -151,22 +152,50 @@ namespace vg {
         // Check if it is masked by an input vcf
         // if not, print it to stdout
         
+        
+        
         vcflib::VariantCallFile mask;
         if (!mask_file.empty()){
 
         }
         for (auto s : bubs){
             vcflib::Variant var;
-            cout << s.start_node << "_" << s.end_node << "\t";
+            /*set ref = str(ref)
+             * First fill out alleles[0] with ref
+             * then alts as 1....N
+             *
+             * push the alternate alleles into alts[] too
+             *
+             * Position: your guess is as good as mine
+             *
+             * id: need annotations
+             *
+             *
+             */
+
+            var.sequenceName = "seq";
+            var.position = 0;
+            var.id = ".";
             map<int, vector<id_t> >::iterator it;
             for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); it++){
+            //cout << s.start_node << "_" << s.end_node << "\t";
                 vector<id_t> middle_nodes = it->second;
                 for (int ind = 0; ind < middle_nodes.size(); ind++){
-                    cout << middle_nodes[ind] << "\t";
+                    Node* n = my_vg->get_node(middle_nodes[ind]);
+                    if (my_vg->paths.has_node_mapping(n)){
+                        var.ref = n->sequence();
+                        var.alleles.push_back(n->sequence());
+                    }
+                    else{
+                        var.alt.push_back(n->sequence());
+                    }
+                    //cout << middle_nodes[ind] << "\t";
                 }
             }
 
-            cout << endl;
+            cout << var << endl;
+
+            //cout << endl;
 
         }
 
