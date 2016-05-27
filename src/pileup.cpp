@@ -225,7 +225,10 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             if (edge_qual >= _min_quality) {
                 EdgePileup* edge_pileup = get_create_edge_pileup(pair<NodeSide, NodeSide>(s1, s2));
                 if (edge_pileup->num_reads() < _max_depth) {
-                  edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
+                    edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
+                    if (!m1.position().is_reverse()) {
+                      edge_pileup->set_num_forward_reads(edge_pileup->num_forward_reads() + 1);
+                  }
                   if (!alignment.quality().empty()) {
                     *edge_pileup->mutable_qualities() += edge_qual;
                   }
@@ -584,12 +587,16 @@ EdgePileup& Pileups::merge_edge_pileups(EdgePileup& p1, EdgePileup& p2) {
     assert(p1.edge().to_end() == p2.edge().to_end());
     int merge_size = min(p2.num_reads(), _max_depth - p1.num_reads());
     p1.set_num_reads(p1.num_reads() + merge_size);
+    int forward_merge_size = p2.num_forward_reads() *
+        ((double)merge_size / (double)p2.num_reads()); 
+    p1.set_num_forward_reads(p1.num_forward_reads() + forward_merge_size);
     if (merge_size == p2.num_reads()) {
         p1.mutable_qualities()->append(p2.qualities());
     } else if (!p2.qualities().empty()) {
         p1.mutable_qualities()->append(p2.qualities().substr(0, merge_size));
     }
     p2.set_num_reads(0);
+    p2.set_num_forward_reads(0);
     p2.clear_qualities();
     return p1;
 }

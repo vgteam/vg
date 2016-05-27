@@ -18,6 +18,35 @@ namespace vg {
 
 using namespace std;
 
+// container for storing pairs of support for calls (value for each strand)
+struct StrandSupport {
+    int fs; // forward support
+    int rs; // reverse support
+    StrandSupport(int f = 0, int r = 0) : fs(f), rs(r) {}
+    bool operator<(const StrandSupport& other) const {
+        if ((fs + rs) == (other.fs + other.rs)) {
+            // more strand bias taken as less support
+            return abs(fs - rs) > abs(other.fs - rs);
+        } 
+        return fs + rs < other.fs + other.rs;
+    }
+    bool operator>=(const StrandSupport& other) const {
+        return !(*this < other);
+    }
+    bool operator==(const StrandSupport& other) const {
+        return fs == other.fs && rs == other.rs;
+    }
+    // min out at 0
+    StrandSupport operator-(const StrandSupport& other) const {
+        return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs));
+    }
+    StrandSupport& operator+=(const StrandSupport& other) {
+        fs += other.fs;
+        rs += other.rs;
+        return *this;
+    }
+};
+
 // We need to break apart nodes but remember where they came from to update edges.
 // Wrap all this up in this class.  For a position in the input graph, we can have
 // up to three nodes in the augmented graph (Ref, Alt1, Alt2), so we map to node
@@ -27,17 +56,17 @@ struct NodeDivider {
     // up to three fragments per position in augmented graph (basically a Node 3-tuple,
     // avoiding aweful C++ tuple syntax)
     enum EntryCat {Ref = 0, Alt1, Alt2, Last};
-    struct Entry { Entry(Node* r = 0, int sup_r = 0,
-                         Node* a1 = 0, int sup_a1 = 0,
-                         Node* a2 = 0, int sup_a2 = 0) : ref(r), alt1(a1), alt2(a2),
+    struct Entry { Entry(Node* r = 0, StrandSupport sup_r = StrandSupport(),
+                         Node* a1 = 0, StrandSupport sup_a1 = StrandSupport(),
+                         Node* a2 = 0, StrandSupport sup_a2 = StrandSupport()) : ref(r), alt1(a1), alt2(a2),
                                                                sup_ref(sup_r), sup_alt1(sup_a1), sup_alt2(sup_a2){}
         Node* ref; Node* alt1; Node* alt2;
-        int sup_ref; int sup_alt1; int sup_alt2;
+        StrandSupport sup_ref; StrandSupport sup_alt1; StrandSupport sup_alt2;
         Node*& operator[](int i) {
             assert(i >= 0 && i <= 2);
             return i == EntryCat::Ref ? ref : (i == EntryCat::Alt1 ? alt1 : alt2);
         }
-        int& sup(int i) {
+        StrandSupport& sup(int i) {
             assert(i >= 0 && i <= 2);
             return i == EntryCat::Ref ? sup_ref : (i == EntryCat::Alt1 ? sup_alt1 : sup_alt2);
         }
@@ -50,7 +79,7 @@ struct NodeDivider {
     int64_t* _max_id;
     // map given node to offset i of node with id in original graph
     // this function can never handle overlaps (and should only be called before break_end)
-    void add_fragment(const Node* orig_node, int offset, Node* subnode, EntryCat cat, int sup);
+    void add_fragment(const Node* orig_node, int offset, Node* subnode, EntryCat cat, StrandSupport sup);
     // break node if necessary so that we can attach edge at specified side
     // this function wil return NULL if there's no node covering the given location
     Entry break_end(const Node* orig_node, VG* graph, int offset, bool left_side);
@@ -121,13 +150,13 @@ public:
     typedef pair<string, string> Genotype;
     vector<Genotype> _node_calls;
     vector<double> _node_likelihoods;
-    vector<pair<int, int> > _node_supports;
+    vector<pair<StrandSupport, StrandSupport> > _node_supports;
     // separate structure for isnertion calls since they
     // don't really have reference coordinates (instead happen just to
     // right of offset).  
     vector<Genotype> _insert_calls;
     vector<double> _insert_likelihoods;
-    vector<pair<int, int> > _insert_supports;
+    vector<pair<StrandSupport, StrandSupport> > _insert_supports;
     // buffer for current node;
     const Node* _node;
     // max id in call_graph
@@ -146,7 +175,7 @@ public:
     // keep track of inserted nodes for tsv output
     struct InsertionRecord {
         Node* node;
-        int sup;
+        StrandSupport sup;
         int64_t orig_id;
         int orig_offset;
     };
@@ -154,7 +183,7 @@ public:
     InsertionHash _inserted_nodes;
     // hack for better estimating support for edges that go around
     // insertions (between the adjacent ref nodes)
-    typedef unordered_map<pair<NodeOffSide, NodeOffSide>, int> EdgeSupHash;
+    typedef unordered_map<pair<NodeOffSide, NodeOffSide>, StrandSupport> EdgeSupHash;
     EdgeSupHash _insertion_supports;
 
     // used to favour homozygous genotype (r from MAQ paper)
@@ -234,11 +263,11 @@ public:
 
     void create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
                                Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
-                               int support);
+                               StrandSupport support);
 
     // write calling info to tsv to help with VCF conversion
-    void write_node_tsv(Node* node, char call, int support, int64_t orig_id, int orig_offset);
-    void write_edge_tsv(Edge* edge, char call, int support);
+    void write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset);
+    void write_edge_tsv(Edge* edge, char call, StrandSupport support);
     void write_nd_tsv();
 
     // log function that tries to avoid 0s

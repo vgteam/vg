@@ -146,8 +146,9 @@ message NodePileup {
 // Keep pileup-like record for reads that span edges
 message EdgePileup {
     Edge edge = 1;
- 	int32 num_reads = 2;
-	bytes qualities = 3;
+ 	 int32 num_reads = 2;	// total reads mapped
+	 int32 num_forward_reads = 3; // number of reads mapped on forward strand
+	 bytes qualities = 4;
 }
 
 // Bundle up Node and Edge pileups
