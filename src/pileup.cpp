@@ -182,10 +182,12 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             in_read_offsets[i] = read_offset;
             for (int j = 0; j < mapping.edit_size(); ++j) {
                 const Edit& edit = mapping.edit(j);
+                const Edit* next_edit = j + 1 < mapping.edit_size() ? &mapping.edit(j + 1) : NULL;
                 // process all pileups in edit.
                 // update the offsets as we go
                 compute_from_edit(*pileup, node_offset, read_offset, *node,
-                                  alignment, mapping, edit, mismatch_counts, last_match, last_del, open_del);
+                                  alignment, mapping, edit, next_edit, mismatch_counts,
+                                  last_match, last_del, open_del);
             }
             out_read_offsets[i] = read_offset - 1;
 
@@ -247,6 +249,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                                 int64_t& read_offset,
                                 const Node& node, const Alignment& alignment,
                                 const Mapping& mapping, const Edit& edit,
+                                const Edit* next_edit,
                                 const vector<int>& mismatch_counts,
                                 pair<const Mapping*, int64_t>& last_match,
                                 pair<const Mapping*, int64_t>& last_del,
@@ -335,7 +338,10 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
             // position (on forward node coordinates). this means an insertion before
             // offset 0 is invalid! 
             int64_t insert_offset =  map_reverse ? node_offset : node_offset - 1;
-            if (insert_offset >= 0) {        
+            if (insert_offset >= 0 &&
+                // make sure we have a match before and after the insert to take it seriously
+                next_edit != NULL && last_match.first != NULL &&
+                next_edit->from_length() == next_edit->to_length()) {        
                 BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
                 if (base_pileup->num_bases() < _max_depth) {
                     // reference_base if empty

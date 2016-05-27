@@ -172,6 +172,7 @@ public:
     void compute_from_edit(NodePileup& pileup, int64_t& node_offset, int64_t& read_offset,
                            const Node& node, const Alignment& alignment,
                            const Mapping& mapping, const Edit& edit,
+                           const Edit* next_edit,
                            const vector<int>& mismatch_counts,
                            pair<const Mapping*, int64_t>& last_match,
                            pair<const Mapping*, int64_t>& last_del,
