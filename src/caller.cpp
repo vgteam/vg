@@ -94,9 +94,11 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
     _insert_likelihoods.clear();
     _insert_likelihoods.assign(_node->sequence().length(), safe_log(0));
     _node_supports.clear();
-    _node_supports.assign(_node->sequence().length(), make_pair(0, 0));
+    _node_supports.assign(_node->sequence().length(), make_pair(
+                              StrandSupport(), StrandSupport()));
     _insert_supports.clear();
-    _insert_supports.assign(_node->sequence().length(), make_pair(0, 0));
+    _insert_supports.assign(_node->sequence().length(), make_pair(
+                                StrandSupport(), StrandSupport()));
 
     // process each base in pileup individually
     #pragma omp parallel for
@@ -154,8 +156,8 @@ void Caller::update_call_graph() {
         if (!_leave_uncalled && !called) {
             return;
         }
-        int support = called ? called_it->second : 0;
-        assert(support >= 0);
+        StrandSupport support = called ? called_it->second : StrandSupport(0, 0);
+        assert(support.fs >= 0 && support.rs >= 0);
         
         Node* side1 = _graph->get_node(sides.first.node);
         Node* side2 = _graph->get_node(sides.second.node);
@@ -199,7 +201,7 @@ void Caller::update_call_graph() {
                 aug2 = false;
             }
             // only need to pass support for here insertions, other cases handled elsewhere
-            int support = -1;
+            StrandSupport support(-1, -1);
             if (cat == 'I') {
                 auto ins_it = _inserted_nodes.find(os1.first.node);
                 if (ins_it != _inserted_nodes.end()) {
@@ -209,7 +211,7 @@ void Caller::update_call_graph() {
                     assert(ins_it != _inserted_nodes.end());
                     support = ins_it->second.sup;
                 }
-                assert(support >= 0);
+                assert(support.fs >= 0 && support.rs >= 0);
             }
             int to_offset = os2.second;
             bool left2 = !os2.first.is_end;
@@ -328,7 +330,7 @@ void Caller::verify_path(const Path& in_path, const list<Mapping>& call_path) {
 
 void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1, bool aug1,
                                    Node* node2, int to_offset, bool left_side2, bool aug2, char cat,
-                                   int support) {
+                                   StrandSupport support) {
     NodeDivider::Entry call_sides1;
     NodeDivider::Entry call_sides2;
 
@@ -366,14 +368,15 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                     if (!_call_graph.has_edge(side1, side2)) {
                         Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
                                                              left_side1, !left_side2);
-                        int edge_support = support >= 0 ? support : min(call_sides1.sup(i), call_sides2.sup(j));
+                        StrandSupport edge_support = support >= StrandSupport(0, 0) ? support :
+                            min(call_sides1.sup(i), call_sides2.sup(j));
                         // hack to decrease support for an edge that spans an insertion, by subtracting
                         // that insertion's copy number.  
                         NodeOffSide no1(NodeSide(node1->id(), !left_side1), from_offset);
                         NodeOffSide no2(NodeSide(node2->id(), !left_side2), to_offset);
                         auto is_it = _insertion_supports.find(make_pair(no1, no2));
                         if (is_it != _insertion_supports.end()) {
-                            edge_support = max(0, edge_support - is_it->second);
+                            edge_support = edge_support - is_it->second;
                         }
                         // can edges be written more than once with different cats?
                         // if so, first one will prevail. should check if this
@@ -422,7 +425,7 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     double& base_likelihood = insertion ? _insert_likelihoods[offset] : _node_likelihoods[offset];
     base_likelihood = mp_snp_genotype(bp, base_offsets, top_base, second_base, g);
     Genotype& base_call = insertion ? _insert_calls[offset] : _node_calls[offset];
-    pair<int, int>& support = insertion ? _insert_supports[offset] : _node_supports[offset];
+    pair<StrandSupport, StrandSupport>& support = insertion ? _insert_supports[offset] : _node_supports[offset];
 
     if (base_likelihood >= _min_log_likelihood) {
         // update the node calls
@@ -432,7 +435,8 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
             } else {
                 base_call.first = ".";
             }
-            support.first = top_count;
+            support.first.fs = top_count - top_rev_count;
+            support.first.rs = top_rev_count;
         }
         if (second_count >= min_support && second_sb <= _max_strand_bias) {
             if (g.second != ref_base && g.second != g.first) {
@@ -440,7 +444,8 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
             } else {
                 base_call.second = ".";
             }
-            support.second = second_count;
+            support.second.fs = second_count - second_rev_count;
+            support.second.rs = second_rev_count;
         }
     }
     if (base_call.first == "-" && base_call.second != "-") {
@@ -699,7 +704,7 @@ void Caller::create_node_calls(const NodePileup& np) {
             }        
             else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
                 // add reference
-                int sup = 0;
+                StrandSupport sup(0, 0);
                 if (_node_calls[cur].first == ".") {
                     sup += _node_supports[cur].first;
                 }
@@ -722,12 +727,12 @@ void Caller::create_node_calls(const NodePileup& np) {
                 // some mix of reference and alts
                 assert(next == cur + 1);
                 
-                function<void(string&, int, string&, int, NodeDivider::EntryCat)>  call_het =
-                    [&](string& call1, int support1, string& call2, int support2, NodeDivider::EntryCat altCat) {
+                function<void(string&, StrandSupport, string&, StrandSupport, NodeDivider::EntryCat)>  call_het =
+                    [&](string& call1, StrandSupport support1, string& call2, StrandSupport support2, NodeDivider::EntryCat altCat) {
                 
                     if (call1 == "." || (_leave_uncalled && altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
                         // reference base
-                        int sup = call1 == "." ? support1 : 0;
+                        StrandSupport sup = call1 == "." ? support1 : StrandSupport(0, 0);
                         assert(call2 != "."); // should be handled above
                         string new_seq = seq.substr(cur, 1);
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
@@ -744,7 +749,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                     if (call1 != "." && call1[0] != '-' && call1[0] != '+' && (
                             // we only want to process a homozygous snp once:
                             call1 != call2 || altCat == NodeDivider::EntryCat::Alt1)) {
-                        int sup = support1;
+                        StrandSupport sup = support1;
                         // snp base
                         string new_seq = call1;
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
@@ -811,8 +816,8 @@ void Caller::create_node_calls(const NodePileup& np) {
             }
 
             // inserts done separate at end since they take start between cur and next
-            function<void(string&, int, string&, int, NodeDivider::EntryCat)>  call_inserts =
-                [&](string& ins_call1, int ins_support1, string& ins_call2, int ins_support2,
+            function<void(string&, StrandSupport, string&, StrandSupport, NodeDivider::EntryCat)>  call_inserts =
+                [&](string& ins_call1, StrandSupport ins_support1, string& ins_call2, StrandSupport ins_support2,
                     NodeDivider::EntryCat altCat) {
                 if (ins_call1[0] == '+' && (
                         // we only want to process homozygous insert once
@@ -823,7 +828,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                     Pileups::parse_insert(ins_call1, ins_len, ins_seq, ins_rev);
                     // todo: check reverse?
                     Node* node = _call_graph.create_node(ins_seq, ++_max_id);
-                    int sup = ins_support1;
+                    StrandSupport sup = ins_support1;
                     InsertionRecord ins_rec = {node, sup, _node->id(), next-1};
                     _inserted_nodes[node->id()] = ins_rec;
 
@@ -870,16 +875,17 @@ void Caller::create_node_calls(const NodePileup& np) {
     }
 }
 
-void Caller::write_node_tsv(Node* node, char call, int support, int64_t orig_id, int orig_offset)
+void Caller::write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
-    *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << support << "\t"
-                 << orig_id << "\t" << orig_offset << endl;
+    *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << support.fs << "\t"
+                 << support.rs << "\t" << orig_id << "\t" << orig_offset << endl;
 }
 
-void Caller::write_edge_tsv(Edge* edge, char call, int support)
+void Caller::write_edge_tsv(Edge* edge, char call, StrandSupport support)
 {
     *_text_calls << "E\t" << edge->from() << "," << edge->from_start() << "," 
-                 << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << support << "\t.\t.\n";
+                 << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << support.fs
+                 << "\t" << support.rs << "\t.\t.\n";
 }
 
 void Caller::write_nd_tsv()
@@ -889,7 +895,7 @@ void Caller::write_nd_tsv()
         for (auto& j : i.second) {
             int64_t orig_node_offset = j.first;
             NodeDivider::Entry& entry = j.second;
-            char call = entry.sup_ref == 0 ? 'U' : 'R';
+            char call = entry.sup_ref == StrandSupport(0, 0) ? 'U' : 'R';
             write_node_tsv(entry.ref, call, entry.sup_ref, orig_node_id, orig_node_offset);
             if (entry.alt1 != NULL) {
                 write_node_tsv(entry.alt1, 'S', entry.sup_alt1, orig_node_id, orig_node_offset);
@@ -901,7 +907,8 @@ void Caller::write_nd_tsv()
     }
 }
 
-void NodeDivider::add_fragment(const Node* orig_node, int offset, Node* fragment, EntryCat cat, int sup) {
+void NodeDivider::add_fragment(const Node* orig_node, int offset, Node* fragment,
+                               EntryCat cat, StrandSupport sup) {
     
     NodeHash::iterator i = index.find(orig_node->id());
     if (i == index.end()) {
@@ -948,7 +955,7 @@ NodeDivider::Entry NodeDivider::break_end(const Node* orig_node, VG* graph, int 
     --j;
     int sub_offset = j->first;
 
-    function<Node*(Node*, EntryCat, char)>  lambda =[&](Node* fragment, EntryCat cat, int sup) {
+    function<Node*(Node*, EntryCat, StrandSupport)>  lambda =[&](Node* fragment, EntryCat cat, StrandSupport sup) {
         if (offset < sub_offset || offset >= sub_offset + fragment->sequence().length()) {
             return (Node*)NULL;
         }
@@ -977,13 +984,13 @@ NodeDivider::Entry NodeDivider::break_end(const Node* orig_node, VG* graph, int 
     };
 
     // none of this affects copy number
-    int sup_ref = j->second.sup_ref;
+    StrandSupport sup_ref = j->second.sup_ref;
     Node* fragment_ref = j->second.ref;
     Node* new_node_ref = fragment_ref != NULL ? lambda(fragment_ref, Ref, sup_ref) : NULL;
-    int sup_alt1 = j->second.sup_alt1;
+    StrandSupport sup_alt1 = j->second.sup_alt1;
     Node* fragment_alt1 = j->second.alt1;
     Node* new_node_alt1 = fragment_alt1 != NULL ? lambda(fragment_alt1, Alt1, sup_alt1) : NULL;
-    int sup_alt2 = j->second.sup_alt2;
+    StrandSupport sup_alt2 = j->second.sup_alt2;
     Node* fragment_alt2 = j->second.alt2;
     Node* new_node_alt2 = fragment_alt2 != NULL ? lambda(fragment_alt2, Alt2, sup_alt2) : NULL;
 
