@@ -28,7 +28,11 @@ public:
         _min_quality(min_quality),
         _max_mismatches(max_mismatches),
         _window_size(window_size),
-        _max_depth(max_depth){}
+        _max_depth(max_depth),
+        _min_quality_count(0),
+        _max_mismatch_count(0),
+        _bases_count(0)
+{}
     
     // copy constructor
     Pileups(const Pileups& other) {
@@ -41,6 +45,9 @@ public:
             _max_mismatches = other._max_mismatches;
             _window_size = other._window_size;
             _max_depth = other._max_depth;
+            _min_quality_count = other._min_quality_count;
+            _max_mismatch_count = other._max_mismatch_count;
+            _bases_count = other._bases_count;
         }
     }
 
@@ -53,6 +60,9 @@ public:
         _max_mismatches = other._max_mismatches;
         _window_size = other._window_size;
         _max_depth = other._max_depth;
+        _min_quality_count = other._min_quality_count;
+        _max_mismatch_count = other._max_mismatch_count;
+        _bases_count = other._bases_count;
     }
 
     // copy assignment operator
@@ -71,6 +81,9 @@ public:
         _max_mismatches = other._max_mismatches;
         _window_size = other._window_size;
         _max_depth = other._max_depth;
+        _min_quality_count = other._min_quality_count;
+        _max_mismatch_count = other._max_mismatch_count;
+        _bases_count = other._bases_count;
         return *this;
     }
 
@@ -97,6 +110,12 @@ public:
     int _window_size;
     // prevent giant protobufs
     int _max_depth;
+    // Keep count of bases filtered by quality
+    mutable uint64_t _min_quality_count;
+    // keep count of bases filtered by mismatches
+    mutable uint64_t _max_mismatch_count;
+    // overall count for perspective on above
+    mutable uint64_t _bases_count;
 
     // write to JSON
     void to_json(ostream& out);
@@ -166,6 +185,7 @@ public:
 
     // check base quality as well as miss match filter
     bool pass_filter(const Alignment& alignment, int64_t read_offset,
+                     int64_t length,
                      const vector<int>& mismatches) const;
             
     // move all entries in other object into this one.

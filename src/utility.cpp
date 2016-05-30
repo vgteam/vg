@@ -106,6 +106,17 @@ bool allATGC(const string& s) {
     return true;
 }
 
+string nonATGCNtoN(const string& s) {
+    auto n = s;
+    for (string::iterator c = n.begin(); c != n.end(); ++c) {
+        char b = *c;
+        if (b != 'A' && b != 'T' && b != 'G' && b != 'C' && b != 'N') {
+            *c = 'N';
+        }
+    }
+    return n;
+}
+
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
     for (const auto& edit : mapping.edit()) {
         if (edit.from_length() && edit.from_length() == edit.to_length()) {
