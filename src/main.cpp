@@ -5659,6 +5659,7 @@ void help_map(char** argv) {
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "paired end alignment parameters:" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
+         << "    -W, --fragment-window N    use SMEM based distance estimation to allow only pairable SMEMs with this fragment length" << endl
          << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
@@ -5747,6 +5748,7 @@ int main_map(int argc, char** argv) {
     int extra_pairing_multimaps = 4;
     string gam_input;
     bool compare_gam;
+    int fragment_size = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5804,11 +5806,12 @@ int main_map(int argc, char** argv) {
                 {"promote-paired", no_argument, 0, 'a'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
                 {"compare", required_argument, 0, 'w'},
+                {"fragment-window", required_argument, 0, 'W'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:au:",
+        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:au:W:",
                          long_options, &option_index);
 
 
@@ -6012,6 +6015,10 @@ int main_map(int argc, char** argv) {
             compare_gam = true;
             break;
 
+        case 'W':
+            fragment_size = atoi(optarg);
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -6180,6 +6187,7 @@ int main_map(int argc, char** argv) {
         m->promote_consistent_pairs = promote_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
         m->always_rescue = always_rescue;
+        m->fragment_size = fragment_size;
         mapper[i] = m;
     }
 

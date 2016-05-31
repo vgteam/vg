@@ -101,6 +101,9 @@ public:
                            int band_width = 1000);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
+    set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
+                                                vector<MaximalExactMatch>& mems2);
+
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
 
@@ -212,6 +215,7 @@ public:
     bool promote_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
+    int fragment_size; // Used to bound clustering of MEMs during paired end mapping
 
 };
 

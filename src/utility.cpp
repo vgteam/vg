@@ -241,4 +241,16 @@ string get_or_make_variant_id(vcflib::Variant variant) {
     }
 }
 
+double median(std::vector<int> &v) {
+    size_t n = v.size() / 2;
+    std::nth_element(v.begin(), v.begin()+n, v.end());
+    int vn = v[n];
+    if (v.size()%2 == 1) {
+        return vn;
+    } else {
+        std::nth_element(v.begin(), v.begin()+n-1, v.end());
+        return 0.5*(vn+v[n-1]);
+    }
+}
+
 }
