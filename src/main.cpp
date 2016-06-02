@@ -5370,24 +5370,25 @@ void help_map(char** argv) {
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "    -U, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
+         << "    -a, --consistent-pairs     report pairs instead of individual alignments and filter to consistent pairings" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
-         << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
-         << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
+         << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairings (default: 4)" << endl
          << "generic mapping parameters:" << endl
-         << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
-         << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
-         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 7)" << endl
-         << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
-         << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
-         << "    -m, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
-         << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
-         << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
-         << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
-         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
-         << "    -t, --threads N       number of threads to use" << endl
-         << "    -G, --greedy-accept   if a tested alignment achieves -X identity don't try worse seeds" << endl
-         << "    -X, --accept-identity N  accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
-         << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
+         << "    -B, --band-width N        for very long sequences, align in chunks then merge paths, no mapping quality (default 1000bp)" << endl
+         << "    -P, --min-identity N      accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
+         << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
+         << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
+         << "    -T, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
+         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
+         << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
+         << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
+         << "    -H, --max-target-x N      skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
+         << "    -e, --thread-ex N         grab this many nodes in id space around each thread for alignment (default: 10)" << endl
+         << "    -t, --threads N           number of threads to use" << endl
+         << "    -G, --greedy-accept       if a tested alignment achieves -X identity don't try worse seeds" << endl
+         << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
+         << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
+         << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
@@ -5456,8 +5457,9 @@ int main_map(int argc, char** argv) {
     int gap_open = 6;
     int gap_extend = 1;
     bool qual_adjust_alignments = false;
-    bool promote_consistent_pairs = false;
+    bool report_consistent_pairs = false;
     int extra_pairing_multimaps = 4;
+    int method_code = 1;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5513,13 +5515,14 @@ int main_map(int argc, char** argv) {
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, 'U'},
-                {"promote-paired", no_argument, 0, 'a'},
+                {"consistent-pairs", no_argument, 0, 'a'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
+                {"map-qual-method", required_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:w:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:Uau:",
+        c = getopt_long (argc, argv, "s:w:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:GC:A:E:Q:n:P:l:e:T:VL:Y:H:OZ:q:z:o:y:Uau:v:",
                          long_options, &option_index);
 
 
@@ -5715,11 +5718,15 @@ int main_map(int argc, char** argv) {
             break;
             
         case 'a':
-            promote_consistent_pairs = true;
+            report_consistent_pairs = true;
             break;
         
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
+                break;
+                
+        case 'v':
+            method_code = atoi(optarg);
             break;
             
 
@@ -5754,6 +5761,22 @@ int main_map(int argc, char** argv) {
         return 1;
     }
     // note: still possible that hts file types don't have quality, but have to check the file to know
+    
+    MappingQualityMethod mapping_quality_method;
+    if (method_code == 0) {
+        mapping_quality_method = None;
+    }
+    else if (method_code == 1) {
+        mapping_quality_method = Approx;
+    }
+    else if (method_code == 2) {
+        mapping_quality_method = Exact;
+    }
+    else {
+        cerr << "error:[vg map] unrecognized mapping quality method command line arg '" << method_code << "'" << endl;
+        return 1;
+    }
+    
 
     // should probably disable this
     string file_name;
@@ -5900,8 +5923,9 @@ int main_map(int argc, char** argv) {
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
-        m->promote_consistent_pairs = promote_consistent_pairs;
+        m->report_consistent_pairs = report_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
+        m->mapping_quality_method = mapping_quality_method;
         mapper[i] = m;
     }
 

@@ -794,7 +794,7 @@ public:
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
     
-    // align with base quality adjusted scores
+    // align without base quality adjusted scores
     Alignment align(const string& sequence,
                     Aligner& aligner,
                     size_t max_query_graph_ratio = 0,
@@ -812,7 +812,7 @@ public:
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
     
-    // align without base quality adjusted scores
+    // align with base quality adjusted scores
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner& qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,

@@ -22,7 +22,29 @@ namespace vg {
 
     class Aligner {
     protected:
+        // for construction
+        // needed when constructing an alignable graph from the nodes
         gssw_graph* create_gssw_graph(Graph& g);
+        void topological_sort(list<gssw_node*>& sorted_nodes);
+        void visit_node(gssw_node* node,
+                        list<gssw_node*>& sorted_nodes,
+                        set<gssw_node*>& unmarked_nodes,
+                        set<gssw_node*>& temporary_marks);
+        
+        // alignment functions
+        void gssw_mapping_to_alignment(gssw_graph* graph,
+                                       gssw_graph_mapping* gm,
+                                       Alignment& alignment,
+                                       bool print_score_matrices = false);
+        string graph_cigar(gssw_graph_mapping* gm);
+        
+        double maximum_mapping_quality_exact(vector<double> scaled_scores, size_t* max_idx_out);
+        double maximum_mapping_quality_approx(vector<double> scaled_scores, size_t* max_idx_out);
+        // TODO: this algorithm has numerical problems, just removing it for now
+        //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
+        
+        // log of the base of the logarithm underlying the log-odds interpretation of the scores
+        double log_base;
         
     public:
         
@@ -31,33 +53,23 @@ namespace vg {
                 int32_t _gap_open = default_gap_open,
                 int32_t _gap_extension = default_gap_extension);
         ~Aligner(void);
-
-        // for construction
-        // needed when constructing an alignable graph from the nodes
-        void topological_sort(list<gssw_node*>& sorted_nodes);
-        void visit_node(gssw_node* node,
-                        list<gssw_node*>& sorted_nodes,
-                        set<gssw_node*>& unmarked_nodes,
-                        set<gssw_node*>& temporary_marks);
-
-        // alignment functions
+        
+        // store optimal alignment against a graph in the Alignment object
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
-        void gssw_mapping_to_alignment(gssw_graph* graph,
-                                       gssw_graph_mapping* gm,
-                                       Alignment& alignment,
-                                       bool print_score_matrices = false);
-        string graph_cigar(gssw_graph_mapping* gm);
         
         // must be called before querying mapping_quality
         void init_mapping_quality(double gc_content);
         bool is_mapping_quality_initialized();
-        // returns -log_10(P_err) where P_err is the probability that the maximum scoring alignment
-        // in this vector is not the correct one (assuming that one of the alignments is correct)
-        // alignments must have been created with this Aligner for quality score to be valid
-        uint8_t mapping_quality(vector<Alignment>& alignments);
-        // fast approximation of mapping_quality
-        uint8_t mapping_quality_approx(vector<Alignment>& alignments);
-
+        
+        // stores -10 * log_10(P_err) in alignment(s) mapping_quality field where P_err is the
+        // probability that the alignment is not the correct one (assuming that one of the alignments
+        // in the vector is correct). alignments must have been created with this Aligner for quality
+        // score to be valid
+        void compute_mapping_quality(vector<Alignment>& alignments, bool fast_approximation);
+        // same function for paired reads, mapping qualities are stored in both alignments in the pair
+        void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
+                                            bool fast_approximation);
+        
         // members
         int8_t* nt_table;
         int8_t* score_matrix;
@@ -66,9 +78,6 @@ namespace vg {
         int32_t gap_open;
         int32_t gap_extension;
         
-        // log of the base of the logarithm underlying the log-odds interpretation of the scores
-        double log_base;
-
     };
 
     class QualAdjAligner : public Aligner {
