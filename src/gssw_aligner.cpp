@@ -349,7 +349,7 @@ double Aligner::maximum_mapping_quality_approx(vector<double> scaled_scores, siz
     double max_score = scaled_scores[0];
     size_t max_idx = 0;
     
-    double next_score = -std::numeric_limits<int32_t>::max();
+    double next_score = -std::numeric_limits<double>::max();
     int32_t next_count = 0;
     
     for (int32_t i = 1; i < size; i++) {
