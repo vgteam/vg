@@ -1,29 +1,28 @@
-#include "ggsv.hpp"
+#include "sv_detector.hpp"
 
-GGSV::GGSV(){
+using namespace vg;
+using namespace std;
+SV_DETECTOR::SV_DETECTOR(){
 
 }
 
-GGSV::GGSV(string indexfile){
+
+SV_DETECTOR::~SV_DETECTOR(){
+
+}
+
+
     
-}
-
-GGSV::~GGSV(){
-
-}
-
-void GGSV::set_index(string indexfile){
-
-}
-
-
-vector<StructuralVariant> GGSV::alignment_to_known_sv(Alignment aln){
+vector<StructuralVariant> SV_DETECTOR::alignment_to_putative_sv(Alignment aln){
     vector<StructuralVariant> ret;
 
 }
-    
-vector<StructuralVariant> GGSV::alignment_to_putative_sv(Alignment aln){
-    vector<StructuralVariant> ret;
+
+vector<StructuralVariant> SV_DETECTOR::gam_to_known_sv(string gamfile){
+
+}
+
+vector<string> SV_DETECTOR::alignment_to_known_sv(Alignment aln){
 
 }
 
@@ -34,14 +33,14 @@ vector<StructuralVariant> GGSV::alignment_to_putative_sv(Alignment aln){
  * including:
  *  - softclips
  *  - 
- */
-vector<Deletion> GGSV::alignment_to_deletion(Alignment& aln){
+ 
+vector<Deletion> SV_DETECTOR::alignment_to_deletion(Alignment& aln){
     vector<Deletion> ret;
     
 }
 
 //CALL INDELS
-void GGSV::call_split_read(string gamfile){
+void SV_DETECTOR::call_split_read(string gamfile){
     
     // Open gam file
     
@@ -58,7 +57,7 @@ void GGSV::call_split_read(string gamfile){
 }
 
 //CALL INVERSIONS
-void GGSV::call_inversion(string gamfile){
+void SV_DETECTOR::call_inversion(string gamfile){
 
     /**
      * Iterate through Alignments in the gam file
@@ -68,12 +67,12 @@ void GGSV::call_inversion(string gamfile){
      *
      * Once enough have been accumulated, call the SV at the
      * given position.
-     */
+     *
 
 }
 
 //CALL INVERSIONS
-void GGSV::call_duplications(string gamfile){
+void SV_DETECTOR::call_duplications(string gamfile){
 
 }
-
+*/

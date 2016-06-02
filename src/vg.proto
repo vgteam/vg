@@ -22,6 +22,7 @@ message Node {
     string sequence = 1;   // sequence
     string name = 2;  // a name provides an identifier
     int64 id = 3;     // ids are critical, and unique within a graph
+    //string annotation = 4;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.

@@ -243,6 +243,9 @@ $(OBJ_DIR)/sampler.o: $(SRC_DIR)/sampler.cpp $(SRC_DIR)/sampler.hpp $(LIB_DIR)/l
 $(OBJ_DIR)/filter.o: $(SRC_DIR)/filter.cpp $(SRC_DIR)/filter.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h .pre-build
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
+$(OBJ_DIR)/sv_detector.o: $(SRC_DIR)/sv_detector.cpp $(OBJ_DIR)/vg.o $(OBJ_DIR)/filter.o $(CPP_DIR)/vg.pb.h
+	$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
 .pre-build:
 	if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
 	if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
