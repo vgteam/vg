@@ -4343,13 +4343,6 @@ int main_find(int argc, char** argv) {
                 }
             } else {
                 // for mems we need to load up the gcsa and lcp structures into the mapper
-//                Mapper* mapper = new Mapper();
-//                mapper->gcsa = &gcsa_index;
-//                mapper->lcp = &lcp_index;
-//                // get the mems
-//                auto mems = mapper->find_smems(sequence);
-//                delete mapper;
-                
                 Mapper mapper;
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
@@ -4358,20 +4351,18 @@ int main_find(int argc, char** argv) {
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
-                cout << mems_to_json(mems)  << endl;
+                cout << mems_to_json(mems) << endl;
                 
             }
         }
     }
 
     if (!kmers.empty()) {
-        //cerr << "kmers not empty" << endl;
         if (count_kmers) {
             for (auto& kmer : kmers) {
                 cout << kmer << "\t" << vindex->approx_size_of_kmer_matches(kmer) << endl;
             }
         } else if (kmer_table) {
-            //cerr << "kmers table" << endl;
             for (auto& kmer : kmers) {
                 map<string, vector<pair<int64_t, int32_t> > > positions;
                 vindex->get_kmer_positions(kmer, positions);
@@ -4382,7 +4373,6 @@ int main_find(int argc, char** argv) {
                 }
             }
         } else {
-            //cerr << "graph" << endl;
             vector<VG> graphs;
             for (auto& kmer : kmers) {
                 VG g;
@@ -4403,9 +4393,7 @@ int main_find(int argc, char** argv) {
         }
     }
     
-    //cerr << "delete index" << endl;
     if (vindex) delete vindex;
-    //cerr << "just before return" << endl;
 
     return 0;
 
