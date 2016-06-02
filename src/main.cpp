@@ -4190,6 +4190,7 @@ void help_find(char** argv) {
          << "    -e, --edges-end ID     return edges on end of node with ID" << endl
          << "    -s, --edges-start ID   return edges on start of node with ID" << endl
          << "    -c, --context STEPS    expand the context of the subgraph this many steps" << endl
+         << "    -L, --use-length       treat STEPS in -c or M in -r as a length in bases" << endl
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
@@ -4205,7 +4206,8 @@ void help_find(char** argv) {
          << "    -k, --kmer STR         return a graph of edges and nodes matching this kmer" << endl
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
-         << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl;
+         << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
+         << "    -D, --distance         return distance on path between pair of nodes (-n). if -P not used, best path chosen heurstically" << endl;
 
 }
 
@@ -4224,6 +4226,7 @@ int main_find(int argc, char** argv) {
     string output_format;
     vector<int64_t> node_ids;
     int context_size=0;
+    bool use_length = false;
     bool count_kmers = false;
     bool kmer_table = false;
     string target;
@@ -4237,6 +4240,7 @@ int main_find(int argc, char** argv) {
     string node_id_range;
     vg::id_t start_id = 0;
     vg::id_t end_id = 0;
+    bool pairwise_distance = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4258,6 +4262,7 @@ int main_find(int argc, char** argv) {
                 {"kmer-size", required_argument, 0, 'z'},
                 {"output", required_argument, 0, 'o'},
                 {"context", required_argument, 0, 'c'},
+                {"use-length", no_argument, 0, 'L'},
                 {"kmer-count", no_argument, 0, 'C'},
                 {"path", required_argument, 0, 'p'},
                 {"position-in", required_argument, 0, 'P'},
@@ -4265,11 +4270,12 @@ int main_find(int argc, char** argv) {
                 {"alignments", no_argument, 0, 'a'},
                 {"mappings", no_argument, 0, 'm'},
                 {"alns-in", required_argument, 0, 'i'},
+                {"distance", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:S:z:j:CTp:P:r:amg:M:i:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:D",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4327,6 +4333,10 @@ int main_find(int argc, char** argv) {
             context_size = atoi(optarg);
             break;
 
+        case 'L':
+            use_length = true;
+            break;            
+
         case 'n':
             node_ids.push_back(atoi(optarg));
             break;
@@ -4363,6 +4373,10 @@ int main_find(int argc, char** argv) {
             output_format = optarg;
             break;
 
+        case 'D':
+            pairwise_distance = true;
+            break;
+
         case 'h':
         case '?':
             help_find(argv);
@@ -4377,6 +4391,11 @@ int main_find(int argc, char** argv) {
         //string file_name = argv[optind];
         cerr << "[vg find] find requires -d, -g, or -x to know where to find its database" << endl;
         return 1;
+    }
+
+    if (context_size > 0 && use_length == true && xg_name.empty()) {
+        cerr << "[vg find] error, -L not supported without -x" << endl;
+        exit(1);
     }
 
     // open index
@@ -4420,12 +4439,12 @@ int main_find(int argc, char** argv) {
     }
 
     if (!xg_name.empty()) {
-        if (!node_ids.empty() && path_name.empty()) {
+        if (!node_ids.empty() && path_name.empty() && !pairwise_distance) {
             // get the context of the node
             vector<Graph> graphs;
             for (auto node_id : node_ids) {
                 Graph g;
-                xindex.neighborhood(node_id, context_size, g);
+                xindex.neighborhood(node_id, context_size, g, !use_length);
                 graphs.push_back(g);
             }
             VG result_graph;
@@ -4445,7 +4464,7 @@ int main_find(int argc, char** argv) {
                 cout << (e.from_start() ? -1 : 1) * e.from() << "\t" <<  (e.to_end() ? -1 : 1) * e.to() << endl;
             }
         }
-        if (!node_ids.empty() && !path_name.empty()) {
+        if (!node_ids.empty() && !path_name.empty() && !pairwise_distance) {
             // Note: this isn't at all consistent with -P option with rocksdb, which couts a range
             // and then mapping, but need this info right now for scripts/chunked_call
             for (auto node_id : node_ids) {
@@ -4456,6 +4475,18 @@ int main_find(int argc, char** argv) {
                 }
                 cout << endl;
             }
+        }
+        if (pairwise_distance) {
+            if (node_ids.size() != 2) {
+                cerr << "[vg find] error, exactly 2 nodes (-n) required with -D" << endl;
+                exit(1);
+            }
+            if (!path_name.empty()) {
+                cout << xindex.approx_path_distance(path_name, node_ids[0], node_ids[1]) << endl;
+            } else {
+                cout << xindex.min_approx_path_distance(vector<string>(), node_ids[0], node_ids[1]) << endl;
+            }
+            return 0;
         }
         if (!target.empty()) {
             string name;
@@ -4469,7 +4500,7 @@ int main_find(int argc, char** argv) {
             }
             xindex.get_path_range(name, start, end, graph);
             if (context_size > 0) {
-                xindex.expand_context(graph, context_size);
+                xindex.expand_context(graph, context_size, true, !use_length);
             }
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.serialize_to_ostream(cout);
@@ -4484,9 +4515,14 @@ int main_find(int argc, char** argv) {
             }
             convert(parts.front(), id_start);
             convert(parts.back(), id_end);
-            xindex.get_id_range(id_start, id_end, graph);
+            if (!use_length) {
+                xindex.get_id_range(id_start, id_end, graph);
+            } else {
+                // treat id_end as length instead.
+                xindex.get_id_range_by_length(id_start, id_end, graph, true);
+            }
             if (context_size > 0) {
-                xindex.expand_context(graph, context_size);
+                xindex.expand_context(graph, context_size, true, !use_length);
             }
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();
