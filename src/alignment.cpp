@@ -797,4 +797,21 @@ void write_alignment_to_file(const Alignment& aln, const string& filename) {
     out.close();
 }
 
+map<id_t, int> alignment_quality_per_node(const Alignment& aln) {
+    map<id_t, int> quals;
+    int to_pos = 0; // offset in quals
+    for (size_t i = 0; i < aln.path().mapping_size(); ++i) {
+        auto& mapping = aln.path().mapping(i);
+        auto to_len = mapping_to_length(mapping);
+        if (mapping.has_position()) {
+            auto& q = quals[mapping.position().node_id()];
+            for (size_t j = 0; j < to_len; ++j) {
+                q += aln.quality()[to_pos + j];
+            }
+        }
+        to_pos += mapping_to_length(mapping);
+    }
+    return quals;
+}
+
 }

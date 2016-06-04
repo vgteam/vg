@@ -18,6 +18,7 @@
 #include "gcsa.h"
 #include "lcp.h"
 #include "gssw_aligner.hpp"
+#include "ssw_aligner.hpp"
 #include "region.hpp"
 #include "path.hpp"
 #include "utility.hpp"
@@ -295,7 +296,8 @@ public:
        bool flat_input_vcf = false,
        bool load_phasing_paths = false,
        bool load_variant_alt_paths = false,
-       bool showprog = false);
+       bool showprog = false,
+       set<string>* allowed_variants = nullptr);
        
     // Build the graph from a bunch of alleles, organized by position.
     void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
@@ -339,7 +341,9 @@ public:
     // use the sequence of the first node as the basis
     Node* merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
-    void normalize(void);
+    void normalize(int max_iter = 1);
+    // remove redundant overlaps
+    void bluntify(void);
     // turn the graph into a dag by copying strongly connected components expand_scc_steps times
     // and translating the edges in the component to flow through the copies in one direction
     VG dagify(uint32_t expand_scc_steps,
@@ -675,10 +679,12 @@ public:
     // converts the stored paths in this graph to alignments
     const vector<Alignment> paths_as_alignments(void);
     const string path_sequence(const Path& path);
+    string trav_sequence(const NodeTraversal& trav);
 
     SB_Input vg_to_sb_input();
     vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
-    vector<pair<id_t, id_t> > get_superbubbles();
+    vector<pair<id_t, id_t> > get_superbubbles(void);
+    map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
     // edges
     // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.

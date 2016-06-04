@@ -103,6 +103,12 @@ string wrap_text(const string& str, size_t width) {
     return w.str();
 }
 
+bool is_number(const std::string& s) {
+    return !s.empty()
+        && std::find_if(s.begin(), s.end(),
+                        [](char c) { return !std::isdigit(c); }) == s.end();
+}
+
 bool allATGC(const string& s) {
     for (string::const_iterator c = s.begin(); c != s.end(); ++c) {
         char b = *c;
@@ -111,6 +117,17 @@ bool allATGC(const string& s) {
         }
     }
     return true;
+}
+
+string nonATGCNtoN(const string& s) {
+    auto n = s;
+    for (string::iterator c = n.begin(); c != n.end(); ++c) {
+        char b = *c;
+        if (b != 'A' && b != 'T' && b != 'G' && b != 'C' && b != 'N') {
+            *c = 'N';
+        }
+    }
+    return n;
 }
 
 void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar) {
@@ -234,6 +251,18 @@ string get_or_make_variant_id(vcflib::Variant variant) {
         // identical variant lines are in the file.
         return hasher.final();
         
+    }
+}
+
+double median(std::vector<int> &v) {
+    size_t n = v.size() / 2;
+    std::nth_element(v.begin(), v.begin()+n, v.end());
+    int vn = v[n];
+    if (v.size()%2 == 1) {
+        return vn;
+    } else {
+        std::nth_element(v.begin(), v.begin()+n-1, v.end());
+        return 0.5*(vn+v[n-1]);
     }
 }
 

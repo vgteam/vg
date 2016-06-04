@@ -65,7 +65,7 @@ private:
     Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     
     Alignment align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio);
-    vector<Alignment> align_multi_internal(bool compute_unpaired_qualities, const Alignment& aln, int kmer_size, int stride, int band_width, int additional_multimaps = 0);
+    vector<Alignment> align_multi_internal(bool compute_unpaired_qualities, const Alignment& aln, int kmer_size, int stride, int band_width, int additional_multimaps = 0, vector<MaximalExactMatch>* restricted_mems = nullptr);
     void compute_mapping_qualities(vector<Alignment>& alns);
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
@@ -77,7 +77,7 @@ private:
                            int stride = 0,
                            int band_width = 1000);
     // alignment based on the MEM approach
-    vector<Alignment> align_mem(const Alignment& alignment, int additional_multimaps = 0);
+    //vector<Alignment> align_mem(const Alignment& alignment, int additional_multimaps = 0);
     Alignment align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems);
     vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
     // base algorithm for above Update the passed-in Alignment with a highest-
@@ -120,6 +120,9 @@ public:
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
+    set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
+                                                vector<MaximalExactMatch>& mems2);
+
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
     
@@ -222,9 +225,14 @@ public:
     // paired-end consistency enforcement
     bool report_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
+//<<<<<<< HEAD
     
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
+//=======
+    bool always_rescue; // Should rescue be attempted for all imperfect alignments?
+    int fragment_size; // Used to bound clustering of MEMs during paired end mapping
+//>>>>>>> upstream/master
 
 };
 

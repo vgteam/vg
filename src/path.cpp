@@ -1657,4 +1657,10 @@ double identity(const Path& path) {
     return total_length == 0 ? 0.0 : (double) matched_length / (double) total_length;
 }
 
+double overlap(const Path& p1, const Path& p2) {
+    // to make a mapping for each position in both paths
+    // then to compare these
+    // simpler --- just compare mappings
+}
+
 }

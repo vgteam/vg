@@ -45,7 +45,7 @@ struct NodeDivider {
     // offset in original graph node -> up to 3 nodes in call graph
     typedef map<int, Entry> NodeMap;
     // Node id in original graph to map above
-    typedef hash_map<int, NodeMap> NodeHash;
+    typedef hash_map<int64_t, NodeMap> NodeHash;
     NodeHash index;
     int64_t* _max_id;
     // map given node to offset i of node with id in original graph
@@ -87,7 +87,7 @@ public:
     // same as min_support, but as fraction of total depth
     static const double Default_min_frac;
     // minimum likelihood to call a snp
-    static const double Default_min_likelihood;
+    static const double Default_min_log_likelihood;
     // use this score when pileup is missing quality
     static const char Default_default_quality;
     // use to balance alignments to forward and reverse strand
@@ -99,11 +99,12 @@ public:
            int max_depth = Default_max_depth,
            int min_support = Default_min_support,
            double min_frac = Default_min_frac,
-           double min_likelihood = Default_min_likelihood, 
+           double min_log_likelihood = Default_min_log_likelihood, 
            bool leave_uncalled = false,
            int default_quality = Default_default_quality,
            double max_strand_bias = Default_max_strand_bias,
-           ostream* text_calls = NULL);
+           ostream* text_calls = NULL,
+           bool bridge_alts = false);
     ~Caller();
     void clear();
 
@@ -141,7 +142,13 @@ public:
     typedef unordered_map<pair<NodeOffSide, NodeOffSide>, char> EdgeHash;
     EdgeHash _augmented_edges;
     // keep track of inserted nodes for tsv output
-    vector<pair<Node*, int> > _inserted_nodes;
+    struct InsertionRecord {
+        Node* node;
+        int cn;
+        int64_t orig_id;
+        int orig_offset;
+    };
+    vector<InsertionRecord> _inserted_nodes;
 
     // used to favour homozygous genotype (r from MAQ paper)
     double _het_log_prior;
@@ -165,6 +172,13 @@ public:
     char _default_quality;
     // min deviation from .5 in proportion of negative strand reads
     double _max_strand_bias;
+    // the base-by-base calling is very limited, and adjacent
+    // variants are not properly phased according to the reads.
+    // so we choose either to add all edges between neighboring
+    // positions (true) or none except via reference (false)
+    // (default to latter as most haplotypes rarely contain
+    // pairs of consecutive alts). 
+    bool _bridge_alts;
 
     // write the call graph
     void write_call_graph(ostream& out, bool json);
@@ -215,7 +229,7 @@ public:
                                Node* node2, int to_offset, bool left_side2, bool aug2, char cat);
 
     // write calling info to tsv to help with VCF conversion
-    void write_node_tsv(Node* node, char call, char cn);
+    void write_node_tsv(Node* node, char call, char cn, int64_t orig_id, int orig_offset);
     void write_edge_tsv(Edge* edge, char call, char cn = '.');
     void write_nd_tsv();
 
@@ -242,12 +256,8 @@ public:
         return g.first == "." && (g.second == "." || g.second == "-");
     }
 
-    // call is snp
-    static bool snp_call(const Genotype& g) {
-        return !missing_call(g) && !ref_call(g);
-    }
-
     // classify call as 0: missing 1: reference 2: snp
+    // (holdover from before indels)
     static int call_cat(const Genotype&g) {
         if (missing_call(g)) {
             return 0;

@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 25
+plan tests 26
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -108,10 +108,11 @@ rm temp_paired_alignment.json temp_independent_alignment.json
 
 is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -a -u 4 -v 1 -J | jq -r ".mapping_quality") $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -a -u 4 -v 2 -J | jq -r ".mapping_quality") "mapping quality approximation is equal to exact calculation in a clear cut case"
 
-vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -J -U | jq -c '.score' > temp_scores_full_qual.txt
-vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -J -U | jq -c '.score' > temp_scores_reduced_qual.txt
-numseq=$(wc -l temp_scores_full_qual.txt)
-is $(paste temp_scores_full_qual.txt temp_scores_reduced_qual.txt | column -s $'\t' -t | awk '{if ($1 < $2) count++} END{print count}') $numseq "base quality adjusted alignment produces higher scores if mismatches have low quality"
+vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -J -1 | jq -c '.score' > temp_scores_full_qual.txt
+vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -J -1 | jq -c '.score' > temp_scores_reduced_qual.txt
+is $(paste temp_scores_full_qual.txt temp_scores_reduced_qual.txt | column -s $'\t' -t | awk '{if ($1 < $2) count++} END{print count}') 10 "base quality adjusted alignment produces higher scores if mismatches have low quality"
 rm temp_scores_full_qual.txt temp_scores_reduced_qual.txt
+
+is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -a -u 0 -U -J | jq -r 'select(.name == "ERR194147.679985061/1") | .path.mapping[0].position.node_id') 8121 "rescue can replace extra multimappings"
 
 rm -f x.vg.idx x.vg.gcsa x.vg.gcsa.lcp x.vg x.reads x.xg x.gcsa
