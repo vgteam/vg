@@ -790,6 +790,7 @@ void help_vectorize(char** argv){
          << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
          << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
          << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
+         << "  -M --wabbit-mapping <FILE> output the mappings used for vowpal wabbit classes (default: print to stderr)" << endl
          << "  -m --mem-sketch    Generate a MEM sketch of a given read based on the GCSA" << endl
          << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
          << endl;
@@ -800,6 +801,7 @@ int main_vectorize(int argc, char** argv){
     string xg_name;
     string aln_label = "";
     string gcsa_name;
+    string wabbit_mapping_file = "";
     bool format = false;
     bool show_header = false;
     bool map_alns = false;
@@ -827,6 +829,7 @@ int main_vectorize(int argc, char** argv){
             {"format", no_argument, 0, 'f'},
             {"a-hot", no_argument, 0, 'a'},
             {"wabbit", no_argument, 0, 'w'},
+            {"wabbit-mapping", required_argument, 0, 'M'},
             {"mem-sketch", no_argument, 0, 'm'},
             {"identity-hot", no_argument, 0, 'i'},
             {"aln-label", required_argument, 0, 'l'},
@@ -834,7 +837,7 @@ int main_vectorize(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfmx:g:l:",
+        c = getopt_long (argc, argv, "AaihwM:fmx:g:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -900,6 +903,9 @@ int main_vectorize(int argc, char** argv){
         case 'A':
             annotate = true;
             format = true;
+            break;
+        case 'M':
+            wabbit_mapping_file = optarg;
             break;
         default:
             abort();
@@ -983,7 +989,9 @@ int main_vectorize(int argc, char** argv){
             cout << endl;
         } else {
             bit_vector v = vz.alignment_to_onehot(a);
-            if (format) {
+            if (output_wabbit){
+                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
+            } else if (format) {
                 cout << a.name() << "\t" << vz.format(v) << endl;
             } else{
                 cout << v << endl;
@@ -998,6 +1006,24 @@ int main_vectorize(int argc, char** argv){
         in.open(alignment_file);
         if (in.good()){
             stream::for_each(in, lambda);
+        }
+    }
+    
+    string mapping_str = vz.output_wabbit_map();
+    if (output_wabbit){
+        if (!wabbit_mapping_file.empty()){
+            ofstream ofi;
+            ofi.open(wabbit_mapping_file);
+            if (!ofi.good()){
+                cerr << "Error with outputting wabbit mapping file. Make sure the filename is a valid string" << endl;
+                return 1;
+            }
+            ofi << mapping_str;
+            ofi.close();
+        }
+        else{
+        
+            cerr << mapping_str;
         }
     }
 
