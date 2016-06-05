@@ -17,10 +17,12 @@ message Graph {
 // *Nodes* store sequence data and also links to other nodes.
 // The graph is doubly-linked via IDs in prev/next fields in the Node objects.
 //
+// PROPOSED ADDITION: optional string annotation = 4; // Allows a way to store annotations (such as those from VCF)
 message Node {
     string sequence = 1;   // sequence
     string name = 2;  // a name provides an identifier
     int64 id = 3;     // ids are critical, and unique within a graph
+    //string annotation = 4;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.

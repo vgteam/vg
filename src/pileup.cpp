@@ -19,6 +19,9 @@ void Pileups::clear() {
         delete p.second;
     }
     _edge_pileups.clear();
+    _min_quality_count = 0;
+    _max_mismatch_count = 0;
+    _bases_count = 0;
 }
 
 void Pileups::to_json(ostream& out) {
@@ -256,7 +259,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
         assert(seq.length() == edit.from_length());            
         int64_t delta = map_reverse ? -1 : 1;
         for (int64_t i = 0; i < edit.from_length(); ++i) {
-            if (pass_filter(alignment, read_offset, mismatch_counts)) {
+            if (pass_filter(alignment, read_offset, 1, mismatch_counts)) {
                 BasePileup* base_pileup = get_create_base_pileup(pileup, node_offset);
                 if (base_pileup->num_bases() < _max_depth) {
                     // reference_base if empty
@@ -322,7 +325,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
     }
     // ***** INSERT *****
     else if (edit.from_length() < edit.to_length()) {
-        if (pass_filter(alignment, read_offset, mismatch_counts)) {
+        if (pass_filter(alignment, read_offset, edit.to_length(), mismatch_counts)) {
             make_insert(seq, map_reverse);
             assert(edit.from_length() == 0);
             // we define insert (like sam) as insertion between current and next
@@ -365,7 +368,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
     }
     // ***** DELETE *****
     else {
-        if (pass_filter(alignment, read_offset, mismatch_counts)) {
+        if (pass_filter(alignment, read_offset, 1, mismatch_counts)) {
             assert(edit.to_length() == 0);
             assert(edit.sequence().empty());
 
@@ -481,24 +484,42 @@ void Pileups::count_mismatches(VG& graph, const Path& path,
 }
 
 bool Pileups::pass_filter(const Alignment& alignment, int64_t read_offset,
-                          const vector<int>& mismatches) const
+                          int64_t length, const vector<int>& mismatches) const
 {
-    bool passes = true;
-    if (!alignment.quality().empty()) {
-        passes = alignment.quality()[read_offset] >= _min_quality;
+    bool min_quality_fail = false;
+    bool max_mismatch_fail = false;
+    // loop is becaues insertions are considered as one block
+    // in this case entire block fails if single base fails
+    for (int64_t cur_offset = read_offset; cur_offset < read_offset + length; ++cur_offset) {
+        if (!alignment.quality().empty()) {
+            if (alignment.quality()[cur_offset] < _min_quality) {
+                min_quality_fail = true;
+                break;
+            }
+        }
+        if (_window_size > 0) {
+            // counts in left window
+            int64_t left_point = max((int64_t)0, cur_offset - _window_size / 2 - 1);
+            int64_t right_point = max((int64_t)0, cur_offset - 1);
+            int64_t count = mismatches[right_point] - mismatches[left_point];
+            // coutns in right window
+            left_point = cur_offset;
+            right_point = min(cur_offset + _window_size / 2, (int64_t)mismatches.size() - 1);
+            count += mismatches[right_point] - mismatches[left_point];
+            if (count > _max_mismatches) {
+                max_mismatch_fail = true;
+                break;
+            }
+        }
     }
-    if (_window_size > 0 && passes) {
-        // counts in left window
-        int64_t left_point = max((int64_t)0, read_offset - _window_size / 2 - 1);
-        int64_t right_point = max((int64_t)0, read_offset - 1);
-        int64_t count = mismatches[right_point] - mismatches[left_point];
-        // coutns in right window
-        left_point = read_offset;
-        right_point = min(read_offset + _window_size / 2, (int64_t)mismatches.size() - 1);
-        count += mismatches[right_point] - mismatches[left_point];
-        passes = passes && count <= _max_mismatches;
+    if (max_mismatch_fail) {
+        _max_mismatch_count += length;
     }
-    return passes;
+    if (min_quality_fail) {
+        _min_quality_count += length;
+    }
+    _bases_count += length;
+    return !max_mismatch_fail && !min_quality_fail;
 }
 
 Pileups& Pileups::merge(Pileups& other) {
@@ -510,6 +531,12 @@ Pileups& Pileups::merge(Pileups& other) {
         insert_edge_pileup(p.second);
     }
     other._edge_pileups.clear();
+    _min_quality_count += other._min_quality_count;
+    other._min_quality_count = 0;
+    _max_mismatch_count += other._max_mismatch_count;
+    other._max_mismatch_count = 0;
+    _bases_count += other._bases_count;
+    other._bases_count = 0;
     return *this;
 }
 

@@ -133,10 +133,12 @@ namespace vg {
     }
 
     bool Deconstructor::is_nested(SuperBubble sb){
+
+
         return false;
     }
 
-    void Deconstructor::sb2vcf(string outfile){
+    void Deconstructor::sb2vcf(vector<SuperBubble> bubs, string outfile){
         Header h;
         h.set_date();
         h.set_source("VG");
@@ -144,29 +146,57 @@ namespace vg {
         h.set_version("VCF4.2");
 
         cout << h << endl;
-        for (auto s : my_superbubbles){
-            int offset = 0;
 
+        // for each superbubble:
+        // Fill out a vcflib Variant
+        // Check if it is masked by an input vcf
+        // if not, print it to stdout
+        
+        
+        
+        map<id_t, vcflib::Variant> node_to_var;
+        vcflib::VariantCallFile mask;
+        if (!mask_file.empty()){
+            //node_to_var = my_vg->get_node_to_variant(mask);
+        }
+        for (auto s : bubs){
+            vcflib::Variant var;
+            /*set ref = str(ref)
+             * First fill out alleles[0] with ref
+             * then alts as 1....N
+             *
+             * push the alternate alleles into alts[] too
+             *
+             * Position: your guess is as good as mine
+             *
+             * id: need annotations
+             *
+             *
+             */
+
+            var.sequenceName = "seq";
+            var.position = 0;
+            var.id = ".";
             map<int, vector<id_t> >::iterator it;
-            for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); ++it){
-                offset = it->first;
-                vector<id_t> level_interior = it->second;
-                for (int j = 0; j < level_interior.size(); j++){
-                    // Check if is_ref
-
-                    //Otherwise it's an alt
-
+            for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); it++){
+            //cout << s.start_node << "_" << s.end_node << "\t";
+                vector<id_t> middle_nodes = it->second;
+                for (int ind = 0; ind < middle_nodes.size(); ind++){
+                    Node* n = my_vg->get_node(middle_nodes[ind]);
+                    if (my_vg->paths.has_node_mapping(n)){
+                        var.ref = n->sequence();
+                        var.alleles.push_back(n->sequence());
+                    }
+                    else{
+                        var.alt.push_back(n->sequence());
+                    }
+                    //cout << middle_nodes[ind] << "\t";
                 }
-
-
-                vcflib::Variant v;
-                v.sequenceName = "x";
-                v.ref = "A";
-                v.position = 100;
-                v.alt = vector<string>();
-                v.alt.push_back("T");
-                cout << v << endl;
             }
+
+            cout << var << endl;
+
+            //cout << endl;
 
         }
 
@@ -178,6 +208,10 @@ namespace vg {
      * labeled as the endpoints of superbubbles
      * to enumerate the nodes between them.
      *TODO: the dagify transform records the node translation
+
+     * IDEALLY: return the topological order, the starts/ends of superbubbles,
+     * and an index from node -> location in topo order. This makes
+     * checking if things are nested trivial.
      */
     vector<SuperBubble> Deconstructor::get_all_superbubbles(){
 
@@ -187,15 +221,20 @@ namespace vg {
         //my_vg->dagify(dag_len, node_translation);
 
         vector<SuperBubble> ret;
+        unordered_map<id_t, SuperBubble> entrance_to_SB;
+        unordered_map<id_t, SuperBubble> exit_to_SB;
 
         vector<pair<id_t, id_t> > supbubs = my_vg->get_superbubbles();
         for (auto pp : supbubs){
             SuperBubble bub;
             bub.start_node = pp.first;
             bub.end_node = pp.second;
-            ret.push_back(bub);
+
+            entrance_to_SB[bub.start_node] = bub;
+            exit_to_SB[bub.end_node] = bub;
+
+            //ret.push_back(bub);
         }
-        SuperBubble x;
         map<int, vector<id_t> > level_to_node;
         int level = 0;
 
@@ -228,21 +267,96 @@ namespace vg {
             }
 
         }
-
+        */
         //Use the DFS interface instead
 
-        // vector<
-        // function<void(Node*)> is_end = [](Node* node){
+        vector<id_t> rto;
 
-        // };
-        // function<void(Node*)> is_start = [](Node* node){
 
-        // };
-        // my_vg->dfs(is_start, is_end);
-        */
+        function<bool(id_t)> is_exit_node = [&exit_to_SB](id_t id){
+            try{
+                exit_to_SB.at(id);
+                return true;
+            }
+            catch (const std::out_of_range& oor){
+                return false;
+            }
+        };
+
+        function<bool(id_t)> is_entrance_node = [&entrance_to_SB](id_t id){
+            try{
+                entrance_to_SB.at(id);
+                return true;
+            }
+            catch (const std::out_of_range& oor){
+                return false;
+            }
+        };
+
+        function<void(Node*)> on_node_end = [&rto](Node* node){
+            //cerr << "is_end: " << node->id() << endl;
+            rto.push_back(node->id());
+         };
+         function<void(Node*)> on_node_start = [&ret](Node* node){
+            //cerr << "is_start: " << node->id() << endl;
+            
+         };
+         my_vg->dfs(on_node_start, on_node_end);
+        
+         /**
+          * Go through nodes in topo order
+          * If they are entrance/exits, switch to concat mode
+          * concat middle nodes to superbubble
+          * if node is exit, switch off concat mode
+          * Need to maintain a pointer to SBs in map
+          * Then, do a linear pass over map, create the set of pointers
+          * and return
+          *
+          *for (int i = 0; i < rto.size(); i++){
+            if (is_entrance_node(rto[i])){
+                ret.push_back(current);
+                in_bub = false;
+            }
+            else if (in_bub){
+                current.level_to_nodes[0].push_back(rto[i]);
+            }
+
+            if (is_exit_node(rto[i])){
+                in_bub = true;
+                current = exit_to_SB[rto[i]];
+            }
+
+            
+        }
+          */
+        bool in_bub = false;
+        SuperBubble current;
+        for (int i = rto.size() - 1; i > 0; i--){
+            if (is_exit_node(rto[i])){
+                ret.push_back(current);
+                in_bub = false;
+            }
+            else if (in_bub){
+                current.level_to_nodes[0].push_back(rto[i]);
+            }
+
+            if (is_entrance_node(rto[i])){
+                in_bub = true;
+                current = entrance_to_SB[rto[i]];
+            }
+
+            
+        }
+
+        reverse_topo_order = rto;
+        
 
         return ret;
     }
+
+/*    map<id_t, int> cache_path_distances(){
+
+    } */
 
 
     vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal>& nt){

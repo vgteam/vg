@@ -684,6 +684,36 @@ public:
     SB_Input vg_to_sb_input();
     vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
     vector<pair<id_t, id_t> > get_superbubbles();
+
+
+    // Takes in a pathname and the nucleotide position
+    // (e.g. from a vcf) and returns the node id which
+    // contains that position.
+    id_t get_node_at_nucleotide(string pathname, int nuc);
+
+    // Takes in a VCF file
+    // and returns a map [node] = vcflib::variant
+    // Unfortunately this is specific to a given graph
+    // and VCF.
+    //
+    // It will need to throw warnings if the node or variant
+    // is not in the graph.
+    //
+    // This is useful for VCF masking:
+    // if map.find(node) then mask variant
+    //
+    // It's also useful for calling known variants
+    // for m in alignment.mappings:
+    //    node = m.Pos.nodeID
+    //    if node in node_to_vcf:
+    //        return (alignment supports variant)
+    //
+    // It would be nice if this also supported edges (e.g.
+    // for inversions/transversions/breakpoints?)
+    // map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
+    map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+
+
     // edges
     // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.
