@@ -30,8 +30,10 @@ GSSWAligner::GSSWAligner(
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
+        // switch any non-ATGCN characters from the node sequence to N
+        auto cleaned_seq = nonATGCNtoN(n->sequence());
         gssw_node* node = (gssw_node*)gssw_node_create(n, n->id(),
-                                                       n->sequence().c_str(),
+                                                       cleaned_seq.c_str(),
                                                        nt_table,
                                                        score_matrix);
         nodes[n->id()] = node;
