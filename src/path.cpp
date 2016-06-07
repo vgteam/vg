@@ -31,6 +31,10 @@ void Paths::write(ostream& out) {
             Mapping* nm = path.add_mapping();
             *nm = m;
         }
+        path.set_name(path_names.at(i));
+        if (circular.count(path_names.at(i))) {
+            path.set_is_circular(true);
+        }
         return path;
     };
     stream::write(out, _paths.size(), lambda);
@@ -42,6 +46,9 @@ void Paths::to_graph(Graph& g) {
         list<Mapping>& mappings = p.second;
         Path* path = g.add_path();
         path->set_name(name);
+        if (circular.count(name)) {
+            path->set_is_circular(true);
+        }
         for (auto& m : mappings) {
             Mapping* nm = path->add_mapping();
             *nm = m;
@@ -60,6 +67,9 @@ Path Paths::path(const string& name) {
     for (auto& m : mappings) {
         Mapping* nm = path.add_mapping();
         *nm = m;
+    }
+    if (circular.count(name)) {
+        path.set_is_circular(true);
     }
     return path;
 }
@@ -93,12 +103,23 @@ void Paths::for_each_stream(istream& in, const function<void(Path&)>& lambda) {
     stream::for_each(in, lambda, handle_count);
 }
 
+void Paths::make_circular(const string& name) {
+    circular.insert(name);
+}
+
+void Paths::make_linear(const string& name) {
+    circular.erase(name);
+}
+
 void Paths::extend(const Path& p) {
     const string& name = p.name();
     list<Mapping>& path = get_create_path(name);
     for (int i = 0; i < p.mapping_size(); ++i) {
         const Mapping& m = p.mapping(i);
         append_mapping(name, m);
+    }
+    if (p.is_circular()) {
+        make_circular(name);
     }
     // re-sort?
     sort_by_mapping_rank();
@@ -113,6 +134,9 @@ void Paths::extend(Paths& p) {
         for (auto& m : path) {
             append_mapping(name, m);
         }
+        if (p.circular.count(name)) {
+            make_circular(name);
+        }
     }
     sort_by_mapping_rank();
     rebuild_mapping_aux();
@@ -125,6 +149,9 @@ void Paths::append(Paths& paths) {
         for (auto& m : path) {
             append_mapping(name, m);
         }
+        if (paths.circular.count(name)) {
+            make_circular(name);
+        }
     }
     sort_by_mapping_rank();
     rebuild_mapping_aux();
@@ -136,6 +163,9 @@ void Paths::append(Graph& g) {
         for (int j = 0; j < p.mapping_size(); ++j) {
             const Mapping& m = p.mapping(j);
             append_mapping(p.name(), m);
+            if (p.is_circular()) {
+                make_circular(p.name());
+            }
         }
     }
 }
@@ -1066,11 +1096,12 @@ Path simplify(const Path& p) {
     // push inserted sequences to the left
     for (size_t i = 0; i < p.mapping_size(); ++i) {
         auto m = simplify(p.mapping(i));
+        //cerr << "simplified " << pb2json(m) << endl;
         // remove wholly-deleted or empty mappings as these are redundant
         if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))
             || m.edit_size() == 0) continue;
-        // if this isn't the first mapping
-        if (i > 0) {
+        if (s.mapping_size()) {
+            // if this isn't the first mapping
             // refer to the last mapping
             Mapping* l = s.mutable_mapping(s.mapping_size()-1);
             // split off any insertions from the start
@@ -1222,7 +1253,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
     auto& node_seq = n.sequence();
     string seq;
     // todo reverse the mapping
-    function<id_t(id_t)> lambda = [&node_seq](id_t i){return node_seq.size();};
+    function<int64_t(id_t)> lambda = [&node_seq](id_t i){return node_seq.size();};
     Mapping m = (mp.position().is_reverse()
                  ? reverse_complement_mapping(mp, lambda) : mp);
     // then edit in the forward direction (easier)
@@ -1254,7 +1285,7 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
 }
 
 Mapping reverse_complement_mapping(const Mapping& m,
-                                   const function<id_t(id_t)>& node_length) {
+                                   const function<int64_t(id_t)>& node_length) {
     // Make a new reversed mapping
     Mapping reversed = m;
 
@@ -1282,7 +1313,7 @@ Mapping reverse_complement_mapping(const Mapping& m,
 }
 
 Path reverse_complement_path(const Path& path,
-                             const function<id_t(id_t)>& node_length) {
+                             const function<int64_t(id_t)>& node_length) {
     // Make a new reversed path
     Path reversed = path;
 
@@ -1608,6 +1639,28 @@ double divergence(const Mapping& m) {
         }
     }
     return 1 - (matches*2.0 / (from_length + to_length));
+}
+
+double identity(const Path& path) {
+    double ident = 0;
+    size_t total_length = path_to_length(path);
+    size_t matched_length = 0;
+    for (size_t i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        for (size_t j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                matched_length += edit.from_length();
+            }
+        }
+    }
+    return total_length == 0 ? 0.0 : (double) matched_length / (double) total_length;
+}
+
+double overlap(const Path& p1, const Path& p2) {
+    // to make a mapping for each position in both paths
+    // then to compare these
+    // simpler --- just compare mappings
 }
 
 }

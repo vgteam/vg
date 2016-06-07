@@ -6,8 +6,12 @@
 #include <string>
 #include <iostream>
 #include <unordered_map>
+#include <map>
 #include <climits>
 #include <queue>
+#include <fstream>
+#include <cstdlib>
+#include <sstream>
 #include <stack>
 #include "Variant.h"
 #include "index.hpp"
@@ -18,9 +22,6 @@
 #include "xg.hpp"
 #include "position.hpp"
 #include "vcfheader.hpp"
-#include <fstream>
-#include <cstdlib>
-
 /**
 * Deconstruct is getting rewritten.
 * New functionality:
@@ -37,61 +38,48 @@ namespace vg{
     using namespace vcfh;
     struct SuperBubble{
       //A vector of topologically-sorted nodes in the superbubble.
-      vector<id_t> nodes;
+      map<int, vector<id_t> > level_to_nodes;
       id_t start_node;
       id_t end_node;
       bool isNested;
     };
 
-class CandList{
-
-
-};
     class Deconstructor{
         public:
 
             Deconstructor();
-            Deconstructor(xg::XG x);
-						Deconstructor(VG v);
+            Deconstructor(VG* graph);
             ~Deconstructor();
+            void unroll_my_vg(int steps);
+            void dagify_my_vg(int steps);
+            vg::VG* compact(int compact_steps);
+            bool is_nested(SuperBubble sb);
+            bool contains_nested(pair<int64_t, int64_t> start_and_end);
             SuperBubble report_superbubble(int64_t start, int64_t end);
             vector<SuperBubble> get_all_superbubbles();
-            int validate_superbubble(int start, int end);
-            vector<int64_t> emit_nodes_on_path_through_superbubble(Path p, vector<SuperBubble> sb);
-            vector<int64_t> emit_nodes_off_path_through_superbubble(SuperBubble sb);
-            vector<vcflib::Variant> sb_to_variants(SuperBubble sb);
-            vector<int64_t> emit_nodes_through_superbubble(vector<pair<id_t, id_t> > bubs);
+            void sb2vcf(vector<SuperBubble> sbs, string outfile);
+            
 
         private:
-          xg::XG my_xg;
-					VG my_vg;
-          vector<SuperBubble> my_super_bubbles;
-					//TODO Use arrays to save some memory.
-          //NB: All these arrays are the same length, so that a NodeTraversal
-          // and index are interchangeable. This is not the way
-          // I should have done this.
-					vector<int64_t> previous_entrances;
-					vector<int64_t> alt_entrances;
-          //This is a deque, and its length may (and will) change.
-					deque<int64_t> candidates;
-          // This is also a deque but behaves like an array (and in reality, is
-          //supposed to be an array).
-					deque<NodeTraversal> nodes_in_topo_order;
-					vector<int64_t> ord_ID;
-					bool is_exit(int64_t i);
-					bool is_entrance(int64_t i);
-          void report(SuperBubble sb);
-          int64_t rangemin(vector<int64_t> a, int i, int j);
-          int64_t rangemax(vector<int64_t> a, int i, int j);
-					void insert_exit(int64_t i);
-					void insert_entrance(int64_t i);
-          int next(int n);
-          int64_t head(deque<int64_t>& cands);
-          int64_t tail(deque<int64_t>& cands);
-          void delete_tail(deque<int64_t>& cands);
-					Node vertex(int64_t i);
-					vector<int64_t> nt_to_ids(deque<NodeTraversal>& nt);
-					void init();
+
+		  VG* my_vg;
+          map<id_t, pair<id_t, bool> > my_translation;
+          map<id_t, pair<id_t, bool> > my_unroll_translation;
+          map<id_t, pair<id_t, bool> > my_dagify_translation;
+          map<id_t, SuperBubble> id_to_bub; 
+
+          vector<id_t> reverse_topo_order;
+
+          string mask_file = "";
+
+          vector<SuperBubble> my_superbubbles;
+          size_t my_max_length;
+          size_t my_max_component_length;
+
+		  vector<int64_t> nt_to_ids(deque<NodeTraversal>& nt);
+
+          SuperBubble translate_id(id_t id);
+		  void init();
 
     };
 }

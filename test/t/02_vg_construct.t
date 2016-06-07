@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 21
+plan tests 22
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg stats -z - | grep nodes | cut -f 2) 210 "construction produces the right number of nodes"
 
@@ -17,12 +17,14 @@ vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
 
 nodes=$(vg stats -z z.vg | head -1 | cut -f 2)
-is $nodes 84553 "the 1mb graph has the expected number of nodes"
+is $nodes 84557 "the 1mb graph has the expected number of nodes"
 
 edges=$(vg stats -z z.vg | tail -1 | cut -f 2)
-is $edges 115357 "the 1mb graph has the expected number of edges"
+is $edges 115361 "the 1mb graph has the expected number of edges"
 
 rm -f z.vg
+
+is $(vg construct -r 1mb1kgp/z.fa | vg view -j - | jq -c '.node[] | select((.sequence | length) >= 1024)' | wc -l) 0 "node size is manageable by default"
 
 vg construct -r complex/c.fa -v complex/c.vcf.gz >c.vg
 is $? 0 "construction of a very complex region succeeds"
@@ -97,7 +99,7 @@ is $(vg construct -R z:10000-20000 -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz | vg view
 vg construct -r small/x.fa >/dev/null
 is $? 0 "vg construct does not require a vcf"
 
-(( short_enough=$(vg construct -r small/x.fa -m 50 | vg view - | grep "^S" | cut -f3 | wc -L) < 51 ? 1 : 0 ))
+(( short_enough=$(vg construct -r small/x.fa -m 50 | vg view - | grep "^S" | cut -f3 | wc -l) < 51 ? 1 : 0 ))
 is $short_enough 1 "vg construct respects node size limit"
 
 is $(vg construct -CR 'gi|568815592:29791752-29792749' -r GRCh38_alts/FASTA/HLA/V-352962.fa | vg view - | grep TCTAGAAGAGTCCACGGGGACAGGTAAG | wc -l) 1 "--region can be interpreted to be a reference sequence (and not parsed as a region spec)"

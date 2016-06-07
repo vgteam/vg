@@ -8,9 +8,9 @@ PATH=../bin:$PATH # for vg
 
 plan tests 16
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) e3a28b1662bf849060abc050cc7a4b66 "MSGA produces the expected graph for GRCh38 HLA-V"
+is $(vg msga -a 2 -i 2 -o 3 -e 1 -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 1 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 16e56f0090b310d2b1479d49cf790324 "MSGA produces the expected graph for GRCh38 HLA-V"
 
-is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) e3a28b1662bf849060abc050cc7a4b66 "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
+is $(vg msga -a 2 -i 2 -o 3 -e 1 -f GRCh38_alts/FASTA/HLA/V-352962.fa -t 4 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) 16e56f0090b310d2b1479d49cf790324 "graph for GRCh38 HLA-V is unaffected by the number of alignment threads"
 
 is $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -n 'gi|568815592:29791752-29792749' -n 'gi|568815454:1057585-1058559' -b 'gi|568815454:1057585-1058559' -B 10000 -N | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) $(vg msga -f GRCh38_alts/FASTA/HLA/V-352962.fa -n 'gi|568815592:29791752-29792749' -n 'gi|568815454:1057585-1058559' -b 'gi|568815454:1057585-1058559' -B 300 -N | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ )  "varying alignment bandwidth does not affect output graph"
 
@@ -38,8 +38,8 @@ is $? 0 "a difficult cyclic path can be included to produce a valid graph"
 
 is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 -N | vg view - | wc -l) 35 "a cyclic path can be normalized"
 
-is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
-   $(vg msga -f msgas/cycle.fa -b s1 -B 16 -t 1 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
+is $(vg msga -f msgas/cycle.fa -b s1 -B 20 -t 1 -P 0.9 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
+   $(vg msga -f msgas/cycle.fa -b s1 -B 16 -t 1 -P 0.9 | vg mod -n - | vg mod -n - | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
    "bandwidth does not affect a cyclic graph, meaning normalization is correct"
 
 vg msga -f msgas/l.fa -b a1 -B 8 -m 8 | vg validate -

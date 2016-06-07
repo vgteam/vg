@@ -30,8 +30,10 @@ GSSWAligner::GSSWAligner(
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
+        // switch any non-ATGCN characters from the node sequence to N
+        auto cleaned_seq = nonATGCNtoN(n->sequence());
         gssw_node* node = (gssw_node*)gssw_node_create(n, n->id(),
-                                                       n->sequence().c_str(),
+                                                       cleaned_seq.c_str(),
                                                        nt_table,
                                                        score_matrix);
         nodes[n->id()] = node;
@@ -91,12 +93,14 @@ void GSSWAligner::align(Alignment& alignment, bool print_score_matrices) {
                                                     gap_open,
                                                     gap_extension);
 
-
+    //gssw_graph_print_score_matrices(graph, sequence.c_str(), sequence.size(), stderr);
 
     gssw_mapping_to_alignment(gm, alignment, print_score_matrices);
 
-
-    //gssw_print_graph_mapping(gm);
+#ifdef debug
+    gssw_print_graph_mapping(gm, stderr);
+#endif
+    
     gssw_graph_mapping_destroy(gm);
 
 }
@@ -146,7 +150,9 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
             int32_t length = e->length;
             //cerr << e->length << e->type << endl;
             switch (e->type) {
-            case 'M': {
+            case 'M':
+            case 'X':
+            case 'N': {
                 // do the sequences match?
                 // emit a stream of "SNPs" and matches
                 int h = from_pos;
@@ -213,6 +219,8 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
         //cerr << "path to_length " << path_to_length(*path) << endl;
     }
 
+    // set identity
+    alignment.set_identity(identity(alignment.path()));
 
 }
 

@@ -81,11 +81,14 @@ public:
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
     Alignment align(const Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
     // Align the given read with multi-mapping. Returns the alignments in score
-    // order, up to max_multimaps. Does not update the alignment passed in.
+    // order, up to multimaps (or max_multimaps if multimaps is 0). Does not update the alignment passed in.
     // If the sequence is longer than the band_width, will only produce a single best banded alignment.
     // All alignments but the first are marked as secondary.
-    vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
-    vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000, int multimaps = 0);
+    vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000, int multimaps = 0);
+
+    // Return true of the two alignments are consistent for paired reads, and false otherwise
+    bool alignments_consistent(const Alignment& aln1, const Alignment& aln2, int pair_window);
 
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
@@ -98,6 +101,9 @@ public:
                            int band_width = 1000);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
+    set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
+                                                vector<MaximalExactMatch>& mems2);
+
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
 
@@ -147,7 +153,7 @@ public:
     // stepping step between each one
     vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1);
     // alignment based on the MEM approach
-    vector<Alignment> align_mem(const Alignment& alignment);
+    vector<Alignment> align_mem(const Alignment& alignment, int multimaps = 0);
     Alignment align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems);
     vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int max_multi = 0);
     // use BFS to expand the graph in an attempt to resolve soft clips
@@ -178,7 +184,7 @@ public:
     int kmer_sensitivity_step; // size to decrease the kmer length if we fail alignment
     bool prefer_forward; // attempt alignment of forward complement of the read against the graph (forward) first
     bool greedy_accept; // if we make an OK forward alignment, accept it
-    float accept_norm_score; // for early bailout; target alignment score as a fraction of the score of a perfect match
+    float accept_identity; // for early bailout; target alignment score as a fraction of the score of a perfect match
 
     // mem mapper parameters (it is _much_ simpler)
     //
@@ -204,7 +210,12 @@ public:
     int max_multimaps;
     // soft clip resolution
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
-    float min_norm_score; // require that aln.score()/(aln.sequence().size()*match_score) is at least this much to accept alignment
+    float min_identity; // require that alignment identity is at least this much to accept alignment
+    // paired-end consistency enforcement
+    bool promote_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
+    int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
+    bool always_rescue; // Should rescue be attempted for all imperfect alignments?
+    int fragment_size; // Used to bound clustering of MEMs during paired end mapping
 
 };
 

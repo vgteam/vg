@@ -1,8 +1,6 @@
 # vg
 
-[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-[![Build Status](https://travis-ci.org/vgteam/vg.svg)](https://travis-ci.org/vgteam/vg)
+[![Join the chat at https://gitter.im/vgteam/vg](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/vgteam/vg?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/vgteam/vg.svg)](https://travis-ci.org/vgteam/vg) [![Stories in Ready](https://badge.waffle.io/vgteam/vg.png?label=ready&title=Ready)](https://waffle.io/vgteam/vg)
 
 ## variation graph data structures, interchange formats, alignment, genotyping, and variant calling methods
 
@@ -42,7 +40,7 @@ Then build with `. ./source_me.sh && make static`, and run with `./bin/vg`.
 
 VG won't build with XCode's compiler (clang), but it should work with GCC 4.9.  One way to install the latter (and other dependencies) is to install [Mac Ports](https://www.macports.org/install.php), then run:
 
-    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland-utils
+    sudo port install gcc49 libtool jansson jq cmake pkgconfig autoconf automake libtool coreutils samtools redland bison
 
 To make GCC 4.9 the default compiler, run (use `none` instead of `mp-gcc49` to revert back):
 
@@ -133,18 +131,40 @@ vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 
 # alternatively, store in a rocksdb backed index
-vg index -s -k 11 x.vg
+vg index -s -k 11 -d x.vg.index x.vg
 
 # align a read to the indexed version of the graph
 # note that the graph file is not opened, but x.vg.index is assumed
 vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -k 22 >read.gam
 
 # simulate a bunch of 150bp reads from the graph and map them
-vg map -r <(vg sim -n 1000 -l 150 x.vg) -x x.xg -g x.gcsa -k 22 >aln.gam
+vg map -r <(vg sim -n 1000 -l 150 -x x.xg ) -x x.xg -g x.gcsa -k 22 >aln.gam
 
 # surject the alignments back into the reference space of sequence "x", yielding a BAM file
 # NB: currently requires the rocksdb-backed index
-vg surject -p x -b aln.gam >aln.bam
+vg surject -p x -b -d x.vg.index aln.gam >aln.bam
+```
+### Variant Calling
+
+The following example shows how to construct a VCF file from a read alignment and graph.  This has been tested on 50X short read sequencing for relatively small pilot regions.  Note: VCF export requires  [glenn2vcf](https://github.com/adamnovak/glenn2vcf) and [vt](http://varianttools.sourceforge.net/Association/HomePage)
+
+```sh
+# filter secondary and ambiguous read mappings out of the gam
+vg filter graph.vg alignment.gam -r 0.90 -d 0.05 -e 0.05 -afu -s 10000 -o 10 > filtered.gam
+
+# create pileup for every graph position and edge in the graph
+vg pileup graph.vg filtered.gam -w 40 -m 10 -q 10 > graph.pileup
+
+# create "augmented graph" (original graph plus new newly called stuff)
+# and tsv file containing some annotations on this graph needed for vcf export
+vg call graph.vg graph.pileup -r 0.0001 -b 0.4 -f 0.25 -d 8 -l -c augmented.tsv -j > augmented.vg
+
+# export to vcf. note: -s -s -r -o parameters will have to be changed to fit your data
+glenn2vcf augmented.vg augmented.tsv -c chr13 -s NA12878 -r ref -o 32314860 > calls.vcf
+
+# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases:
+vt decompose calls.vcf | vt decompose_blocksub -a - | vt normalize -r FASTA_FILE - | uniq > calls.clean.vcf
+
 ```
 
 ### Command line interface
@@ -167,6 +187,10 @@ A variety of commands are available:
 - *mod*: various transformations of the graph
 - *surject*: force graph alignments into a linear reference space
 - *msga*: construct a graph from an assembly of multiple sequences
+- *validate*: determine if graph is valid
+- *filter*: filter reads out of an alignment
+- *pileup*: pileup reads onto graph positions and edges
+- *call*: call graph positions from a pileup
 
 ## Implementation notes
 

@@ -18,6 +18,7 @@
 #include "gcsa.h"
 #include "lcp.h"
 #include "gssw_aligner.hpp"
+#include "ssw_aligner.hpp"
 #include "region.hpp"
 #include "path.hpp"
 #include "utility.hpp"
@@ -296,7 +297,8 @@ public:
        bool flat_input_vcf = false,
        bool load_phasing_paths = false,
        bool load_variant_alt_paths = false,
-       bool showprog = false);
+       bool showprog = false,
+       set<string>* allowed_variants = nullptr);
        
     // Build the graph from a bunch of alleles, organized by position.
     void from_alleles(const map<long, vector<vcflib::VariantAllele> >& altp,
@@ -340,7 +342,9 @@ public:
     // use the sequence of the first node as the basis
     Node* merge_nodes(const list<Node*>& nodes);
     // uses unchop and sibling merging to simplify the graph into a normalized form
-    void normalize(void);
+    void normalize(int max_iter = 1);
+    // remove redundant overlaps
+    void bluntify(void);
     // turn the graph into a dag by copying strongly connected components expand_scc_steps times
     // and translating the edges in the component to flow through the copies in one direction
     VG dagify(uint32_t expand_scc_steps,
@@ -673,10 +677,42 @@ public:
     // converts the stored paths in this graph to alignments
     const vector<Alignment> paths_as_alignments(void);
     const string path_sequence(const Path& path);
+    string trav_sequence(const NodeTraversal& trav);
 
     SB_Input vg_to_sb_input();
     vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
     vector<pair<id_t, id_t> > get_superbubbles();
+
+    map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
+
+    // Takes in a pathname and the nucleotide position
+    // (e.g. from a vcf) and returns the node id which
+    // contains that position.
+    id_t get_node_at_nucleotide(string pathname, int nuc);
+
+    // Takes in a VCF file
+    // and returns a map [node] = vcflib::variant
+    // Unfortunately this is specific to a given graph
+    // and VCF.
+    //
+    // It will need to throw warnings if the node or variant
+    // is not in the graph.
+    //
+    // This is useful for VCF masking:
+    // if map.find(node) then mask variant
+    //
+    // It's also useful for calling known variants
+    // for m in alignment.mappings:
+    //    node = m.Pos.nodeID
+    //    if node in node_to_vcf:
+    //        return (alignment supports variant)
+    //
+    // It would be nice if this also supported edges (e.g.
+    // for inversions/transversions/breakpoints?)
+    // map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
+    map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+
+
     // edges
     // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.
@@ -719,6 +755,10 @@ public:
     void for_each_edge(function<void(Edge*)> lambda);
     void for_each_edge_parallel(function<void(Edge*)> lambda);
 
+
+    // Circularize a subgraph / path using the head / tail nodes.
+    void circularize(id_t head, id_t tail);
+    void circularize(vector<string> pathnames);
     // connect node -> nodes
     // Connects from the right side of the first to the left side of the second
     void connect_node_to_nodes(NodeTraversal node, vector<NodeTraversal>& nodes);
@@ -788,16 +828,16 @@ public:
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
     Alignment align(const Alignment& alignment,
-                    int32_t match = 2,
-                    int32_t mismatch = 2,
-                    int32_t gap_open = 3,
+                    int32_t match = 1,
+                    int32_t mismatch = 4,
+                    int32_t gap_open = 6,
                     int32_t gap_extension = 1,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
     Alignment align(const string& sequence,
-                    int32_t match = 2,
-                    int32_t mismatch = 2,
-                    int32_t gap_open = 3,
+                    int32_t match = 1,
+                    int32_t mismatch = 4,
+                    int32_t gap_open = 6,
                     int32_t gap_extension = 1,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);

@@ -46,6 +46,7 @@ bam1_t* alignment_to_bam(const string& sam_header,
                          const Alignment& alignment,
                          const string& refseq,
                          const int32_t refpos,
+                         const bool refrev,
                          const string& cigar,
                          const string& mateseq,
                          const int32_t matepos,
@@ -54,14 +55,15 @@ bam1_t* alignment_to_bam(const string& sam_header,
 string alignment_to_sam(const Alignment& alignment,
                         const string& refseq,
                         const int32_t refpos,
+                        const bool refrev,
                         const string& cigar,
                         const string& mateseq,
                         const int32_t matepos,
                         const int32_t tlen);
 
-string cigar_against_path(const Alignment& alignment);
+string cigar_against_path(const Alignment& alignment, bool on_reverse_strand);
 
-int32_t sam_flag(const Alignment& alignment);
+int32_t sam_flag(const Alignment& alignment, bool on_reverse_strand);
 short quality_char_to_short(char c);
 char quality_short_to_char(short i);
 string string_quality_char_to_short(const string& quality);
@@ -85,7 +87,7 @@ const string hash_alignment(const Alignment& aln);
 // Mappings to match. A function to get node lengths is needed because the
 // Mappings in the alignment will need to give their positions from the opposite
 // ends of their nodes.
-Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(int64_t)>& node_length);
+Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(id_t)>& node_length);
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
 int softclip_start(Alignment& alignment);
 int softclip_end(Alignment& alignment);
@@ -104,6 +106,9 @@ void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_
 // simplifies the path in the alignment
 Alignment simplify(const Alignment& a);
 void write_alignment_to_file(const Alignment& aln, const string& filename);
+
+// quality information; a kind of poor man's pileup
+map<id_t, int> alignment_quality_per_node(const Alignment& aln);
 
 }
 

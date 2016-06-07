@@ -4,286 +4,370 @@ using namespace std;
 
 
 namespace vg {
-	Deconstructor::Deconstructor(){
+    Deconstructor::Deconstructor(){
 
-	}
+    }
 
-	Deconstructor::Deconstructor(xg::XG x) : my_xg(x){
-
-	}
-
-	Deconstructor::Deconstructor(VG v) {
-		my_vg = v;;
-  	vector<SuperBubble> my_super_bubbles;
-		vector<int64_t> previous_entrances;
-		vector<int64_t> alt_entrances;
-		deque<int64_t> candidates;
-		deque<NodeTraversal> nodes_in_topo_order;
-		vector<int64_t> ord_ID;
-		init();
-	}
-
-	Deconstructor::~Deconstructor(){
-	}
-
-	void Deconstructor::init(){
-		my_vg.topological_sort(nodes_in_topo_order);
-		ord_ID = nt_to_ids(nodes_in_topo_order);
-
-		previous_entrances = vector<int64_t> (ord_ID.size(), -1);
-		alt_entrances = vector<int64_t> (ord_ID.size(), -1);
-	}
-
-	void Deconstructor::report(SuperBubble sb){
-		my_super_bubbles.push_back(sb);
-		cerr << sb.start_node << "\t" << sb.end_node << endl;
-	}
-
-	/**
-	Use a basic BFS to find nodes on path
-	deconstruct(path p){
-
-}
-*/
-
-/**
-* Another function taken from Brankovic. Takes a potential start and
-* end index for a superbubble.
-* Returns: a SuperBubble struct if one is found. An empty one if
-* no superbubbles are found.
-* Modifies global variables!
-* Should probably have a matching report function which actually returns a bloody superbubble
-* and tosses it in the global namespace.
-*/
-SuperBubble Deconstructor::report_superbubble(int64_t start, int64_t end){
-	cerr << "Report called" << endl;
-	// This seems iffy, check it.
-	if ((start == -1 || end == -1) || ord_ID[start] >= ord_ID[end]){
-		delete_tail(candidates);
-		SuperBubble sb;
-		return sb;
-	}
-	int64_t s = previous_entrances[end];
-	int64_t valid;
-	while (ord_ID[s] >= ord_ID[start]){
-		valid = validate_superbubble(s, end);
-		//TODO check this
-		if ((s == valid || valid == alt_entrances[s]) || valid == -1){
-			break;
-		}
-		alt_entrances[s] = valid;
-		s = valid;
-	}
-	delete_tail(candidates);
-	if (valid == s){
-		//TODO MAke a superbubble obj and toss it up!
-		SuperBubble sb;
-		report(sb);
-		//March back from end to s in candidates
-		while (tail(candidates) != s){
-			if(is_exit(tail(candidates))){
-				report_superbubble(next(s), tail(candidates));
-			}
-			else{
-				delete_tail(candidates);
-			}
-		}
-	}
-	SuperBubble sb;
-	return sb;
-}
-
-/**
-* Implementation of method SuperBubble in Brankovic 2015.
-* Takes a graph (vg), topologically sorts it, and marches
-* backward through the ordered nodes looking for candidates superbubbles.
-* Makes a SuperBubble struct if one is found, and appends it to a vector which
-* is returned. If none are found, the returned vector is empty.
-* Modifies global variables!
-* TODO need to call unroll/unfold/dagify first
-* TODO should really use more pointers.
-*/
-vector<SuperBubble> Deconstructor::get_all_superbubbles(){
-	vector<SuperBubble> ret;;
-	int prev_entr = -1;
-
-	for (int ind = 0; ind < nodes_in_topo_order.size(); ind++){
-		int64_t vert_id = (nodes_in_topo_order[ind].node->id() - 1);
-		alt_entrances[vert_id] = -1;
-		previous_entrances[vert_id] = prev_entr;
-		if (is_exit(vert_id)){
-			insert_exit(vert_id);
-		}
-		if (is_entrance(vert_id)){
-			insert_entrance(vert_id);
-			prev_entr = vert_id;
-		}
-	}
-	while(!candidates.empty()){
-		if (is_entrance( tail(candidates) )){
-			delete_tail( candidates );
-		}
-		else{
-			// Could use pointers, but we use indices instead.
-			// Perhaps wiser to use iterators?? TODO
-			report_superbubble(head(candidates), tail(candidates));
-		}
-	}
+    Deconstructor::Deconstructor(VG* v) {
+        my_vg = v;
 
 
-	return ret;
-}
+        init();
+    }
 
-/**
-* Take in the indices of potential superbubble entrances/exits
-* and return the index of the actual entrance OR -1 if none found
-* and superbubble isn't so super.
-* Modifies global variables!
-*/
-int Deconstructor::validate_superbubble(int start, int end){
-	//NodeTraversal s = nodes_in_topo_order[start];
-	//NodeTraversal e = nodes_in_topo_order[end];
-	int outchild = rangemax(ord_ID, start, end-1);
-	int outparent = rangemin(ord_ID, start+1, end);
-	if (outchild != end){
-		return -1;
-	}
-	if (outparent == start){
-		return start;
-	}
-	else if (is_entrance(outparent)){
-		return outparent;
-	}
-	else{
-		return previous_entrances[outparent];
-	}
-}
+    Deconstructor::~Deconstructor(){
+    }
 
-vector<int64_t> emit_nodes_through_superbubble(vector<pair<id_t, id_t> > bubs){
-	vector<id_t> ret;
-	queue<id_t> nq;
-	int level = 0;
-//cerr << "here " << endl;
-	id_t begin;
-	int ind = 0;
-	begin = bubs[ind].first;
-	nq.push(begin);
+    void Deconstructor::init(){
+    }
 
-	// while (!nq.empty()){
-	// 	current = nq.front(); nq.pop();
-	// 	vector<pair<int64_t, bool>> edges;
-	// 	edges = (*vgraph).edges_on_end[];
-	// 	for (int i = 0; i < edges.size(); i++){
-	//
-	//
-	// 	}
-	// 	level += 1;
-	// }
-	return ret;
-}
+    void Deconstructor::unroll_my_vg(int steps){
+        *my_vg = my_vg->unfold(steps, my_unroll_translation);
+        if (my_translation.size() > 0){
+            my_vg->overlay_node_translations(my_unroll_translation, my_translation);
+        }
 
-vector<int64_t> Deconstructor::emit_nodes_on_path_through_superbubble(Path p, vector<SuperBubble> subs){
+    }
 
-}
+    void Deconstructor::dagify_my_vg(int steps){
+        *my_vg = my_vg->dagify(steps, my_dagify_translation, 0, my_max_length);
+        if (my_translation.size() > 0){
+            my_vg->overlay_node_translations(my_dagify_translation, my_translation);
+        }
+    }
 
-vector<int64_t> Deconstructor::emit_nodes_off_path_through_superbubble(SuperBubble sb){
+    /**
+     * detect if there are superbubbles contained within the current superbubble
+     * (defined by Start and End)
+     *
+     * This is easiest done using a simple linear search between the nodes
+     * in topologically order.
+     *
+     */
+    bool Deconstructor::contains_nested(pair<int64_t, int64_t> start_and_end){
 
-}
-
-vector<vcflib::Variant> Deconstructor::sb_to_variants(SuperBubble sb){
-
-}
+        return false;
+    }
 
 
+    /**
+     * For each superbubble in the graph:
+     *  If a superbubble is nested and simple (contains no superbubbles),
+     *  transform it into a node.
+     *  Record the translation from new node in the graph -> old superbubble
+     *  map<id_t, SuperBubble>
+     *
+     *  At each step, find the new superbubbles of the graph and continue with this process.
+     *  
+     *
+     */
+    vg::VG* Deconstructor::compact(int compact_steps){
+        map<id_t, SuperBubble> node_to_sb;
+        for (int i = 0; i < compact_steps; i++){
+            vector<pair<int64_t, int64_t> > supbubs = my_vg->get_superbubbles();
+            if (supbubs.size() == 0){
+                break;
+            }
+            for (pair<int64_t, int64_t> s : supbubs){
+                if (!contains_nested(s)){
+                    //Generate a SuperBubble object,
+                    //which contains the startnode, endnode, and a trace through the interior.
+                    SuperBubble bub = report_superbubble(s.first, s.second);
 
-/** Checks whether a vertex V satisifes Lemma 3,
-* that v has one parent vertex.
-*/
-bool Deconstructor::is_exit(int64_t i){
-	Node v = vertex(i + 1);
-	//TODO: this needs to handle reversed nodes
-	// if (v.backward){
-	// 	vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v);
-	// 	return edges_end.size() <= 1;
-	// }
-	// else{
-	// 	vector<pair<id_t, bool>>& edges_start = my_vg.edges_start(v);
-	// 	return edges_start.size() <= 1;
-	// }
-	return my_vg.edges_end(&v).size() <= 1;
-}
+                    // Swap out the superbubble for its start node.
 
-bool Deconstructor::is_entrance(int64_t i){
+                    // Record the translation.
 
-	Node v = vertex(i + 1);
-	//TODO: same as above method
-	// if (!v.backward){
-	// 	vector<pair<id_t, bool>>& edges_end = my_vg.edges_end(v);
-	// 	return edges_start.size() <= 1;
-	// }
-	// else{
-	// 	vector<pair<id_t, bool>>& edges_start = my_vg.edges_start(v);
-	// 	return edges_start.size() <= 1;
-	// }
-	return my_vg.edges_start(&v).size() <= 1;
-}
 
-int64_t Deconstructor::rangemin(vector<int64_t> a, int i, int j){
-	int64_t min = INT64_MAX;
-	for (int ind = i; ind < j; ind++){
-		if (a[ind] < min){
-			min = a[ind];
-		}
-	}
-	return min;
-}
+                    // Link up the right edges
 
-int Deconstructor::next(int n){
-	return n + 1;
-}
 
-int64_t Deconstructor::rangemax(vector<int64_t> a, int i, int j){
-	int64_t max = -1;
-	for (int ind = i; ind < j; ind++){
-		if (max < a[ind]){
-			max = a[ind];
-		}
-	}
-	return max;
-}
+                }
 
-void Deconstructor::insert_exit(int64_t n){
-	candidates.push_back(n);
-}
-void Deconstructor::insert_entrance(int64_t n){
-	candidates.push_back(n);
-}
+            }
 
-int64_t Deconstructor::head(deque<int64_t>& cands){
-	return cands.front();
-}
+        }
 
-int64_t Deconstructor::tail(deque<int64_t>& cands){
-	return cands.back();
-}
+        return my_vg;
 
-void Deconstructor::delete_tail(deque<int64_t>& cands){
-	cands.pop_back();
-}
 
-Node Deconstructor::vertex(int64_t i){
-	return *(my_vg.get_node(i));
-}
+    }
 
-vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal>& nt){
-	vector<int64_t> ret = vector<int64_t>(nt.size(), 0);
-	int64_t count = 0;
-	for (auto n: nt){
-		ret[(n.node->id() - 1)] = count;
-		count++;
-	}
+    SuperBubble Deconstructor::translate_id(id_t transformed){
+        return id_to_bub[transformed];
 
-	return ret;
-}
+    }
+
+    /**
+     *   BFS through a superbubble and fill out the corresponding SuperBubble
+     *   struct.
+     */
+    SuperBubble Deconstructor::report_superbubble(int64_t start, int64_t end){
+
+        SuperBubble sb;
+        sb.start_node = start;
+        sb.end_node = end;
+
+        //BFS through interior and fill out level_to_nodes
+
+        queue<id_t> nq;
+        nq.push(start);
+        int level = 0;
+        map<int, vector<id_t> > level_to_nodes;
+        while(!nq.empty()){
+            id_t current = nq.front(); nq.pop();
+            level_to_nodes[level].push_back(current);
+            vector<pair<id_t, bool>> edges_on_end = my_vg->edges_end(current);
+            for (int j = 0; j < edges_on_end.size(); j++){
+                nq.push(edges_on_end[j].first);
+                id_t next_id = (edges_on_end[j].first);
+                if (next_id == end){
+                    sb.level_to_nodes = level_to_nodes;
+                    break;
+                }
+                
+            }
+            level++;
+        }
+        return sb;
+    }
+
+    bool Deconstructor::is_nested(SuperBubble sb){
+
+
+        return false;
+    }
+
+    void Deconstructor::sb2vcf(vector<SuperBubble> bubs, string outfile){
+        Header h;
+        h.set_date();
+        h.set_source("VG");
+        h.set_reference("");
+        h.set_version("VCF4.2");
+
+        cout << h << endl;
+
+        // for each superbubble:
+        // Fill out a vcflib Variant
+        // Check if it is masked by an input vcf
+        // if not, print it to stdout
+        
+        
+        
+        map<id_t, vcflib::Variant> node_to_var;
+        vcflib::VariantCallFile mask;
+        if (!mask_file.empty()){
+            //node_to_var = my_vg->get_node_to_variant(mask);
+        }
+        for (auto s : bubs){
+            vcflib::Variant var;
+            /*set ref = str(ref)
+             * First fill out alleles[0] with ref
+             * then alts as 1....N
+             *
+             * push the alternate alleles into alts[] too
+             *
+             * Position: your guess is as good as mine
+             *
+             * id: need annotations
+             *
+             *
+             */
+
+            var.sequenceName = "seq";
+            var.position = 0;
+            var.id = ".";
+            map<int, vector<id_t> >::iterator it;
+            for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); it++){
+            //cout << s.start_node << "_" << s.end_node << "\t";
+                vector<id_t> middle_nodes = it->second;
+                for (int ind = 0; ind < middle_nodes.size(); ind++){
+                    Node* n = my_vg->get_node(middle_nodes[ind]);
+                    if (my_vg->paths.has_node_mapping(n)){
+                        var.ref = n->sequence();
+                        var.alleles.push_back(n->sequence());
+                    }
+                    else{
+                        var.alt.push_back(n->sequence());
+                    }
+                    //cout << middle_nodes[ind] << "\t";
+                }
+            }
+
+            cout << var << endl;
+
+            //cout << endl;
+
+        }
+
+
+    }
+
+    /**
+     * Uses a BFS between nodes in the graph
+     * labeled as the endpoints of superbubbles
+     * to enumerate the nodes between them.
+     *TODO: the dagify transform records the node translation
+
+     * IDEALLY: return the topological order, the starts/ends of superbubbles,
+     * and an index from node -> location in topo order. This makes
+     * checking if things are nested trivial.
+     */
+    vector<SuperBubble> Deconstructor::get_all_superbubbles(){
+
+        pair<id_t, id_t> endpoints;
+        //map<id_t, pair<id_t, bool> > node_translation;
+        //uint32_t dag_len = 1;
+        //my_vg->dagify(dag_len, node_translation);
+
+        vector<SuperBubble> ret;
+        unordered_map<id_t, SuperBubble> entrance_to_SB;
+        unordered_map<id_t, SuperBubble> exit_to_SB;
+
+        vector<pair<id_t, id_t> > supbubs = my_vg->get_superbubbles();
+        for (auto pp : supbubs){
+            SuperBubble bub;
+            bub.start_node = pp.first;
+            bub.end_node = pp.second;
+
+            entrance_to_SB[bub.start_node] = bub;
+            exit_to_SB[bub.end_node] = bub;
+
+            //ret.push_back(bub);
+        }
+        map<int, vector<id_t> > level_to_node;
+        int level = 0;
+
+        /**
+         * For each superbubble, BFS through it and record
+         * possible paths.
+         *
+         *
+        map<int, vector<id_t> > level_to_nodes;
+        for (int i = 0; i < supbubs.size(); i++){
+            vector<id_t> alleles;
+            queue<id_t> nq;
+            endpoints = supbubs[i];
+            nq.push(endpoints.first);
+            while(!nq.empty()){
+                id_t current = nq.front(); nq.pop();
+                vector<pair<id_t, bool>> edges_on_end = my_vg->edges_end(current);
+                for (int j = 0; j < edges_on_end.size(); j++){
+                    nq.push(edges_on_end[j].first);
+                    id_t next_id = (edges_on_end[j].first);
+                    if (next_id == endpoints.second){
+                        ret[i].level_to_nodes = level_to_nodes;
+                        ret[i].start_node = endpoints.first;
+                        ret[i].end_node = endpoints.second;
+                        break;
+                    }
+                    alleles.push_back(next_id);
+                }
+                level++;
+            }
+
+        }
+        */
+        //Use the DFS interface instead
+
+        vector<id_t> rto;
+
+
+        function<bool(id_t)> is_exit_node = [&exit_to_SB](id_t id){
+            try{
+                exit_to_SB.at(id);
+                return true;
+            }
+            catch (const std::out_of_range& oor){
+                return false;
+            }
+        };
+
+        function<bool(id_t)> is_entrance_node = [&entrance_to_SB](id_t id){
+            try{
+                entrance_to_SB.at(id);
+                return true;
+            }
+            catch (const std::out_of_range& oor){
+                return false;
+            }
+        };
+
+        function<void(Node*)> on_node_end = [&rto](Node* node){
+            //cerr << "is_end: " << node->id() << endl;
+            rto.push_back(node->id());
+         };
+         function<void(Node*)> on_node_start = [&ret](Node* node){
+            //cerr << "is_start: " << node->id() << endl;
+            
+         };
+         my_vg->dfs(on_node_start, on_node_end);
+        
+         /**
+          * Go through nodes in topo order
+          * If they are entrance/exits, switch to concat mode
+          * concat middle nodes to superbubble
+          * if node is exit, switch off concat mode
+          * Need to maintain a pointer to SBs in map
+          * Then, do a linear pass over map, create the set of pointers
+          * and return
+          *
+          *for (int i = 0; i < rto.size(); i++){
+            if (is_entrance_node(rto[i])){
+                ret.push_back(current);
+                in_bub = false;
+            }
+            else if (in_bub){
+                current.level_to_nodes[0].push_back(rto[i]);
+            }
+
+            if (is_exit_node(rto[i])){
+                in_bub = true;
+                current = exit_to_SB[rto[i]];
+            }
+
+            
+        }
+          */
+        bool in_bub = false;
+        SuperBubble current;
+        for (int i = rto.size() - 1; i > 0; i--){
+            if (is_exit_node(rto[i])){
+                ret.push_back(current);
+                in_bub = false;
+            }
+            else if (in_bub){
+                current.level_to_nodes[0].push_back(rto[i]);
+            }
+
+            if (is_entrance_node(rto[i])){
+                in_bub = true;
+                current = entrance_to_SB[rto[i]];
+            }
+
+            
+        }
+
+        reverse_topo_order = rto;
+        
+
+        return ret;
+    }
+
+/*    map<id_t, int> cache_path_distances(){
+
+    } */
+
+
+    vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal>& nt){
+        vector<int64_t> ret = vector<int64_t>(nt.size(), 0);
+        int64_t count = 0;
+        for (auto n: nt){
+            ret[(n.node->id() - 1)] = count;
+            count++;
+        }
+
+        return ret;
+    }
 
 }

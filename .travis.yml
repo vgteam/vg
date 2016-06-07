@@ -7,7 +7,9 @@ dist: trusty
 before_install:
   - git submodule update --init --recursive
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq gcc-4.9 g++-4.9; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9; fi
   - gcc --version && g++ --version
@@ -30,8 +32,8 @@ before_install:
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;fi
 script:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make && make test && make static; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make && make test; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && make test && make static -j4; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make -j4 && make test; fi
 
 os:
   - linux
