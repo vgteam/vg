@@ -56,7 +56,7 @@ public:
     // This maps from path name to the list of Mappings for that path.
     map<string, list<Mapping> > _paths;
     // This maps from Mapping* pointer to its iterator in its list of Mappings
-    // for its path. The list in question is stroed above in _paths. Recall that
+    // for its path. The list in question is stored above in _paths. Recall that
     // std::list iterators are bidirectional.
     map<Mapping*, list<Mapping>::iterator > mapping_itr;
     // This maps from Mapping* pointer to the name of the path it belongs to
@@ -64,12 +64,18 @@ public:
     map<Mapping*, string> mapping_path;
     void sort_by_mapping_rank(void);
     void rebuild_mapping_aux(void);
-    // ...we need this in order to get subsets of the paths in correct order
-    map<Mapping*, size_t> mapping_path_order;
-    // This maps from node ID to a set of path name, mapping instance pairs.
-    // Note that we don't have a map for each node, because each node can appear
-    // along any given path multiple times, with multiple Mapping* pointers.
-    map<int64_t, map<string, set<Mapping*>>> node_mapping;
+    // We need this in order to make sure we aren't adding duplicate mappings
+    // with the same rank in the same path. Maps from path name and rank to
+    // Mapping pointer.
+    map<string, map<size_t, Mapping*>> mappings_by_rank;
+    // This maps from node ID, then path name, then rank and orientation, to
+    // Mapping pointers for the mappings on that path to that node.
+    map<id_t, map<string, set<Mapping*>>> node_mapping;
+    // record which head nodes we have
+    // we'll use this when determining path edge crossings--- all paths implicitly cross these nodes
+    set<id_t> head_tail_nodes;
+    bool is_head_or_tail_node(id_t);
+    vector<string> all_path_names(void);
     
     void rebuild_node_mapping(void);
     //void sync_paths_with_mapping_lists(void);
@@ -80,20 +86,32 @@ public:
     pair<Mapping*, Mapping*> divide_mapping(Mapping* m, size_t offset);
     // replace the mapping with two others in the order provided
     pair<Mapping*, Mapping*> replace_mapping(Mapping* m, pair<Mapping, Mapping> n);
+    // Note that this clears and rebuilds all the indexes
     void remove_paths(const set<string>& names);
+    // This one actually unthreads the path from the indexes. It's O(path
+    // length), but you can do several calls without thrashing the index
+    // clear and rebuild functions.
+    void remove_path(const string& name);
     void keep_paths(const set<string>& name);
-    void remove_node(int64_t id);
+    void remove_node(id_t id);
     bool has_path(const string& name);
     void to_json(ostream& out);
     list<Mapping>& get_path(const string& name);
     list<Mapping>& get_create_path(const string& name);
     list<Mapping>& create_path(const string& name);
-    bool has_mapping(const string& name, const Mapping& m);
-    bool has_node_mapping(int64_t id);
+    // Does the given path have a mapping meeting the given criteria?
+    // Is there a mapping in the given path with the given assigned rank? Note
+    // that the rank passed may not be 0.
+    bool has_mapping(const string& name, size_t rank);
+    // We used to be able to search for a Mapping by value, but that's not
+    // efficient if the Mappings don't have ranks, and it never checked the
+    // edits for equality anyway.
+    bool has_node_mapping(id_t id);
     bool has_node_mapping(Node* n);
-    map<string, set<Mapping*>>& get_node_mapping(Node* n);
-    map<string, set<Mapping*>>& get_node_mapping(int64_t id);
-    map<string, map<int, Mapping>> get_node_mapping_copies_by_rank(int64_t id);
+    map<string, set<Mapping*> >& get_node_mapping(Node* n);
+    map<string, set<Mapping*> >& get_node_mapping(id_t id);
+    map<string, map<int, Mapping*> > get_node_mappings_by_rank(id_t id);
+    map<string, map<int, Mapping> > get_node_mapping_copies_by_rank(id_t id);
     // Go left along the path that this Mapping* belongs to, and return the
     // Mapping* there, or null if this Mapping* is the first in its path.
     Mapping* traverse_left(Mapping* mapping);
@@ -102,9 +120,21 @@ public:
     Mapping* traverse_right(Mapping* mapping);
     // TODO: should this be a reference?
     const string mapping_path_name(Mapping* m);
+    // the patsh of the node
+    set<string> of_node(id_t id);
     // get the paths on this node and the number of mappings from each one
-    map<string, int> of_node(int64_t id);
-    bool are_consecutive_nodes_in_path(int64_t id1, int64_t id2, const string& path_name);
+    map<string, int> node_path_traversal_counts(id_t id, bool rev = false);
+    // the return vector contains the name of each path that crosses the node
+    // repeated as many times as it crosses
+    vector<string> node_path_traversals(id_t id, bool rev = false);
+    bool are_consecutive_nodes_in_path(id_t id1, id_t id2, const string& path_name);
+    // paths that cross the edge, 
+    vector<string> over_edge(id_t id1, bool rev1,
+                             id_t id2, bool rev2,
+                             vector<string> following);
+    vector<string> over_directed_edge(id_t id1, bool rev1,
+                                      id_t id2, bool rev2,
+                                      vector<string> following);
     size_t size(void) const;
     bool empty(void) const;
     // clear the internal data structures tracking mappings and storing the paths
@@ -117,37 +147,43 @@ public:
     void to_graph(Graph& g);
     // get a path
     Path path(const string& name);
-    // add mappings, use rank to sort later
+    // add mappings. Mappings are assumed to either be pre-sorted or to have
+    // ranks assigned already. If you append a mapping with no rank after
+    // mappings with ranks, or visa versa, the relative ordering is undefined.
+    // Also, if both pre-ranked and un-ranked mappings are appended, or if you
+    // called clear_mapping_ranks before appending, mappings_by_rank may be
+    // incorrect until rebuild_mapping_aux() is called.
     void append_mapping(const string& name, const Mapping& m);
-    void append_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
+    void append_mapping(const string& name, id_t id, size_t rank = 0, bool is_reverse = false);
     void prepend_mapping(const string& name, const Mapping& m);
-    void prepend_mapping(const string& name, int64_t id, size_t rank = 0, bool is_reverse = false);
+    void prepend_mapping(const string& name, id_t id, size_t rank = 0, bool is_reverse = false);
     size_t get_next_rank(const string& name);
     void append(Paths& p);
     void append(Graph& g);
     void extend(Paths& p);
     void extend(const Path& p);
     void for_each(const function<void(const Path&)>& lambda);
+    // Loop over the names of paths without actually extracting the Path objects.
+    void for_each_name(const function<void(const string&)>& lambda);
     void for_each_stream(istream& in, const function<void(Path&)>& lambda);
-    void increment_node_ids(int64_t inc);
+    void increment_node_ids(id_t inc);
     // Replace the node IDs used as keys with those used as values.
     // This is only efficient to do in a batch.
-    void swap_node_ids(hash_map<int64_t, int64_t>& id_mapping);
+    void swap_node_ids(hash_map<id_t, id_t>& id_mapping);
     // sets the mapping to the new id
     // erases current (old index information)
-    void reassign_node(int64_t new_id, Mapping* m);
+    void reassign_node(id_t new_id, Mapping* m);
     void for_each_mapping(const function<void(Mapping*)>& lambda);
 };
 
-Path& increment_node_mapping_ids(Path& p, int64_t inc);
+Path& increment_node_mapping_ids(Path& p, id_t inc);
 Path& append_path(Path& a, const Path& b);
 const Paths paths_from_graph(Graph& g);
-void parse_region(const string& target, string& name, int64_t& start, int64_t& end);
+void parse_region(const string& target, string& name, id_t& start, id_t& end);
 int path_to_length(const Path& path);
 int path_from_length(const Path& path);
 int mapping_to_length(const Mapping& m);
 int mapping_from_length(const Mapping& m);
-Path merge_paths(const Path& path1, const Path& path2, int& kept_path1, int& kept_path2);
 Position first_path_position(const Path& path);
 Position last_path_position(const Path& path);
 int to_length(const Mapping& m);
@@ -161,19 +197,26 @@ const string mapping_sequence(const Mapping& m, const Node& n);
 // Reverse-complement a Mapping and all the Edits in it. A function to get node
 // lengths is needed, because the mapping will need to count its position from
 // the other end of the node.
-Mapping reverse_mapping(const Mapping& m, const function<int64_t(int64_t)>& node_length);
+Mapping reverse_complement_mapping(const Mapping& m,
+                                   const function<id_t(id_t)>& node_length);
 // Reverse-complement a Path and all the Mappings in it. A function to get node
 // lengths is needed, because the mappings will need to count their positions
 // from the other ends of their nodes.
-Path reverse_path(const Path& path, const function<int64_t(int64_t)>& node_length);
+Path reverse_complement_path(const Path& path,
+                             const function<id_t(id_t)>& node_length);
 // Simplify the path for addition as new material in the graph. Remove any
 // mappings that are merely single deletions, merge adjacent edits of the same
 // type, strip leading and trailing deletion edits on mappings, and make sure no
 // mappings have missing positions.
 Path simplify(const Path& p);
+// does the same for a single mapping element
 Mapping simplify(const Mapping& m);
-Mapping merge_mappings(const Mapping& m, const Mapping& n);
+// make a new mapping that concatenates the mappings
+Mapping concat_mappings(const Mapping& m, const Mapping& n);
+// make a new path that concatenates the two given paths
 Path concat_paths(const Path& path1, const Path& path2);
+// extend the first path by the second, avoiding copy operations
+Path& extend_path(Path& path1, const Path& path2);
 // divide mapping at reference-relative position
 pair<Mapping, Mapping> cut_mapping(const Mapping& m, const Position& pos);
 // divide mapping at target-relative offset (as measured in to_length)
@@ -182,11 +225,13 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset);
 pair<Path, Path> cut_path(const Path& path, const Position& pos);
 // divide the path at a path-relative offset as measured in to_length from start
 pair<Path, Path> cut_path(const Path& path, size_t offset);
-bool maps_to_node(const Path& p, int64_t id);
+bool maps_to_node(const Path& p, id_t id);
 // the position that starts just after the path ends
 Position path_start(const Path& path);
 Position path_end(const Path& path);
 bool adjacent_mappings(const Mapping& m1, const Mapping& m2);
+// Return true if a mapping is a perfect match (i.e. contains no non-match edits)
+bool mapping_is_match(const Mapping& m);
 double divergence(const Mapping& m);
 
 }

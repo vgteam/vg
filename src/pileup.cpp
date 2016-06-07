@@ -69,10 +69,10 @@ bool Pileups::insert(NodePileup* pileup) {
 void Pileups::compute_from_alignment(VG& graph, Alignment& alignment) {
     // if we start reversed
     if (alignment.has_path() && alignment.path().mapping(0).position().is_reverse()) {
-        alignment = reverse_alignment(alignment,
-                                      (function<int64_t(int64_t)>) ([&graph](int64_t id) {
-                                          return graph.get_node(id)->sequence().size();
-                                          }));
+        alignment = reverse_complement_alignment(alignment,
+                                                 (function<int64_t(int64_t)>) ([&graph](int64_t id) {
+                                                         return graph.get_node(id)->sequence().size();
+                                                     }));
     }
     const Path& path = alignment.path();
     int64_t read_offset = 0;

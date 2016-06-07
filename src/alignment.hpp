@@ -71,10 +71,12 @@ void alignment_quality_short_to_char(Alignment& alignment);
 void parse_rg_sample_map(char* hts_header, map<string, string>& rg_sample);
 int alignment_to_length(const Alignment& a);
 int alignment_from_length(const Alignment& a);
-Alignment merge_alignments(const vector<Alignment>& alns, bool debug);
-// merge is destructive so we copy
-// Merge two alignments end-to-end. The resulting alignment is not considered to be in reverse.
-Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug);
+// Adds a2 onto the end of a1, returns reference to a1
+Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug=false);
+// Merge a set of alignments into one
+Alignment merge_alignments(const vector<Alignment>& alns, bool debug=false);
+// Merge two alignments end-to-end (could be "concat")
+Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug=false);
 Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
 // generate a digest of the alignmnet
@@ -83,8 +85,8 @@ const string hash_alignment(const Alignment& aln);
 // Mappings to match. A function to get node lengths is needed because the
 // Mappings in the alignment will need to give their positions from the opposite
 // ends of their nodes.
-Alignment reverse_alignment(const Alignment& aln, const function<int64_t(int64_t)>& node_length);
-vector<Alignment> reverse_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
+Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(int64_t)>& node_length);
+vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
 int softclip_start(Alignment& alignment);
 int softclip_end(Alignment& alignment);
 size_t to_length_after_pos(const Alignment& aln, const Position& pos);
@@ -92,9 +94,12 @@ size_t from_length_after_pos(const Alignment& aln, const Position& pos);
 size_t to_length_before_pos(const Alignment& aln, const Position& pos);
 size_t from_length_before_pos(const Alignment& aln, const Position& pos);
 
+// project the alignment's path back into a different ID space
+void translate_nodes(Alignment& a, const map<id_t, pair<id_t, bool> >& ids, const std::function<size_t(int64_t)>& node_length);
+
 // Invert the orientation in the alignment of all the nodes whose IDs are
 // listed. It needs a callback to ask the length of any given node.
-void flip_nodes(Alignment& a, set<int64_t> ids, const std::function<size_t(int64_t)>& node_length);
+void flip_nodes(Alignment& a, const set<int64_t>& ids, const std::function<size_t(int64_t)>& node_length);
 
 // simplifies the path in the alignment
 Alignment simplify(const Alignment& a);

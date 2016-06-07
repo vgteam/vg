@@ -51,6 +51,13 @@ do
             | vg view -dpn - \
             | mars -g -k $chunk \
             | neato -Tpdf -n -o $out.tmp.$s
+    elif [ "$renderer" == "marssimple" ];
+    then
+         vg find -x $xg -r $s:$e -c $context \
+            | vg mod -z - \
+            | vg view -dpS - \
+            | mars -g -k $chunk \
+            | neato -Tpdf -n -o $out.tmp.$s
     elif [ "$renderer" == "dot" ];
     then
         vg find -x $xg -r $s:$e -c $context \

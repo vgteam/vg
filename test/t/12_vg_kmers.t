@@ -5,9 +5,9 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-export LC_ALL="en_US.utf8" # force ekg's favorite sort order 
+export LC_ALL="C" # force a consistent sort order 
 
-plan tests 15
+plan tests 16
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg kmers -k 11 - | sort | uniq | wc -l) \
     2133 \
@@ -26,8 +26,8 @@ is $(vg kmers -k 15 reversing/reversing_edge.vg | grep "CAAATAAGTGTAATC" | wc -l
 is $(vg kmers -k 15 reversing/reversing_edge.vg | grep "AAATAAGTGTAATCA" | wc -l) 1 "from_start edges are handled correctly"
 
 vg construct -v small/x.vcf.gz -r small/x.fa >x.vg
-vg index -s x.vg
-is $(vg find -n 10 -c 1 x.vg | vg kmers -n -k 11 - | sort -n -k 2 -k 3 | tail -1 | cut -f 2) \
+vg index -s -d x.idx x.vg
+is $(vg find -n 10 -c 1 -d x.idx | vg kmers -n -k 11 - | sort -n -k 2 -k 3 | tail -1 | cut -f 2) \
     12 \
     "kmers correctly generated from all nodes"
 
@@ -57,3 +57,5 @@ is $(vg construct -r small/x.fa -v small/x.vcf.gz| vg kmers -g -k 11 -t 1 -H 100
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg view - |head -10 | vg view -v - | vg mod -o - | vg kmers -k 16 - >/dev/null
 is $? 0 "attempting to generate kmers longer than the longest path in a graph correctly yields no kmers"
+
+is $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg kmers -g -P -t 1 -k 16 - | sort | md5sum | cut -f 1 -d\ ) $(vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa | vg mod -r x - | vg mod -N - | vg kmers -g -t 1 -k 16 - | sort | md5sum | cut -f 1 -d\ ) "indexing only embedded paths yields the same result as indexing a graph which has been pruned to the path in question"

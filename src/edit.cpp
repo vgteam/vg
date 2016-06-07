@@ -83,7 +83,7 @@ pair<Edit, Edit> cut_edit_at_from(const Edit& e, size_t from_off) {
     return make_pair(left, right);
 }
 
-Edit reverse_edit(const Edit& e) {
+Edit reverse_complement_edit(const Edit& e) {
     // Make a reversed copy
     Edit reversed = e;
     

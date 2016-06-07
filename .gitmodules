@@ -7,9 +7,6 @@
 [submodule "gssw"]
 	path = deps/gssw
 	url = https://github.com/ekg/gssw.git
-[submodule "snappy"]
-	path = deps/snappy
-	url = https://github.com/google/snappy.git
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git
@@ -36,19 +33,31 @@
 	url = https://github.com/jltsiren/gcsa2.git
 [submodule "xg"]
 	path = deps/xg
-	url = https://github.com/ekg/xg.git
+	url = https://github.com/vgteam/xg.git
 [submodule "sdsl-lite"]
 	path = deps/sdsl-lite
     url = https://github.com/simongog/sdsl-lite
-[submodule "libVCFH"]
-    path = deps/libvcfh/
-    url = https://github.com/edawson/libvcfh
 [submodule "deps/libVCFH"]
 	path = deps/libVCFH
-	url = https://github.com/edawson/libVCFH
+	url = https://github.com/edawson/libVCFH.git
 [submodule "deps/sparsehash"]
 	path = deps/sparsehash
 	url = https://github.com/sparsehash/sparsehash.git
 [submodule "deps/gfakluge"]
 	path = deps/gfakluge
 	url = https://github.com/edawson/gfaKluge.git
+[submodule "gfakluge"]
+    path = deps/gfakluge
+    url = https://github.com/edawson/gfakluge.git
+[submodule "deps/superbubbles"]
+	path = deps/superbubbles
+	url = https://github.com/vgteam/Superbubbles.git
+[submodule "deps/DYNAMIC"]
+	path = deps/DYNAMIC
+	url = https://github.com/vgteam/DYNAMIC
+[submodule "deps/raptor"]
+	path = deps/raptor
+	url = https://github.com/vgteam/raptor.git
+[submodule "deps/snappy"]
+	path = deps/snappy
+	url = https://github.com/google/snappy.git

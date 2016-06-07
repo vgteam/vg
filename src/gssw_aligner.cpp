@@ -74,7 +74,7 @@ GSSWAligner::GSSWAligner(
 }
 
 
-void GSSWAligner::align(Alignment& alignment) {
+void GSSWAligner::align(Alignment& alignment, bool print_score_matrices) {
 
     const string& sequence = alignment.sequence();
 
@@ -93,7 +93,7 @@ void GSSWAligner::align(Alignment& alignment) {
 
 
 
-    gssw_mapping_to_alignment(gm, alignment);
+    gssw_mapping_to_alignment(gm, alignment, print_score_matrices);
 
 
     //gssw_print_graph_mapping(gm);
@@ -102,7 +102,9 @@ void GSSWAligner::align(Alignment& alignment) {
 }
 
 void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
-                                            Alignment& alignment) {
+                                            Alignment& alignment,
+                                            bool print_score_matrices) {
+
     alignment.clear_path();
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
@@ -117,9 +119,10 @@ void GSSWAligner::gssw_mapping_to_alignment(gssw_graph_mapping* gm,
     string& to_seq = *alignment.mutable_sequence();
     //cerr << "-------------" << endl;
 
-    //gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
-		//cerr << alignment.DebugString() << endl;
-
+    if (print_score_matrices) {
+        gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
+        //cerr << alignment.DebugString() << endl;
+    }
 
     for (int i = 0; i < gc->length; ++i, ++nc) {
         if (i > 0) from_pos = 0; // reset for each node after the first
