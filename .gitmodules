@@ -6,7 +6,7 @@
 	url = https://github.com/ekg/fastahack.git
 [submodule "gssw"]
 	path = deps/gssw
-	url = https://github.com/jeizenga/gssw.git
+	url = https://github.com/ekg/gssw.git
 [submodule "bash-tap"]
 	path = deps/bash-tap
 	url = https://github.com/illusori/bash-tap.git
