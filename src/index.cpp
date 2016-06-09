@@ -15,6 +15,7 @@ Index::Index(void) {
     is_open = false;
     db = nullptr;
     //block_cache_size = 1024 * 1024 * 10; // 10MB
+    rng.seed(time(NULL));
 
     threads = 1;
 #pragma omp parallel
@@ -295,10 +296,13 @@ const string Index::key_for_mapping_prefix(int64_t node_id) {
 }
 
 const string Index::key_for_mapping(const Mapping& mapping) {
-    string data;
-    mapping.SerializeToString(&data);
     const string prefix = key_for_mapping_prefix(mapping.position().node_id());
     // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
+    uniform_int_distribution<int> dist(0, 1e8);
+    stringstream t;
+    t << dist(rng);
+    string data = t.str();
+    //mapping.SerializeToString(&data);
     const string hash = sha1head(data, 8);
     string key = prefix;
     key.resize(prefix.size() + sizeof(char) + hash.size());
@@ -321,13 +325,14 @@ const string Index::key_for_alignment_prefix(int64_t node_id) {
 }
 
 const string Index::key_for_alignment(const Alignment& alignment) {
-    string data;
-    alignment.SerializeToString(&data);
     const string prefix = key_for_alignment_prefix(alignment.path().mapping(0).position().node_id());
     // use first 8 chars of sha1sum of object; space is 16^8 = 4294967296
-    // maybe this shouldn't be a hash, but a random nonce--- although keep in mind
-    // that for the alignment to be identical, it would need the same read name, quality score, sequence, mapping, etc.
-    // in other words it'd be an exact duplicate
+    // maybe this shouldn't be a hash, but a random nonce
+    uniform_int_distribution<int> dist(0, 1e8);
+    stringstream t;
+    t << dist(rng);
+    string data = t.str();
+    //alignment.SerializeToString(&data);
     const string hash = sha1head(data, 8);
     string key = prefix;
     key.resize(prefix.size() + sizeof(char) + hash.size());

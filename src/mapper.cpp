@@ -40,6 +40,7 @@ Mapper::Mapper(Index* idex,
     , promote_consistent_pairs(false)
     , extra_pairing_multimaps(4)
     , always_rescue(false)
+    , fragment_size(0)
 {
     // Nothing to do. We just hold the default parameter values.
 }
@@ -213,19 +214,10 @@ bool Mapper::alignments_consistent(const Alignment& aln1, const Alignment& aln2,
 }
 
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
-    const Alignment& read1, const Alignment& read2, int kmer_size, int stride, int band_width, int pair_window) {
+    const Alignment& read1, const Alignment& read2,
+    int kmer_size, int stride, int band_width, int pair_window) {
 
-    // use paired-end resolution techniques
-    //
-    // map both reads independently, fetching some extra lower-score alignments
-    // put them all in lists, try and find the best consistent pair
-    // put that first, sort the rest by score, trim to requested number of multi-mappings, and return
-    
-    // problem: need to develop model of pair orientations
-    // solution: collect a buffer of alignments and then align them using unpaired approach
-    //           detect read orientation and mean (and sd) of pair distance
-
-    // TODO: what we *really* should be doing is using paired MEM seeding, so we
+    // what we *really* should be doing is using paired MEM seeding, so we
     // don't have to make loads of full alignments of each read to search for
     // good pairs.
     
@@ -264,11 +256,34 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     };
     
     // Do the initial alignments, making sure to get some extras if we're going to check consistency.
+    /*
     vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width,
         max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
     vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width,
         max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
-    
+    */
+
+    // find the MEMs for the alignments
+    vector<MaximalExactMatch> mems1 = find_smems(read1.sequence());
+    for (auto& mem : mems1) { get_mem_hits_if_under_max(mem); }
+    vector<MaximalExactMatch> mems2 = find_smems(read2.sequence());
+    for (auto& mem : mems2) { get_mem_hits_if_under_max(mem); }
+
+    // use pair resolution filterings on the SMEMs to constrain the candidates
+    vector<MaximalExactMatch> pairable_mems1, pairable_mems2;
+    if (fragment_size) {
+        set<MaximalExactMatch*> pairable_mems = resolve_paired_mems(mems1, mems2);
+        for (auto& mem : mems1) if (pairable_mems.count(&mem)) pairable_mems1.push_back(mem);
+        for (auto& mem : mems2) if (pairable_mems.count(&mem)) pairable_mems2.push_back(mem);
+    } else {
+        pairable_mems1 = mems1;
+        pairable_mems2 = mems2;
+    }
+
+    // use MEM alignment on the MEMs matching our constraints
+    vector<Alignment> alignments1 = align_mem_multi(read1, pairable_mems1, max_multimaps);
+    vector<Alignment> alignments2 = align_mem_multi(read2, pairable_mems1, max_multimaps);
+
     size_t best_score1 = 0;
     for(auto& aligned : alignments1) {
         // Go through all the read 1 alignments
@@ -277,7 +292,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             best_score1 = aligned.score();
         }
     }
-    
+
     size_t best_score2 = 0;
     for(auto& aligned : alignments2) {
         // Go through all the read 2 alignments
@@ -473,6 +488,96 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Al
 
     // Stick the alignments together
     return make_pair(aln1, aln2);
+}
+
+set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
+                                                    vector<MaximalExactMatch>& mems2) {
+    // find the MEMs that are within estimated_fragment_size of each other
+
+    set<MaximalExactMatch*> pairable;
+
+    // do a wide clustering and then do all pairs within each cluster
+    // we will use these to determine the alignment strand
+    //map<id_t, StrandCounts> node_strands;
+    // records a mapping of id->MEMs, for cluster ranking
+    map<id_t, vector<MaximalExactMatch*> > id_to_mems;
+    // for clustering
+    set<id_t> ids1, ids2;
+    vector<id_t> ids;
+
+    // run through the mems
+    for (auto& mem : mems1) {
+        size_t len = mem.begin - mem.end;
+        for (auto& node : mem.nodes) {
+            id_t id = gcsa::Node::id(node);
+            id_to_mems[id].push_back(&mem);
+            ids1.insert(id);
+            ids.push_back(id);
+        }
+    }
+    for (auto& mem : mems2) {
+        size_t len = mem.begin - mem.end;
+        for (auto& node : mem.nodes) {
+            id_t id = gcsa::Node::id(node);
+            id_to_mems[id].push_back(&mem);
+            ids2.insert(id);
+            ids.push_back(id);
+        }
+    }
+    // remove duplicates
+    std::sort(ids.begin(), ids.end());
+    ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+
+    // establish clusters using approximate distance metric based on ids
+    // we pick up ranges between successive nodes
+    // when these are below our thread_extension length
+    vector<vector<id_t> > clusters;
+    for (auto& id : ids) {
+        if (clusters.empty()) {
+            clusters.emplace_back();
+            auto& l = clusters.back();
+            l.push_back(id);
+        } else {
+            auto& prev = clusters.back().back();
+            if (id - prev <= thread_extension * 100) {
+                clusters.back().push_back(id);
+            } else {
+                clusters.emplace_back();
+                auto& l = clusters.back();
+                l.push_back(id);
+            }
+        }
+    }
+
+    for (auto& cluster : clusters) {
+        map<pair<id_t, id_t>, int> distance;
+        vector<int> distances;
+        // for each pair of ids in the cluster
+        // which are not from the same read
+        // estimate the distance between them
+        for (auto& id1 : cluster) {
+            for (auto& id2 : cluster) {
+                if (ids1.count(id1) && ids1.count(id2)
+                    || ids2.count(id1) && ids2.count(id2)) {
+                    distances.push_back(xindex->min_approx_path_distance({}, id1, id2));
+                    distance[make_pair(id1, id2)] = distances.back();
+                }
+            }
+        }
+        if (distances.size()) {
+            // get the median distance of the cluster
+            auto median_dist = median(distances);
+            if (median_dist <= fragment_size) {
+                // we're roughly in the expected range
+                for (auto& id : cluster) {
+                    for (auto& memptr : id_to_mems[id]) {
+                        pairable.insert(memptr);
+                    }
+                }
+            }
+        }
+    }
+    return pairable;
 }
 
 // We need a function to get the lengths of nodes, in case we need to

@@ -5,6 +5,8 @@
 #include "path.hpp"
 #include "vg.pb.h"
 #include "filter.hpp"
+#include "stream.hpp"
+#include <regex>
 
 using namespace std;
 using namespace vg;
@@ -26,7 +28,7 @@ struct Breakpoint{
 
 struct Evidence{
     vector<Alignment> reads;
-    vector<pair< int, int> > ref_and_alt_counts;
+    vector<pair< string, int> > ref_and_alt_counts;
 
 };
 
@@ -75,16 +77,28 @@ class SV_DETECTOR{
     
     public:
         SV_DETECTOR();
+        SV_DETECTOR(VG* g);
         ~SV_DETECTOR();
+
+        void cache_paths_of_graph();
+        /** Returns a vector of StructuralVariant objects, which can be turned into VCFs **/
         vector<StructuralVariant> gam_to_known_sv(string gamfile);
+
+        /** Returns a list of alt_path names that the alignment matches to **/
         vector<string> alignment_to_known_sv(Alignment aln);
+
+        /** Looks for signatures based on Filter and returns StructuralVariant objects **/
         vector<StructuralVariant> alignment_to_putative_sv(Alignment aln);
+
         //vector<Deletion> alignment_to_deletion(Alignment& aln);
 
     private:
         Filter read_filter;
+        vg::VG* my_graph;
+        map<string, list<Mapping> > name_to_paths;
     
-        map<string, pair<int, int> > known_to_ref_alt_count;
+        map<string, pair<string, int> > known_to_ref_alt_count;
+        map<vg::id_t, string> node_id_to_path;
 
         // Allow <wiggle> basepairs of variance at the tips of SVs
         /*

@@ -685,6 +685,7 @@ public:
     vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
     vector<pair<id_t, id_t> > get_superbubbles();
 
+    map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
 
     // Takes in a pathname and the nucleotide position
     // (e.g. from a vcf) and returns the node id which
