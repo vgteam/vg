@@ -864,6 +864,7 @@ void help_vectorize(char** argv){
 int main_vectorize(int argc, char** argv){
 
     string xg_name;
+    string read_file = "";
     string aln_label = "";
     string gcsa_name;
     bool format = false;
@@ -896,11 +897,12 @@ int main_vectorize(int argc, char** argv){
             {"mem-sketch", no_argument, 0, 'm'},
             {"identity-hot", no_argument, 0, 'i'},
             {"aln-label", required_argument, 0, 'l'},
+            {"reads", required_argument, 0, 'r'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfmx:g:l:",
+        c = getopt_long (argc, argv, "Aaihwfmx:r:g:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -924,7 +926,12 @@ int main_vectorize(int argc, char** argv){
                 break; */
             case 'l':
                 aln_label = optarg;
-                break;/*
+                break;
+            case 'r':
+                read_file = optarg;
+                break;
+                /*
+
             case 'i':
                 use_identity_hot = true;
                 break;
