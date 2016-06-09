@@ -14,10 +14,13 @@
 #include "path.hpp"
 #include "json2pb.h"
 #include "entropy.hpp"
+#include "gssw_aligner.hpp"
 
 namespace vg {
 
 using namespace std;
+    
+enum MappingQualityMethod { Approx, Exact, None };
 
 class MaximalExactMatch {
 
@@ -60,7 +63,34 @@ private:
     // indexing structures null, for example if being called from the default
     // constructor.
     Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
-
+    
+    Alignment align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio);
+    vector<Alignment> align_multi_internal(bool compute_unpaired_qualities, const Alignment& aln, int kmer_size, int stride, int band_width, int additional_multimaps = 0, vector<MaximalExactMatch>* restricted_mems = nullptr);
+    void compute_mapping_qualities(vector<Alignment>& alns);
+    void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns);
+    vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
+    void filter_and_process_multimaps(vector<Alignment>& all_alns, int additional_multimaps);
+    vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    // Return the one best banded alignment.
+    Alignment align_banded(const Alignment& read,
+                           int kmer_size = 0,
+                           int stride = 0,
+                           int band_width = 1000);
+    // alignment based on the MEM approach
+    //vector<Alignment> align_mem(const Alignment& alignment, int additional_multimaps = 0);
+    Alignment align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems);
+    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
+    // base algorithm for above Update the passed-in Alignment with a highest-
+    // score alignment, and return all good alignments sorted by score up to
+    // max_multimaps. If the read does not map, the returned vector will be
+    // empty. No alignments will be marked as secondary; the caller must do that
+    // if they plan to produce GAM output.
+    vector<Alignment> align_threaded(const Alignment& read,
+                                     int& hit_count,
+                                     int kmer_size = 0,
+                                     int stride = 0,
+                                     int attempt = 0);
+    
 public:
     // Make a Mapper that pulls from a RocksDB index and optionally a GCSA2 kmer index.
     Mapper(Index* idex, gcsa::GCSA* g = nullptr, gcsa::LCPArray* a = nullptr);
@@ -75,17 +105,12 @@ public:
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
-
-    // Align the given string and return an Alignment.
-    Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
-    // Align the given read and return an aligned copy. Does not modify the input Alignment.
-    Alignment align(const Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
-    // Align the given read with multi-mapping. Returns the alignments in score
-    // order, up to multimaps (or max_multimaps if multimaps is 0). Does not update the alignment passed in.
-    // If the sequence is longer than the band_width, will only produce a single best banded alignment.
-    // All alignments but the first are marked as secondary.
-    vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000, int multimaps = 0);
-    vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000, int multimaps = 0);
+    // GSSW aligner
+    QualAdjAligner* aligner;
+    
+    double estimate_gc_content();
+    void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
+    void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
     map<string, double> alignments_mean_path_positions(const Alignment& aln);
@@ -98,12 +123,6 @@ public:
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
     void align_mate_in_window(const Alignment& read1, Alignment& read2, int pair_window);
-
-    // Return the one best banded alignment.
-    Alignment align_banded(const Alignment& read,
-                           int kmer_size = 0,
-                           int stride = 0,
-                           int band_width = 1000);
     
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
@@ -111,7 +130,18 @@ public:
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
-
+    
+    
+    // Align the given string and return an Alignment.
+    Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    // Align the given read and return an aligned copy. Does not modify the input Alignment.
+    Alignment align(const Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    // Align the given read with multi-mapping. Returns the alignments in score
+    // order, up to multimaps (or max_multimaps if multimaps is 0). Does not update the alignment passed in.
+    // If the sequence is longer than the band_width, will only produce a single best banded alignment.
+    // All alignments but the first are marked as secondary.
+    vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    
     // paired-end based
     
     // Both vectors of alignments will be sorted in order of increasing score.
@@ -137,16 +167,6 @@ public:
                                             int band_width = 1000,
                                             int pair_window = 64);
 
-    // base algorithm for above Update the passed-in Alignment with a highest-
-    // score alignment, and return all good alignments sorted by score up to
-    // max_multimaps. If the read does not map, the returned vector will be
-    // empty. No alignments will be marked as secondary; the caller must do that
-    // if they plan to produce GAM output.
-    vector<Alignment> align_threaded(const Alignment& read,
-                                     int& hit_count,
-                                     int kmer_size = 0,
-                                     int stride = 0,
-                                     int attempt = 0);
 
     // MEM-based mapping
     // finds absolute super-maximal exact matches
@@ -157,10 +177,6 @@ public:
     // finds "forward" maximal exact matches of the sequence using the GCSA index
     // stepping step between each one
     vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1);
-    // alignment based on the MEM approach
-    vector<Alignment> align_mem(const Alignment& alignment, int multimaps = 0);
-    Alignment align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems);
-    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int max_multi = 0);
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
     // use the xg index to get a character at a particular position (rc or foward)
@@ -204,11 +220,6 @@ public:
     int thread_extension; // add this many nodes in id space to the end of the thread when building thread into a subgraph
     int max_target_factor; // the maximum multiple of the read length we'll try to align to
 
-    // local alignment parameters
-    int32_t match;
-    int32_t mismatch;
-    int32_t gap_open;
-    int32_t gap_extend;
     size_t max_query_graph_ratio;
 
     // multimapping
@@ -217,9 +228,15 @@ public:
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
     float min_identity; // require that alignment identity is at least this much to accept alignment
     // paired-end consistency enforcement
+    bool report_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
+    
+    bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
+    MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
+
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_size; // Used to bound clustering of MEMs during paired end mapping
+
 
 };
 

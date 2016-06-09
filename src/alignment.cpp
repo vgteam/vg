@@ -637,6 +637,9 @@ Alignment reverse_complement_alignment(const Alignment& aln,
     
     Alignment reversed = aln;
     reversed.set_sequence(reverse_complement(aln.sequence()));
+    string quality = aln.quality();
+    std::reverse(quality.begin(), quality.end());
+    reversed.set_quality(quality);
     
     if(aln.has_path()) {
         // Now invert the order of the mappings, and for each mapping, flip the
