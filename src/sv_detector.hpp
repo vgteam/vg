@@ -97,8 +97,9 @@ class SV_DETECTOR{
         vg::VG* my_graph;
         map<string, list<Mapping> > name_to_paths;
     
-        map<string, pair<string, int> > known_to_ref_alt_count;
+        map<string, pair<int, int> > known_to_ref_alt_count;
         map<vg::id_t, string> node_id_to_path;
+        map<vg::id_t, string> node_to_variant;
 
         // Allow <wiggle> basepairs of variance at the tips of SVs
         /*

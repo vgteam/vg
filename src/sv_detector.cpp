@@ -16,12 +16,12 @@ SV_DETECTOR::~SV_DETECTOR(){
 }
 
 
-    
+
 vector<StructuralVariant> SV_DETECTOR::alignment_to_putative_sv(Alignment aln){
     vector<StructuralVariant> ret;
 
 }
-
+/**
 void SV_DETECTOR::cache_paths_of_graph(){
     regex is_alt("_alt_.+_[0-9]+");
     for (auto p : my_graph->paths._paths){
@@ -34,6 +34,7 @@ void SV_DETECTOR::cache_paths_of_graph(){
         }
     }
 }
+*/
 
 vector<StructuralVariant> SV_DETECTOR::gam_to_known_sv(string gamfile){
     vector<StructuralVariant> ret;
@@ -75,43 +76,43 @@ vector<string> SV_DETECTOR::alignment_to_known_sv(Alignment aln){
  * including:
  *  - softclips
  *  - 
- 
-vector<Deletion> SV_DETECTOR::alignment_to_deletion(Alignment& aln){
-    vector<Deletion> ret;
-    
-}
+
+ vector<Deletion> SV_DETECTOR::alignment_to_deletion(Alignment& aln){
+ vector<Deletion> ret;
+
+ }
 
 //CALL INDELS
 void SV_DETECTOR::call_split_read(string gamfile){
-    
-    // Open gam file
-    
 
-    //For each alignment in gam file:
-    
+// Open gam file
 
-        // if there's a split read (as defined by the filter),
-        // then add a split read to a map<WigglePosition, SV>
 
-        // If a given WigglePosition contains a sufficient number of SV calls,
-        // consider it a legitimate SV (a deletion or an insertion
+//For each alignment in gam file:
+
+
+// if there's a split read (as defined by the filter),
+// then add a split read to a map<WigglePosition, SV>
+
+// If a given WigglePosition contains a sufficient number of SV calls,
+// consider it a legitimate SV (a deletion or an insertion
 
 }
 
 //CALL INVERSIONS
 void SV_DETECTOR::call_inversion(string gamfile){
 
-    /**
-     * Iterate through Alignments in the gam file
-     * and place putative breakpoints in a global map
-     * at their WigglePosition if the alignments support
-     * such a breakpoint
-     *
-     * Once enough have been accumulated, call the SV at the
-     * given position.
-     *
+/**
+ * Iterate through Alignments in the gam file
+ * and place putative breakpoints in a global map
+ * at their WigglePosition if the alignments support
+ * such a breakpoint
+ *
+ * Once enough have been accumulated, call the SV at the
+ * given position.
+ *
 
-}
+ }
 
 //CALL INVERSIONS
 void SV_DETECTOR::call_duplications(string gamfile){
