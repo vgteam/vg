@@ -6910,6 +6910,13 @@ int main_view(int argc, char** argv) {
         return 0;
     }
 
+    void help_sv(char** argv){
+        cerr << "usage: " << argv[0] << " sv [options] <aln.gam>" << endl
+            << "options: " << endl
+            << " -m --mask <vcf>.vcf" << endl
+            << endl;
+    }
+
     void help_deconstruct(char** argv){
         cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
             << "options: " << endl
@@ -6934,6 +6941,7 @@ int main_view(int argc, char** argv) {
         bool dagify = false;
         bool invert = false;
         int unroll_steps = 0;
+        int dagify_steps = 0;
         int compact_steps = 0;
         string mask_file = "";
         string xg_name = "";
@@ -6957,7 +6965,7 @@ int main_view(int argc, char** argv) {
 
             };
             int option_index = 0;
-            c = getopt_long (argc, argv, "ho:u:c:vm:sx:",
+            c = getopt_long (argc, argv, "dho:u:c:vm:sx:",
                     long_options, &option_index);
 
             // Detect the end of the options.
@@ -7020,7 +7028,7 @@ int main_view(int argc, char** argv) {
 		}
 
         if (dagify){
-            int dagify_steps = 1;
+            dagify_steps = 1;
             cerr << "DAGifying..." << endl;
             decon.dagify_my_vg(dagify_steps);
             cerr << "Done." << endl;
