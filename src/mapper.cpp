@@ -37,7 +37,6 @@ Mapper::Mapper(Index* idex,
     , gap_open(6)
     , gap_extend(1)
     , max_query_graph_ratio(128)
-    , promote_consistent_pairs(false)
     , extra_pairing_multimaps(4)
     , always_rescue(false)
     , fragment_size(0)
@@ -159,59 +158,69 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     delete graph;
 }
 
-bool Mapper::alignments_consistent(const Alignment& aln1, const Alignment& aln2, int pair_window) {
-    // Simple first hack: alignments are consistent if any of their node IDs are within pair_window of each other.
-    
-    // TODO: Do an actual neighborhood extension with the index instead to try and find touching neighborhoods
-    
-    // TODO: really we should do a proper graph walk.
+map<string, double> Mapper::alignments_mean_path_positions(const Alignment& aln) {
+    map<string, double> mean_pos;
+    // Alignments are consistent if their median node id positions are within the fragment_size
     
     // We need the sets of nodes visited by each alignment
-    set<id_t> ids1;
-    set<id_t> ids2;
+    set<id_t> ids;
     
-    for(size_t i = 0; i < aln1.path().mapping_size(); i++) {
+    for(size_t i = 0; i < aln.path().mapping_size(); i++) {
         // Collect all the unique nodes visited by the first algnment
-        ids1.insert(aln1.path().mapping(i).position().node_id());
+        ids.insert(aln.path().mapping(i).position().node_id());
     }
-    
-    for(size_t i = 0; i < aln2.path().mapping_size(); i++) {
-        // Collect all the unique nodes visited by the second algnment
-        ids2.insert(aln2.path().mapping(i).position().node_id());
-    }
-    
-    for(auto id : ids2) {
-        // For every node that the second alignment visited
-        
-        // Find the smallest node visited by the other alignment that isn't less
-        // than this one.
-        auto nearest_above = ids1.lower_bound(id);
-        
-        if(nearest_above != ids1.end()) {
-            // There is such a node
-            if(*nearest_above - id <= pair_window) {
-                // And it's in the window! We're consistent!
-                return true;
+    //map<string, vector<size_t> > node_positions_in_paths(int64_t id) const;
+    map<string, map<int, vector<id_t> > > node_positions;
+    for(auto id : ids) {
+        //map<string, vector<size_t> >
+        for (auto& ref : xindex->node_positions_in_paths(id)) {
+            auto& name = ref.first;
+            for (auto pos : ref.second) {
+                node_positions[name][pos].push_back(id);
             }
         }
-        
-        if(nearest_above != ids1.begin()) {
-            // There's a node ID smaller than this one that might be closer.
-            auto& nearest_below = --nearest_above;
-            
-            if(id - *nearest_below <= pair_window) {
-                // And it's in the window! We're consistent!
-                return true;
+    }
+    // get median mapping positions
+    int idscount = 0;
+    double idssum = 0;
+    for (auto& ref : node_positions) {
+        for (auto& p : ref.second) {
+            for (auto& n : p.second) {
+                auto pos = p.first + get_node_length(n)/2;
+                if (ids.count(n)) {
+                    idscount++;
+                    idssum += pos;
+                }
             }
         }
-        
+        mean_pos[ref.first] = idssum/idscount;
     }
-    
-    // We couldn't find any nodes sufficiently close in ID space.
-    return false;
-    
-    
+    return mean_pos;
 }
+
+bool Mapper::alignments_consistent(const map<string, double>& pos1,
+                                   const map<string, double>& pos2,
+                                   int fragment_size_bound) {
+    set<string> comm_refs;
+    for (auto& p : pos1) {
+        auto& name = p.first;
+        if (pos2.find(name) != pos2.end()) {
+            comm_refs.insert(name);
+        }
+    }
+    // Alignments are consistent if their median node id positions are within the fragment_size
+    
+    // get median mapping positions
+    for (auto& ref : comm_refs) {
+        // this is unsafe looking, but we know they have the same keys for these values
+        auto mean1 = pos1.find(ref)->second;
+        auto mean2 = pos2.find(ref)->second;
+        if (abs(mean1 - mean2) < fragment_size_bound) {
+            return true;
+        }
+    }
+    return false;
+}            
 
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     const Alignment& read1, const Alignment& read2,
@@ -255,19 +264,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     };
     
-    // Do the initial alignments, making sure to get some extras if we're going to check consistency.
-    /*
-    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width,
-        max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
-    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width,
-        max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
-    */
-
     // find the MEMs for the alignments
     vector<MaximalExactMatch> mems1 = find_smems(read1.sequence());
     for (auto& mem : mems1) { get_mem_hits_if_under_max(mem); }
     vector<MaximalExactMatch> mems2 = find_smems(read2.sequence());
     for (auto& mem : mems2) { get_mem_hits_if_under_max(mem); }
+    //cerr << "mems before " << mems1.size() << " " << mems2.size() << endl;
 
     // use pair resolution filterings on the SMEMs to constrain the candidates
     vector<MaximalExactMatch> pairable_mems1, pairable_mems2;
@@ -280,29 +282,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         pairable_mems2 = mems2;
     }
 
+    //cerr << pairable_mems1.size() << " and " << pairable_mems2.size() << endl;
+
     // use MEM alignment on the MEMs matching our constraints
-    vector<Alignment> alignments1 = align_mem_multi(read1, pairable_mems1, max_multimaps);
-    vector<Alignment> alignments2 = align_mem_multi(read2, pairable_mems1, max_multimaps);
+    vector<Alignment> alignments1 = align_mem_multi(read1, pairable_mems1, max(max_multimaps, extra_pairing_multimaps));
+    vector<Alignment> alignments2 = align_mem_multi(read2, pairable_mems2, max(max_multimaps, extra_pairing_multimaps));
 
     size_t best_score1 = 0;
-    for(auto& aligned : alignments1) {
-        // Go through all the read 1 alignments
-        if(aligned.score() > best_score1 && aligned.has_path() && aligned.path().mapping_size() > 0) {
-            // Find the top score among alignments that aren't unaligned.
-            best_score1 = aligned.score();
-        }
-    }
-
     size_t best_score2 = 0;
-    for(auto& aligned : alignments2) {
-        // Go through all the read 2 alignments
-        if(aligned.score() > best_score2 && aligned.has_path() && aligned.path().mapping_size() > 0) {
-            // Find the top score among alignments that aren't unaligned.
-            best_score2 = aligned.score();
-        }
-    }
-    
     // A nonzero best score means we have any valid alignments of that read.
+    for (auto& aln : alignments1) best_score1 = max(best_score1, (size_t)aln.score());
+    for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
     
     // Rescue only if the top alignment on one side has no mappings
     if(best_score1 == 0 && best_score2 != 0) {
@@ -371,28 +361,60 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
         alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
     }
+
+    // for all pairs of alignments get the combined score
+    int best_score = 0;
+    Alignment* best1 = nullptr;
+    Alignment* best2 = nullptr;        
+
+    map<Alignment*, map<string, double> > aln_pos;
+    if (fragment_size) {
+        for (auto& aln : alignments1) {
+            aln_pos[&aln] = alignments_mean_path_positions(aln);
+        }
+        for (auto& aln : alignments2) {
+            aln_pos[&aln] = alignments_mean_path_positions(aln);
+        }
+    }
+    map<double, vector<pair<Alignment*, Alignment*> > > pair_scores;
+    if (fragment_size) {
+        for (auto& aln1 : alignments1) {
+            for (auto& aln2 : alignments2) {
+                if (alignments_consistent(aln_pos[&aln1], aln_pos[&aln2], fragment_size)) {
+                    pair_scores[aln1.score() + aln2.score()].push_back(make_pair(&aln1, &aln2));
+                }
+            }
+        }
+    }
+    //for (auto& p : pair_scores) cerr << p.first << " " << p.second.size() << endl;
     
     // Find the consistent pair with highest total score and promote to primary.
     // We can do this by going down each list.
-    int best_score = 0;
-    vector<Alignment>::iterator best1;
-    vector<Alignment>::iterator best2;
-    if(promote_consistent_pairs) {
-        for(auto aln1 = alignments1.begin(); aln1 != alignments1.end(); ++aln1) {
-            for(auto aln2 = alignments2.begin(); aln2 != alignments2.end(); ++aln2) {
-                // TODO: this is quadradic in number of alignments looked at. Is there a better way?
-                int pair_score = (*aln1).score() + (*aln2).score();
-                if(pair_score > best_score && alignments_consistent(*aln1, *aln2, pair_window)) {
-                    // This is the new best consistent pair
-                    best_score = pair_score;
-                    best1 = aln1;
-                    best2 = aln2;
-                }
-            } 
+    if (!pair_scores.empty()) {
+        auto p = *pair_scores.rbegin();
+        best_score = p.first;
+        auto aln1 = p.second.front().first;
+        auto aln2 = p.second.front().second;
+        best1 = aln1;
+        best2 = aln2;
+        best_score1 = aln1->score();
+        best_score2 = aln2->score();
+    } else {
+        for (auto& aln : alignments1) best_score1 = max(best_score1, (size_t)aln.score());
+        for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
+        for (auto& aln : alignments1) {
+            if (aln.score() == best_score1) {
+                best1 = &aln; break;
+            }
+        }
+        for (auto& aln : alignments2) {
+            if (aln.score() == best_score2) {
+                best2 = &aln; break;
+            }
         }
     }
-    
-    if(best_score > 0) {
+
+    if(best_score > 0 && best1 != nullptr && best2 != nullptr) {
         // There is a best consistent pair.
         // Swap the best alignments first.
         // We know we have at least one alignment on each side.
@@ -525,58 +547,68 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
         }
     }
     // remove duplicates
-    std::sort(ids.begin(), ids.end());
-    ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+    //std::sort(ids.begin(), ids.end());
+    //ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
 
-    // establish clusters using approximate distance metric based on ids
-    // we pick up ranges between successive nodes
-    // when these are below our thread_extension length
-    vector<vector<id_t> > clusters;
+    // get each hit's path-relative position
+    map<string, map<int, vector<id_t> > > node_positions;
     for (auto& id : ids) {
-        if (clusters.empty()) {
-            clusters.emplace_back();
-            auto& l = clusters.back();
-            l.push_back(id);
-        } else {
-            auto& prev = clusters.back().back();
-            if (id - prev <= thread_extension * 100) {
-                clusters.back().push_back(id);
+        //map<string, vector<size_t> >
+        for (auto& ref : xindex->node_positions_in_paths(id)) {
+            auto& name = ref.first;
+            for (auto pos : ref.second) {
+                node_positions[name][pos].push_back(id);
+            }
+        }
+    }
+
+    vector<vector<id_t> > clusters;
+    for (auto& g : node_positions) {
+        //if (g.second.empty()) continue; // should be impossible
+        //cerr << g.first << endl;
+        clusters.emplace_back();
+        int prev = -1;
+        for (auto& x : g.second) {
+            auto cluster = &clusters.back();
+            //auto& prev = clusters.back().back();
+            auto curr = x.first;
+            //cerr << "p/c " << prev << " " << curr << endl;
+            if (prev == -1) {
+            } else if (curr - prev <= fragment_size) {
+                // in cluster
+                //cerr << "in cluster" << endl;
             } else {
                 clusters.emplace_back();
-                auto& l = clusters.back();
-                l.push_back(id);
+                cluster = &clusters.back();
             }
+            //cerr << " " << x.first << endl;
+            for (auto& y : x.second) {
+                //cerr << "  " << y << endl;
+                cluster->push_back(y);
+            }
+            prev = curr;
         }
     }
 
     for (auto& cluster : clusters) {
-        map<pair<id_t, id_t>, int> distance;
-        vector<int> distances;
         // for each pair of ids in the cluster
         // which are not from the same read
         // estimate the distance between them
-        for (auto& id1 : cluster) {
-            for (auto& id2 : cluster) {
-                if (ids1.count(id1) && ids1.count(id2)
-                    || ids2.count(id1) && ids2.count(id2)) {
-                    distances.push_back(xindex->min_approx_path_distance({}, id1, id2));
-                    distance[make_pair(id1, id2)] = distances.back();
-                }
-            }
+        // we're roughly in the expected range
+        bool has_first = false;
+        bool has_second = false;
+        for (auto& id : cluster) {
+            has_first |= ids1.count(id);
+            has_second |= ids2.count(id);
         }
-        if (distances.size()) {
-            // get the median distance of the cluster
-            auto median_dist = median(distances);
-            if (median_dist <= fragment_size) {
-                // we're roughly in the expected range
-                for (auto& id : cluster) {
-                    for (auto& memptr : id_to_mems[id]) {
-                        pairable.insert(memptr);
-                    }
-                }
+        if (!has_first || !has_second) continue;
+        for (auto& id : cluster) {
+            for (auto& memptr : id_to_mems[id]) {
+                pairable.insert(memptr);
             }
         }
     }
+
     return pairable;
 }
 
@@ -1804,6 +1836,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     // get the best alignment
     if (!good.empty()) {
         // TODO log best alignment score?
+        //cerr << "got some ok alignments " << good.size() << endl;
     } else {
         good.emplace_back();
         Alignment& aln = good.back();

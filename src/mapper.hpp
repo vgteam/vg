@@ -87,8 +87,13 @@ public:
     vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000, int multimaps = 0);
     vector<Alignment> align_multi_kmers(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000, int multimaps = 0);
 
+    // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
+    map<string, double> alignments_mean_path_positions(const Alignment& aln);
+
     // Return true of the two alignments are consistent for paired reads, and false otherwise
-    bool alignments_consistent(const Alignment& aln1, const Alignment& aln2, int pair_window);
+    bool alignments_consistent(const map<string, double>& pos1,
+                               const map<string, double>& pos2,
+                               int fragment_size_bound);
 
     // Align read2 to the subgraph near the alignment of read1.
     // TODO: support banded alignment and intelligently use orientation heuristics
@@ -212,7 +217,6 @@ public:
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
     float min_identity; // require that alignment identity is at least this much to accept alignment
     // paired-end consistency enforcement
-    bool promote_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_size; // Used to bound clustering of MEMs during paired end mapping

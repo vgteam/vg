@@ -5660,7 +5660,6 @@ void help_map(char** argv) {
          << "paired end alignment parameters:" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -W, --fragment-window N    use SMEM based distance estimation to allow only pairable SMEMs with this fragment length" << endl
-         << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "generic mapping parameters:" << endl
@@ -5744,7 +5743,6 @@ int main_map(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
-    bool promote_consistent_pairs = false;
     int extra_pairing_multimaps = 4;
     string gam_input;
     bool compare_gam;
@@ -6003,10 +6001,6 @@ int main_map(int argc, char** argv) {
             gap_extend = atoi(optarg);
             break;
             
-        case 'a':
-            promote_consistent_pairs = true;
-            break;
-        
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
             break;
@@ -6184,7 +6178,6 @@ int main_map(int argc, char** argv) {
         m->mismatch = mismatch;
         m->gap_open = gap_open;
         m->gap_extend = gap_extend;
-        m->promote_consistent_pairs = promote_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
         m->always_rescue = always_rescue;
         m->fragment_size = fragment_size;
