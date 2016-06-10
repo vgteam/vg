@@ -219,7 +219,7 @@ namespace vg {
                 map<string, Path> unqs;
                 vector<Path> ret;
                 for (auto x: v){
-                    unqs[to_string(x)] = x;
+                    unqs[path_to_string(x)] = x;
                 }
 
                 for (auto y : unqs){

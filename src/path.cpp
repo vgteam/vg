@@ -1590,7 +1590,7 @@ Position path_start(const Path& path) {
     return p; // empty
 }
 
-string to_string(Path p){
+string path_to_string(Path p){
     string ostr = "";
     int i;
     for (i = 0; i < p.mapping_size(); i++){
