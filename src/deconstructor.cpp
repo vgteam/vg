@@ -245,17 +245,17 @@ namespace vg {
              */
 
             for (auto x : paths){
-                cerr << "Path: ";
+                //cerr << "Path: ";
                 for (int m_i = 1; m_i < x.mapping_size() -1 ; m_i++){
                     Mapping m = x.mapping(m_i);
                     id_t pos_id = m.position().node_id();
-                    cerr << pos_id << " ";
+                    //cerr << pos_id << " ";
                     map<string, set<Mapping*> > path_to_mappings =  my_vg->paths.get_node_mapping(pos_id);
                     if (path_to_mappings.size() > 0){
                         //TODO check positions; if not equal, create a fresh variant.
                         for (auto y : path_to_mappings){
                             var.sequenceName = y.first;
-                            cerr << y.first << "; ";
+                            //cerr << y.first << "; ";
                         //int position = my_xg.approx_path_distance(var.sequenceName, 1, pos_id);
                         }
                         var.alleles.push_back((my_vg->get_node(pos_id))->sequence());
@@ -270,7 +270,7 @@ namespace vg {
 
                 }
 
-                cerr << endl;
+                //cerr << endl;
             }
 
             var.id = ".";
@@ -307,7 +307,7 @@ namespace vg {
 
 
         }
-        cerr << endl;
+        //cerr << endl;
 
 
     }
