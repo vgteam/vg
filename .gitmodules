@@ -1,6 +1,6 @@
 [submodule "vcflib"]
 	path = deps/vcflib
-	url = https://github.com/ekg/vcflib.git
+	url = https://github.com/vgteam/vcflib.git
 [submodule "fastahack"]
 	path = deps/fastahack
 	url = https://github.com/ekg/fastahack.git
@@ -43,9 +43,6 @@
 [submodule "deps/sparsehash"]
 	path = deps/sparsehash
 	url = https://github.com/sparsehash/sparsehash.git
-[submodule "deps/gfakluge"]
-	path = deps/gfakluge
-	url = https://github.com/edawson/gfaKluge.git
 [submodule "gfakluge"]
     path = deps/gfakluge
     url = https://github.com/edawson/gfakluge.git
