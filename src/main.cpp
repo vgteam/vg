@@ -7068,6 +7068,7 @@ int main_deconstruct(int argc, char** argv){
                     help_deconstruct(argv);
                     return 1;
                 default:
+                    help_deconstruct(argv);
                     abort();
             }
 
@@ -7093,7 +7094,7 @@ int main_deconstruct(int argc, char** argv){
 		}
 
         if (dagify){
-            int dagify_steps = 1;
+            int dagify_steps = 3;
             cerr << "DAGifying..." << endl;
             decon.dagify_my_vg(dagify_steps);
             cerr << "Done." << endl;
