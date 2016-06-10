@@ -1590,6 +1590,18 @@ Position path_start(const Path& path) {
     return p; // empty
 }
 
+string to_string(Path p){
+    string ostr = "";
+    int i;
+    for (i = 0; i < p.mapping_size(); i++){
+        Mapping m = p.mapping(i);
+        Position pos = m.position();
+        ostr += pos.node_id();
+        ostr += pos.is_reverse() ? "<-" : "->";
+    }
+    return ostr;
+}
+
 // determine the path end
 Position path_end(const Path& path) {
     Position pos;

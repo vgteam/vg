@@ -101,6 +101,18 @@ class SV_DETECTOR{
         map<vg::id_t, string> node_id_to_path;
         map<vg::id_t, string> node_to_variant;
 
+
+        /**
+         * Min depth
+         * Min Qual
+         * Min mapping qual
+         * wiggle room for variants
+         *
+         * Could even use the node annotation field to modify this
+         * to prevent reference bias
+         */
+
+
         // Allow <wiggle> basepairs of variance at the tips of SVs
         /*
         int wiggle = 10;

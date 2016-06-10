@@ -2025,10 +2025,7 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
-            mapper->match = match;
-            mapper->mismatch = mismatch;
-            mapper->gap_open = gap_open;
-            mapper->gap_extend = gap_extend;
+            mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         }
     };
 
@@ -4674,6 +4671,7 @@ int main_find(int argc, char** argv) {
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
                 cout << mems_to_json(mems) << endl;
+                
             }
         }
     }
@@ -4713,7 +4711,7 @@ int main_find(int argc, char** argv) {
             result_graph.serialize_to_ostream(cout);
         }
     }
-
+    
     if (vindex) delete vindex;
 
     return 0;
@@ -4976,8 +4974,8 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (file_names.size() <= 0){
-        cerr << "No graph provided for indexing. Please provide a .vg file to index." << endl;
+    if (file_names.size() <= 0 && dbg_names.empty()){
+        cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
     }
 
@@ -5644,10 +5642,11 @@ int main_align(int argc, char** argv) {
 
     Alignment alignment;
     if (!ref_seq.empty()) {
-        SSWAligner ssw;
+        SSWAligner ssw = SSWAligner(match, mismatch, gap_open, gap_extend);
         alignment = ssw.align(seq, ref_seq);
     } else {
-        alignment = graph->align(seq, match, mismatch, gap_open, gap_extend, 0, debug);
+        Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
+        alignment = graph->align(seq, aligner, 0, debug);
     }
 
     if (output_json) {
@@ -5682,6 +5681,7 @@ void help_map(char** argv) {
          << "    -O, --in-mem-path-only  when making the in-memory temporary index, only look at embedded paths" << endl
          << "input:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
+         << "    -I, --quality STR     Phred+33 base quality of sequence (for base quality adjusted alignment)" << endl
          << "    -Q, --seq-name STR    name the sequence using this value (for graph modification with new named paths)" << endl
          << "    -r, --reads FILE      take reads (one per line) from FILE, write alignments to stdout" << endl
          << "    -b, --hts-input FILE  align reads from htslib-compatible FILE (BAM/CRAM/SAM) stdin (-), alignments to stdout" << endl
@@ -5701,26 +5701,29 @@ void help_map(char** argv) {
          << "    -z, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -o, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
+         << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
+         << "    -a, --consistent-pairs     report pairs instead of individual alignments and filter to consistent pairings" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -W, --fragment-window N    use SMEM based distance estimation to allow only pairable SMEMs with this fragment length" << endl
-         << "    -a, --promote-paired       try to promote a consistent pair of alignments to primary for paired reads" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "generic mapping parameters:" << endl
-         << "    -B, --band-width N    for very long sequences, align in chunks then merge paths (default 1000bp)" << endl
-         << "    -P, --min-identity N  accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
-         << "    -n, --context-depth N follow this many edges out from each thread for alignment (default: 7)" << endl
-         << "    -M, --max-multimaps N produce up to N alignments for each read (default: 1)" << endl
-         << "    -T, --softclip-trig N trigger graph extension and realignment when either end has softclips (default: 0)" << endl
-         << "    -m, --hit-max N       ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
-         << "    -c, --clusters N      use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
-         << "    -C, --cluster-min N   require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
-         << "    -H, --max-target-x N  skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
-         << "    -e, --thread-ex N     grab this many nodes in id space around each thread for alignment (default: 10)" << endl
-         << "    -t, --threads N       number of threads to use" << endl
-         << "    -X, --accept-identity N  accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
-         << "    -A, --max-attempts N  try to improve sensitivity and align this many times (default: 7)" << endl
+         << "    -B, --band-width N        for very long sequences, align in chunks then merge paths, no mapping quality (default 1000bp)" << endl
+         << "    -P, --min-identity N      accept alignment only if the alignment identity to ref is >= N (default: 0)" << endl
+         << "    -n, --context-depth N     follow this many edges out from each thread for alignment (default: 7)" << endl
+         << "    -M, --max-multimaps N     produce up to N alignments for each read (default: 1)" << endl
+         << "    -T, --softclip-trig N     trigger graph extension and realignment when either end has softclips (default: 0)" << endl
+         << "    -m, --hit-max N           ignore kmers or MEMs who have >N hits in our index (default: 100)" << endl
+         << "    -c, --clusters N          use at most the largest N ordered clusters of the kmer graph for alignment (default: all)" << endl
+         << "    -C, --cluster-min N       require at least this many kmer hits in a cluster to attempt alignment (default: 1)" << endl
+         << "    -H, --max-target-x N      skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
+         << "    -e, --thread-ex N         grab this many nodes in id space around each thread for alignment (default: 10)" << endl
+         << "    -t, --threads N           number of threads to use" << endl
+         << "    -G, --greedy-accept       if a tested alignment achieves -X identity don't try worse seeds" << endl
+         << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
+         << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
+         << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
@@ -5743,6 +5746,7 @@ int main_map(int argc, char** argv) {
     }
 
     string seq;
+    string qual;
     string seq_name;
     string db_name;
     string xg_name;
@@ -5788,8 +5792,10 @@ int main_map(int argc, char** argv) {
     int mismatch = 4;
     int gap_open = 6;
     int gap_extend = 1;
-    bool promote_consistent_pairs = false;
+    bool qual_adjust_alignments = false;
+    bool report_consistent_pairs = false;
     int extra_pairing_multimaps = 4;
+    int method_code = 1;
     string gam_input;
     bool compare_gam;
     int fragment_size = 0;
@@ -5803,6 +5809,7 @@ int main_map(int argc, char** argv) {
                 /* These options set a flag. */
                 //{"verbose", no_argument,       &verbose_flag, 1},
                 {"sequence", required_argument, 0, 's'},
+                {"quality", required_argument, 0, 'I'},
                 {"seq-name", required_argument, 0, 'Q'},
                 {"db-name", required_argument, 0, 'd'},
                 {"xg-name", required_argument, 0, 'x'},
@@ -5847,15 +5854,17 @@ int main_map(int argc, char** argv) {
                 {"mismatch", required_argument, 0, 'z'},
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
-                {"promote-paired", no_argument, 0, 'a'},
+                {"qual-adjust", no_argument, 0, '1'},
+                {"consistent-pairs", no_argument, 0, 'a'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
+                {"map-qual-method", required_argument, 0, 'v'},
                 {"compare", required_argument, 0, 'w'},
                 {"fragment-window", required_argument, 0, 'W'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:au:W:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1au:v:w:W:",
                          long_options, &option_index);
 
 
@@ -5868,6 +5877,10 @@ int main_map(int argc, char** argv) {
         case 's':
             seq = optarg;
             break;
+            
+        case 'I':
+            qual = string_quality_char_to_short(string(optarg));
+                break;
 
         case 'V':
             build_in_memory = true;
@@ -6046,13 +6059,21 @@ int main_map(int argc, char** argv) {
         case 'y':
             gap_extend = atoi(optarg);
             break;
-
+            
+        case '1':
+            qual_adjust_alignments = true;
+            break;
+            
         case 'a':
-            promote_consistent_pairs = true;
+            report_consistent_pairs = true;
             break;
 
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
+                break;
+                
+        case 'v':
+            method_code = atoi(optarg);
             break;
 
         case 'w':
@@ -6080,6 +6101,36 @@ int main_map(int argc, char** argv) {
         cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
         return 1;
     }
+
+    if (!qual.empty() && (seq.length() != qual.length())) {
+        cerr << "error:[vg map] sequence and base quality string must be the same length" << endl;
+        return 1;
+    }
+    
+    if (qual_adjust_alignments && ((fastq1.empty() && hts_file.empty() && qual.empty()) // must have some quality input
+                                   || (!seq.empty() && qual.empty())                    // can't provide sequence without quality
+                                   || !read_file.empty()))                              // can't provide sequence list without qualities
+    {
+        cerr << "error:[vg map] quality adjusted alignments require base quality scores for all sequences" << endl;
+        return 1;
+    }
+    // note: still possible that hts file types don't have quality, but have to check the file to know
+    
+    MappingQualityMethod mapping_quality_method;
+    if (method_code == 0) {
+        mapping_quality_method = None;
+    }
+    else if (method_code == 1) {
+        mapping_quality_method = Approx;
+    }
+    else if (method_code == 2) {
+        mapping_quality_method = Exact;
+    }
+    else {
+        cerr << "error:[vg map] unrecognized mapping quality method command line arg '" << method_code << "'" << endl;
+        return 1;
+    }
+    
 
     // should probably disable this
     string file_name;
@@ -6195,7 +6246,7 @@ int main_map(int argc, char** argv) {
             stream::write_buffered(cout, output_buf, buffer_size);
         }
     };
-
+    
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m;
         if(xindex && gcsa && lcp) {
@@ -6224,12 +6275,11 @@ int main_map(int argc, char** argv) {
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
         m->max_target_factor = max_target_factor;
-        m->match = match;
-        m->mismatch = mismatch;
-        m->gap_open = gap_open;
-        m->gap_extend = gap_extend;
-        m->promote_consistent_pairs = promote_consistent_pairs;
+        m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+        m->adjust_alignments_for_base_quality = qual_adjust_alignments;
+        m->report_consistent_pairs = report_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
+        m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
         m->fragment_size = fragment_size;
         mapper[i] = m;
@@ -6240,19 +6290,24 @@ int main_map(int argc, char** argv) {
 
         Alignment unaligned;
         unaligned.set_sequence(seq);
+        
+        if (!qual.empty()) {
+            unaligned.set_quality(qual);
+        }
+        
         vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
         if(alignments.size() == 0) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
         }
-
+        
 
         for(auto& alignment : alignments) {
             if (!sample_name.empty()) alignment.set_sample_name(sample_name);
             if (!read_group.empty()) alignment.set_read_group(read_group);
             if (!seq_name.empty()) alignment.set_name(seq_name);
         }
-
+        
         // Output the alignments in JSON or protobuf as appropriate.
         output_alignments(alignments);
     }
@@ -6986,10 +7041,11 @@ int main_view(int argc, char** argv) {
 void help_deconstruct(char** argv){
     cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
          << "options: " << endl
-         << " -s, --superbubbles  Print the superbubbles of the graph and exit." << endl
+         << " -x --xg-name  <XG>.xg an XG index from which to extract distance information." << endl
+         << " -s --superbubbles  Print the superbubbles of the graph and exit." << endl
          << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
          << " -d --dagify             DAGify the graph before enumeratign superbubbles" << endl
-         << " -u -- unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
+         << " -u --unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
          << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
          << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
          << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
@@ -7010,7 +7066,7 @@ int main_deconstruct(int argc, char** argv){
     int compact_steps = 0;
     bool invert = false;
     string mask_file = "";
-    string xg_name = "";
+    string xg_name;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -7085,7 +7141,16 @@ int main_deconstruct(int argc, char** argv){
     }
 
     Deconstructor decon = Deconstructor(graph);
+    if (!xg_name.empty()){
+        ifstream xg_stream(xg_name);                                                                                                                                             
+        if(!xg_stream) {                                                                                                                                                         
+            cerr << "Unable to open xg index: " << xg_name << endl;                                                                                                              
+            exit(1);                                                                                                                                                             
+        }
 
+        xg::XG* xindex = new  xg::XG(xg_stream);
+        decon.set_xg(xindex);
+    }
 
 		if (unroll_steps > 0){
 			cerr << "Unrolling " << unroll_steps << " steps..." << endl;
@@ -7104,7 +7169,7 @@ int main_deconstruct(int argc, char** argv){
 
     // At this point, we can detect the superbubbles
 
-    vector<SuperBubble> sbs = decon.get_all_superbubbles();
+    map<pair<vg::id_t, vg::id_t>, vector<vg::id_t> > sbs = decon.get_all_superbubbles();
 
 
     if (compact_steps > 0){
@@ -7114,15 +7179,12 @@ int main_deconstruct(int argc, char** argv){
     }
     if (print_sbs){
         for (auto s: sbs){
-            cout << s.start_node << "\t";
-            //for (auto i : s.nodes){
-            //    cout << i << ",";
-            //}
-            cout << "\t" << s.end_node << endl;
+            cout << s.first.first << "\t";
+            cout << "\t" << s.first.second << endl;
         }
     }
     else{
-        decon.sb2vcf(sbs, outfile);
+        decon.sb2vcf( outfile);
     }
     /* Find superbubbles */
 

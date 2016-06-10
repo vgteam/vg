@@ -180,6 +180,7 @@ public:
     void for_each_mapping(const function<void(Mapping*)>& lambda);
 };
 
+string  to_string(Path p);
 Path& increment_node_mapping_ids(Path& p, id_t inc);
 Path& append_path(Path& a, const Path& b);
 const Paths paths_from_graph(Graph& g);
