@@ -48,7 +48,11 @@ namespace vg {
      *
      */
     bool Deconstructor::contains_nested(pair<int64_t, int64_t> start_and_end){
-
+        /*for (auto i: my_sbs){
+            if (i.first > start_and_end.first & i.second < start_and_end.second ){
+                return true;
+            }
+        }*/
         return false;
     }
 
