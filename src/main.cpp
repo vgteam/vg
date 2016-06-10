@@ -4967,8 +4967,8 @@ int main_index(int argc, char** argv) {
         file_names.push_back(file_name);
     }
 
-    if (file_names.size() <= 0){
-        cerr << "No graph provided for indexing. Please provide a .vg file to index." << endl;
+    if (file_names.size() <= 0 && dbg_names.empty()){
+        cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
     }
 
