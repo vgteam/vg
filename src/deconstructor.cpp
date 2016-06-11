@@ -249,7 +249,7 @@ namespace vg {
             //var.sequenceName = my_vg->paths.get_node_mapping(pos_id);
             //
             for (auto x : paths){
-                cerr << path_to_string(x) << endl;
+                //cerr << path_to_string(x) << endl;
                 stringstream ref_seq;
                 stringstream alt_seq;
                 bool is_ref = true;
@@ -287,7 +287,9 @@ namespace vg {
                 }
 
             }
-            cout << var << endl;
+            if (! (var.ref.empty() && var.alt.empty()) ){
+                cout << var << endl;
+            }
 
         }
 
