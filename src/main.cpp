@@ -7184,6 +7184,10 @@ int main_deconstruct(int argc, char** argv){
         }
     }
     else{
+        if (xg_name.empty()){
+            cerr << "An xg index must be provided for full deconstruction." << endl;
+            exit(1);
+        }
         decon.sb2vcf( outfile);
     }
     /* Find superbubbles */
