@@ -342,6 +342,32 @@ const string Index::key_for_alignment(const Alignment& alignment) {
     return key;
 }
 
+const string Index::key_for_base(int64_t aln_id) {
+    string key;
+    key.resize(3*sizeof(char) + sizeof(int64_t));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 'b'; // base-alignments
+    k[2] = start_sep;
+    memcpy(k + sizeof(char)*3, &aln_id, sizeof(int64_t));
+    return key;
+}
+
+const string Index::key_for_traversal(int64_t aln_id, const Mapping& mapping) {
+    int64_t node_id = mapping.position().node_id();
+    node_id = htobe64(node_id);
+    string key;
+    key.resize(4*sizeof(char) + sizeof(int64_t));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 's'; // mappings (~sides)
+    k[2] = start_sep;
+    memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
+    char dir = (mapping.position().is_reverse() ? '-' : '+');
+    memcpy(k + sizeof(char)*3+sizeof(int64_t), &dir, sizeof(char));
+    return key;
+}
+
 const string Index::key_prefix_for_edges_on_node_start(int64_t node) {
     string key = key_for_edge_on_start(node, 0, false);
     return key.substr(0, key.size()-sizeof(int64_t)-2*sizeof(char));
@@ -376,6 +402,12 @@ string Index::entry_to_string(const string& key, const string& value) {
         break;
     case 'a':
         return alignment_entry_to_string(key, value);
+        break;
+    case 'b':
+        return base_entry_to_string(key, value);
+        break;
+    case 't':
+        return traversal_entry_to_string(key, value);
         break;
     default:
         break;
@@ -559,6 +591,21 @@ void Index::parse_alignment(const string& key, const string& value, int64_t& nod
     alignment.ParseFromString(value);
 }
 
+void Index::parse_base(const string& key, const string& value, int64_t& aln_id, Alignment& alignment) {
+    const char* k = key.c_str();
+    memcpy(&aln_id, (k + 3*sizeof(char)), sizeof(int64_t));
+    alignment.ParseFromString(value);
+}
+
+void Index::parse_traversal(const string& key, const string& value, int64_t& node_id, bool& backward, int64_t& aln_id) {
+    const char* k = key.c_str();
+    memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
+    char direction;
+    memcpy(&direction, (k + 3*sizeof(char) + sizeof(int64_t)), sizeof(char));
+    if (direction == '-') { backward = true; } else { backward = false; }
+    memcpy(&aln_id, &value, sizeof(int64_t));
+}
+
 string Index::node_path_to_string(const string& key, const string& value) {
     Mapping mapping;
     int64_t node_id, path_id, path_pos;
@@ -620,6 +667,25 @@ string Index::alignment_entry_to_string(const string& key, const string& value) 
     parse_alignment(key, value, node_id, hash, alignment);
     stringstream s;
     s << "{\"key\":\"+a+" << node_id << "+" << hash << "\", \"value\":"<< pb2json(alignment) << "}";
+    return s.str();
+}
+
+string Index::base_entry_to_string(const string& key, const string& value) {
+    Alignment alignment;
+    int64_t aln_id;
+    parse_base(key, value, aln_id, alignment);
+    stringstream s;
+    s << "{\"key\":\"+b+" << aln_id << "\", \"value\":"<< pb2json(alignment) << "}";
+    return s.str();
+}
+
+string Index::traversal_entry_to_string(const string& key, const string& value) {
+    int64_t node_id;
+    bool backward;
+    int64_t aln_id;
+    parse_traversal(key, value, node_id, backward, aln_id);
+    stringstream s;
+    s << "{\"key\":\"+t+" << node_id << (backward?"-":"+") << "\", \"value\":"<< aln_id << "}";
     return s.str();
 }
 
@@ -739,6 +805,20 @@ void Index::put_alignment(const Alignment& alignment) {
     string data;
     alignment.SerializeToString(&data);
     db->Put(write_options, key_for_alignment(alignment), data);
+}
+
+void Index::put_base(int64_t aln_id, const Alignment& alignment) {
+    string data;
+    alignment.SerializeToString(&data);
+    db->Put(write_options, key_for_base(aln_id), data);
+}
+
+void Index::put_traversal(int64_t aln_id, const Mapping& mapping) {
+    string data;
+    data.resize(sizeof(int64_t));
+    char* d = (char*) data.c_str();
+    memcpy(d, &aln_id, sizeof(int64_t));
+    db->Put(write_options, key_for_traversal(aln_id, mapping), data);
 }
 
 void Index::load_graph(VG& graph) {
