@@ -6,6 +6,7 @@
 #include <functional>
 #include <set>
 #include <list>
+#include <sstream>
 #include "json2pb.h"
 #include "vg.pb.h"
 #include "edit.hpp"

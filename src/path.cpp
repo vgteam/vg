@@ -1591,15 +1591,15 @@ Position path_start(const Path& path) {
 }
 
 string path_to_string(Path p){
-    string ostr = "";
+    stringstream ostr;
     int i;
     for (i = 0; i < p.mapping_size(); i++){
         Mapping m = p.mapping(i);
         Position pos = m.position();
-        ostr += pos.node_id();
-        ostr += pos.is_reverse() ? "<-" : "->";
+        ostr << pos.node_id();
+        ostr << (pos.is_reverse() ? "<-" : "->");
     }
-    return ostr;
+    return ostr.str();
 }
 
 // determine the path end

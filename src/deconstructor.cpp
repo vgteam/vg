@@ -167,29 +167,13 @@ namespace vg {
             //node_to_var = my_vg->get_node_to_variant(mask);
         }
         for (auto s : my_sbs){
-            vector<vcflib::Variant> varis;
             vcflib::Variant var;
-            /*set ref = str(ref)
-             * First fill out alleles[0] with ref
-             * then alts as 1....N
-             *
-             * push the alternate alleles into alts[] too
-             *
-             * Position: your guess is as good as mine
-             *
-             * id: need annotations
-             *
-             *
-             */
-
+        
             // Make subgraphs out of the superbubble:
             // Operating on a pair<id_t, id_t>, vector<id_t>
             // then enumerate k_paths through the SuperBubbles
             set<Node*> nodes;
             set<Edge*> edges;
-            //nodes.insert(my_vg->get_node(s.first.first));
-            //vector<Edge*> edges_entr = my_vg->edges_from(my_vg->get_node(s.first.first));
-            //edges.insert(edges_entr.begin(), edges_entr.end());
 
             for (int i = 0; i < s.second.size(); i++){
                 id_t n_id = s.second[i];
@@ -201,12 +185,10 @@ namespace vg {
                     edges.insert(e_end.begin(), e_end.end());
                 }
             }
-            //nodes.insert(my_vg->get_node(s.first.second));
 
             vg::VG t_graph = vg::VG(nodes, edges);
 
             vector<Path> paths;
-            map<id_t, Path> node_id_to_path;
 
             std::function<void(NodeTraversal)> no_op = [](NodeTraversal n){};
             std::function<void(size_t, Path&)> extract_path = [&paths](size_t x_size, Path& path){
@@ -230,6 +212,20 @@ namespace vg {
 
             paths = uniquify(paths);
 
+            std::function<bool(Path)> all_ref = [&](Path p){
+                for (int i = 0; i < p.mapping_size(); i++){
+                    Mapping m = p.mapping(i);
+                    Position pos = m.position();
+                    vg::id_t pos_id = pos.node_id();
+                    map<string, set<Mapping*> > path_to_mappings =  my_vg->paths.get_node_mapping(pos_id);
+
+                    if (path_to_mappings.size() <= 0){
+                        return false;
+                    }
+                }
+                return true;
+            };
+
             /*
              * This means we now have vectors for the superbubble
              * that have the paths through the nodes within it (including end nodes)
@@ -243,72 +239,57 @@ namespace vg {
              * Also need a way to deal with GAMs for this i.e. a way to 
              * count the number of times we see something come up in the gam
              */
+            int first_len = (my_vg->get_node(1))->sequence().size();
+            map<string, set<Mapping*> > p_to_mappings =  my_vg->paths.get_node_mapping(s.first.first);
+            for (auto p_name : p_to_mappings){
+                var.sequenceName = p_name.first;
+            }
+            var.position = my_xg->approx_path_distance(var.sequenceName, 1, s.first.first) + (s.first.first == 1 ? 0 : first_len);
 
+            //var.sequenceName = my_vg->paths.get_node_mapping(pos_id);
+            //
             for (auto x : paths){
-                //cerr << "Path: ";
+                cerr << path_to_string(x) << endl;
+                stringstream ref_seq;
+                stringstream alt_seq;
+                bool is_ref = true;
+
                 for (int m_i = 1; m_i < x.mapping_size() -1 ; m_i++){
                     Mapping m = x.mapping(m_i);
                     id_t pos_id = m.position().node_id();
-                    //cerr << pos_id << " ";
+                    Node* n = my_vg->get_node(pos_id);
+                    string n_seq = n->sequence();
                     map<string, set<Mapping*> > path_to_mappings =  my_vg->paths.get_node_mapping(pos_id);
-                    if (path_to_mappings.size() > 0){
-                        //TODO check positions; if not equal, create a fresh variant.
-                        for (auto y : path_to_mappings){
-                            var.sequenceName = y.first;
-                            //cerr << y.first << "; ";
-                        //int position = my_xg.approx_path_distance(var.sequenceName, 1, pos_id);
-                        }
-                        var.alleles.push_back((my_vg->get_node(pos_id))->sequence());
-                        var.ref = (my_vg->get_node(pos_id))->sequence();
-                        var.position = my_xg->approx_path_distance(var.sequenceName, 1, pos_id);
+                    if (path_to_mappings.size() == 0){
+                        is_ref = false;
                     }
-                    else{
-                        
-                        var.alt.push_back((my_vg->get_node(pos_id))->sequence());
+
+                    if (is_ref){
+                        ref_seq << n_seq;
                     }
-                    
+                    alt_seq << n_seq;
+
+                    //cerr << " REF: " << ref_seq.str() << " ALT: " << alt_seq.str() << endl;
 
                 }
 
-                //cerr << endl;
+                if (is_ref){
+                    if(var.ref.empty()){
+                        string ref_str = ref_seq.str();
+                        var.ref = ref_str; //(ref_str.size() > 0) ? ref_str : (my_vg->get_node(s.first.first))->sequence();
+                        var.alleles.insert(var.alleles.begin(), var.ref);
+                    }
+                }
+                else{
+                    string alt_string = alt_seq.str();
+                    var.alt.push_back(alt_string);
+                    var.alleles.push_back(alt_string);
+                }
+
             }
-
-            var.id = ".";
-            
-
-            var.position = 0;
-            // Get the reference path
-             
-
-            // Get the list of alts
-
-
-            // find the position along the reference path
-
-            //var.sequenceName = "seq";
-            /*map<int, vector<id_t> >::iterator it;
-            for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); it++){
-            //cout << s.start_node << "_" << s.end_node << "\t";
-                vector<id_t> middle_nodes = it->second;
-                for (int ind = 0; ind < middle_nodes.size(); ind++){
-                    Node* n = my_vg->get_node(middle_nodes[ind]);
-                    if (my_vg->paths.has_node_mapping(n)){
-                        var.ref = n->sequence();
-                        var.alleles.push_back(n->sequence());
-                    }
-                    else{
-                        var.alt.push_back(n->sequence());
-                    }
-                    //cout << middle_nodes[ind] << "\t";
-                }
-            }*/
-
             cout << var << endl;
 
-
         }
-        //cerr << endl;
-
 
     }
 
