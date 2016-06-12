@@ -357,7 +357,7 @@ const string Index::key_for_traversal(int64_t aln_id, const Mapping& mapping) {
     int64_t node_id = mapping.position().node_id();
     node_id = htobe64(node_id);
     string key;
-    key.resize(4*sizeof(char) + sizeof(int64_t));
+    key.resize(4*sizeof(char) + sizeof(int64_t) + sizeof(int16_t));
     char* k = (char*) key.c_str();
     k[0] = start_sep;
     k[1] = 's'; // mappings (~sides)
@@ -365,6 +365,8 @@ const string Index::key_for_traversal(int64_t aln_id, const Mapping& mapping) {
     memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
     char dir = (mapping.position().is_reverse() ? '-' : '+');
     memcpy(k + sizeof(char)*3+sizeof(int64_t), &dir, sizeof(char));
+    int16_t rank = mapping.rank();
+    memcpy(k + sizeof(char)*4+sizeof(int64_t), &rank, sizeof(int16_t));
     return key;
 }
 
@@ -603,6 +605,8 @@ void Index::parse_traversal(const string& key, const string& value, int64_t& nod
     char direction;
     memcpy(&direction, (k + 3*sizeof(char) + sizeof(int64_t)), sizeof(char));
     if (direction == '-') { backward = true; } else { backward = false; }
+    int16_t rank;
+    memcpy(&rank, (k + 4*sizeof(char) + sizeof(int64_t)), sizeof(int16_t));
     memcpy(&aln_id, &value, sizeof(int64_t));
 }
 
@@ -819,6 +823,16 @@ void Index::put_traversal(int64_t aln_id, const Mapping& mapping) {
     char* d = (char*) data.c_str();
     memcpy(d, &aln_id, sizeof(int64_t));
     db->Put(write_options, key_for_traversal(aln_id, mapping), data);
+}
+
+void Index::cross_alignment(int64_t aln_id, const Alignment& alignment) {
+    put_base(aln_id, alignment);
+    if (alignment.has_path()) {
+        auto& path = alignment.path();
+        for (int i = 0; i < path.mapping_size(); ++i) {
+            put_traversal(aln_id, path.mapping(i));
+        }
+    }
 }
 
 void Index::load_graph(VG& graph) {

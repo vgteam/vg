@@ -147,6 +147,9 @@ public:
     void put_base(int64_t aln_id, const Alignment& alignment);
     void put_traversal(int64_t aln_id, const Mapping& mapping);
 
+    // cross-index alignment by aln_id and record its traversals
+    void cross_alignment(int64_t aln_id, const Alignment& alignment);
+
     rocksdb::Status get_node(int64_t id, Node& node);
     // Takes the nodes and orientations and gets the Edge object with any associated edge data.
     rocksdb::Status get_edge(int64_t from, bool from_start, int64_t to, bool to_end, Edge& edge);
