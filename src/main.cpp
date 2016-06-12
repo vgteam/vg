@@ -1937,6 +1937,7 @@ int main_msga(int argc, char** argv) {
         ref.open(fasta_file_name);
         if (debug) cerr << "loading " << fasta_file_name << endl;
         for (auto& name : ref.index->sequenceNames) {
+            if (seq_names.count(name) == 0) continue;
             // only use the sequence if we have whitelisted it
             string seq = ref.getSequence(name);
             strings[name] = seq;
