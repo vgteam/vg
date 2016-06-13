@@ -118,6 +118,9 @@ Alignment SSWAligner::ssw_to_vg(const StripedSmithWaterman::Alignment& ssw_aln,
     // set identity
     vg_aln.set_identity(identity(vg_aln.path()));
 
+    // set score
+    vg_aln.set_score(ssw_aln.sw_score);
+    
     return vg_aln;
 
 }

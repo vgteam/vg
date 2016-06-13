@@ -251,6 +251,12 @@ void VG::add_edges(const set<Edge*>& edges) {
     }
 }
 
+void VG::add_edges(const vector<Edge*>& edges) {
+    for (auto edge : edges) {
+        add_edge(*edge);
+    }
+}
+
 void VG::add_nodes(const vector<Node>& nodes) {
     for (auto& node : nodes) {
         add_node(node);
@@ -7698,6 +7704,20 @@ const string VG::path_sequence(const Path& path) {
         seq.append(mapping_sequence(m, *get_node(m.position().node_id())));
     }
     return seq;
+}
+
+double VG::path_identity(const Path& path1, const Path& path2) {
+    // convert paths to sequences
+    string seq1 = path_sequence(path1);
+    string seq2 = path_sequence(path2);
+    // align the two path sequences with ssw
+    SSWAligner aligner;
+    Alignment aln = aligner.align(seq1, seq2);
+    // compute best possible score (which is everything matches)
+    int max_len = max(seq1.length(), seq2.length());
+    int best_score = max_len * aligner.match;
+    // return fraction of score over best_score
+    return best_score == 0 ? 0 : (double)aln.score() / (double)best_score;
 }
 
 void VG::kmer_context(string& kmer,

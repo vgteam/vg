@@ -28,6 +28,7 @@
 #include "progress_bar.hpp"
 #include "vg_git_version.hpp"
 #include "IntervalTree.h"
+#include "genotyper.hpp"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -1522,6 +1523,32 @@ int main_genotype(int argc, char** argv) {
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
     index.open_read_only(reads_index_name);
+
+    // Make a Gneotyper to do the genotyping
+    Genotyper genotyper;
+    
+    // TODO: augment the graph
+    VG augmented_graph(*graph);
+    // TODO: store the reads that are embedded in the augmented graph, by their unique names
+    map<string, Alignment*> reads_by_name;
+    
+    // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
+    
+    // Unfold/unroll, find the superbubbles, and translate back.
+    map<pair<NodeTraversal, NodeTraversal>, vector<vg::id_t>> sites = genotyper.find_sites(augmented_graph);
+    
+    for(auto& bounds_and_contents : sites) {
+        // For each site (TODO: in parallel)
+        
+        // Get all the paths through the site
+        vector<Path> paths = genotyper.get_paths_through_site(augmented_graph, bounds_and_contents.first.first, bounds_and_contents.first.second);
+        
+        // Get the affinities for all the paths
+        map<Alignment*, vector<int>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
+        
+        // TODO: convert the affinities into a genotype
+    }
+    
 
     // TODO: use graph and reads to:
     // - Augment graph

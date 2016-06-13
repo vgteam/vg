@@ -46,50 +46,13 @@
 #include "DetectSuperBubble.hpp"
 #include "helperDefs.hpp"
 
+#include "nodetraversal.hpp"
+
 
 // uncomment to enable verbose debugging to stderr
 //#define debug
 
 namespace vg {
-
-
-// Represents a node traversed in a certain orientation. The default orientation
-// is start to end, but if `backward` is set, represents the node being
-// traversed end to start. A list of these can serve as an edit-free version of
-// a path, especially if supplemented with a length and an initial node offset.
-// A path node has a left and a right side, which are the start and end of the
-// node if it is forward, or the end and start of the node if it is backward.
-class NodeTraversal {
-public:
-    Node* node;
-    bool backward;
-
-    inline NodeTraversal(Node* node, bool backward = false): node(node), backward(backward) {
-        // Nothing to do
-    }
-
-    inline NodeTraversal(): NodeTraversal(nullptr) {
-        // Nothing to do
-    }
-
-    inline bool operator==(const NodeTraversal& other) const {
-        return node == other.node && backward == other.backward;
-    }
-
-    inline bool operator!=(const NodeTraversal& other) const {
-        return node != other.node || backward != other.backward;
-    }
-
-    inline bool operator<(const NodeTraversal& other) const {
-        return node < other.node || (node == other.node && backward < other.backward);
-    }
-
-    // reverse complement the node traversal
-    inline NodeTraversal reverse(void) const {
-        return NodeTraversal(node, !backward);
-    }
-
-};
 
 inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
     return out << nodetraversal.node->id() << " " << (nodetraversal.backward ? "rev" : "fwd");
@@ -535,6 +498,7 @@ public:
     void add_nodes(const vector<Node>& nodes);
     void add_edge(const Edge& edge);
     void add_edges(const vector<Edge>& edges);
+    void add_edges(const vector<Edge*>& edges);
     void add_nodes(const set<Node*>& nodes);
     void add_edges(const set<Edge*>& edges);
 
@@ -685,7 +649,11 @@ public:
     int path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path_length);
     // converts the stored paths in this graph to alignments
     const vector<Alignment> paths_as_alignments(void);
+    // return sequence string of path
     const string path_sequence(const Path& path);
+    // return percent identity between two paths (# matches / (#matches + #mismatches))
+    // note: uses ssw aligner, so will only work on small paths
+    double path_identity(const Path& path1, const Path& path2);
     string trav_sequence(const NodeTraversal& trav);
 
     SB_Input vg_to_sb_input();
