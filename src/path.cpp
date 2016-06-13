@@ -1663,4 +1663,33 @@ double overlap(const Path& p1, const Path& p2) {
     // simpler --- just compare mappings
 }
 
+Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
+    // We'll fill in this path
+    Path toReturn;
+    
+    // What rank should the next node be?
+    size_t rank = 1;
+    
+    for(const auto& traversal : traversals) {
+        // Add a mapping for each NodeTraversal
+        Mapping* mapping = toReturn.add_mapping();
+        
+        // Set up the position
+        mapping->mutable_position()->set_node_id(traversal.node->id());
+        mapping->mutable_position()->set_is_reverse(traversal.backward);
+        
+        // Set the rank
+        mapping->set_rank(rank++);
+        
+        // Add an edit
+        Edit* edit = mapping->add_edit();
+        // Make it cover the full node
+        edit->set_from_length(traversal.node->sequence().size());
+        edit->set_to_length(traversal.node->sequence().size());
+    }
+    
+    // We're done making the path
+    return toReturn;
+}
+
 }

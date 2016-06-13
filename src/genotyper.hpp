@@ -33,7 +33,7 @@ public:
      * emit all unique subpaths that run from start to end, out of the paths in
      * the graph.
      */
-    set<list<NodeTraversal>> get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end);
+    vector<Path> get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end);
     
 
 };

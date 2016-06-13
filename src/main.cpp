@@ -1527,7 +1527,16 @@ int main_genotype(int argc, char** argv) {
     // - Augment graph
     // - Find superbubbles or cactus branches to determine sites
     // - Generate proposals for paths through each site (from reads?)
+    //   - Use Genotyper::get_paths_through_site()
     // - Compute affinities of each read for each proposed path through a site
+    //   - Use path_from_node_traversals to convert to paths
+    //   - We have a big index from path name to alignment
+    //   - Extract the part of the graph that any read relevant to the superbubble touches.
+    //      - Which we work out by looking at paths that are alignments and following them all
+    //   - Clip out the part of that graph that's the superbubble
+    //   - Add back each proposed path in turn
+    //   - For each, compute affinity from each relevant alignment
+    //   - Return a big matrix
     // - Compute diploid genotypes for each site
     // - Output as vcf or as native format (to be defined)
 

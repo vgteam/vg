@@ -13,6 +13,7 @@
 #include "utility.hpp"
 #include "types.hpp"
 #include "position.hpp"
+#include "nodetraversal.hpp"
 
 //#define debug
 
@@ -242,6 +243,9 @@ double divergence(const Mapping& m);
 double identity(const Path& path);
 // compare the agreement between two alignments
 double overlap(const Path& p1, const Path& p2);
+
+// Turn a list of node traversals into a path
+Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
 }
 

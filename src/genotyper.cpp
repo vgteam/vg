@@ -4,11 +4,11 @@ namespace vg {
 
 using namespace std;
 
-set<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
+vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
     // We're going to emit traversals supported by any paths in the graph.
     
-    // Put all our subpaths in here.
-    set<list<NodeTraversal>> toReturn;
+    // Put all our subpaths in here to deduplicate them
+    set<list<NodeTraversal>> results;
     
     if(graph.paths.has_node_mapping(start.node) && graph.paths.has_node_mapping(end.node)) {
         // If we have some paths that visit both ends (in some orientation)
@@ -56,7 +56,7 @@ set<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, NodeTraver
                     if(mapping->position().node_id() == end.node->id() && mapping->position().is_reverse() == expectedEndOrientation) {
                         // We have stumbled upon the end node in the orientation we wanted it in.
                         // Keep this subpath if it's new
-                        toReturn.emplace(std::move(pathTraversed));
+                        results.emplace(std::move(pathTraversed));
                         // Then try the next embedded path
                         break;
                     }
@@ -78,6 +78,14 @@ set<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, NodeTraver
             }
         }
         
+    }
+    
+    // Now convert the unique results into Paths
+    vector<Path> toReturn;
+    
+    for(auto& result : results) {
+        // Convert each list of node traversals to a proper path
+        toReturn.push_back(path_from_node_traversals(result));
     }
     
     return toReturn;
