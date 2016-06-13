@@ -4,6 +4,56 @@ namespace vg {
 
 using namespace std;
 
+map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& graph) {
+
+    // Set up our output map
+    map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> to_return;
+
+    // Unfold the graph
+    // Copy the graph and unfold the copy. We need to hold this translation
+    // table from new node ID to old node and relative orientation.
+    map<vg::id_t, pair<vg::id_t, bool>> unfold_translation;
+    auto transformed = graph.unfold(unfold_max_length, unfold_translation);
+    
+    // Fix up any doubly reversed edges
+    transformed.flip_doubly_reversed_edges();
+
+    // Now dagify the graph. We need to hold this translation table from new
+    // node ID to old node and relative orientation.
+    map<vg::id_t, pair<vg::id_t, bool>> dag_translation;
+    transformed = transformed.dagify(dagify_steps, dag_translation);
+    
+    // Compose the complete translation
+    map<vg::id_t, pair<vg::id_t, bool>> overall_translation = transformed.overlay_node_translations(dag_translation, unfold_translation);
+    dag_translation.clear();
+    unfold_translation.clear();
+    
+    // Find the superbubbles in the DAG
+    map<pair<id_t, id_t>, vector<id_t>> superbubbles = transformed.superbubbles();
+    
+    for(auto& superbubble : superbubbles) {
+        
+        // Translate the superbubble coordinates into NodeTraversals
+        auto& start_translation = overall_translation[superbubble.first.first];
+        NodeTraversal start(graph.get_node(start_translation.first), start_translation.second);
+        
+        auto& end_translation = overall_translation[superbubble.first.second];
+        NodeTraversal end(graph.get_node(end_translation.first), end_translation.second);
+        
+        // Find the vector we want all the nodes in
+        auto& superbubble_nodes = to_return[make_pair(start, end)];
+        
+        for(auto id : superbubble.second) {
+            // Translate each ID and put it in the vector
+            superbubble_nodes.push_back(overall_translation[id].first);
+        }
+    }
+
+    // Give back the collections of involved nodes by start and end
+    return to_return;    
+    
+}
+
 vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
     // We're going to emit traversals supported by any paths in the graph.
     

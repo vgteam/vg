@@ -14,6 +14,7 @@
 #include "vg.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
+#include "types.hpp"
 
 namespace vg {
 
@@ -28,9 +29,24 @@ public:
     // How many nodes max should we walk when checking if a path runs through a superbubble/site
     size_t max_path_search_steps = 100;
     
+    // How long should we unfold graphs to?
+    int unfold_max_length = 200;
+    
+    // How many steps of dagification should we do?
+    int dagify_steps = 1;
+    
     // We need a single aligner object to make aligning multiple reads efficient
     // (at least when using quality-score-aware alignment)
     QualAdjAligner aligner = QualAdjAligner();
+    
+    /**
+     * Unfold and dagify a graph, find the superbubbles, and then convert them
+     * back to the space of the original graph.
+     *
+     * Returns a map from a pair of start, end node traversals for a superbubble
+     * to the list of node IDs involved.
+     */
+    map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> find_sites(VG& graph);
     
     /**
      * For the superbubble/site between start and end in the given orientations,
