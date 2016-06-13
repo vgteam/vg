@@ -162,6 +162,8 @@ public:
     void get_alignments(int64_t id1, int64_t id2, vector<Alignment>& alignments);
     void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
     void for_alignment_to_node(int64_t node_id, std::function<void(const Alignment&)> lambda);
+    void for_alignment_to_nodes(const vector<int64_t>& ids, std::function<void(const Alignment&)> lambda);
+    void for_base_alignments(const set<int64_t>& aln_ids, std::function<void(const Alignment&)> lambda);
 
     // obtain the key corresponding to each entity
     const string key_for_node(int64_t id);
@@ -180,6 +182,7 @@ public:
     const string key_for_alignment_prefix(int64_t node_id);
     const string key_for_alignment(const Alignment& alignment);
     const string key_for_base(int64_t aln_id);
+    const string key_prefix_for_traversal(int64_t node_id);
     const string key_for_traversal(int64_t aln_id, const Mapping& mapping);
 
     // deserialize a key/value pair
@@ -199,7 +202,7 @@ public:
     void parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping);
     void parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment);
     void parse_base(const string& key, const string& value, int64_t& aln_id, Alignment& alignment);
-    void parse_traversal(const string& key, const string& value, int64_t& node_id, bool& backward, int64_t& aln_id);
+    void parse_traversal(const string& key, const string& value, int64_t& node_id, int16_t& rank, bool& backward, int64_t& aln_id);
 
     // for dumping graph state/ inspection
     string entry_to_string(const string& key, const string& value);

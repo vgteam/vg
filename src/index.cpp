@@ -349,7 +349,20 @@ const string Index::key_for_base(int64_t aln_id) {
     k[0] = start_sep;
     k[1] = 'b'; // base-alignments
     k[2] = start_sep;
+    aln_id = htobe64(aln_id);
     memcpy(k + sizeof(char)*3, &aln_id, sizeof(int64_t));
+    return key;
+}
+
+const string Index::key_prefix_for_traversal(int64_t node_id) {
+    string key;
+    key.resize(3*sizeof(char) + sizeof(int64_t));
+    char* k = (char*) key.c_str();
+    k[0] = start_sep;
+    k[1] = 't'; // traversals
+    k[2] = start_sep;
+    node_id = htobe64(node_id);
+    memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
     return key;
 }
 
@@ -357,16 +370,16 @@ const string Index::key_for_traversal(int64_t aln_id, const Mapping& mapping) {
     int64_t node_id = mapping.position().node_id();
     node_id = htobe64(node_id);
     string key;
-    key.resize(4*sizeof(char) + sizeof(int64_t) + sizeof(int16_t));
+    key.resize(3*sizeof(char) + 2*sizeof(int64_t) + sizeof(int16_t));
     char* k = (char*) key.c_str();
     k[0] = start_sep;
-    k[1] = 's'; // mappings (~sides)
+    k[1] = 't'; // traversals
     k[2] = start_sep;
     memcpy(k + sizeof(char)*3, &node_id, sizeof(int64_t));
-    char dir = (mapping.position().is_reverse() ? '-' : '+');
-    memcpy(k + sizeof(char)*3+sizeof(int64_t), &dir, sizeof(char));
-    int16_t rank = mapping.rank();
-    memcpy(k + sizeof(char)*4+sizeof(int64_t), &rank, sizeof(int16_t));
+    aln_id = htobe64(aln_id);
+    memcpy(k + sizeof(char)*3+sizeof(int64_t), &aln_id, sizeof(int64_t));
+    int16_t rank = mapping.rank() * (mapping.position().is_reverse() ? -1 : 1);
+    memcpy(k + sizeof(char)*3+sizeof(int64_t)*2, &rank, sizeof(int16_t));
     return key;
 }
 
@@ -596,18 +609,19 @@ void Index::parse_alignment(const string& key, const string& value, int64_t& nod
 void Index::parse_base(const string& key, const string& value, int64_t& aln_id, Alignment& alignment) {
     const char* k = key.c_str();
     memcpy(&aln_id, (k + 3*sizeof(char)), sizeof(int64_t));
+    aln_id = be64toh(aln_id);
     alignment.ParseFromString(value);
 }
 
-void Index::parse_traversal(const string& key, const string& value, int64_t& node_id, bool& backward, int64_t& aln_id) {
+void Index::parse_traversal(const string& key, const string& value, int64_t& node_id, int16_t& rank, bool& backward, int64_t& aln_id) {
     const char* k = key.c_str();
     memcpy(&node_id, (k + 3*sizeof(char)), sizeof(int64_t));
-    char direction;
-    memcpy(&direction, (k + 3*sizeof(char) + sizeof(int64_t)), sizeof(char));
-    if (direction == '-') { backward = true; } else { backward = false; }
-    int16_t rank;
-    memcpy(&rank, (k + 4*sizeof(char) + sizeof(int64_t)), sizeof(int16_t));
-    memcpy(&aln_id, &value, sizeof(int64_t));
+    node_id = be64toh(node_id);
+    memcpy(&aln_id, (k + 3*sizeof(char)+sizeof(int64_t)), sizeof(int64_t));
+    aln_id = be64toh(aln_id);
+    memcpy(&rank, (k + 3*sizeof(char) + 2*sizeof(int64_t)), sizeof(int16_t));
+    if (rank < 0) { backward = true; } else { backward = false; }
+    rank = abs(rank);
 }
 
 string Index::node_path_to_string(const string& key, const string& value) {
@@ -687,9 +701,10 @@ string Index::traversal_entry_to_string(const string& key, const string& value) 
     int64_t node_id;
     bool backward;
     int64_t aln_id;
-    parse_traversal(key, value, node_id, backward, aln_id);
+    int16_t rank;
+    parse_traversal(key, value, node_id, rank, backward, aln_id);
     stringstream s;
-    s << "{\"key\":\"+t+" << node_id << (backward?"-":"+") << "\", \"value\":"<< aln_id << "}";
+    s << "{\"key\":\"+t+" << node_id << (backward?"r":"f") << rank << "+" << aln_id << "\", \"value\":\"\"}";
     return s.str();
 }
 
@@ -818,10 +833,7 @@ void Index::put_base(int64_t aln_id, const Alignment& alignment) {
 }
 
 void Index::put_traversal(int64_t aln_id, const Mapping& mapping) {
-    string data;
-    data.resize(sizeof(int64_t));
-    char* d = (char*) data.c_str();
-    memcpy(d, &aln_id, sizeof(int64_t));
+    string data; // empty data
     db->Put(write_options, key_for_traversal(aln_id, mapping), data);
 }
 
@@ -1054,6 +1066,37 @@ void Index::for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(
             alignment.ParseFromString(value);
             lambda(alignment);
         });
+}
+
+void Index::for_alignment_to_nodes(const vector<int64_t>& ids, std::function<void(const Alignment&)> lambda) {
+    set<int64_t> aln_ids;
+    for (auto id : ids) {
+        string start = key_prefix_for_traversal(id);
+        string end = start + end_sep;
+        for_range(start, end, [this, &lambda, &aln_ids](string& key, string& value) {
+                // parse the alignment id out
+                int64_t node_id;
+                int16_t rank;
+                bool backward;
+                int64_t aln_id;
+                parse_traversal(key, value, node_id, rank, backward, aln_id);
+                aln_ids.insert(aln_id);
+            });
+    }
+    for_base_alignments(aln_ids, lambda);
+}
+
+void Index::for_base_alignments(const set<int64_t>& aln_ids, std::function<void(const Alignment&)> lambda) {
+    for (auto id : aln_ids) {
+        string start = key_for_base(id);
+        string end = start + end_sep;
+        for_range(start, end, [this, &lambda](string& key, string& value) {
+                Alignment alignment;
+                int64_t aln_id;
+                parse_base(key, value, aln_id, alignment);
+                lambda(alignment);
+            });
+    }
 }
 
 int Index::get_node_path(int64_t node_id, int64_t path_id, int64_t& path_pos, bool& backward, Mapping& mapping) {
