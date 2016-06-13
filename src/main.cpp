@@ -1937,6 +1937,7 @@ int main_msga(int argc, char** argv) {
         ref.open(fasta_file_name);
         if (debug) cerr << "loading " << fasta_file_name << endl;
         for (auto& name : ref.index->sequenceNames) {
+            if (!seq_names.empty() && seq_names.count(name) == 0) continue;
             // only use the sequence if we have whitelisted it
             string seq = ref.getSequence(name);
             strings[name] = seq;
@@ -4194,6 +4195,7 @@ void help_find(char** argv) {
          << "alignments: (rocksdb only)" << endl
          << "    -a, --alignments       writes alignments from index, sorted by node id" << endl
          << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
+         << "    -o, --alns-on N:M      writes alignments which align to any of the nodes between N and M (inclusive)" << endl
          << "sequences:" << endl
          << "    -g, --gcsa FILE        use this GCSA2 index of the sequence space of the graph" << endl
          << "    -z, --kmer-size N      split up --sequence into kmers of size N" << endl
@@ -4220,7 +4222,6 @@ int main_find(int argc, char** argv) {
     int kmer_size=0;
     int kmer_stride = 1;
     vector<string> kmers;
-    string output_format;
     vector<int64_t> node_ids;
     int context_size=0;
     bool use_length = false;
@@ -4235,6 +4236,7 @@ int main_find(int argc, char** argv) {
     bool get_alignments = false;
     bool get_mappings = false;
     string node_id_range;
+    string aln_on_id_range;
     vg::id_t start_id = 0;
     vg::id_t end_id = 0;
     bool pairwise_distance = false;
@@ -4257,7 +4259,6 @@ int main_find(int argc, char** argv) {
                 {"mems", required_argument, 0, 'M'},
                 {"kmer-stride", required_argument, 0, 'j'},
                 {"kmer-size", required_argument, 0, 'z'},
-                {"output", required_argument, 0, 'o'},
                 {"context", required_argument, 0, 'c'},
                 {"use-length", no_argument, 0, 'L'},
                 {"kmer-count", no_argument, 0, 'C'},
@@ -4267,6 +4268,7 @@ int main_find(int argc, char** argv) {
                 {"alignments", no_argument, 0, 'a'},
                 {"mappings", no_argument, 0, 'm'},
                 {"alns-in", required_argument, 0, 'i'},
+                {"alns-on", required_argument, 0, 'o'},
                 {"distance", no_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
@@ -4367,7 +4369,7 @@ int main_find(int argc, char** argv) {
             break;
 
         case 'o':
-            output_format = optarg;
+            aln_on_id_range = optarg;
             break;
 
         case 'D':
@@ -4424,14 +4426,42 @@ int main_find(int argc, char** argv) {
     if (!node_id_range.empty()) {
         assert(!db_name.empty());
         vector<string> parts = split_delims(node_id_range, ":");
-        convert(parts.front(), start_id);
-        convert(parts.back(), end_id);
+        if (parts.size() == 1) {
+            convert(parts.front(), start_id);
+            end_id = start_id;
+        } else {
+            convert(parts.front(), start_id);
+            convert(parts.back(), end_id);
+        }
         vector<Alignment> output_buf;
         auto lambda = [&output_buf](const Alignment& aln) {
             output_buf.push_back(aln);
             stream::write_buffered(cout, output_buf, 100);
         };
         vindex->for_alignment_in_range(start_id, end_id, lambda);
+        stream::write_buffered(cout, output_buf, 0);
+    }
+
+    if (!aln_on_id_range.empty()) {
+        assert(!db_name.empty());
+        vector<string> parts = split_delims(aln_on_id_range, ":");
+        if (parts.size() == 1) {
+            convert(parts.front(), start_id);
+            end_id = start_id;
+        } else {
+            convert(parts.front(), start_id);
+            convert(parts.back(), end_id);
+        }
+        vector<vg::id_t> ids;
+        for (auto i = start_id; i <= end_id; ++i) {
+            ids.push_back(i);
+        }
+        vector<Alignment> output_buf;
+        auto lambda = [&output_buf](const Alignment& aln) {
+            output_buf.push_back(aln);
+            stream::write_buffered(cout, output_buf, 100);
+        };
+        vindex->for_alignment_to_nodes(ids, lambda);
         stream::write_buffered(cout, output_buf, 0);
     }
 
@@ -4713,44 +4743,45 @@ int main_find(int argc, char** argv) {
 
 void help_index(char** argv) {
     cerr << "usage: " << argv[0] << " index [options] <graph1.vg> [graph2.vg ...]" << endl
-        << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
-        << "already be in a joint ID space, and the graph containing the highest-ID node " << endl
-        << "must come first." << endl
-        << "xg options:" << endl
-        << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
-        << "                           the graph(s) (effectively replaces rocksdb)" << endl
-        << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
-        << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
-        << "gcsa options:" << endl
-        << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
-        << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
-        << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
-        << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
-        << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
-        << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
-        << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
-        << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
-        << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
-        << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
-        << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
-        << "                           (this is required if you are using multiple graphs files)" << endl
-        << "    -t, --threads N        number of threads to use" << endl
-        << "    -p, --progress         show progress" << endl
-        << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
-        << "rocksdb options (ignored with -g):" << endl
-                                                   << "    -s, --store-graph      store graph as xg" << endl
-                                                   << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
-                                                   << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
-                                                   << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
-                                                   << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
-                                                   << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
-                                                   << "    -D, --dump             print the contents of the db to stdout" << endl
-                                                   << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
-                                                   << "    -L, --path-layout      describes the path layout of the graph" << endl
-                                                   << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
-                                                   //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
-                                                   << "    -C, --compact          compact the index into a single level (improves performance)" << endl
-                                                   << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl;
+         << "Creates an index on the specified graph or graphs. All graphs indexed must " << endl
+         << "already be in a joint ID space, and the graph containing the highest-ID node " << endl
+         << "must come first." << endl
+         << "xg options:" << endl
+         << "    -x, --xg-name FILE     use this file to store a succinct, queryable version of" << endl
+         << "                           the graph(s) (effectively replaces rocksdb)" << endl
+         << "    -v, --vcf-phasing FILE import phasing blocks from the given VCF file as threads" << endl
+         << "    -T, --store-threads    use gPBWT to store the embedded paths as threads" << endl
+         << "gcsa options:" << endl
+         << "    -g, --gcsa-out FILE    output a GCSA2 index instead of a rocksdb index" << endl
+         << "    -i, --dbg-in FILE      optionally use deBruijn graph encoded in FILE rather than an input VG (multiple allowed" << endl
+         << "    -k, --kmer-size N      index kmers of size N in the graph" << endl
+         << "    -X, --doubling-steps N use this number of doubling steps for GCSA2 construction" << endl
+         << "    -Z, --size-limit N     limit of memory to use for GCSA2 construction in gigabytes" << endl
+         << "    -O, --path-only        only index the kmers in paths embedded in the graph" << endl
+         << "    -F, --forward-only     omit the reverse complement of the graph from indexing" << endl
+         << "    -e, --edge-max N       only consider paths which make edge choices at <= this many points" << endl
+         << "    -j, --kmer-stride N    step distance between succesive kmers in paths (default 1)" << endl
+         << "    -d, --db-name PATH     create rocksdb in PATH directory (default: <graph>.index/)" << endl
+         << "                           or GCSA2 index in PATH file (default: <graph>" << gcsa::GCSA::EXTENSION << ")" << endl
+         << "                           (this is required if you are using multiple graphs files)" << endl
+         << "    -t, --threads N        number of threads to use" << endl
+         << "    -p, --progress         show progress" << endl
+         << "    -V, --verify-index     validate the GCSA2 index using the input kmers (important for testing)" << endl
+         << "rocksdb options (ignored with -g):" << endl
+         << "    -s, --store-graph      store graph as xg" << endl
+         << "    -m, --store-mappings   input is .gam format, store the mappings in alignments by node" << endl
+         << "    -a, --store-alignments input is .gam format, store the alignments by node" << endl
+         << "    -A, --dump-alignments  graph contains alignments, output them in sorted order" << endl
+         << "    -N, --node-alignments  input is (ideally, sorted) .gam format, cross reference nodes by alignment traversals" << endl
+         << "    -P, --prune KB         remove kmer entries which use more than KB kilobytes" << endl
+         << "    -n, --allow-negs       don't filter out relative negative positions of kmers" << endl
+         << "    -D, --dump             print the contents of the db to stdout" << endl
+         << "    -M, --metadata         describe aspects of the db stored in metadata" << endl
+         << "    -L, --path-layout      describes the path layout of the graph" << endl
+         << "    -S, --set-kmer         assert that the kmer size (-k) is in the db" << endl
+        //<< "    -b, --tmp-db-base S    use this base name for temporary indexes" << endl
+         << "    -C, --compact          compact the index into a single level (improves performance)" << endl
+         << "    -Q, --use-snappy       use snappy compression (faster, larger) rather than zlib" << endl;
 
 }
 
@@ -4779,6 +4810,7 @@ int main_index(int argc, char** argv) {
     bool set_kmer_size = false;
     bool path_layout = false;
     bool store_alignments = false;
+    bool store_node_alignments = false;
     bool store_mappings = false;
     bool allow_negs = false;
     bool compact = false;
@@ -4822,12 +4854,13 @@ int main_index(int argc, char** argv) {
             {"size-limit", no_argument, 0, 'Z'},
             {"path-only", no_argument, 0, 'O'},
             {"store-threads", no_argument, 0, 'T'},
+            {"node-alignments", no_argument, 0, 'N'},
             {"dbg-in", required_argument, 0, 'i'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:T",
+        c = getopt_long (argc, argv, "d:k:j:pDshMt:b:e:SP:LmaCnAQg:X:x:v:VFZ:Oi:TN",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4836,126 +4869,130 @@ int main_index(int argc, char** argv) {
 
         switch (c)
         {
-            case 'd':
-                rocksdb_name = optarg;
-                break;
+        case 'd':
+            rocksdb_name = optarg;
+            break;
 
-            case 'x':
-                xg_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'v':
-                vcf_name = optarg;
-                break;
+        case 'v':
+            vcf_name = optarg;
+            break;
 
-            case 'P':
-                prune_kb = atoi(optarg);
-                break;
+        case 'P':
+            prune_kb = atoi(optarg);
+            break;
 
-            case 'k':
-                kmer_size = atoi(optarg);
-                break;
-
-
-            case 'O':
-                path_only = true;
-                break;
-
-            case 'e':
-                edge_max = atoi(optarg);
-                break;
+        case 'k':
+            kmer_size = atoi(optarg);
+            break;
 
 
-            case 'j':
-                kmer_stride = atoi(optarg);
-                break;
+        case 'O':
+            path_only = true;
+            break;
 
-            case 'p':
-                show_progress = true;
-                break;
+        case 'e':
+            edge_max = atoi(optarg);
+            break;
 
-            case 'D':
-                dump_index = true;
-                break;
 
-            case 'M':
-                describe_index = true;
-                break;
+        case 'j':
+            kmer_stride = atoi(optarg);
+            break;
 
-            case 'L':
-                path_layout = true;
-                break;
+        case 'p':
+            show_progress = true;
+            break;
 
-            case 'S':
-                set_kmer_size = true;
-                break;
+        case 'D':
+            dump_index = true;
+            break;
 
-            case 's':
-                store_graph = true;
-                break;
+        case 'M':
+            describe_index = true;
+            break;
 
-            case 'a':
-                store_alignments = true;
-                break;
+        case 'L':
+            path_layout = true;
+            break;
 
-            case 'A':
-                dump_alignments = true;
-                break;
+        case 'S':
+            set_kmer_size = true;
+            break;
 
-            case 'm':
-                store_mappings = true;
-                break;
+        case 's':
+            store_graph = true;
+            break;
 
-            case 'n':
-                allow_negs = true;
-                break;
+        case 'a':
+            store_alignments = true;
+            break;
 
-            case 'C':
-                compact = true;
-                break;
+        case 'A':
+            dump_alignments = true;
+            break;
 
-            case 'Q':
-                use_snappy = true;
-                break;
+        case 'm':
+            store_mappings = true;
+            break;
 
-            case 't':
-                omp_set_num_threads(atoi(optarg));
-                break;
+        case 'n':
+            allow_negs = true;
+            break;
 
-            case 'g':
-                gcsa_name = optarg;
-                break;
+        case 'C':
+            compact = true;
+            break;
 
-            case 'V':
-                verify_index = true;
-                break;
-            case 'i':
-                dbg_names.push_back(optarg);
-                break;
-            case 'F':
-                forward_only = true;
-                break;
+        case 'Q':
+            use_snappy = true;
+            break;
 
-            case 'X':
-                doubling_steps = atoi(optarg);
-                break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
 
-            case 'Z':
-                size_limit = atoi(optarg);
-                break;
+        case 'g':
+            gcsa_name = optarg;
+            break;
 
-            case 'T':
-                store_threads = true;
-                break;
+        case 'V':
+            verify_index = true;
+            break;
+        case 'i':
+            dbg_names.push_back(optarg);
+            break;
+        case 'F':
+            forward_only = true;
+            break;
 
-            case 'h':
-            case '?':
-                help_index(argv);
-                exit(1);
-                break;
+        case 'X':
+            doubling_steps = atoi(optarg);
+            break;
 
-            default:
-                abort ();
+        case 'Z':
+            size_limit = atoi(optarg);
+            break;
+
+        case 'T':
+            store_threads = true;
+            break;
+
+        case 'N':
+            store_node_alignments = true;
+            break;
+
+        case 'h':
+        case '?':
+            help_index(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
@@ -4968,7 +5005,7 @@ int main_index(int argc, char** argv) {
     }
 
     if (file_names.size() <= 0 && dbg_names.empty()){
-        cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
+        //cerr << "No graph provided for indexing. Please provide a .vg file or GCSA2-format deBruijn graph to index." << endl;
         //return 1;
     }
 
@@ -5382,6 +5419,25 @@ int main_index(int argc, char** argv) {
             //index.open_for_write(db_name);
             graphs.store_paths_in_index(index);
             index.compact();
+            index.flush();
+            index.close();
+        }
+
+        if (store_node_alignments && file_names.size() > 0) {
+            index.open_for_write(rocksdb_name);
+            int64_t aln_idx = 0;
+            function<void(Alignment&)> lambda = [&index,&aln_idx](Alignment& aln) {
+                index.cross_alignment(aln_idx++, aln);
+            };
+            for (auto& file_name : file_names) {
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
+            }
             index.flush();
             index.close();
         }
