@@ -1529,6 +1529,10 @@ int main_genotype(int argc, char** argv) {
     
     // TODO: augment the graph
     VG augmented_graph(*graph);
+    
+    // Make sure that we actually have an index for traversing along paths.
+    augmented_graph.paths.rebuild_mapping_aux();
+    
     // TODO: store the reads that are embedded in the augmented graph, by their unique names
     map<string, Alignment*> reads_by_name;
     

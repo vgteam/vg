@@ -59,6 +59,10 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
     
     // Put all our subpaths in here to deduplicate them
     set<list<NodeTraversal>> results;
+
+#ifdef debug
+    cerr << "Looking for paths between " << start << " and " << end << endl;
+#endif
     
     if(graph.paths.has_node_mapping(start.node) && graph.paths.has_node_mapping(end.node)) {
         // If we have some paths that visit both ends (in some orientation)
@@ -77,6 +81,10 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
             
             for(auto* mapping : name_and_mappings.second) {
                 // Start at each mapping in the appropriate orientation
+                
+#ifdef debug
+                cerr << "Trying mapping of read " << name_and_mappings.first << endl;
+#endif
                 
                 // How many times have we gone to the next mapping looking for a
                 // mapping to the end node in the right orientation?
@@ -99,6 +107,10 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                 while(mapping != nullptr && traversal_count < max_path_search_steps) {
                     // Traverse along until we hit the end traversal or take too
                     // many steps
+                    
+#ifdef debug
+                    cerr << "\tTraversing " << pb2json(*mapping) << endl;
+#endif
                     
                     // Say we visit this node along the path, in this orientation
                     path_traversed.push_back(NodeTraversal(graph.get_node(mapping->position().node_id()), mapping->position().is_reverse() != traversal_direction));
