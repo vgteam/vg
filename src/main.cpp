@@ -1430,6 +1430,110 @@ int main_call(int argc, char** argv) {
     return 0;
 }
 
+void help_genotype(char** argv) {
+    cerr << "usage: " << argv[0] << " genotype [options] <graph.vg> <reads.index/> > <calls.vcf>" << endl
+         << "Compute genotypes from a graph and an indexed collection of reads" << endl
+         << endl
+         << "options:" << endl
+         << "    -p, --progress          show progress" << endl
+         << "    -t, --threads N         number of threads to use" << endl;
+}
+
+int main_genotype(int argc, char** argv) {
+
+    if (argc <= 3) {
+        help_genotype(argv);
+        return 1;
+    }
+    // Should we show progress with a progress bar?
+    bool show_progress = false;
+    // How many threads should we use?
+    int thread_count = 0;
+
+    int c;
+    optind = 2; // force optind past command positional arguments
+    while (true) {
+        static struct option long_options[] =
+            {
+                {"progress", no_argument, 0, 'p'},
+                {"threads", required_argument, 0, 't'},
+                {0, 0, 0, 0}
+            };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hpt:",
+                         long_options, &option_index);
+
+        /* Detect the end of the options. */
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'p':
+            show_progress = true;
+            break;
+        case 't':
+            thread_count = atoi(optarg);
+            break;
+        case 'h':
+        case '?':
+            /* getopt_long already printed an error message. */
+            help_genotype(argv);
+            exit(1);
+            break;
+        default:
+          abort ();
+        }
+    }
+    if(thread_count > 0) {
+        omp_set_num_threads(thread_count);
+    }
+    thread_count = get_thread_count();
+
+    // read the graph
+    if (optind >= argc) {
+        help_call(argv);
+        return 1;
+    }
+    if (show_progress) {
+        cerr << "Reading input graph" << endl;
+    }
+    VG* graph;
+    string graph_file_name = argv[optind++];
+    if (graph_file_name == "-") {
+        graph = new VG(std::cin);
+    } else {
+        ifstream in;
+        in.open(graph_file_name.c_str());
+        if (!in) {
+            cerr << "error: input file " << graph_file_name << " not found." << endl;
+            exit(1);
+        }
+        graph = new VG(in);
+    }
+
+    // setup reads index
+    if (optind >= argc) {
+        help_call(argv);
+        return 1;
+    }
+    string reads_index_name = argv[optind];
+    // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
+    Index index;
+    index.open_read_only(reads_index_name);
+
+    // TODO: use graph and reads to:
+    // - Augment graph
+    // - Find superbubbles or cactus branches to determine sites
+    // - Generate proposals for paths through each site (from reads?)
+    // - Compute affinities of each read for each proposed path through a site
+    // - Compute diploid genotypes for each site
+    // - Output as vcf or as native format (to be defined)
+
+    return 0;
+}
+
 void help_pileup(char** argv) {
     cerr << "usage: " << argv[0] << " pileup [options] <graph.vg> <alignment.gam> > out.vgpu" << endl
          << "Calculate pileup for each position in graph and output in VG Pileup format (list of protobuf NodePileups)." << endl
@@ -7462,6 +7566,7 @@ void vg_help(char** argv) {
          << "  -- msga          multiple sequence graph alignment" << endl
          << "  -- pileup        build a pileup from a set of alignments" << endl
          << "  -- call          prune the graph by genotyping a pileup" << endl
+         << "  -- genotype      compute genotypes from aligned reads" << endl
          << "  -- compare       compare the kmer space of two graphs" << endl
          << "  -- scrub         remove poor-quality / low-depth edits from a set of alignments" << endl
          << "  -- circularize   circularize a path within a graph." << endl
@@ -7518,6 +7623,8 @@ int main(int argc, char *argv[])
         return main_pileup(argc, argv);
     } else if (command == "call") {
         return main_call(argc, argv);
+    } else if (command == "genotype") {
+        return main_genotype(argc, argv);
     } else if (command == "compare") {
         return main_compare(argc, argv);
     } else if (command == "validate") {
