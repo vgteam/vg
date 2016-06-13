@@ -5431,7 +5431,7 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 }
 
 // The correct way to edit the graph
-void VG::edit(const vector<Path>& paths_to_add) {
+Translation VG::edit(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -5466,9 +5466,11 @@ void VG::edit(const vector<Path>& paths_to_add) {
     // them.
     auto node_translation = ensure_breakpoints(breakpoints);
 
+    // we will record the nodes that we add, so we can correctly make the returned translation
+    set<Node*> added_nodes;
     for(auto path : simplified_paths) {
         // Now go through each new path again, and create new nodes/wire things up.
-        add_nodes_and_edges(path, node_translation);
+        add_nodes_and_edges(path, node_translation, added_nodes);
     }
 
     // TODO: add the new path to the graph, with perfect match mappings to all
@@ -5497,6 +5499,56 @@ void VG::edit(const vector<Path>& paths_to_add) {
 
     // execute a semi partial order sort on the nodes
     sort();
+
+    // make the translation
+    return make_translation(node_translation, added_nodes);
+}
+
+Translation VG::make_translation(const map<pos_t, Node*>& node_translation,
+                                 const set<Node*>& added_nodes) {
+    Translation trans;
+    // invert the translation
+    map<Node*, pos_t> inv_node_trans;
+    for (auto& t : node_translation) {
+        inv_node_trans[t.second] = t.first;
+    }
+    // walk the whole graph
+    for_each_node([&](Node* node) {
+            auto f = inv_node_trans.find(node);
+            auto from_mapping = trans.add_from();
+            auto to_mapping = trans.add_to();
+            if (f != inv_node_trans.end()) {
+                // if the node is in the inverted translation, use the position to make a mapping
+                auto& pos = f->second;
+                *to_mapping->mutable_position() = make_position(node->id(), is_rev(pos), 0);
+                *from_mapping->mutable_position() = make_position(pos);
+                auto match_length = node->sequence().size();
+                auto to_edit = to_mapping->add_edit();
+                to_edit->set_to_length(match_length);
+                to_edit->set_from_length(match_length);
+                auto from_edit = from_mapping->add_edit();
+                from_edit->set_to_length(match_length);
+                from_edit->set_from_length(match_length);
+            } else if (added_nodes.count(node)) {
+                // the node is novel; so it maps to nothing
+                *to_mapping->mutable_position() = make_position(node->id(), false, 0);
+                auto to_edit = to_mapping->add_edit();
+                to_edit->set_to_length(node->sequence().size());
+                to_edit->set_from_length(node->sequence().size());
+            } else {
+                // otherwise we assume that the graph is unchanged
+                *to_mapping->mutable_position() = make_position(node->id(), false, 0);
+                *from_mapping->mutable_position() = make_position(node->id(), false, 0);
+                auto match_length = node->sequence().size();
+                auto to_edit = to_mapping->add_edit();
+                to_edit->set_to_length(match_length);
+                to_edit->set_from_length(match_length);
+                auto from_edit = from_mapping->add_edit();
+                from_edit->set_to_length(match_length);
+                from_edit->set_from_length(match_length);
+            }
+        });
+    return trans;
 }
 
 map<id_t, set<pos_t>> VG::forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints) {
@@ -5711,7 +5763,10 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
     return toReturn;
 }
 
-void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation) {
+void VG::add_nodes_and_edges(const Path& path,
+                             const map<pos_t, Node*>& node_translation,
+                             set<Node*>& added_nodes) {
+
     // The basic algorithm is to traverse the path edit by edit, keeping track
     // of a NodeSide for the last piece of sequence we were on. If we hit an
     // edit that creates new sequence, we create that new sequence as a node,
@@ -5727,13 +5782,6 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
 
     // We use this function to get the node that contains a position on an
     // original node.
-    /*
-    cerr << "node translation" << endl;
-    for (auto& p : node_translation) {
-        pos_t pos = p.first;
-        cerr << pos << " " << (p.second != nullptr?pb2json(*p.second):"null") << endl;
-    }
-    */
 
     if(!path.name().empty()) {
         // If the path has a name, we're going to add it to our collection of
@@ -5838,6 +5886,8 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     m.position().is_reverse() ?
                     reverse_complement(e.sequence())
                     : e.sequence());
+                // record that we've added the node, which is required to derive the translation
+                added_nodes.insert(new_node);
 
                 if (!path.name().empty()) {
                     Mapping nm;

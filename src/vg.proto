@@ -161,3 +161,8 @@ message Genotype {
     Position start = 2;
     Position end = 3;
 }
+
+message Translation {
+    repeated Mapping from = 1;
+    repeated Mapping to = 2;
+}

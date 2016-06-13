@@ -494,9 +494,10 @@ public:
 
     // edit the graph to include the path
     void include(const Path& path);
+
     // Edit the graph to include all the sequence and edges added by the given
     // paths. Can handle paths that visit nodes in any orientation.
-    void edit(const vector<Path>& paths);
+    Translation edit(const vector<Path>& paths);
 
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need
@@ -521,7 +522,13 @@ public:
     // all the new sequence and edges required by the path. The given path must
     // not contain adjacent perfect match edits in the same mapping (the removal
     // of which can be accomplished with the simplify() function).
-    void add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation);
+    void add_nodes_and_edges(const Path& path,
+                             const map<pos_t, Node*>& node_translation,
+                             set<Node*>& added_nodes);
+
+    // produces a graph Translation object from information about the editing process
+    Translation make_translation(const map<pos_t, Node*>& node_translation,
+                                 const set<Node*>& added_nodes);
 
     // Add in the given node, by value
     void add_node(const Node& node);

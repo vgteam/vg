@@ -21,6 +21,7 @@ ostream& operator<<(ostream& out, const pos_t& pos);
 pos_t make_pos_t(const Position& pos);
 pos_t make_pos_t(id_t id, bool is_rev, off_t off);
 Position make_position(const pos_t& pos);
+Position make_position(id_t id, bool is_rev, off_t off);
 
 }
 

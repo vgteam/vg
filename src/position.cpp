@@ -6,6 +6,10 @@ pos_t make_pos_t(const Position& pos) {
     return make_tuple(pos.node_id(), pos.is_reverse(), pos.offset());
 }
 
+pos_t make_pos_t(id_t id, bool is_rev, off_t off) {
+    return make_tuple(id, is_rev, off);
+}
+
 Position make_position(const pos_t& pos) {
     Position p;
     p.set_node_id(id(pos));
@@ -14,8 +18,12 @@ Position make_position(const pos_t& pos) {
     return p;
 }
 
-pos_t make_pos_t(id_t id, bool is_rev, off_t off) {
-    return make_tuple(id, is_rev, off);
+Position make_position(id_t id, bool is_rev, off_t off) {
+    Position p;
+    p.set_node_id(id);
+    p.set_is_reverse(is_rev);
+    p.set_offset(off);
+    return p;
 }
 
 id_t id(const pos_t& pos) {
