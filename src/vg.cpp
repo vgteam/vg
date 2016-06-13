@@ -196,10 +196,12 @@ vector<pair<id_t, id_t> > VG::get_superbubbles(SB_Input sbi){
 }
 vector<pair<id_t, id_t> > VG::get_superbubbles(void){
     vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (this->edge_count());
+    supbub::Graph sbg (this->max_node_id() + 1);
     //load up the sbgraph with edges
     function<void(Edge*)> lambda = [&sbg](Edge* e){
-            //cout << e->from() << " " << e->to() << endl;
+#ifdef debug
+        cout << e->from() << " " << e->to() << endl;
+#endif
         sbg.addEdge(e->from(), e->to());
     };
 
