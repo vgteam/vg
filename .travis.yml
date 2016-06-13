@@ -8,7 +8,7 @@ dist: trusty
 before_install:
   - if [ -f deps ]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
-  - rsync -r --checksum --itemize-change deps/ deps_cached/
+  - rsync -r --checksum deps/ deps_cached/
   - rm -Rf deps
   - mv deps_cached deps
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
