@@ -35,6 +35,15 @@ public:
      */
     vector<Path> get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end);
     
+    /**
+     * Get the affinity of all the reads relevant to the superbubble to all the
+     * paths through the superbubble. We need to know all the nodes involved in
+     * the superbubble so that we can clip them and their edges out and replace
+     * them with the paths in turn.
+     */ 
+    map<Alignment*, vector<int64_t>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
+        vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
+    
 
 };
 

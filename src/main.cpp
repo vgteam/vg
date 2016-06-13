@@ -1526,6 +1526,7 @@ int main_genotype(int argc, char** argv) {
     // TODO: use graph and reads to:
     // - Augment graph
     // - Find superbubbles or cactus branches to determine sites
+    //   - Unford and 1 step of dagigy and vg::superbubbles and then translate back to add orientation
     // - Generate proposals for paths through each site (from reads?)
     //   - Use Genotyper::get_paths_through_site()
     // - Compute affinities of each read for each proposed path through a site
