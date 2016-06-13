@@ -3224,8 +3224,7 @@ int main_mod(int argc, char** argv) {
             auto translation = graph->edit(paths);
             if (!translation_file.empty()) {
                 ofstream out(translation_file);
-                vector<Translation> t = {translation};
-                stream::write_buffered(out, t, 0);
+                stream::write_buffered(out, translation, 0);
                 out.close();
             }
         } else {

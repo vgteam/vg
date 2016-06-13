@@ -5431,7 +5431,7 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 }
 
 // The correct way to edit the graph
-Translation VG::edit(const vector<Path>& paths_to_add) {
+vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -5504,9 +5504,9 @@ Translation VG::edit(const vector<Path>& paths_to_add) {
     return make_translation(node_translation, added_nodes);
 }
 
-Translation VG::make_translation(const map<pos_t, Node*>& node_translation,
-                                 const set<Node*>& added_nodes) {
-    Translation trans;
+vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translation,
+                                         const set<Node*>& added_nodes) {
+    vector<Translation> translation;
     // invert the translation
     map<Node*, pos_t> inv_node_trans;
     for (auto& t : node_translation) {
@@ -5514,9 +5514,11 @@ Translation VG::make_translation(const map<pos_t, Node*>& node_translation,
     }
     // walk the whole graph
     for_each_node([&](Node* node) {
+            translation.emplace_back();
+            auto& trans = translation.back();
             auto f = inv_node_trans.find(node);
-            auto from_mapping = trans.add_from();
-            auto to_mapping = trans.add_to();
+            auto from_mapping = trans.mutable_from()->add_mapping();
+            auto to_mapping = trans.mutable_to()->add_mapping();
             if (f != inv_node_trans.end()) {
                 // if the node is in the inverted translation, use the position to make a mapping
                 auto& pos = f->second;
@@ -5548,7 +5550,7 @@ Translation VG::make_translation(const map<pos_t, Node*>& node_translation,
                 from_edit->set_from_length(match_length);
             }
         });
-    return trans;
+    return translation;
 }
 
 map<id_t, set<pos_t>> VG::forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints) {

@@ -163,6 +163,6 @@ message Genotype {
 }
 
 message Translation {
-    repeated Mapping from = 1;
-    repeated Mapping to = 2;
+    Path from = 1;
+    Path to = 2;
 }

@@ -497,7 +497,7 @@ public:
 
     // Edit the graph to include all the sequence and edges added by the given
     // paths. Can handle paths that visit nodes in any orientation.
-    Translation edit(const vector<Path>& paths);
+    vector<Translation> edit(const vector<Path>& paths);
 
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need
@@ -527,8 +527,8 @@ public:
                              set<Node*>& added_nodes);
 
     // produces a graph Translation object from information about the editing process
-    Translation make_translation(const map<pos_t, Node*>& node_translation,
-                                 const set<Node*>& added_nodes);
+    vector<Translation> make_translation(const map<pos_t, Node*>& node_translation,
+                                         const set<Node*>& added_nodes);
 
     // Add in the given node, by value
     void add_node(const Node& node);
