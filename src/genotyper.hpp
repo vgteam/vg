@@ -28,6 +28,10 @@ public:
     // How many nodes max should we walk when checking if a path runs through a superbubble/site
     size_t max_path_search_steps = 100;
     
+    // We need a single aligner object to make aligning multiple reads efficient
+    // (at least when using quality-score-aware alignment)
+    QualAdjAligner aligner = QualAdjAligner();
+    
     /**
      * For the superbubble/site between start and end in the given orientations,
      * emit all unique subpaths that run from start to end, out of the paths in
@@ -41,8 +45,10 @@ public:
      * the superbubble so that we can clip them and their edges out and replace
      * them with the paths in turn.
      */ 
-    map<Alignment*, vector<int64_t>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
+    map<Alignment*, vector<int>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
         vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
+        
+    
     
 
 };

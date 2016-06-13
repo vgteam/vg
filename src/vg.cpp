@@ -251,6 +251,12 @@ void VG::add_edges(const set<Edge*>& edges) {
     }
 }
 
+void VG::add_edges(const vector<Edge*>& edges) {
+    for (auto edge : edges) {
+        add_edge(*edge);
+    }
+}
+
 void VG::add_nodes(const vector<Node>& nodes) {
     for (auto& node : nodes) {
         add_node(node);

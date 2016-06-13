@@ -491,6 +491,7 @@ public:
     void add_nodes(const vector<Node>& nodes);
     void add_edge(const Edge& edge);
     void add_edges(const vector<Edge>& edges);
+    void add_edges(const vector<Edge*>& edges);
     void add_nodes(const set<Node*>& nodes);
     void add_edges(const set<Edge*>& edges);
 
