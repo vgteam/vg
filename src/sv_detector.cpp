@@ -50,6 +50,9 @@ vector<StructuralVariant> SV_DETECTOR::gam_to_known_sv(string gamfile){
                 // We have a node_id which supports a known SV,
                 // But we haven't determined yet if it's ref or alt
                 // or put it in a count...
+
+                //Check edits and sequence of node to see if it's a match
+                //or a variant
             }
         }
     };

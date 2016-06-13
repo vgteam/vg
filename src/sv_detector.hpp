@@ -96,8 +96,11 @@ class SV_DETECTOR{
         Filter read_filter;
         vg::VG* my_graph;
         map<string, list<Mapping> > name_to_paths;
+
+        map<vg::id_t, pair<int, vector<int> > > known_id_to_counts;
     
         map<string, pair<int, int> > known_to_ref_alt_count;
+
         map<vg::id_t, string> node_id_to_path;
         map<vg::id_t, string> node_to_variant;
 
