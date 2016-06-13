@@ -678,7 +678,11 @@ public:
     int path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path_length);
     // converts the stored paths in this graph to alignments
     const vector<Alignment> paths_as_alignments(void);
+    // return sequence string of path
     const string path_sequence(const Path& path);
+    // return percent identity between two paths (# matches / (#matches + #mismatches))
+    // note: uses ssw aligner, so will only work on small paths
+    double path_identity(const Path& path1, const Path& path2);
     string trav_sequence(const NodeTraversal& trav);
 
     SB_Input vg_to_sb_input();
