@@ -6679,44 +6679,47 @@ int main_map(int argc, char** argv) {
 
 void help_view(char** argv) {
     cerr << "usage: " << argv[0] << " view [options] [ <graph.vg> | <graph.json> | <aln.gam> | <read1.fq> [<read2.fq>] ]" << endl
-        << "options:" << endl
-        << "    -g, --gfa            output GFA format (default)" << endl
-        << "    -F, --gfa-in         input GFA format" << endl
+         << "options:" << endl
+         << "    -g, --gfa            output GFA format (default)" << endl
+         << "    -F, --gfa-in         input GFA format" << endl
 
-        << "    -v, --vg             output VG format" << endl
-        << "    -V, --vg-in          input VG format (default)" << endl
+         << "    -v, --vg             output VG format" << endl
+         << "    -V, --vg-in          input VG format (default)" << endl
 
-        << "    -j, --json           output JSON format" << endl
-        << "    -J, --json-in        input JSON format" << endl
-        << "    -c, --json-stream    streaming conversion of a VG format graph in line delimited JSON format" << endl
-        << "                         (this cannot be loaded directly via -J)" << endl
-        << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
-        << "                         Alignment/Map)" << endl
-        << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
-        << "    -T  --turtle-in      input turtle format." << endl
-        << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
+         << "    -j, --json           output JSON format" << endl
+         << "    -J, --json-in        input JSON format" << endl
+         << "    -c, --json-stream    streaming conversion of a VG format graph in line delimited JSON format" << endl
+         << "                         (this cannot be loaded directly via -J)" << endl
 
-        << "    -a, --align-in       input GAM format" << endl
-        << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
+         << "    -G, --gam            output GAM format (vg alignment format: Graph " << endl
+         << "                         Alignment/Map)" << endl
+         << "    -Z, --translation-in input is a graph translation description" << endl
 
-        << "    -d, --dot            output dot format" << endl
-        << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
-        << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
-        << "    -p, --show-paths     show paths in dot output" << endl
-        << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
-        << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
-        << "    -M, --show-mappings  with -p print the mappings in each path in JSON" << endl
-        << "    -I, --invert-ports   invert the edge ports in dot so that ne->nw is reversed" << endl
-        << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
+         << "    -t, --turtle         output RDF/turtle format (can not be loaded by VG)" << endl
+         << "    -T, --turtle-in      input turtle format." << endl
+         << "    -r, --rdf_base_uri   set base uri for the RDF output" << endl
 
-        << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
+         << "    -a, --align-in       input GAM format" << endl
+         << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
-        << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
-        << "                         positional file arguments if paired" << endl
-        << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
+         << "    -d, --dot            output dot format" << endl
+         << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
+         << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
+         << "    -p, --show-paths     show paths in dot output" << endl
+         << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
+         << "    -n, --annotate-paths add labels to normal edges to represent paths in dot output" << endl
+         << "    -M, --show-mappings  with -p print the mappings in each path in JSON" << endl
+         << "    -I, --invert-ports   invert the edge ports in dot so that ne->nw is reversed" << endl
+         << "    -s, --random-seed N  use this seed when assigning path symbols in dot output" << endl
 
-        << "    -L, --pileup         ouput VG Pileup format" << endl
-        << "    -l, --pileup-in      input VG Pileup format" << endl;
+         << "    -b, --bam            input BAM or other htslib-parseable alignments" << endl
+
+         << "    -f, --fastq          input fastq (output defaults to GAM). Takes two " << endl
+         << "                         positional file arguments if paired" << endl
+         << "    -i, --interleaved    fastq is interleaved paired-ended" << endl
+
+         << "    -L, --pileup         ouput VG Pileup format" << endl
+         << "    -l, --pileup-in      input VG Pileup format" << endl;
     // TODO: Can we regularize the option names for input and output types?
 
 }
@@ -6792,11 +6795,12 @@ int main_view(int argc, char** argv) {
                 {"show-mappings", no_argument, 0, 'M'},
                 {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
+                {"translation-in", no_argument, 0, 'Z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SC",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZ",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6815,6 +6819,11 @@ int main_view(int argc, char** argv) {
 
         case 'S':
             simple_dot = true;
+            break;
+
+        case 'Z':
+            input_type = "translation";
+            output_type = "json";
             break;
 
         case 'p':
@@ -7151,6 +7160,23 @@ int main_view(int argc, char** argv) {
             }
         }
         cout.flush();
+        return 0;
+    } else if (input_type == "translation") {
+        if (output_type == "json") {
+            function<void(Translation&)> lambda = [](Translation& t) {
+                cout << pb2json(t) << "\n";
+            };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+        } else {
+            cerr << "[vg view] error: (binary) Translation can only be converted to JSON" << endl;
+            return 1;
+        }
         return 0;
     }
 
