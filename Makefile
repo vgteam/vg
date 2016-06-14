@@ -79,6 +79,8 @@ else
 	ln -s `which shuf` $(BIN_DIR)/shuf
 endif
 
+# Make sure we have protoc built
+bin/protoc: $(LIB_DIR)/libprotobuf.a
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS)
@@ -175,7 +177,7 @@ $(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
 
 $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h 
 
-$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a
+$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc
 	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	+cp $@ $(INC_DIR)
 
