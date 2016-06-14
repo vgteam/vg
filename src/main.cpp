@@ -3005,6 +3005,8 @@ void help_mod(char** argv) {
          << "                            and edges that do not introduce new paths are removed and neighboring" << endl
          << "                            nodes are merged)" << endl
          << "    -U, --until-normal N    iterate normalization until convergence, or at most N times" << endl
+         << "    -E, --unreverse-edges   flip doubly-reversing edges so that they are represented on the" << endl
+         << "                            forward strand of the graph" << endl
          << "    -s, --simplify          remove redundancy from the graph that will not change its path space" << endl
          << "    -T, --strong-connect    outputs the strongly-connected components of the graph" << endl
          << "    -d, --dagify-step N     copy strongly connected components of the graph N times, forwarding" << endl
@@ -3083,6 +3085,7 @@ int main_mod(int argc, char** argv) {
     bool bluntify = false;
     int until_normal_iter = 0;
     string translation_file;
+    bool flip_doubly_reversed_edges = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3128,11 +3131,12 @@ int main_mod(int argc, char** argv) {
             {"orient-forward", no_argument, 0, 'O'},
             {"destroy-node", required_argument, 0, 'y'},
             {"translation", required_argument, 0, 'Z'},
+            {"unreverse-edges", required_argument, 0, 'E'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:E",
                 long_options, &option_index);
 
 
@@ -3189,6 +3193,10 @@ int main_mod(int argc, char** argv) {
 
         case 'u':
             unchop = true;
+            break;
+
+        case 'E':
+            flip_doubly_reversed_edges = true;
             break;
 
         case 'K':
@@ -3360,6 +3368,10 @@ int main_mod(int argc, char** argv) {
     if (orient_forward) {
         set<int64_t> flipped;
         graph->orient_nodes_forward(flipped);
+    }
+
+    if (flip_doubly_reversed_edges) {
+        graph->flip_doubly_reversed_edges();
     }
 
     if (dagify_steps) {
@@ -3626,6 +3638,12 @@ int main_sim(int argc, char** argv) {
         }
         // write the alignment or its string
         if (align_out) {
+            // name the alignment
+            string data;
+            aln.SerializeToString(&data);
+            const string hash = sha1head(data, 16);
+            aln.set_name(hash);
+            // write it out as requested
             if (json_out) {
                 cout << pb2json(aln) << endl;
             } else {
@@ -6010,12 +6028,13 @@ int main_align(int argc, char** argv) {
         alignment = graph->align(seq, aligner, 0, debug);
     }
 
+    if (!seq_name.empty()) {
+        alignment.set_name(seq_name);
+    }
+
     if (output_json) {
         cout << pb2json(alignment) << endl;
     } else {
-        if (!seq_name.empty()) {
-            alignment.set_name(seq_name);
-        }
         function<Alignment(uint64_t)> lambda =
             [&alignment] (uint64_t n) {
                 return alignment;
@@ -6081,7 +6100,6 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N      skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
          << "    -e, --thread-ex N         grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -t, --threads N           number of threads to use" << endl
-         << "    -G, --greedy-accept       if a tested alignment achieves -X identity don't try worse seeds" << endl
          << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
@@ -6158,7 +6176,7 @@ int main_map(int argc, char** argv) {
     int extra_pairing_multimaps = 4;
     int method_code = 1;
     string gam_input;
-    bool compare_gam;
+    bool compare_gam = false;
     int fragment_size = 0;
 
     int c;
@@ -6458,7 +6476,7 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty()) {
+    if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty()) {
         cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
         return 1;
     }
@@ -6900,6 +6918,7 @@ void help_view(char** argv) {
 
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
+         << "    -B, --bubble-rank    use superbubbles to force ranking in dot output" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
@@ -6956,6 +6975,7 @@ int main_view(int argc, char** argv) {
     bool simple_dot = false;
     int seed_val = time(NULL);
     bool color_variants = false;
+    bool superbubble_ranking = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -6992,11 +7012,12 @@ int main_view(int argc, char** argv) {
                 {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
+                {"bubble-rank", no_argument, 0, 'B'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZ",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZB",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -7015,6 +7036,10 @@ int main_view(int argc, char** argv) {
 
         case 'S':
             simple_dot = true;
+            break;
+
+        case 'B':
+            superbubble_ranking = true;
             break;
 
         case 'Z':
@@ -7401,6 +7426,7 @@ int main_view(int argc, char** argv) {
                       simple_dot,
                       invert_edge_ports_in_dot,
                       color_variants,
+                      superbubble_ranking,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;

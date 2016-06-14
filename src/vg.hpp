@@ -45,6 +45,8 @@
 #include "Graph.hpp"
 #include "helperDefs.hpp"
 
+#include "bubbles.hpp"
+
 #include "nodetraversal.hpp"
 
 
@@ -731,6 +733,7 @@ public:
                 bool simple_mode = false,
                 bool invert_edge_ports = false,
                 bool color_variants = false,
+                bool superbubble_ranking = false,
                 int random_seed = 0);
 
 
