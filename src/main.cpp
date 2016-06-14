@@ -1437,7 +1437,8 @@ void help_genotype(char** argv) {
          << "Compute genotypes from a graph and an indexed collection of reads" << endl
          << endl
          << "options:" << endl
-         << "    -j, --json          show progress" << endl
+         << "    -j, --json              output in JSON" << endl
+         << "    -v, --vcf               output in VCF" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1450,10 +1451,15 @@ int main_genotype(int argc, char** argv) {
     }
     // Should we output genotypes in JSON (true) or Protobuf (false)?
     bool output_json = false;
+    // Should we output VCF instead of protobuf?
+    bool output_vcf = false;
     // Should we show progress with a progress bar?
     bool show_progress = false;
     // How many threads should we use?
     int thread_count = 0;
+    
+    // What reference path should we use
+    string ref_path_name;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1461,13 +1467,14 @@ int main_genotype(int argc, char** argv) {
         static struct option long_options[] =
             {
                 {"json", no_argument, 0, 'j'},
+                {"vcf", no_argument, 0, 'v'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjpt:",
+        c = getopt_long (argc, argv, "hjvpt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1478,6 +1485,9 @@ int main_genotype(int argc, char** argv) {
         {
         case 'j':
             output_json = true;
+            break;
+        case 'v':
+            output_vcf = true;
             break;
         case 'p':
             show_progress = true;
@@ -1520,6 +1530,14 @@ int main_genotype(int argc, char** argv) {
             exit(1);
         }
         graph = new VG(in);
+    }
+    
+    // Guess the ref path name
+    if(graph->paths.size() == 1) {
+        // Autodetect the reference path name as the name of the only path
+        ref_path_name = (*(*graph).paths._paths.begin()).first;
+    } else {
+        ref_path_name = "ref";
     }
 
     // setup reads index
@@ -1608,6 +1626,18 @@ int main_genotype(int argc, char** argv) {
     vector<vector<Genotype>> buffer;
     buffer.resize(thread_count);
     
+    // If we're doing VCF output we need a VCF header
+    vcflib::VariantCallFile* vcf = nullptr;
+    // And a reference index tracking the primary path
+    ReferenceIndex* reference_index = nullptr;
+    if(output_vcf) {
+        // Build a reference index on our reference path
+        reference_index = new ReferenceIndex(augmented_graph, ref_path_name);
+        
+        // Start up a VCF
+        vcf = genotyper.start_vcf(cout, *reference_index, ref_path_name);
+    }
+        
     // We want to do this in paprallel, but we can't #pragma omp parallel for over a std::map
     #pragma omp parallel shared(total_affinities)
     {
@@ -1646,6 +1676,11 @@ int main_genotype(int argc, char** argv) {
                         // Dump in JSON
                         #pragma omp critical (cout)
                         cout << pb2json(genotype) << endl;
+                    } else if(output_vcf) {
+                        vcflib::Variant variant = genotyper.genotype_to_variant(*graph, *reference_index, *vcf, genotype);
+                        variant.sequenceName = ref_path_name;
+                        // TODO: set contig or something
+                        cout << variant << endl;
                     } else {
                         // Write out in Protobuf
                         buffer[tid].push_back(genotype);
@@ -1654,7 +1689,14 @@ int main_genotype(int argc, char** argv) {
                 }
             }
         }
-    }            
+    }           
+    
+    if(!output_json && !output_vcf) {
+        // Flush the protobuf output buffers
+        for(int i = 0; i < buffer.size(); i++) {
+            stream::write_buffered(cout, buffer[i], 0);
+        }
+    } 
 
 
     if(show_progress) {
@@ -1671,10 +1713,21 @@ int main_genotype(int argc, char** argv) {
     // - Compute diploid genotypes for each site
     // - Output as vcf or as native format (to be defined)
 
-    if(graph != nullptr) {
-        delete graph;
+    if(reference_index != nullptr) {
+        // Clean up the reference index if needed
+        delete reference_index;
     }
 
+    if(vcf != nullptr) {
+        // Clean up the vcf file if needed
+        delete vcf;
+    }
+
+    if(graph != nullptr) {
+        // Clean up the graph
+        delete graph;
+    }
+    
     return 0;
 }
 
