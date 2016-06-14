@@ -35,6 +35,10 @@ public:
     // How many steps of dagification should we do?
     int dagify_steps = 1;
     
+    // What portion of the total affinity can be on one allele before we refuse
+    // to call het and call homozygous instead.
+    double max_het_bias = 4;
+    
     // We need a single aligner object to make aligning multiple reads efficient
     // (at least when using quality-score-aware alignment)
     QualAdjAligner aligner = QualAdjAligner();
@@ -60,9 +64,16 @@ public:
      * paths through the superbubble. We need to know all the nodes involved in
      * the superbubble so that we can clip them and their edges out and replace
      * them with the paths in turn.
+     *
+     * Affinity is a double out of 1.0. Higher is better.
      */ 
-    map<Alignment*, vector<int>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
+    map<Alignment*, vector<double>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
         vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
+        
+    /**
+     * Compute annotated genotype from affinities and superbubble paths.
+     */
+    Genotype get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
         
     
     

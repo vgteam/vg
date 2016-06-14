@@ -154,11 +154,11 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
     return toReturn;
 }
 
-map<Alignment*, vector<int>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
+map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
     vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths) {
     
     // We're going to build this up gradually, appending to all the vectors.
-    map<Alignment*, vector<int>> toReturn;
+    map<Alignment*, vector<double>> toReturn;
     
     // What reads are relevant to this superbubble?
     set<string> relevant_read_names;
@@ -226,8 +226,8 @@ map<Alignment*, vector<int>> Genotyper::get_affinities(VG& graph, const map<stri
             // Re-align a copy to this graph (using quality-adjusted alignment)
             Alignment aligned = allele_graph.align_qual_adjusted(*read, aligner);
             
-            // Grab the score and save it for this read and superbubble path
-            toReturn[read].push_back(aligned.score());
+            // Grab the identity and save it for this read and superbubble path
+            toReturn[read].push_back(aligned.identity());
             
         }
     }
@@ -235,9 +235,67 @@ map<Alignment*, vector<int>> Genotyper::get_affinities(VG& graph, const map<stri
     // After scoring all the reads against all the versions of the superbubble,
     // return the affinities
     return toReturn;
-    
-    
+}
 
+Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
+    // Compute total affinity for each path
+    vector<double> total_affinity(superbubble_paths.size(), 0);
+    for(auto& alignment_and_affinities : affinities) {
+        for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
+            // For each affinity of an alignment to a path
+            int affinity = alignment_and_affinities.second.at(i);
+            // Add it in to the total
+            total_affinity.at(i) += affinity;
+        }
+    }
+    
+    Genotype genotype;
+    
+    if(superbubble_paths.empty()) {
+        // No paths! Nothing to say!
+        throw runtime_error("No paths through superbubble! Can't genotype!");
+    }
+    
+    // If there's only one path, call hom ref
+    if(superbubble_paths.size() < 2) {
+        *genotype.add_allele() = superbubble_paths.front();
+        Support* support = genotype.add_support();
+        support->set_quality(total_affinity.front());
+        return genotype;
+    }
+    
+    // Find the two best paths
+    int best_allele = -1;
+    int second_best_allele = -1;
+    
+    for(int i = 0; i < superbubble_paths.size(); i++) {
+        if(best_allele == -1 || total_affinity[best_allele] < total_affinity[i]) {
+            // We have a new best allele
+            second_best_allele = best_allele;
+            best_allele = i;
+        } else if(second_best_allele == -1 || total_affinity[second_best_allele] < total_affinity[i]) {
+            // We have a new second best allele
+            second_best_allele = i;
+        }
+    }
+    
+    // Add the best allele with the most support
+    *genotype.add_allele() = superbubble_paths[best_allele];
+    genotype.add_support()->set_quality(total_affinity[best_allele]);
+    
+    if(total_affinity[best_allele] > total_affinity[second_best_allele] * max_het_bias) {
+        // If we're too biased to one side, call hom that
+        return genotype;
+    }
+    
+    // Else call het by adding the second best allele as well
+    *genotype.add_allele() = superbubble_paths[second_best_allele];
+    genotype.add_support()->set_quality(total_affinity[second_best_allele]);
+    
+    // TODO: use more support fields by investigating the Alignment associated
+    // with the affinity, as it relates to the allele's path
+    
+    return genotype;
 }
 
 }

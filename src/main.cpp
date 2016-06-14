@@ -1437,6 +1437,7 @@ void help_genotype(char** argv) {
          << "Compute genotypes from a graph and an indexed collection of reads" << endl
          << endl
          << "options:" << endl
+         << "    -j, --json          show progress" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1447,6 +1448,8 @@ int main_genotype(int argc, char** argv) {
         help_genotype(argv);
         return 1;
     }
+    // Should we output genotypes in JSON (true) or Protobuf (false)?
+    bool output_json = false;
     // Should we show progress with a progress bar?
     bool show_progress = false;
     // How many threads should we use?
@@ -1457,6 +1460,7 @@ int main_genotype(int argc, char** argv) {
     while (true) {
         static struct option long_options[] =
             {
+                {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
@@ -1472,6 +1476,9 @@ int main_genotype(int argc, char** argv) {
 
         switch (c)
         {
+        case 'j':
+            output_json = true;
+            break;
         case 'p':
             show_progress = true;
             break;
@@ -1594,6 +1601,11 @@ int main_genotype(int argc, char** argv) {
     // We're going to count up all the affinities we compute
     size_t total_affinities = 0;
     
+    // We need a buffer for output
+    vector<vector<Genotype>> buffer;
+    buffer.resize(thread_count);
+    
+    #pragma omp parallel for
     for(auto& bounds_and_contents : sites) {
         // For each site (TODO: in parallel)
         
@@ -1601,22 +1613,38 @@ int main_genotype(int argc, char** argv) {
         vector<Path> paths = genotyper.get_paths_through_site(augmented_graph, bounds_and_contents.first.first, bounds_and_contents.first.second);
         
         if(show_progress) {
+            #pragma omp critical (cerr)
             cerr << "Site " << bounds_and_contents.first.first << " - " << bounds_and_contents.first.second << " has " << paths.size() << " alleles" << endl;
         }
         
         // Get the affinities for all the paths
-        map<Alignment*, vector<int>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
+        map<Alignment*, vector<double>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
         
-        for(auto& alignmant_anf_affinities : affinities) {
-            total_affinities += alignmant_anf_affinities.second.size();
+        for(auto& alignment_and_affinities : affinities) {
+            total_affinities += alignment_and_affinities.second.size();
         }
         
-        // TODO: convert the affinities into a genotype
+        // Get a genotype        
+        Genotype genotype = genotyper.get_genotype(paths, affinities);
+        
+        if(output_json) {
+            // Dump in JSON
+            #pragma omp critical (cout)
+            cout << pb2json(genotype) << endl;
+        } else {
+            // Write out in Protobuf
+            buffer[tid].push_back(genotype);
+            stream::write_buffered(cout, buffer[tid], 100);
+        }
+        
+        
     }
     
     if(show_progress) {
         cerr << "Computed " << total_affinities << " affinities" << endl;
     }
+
+    
 
     // TODO: use graph and reads to:
     // - Augment graph
