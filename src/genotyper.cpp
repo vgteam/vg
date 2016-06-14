@@ -1,4 +1,5 @@
 #include "genotyper.hpp"
+#include "bubbles.hpp"
 
 namespace vg {
 
@@ -29,7 +30,7 @@ map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& 
     unfold_translation.clear();
     
     // Find the superbubbles in the DAG
-    map<pair<id_t, id_t>, vector<id_t>> superbubbles = transformed.superbubbles();
+    map<pair<id_t, id_t>, vector<id_t>> superbubbles = vg::superbubbles(transformed);
     
     for(auto& superbubble : superbubbles) {
         

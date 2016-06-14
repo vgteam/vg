@@ -29,6 +29,7 @@
 #include "vg_git_version.hpp"
 #include "IntervalTree.h"
 #include "genotyper.hpp"
+#include "bubbles.hpp"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -1523,12 +1524,57 @@ int main_genotype(int argc, char** argv) {
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
     index.open_read_only(reads_index_name);
+    
+    // Build the set of all the node IDs to operate on
+    vector<vg::id_t> graph_ids;
+    graph->for_each_node([&](Node* node) {
+        // Put all the ids in the set
+        graph_ids.push_back(node->id());
+    });
 
-    // Make a Gneotyper to do the genotyping
+    // Load all the reads into memory
+    // TODO: support breaking up into chunks by sets of IDs or something
+    vector<Alignment> alignments;
+    
+    index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
+        // Extract all the alignments
+        alignments.push_back(alignment);
+    });
+    
+    if(show_progress) {
+        cerr << "Loaded " << alignments.size() << " alignments" << endl;
+    }
+    
+    // Make sure they have names. TODO: we assume that if they do have names
+    // they are already unique, and that they aren't like the names we generate.
+    for(size_t i = 0; i < alignments.size(); i++) {
+        if(alignments[i].name().empty()) {
+            // Generate a unique name
+            alignments[i].set_name("_unnamed_alignment_" + to_string(i));
+        }
+    }
+    
+    // Suck out paths
+    vector<Path> paths;
+    for(auto& alignment : alignments) {
+        // Copy over each path, naming it after its alignment
+        Path path = alignment.path();
+        path.set_name(alignment.name());
+        paths.push_back(path);
+    }
+    
+    // Run them through vg::edit() to add them to the graph. Save the translations.
+    vector<Translation> augmentation_translations = graph->edit(paths);
+    
+    if(show_progress) {
+        cerr << "Augmented graph; got " << augmentation_translations.size() << " translations" << endl;
+    }
+
+    // Make a Genotyper to do the genotyping
     Genotyper genotyper;
     
-    // TODO: augment the graph
-    VG augmented_graph(*graph);
+    // Grab a reference to the (now augmented) graph
+    VG& augmented_graph = *graph;
     
     // Make sure that we actually have an index for traversing along paths.
     augmented_graph.paths.rebuild_mapping_aux();
@@ -1541,18 +1587,36 @@ int main_genotype(int argc, char** argv) {
     // Unfold/unroll, find the superbubbles, and translate back.
     map<pair<NodeTraversal, NodeTraversal>, vector<vg::id_t>> sites = genotyper.find_sites(augmented_graph);
     
+    if(show_progress) {
+        cerr << "Found " << sites.size() << " superbubbles" << endl;
+    }
+    
+    // We're going to count up all the affinities we compute
+    size_t total_affinities = 0;
+    
     for(auto& bounds_and_contents : sites) {
         // For each site (TODO: in parallel)
         
         // Get all the paths through the site
         vector<Path> paths = genotyper.get_paths_through_site(augmented_graph, bounds_and_contents.first.first, bounds_and_contents.first.second);
         
+        if(show_progress) {
+            cerr << "Site " << bounds_and_contents.first.first << " - " << bounds_and_contents.first.second << " has " << paths.size() << " alleles" << endl;
+        }
+        
         // Get the affinities for all the paths
         map<Alignment*, vector<int>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
+        
+        for(auto& alignmant_anf_affinities : affinities) {
+            total_affinities += alignmant_anf_affinities.second.size();
+        }
         
         // TODO: convert the affinities into a genotype
     }
     
+    if(show_progress) {
+        cerr << "Computed " << total_affinities << " affinities" << endl;
+    }
 
     // TODO: use graph and reads to:
     // - Augment graph
@@ -1561,6 +1625,10 @@ int main_genotype(int argc, char** argv) {
     // - Compute affinities of each read for each proposed path through a site
     // - Compute diploid genotypes for each site
     // - Output as vcf or as native format (to be defined)
+
+    if(graph != nullptr) {
+        delete graph;
+    }
 
     return 0;
 }
@@ -4122,7 +4190,7 @@ int main_stats(int argc, char** argv) {
     }
 
     if (superbubbles) {
-        for (auto& i : graph->superbubbles()) {
+        for (auto& i : vg::superbubbles(*graph)) {
             auto& b = i.first;
             auto& v = i.second;
             cout << b.first << "\t" << b.second << "\t";

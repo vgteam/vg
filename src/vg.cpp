@@ -7,7 +7,6 @@ namespace vg {
 
 using namespace std;
 using namespace gfak;
-using namespace supbub;
 
 
 // construct from a stream of protobufs
@@ -166,77 +165,6 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     add_nodes(nodes);
     add_edges(edges);
     sort();
-}
-
-
-SB_Input VG::vg_to_sb_input(){
-	//cout << this->edge_count() << endl;
-  SB_Input sbi;
-  sbi.num_vertices = this->edge_count();
-	function<void(Edge*)> lambda = [&sbi](Edge* e){
-		//cout << e->from() << " " << e->to() << endl;
-    pair<id_t, id_t> dat = make_pair(e->from(), e->to() );
-    sbi.edges.push_back(dat);
-	};
-	this->for_each_edge(lambda);
-  return sbi;
-}
-
-vector<pair<id_t, id_t> > VG::get_superbubbles(SB_Input sbi){
-    vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (sbi.num_vertices);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
-    supbub::DetectSuperBubble dsb;
-    dsb.find(sbg, superBubblesList);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
-    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
-        ret.push_back(make_pair((*it).entrance, (*it).exit));
-    }
-    return ret;
-}
-vector<pair<id_t, id_t> > VG::get_superbubbles(void){
-    vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (this->max_node_id() + 1);
-    //load up the sbgraph with edges
-    function<void(Edge*)> lambda = [&sbg](Edge* e){
-#ifdef debug
-        cout << e->from() << " " << e->to() << endl;
-#endif
-        sbg.addEdge(e->from(), e->to());
-    };
-
-    this->for_each_edge(lambda);
-
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
-
-    supbub::DetectSuperBubble dsb;
-    dsb.find(sbg, superBubblesList);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
-    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
-        ret.push_back(make_pair((*it).entrance, (*it).exit));
-    }
-    return ret;
-}
-// check for conflict (duplicate nodes and edges) occurs within add_* functions
-
-map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
-    map<pair<id_t, id_t>, vector<id_t> > bubbles;
-    // ensure we're sorted
-    sort();
-    // if we have a DAG, then we can find all the nodes in each superbubble
-    // in constant time as they lie in the range between the entry and exit node
-    auto supbubs = get_superbubbles();
-    //     hash_map<Node*, int> node_index;
-    for (auto& bub : supbubs) {
-        auto start = node_index[get_node(bub.first)];
-        auto end = node_index[get_node(bub.second)];
-        // get the nodes in the range
-        auto& b = bubbles[bub];
-        for (int i = start; i <= end; ++i) {
-            b.push_back(graph.node(i).id());
-        }
-    }
-    return bubbles;
 }
 
 void VG::add_nodes(const set<Node*>& nodes) {
