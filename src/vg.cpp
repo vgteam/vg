@@ -5451,7 +5451,9 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
     // invert the translation
     map<Node*, pos_t> inv_node_trans;
     for (auto& t : node_translation) {
-        inv_node_trans[t.second] = t.first;
+        if (!is_rev(t.first)) {
+            inv_node_trans[t.second] = t.first;
+        }
     }
     // walk the whole graph
     for_each_node([&](Node* node) {
@@ -5489,26 +5491,6 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
                 auto from_edit = from_mapping->add_edit();
                 from_edit->set_to_length(match_length);
                 from_edit->set_from_length(match_length);
-            }
-            // flip things onto the forward strand if needed
-            if (from_mapping->position().is_reverse()
-                && to_mapping->position().is_reverse()) {
-                auto old_node_length = [&](id_t id) {
-                    auto f = orig_node_sizes.find(id);
-                    assert(f != orig_node_sizes.end());
-                    return f->second;
-                };
-                *from_mapping =
-                    reverse_complement_mapping(
-                        *from_mapping,
-                        old_node_length);
-                auto curr_node_length = [&](id_t id) {
-                    return get_node(id)->sequence().size();
-                };
-                *to_mapping =
-                    reverse_complement_mapping(
-                        *to_mapping,
-                        curr_node_length);
             }
         });
     std::sort(translation.begin(), translation.end(),
