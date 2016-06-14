@@ -11,6 +11,7 @@ before_install:
   - rsync -r --checksum deps/ deps_cached/
   - rm -Rf deps
   - mv deps_cached deps
+  - ls -lah deps/; ls -lah lib/; ls -lah include/
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
