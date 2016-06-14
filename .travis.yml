@@ -4,8 +4,13 @@ language: cpp
 compiler: gcc
 sudo: required
 dist: trusty
+# We have some shenanigans to let us cache submodules, and update changed files without messing up mtimes and triggering rebuilds unnecessarily.
 before_install:
+  - if [ -f deps ]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
+  - rsync -r --checksum deps/ deps_cached/
+  - rm -Rf deps
+  - mv deps_cached deps
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
@@ -34,7 +39,15 @@ install:
 script:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && make test && make static -j4; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make -j4 && make test; fi
-
+# Cache all our dependency directories, and our lib and include
+cache:
+  directories:
+    - deps
+    - lib
+    - include
+before_cache:
+  - rm lib/libvg.*
+  - rm include/vg.pb.h
 os:
   - linux
   - osx
