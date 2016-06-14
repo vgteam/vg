@@ -157,9 +157,18 @@ message Pileup {
 }
 
 message Genotype {
-    repeated Path allele = 1;
-    Position start = 2;
-    Position end = 3;
+    string name = 1;
+    repeated Path allele = 2;
+    repeated Support support = 3;
+}
+
+// aggregates information about the reads supporting an allele
+message Support {
+    double quality = 1;
+    int32 forward = 2;
+    int32 reverse = 3;
+    int32 left = 4;
+    int32 right = 5;
 }
 
 message Translation {
