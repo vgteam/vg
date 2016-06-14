@@ -483,13 +483,41 @@ vcflib::Variant Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& 
     
     // TODO: figure out how to handle superbubbles that come up backwards
     // relative to the primary reference.
-    assert(referenceIntervalStart < referenceIntervalPastEnd);
-    
-    // Set the variant position
-    variant.position = referenceIntervalStart + 1;
+    assert(referenceIntervalStart <= referenceIntervalPastEnd);
     
     // Get the string for the reference allele
     string refString = index.sequence.substr(referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
+    
+    // And make strings for all the genotype alleles
+    vector<string> allele_strings;
+    
+    for(size_t i = 0; i < genotype.allele_size(); i++) {
+        // Get the string for each allele
+        allele_strings.push_back(allele_to_string(graph, genotype.allele(i)));
+    }
+    
+    // See if any alleles are empty
+    bool empty_alleles = refString.empty();
+    for(auto& allele : allele_strings) {
+        if(allele == "") {
+            empty_alleles = true;
+        }
+    }
+    
+    // Fix them up
+    if(empty_alleles) {
+        // Grab the character before our site
+        string prefix = index.sequence.substr(referenceIntervalStart - 1, 1);
+        for(auto& allele : allele_strings) {
+            // Prepend it to every allele
+            allele = prefix + allele;
+        }
+        // Also prepend it to the reference string
+        refString = prefix + refString;
+        
+        // Budge the variant over
+        referenceIntervalStart--;
+    }
     
     // Make the ref allele
     create_ref_allele(variant, refString);
@@ -498,11 +526,10 @@ vcflib::Variant Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& 
     vector<int> called_alleles;
     
     for(size_t i = 0; i < genotype.allele_size(); i++) {
-        // Get the string for each allele
-        string allele_string = allele_to_string(graph, genotype.allele(i));
+        // For each allele
         
         // Add it/find its number if it already exists (i.e. is the ref)
-        int allele_number = add_alt_allele(variant, allele_string);
+        int allele_number = add_alt_allele(variant, allele_strings[i]);
         
         // Remember we called a copy of it
         called_alleles.push_back(allele_number);
@@ -525,24 +552,8 @@ vcflib::Variant Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& 
     auto& genotype_out = variant.samples["SAMPLE"]["GT"];
     genotype_out.push_back(to_string(called_alleles[0]) + "/" + to_string(called_alleles[1]));
     
-    // See if any alleles are empty
-    bool empty_alleles = false;
-    for(auto& allele : variant.alleles) {
-        if(allele == "") {
-            empty_alleles = true;
-        }
-    }
-    
-    // Fix them up
-    if(empty_alleles) {
-        // Grab the character before our site
-        string prefix = index.sequence.substr(referenceIntervalStart - 1, 1);
-        for(auto& allele : variant.alleles) {
-            // Prepend it to every allele
-            allele = prefix + allele;
-        }
-    }
-    
+    // Set the variant position (now that we have budged it left if necessary
+    variant.position = referenceIntervalStart + 1;
     
     return variant;
     
