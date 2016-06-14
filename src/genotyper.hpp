@@ -39,10 +39,6 @@ public:
     // to call het and call homozygous instead.
     double max_het_bias = 4;
     
-    // We need a single aligner object to make aligning multiple reads efficient
-    // (at least when using quality-score-aware alignment)
-    QualAdjAligner aligner = QualAdjAligner();
-    
     /**
      * Unfold and dagify a graph, find the superbubbles, and then convert them
      * back to the space of the original graph.

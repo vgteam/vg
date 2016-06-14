@@ -1467,7 +1467,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hpt:",
+        c = getopt_long (argc, argv, "hjpt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1586,8 +1586,11 @@ int main_genotype(int argc, char** argv) {
     // Make sure that we actually have an index for traversing along paths.
     augmented_graph.paths.rebuild_mapping_aux();
     
-    // TODO: store the reads that are embedded in the augmented graph, by their unique names
+    // store the reads that are embedded in the augmented graph, by their unique names
     map<string, Alignment*> reads_by_name;
+    for(auto& alignment : alignments) {
+        reads_by_name[alignment.name()] = &alignment;
+    }
     
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
     
@@ -1605,41 +1608,55 @@ int main_genotype(int argc, char** argv) {
     vector<vector<Genotype>> buffer;
     buffer.resize(thread_count);
     
-    #pragma omp parallel for
-    for(auto& bounds_and_contents : sites) {
-        // For each site (TODO: in parallel)
-        
-        // Get all the paths through the site
-        vector<Path> paths = genotyper.get_paths_through_site(augmented_graph, bounds_and_contents.first.first, bounds_and_contents.first.second);
-        
-        if(show_progress) {
-            #pragma omp critical (cerr)
-            cerr << "Site " << bounds_and_contents.first.first << " - " << bounds_and_contents.first.second << " has " << paths.size() << " alleles" << endl;
+    // We want to do this in paprallel, but we can't #pragma omp parallel for over a std::map
+    #pragma omp parallel shared(total_affinities)
+    {
+        #pragma omp single nowait
+        {
+            for(auto it = sites.begin(); it != sites.end(); it++) {
+                // For each site in parallel
+                
+                #pragma omp task firstprivate(it) shared(total_affinities)
+                {
+                
+                    auto& bounds_and_contents = *it;
+                    
+                    int tid = omp_get_thread_num();
+                    
+                    // Get all the paths through the site
+                    vector<Path> paths = genotyper.get_paths_through_site(augmented_graph, bounds_and_contents.first.first, bounds_and_contents.first.second);
+                    
+                    if(show_progress) {
+                        #pragma omp critical (cerr)
+                        cerr << "Site " << bounds_and_contents.first.first << " - " << bounds_and_contents.first.second << " has " << paths.size() << " alleles" << endl;
+                    }
+                    
+                    // Get the affinities for all the paths
+                    map<Alignment*, vector<double>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
+                    
+                    for(auto& alignment_and_affinities : affinities) {
+                        #pragma omp critical (total_affinities)
+                        total_affinities += alignment_and_affinities.second.size();
+                    }
+                    
+                    // Get a genotype        
+                    Genotype genotype = genotyper.get_genotype(paths, affinities);
+                    
+                    if(output_json) {
+                        // Dump in JSON
+                        #pragma omp critical (cout)
+                        cout << pb2json(genotype) << endl;
+                    } else {
+                        // Write out in Protobuf
+                        buffer[tid].push_back(genotype);
+                        stream::write_buffered(cout, buffer[tid], 100);
+                    }
+                }
+            }
         }
-        
-        // Get the affinities for all the paths
-        map<Alignment*, vector<double>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
-        
-        for(auto& alignment_and_affinities : affinities) {
-            total_affinities += alignment_and_affinities.second.size();
-        }
-        
-        // Get a genotype        
-        Genotype genotype = genotyper.get_genotype(paths, affinities);
-        
-        if(output_json) {
-            // Dump in JSON
-            #pragma omp critical (cout)
-            cout << pb2json(genotype) << endl;
-        } else {
-            // Write out in Protobuf
-            buffer[tid].push_back(genotype);
-            stream::write_buffered(cout, buffer[tid], 100);
-        }
-        
-        
-    }
-    
+    }            
+
+
     if(show_progress) {
         cerr << "Computed " << total_affinities << " affinities" << endl;
     }

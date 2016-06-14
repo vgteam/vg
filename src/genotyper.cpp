@@ -157,6 +157,9 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
 map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
     vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths) {
     
+    // Grab our thread ID, which determines which aligner we get.
+    int tid = omp_get_thread_num();
+    
     // We're going to build this up gradually, appending to all the vectors.
     map<Alignment*, vector<double>> toReturn;
     
@@ -217,14 +220,30 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
         // Get rid of dangling edges
         allele_graph.remove_orphan_edges();
         
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "Align to " << pb2json(allele_graph.graph) << endl;
+#endif
         
         for(auto& name : relevant_read_names) {
             // For every read that touched the superbubble, grab its original
             // Alignment pointer.
             Alignment* read = reads_by_name.at(name);
             
-            // Re-align a copy to this graph (using quality-adjusted alignment)
-            Alignment aligned = allele_graph.align_qual_adjusted(*read, aligner);
+            Alignment aligned;
+            if(read->sequence().size() == read->quality().size()) {
+                // Re-align a copy to this graph (using quality-adjusted alignment).
+                // TODO: actually use quality-adjusted alignment
+                aligned = allele_graph.align(*read);
+            } else {
+                // If we don't have the right number of quality scores, use un-adjusted alignment instead.
+                aligned = allele_graph.align(*read);
+            }
+            
+#ifdef debug
+            #pragma omp critical (cerr)
+            cerr << "\t" << pb2json(aligned) << endl;
+#endif
             
             // Grab the identity and save it for this read and superbubble path
             toReturn[read].push_back(aligned.identity());
@@ -243,7 +262,7 @@ Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const ma
     for(auto& alignment_and_affinities : affinities) {
         for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
             // For each affinity of an alignment to a path
-            int affinity = alignment_and_affinities.second.at(i);
+            double affinity = alignment_and_affinities.second.at(i);
             // Add it in to the total
             total_affinity.at(i) += affinity;
         }
@@ -281,7 +300,8 @@ Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const ma
     
     // Add the best allele with the most support
     *genotype.add_allele() = superbubble_paths[best_allele];
-    genotype.add_support()->set_quality(total_affinity[best_allele]);
+    Support* best_support = genotype.add_support();
+    best_support->set_quality(total_affinity[best_allele]);
     
     if(total_affinity[best_allele] > total_affinity[second_best_allele] * max_het_bias) {
         // If we're too biased to one side, call hom that
@@ -290,7 +310,8 @@ Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const ma
     
     // Else call het by adding the second best allele as well
     *genotype.add_allele() = superbubble_paths[second_best_allele];
-    genotype.add_support()->set_quality(total_affinity[second_best_allele]);
+    Support* second_best_support = genotype.add_support();
+    second_best_support->set_quality(total_affinity[second_best_allele]);
     
     // TODO: use more support fields by investigating the Alignment associated
     // with the affinity, as it relates to the allele's path
