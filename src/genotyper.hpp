@@ -21,6 +21,28 @@ namespace vg {
 using namespace std;
 
 /**
+ * Holds indexes of the reference in a graph: position to node, node to position
+ * and orientation, and the full reference string.
+ */
+struct ReferenceIndex {
+    // Index from node ID to first position on the reference string and
+    // orientation it occurs there.
+    std::map<int64_t, std::pair<size_t, bool>> byId;
+    
+    // Index from start position on the reference to the oriented node that
+    // begins there.  Some nodes may be backward (orientation true) at their
+    // canonical reference positions. In this case, the last base of the node
+    // occurs at the given position.
+    std::map<size_t, vg::NodeTraversal> byStart;
+    
+    // The actual sequence of the reference.
+    std::string sequence;
+    
+    // Make a ReferenceIndex from a path in a graph
+    ReferenceIndex(VG& vg, string refPathName);
+};
+
+/**
  * Class to hold on to genotyping parameters and genotyping functions.
  */
 class Genotyper {
@@ -71,10 +93,24 @@ public:
      */
     Genotype get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
         
+    /**
+     * Make a VCFlib variant from a genotype. Depends on an index of the reference path we want to call against.
+     */
+    vcflib::Variant genotype_to_variant(VG& graph, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Genotype& genotype);
     
+    /**
+     * Make a VCF header
+     */
+    void write_vcf_header(std::ostream& stream, const std::string& sample_name, const std::string& contig_name, size_t contig_size);
     
+    /**
+     * Start VCF output to a stream. Returns a VCFlib VariantCallFile that needs to be deleted.
+     */
+    vcflib::VariantCallFile* start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& ref_path_name);
 
 };
+
+
 
 }
 

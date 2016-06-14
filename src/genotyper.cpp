@@ -319,6 +319,334 @@ Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const ma
     return genotype;
 }
 
+/**
+ * Create the reference allele for an empty vcflib Variant, since apaprently
+ * there's no method for that already. Must be called before any alt alleles are
+ * added.
+ */
+void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
+    // Set the ref allele
+    variant.ref = allele;
+    
+    for(size_t i = 0; i < variant.ref.size(); i++) {
+        // Look at all the bases
+        if(variant.ref[i] != 'A' && variant.ref[i] != 'C' && variant.ref[i] != 'G' && variant.ref[i] != 'T') {
+            // Correct anything bogus (like "X") to N
+            variant.ref[i] = 'N';
+        }
+    }
+    
+    // Make it 0 in the alleles-by-index list
+    variant.alleles.push_back(allele);
+    // Build the reciprocal index-by-allele mapping
+    variant.updateAlleleIndexes();
+}
+
+/**
+ * Add a new alt allele to a vcflib Variant, since apaprently there's no method
+ * for that already.
+ *
+ * If that allele already exists in the variant, does not add it again.
+ *
+ * Retuerns the allele number (0, 1, 2, etc.) corresponding to the given allele
+ * string in the given variant. 
+ */
+int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
+    // Copy the allele so we can throw out bad characters
+    std::string fixed(allele);
+    
+    for(size_t i = 0; i < fixed.size(); i++) {
+        // Look at all the bases
+        if(fixed[i] != 'A' && fixed[i] != 'C' && fixed[i] != 'G' && fixed[i] != 'T') {
+            // Correct anything bogus (like "X") to N
+            fixed[i] = 'N';
+        }
+    }
+    
+    for(int i = 0; i < variant.alleles.size(); i++) {
+        if(variant.alleles[i] == fixed) {
+            // Already exists
+            return i;
+        }
+    }
+
+    // Add it as an alt
+    variant.alt.push_back(fixed);
+    // Make it next in the alleles-by-index list
+    variant.alleles.push_back(fixed);
+    // Build the reciprocal index-by-allele mapping
+    variant.updateAlleleIndexes();
+
+    // We added it in at the end
+    return variant.alleles.size() - 1;
+}
+/**
+ * Turn the given path (which must be a thread) into an allele. Drops the first
+ * and last mappings and looks up the sequences for the nodes of the others.
+ */
+string allele_to_string(VG& graph, const Path& allele) {
+    stringstream stream;
+    
+    for(size_t i = 1; i < allele.mapping_size() - 1; i++) {
+        // Get the sequence for each node
+        string node_string = graph.get_node(allele.mapping(i).position().node_id())->sequence();
+        
+        if(allele.mapping(i).position().is_reverse()) {
+            // Flip it
+            node_string = reverse_complement(node_string);
+        }
+        // Add it to the stream
+        stream << node_string;
+    }
+    
+    return stream.str();
+}
+
+void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample_name, const std::string& contig_name, size_t contig_size) {
+    stream << "##fileformat=VCFv4.2" << std::endl;
+    stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << std::endl;
+    stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << std::endl;
+    stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
+    stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
+    stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
+    stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
+    stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
+    stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << std::endl;
+    // We need this field to stratify on for VCF comparison. The info is in SB but vcfeval can't pull it out
+    stream << "##FORMAT=<ID=XAAD,Number=1,Type=Integer,Description=\"Alt allele read count.\">" << std::endl;
+    if(!contig_name.empty()) {
+        // Announce the contig as well.
+        stream << "##contig=<ID=" << contig_name << ",length=" << contig_size << ">" << std::endl;
+    }
+    stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample_name << std::endl;
+}
+
+vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& ref_path_name) {
+    // Generate a vcf header. We can't make Variant records without a
+    // VariantCallFile, because the variants need to know which of their
+    // available info fields or whatever are defined in the file's header, so
+    // they know what to output.
+    // Handle length override if specified.
+    std::stringstream headerStream;
+    write_vcf_header(headerStream, "SAMPLE", ref_path_name, index.sequence.size());
+    
+    // Load the headers into a new VCF file object
+    vcflib::VariantCallFile* vcf = new vcflib::VariantCallFile();
+    std::string headerString = headerStream.str();
+    assert(vcf->openForOutput(headerString));
+    
+    // Spit out the header
+    stream << headerStream.str();
+    
+    // Give back the created VCF
+    return vcf;
+}
+
+vcflib::Variant Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Genotype& genotype) {
+    // Make a new variant
+    vcflib::Variant variant;
+    // Attach it to the VCF
+    variant.setVariantCallFile(vcf);
+    // Crib the quality
+    variant.quality = 0;
+    
+    // Make sure we have stuff
+    if(genotype.allele_size() == 0) {
+        throw runtime_error("Can't turn an empty genotype into VCF");
+    }
+    if(genotype.allele(0).mapping_size() == 0) {
+        throw runtime_error("Can't turn an empty allele into VCF");
+    }
+    
+    // All the paths start with the same beginning and end nodes, so we can just
+    // look at those to get the reference interval.
+    
+    auto first_id = genotype.allele(0).mapping(0).position().node_id();
+    auto last_id = genotype.allele(0).mapping(genotype.allele(0).mapping_size() - 1).position().node_id();
+    
+    if(!index.byId.count(first_id) || !index.byId.count(last_id)) {
+        // We need to be anchored to the primary path to make a variant
+        throw runtime_error("Superbubble endpoints not on reference!");
+    }
+    
+    // The position we have stored for this start node is the first
+    // position along the reference at which it occurs. Our bubble
+    // goes forward in the reference, so we must come out of the
+    // opposite end of the node from the one we have stored.
+    auto referenceIntervalStart = index.byId.at(first_id).first + graph.get_node(first_id)->sequence().size();
+    
+    // The position we have stored for the end node is the first
+    // position it occurs in the reference, and we know we go into
+    // it in a reference-concordant direction, so we must have our
+    // past-the-end position right there.
+    auto referenceIntervalPastEnd = index.byId.at(last_id).first;
+    
+    // TODO: figure out how to handle superbubbles that come up backwards
+    // relative to the primary reference.
+    assert(referenceIntervalStart <= referenceIntervalPastEnd);
+    
+    // Get the string for the reference allele
+    string refString = index.sequence.substr(referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
+    
+    // And make strings for all the genotype alleles
+    vector<string> allele_strings;
+    
+    for(size_t i = 0; i < genotype.allele_size(); i++) {
+        // Get the string for each allele
+        allele_strings.push_back(allele_to_string(graph, genotype.allele(i)));
+    }
+    
+    // See if any alleles are empty
+    bool empty_alleles = refString.empty();
+    for(auto& allele : allele_strings) {
+        if(allele == "") {
+            empty_alleles = true;
+        }
+    }
+    
+    // Fix them up
+    if(empty_alleles) {
+        // Grab the character before our site
+        string prefix = index.sequence.substr(referenceIntervalStart - 1, 1);
+        for(auto& allele : allele_strings) {
+            // Prepend it to every allele
+            allele = prefix + allele;
+        }
+        // Also prepend it to the reference string
+        refString = prefix + refString;
+        
+        // Budge the variant over
+        referenceIntervalStart--;
+    }
+    
+    // Make the ref allele
+    create_ref_allele(variant, refString);
+    
+    // We're going to put all the allele indexes called as present in here.
+    vector<int> called_alleles;
+    
+    for(size_t i = 0; i < genotype.allele_size(); i++) {
+        // For each allele
+        
+        // Add it/find its number if it already exists (i.e. is the ref)
+        int allele_number = add_alt_allele(variant, allele_strings[i]);
+        
+        // Remember we called a copy of it
+        called_alleles.push_back(allele_number);
+        
+        if(i < genotype.support_size()) {
+            // Add the quality
+            variant.quality += genotype.support(i).quality();
+        }
+    }
+    
+    assert(!called_alleles.empty());
+    
+    while(called_alleles.size() < 2) {
+        // Extend single-allele sites to be diploid.
+        called_alleles.push_back(called_alleles.front());
+    }
+    
+    // Compose the genotype
+    variant.format.push_back("GT");
+    auto& genotype_out = variant.samples["SAMPLE"]["GT"];
+    genotype_out.push_back(to_string(called_alleles[0]) + "/" + to_string(called_alleles[1]));
+    
+    // Set the variant position (now that we have budged it left if necessary
+    variant.position = referenceIntervalStart + 1;
+    
+    return variant;
+    
+}
+
+ReferenceIndex::ReferenceIndex(vg::VG& vg, std::string refPathName) {
+    // Make sure the reference path is present
+    assert(vg.paths.has_path(refPathName));
+    
+    // We're also going to build the reference sequence string
+    std::stringstream refSeqStream;
+    
+    // What base are we at in the reference
+    size_t referenceBase = 0;
+    
+    // What was the last rank? Ranks must always go up.
+    int64_t lastRank = -1;
+    
+    for(auto mapping : vg.paths.get_path(refPathName)) {
+    
+        if(!byId.count(mapping.position().node_id())) {
+            // This is the first time we have visited this node in the reference
+            // path.
+            
+            // Add in a mapping.
+            byId[mapping.position().node_id()] = 
+                std::make_pair(referenceBase, mapping.position().is_reverse());
+#ifdef debug
+            std::cerr << "Node " << mapping.position().node_id() << " rank " << mapping.rank()
+                << " starts at base " << referenceBase << " with "
+                << vg.get_node(mapping.position().node_id())->sequence() << std::endl;
+#endif
+            
+            // Make sure ranks are monotonically increasing along the path.
+            assert(mapping.rank() > lastRank);
+            lastRank = mapping.rank();
+        }
+        
+        // Find the node's sequence
+        std::string sequence = vg.get_node(mapping.position().node_id())->sequence();
+        
+        while(referenceBase == 0 && sequence.size() > 0 &&
+            (sequence[0] != 'A' && sequence[0] != 'T' && sequence[0] != 'C' &&
+            sequence[0] != 'G' && sequence[0] != 'N')) {
+            
+            // If the path leads with invalid characters (like "X"), throw them
+            // out when computing reference path positions.
+            
+            // TODO: this is a hack to deal with the debruijn-brca1-k63 graph,
+            // which leads with an X.
+            
+            std::cerr << "Warning: dropping invalid leading character "
+                << sequence[0] << " from node " << mapping.position().node_id()
+                << std::endl;
+                
+            sequence.erase(sequence.begin());
+        }
+        
+        if(mapping.position().is_reverse()) {
+            // Put the reverse sequence in the reference path
+            refSeqStream << vg::reverse_complement(sequence);
+        } else {
+            // Put the forward sequence in the reference path
+            refSeqStream << sequence;
+        }
+            
+        // Say that this node appears here along the reference in this
+        // orientation.
+        byStart[referenceBase] = vg::NodeTraversal(
+            vg.get_node(mapping.position().node_id()), mapping.position().is_reverse()); 
+            
+        // Whether we found the right place for this node in the reference or
+        // not, we still need to advance along the reference path. We assume the
+        // whole node (except any leading bogus characters) is included in the
+        // path (since it sort of has to be, syntactically, unless it's the
+        // first or last node).
+        referenceBase += sequence.size();
+        
+        // TODO: handle leading bogus characters in calls on the first node.
+    }
+    
+    // Create the actual reference sequence we will use
+    sequence = refSeqStream.str();
+    
+    // Announce progress.
+    std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
+    
+    if(sequence.size() < 100) {
+        std::cerr << "Reference sequence: " << sequence << std::endl;
+    }
+}
+
+
 }
 
 
