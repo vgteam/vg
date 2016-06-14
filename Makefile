@@ -79,16 +79,18 @@ else
 	ln -s `which shuf` $(BIN_DIR)/shuf
 endif
 
-# Make sure we have protoc built
-bin/protoc: $(LIB_DIR)/libprotobuf.a
+# Make sure we have protoc built, and the protobuf lib, both of which come from the same command using this fake intermediate
+bin/protoc: .rebuild-protobuf
+$(LIB_DIR)/libprotobuf.a: .rebuild-protobuf
+# intermediate targets don't trigger a rebuild just because they're missing.
+.INTERMEDIATE: .rebuild-protobuf
+.rebuild-protobuf: deps/protobuf/src/google/protobuf/*.cc
+	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
 test/build_graph: test/build_graph.cpp $(LIB_DIR)/libvg.a $(CPP_DIR)/vg.pb.h $(SRC_DIR)/json2pb.h $(SRC_DIR)/vg.hpp
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o test/build_graph test/build_graph.cpp $(LD_INCLUDE_FLAGS) -lvg $(LD_LIB_FLAGS)
 
 deps: $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libgssw.a $(LIB_DIR)/libgcsa2.a $(LIB_DIR)/libsnappy.a $(LIB_DIR)/libvcflib.a $(INC_DIR)/sparsehash/sparse_hash_map $(OBJ_DIR)/sha1.o $(LIB_DIR)/librocksdb.a $(LIB_DIR)/libhts.a $(LIB_DIR)/libxg.a
-
-$(LIB_DIR)/libprotobuf.a:
-	+. ./source_me.sh && cd $(PROTOBUF_DIR) && ./autogen.sh && ./configure --prefix="$(CWD)" && $(MAKE) && $(MAKE) install && export PATH=$(CWD)/bin:$$PATH
 
 $(LIB_DIR)/libsdsl.a:
 	+. ./source_me.sh && cd $(SDSL_DIR) && ./install.sh $(CWD)
