@@ -61,3 +61,9 @@
 [submodule "deps/Complete-Striped-Smith-Waterman-Library"]
 	path = deps/ssw
 	url = https://github.com/vgteam/Complete-Striped-Smith-Waterman-Library.git
+[submodule "deps/pinchesAndCacti"]
+	path = deps/pinchesAndCacti
+	url = git@github.com:benedictpaten/pinchesAndCacti.git
+[submodule "deps/sonLib"]
+	path = deps/sonLib
+	url = git@github.com:benedictpaten/sonLib.git
