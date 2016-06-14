@@ -54,7 +54,7 @@ DYNAMIC_DIR:=deps/DYNAMIC
 SSW_DIR:=deps/ssw/src
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
-.PHONY: clean get-deps test set-path static
+.PHONY: clean get-deps test set-path static .pre-build
 
 $(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o
 	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
@@ -249,7 +249,6 @@ $(OBJ_DIR)/filter.o: $(SRC_DIR)/filter.cpp $(SRC_DIR)/filter.hpp $(LIB_DIR)/libp
 	if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
 	if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
 	if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
-	touch .pre-build
 
 # for rebuilding just vg
 clean-vg:
