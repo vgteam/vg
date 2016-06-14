@@ -5466,6 +5466,12 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     // Clear existing path ranks.
     paths.clear_mapping_ranks();
 
+    // get the node sizes, for use when making the translation
+    map<id_t, size_t> orig_node_sizes;
+    for_each_node([&](Node* node) {
+            orig_node_sizes[node->id()] = node->sequence().size();
+        });
+
     // Break any nodes that need to be broken. Save the map we need to translate
     // from offsets on old nodes to new nodes. Note that this would mess up the
     // ranks of nodes in their existing paths, which is why we clear and rebuild
@@ -5507,11 +5513,12 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     sort();
 
     // make the translation
-    return make_translation(node_translation, added_nodes);
+    return make_translation(node_translation, added_nodes, orig_node_sizes);
 }
 
 vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translation,
-                                         const set<Node*>& added_nodes) {
+                                         const set<Node*>& added_nodes,
+                                         const map<id_t, size_t>& orig_node_sizes) {
     vector<Translation> translation;
     // invert the translation
     map<Node*, pos_t> inv_node_trans;
@@ -5527,7 +5534,7 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
             auto to_mapping = trans.mutable_to()->add_mapping();
             if (f != inv_node_trans.end()) {
                 // if the node is in the inverted translation, use the position to make a mapping
-                auto& pos = f->second;
+                auto pos = f->second;
                 *to_mapping->mutable_position() = make_position(node->id(), is_rev(pos), 0);
                 *from_mapping->mutable_position() = make_position(pos);
                 auto match_length = node->sequence().size();
@@ -5555,7 +5562,44 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
                 from_edit->set_to_length(match_length);
                 from_edit->set_from_length(match_length);
             }
+            // flip things onto the forward strand if needed
+            if (from_mapping->position().is_reverse()
+                && to_mapping->position().is_reverse()) {
+                auto old_node_length = [&](id_t id) {
+                    auto f = orig_node_sizes.find(id);
+                    assert(f != orig_node_sizes.end());
+                    return f->second;
+                };
+                *from_mapping =
+                    reverse_complement_mapping(
+                        *from_mapping,
+                        old_node_length);
+                auto curr_node_length = [&](id_t id) {
+                    return get_node(id)->sequence().size();
+                };
+                *to_mapping =
+                    reverse_complement_mapping(
+                        *to_mapping,
+                        curr_node_length);
+            }
         });
+    std::sort(translation.begin(), translation.end(),
+              [&](const Translation& t1, const Translation& t2) {
+                  if (!t1.from().mapping_size() && !t2.from().mapping_size()) {
+                      // warning: this won't work if we don't have to mappings
+                      // this guards against the lurking segfault
+                      return t1.to().mapping_size() && t2.to().mapping_size()
+                          && make_pos_t(t1.to().mapping(0).position())
+                          < make_pos_t(t2.to().mapping(0).position());
+                  } else if (!t1.from().mapping_size()) {
+                      return true;
+                  } else if (!t2.from().mapping_size()) {
+                      return false;
+                  } else {
+                      return make_pos_t(t1.from().mapping(0).position())
+                          < make_pos_t(t2.from().mapping(0).position());
+                  }
+              });
     return translation;
 }
 

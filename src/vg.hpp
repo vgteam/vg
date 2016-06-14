@@ -491,7 +491,8 @@ public:
 
     // produces a graph Translation object from information about the editing process
     vector<Translation> make_translation(const map<pos_t, Node*>& node_translation,
-                                         const set<Node*>& added_nodes);
+                                         const set<Node*>& added_nodes,
+                                         const map<id_t, size_t>& orig_node_sizes);
 
     // Add in the given node, by value
     void add_node(const Node& node);
