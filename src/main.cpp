@@ -3528,6 +3528,12 @@ int main_sim(int argc, char** argv) {
         }
         // write the alignment or its string
         if (align_out) {
+            // name the alignment
+            string data;
+            aln.SerializeToString(&data);
+            const string hash = sha1head(data, 16);
+            aln.set_name(hash);
+            // write it out as requested
             if (json_out) {
                 cout << pb2json(aln) << endl;
             } else {
@@ -5983,7 +5989,6 @@ void help_map(char** argv) {
          << "    -H, --max-target-x N      skip cluster subgraphs with length > N*read_length (default: 100; unset: 0)" << endl
          << "    -e, --thread-ex N         grab this many nodes in id space around each thread for alignment (default: 10)" << endl
          << "    -t, --threads N           number of threads to use" << endl
-         << "    -G, --greedy-accept       if a tested alignment achieves -X identity don't try worse seeds" << endl
          << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
@@ -6060,7 +6065,7 @@ int main_map(int argc, char** argv) {
     int extra_pairing_multimaps = 4;
     int method_code = 1;
     string gam_input;
-    bool compare_gam;
+    bool compare_gam = false;
     int fragment_size = 0;
 
     int c;
@@ -6360,7 +6365,7 @@ int main_map(int argc, char** argv) {
         }
     }
 
-    if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty()) {
+    if (seq.empty() && read_file.empty() && hts_file.empty() && fastq1.empty() && gam_input.empty()) {
         cerr << "error:[vg map] a sequence or read file is required when mapping" << endl;
         return 1;
     }
