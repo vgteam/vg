@@ -6,9 +6,9 @@ sudo: required
 dist: trusty
 # We have some shenanigans to let us cache submodules, and update changed files without messing up mtimes and triggering rebuilds unnecessarily.
 before_install:
-  - if [ -f deps ]; then mv deps deps_cached; fi
+  - if [ -e deps ]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
-  - rsync -r --checksum deps/ deps_cached/
+  - rsync -rv --checksum deps/ deps_cached/
   - rm -Rf deps
   - mv deps_cached deps
   - ls -lah deps/; ls -lah lib/; ls -lah include/
@@ -38,8 +38,8 @@ before_install:
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make get-deps;fi
 script:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && make test && make static -j4; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make -j4 && make test; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make -d -j4 && make test && make static -j4; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make -d -j4 && make test; fi
 # Cache all our dependency directories, and our lib and include
 cache:
   directories:
