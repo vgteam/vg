@@ -49,7 +49,7 @@ cache:
     - bin
 before_cache:
   - rm -f lib/libvg.*
-  - rm -f include/vg.pb.h
+  - rm -f include/vg.pb.h include/vg_git_version.hpp
   - rm -f bin/vg /bin/vg* bin/g++ bin/gcc
 os:
   - linux
