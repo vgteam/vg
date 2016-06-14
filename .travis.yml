@@ -46,9 +46,11 @@ cache:
     - deps
     - lib
     - include
+    - bin
 before_cache:
-  - rm lib/libvg.*
-  - rm include/vg.pb.h
+  - rm -f lib/libvg.*
+  - rm -f include/vg.pb.h
+  - rm -f bin/vg /bin/vg*
 os:
   - linux
   - osx
