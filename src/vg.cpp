@@ -6314,7 +6314,9 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool simple_mode,
                 bool invert_edge_ports,
                 bool color_variants,
+                bool superbubble_ranking,
                 int random_seed) {
+
     // setup graphviz output
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
@@ -6324,6 +6326,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     //out << "    splines=line;" << endl;
     //out << "    splines=true;" << endl;
     //out << "    smoothType=spring;" << endl;
+        
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
@@ -6344,8 +6347,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             out << "color=red,";
         }
         out << "];" << endl;
-
-  }
+    }
 
     // We're going to fill this in with all the path (symbol, color) label
     // pairs that each edge should get, by edge pointer. If a path takes an
@@ -6468,6 +6470,46 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         if(is_backward) {
             // We don't need this duplicate edge
             delete e;
+        }
+    }
+
+    if (superbubble_ranking) {
+        map<pair<id_t, id_t>, vector<id_t> > sb = superbubbles(*this);
+        for (auto& bub : sb) {
+            vector<id_t> in_bubble;
+            vector<id_t> bubble_head;
+            vector<id_t> bubble_tail;
+            auto start_node = bub.first.first;
+            auto end_node = bub.first.second;
+            for (auto& i : bub.second) {
+                if (i != start_node && i != end_node) {
+                    // if we connect to the start node, add to the head
+                    in_bubble.push_back(i);
+                    if (has_edge(NodeSide(start_node,true), NodeSide(i,false))) {
+                        bubble_head.push_back(i);
+                    }
+                    if (has_edge(NodeSide(i,true), NodeSide(end_node,false))) {
+                        bubble_tail.push_back(i);
+                    }
+                    // if we connect to the end node, add to the tail
+                }
+            }
+            if (in_bubble.size() > 1) {
+                if (bubble_head.size() > 0) {
+                    out << "    { rank = same; ";
+                    for (auto& i : bubble_head) {
+                        out << i << "; ";
+                    }
+                    out << "}" << endl;
+                }
+                if (bubble_tail.size() > 0) {
+                    out << "    { rank = same; ";
+                    for (auto& i : bubble_tail) {
+                        out << i << "; ";
+                    }
+                    out << "}" << endl;
+                }
+            }
         }
     }
 
