@@ -5918,12 +5918,13 @@ int main_align(int argc, char** argv) {
         alignment = graph->align(seq, aligner, 0, debug);
     }
 
+    if (!seq_name.empty()) {
+        alignment.set_name(seq_name);
+    }
+
     if (output_json) {
         cout << pb2json(alignment) << endl;
     } else {
-        if (!seq_name.empty()) {
-            alignment.set_name(seq_name);
-        }
         function<Alignment(uint64_t)> lambda =
             [&alignment] (uint64_t n) {
                 return alignment;
