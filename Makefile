@@ -34,7 +34,7 @@ endif
 
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
-OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/ssw_aligner.o
+OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -244,6 +244,9 @@ $(OBJ_DIR)/sampler.o: $(SRC_DIR)/sampler.cpp $(SRC_DIR)/sampler.hpp $(LIB_DIR)/l
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/filter.o: $(SRC_DIR)/filter.cpp $(SRC_DIR)/filter.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h .pre-build
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
+$(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h .pre-build
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 .pre-build:

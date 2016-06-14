@@ -29,6 +29,7 @@
 #include "vg_git_version.hpp"
 #include "IntervalTree.h"
 #include "genotyper.hpp"
+#include "bubbles.hpp"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -4122,7 +4123,7 @@ int main_stats(int argc, char** argv) {
     }
 
     if (superbubbles) {
-        for (auto& i : graph->superbubbles()) {
+        for (auto& i : vg::superbubbles(*graph)) {
             auto& b = i.first;
             auto& v = i.second;
             cout << b.first << "\t" << b.second << "\t";
