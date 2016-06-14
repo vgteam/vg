@@ -43,7 +43,6 @@
 
 #include "globalDefs.hpp"
 #include "Graph.hpp"
-#include "DetectSuperBubble.hpp"
 #include "helperDefs.hpp"
 
 #include "nodetraversal.hpp"
@@ -128,11 +127,6 @@ struct KmerPosition {
     set<char> prev_chars;
     set<char> next_chars;
     set<string> next_positions;
-};
-
-struct SB_Input{
-    int num_vertices;
-    vector<pair<id_t, id_t> > edges;
 };
 
 inline ostream& operator<<(ostream& out, const NodeSide& nodeside) {
@@ -657,10 +651,6 @@ public:
     double path_identity(const Path& path1, const Path& path2);
     string trav_sequence(const NodeTraversal& trav);
 
-    SB_Input vg_to_sb_input();
-    vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
-    vector<pair<id_t, id_t> > get_superbubbles(void);
-    map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
     // edges
     // If the given edge cannot be created, returns null.
     // If the given edge already exists, returns the existing edge.

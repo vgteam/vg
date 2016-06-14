@@ -1,4 +1,5 @@
 #include "bubbles.hpp"
+#include "vg.hpp"
 
 namespace vg {
 
@@ -75,5 +76,6 @@ map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph) {
     }
     return bubbles;
 }
+
 
 }
