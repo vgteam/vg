@@ -31,8 +31,8 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which g++-4.9 || (brew unlink gcc && brew install gcc49); fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p ./bin; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which g++-4.9` ./bin/g++; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which gcc-4.9` ./bin/gcc; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-4.9` ./bin/g++; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-4.9` ./bin/gcc; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
@@ -50,7 +50,7 @@ cache:
 before_cache:
   - rm -f lib/libvg.*
   - rm -f include/vg.pb.h
-  - rm -f bin/vg /bin/vg*
+  - rm -f bin/vg /bin/vg* bin/g++ bin/gcc
 os:
   - linux
   - osx
