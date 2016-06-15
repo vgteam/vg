@@ -4194,6 +4194,7 @@ void help_stats(char** argv) {
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
          << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
+         << "    -C, --cactusbubbles   describe the cactus bubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -n, --node ID         consider node with the given id" << endl
          << "    -d, --to-head         show distance to head for each provided node" << endl
@@ -4219,6 +4220,7 @@ int main_stats(int argc, char** argv) {
     bool node_count = false;
     bool edge_count = false;
     bool superbubbles = false;
+    bool cactus = false;
     set<vg::id_t> ids;
 
     int c;
@@ -4240,11 +4242,12 @@ int main_stats(int argc, char** argv) {
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
             {"superbubbles", no_argument, 0, 'b'},
+            {"cactusbubbles", no_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEb",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbC",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4303,6 +4306,10 @@ int main_stats(int argc, char** argv) {
 
         case 'b':
             superbubbles = true;
+            break;
+
+        case 'C':
+            cactus = true;
             break;
 
         case 'h':
@@ -4381,6 +4388,18 @@ int main_stats(int argc, char** argv) {
 
     if (superbubbles) {
         for (auto& i : vg::superbubbles(*graph)) {
+            auto& b = i.first;
+            auto& v = i.second;
+            cout << b.first << "\t" << b.second << "\t";
+            for (auto& n : v) {
+                cout << n << ",";
+            }
+            cout << endl;
+        }
+    }
+
+    if (cactus) {
+        for (auto& i : vg::cactusbubbles(*graph)) {
             auto& b = i.first;
             auto& v = i.second;
             cout << b.first << "\t" << b.second << "\t";
