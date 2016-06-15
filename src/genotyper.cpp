@@ -5,6 +5,28 @@ namespace vg {
 
 using namespace std;
 
+/**
+ * Turn the given path (which must be a thread) into an allele. Drops the first
+ * and last mappings and looks up the sequences for the nodes of the others.
+ */
+string allele_to_string(VG& graph, const Path& allele) {
+    stringstream stream;
+    
+    for(size_t i = 1; i < allele.mapping_size() - 1; i++) {
+        // Get the sequence for each node
+        string node_string = graph.get_node(allele.mapping(i).position().node_id())->sequence();
+        
+        if(allele.mapping(i).position().is_reverse()) {
+            // Flip it
+            node_string = reverse_complement(node_string);
+        }
+        // Add it to the stream
+        stream << node_string;
+    }
+    
+    return stream.str();
+}
+
 map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& graph) {
 
     // Set up our output map
@@ -58,8 +80,8 @@ map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& 
 vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
     // We're going to emit traversals supported by any paths in the graph.
     
-    // Put all our subpaths in here to deduplicate them
-    set<list<NodeTraversal>> results;
+    // Put all our subpaths in here to deduplicate them by sequence they spell out.
+    map<string, list<NodeTraversal>> results;
 
 #ifdef debug
     cerr << "Looking for paths between " << start << " and " << end << endl;
@@ -105,6 +127,9 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                 // We're going to fill in this list with traversals.
                 list<NodeTraversal> path_traversed;
                 
+                // And we're going to fill this with the sequence
+                stringstream allele_stream;
+                
                 while(mapping != nullptr && traversal_count < max_path_search_steps) {
                     // Traverse along until we hit the end traversal or take too
                     // many steps
@@ -116,10 +141,16 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                     // Say we visit this node along the path, in this orientation
                     path_traversed.push_back(NodeTraversal(graph.get_node(mapping->position().node_id()), mapping->position().is_reverse() != traversal_direction));
                     
+                    // Stick the sequence of the node (appropriately oriented) in the stream for the allele sequence
+                    string seq = graph.get_node(mapping->position().node_id())->sequence();
+                    allele_stream << path_traversed.back().backward ? reverse_complement(seq) : seq;
+                    
                     if(mapping->position().node_id() == end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // We have stumbled upon the end node in the orientation we wanted it in.
-                        // Keep this subpath if it's new
-                        results.emplace(std::move(path_traversed));
+                        
+                        // Keep this subpath if it's for a new string
+                        // Also ends up replacing anything that was there for the string before
+                        results[allele_stream.str()] = path_traversed;
                         // Then try the next embedded path
                         break;
                     }
@@ -146,9 +177,9 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
     // Now convert the unique results into Paths
     vector<Path> toReturn;
     
-    for(auto& result : results) {
-        // Convert each list of node traversals to a proper path
-        toReturn.push_back(path_from_node_traversals(result));
+    for(auto& string_and_traversals : results) {
+        // Convert each list of node traversals to a proper path and add it to our collection of paths to return
+        toReturn.push_back(path_from_node_traversals(string_and_traversals.second));
     }
     
     return toReturn;
@@ -257,6 +288,25 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
 }
 
 Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
+    
+    // Freebayes way (improved with multi-support):
+    
+    // Decide that each read supports one or more alleles
+    
+    // For each genotype, calculate P(observed reads | genotype) as P(all reads
+    // that don't support an allele from the genotype are mismapped or
+    // miscalled) * P(all reads that do support alleles from the genotype ended
+    // up apportioned across the alleles as they are)
+    
+    // This works out to the product over all reads that don't support either
+    // alleles of 1 - ((1 - MAPQ) * (1 - P(bases called wrong)), times the
+    // product over all the reads that do support one of the alleles of P(that
+    // allele picked out of the one or two available).
+    
+    // TODO: handle contamination like Freebayes
+    
+    // TODO: split out a function to get P(obs | genotype) for a single genotype
+    
     // Compute total affinity for each path
     vector<double> total_affinity(superbubble_paths.size(), 0);
     for(auto& alignment_and_affinities : affinities) {
@@ -379,27 +429,6 @@ int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
 
     // We added it in at the end
     return variant.alleles.size() - 1;
-}
-/**
- * Turn the given path (which must be a thread) into an allele. Drops the first
- * and last mappings and looks up the sequences for the nodes of the others.
- */
-string allele_to_string(VG& graph, const Path& allele) {
-    stringstream stream;
-    
-    for(size_t i = 1; i < allele.mapping_size() - 1; i++) {
-        // Get the sequence for each node
-        string node_string = graph.get_node(allele.mapping(i).position().node_id())->sequence();
-        
-        if(allele.mapping(i).position().is_reverse()) {
-            // Flip it
-            node_string = reverse_complement(node_string);
-        }
-        // Add it to the stream
-        stream << node_string;
-    }
-    
-    return stream.str();
 }
 
 void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample_name, const std::string& contig_name, size_t contig_size) {
