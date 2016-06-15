@@ -8,8 +8,8 @@
 #include "types.hpp"
 #include "DetectSuperBubble.hpp"
 extern "C" {
-#include "sonLib.h"
-#include "stCactusGraphs.h"
+    typedef struct _stCactusGraph stCactusGraph;
+    typedef struct _stCactusNode stCactusNode;;
 }
 
 using namespace std;

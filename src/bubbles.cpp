@@ -2,6 +2,11 @@
 #include "bubbles.hpp"
 #include "vg.hpp"
 
+extern "C" {
+#include "sonLib.h"
+#include "stCactusGraphs.h"
+}
+
 namespace vg {
 
 using namespace std;
@@ -217,51 +222,73 @@ map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
     stCactusGraph* cactus_graph = cac_pair.first;
     stCactusNode* root_node = cac_pair.second;
 
+    // use superbubbles interface
     map<pair<id_t, id_t>, vector<id_t> > output;
         
     // recursive function to walk through the cycles in the cactus graph
-    function<vector<id_t>(stCactusNode*)> cactusRecurse = [&](stCactusNode *cactus_node) {
+    function<vector<id_t>(stCactusNode*)> cactus_recurse = [&](stCactusNode* cactus_node) {
 
         // walk through the edges incident with the node and find those that are at the
         // start of a chain
         stCactusNodeEdgeEndIt edge_it = stCactusNode_getEdgeEndIt(cactus_node);
-        stCactusEdgeEnd *cactus_edge_end;
-        vector<id_t> edgesVisited; // A list of all the edges in the superbubble.
-        while(cactus_edge_end = stCactusNodeEdgeEndIt_getNext(&edge_it)) {
-            if(stCactusEdgeEnd_isChainEnd(cactus_edge_end) && stCactusEdgeEnd_getLinkOrientation(cactus_edge_end))  {
+        stCactusEdgeEnd* cactus_edge_end;
+        // A list of all the edges in the superbubble.
+        vector<id_t> edgesVisited;
+        
+        while (cactus_edge_end = stCactusNodeEdgeEndIt_getNext(&edge_it)) {
+            
+            if (stCactusEdgeEnd_isChainEnd(cactus_edge_end) &&
+               stCactusEdgeEnd_getLinkOrientation(cactus_edge_end)) {
                 // Add the edge to those visited
-                edgesVisited.push_back(((CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end))->node);
+                CactusSide* side = (CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end);
+                edgesVisited.push_back(side->node);
                 
-                //Walk the chain starting from the first edge in the chain
+                // Walk the chain starting from the first edge in the chain
                 assert(stCactusEdgeEnd_getNode(cactus_edge_end) == cactus_node);
-                stCactusEdgeEnd *cactus_edge_end2 = stCactusEdgeEnd_getLink(stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge_end));
+                stCactusEdgeEnd* cactus_edge_end2 = stCactusEdgeEnd_getLink(
+                    stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge_end));
+                
                 while(cactus_edge_end != cactus_edge_end2) {
+
+                    // Report super bubble!!!!!!!
+                    CactusSide* side1 = (CactusSide*)stCactusEdgeEnd_getObject(
+                        stCactusEdgeEnd_getLink(cactus_edge_end2));
+                    CactusSide* side2 = (CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end2);
+
                     // Add the next edge in the chain to the edges visited
-                    edgesVisited.push_back(((CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end2))->node);
+                    edgesVisited.push_back(side2->node);
                     
                     assert(stCactusEdgeEnd_getNode(cactus_edge_end2) != cactus_node);
 
-                    // Report super bubble!!!!!!!
-                    CactusSide* side1 = (CactusSide*)stCactusEdgeEnd_getObject(stCactusEdgeEnd_getLink(cactus_edge_end2));
-                    CactusSide* side2 = (CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end2);
-
                     // This recursive explores the cycles in the subgraph rooted at next_cactus_node.
-                    output[make_pair(side1->node, side2->node)] = cactusRecurse(stCactusEdgeEnd_getNode(cactus_edge_end2));
+                    output[minmax(side1->node, side2->node)] =
+                        cactus_recurse(stCactusEdgeEnd_getNode(cactus_edge_end2));
+                    vector<id_t>& output_val = output[minmax(side1->node, side2->node)];
+                    
                     // Add all the edges in the super bubble to the total list of edges
-                    edgesVisited.insert(edgesVisited.begin(),
-                                        output[make_pair(side1->node, side2->node)].begin(),
-                                        output[make_pair(side1->node, side2->node)].end());
+                    edgesVisited.insert(edgesVisited.begin(), output_val.begin(), output_val.end());
 
                     // Get the next link
-                    cactus_edge_end2 = stCactusEdgeEnd_getLink(stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge_end2));
+                    cactus_edge_end2 = stCactusEdgeEnd_getLink(
+                        stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge_end2));
                 }
             }
         }
         return edgesVisited;
     };
     
-    cactusRecurse(root_node);
+    cactus_recurse(root_node);
 
+    // hack a little bit to be consistent with superbubbles interface
+    // todo: does it always make sense to sort cactus output like this?
+    for (auto& v : output) {
+        // add endpoints to bubble vector
+        v.second.push_back(v.first.first);
+        v.second.push_back(v.first.second);
+        // sort bubble vector
+        std::sort(v.second.begin(), v.second.end());
+    }
+    
     return output;
 }
     
