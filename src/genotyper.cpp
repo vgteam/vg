@@ -442,7 +442,10 @@ vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const Refere
     return vcf;
 }
 
-vcflib::Variant Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Genotype& genotype) {
+vector<vcflib::Variant> Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Genotype& genotype) {
+    // Make a vector to fill in
+    vector<vcflib::Variant> toReturn;
+    
     // Make a new variant
     vcflib::Variant variant;
     // Attach it to the VCF
@@ -466,7 +469,9 @@ vcflib::Variant Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& 
     
     if(!index.byId.count(first_id) || !index.byId.count(last_id)) {
         // We need to be anchored to the primary path to make a variant
-        throw runtime_error("Superbubble endpoints not on reference!");
+        cerr << "Warning: Superbubble endpoints not on reference!" << endl;
+        // If not return no variant
+        return toReturn;
     }
     
     // The position we have stored for this start node is the first
@@ -555,7 +560,9 @@ vcflib::Variant Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& 
     // Set the variant position (now that we have budged it left if necessary
     variant.position = referenceIntervalStart + 1;
     
-    return variant;
+    // Return the variant, since we managed to make it
+    toReturn.push_back(variant);
+    return toReturn;
     
 }
 

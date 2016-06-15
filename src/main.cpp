@@ -1677,10 +1677,14 @@ int main_genotype(int argc, char** argv) {
                         #pragma omp critical (cout)
                         cout << pb2json(genotype) << endl;
                     } else if(output_vcf) {
-                        vcflib::Variant variant = genotyper.genotype_to_variant(*graph, *reference_index, *vcf, genotype);
-                        variant.sequenceName = ref_path_name;
-                        // TODO: set contig or something
-                        cout << variant << endl;
+                        // Get 0 or more variants from the superbubble
+                        vector<vcflib::Variant> variants = genotyper.genotype_to_variant(*graph, *reference_index, *vcf, genotype);
+                        for(auto& variant : variants) {
+                            variant.sequenceName = ref_path_name;
+                            // TODO: apply offset
+                            #pragma omp critical(cout)
+                            cout << variant << endl;
+                        }
                     } else {
                         // Write out in Protobuf
                         buffer[tid].push_back(genotype);
