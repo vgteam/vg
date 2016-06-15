@@ -483,11 +483,11 @@ public:
     // of which can be accomplished with the simplify() function).
     void add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
-                             set<Node*>& added_nodes);
+                             map<Node*, pos_t>& added_nodes);
 
     // produces a graph Translation object from information about the editing process
     vector<Translation> make_translation(const map<pos_t, Node*>& node_translation,
-                                         const set<Node*>& added_nodes,
+                                         const map<Node*, pos_t>& added_nodes,
                                          const map<id_t, size_t>& orig_node_sizes);
 
     // Add in the given node, by value
