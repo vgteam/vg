@@ -1702,11 +1702,25 @@ int main_genotype(int argc, char** argv) {
                     if(skip_reference && paths.size() == 1 && paths[0].mapping_size() == 2) {
                         // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
                         // TODO: can't continue out of task
+                    } else if(paths.empty()) {
+                        // Don't do anything for superbubbles with no routes through
                     } else {
                     
                         if(show_progress) {
                             #pragma omp critical (cerr)
                             cerr << "Site " << bounds_and_contents.first.first << " - " << bounds_and_contents.first.second << " has " << paths.size() << " alleles" << endl;
+                            for(auto& path : paths) {
+                                // Announce each allele in turn
+                                #pragma omp critical (cerr)
+                                { 
+                                    cerr << "\t";
+                                    for(size_t i = 0; i < path.mapping_size(); i++) {
+                                        auto& seq = augmented_graph.get_node(path.mapping(i).position().node_id())->sequence();
+                                        cerr << (path.mapping(i).position().is_reverse() ? reverse_complement(seq) : seq);
+                                    }
+                                    cerr << endl;
+                                }
+                            }
                         }
                         
                         // Get the affinities for all the paths
