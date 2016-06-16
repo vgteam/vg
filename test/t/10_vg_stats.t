@@ -38,5 +38,5 @@ is $(vg stats -C t.vg | head -1 | cut -f 3) 1,2,3,4,5,6, "a cactusbubble's inter
 rm -f t.vg
 
 is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -b - | grep 79,80,81,299, | wc -l) 1 "superbubbles are detected even when the graph initially has reversing edges"
-is $(cat graphs/missed_bubble.gfa | vg view -Fv | vg stats -C - | grep 79,80,81,299, | wc -l) 1 "cactusbubbles are detected even when the graph initially has reversing edges"
+is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -C - | grep 79,80,81,299, | wc -l) 1 "cactusbubbles are detected even when the graph initially has reversing edges"
 
