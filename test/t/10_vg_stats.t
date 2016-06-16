@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 12
+plan tests 13
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -25,8 +25,6 @@ is $subgraph_count 1 "vg stats reports the correct number of subgraphs"
 subgraph_length=$(vg stats -s z.vg | head -1 | cut -f 2)
 is $subgraph_length $graph_length  "vg stats reports the correct subgraph length"
 
-rm -f z.vg
-
 is $(vg view -Fv msgas/q_redundant.gfa | vg stats -S - | md5sum | cut -f 1 -d\ ) 01fadb6a004ddb87e5fc5d056b565218 "perfect to and from siblings are determined"
 
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
@@ -40,3 +38,7 @@ rm -f t.vg
 is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -b - | grep 79,80,81,299, | wc -l) 1 "superbubbles are detected even when the graph initially has reversing edges"
 is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -C - | grep 79,80,81,299, | wc -l) 1 "cactusbubbles are detected even when the graph initially has reversing edges"
 
+vg stats z.bg -b > sb.txt
+vg stats z.bg -C > cb.txt
+is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical for 1mb1kgp"
+rm -f z.vg sb.txt cb.txt
