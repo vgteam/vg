@@ -394,13 +394,6 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
 
-            if(read->identity() > 0.9 && aligned.identity() < 0.5) {
-                // This read got suspiciously terrible
-                cerr << "Terrible read: " << pb2json(aligned) << endl;
-                cerr << "Graph: " << pb2json(allele_graph.graph) << endl;
-                exit(1);
-            }
-            
             // Grab the identity and save it for this read and superbubble path
             toReturn[read].push_back(aligned.identity());
             
