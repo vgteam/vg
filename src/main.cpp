@@ -46,7 +46,8 @@ void help_translate(char** argv) {
          << "Translate alignments or paths using the translation map." << endl
          << endl
          << "options:" << endl
-         << "    -p, --position POS    print the from-position corresponding to the given JSON position" << endl;
+         << "    -p, --position JSON   print the from-position corresponding to the given JSON position" << endl
+         << "    -m, --mapping JSON    print the from-mapping corresponding to the given JSON mapping" << endl;
 }
 
 int main_translate(int argc, char** argv) {
@@ -57,6 +58,7 @@ int main_translate(int argc, char** argv) {
     }
 
     string position_string;
+    string mapping_string;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -65,11 +67,12 @@ int main_translate(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"position", required_argument, 0, 'p'},
+            {"mapping", required_argument, 0, 'm'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:",
+        c = getopt_long (argc, argv, "hp:m:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -80,6 +83,10 @@ int main_translate(int argc, char** argv) {
         {
         case 'p':
             position_string = optarg;
+            break;
+
+        case 'm':
+            mapping_string = optarg;
             break;
 
         case 'h':
@@ -108,6 +115,13 @@ int main_translate(int argc, char** argv) {
         Position position;
         json2pb(position, position_string.c_str(), position_string.size());
         cout << pb2json(translator->translate(position)) << endl;
+    }
+
+    // test the mapping translation
+    if (!mapping_string.empty()) {
+        Mapping mapping;
+        json2pb(mapping, mapping_string.c_str(), mapping_string.size());
+        cout << pb2json(translator->translate(mapping)) << endl;
     }
 
     return 0;

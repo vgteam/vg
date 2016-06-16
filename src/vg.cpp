@@ -5884,15 +5884,16 @@ void VG::add_nodes_and_edges(const Path& path,
                 }
                 // TODO what about forward into reverse????
                 if (is_rev(prev_position)) {
-                    from_path = reverse_complement_path(from_path, [&](int64_t id) {
-                            auto l = orig_node_sizes.find(id);
-                            if (l == orig_node_sizes.end()) {
-                                cerr << "could not find node " << id << " in orig_node_sizes table" << endl;
-                                exit(1);
-                            } else {
-                                return l->second;
-                            }
-                        });
+                    from_path = simplify(
+                        reverse_complement_path(from_path, [&](int64_t id) {
+                                auto l = orig_node_sizes.find(id);
+                                if (l == orig_node_sizes.end()) {
+                                    cerr << "could not find node " << id << " in orig_node_sizes table" << endl;
+                                    exit(1);
+                                } else {
+                                    return l->second;
+                                }
+                            }));
                 }
 
                 if (!path.name().empty()) {
