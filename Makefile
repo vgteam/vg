@@ -179,7 +179,7 @@ $(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
 
 $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h 
 
-$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc
+$(CPP_DIR)/vg.pb.h: $(LIB_DIR)/libprotobuf.a bin/protoc src/vg.proto
 	+. ./source_me.sh && ./bin/protoc $(SRC_DIR)/vg.proto --proto_path=$(SRC_DIR) --cpp_out=cpp
 	+cp $@ $(INC_DIR)
 

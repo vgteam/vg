@@ -1565,6 +1565,7 @@ void help_genotype(char** argv) {
          << "    -s, --sample NAME       name the sample in the VCF with the given name" << std::endl
          << "    -o, --offset INT        offset variant positions by this amount" << std::endl
          << "    -l, --length INT        override total sequence length" << std::endl
+         << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1598,6 +1599,9 @@ int main_genotype(int argc, char** argv) {
     // Don't bother genotyping ref only superbubbles
     bool skip_reference = true;
 
+    // Should we dump the augmented graph to a file?
+    string augmented_file_name;
+
     int c;
     optind = 2; // force optind past command positional arguments
     while (true) {
@@ -1610,13 +1614,14 @@ int main_genotype(int argc, char** argv) {
                 {"sample", required_argument, 0, 's'},
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
+                {"augmented", required_argument, 0, 'a'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:pt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:pt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1650,6 +1655,10 @@ int main_genotype(int argc, char** argv) {
         case 'l':
             // Set a length override
             length_override = std::stoll(optarg);
+            break;
+        case 'a':
+            // Dump augmented graph
+            augmented_file_name = optarg;
             break;
         case 'p':
             show_progress = true;
@@ -1768,6 +1777,12 @@ int main_genotype(int argc, char** argv) {
     // Make sure that we actually have an index for traversing along paths.
     augmented_graph.paths.rebuild_mapping_aux();
     
+    if(!augmented_file_name.empty()) {
+        ofstream augmented_stream(augmented_file_name);
+        augmented_graph.serialize_to_ostream(augmented_stream);
+        augmented_stream.close();
+    }
+    
     // store the reads that are embedded in the augmented graph, by their unique names
     map<string, Alignment*> reads_by_name;
     for(auto& alignment : alignments) {
@@ -1785,7 +1800,7 @@ int main_genotype(int argc, char** argv) {
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
     
     // Unfold/unroll, find the superbubbles, and translate back.
-    vector<Genotyper::Site> sites = genotyper.find_sites(augmented_graph);
+    vector<Genotyper::Site> sites = genotyper.find_sites_with_cactus(augmented_graph);
     
     if(show_progress) {
         cerr << "Found " << sites.size() << " superbubbles" << endl;
@@ -1795,7 +1810,7 @@ int main_genotype(int argc, char** argv) {
     size_t total_affinities = 0;
     
     // We need a buffer for output
-    vector<vector<Genotype>> buffer;
+    vector<vector<Locus>> buffer;
     buffer.resize(thread_count);
     
     // If we're doing VCF output we need a VCF header
@@ -1857,19 +1872,19 @@ int main_genotype(int argc, char** argv) {
                             total_affinities += alignment_and_affinities.second.size();
                         }
                         
-                        // Get a genotype        
-                        Genotype genotype = genotyper.get_genotype(augmented_graph, site, paths, affinities);
+                        // Get a genotyped locus       
+                        Locus genotyped = genotyper.genotype_site(augmented_graph, site, paths, affinities);
                         
                         if(output_json) {
                             // Dump in JSON
                             #pragma omp critical (cout)
-                            cout << pb2json(genotype) << endl;
+                            cout << pb2json(genotyped) << endl;
                         } else if(output_vcf) {
                             // Get 0 or more variants from the superbubble
-                            vector<vcflib::Variant> variants = genotyper.genotype_to_variant(*graph, *reference_index, *vcf, genotype);
+                            vector<vcflib::Variant> variants = genotyper.locus_to_variant(*graph, site, *reference_index, *vcf, genotyped);
                             for(auto& variant : variants) {
                                 // Fix up all the variants
-                                if(contig_name.empty()) {
+                                if(!contig_name.empty()) {
                                     // Override path name
                                     variant.sequenceName = contig_name;
                                 } else {
@@ -1882,7 +1897,7 @@ int main_genotype(int argc, char** argv) {
                             }
                         } else {
                             // Write out in Protobuf
-                            buffer[tid].push_back(genotype);
+                            buffer[tid].push_back(genotyped);
                             stream::write_buffered(cout, buffer[tid], 100);
                         }
                     }
