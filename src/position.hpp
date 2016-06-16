@@ -9,6 +9,7 @@ namespace vg {
 
 using namespace std;
 
+bool is_empty(const pos_t& pos);
 id_t id(const pos_t& pos);
 bool is_rev(const pos_t& pos);
 off_t offset(const pos_t& pos);

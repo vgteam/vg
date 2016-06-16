@@ -26,6 +26,10 @@ Position make_position(id_t id, bool is_rev, off_t off) {
     return p;
 }
 
+bool is_empty(const pos_t& pos) {
+    return id(pos) == 0;
+}
+
 id_t id(const pos_t& pos) {
     return get<0>(pos);
 }

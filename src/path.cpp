@@ -1477,6 +1477,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
 }
 
 // divide path at reference-relative position
+// TODO make this work on the reverse strand / inverting paths
 pair<Path, Path> cut_path(const Path& path, const Position& pos) {
     Path p1, p2;
     size_t i = 0;

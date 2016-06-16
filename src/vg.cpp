@@ -5407,10 +5407,10 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     auto node_translation = ensure_breakpoints(breakpoints);
 
     // we will record the nodes that we add, so we can correctly make the returned translation
-    map<Node*, pos_t> added_nodes;
+    map<Node*, Path> added_nodes;
     for(auto path : simplified_paths) {
         // Now go through each new path again, and create new nodes/wire things up.
-        add_nodes_and_edges(path, node_translation, added_nodes);
+        add_nodes_and_edges(path, node_translation, added_nodes, orig_node_sizes);
     }
 
     // TODO: add the new path to the graph, with perfect match mappings to all
@@ -5445,7 +5445,7 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
 }
 
 vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translation,
-                                         const map<Node*, pos_t>& added_nodes,
+                                         const map<Node*, Path>& added_nodes,
                                          const map<id_t, size_t>& orig_node_sizes) {
     vector<Translation> translation;
     // invert the translation
@@ -5460,12 +5460,12 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
             translation.emplace_back();
             auto& trans = translation.back();
             auto f = inv_node_trans.find(node);
-            auto from_mapping = trans.mutable_from()->add_mapping();
-            auto to_mapping = trans.mutable_to()->add_mapping();
             auto added = added_nodes.find(node);
             if (f != inv_node_trans.end()) {
                 // if the node is in the inverted translation, use the position to make a mapping
                 auto pos = f->second;
+                auto from_mapping = trans.mutable_from()->add_mapping();
+                auto to_mapping = trans.mutable_to()->add_mapping();
                 *to_mapping->mutable_position() = make_position(node->id(), is_rev(pos), 0);
                 *from_mapping->mutable_position() = make_position(pos);
                 auto match_length = node->sequence().size();
@@ -5477,14 +5477,17 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
                 from_edit->set_from_length(match_length);
             } else if (added != added_nodes.end()) {
                 // the node is novel
+                auto to_mapping = trans.mutable_to()->add_mapping();
                 *to_mapping->mutable_position() = make_position(node->id(), false, 0);
                 auto to_edit = to_mapping->add_edit();
                 to_edit->set_to_length(node->sequence().size());
                 to_edit->set_from_length(node->sequence().size());
-                // if this is called via edit, the node has a reference-relative position
-                *from_mapping->mutable_position() = make_position(added->second);
+                auto from_path = trans.mutable_from();
+                *trans.mutable_from() = added->second;
             } else {
                 // otherwise we assume that the graph is unchanged
+                auto from_mapping = trans.mutable_from()->add_mapping();
+                auto to_mapping = trans.mutable_to()->add_mapping();
                 *to_mapping->mutable_position() = make_position(node->id(), false, 0);
                 *from_mapping->mutable_position() = make_position(node->id(), false, 0);
                 auto match_length = node->sequence().size();
@@ -5730,7 +5733,8 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
 
 void VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
-                             map<Node*, pos_t>& added_nodes) {
+                             map<Node*, Path>& added_nodes,
+                             const map<id_t, size_t>& orig_node_sizes) {
 
     // The basic algorithm is to traverse the path edit by edit, keeping track
     // of a NodeSide for the last piece of sequence we were on. If we hit an
@@ -5851,8 +5855,45 @@ void VG::add_nodes_and_edges(const Path& path,
                     m.position().is_reverse() ?
                     reverse_complement(e.sequence())
                     : e.sequence());
-                // record that we've added the node, which is required to derive the translation
-                added_nodes[new_node] = edit_first_position;
+
+                // store the path representing this novel sequence in the translation table
+                auto prev_position = edit_first_position;
+                auto& from_path = added_nodes[new_node];
+                auto prev_from_mapping = from_path.add_mapping();
+                *prev_from_mapping->mutable_position() = make_position(prev_position);
+                auto from_edit = prev_from_mapping->add_edit();
+                from_edit->set_sequence(e.sequence());
+                from_edit->set_to_length(e.to_length());
+                from_edit->set_from_length(e.from_length());
+                // find the position after the edit
+                // if the edit is not the last in a mapping, the position after is from_length of the edit after this
+                if (j + 1 < m.edit_size()) {
+                    auto next_position = prev_position;
+                    get_offset(next_position) += e.from_length();
+                    auto next_from_mapping = from_path.add_mapping();
+                    *next_from_mapping->mutable_position() = make_position(next_position);
+                } else { // implicitly (j + 1 == m.edit_size())
+                    // if the edit is the last in a mapping, look at the next mapping position
+                    if (i + 1 < path.mapping_size()) {
+                        auto& next_mapping = path.mapping(i+1);
+                        auto next_from_mapping = from_path.add_mapping();
+                        *next_from_mapping->mutable_position() = next_mapping.position();
+                    } else {
+                        // if we are at the end of the path, then this insertion has no end, and we do nothing
+                    }
+                }
+                // TODO what about forward into reverse????
+                if (is_rev(prev_position)) {
+                    from_path = reverse_complement_path(from_path, [&](int64_t id) {
+                            auto l = orig_node_sizes.find(id);
+                            if (l == orig_node_sizes.end()) {
+                                cerr << "could not find node " << id << " in orig_node_sizes table" << endl;
+                                exit(1);
+                            } else {
+                                return l->second;
+                            }
+                        });
+                }
 
                 if (!path.name().empty()) {
                     Mapping nm;
