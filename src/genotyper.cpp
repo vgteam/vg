@@ -128,7 +128,7 @@ map<pair<NodeTraversal, NodeTraversal>, set<id_t>> Genotyper::find_sites_with_ca
                 bubble.end != bubble_tree.root->v.end) {
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
                 NodeTraversal start(graph.get_node(bubble.start.node), bubble.start.is_end);
-                NodeTraversal end(graph.get_node(bubble.end.node), !bubble.end.is_end);
+                NodeTraversal end(graph.get_node(bubble.end.node), bubble.end.is_end);
                 to_return[minmax(start, end)] = nodes;
             }
         });    
@@ -322,6 +322,7 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
     VG surrounding;
     for(auto id : relevant_ids) {
         // Add each node and its edges to the new graph. Ignore dangling edges.
+        // We'll keep edges dangling to the superbubble anchor nodes.
         surrounding.add_node(*graph.get_node(id));
         surrounding.add_edges(graph.edges_of(graph.get_node(id)));
     }
@@ -334,8 +335,22 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
             // Add in every node on the path to the new allele graph
             id_t id = path.mapping(i).position().node_id();
             allele_graph.add_node(*graph.get_node(id));
-            // And its edges
             allele_graph.add_edges(graph.edges_of(graph.get_node(id)));
+            
+            // Add in just the edge to the previous node on the path
+            if(false && i > 0) {
+                // There is something previous on the path. Make an edge
+                Edge path_edge;
+                // And hook it to the correct side of the last node
+                path_edge.set_from(path.mapping(i - 1).position().node_id());
+                path_edge.set_from_start(path.mapping(i - 1).position().is_reverse());
+                // And the correct side of the next node
+                path_edge.set_to(path.mapping(i).position().node_id());
+                path_edge.set_to_end(path.mapping(i).position().is_reverse());
+                
+                // And add it in
+                allele_graph.add_edge(path_edge);
+            }
         }
         
         // Get rid of dangling edges
