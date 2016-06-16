@@ -46,8 +46,10 @@ void help_translate(char** argv) {
          << "Translate alignments or paths using the translation map." << endl
          << endl
          << "options:" << endl
-         << "    -p, --position JSON   print the from-position corresponding to the given JSON position" << endl
-         << "    -m, --mapping JSON    print the from-mapping corresponding to the given JSON mapping" << endl;
+         << "    -p, --paths FILE      project the input paths into the from-graph" << endl
+         << "    -a, --alns FILE       project the input alignments into the from-graph" << endl
+         << "    -m, --mapping JSON    print the from-mapping corresponding to the given JSON mapping" << endl
+         << "    -P, --position JSON   print the from-position corresponding to the given JSON position" << endl;
 }
 
 int main_translate(int argc, char** argv) {
@@ -59,6 +61,8 @@ int main_translate(int argc, char** argv) {
 
     string position_string;
     string mapping_string;
+    string path_file;
+    string aln_file;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -66,13 +70,15 @@ int main_translate(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"position", required_argument, 0, 'p'},
+            {"position", required_argument, 0, 'P'},
             {"mapping", required_argument, 0, 'm'},
+            {"paths", required_argument, 0, 'p'},
+            {"alns", required_argument, 0, 'a'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:m:",
+        c = getopt_long (argc, argv, "hp:m:P:a:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -81,12 +87,20 @@ int main_translate(int argc, char** argv) {
 
         switch (c)
         {
-        case 'p':
+        case 'P':
             position_string = optarg;
             break;
 
         case 'm':
             mapping_string = optarg;
+            break;
+
+        case 'p':
+            path_file = optarg;
+            break;
+
+        case 'a':
+            aln_file = optarg;
             break;
 
         case 'h':
@@ -122,6 +136,26 @@ int main_translate(int argc, char** argv) {
         Mapping mapping;
         json2pb(mapping, mapping_string.c_str(), mapping_string.size());
         cout << pb2json(translator->translate(mapping)) << endl;
+    }
+
+    if (!path_file.empty()) {
+        vector<Path> buffer;
+        function<void(Path&)> lambda = [&](Path& path) {
+            buffer.push_back(translator->translate(path));
+            stream::write_buffered(cout, buffer, 100);
+        };
+        ifstream path_in(path_file);
+        stream::for_each(path_in, lambda);
+        stream::write_buffered(cout, buffer, 0);
+    } else if (!aln_file.empty()) {
+        vector<Alignment> buffer;
+        function<void(Alignment&)> lambda = [&](Alignment& aln) {
+            buffer.push_back(translator->translate(aln));
+            stream::write_buffered(cout, buffer, 100);
+        };
+        ifstream aln_in(aln_file);
+        stream::for_each(aln_in, lambda);
+        stream::write_buffered(cout, buffer, 0);
     }
 
     return 0;

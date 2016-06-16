@@ -5516,6 +5516,26 @@ vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translati
                           < make_pos_t(t2.from().mapping(0).position());
                   }
               });
+    // append the reverse complement of the translation
+    vector<Translation> reverse_translation;
+    auto get_curr_node_length = [&](id_t id) {
+        return get_node(id)->sequence().size();
+    };
+    auto get_orig_node_length = [&](id_t id) {
+        auto f = orig_node_sizes.find(id);
+        if (f == orig_node_sizes.end()) {
+            cerr << "ERROR: could not find node " << id << " in original length table" << endl;
+            exit(1);
+        }
+        return f->second;
+    };
+    for (auto& trans : translation) {
+        reverse_translation.emplace_back();
+        auto& rev_trans = reverse_translation.back();
+        *rev_trans.mutable_to() = simplify(reverse_complement_path(trans.to(), get_curr_node_length));
+        *rev_trans.mutable_from() = simplify(reverse_complement_path(trans.from(), get_orig_node_length));
+    }
+    translation.insert(translation.end(), reverse_translation.begin(), reverse_translation.end());
     return translation;
 }
 

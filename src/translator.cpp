@@ -31,7 +31,7 @@ Translation Translator::get_translation(const Position& position) {
     // check that the node is in the translation
     pos_t node_only = pos;
     get_offset(node_only) = 0;
-    get_is_rev(node_only) = false;
+    get_is_rev(node_only) = position.is_reverse();
     Translation translation;
     if (pos_to_trans.find(node_only) == pos_to_trans.end()) {
         cerr << "WARNING: node " << id(pos) << " is not in the translation table" << endl;
@@ -64,9 +64,6 @@ Position Translator::translate(const Position& position, const Translation& tran
     }
 }
 
-// TODO MAKE THERE BE A REVERSE TRANSLATIONS OBJECT
-// AND STORE THEM REVERSE TRANSLATIONS IN IT
-
 Mapping Translator::translate(const Mapping& mapping) {
     Mapping translated = mapping;
     if (!mapping.has_position()) return mapping;
@@ -75,6 +72,10 @@ Mapping Translator::translate(const Mapping& mapping) {
     if (is_match(translation)) {
         return translated;
     } else {
+        auto seq = translation.from().mapping(0).edit(0).sequence();
+        if (translation.from().mapping(0).position().is_reverse()) {
+            seq = reverse_complement(seq);
+        }
         // subset the translated path mapping.from_length() bases in or out
         // depending on its offset
         if (mapping.position().offset() == 0) {
@@ -83,7 +84,6 @@ Mapping Translator::translate(const Mapping& mapping) {
             translated =
                 cut_mapping(translation.from().mapping(0),
                             mapping_from_length(mapping)).first;
-            auto seq = translation.from().mapping(0).edit(0).sequence();
             translated.clear_edit();
             auto edit = translated.add_edit();
             edit->set_sequence(mapping_sequence(mapping, seq));
@@ -94,7 +94,6 @@ Mapping Translator::translate(const Mapping& mapping) {
             translated =
                 cut_mapping(translation.from().mapping(0),
                             mapping_from_length(mapping)).second;
-            auto seq = translation.from().mapping(0).edit(0).sequence();
             translated.clear_edit();
             auto edit = translated.add_edit();
             edit->set_sequence(mapping_sequence(mapping, seq));
