@@ -27,14 +27,19 @@ public:
 
     vector<Translation> translations;
     map<pos_t, Translation*> pos_to_trans;
+    Translator(istream& in);
     Translator(const vector<Translation>& trans);
-    void load_translations(const vector<Translation>& trans);
+    void build_position_table(void);
+    Translation get_translation(const Position& position);
     Position translate(const Position& position);
+    Position translate(const Position& position, const Translation& translation);    
+    Mapping translate(const Mapping& mapping);
     Path translate(const Path& path);
-    
+    Alignment translate(const Alignment& aln);
+
 };
 
-
+bool is_match(const Translation& translation);
 
 }
 

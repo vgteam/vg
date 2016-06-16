@@ -30,6 +30,7 @@
 #include "IntervalTree.h"
 #include "genotyper.hpp"
 #include "bubbles.hpp"
+#include "translator.hpp"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -39,6 +40,78 @@
 using namespace std;
 using namespace google::protobuf;
 using namespace vg;
+
+void help_translate(char** argv) {
+    cerr << "usage: " << argv[0] << " translate [options] translation" << endl
+         << "Translate alignments or paths using the translation map." << endl
+         << endl
+         << "options:" << endl
+         << "    -p, --position POS    print the from-position corresponding to the given JSON position" << endl;
+}
+
+int main_translate(int argc, char** argv) {
+
+    if (argc <= 2) {
+        help_translate(argv);
+        return 1;
+    }
+
+    string position_string;
+
+    int c;
+    optind = 2; // force optind past command positional argument
+    while (true) {
+        static struct option long_options[] =
+        {
+            {"help", no_argument, 0, 'h'},
+            {"position", required_argument, 0, 'p'},
+            {0, 0, 0, 0}
+        };
+
+        int option_index = 0;
+        c = getopt_long (argc, argv, "hp:",
+                long_options, &option_index);
+
+        // Detect the end of the options.
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+        case 'p':
+            position_string = optarg;
+            break;
+
+        case 'h':
+        case '?':
+            help_translate(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
+        }
+    }
+
+    Translator* translator;
+    string file_name = argv[optind];
+    if (file_name == "-") {
+        translator = new Translator(std::cin);
+    } else {
+        ifstream in;
+        in.open(file_name.c_str());
+        translator = new Translator(in);
+    }
+
+    // test the position translation
+    if (!position_string.empty()) {
+        Position position;
+        json2pb(position, position_string.c_str(), position_string.size());
+        cout << pb2json(translator->translate(position)) << endl;
+    }
+
+    return 0;
+}
 
 void help_filter(char** argv) {
     cerr << "usage: " << argv[0] << " filter [options] <alignment.gam> > out.gam" << endl
@@ -7924,6 +7997,7 @@ void vg_help(char** argv) {
          << "  -- compare       compare the kmer space of two graphs" << endl
          << "  -- scrub         remove poor-quality / low-depth edits from a set of alignments" << endl
          << "  -- circularize   circularize a path within a graph." << endl
+         << "  -- translate     project alignments and paths through a graph translation" << endl
          << "  -- validate      validate the semantics of a graph" << endl
          << "  -- version       version information" << endl;
 }
@@ -7991,6 +8065,8 @@ int main(int argc, char *argv[])
         return main_scrub(argc, argv);
     } else if (command == "circularize"){
         return main_circularize(argc, argv);
+    }  else if (command == "translate") {
+        return main_translate(argc, argv);
     }  else if (command == "version") {
         return main_version(argc, argv);
     }else {
