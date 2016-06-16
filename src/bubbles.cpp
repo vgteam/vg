@@ -65,6 +65,8 @@ vector<pair<id_t, id_t> > get_superbubbles(VG& graph){
 
 map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph) {
     map<pair<id_t, id_t>, vector<id_t> > bubbles;
+    // flip doubly reversed edges
+    graph.flip_doubly_reversed_edges();
     // ensure we're sorted
     graph.sort();
     // if we have a DAG, then we can find all the nodes in each superbubble
