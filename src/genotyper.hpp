@@ -133,6 +133,13 @@ public:
         set<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
         
     /**
+     * Get affinities as above but using only string comparison instead of
+     * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
+     */
+    map<Alignment*, vector<double>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
+        set<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
+        
+    /**
      * Compute annotated genotype from affinities and superbubble paths.
      * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */

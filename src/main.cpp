@@ -1736,7 +1736,7 @@ int main_genotype(int argc, char** argv) {
                         }
                         
                         // Get the affinities for all the paths
-                        map<Alignment*, vector<double>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
+                        map<Alignment*, vector<double>> affinities = genotyper.get_affinities_fast(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
                         
                         for(auto& alignment_and_affinities : affinities) {
                             #pragma omp critical (total_affinities)
