@@ -558,7 +558,7 @@ map<Alignment*, vector<double>> Genotyper::get_affinities_fast(VG& graph, const 
 }
 
 
-double Genotyper::get_genotype_probability(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency) {
+double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
     // miscalled) * P(all reads that do support alleles from the genotype ended
@@ -711,9 +711,17 @@ string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Align
 }
 
 #define debug
-Genotype Genotyper::get_genotype(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
+Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
     
-    // Freebayes way (improved with multi-support):
+    // Freebayes way (improved with multi-support)
+    
+    // We're going to populate this locus
+    Locus to_return;
+    
+    for(auto& path : superbubble_paths) {
+        // Convert each allele to a Path and put it in the locus
+        *to_return.add_allele() = path_from_node_traversals(path);
+    }
     
 #ifdef debug
     cerr << "Looking between " << site.start << " and " << site.end << endl;
@@ -787,9 +795,9 @@ Genotype Genotyper::get_genotype(VG& graph, const Site& site, const vector<list<
     }
 #endif
 
-    // We'll go through all the genotypes and find the best
-    vector<int> best_genotype;
-    double best_probability = 0;
+    // We'll go through all the genotypes and put them with their likelihoods,
+    // then sort to find the best
+    vector<pair<double, vector<int>>> genotypes_by_likelihood;
 
     for(int allele1 = 0; allele1 < superbubble_paths.size(); allele1++) {
         // For each first allele in the genotype
@@ -799,41 +807,43 @@ Genotype Genotyper::get_genotype(VG& graph, const Site& site, const vector<list<
             // Make the combo
             vector<int> genotype = {allele1, allele2};
             
-            // Compute the probability of the genotype
-            double probability = get_genotype_probability(genotype, alignment_consistency);
+            // Compute the probability of the data given the genotype
+            double probability = get_genotype_likelihood(genotype, alignment_consistency);
             
 #ifdef debug
             cerr << "P(obs | a" << allele1 << "/a" << allele2 << ") = " << probability << endl;
 #endif
             
-            if(probability > best_probability || best_genotype.empty()) {
-                // This is the best genotype!
-                best_probability = probability;
-                best_genotype = genotype;
-            }
+            // Put it in to sort
+            genotypes_by_likelihood.push_back(make_pair(probability, genotype));
         }
     }
     
-    // Now compute the vector of ints into a real Genotype object
-    Genotype genotype;
+    // Sort the genotypes in order of descending likelihood.
+    // This sorts ascening with reverse iterators.
+    sort(genotypes_by_likelihood.rbegin(), genotypes_by_likelihood.rend());
     
-    // We only want to put each allele once
-    set<int> used_alleles;
+    for(auto& count : reads_consistent_with_allele) {
+        // Add the supports for all the alleles
+        Support* support = to_return.add_support();
+        // TODO: don't put all the consistent reads on the forward strand.
+        support->set_forward(count);
+    }
     
-    for(int allele : best_genotype) {
-        if(!used_alleles.count(allele)) {
-            // For each allele we haven't reported, report it.
-            used_alleles.insert(allele);
-            // Convert back to Path
-            *genotype.add_allele() = path_from_node_traversals(superbubble_paths.at(allele));
-            Support* support = genotype.add_support();
-            // TODO: don't put all the consistent reads on the forward strand.
-            support->set_forward(reads_consistent_with_allele[allele]);
-            // TODO: turn overall genotype probability into quality and stick it in
+    for(auto& likelihood_and_alleles : genotypes_by_likelihood) {
+        // Add a genotype to the Locus for every one we looked at
+        auto* genotype = to_return.add_genotype();
+        // Set the likelihood
+        genotype->set_likelihood(likelihood_and_alleles.first);
+        // Set the allele references
+        for(auto allele_id : likelihood_and_alleles.second) {
+            // Copy over all the indexes of alleles in the genotype
+            genotype->add_allele(allele_id);
         }
     }
     
-    return genotype;
+    // Now we've populated the genotype so return it.
+    return to_return;
 }
 #undef debug
 
@@ -939,7 +949,7 @@ vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const Refere
     return vcf;
 }
 
-vector<vcflib::Variant> Genotyper::genotype_to_variant(VG& graph, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Genotype& genotype) {
+vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus) {
     // Make a vector to fill in
     vector<vcflib::Variant> to_return;
     
@@ -947,22 +957,20 @@ vector<vcflib::Variant> Genotyper::genotype_to_variant(VG& graph, const Referenc
     vcflib::Variant variant;
     // Attach it to the VCF
     variant.setVariantCallFile(vcf);
-    // Crib the quality
+    // Fake the quality
     variant.quality = 0;
     
     // Make sure we have stuff
-    if(genotype.allele_size() == 0) {
+    if(locus.allele_size() == 0) {
         throw runtime_error("Can't turn an empty genotype into VCF");
     }
-    if(genotype.allele(0).mapping_size() == 0) {
+    if(locus.allele(0).mapping_size() == 0) {
         throw runtime_error("Can't turn an empty allele into VCF");
     }
     
-    // All the paths start with the same beginning and end nodes, so we can just
-    // look at those to get the reference interval.
-    
-    auto first_id = genotype.allele(0).mapping(0).position().node_id();
-    auto last_id = genotype.allele(0).mapping(genotype.allele(0).mapping_size() - 1).position().node_id();
+    // Get the superbubble    
+    auto first_id = site.start.node->id();
+    auto last_id = site.end.node->id();
     
     if(!index.byId.count(first_id) || !index.byId.count(last_id)) {
         // We need to be anchored to the primary path to make a variant
@@ -990,12 +998,12 @@ vector<vcflib::Variant> Genotyper::genotype_to_variant(VG& graph, const Referenc
     // Get the string for the reference allele
     string refString = index.sequence.substr(referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
     
-    // And make strings for all the genotype alleles
+    // And make strings for all the locus's alleles
     vector<string> allele_strings;
     
-    for(size_t i = 0; i < genotype.allele_size(); i++) {
+    for(size_t i = 0; i < locus.allele_size(); i++) {
         // Get the string for each allele
-        allele_strings.push_back(allele_to_string(graph, genotype.allele(i)));
+        allele_strings.push_back(allele_to_string(graph, locus.allele(i)));
     }
     
     // See if any alleles are empty
@@ -1024,45 +1032,43 @@ vector<vcflib::Variant> Genotyper::genotype_to_variant(VG& graph, const Referenc
     // Make the ref allele
     create_ref_allele(variant, refString);
     
-    // Make a vector of supports by assigned VCF allele number
+    // Make a vector of supports by assigned VCF alt number
     vector<Support> support_by_alt;
     
-    // We're going to put all the allele indexes called as present in here.
-    vector<int> called_alleles;
+    // This maps from locus allele index to VCF record alt number
+    vector<int> allele_to_alt;
     
-    for(size_t i = 0; i < genotype.allele_size(); i++) {
+    for(size_t i = 0; i < locus.allele_size(); i++) {
         // For each allele
         
         // Add it/find its number if it already exists (i.e. is the ref)
-        int allele_number = add_alt_allele(variant, allele_strings[i]);
+        int alt_number = add_alt_allele(variant, allele_strings[i]);
         
-        // Remember we called a copy of it
-        called_alleles.push_back(allele_number);
+        // Remember what VCF alt number it got
+        allele_to_alt.push_back(alt_number);
         
-        if(i < genotype.support_size()) {
-            // Add the quality
-            variant.quality += genotype.support(i).quality();
-            
-            if(support_by_alt.size() <= allele_number) {
+        if(i < locus.support_size()) {
+            if(support_by_alt.size() <= alt_number) {
                 // Make sure we have a slot to put the support in
-                support_by_alt.resize(allele_number + 1);
+                support_by_alt.resize(alt_number + 1);
             }
             // Put it there
-            support_by_alt[allele_number] = genotype.support(i);
+            support_by_alt[alt_number] = locus.support(i);
         }
     }
     
-    assert(!called_alleles.empty());
+    // Get the best genotype
+    assert(locus.genotype_size() > 0);
+    Genotype best_genotype = locus.genotype(0);
+    // TODO: right now we only handle diploids
+    assert(best_genotype.allele_size() == 2);
     
-    while(called_alleles.size() < 2) {
-        // Extend single-allele sites to be diploid.
-        called_alleles.push_back(called_alleles.front());
-    }
-    
-    // Compose the genotype
+    // Compose the ML genotype
     variant.format.push_back("GT");
     auto& genotype_out = variant.samples["SAMPLE"]["GT"];
-    genotype_out.push_back(to_string(called_alleles[0]) + "/" + to_string(called_alleles[1]));
+    // Translate each allele to a VCF alt number, and put them in a string with the right separator
+    genotype_out.push_back(to_string(allele_to_alt[best_genotype.allele(0)]) + (best_genotype.is_phased() ? "|" : "/")  +
+        to_string(allele_to_alt[best_genotype.allele(1)]));
     
     // Compose the allele-specific depth
     variant.format.push_back("AD");

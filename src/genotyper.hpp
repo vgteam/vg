@@ -170,7 +170,7 @@ public:
      * Compute annotated genotype from affinities and superbubble paths.
      * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */
-    Genotype get_genotype(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
+    Locus genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
         
     /**
      * Compute the probability of the observed alignments given the genotype.
@@ -182,17 +182,17 @@ public:
      * Alignments should have had their quality values trimmed down to just the
      * part covering the superbubble.
      */
-    double get_genotype_probability(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency);
+    double get_genotype_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency);
         
     /**
-     * Make a VCFlib variant from a genotype. Depends on an index of the
+     * Make a VCFlib variant from a called Locus. Depends on an index of the
      * reference path we want to call against.
      *
      * Returns 0 or more variants we can articulate from the superbubble.
      * Sometimes if we can't make a variant for the superbubble against the
      * reference path, we'll emit 0 variants.
      */
-    vector<vcflib::Variant> genotype_to_variant(VG& graph, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Genotype& genotype);
+    vector<vcflib::Variant> locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus);
     
     /**
      * Make a VCF header

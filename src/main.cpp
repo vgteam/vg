@@ -1761,7 +1761,7 @@ int main_genotype(int argc, char** argv) {
     size_t total_affinities = 0;
     
     // We need a buffer for output
-    vector<vector<Genotype>> buffer;
+    vector<vector<Locus>> buffer;
     buffer.resize(thread_count);
     
     // If we're doing VCF output we need a VCF header
@@ -1823,16 +1823,16 @@ int main_genotype(int argc, char** argv) {
                             total_affinities += alignment_and_affinities.second.size();
                         }
                         
-                        // Get a genotype        
-                        Genotype genotype = genotyper.get_genotype(augmented_graph, site, paths, affinities);
+                        // Get a genotyped locus       
+                        Locus genotyped = genotyper.genotype_site(augmented_graph, site, paths, affinities);
                         
                         if(output_json) {
                             // Dump in JSON
                             #pragma omp critical (cout)
-                            cout << pb2json(genotype) << endl;
+                            cout << pb2json(genotyped) << endl;
                         } else if(output_vcf) {
                             // Get 0 or more variants from the superbubble
-                            vector<vcflib::Variant> variants = genotyper.genotype_to_variant(*graph, *reference_index, *vcf, genotype);
+                            vector<vcflib::Variant> variants = genotyper.locus_to_variant(*graph, site, *reference_index, *vcf, genotyped);
                             for(auto& variant : variants) {
                                 // Fix up all the variants
                                 if(contig_name.empty()) {
@@ -1848,7 +1848,7 @@ int main_genotype(int argc, char** argv) {
                             }
                         } else {
                             // Write out in Protobuf
-                            buffer[tid].push_back(genotype);
+                            buffer[tid].push_back(genotyped);
                             stream::write_buffered(cout, buffer[tid], 100);
                         }
                     }
