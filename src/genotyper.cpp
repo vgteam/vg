@@ -35,13 +35,24 @@ int Genotyper::prob_to_phred(double prob) {
     return round(-10.0 * log10(prob));
 }
 
-int Genotyper::alignment_score(const Alignment& alignment) {
+int Genotyper::alignment_qual_score(const Alignment& alignment) {
+    if(alignment.quality().empty()) {
+        // Special case: qualities not given. Assume something vaguely sane so
+        // we can genotype without quality.
+        cerr << "No base qualities. Assuming default quality of " << default_sequence_quality << endl;
+        return default_sequence_quality;
+    }
+    
     double total = 0;
     for(size_t i = 0; i < alignment.quality().size(); i++) {
+        cerr << "Quality: " << (int)alignment.quality()[i] << endl;
         total += alignment.quality()[i];
     }
-    // Make the total now actually be an average
-    total /= alignment.quality().size();
+    cerr << "Count: " << alignment.quality().size() << endl;
+    if(!alignment.quality().empty()) {
+        // Make the total now actually be an average
+        total /= alignment.quality().size();
+    }
     return round(total);
 }
 
@@ -332,6 +343,7 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
     return toReturn;
 }
 
+#define debug
 double Genotyper::get_genotype_probability(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
@@ -353,6 +365,12 @@ double Genotyper::get_genotype_probability(const vector<int>& genotype, const ve
     // This is the probability that all the reads that do support alleles in this genotype were drawn from the genotype they support.
     double all_supporting_drawn = 1;
     
+#ifdef debug
+    if(genotype.size() > 1) {
+        cerr << "Calculating P(a" << genotype[0] << "/a" << genotype[1] << ")" << endl;
+    }
+#endif
+    
     for(auto& read_and_consistency : alignment_consistency) {
         // For each read, work out if it supports a genotype we have or not.
         
@@ -369,24 +387,41 @@ double Genotyper::get_genotype_probability(const vector<int>& genotype, const ve
             }
         }
         
+        auto read_qual = alignment_qual_score(read);
+        
+#ifdef debug
+        cerr << "Read (qual score " << read_qual << ") consistent with " << consistent_alleles << " genotype alleles observed." << endl;
+#endif
+        
         if(consistent_alleles == 0) {
             // This read is inconsistent with all the alleles in the genotype,
             // so, given the genotype, the read must be sequenced or mapped
             // wrong.
             
+            double prob_wrong;
             if(use_mapq) {
                 // Compute P(mapped wrong or called wrong) = P(not (mapped right and called right)) = P(not (not mapped wrong and not called wrong))
-                all_non_supporting_wrong *= (1.0 - (1.0 - phred_to_prob(read.mapping_quality())) * (1.0 - phred_to_prob(alignment_score(read))));
+                prob_wrong = (1.0 - (1.0 - phred_to_prob(read.mapping_quality())) * (1.0 - phred_to_prob(read_qual)));
             } else {
                 // Compute P(called wrong).
-                all_non_supporting_wrong *= phred_to_prob(alignment_score(read));
+                prob_wrong = phred_to_prob(read_qual);
             }
+#ifdef debug
+            cerr << "P(wrong) = " << prob_wrong << endl;
+#endif
+            all_non_supporting_wrong *= prob_wrong;
         } else {
             // This read is consistent with some of the alleles in the genotype,
             // so we must have drawn one of those alleles when sequencing.
             
             // So multiply in the probability that we hit one of those alleles
-            all_supporting_drawn *= ((double) consistent_alleles) / genotype.size();
+            double prob_drawn = ((double) consistent_alleles) / genotype.size();
+            
+#ifdef debug
+            cerr << "P(drawn) = " << prob_drawn << endl;
+#endif
+            
+            all_supporting_drawn *= prob_drawn;
         }
         
     }
@@ -394,11 +429,15 @@ double Genotyper::get_genotype_probability(const vector<int>& genotype, const ve
     // Now we've looked at all the reads, so AND everything together
     return all_non_supporting_wrong * all_supporting_drawn;
 }
+#undef debug
 
 /**
  * Get all the quality values in the alignment between the start and end nodes
  * of a site. Handles alignments that enter the site from the end, and
  * alignments that never make it through the site.
+ *
+ * If we run out of qualities, or qualities aren't present, returns no
+ * qualities.
  *
  * If an alignment goes through the site multipe times, we get all the qualities from when it is in the site.
  */
@@ -444,7 +483,13 @@ string get_qualities_in_site(VG& graph, const Alignment& alignment, NodeTraversa
             if(in_site) {
                 for(size_t k = 0; k < edit.to_length(); k++) {
                     // Take each quality value from the edit and add it to our collection to return
-                    to_return << (char)alignment.quality()[quality_pos];
+                    if(quality_pos >= alignment.quality().size()) {
+                        // If we've run out of quality values, give back no
+                        // qualities, because base qualities aren't really being
+                        // used.
+                        return "";
+                    }
+                    to_return << (char)alignment.quality().at(quality_pos);
                     quality_pos++;
                 }
             } else {

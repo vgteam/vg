@@ -64,6 +64,10 @@ public:
     // Should we use mapping quality when computing P(reads | genotype)?
     bool use_mapq = false;
     
+    // If base qualities aren't available, what is the Phred-scale qualtiy of a
+    // piece of sequence being correct?
+    int default_sequence_quality = 15;
+    
     // Remember that Phred scores can add to multiply just like normal log probs?
     // -10 log p1 + -10 log p2 = -10 (log p1 + log p2) = -10 log (p1 * p2)
     
@@ -85,8 +89,10 @@ public:
      *
      * In practice we're just going to average the quality scores for all the
      * bases.
+     *
+     * If the alignment doesn't have base qualities, returns 0.
      */
-    int alignment_score(const Alignment& alignment);
+    int alignment_qual_score(const Alignment& alignment);
 
     /**
      * Unfold and dagify a graph, find the superbubbles, and then convert them
