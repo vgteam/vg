@@ -39,20 +39,24 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
     if(alignment.quality().empty()) {
         // Special case: qualities not given. Assume something vaguely sane so
         // we can genotype without quality.
+#ifdef debug
         cerr << "No base qualities. Assuming default quality of " << default_sequence_quality << endl;
+#endif
         return default_sequence_quality;
     }
     
     double total = 0;
     for(size_t i = 0; i < alignment.quality().size(); i++) {
+#ifdef debug
         cerr << "Quality: " << (int)alignment.quality()[i] << endl;
+#endif
         total += alignment.quality()[i];
     }
+#ifdef debug
     cerr << "Count: " << alignment.quality().size() << endl;
-    if(!alignment.quality().empty()) {
-        // Make the total now actually be an average
-        total /= alignment.quality().size();
-    }
+#endif
+    // Make the total now actually be an average
+    total /= alignment.quality().size();
     return round(total);
 }
 
@@ -343,7 +347,6 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
     return toReturn;
 }
 
-#define debug
 double Genotyper::get_genotype_probability(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
@@ -429,7 +432,6 @@ double Genotyper::get_genotype_probability(const vector<int>& genotype, const ve
     // Now we've looked at all the reads, so AND everything together
     return all_non_supporting_wrong * all_supporting_drawn;
 }
-#undef debug
 
 /**
  * Get all the quality values in the alignment between the start and end nodes
