@@ -34,6 +34,31 @@ vector<pair<id_t, id_t> > get_superbubbles(VG& graph);
 map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph);
 
 // CACTUS BUBBLES
+// todo : refactor harmonize interface with stuff in deconstruct
+// and superbubbles in general
+
+struct Bubble {
+    id_t start;
+    id_t end;
+    vector<id_t> contents;
+};
+
+// Recursive cactus structure: bubbles nested within other bubbles
+struct BubbleNode {
+    Bubble bubble;
+    vector<BubbleNode*> children;
+    ~BubbleNode() { for (auto c : children) { delete c; } }
+    void for_each_preorder(function<void(Bubble&)> lambda) {
+        lambda(bubble);
+        for (auto c : children) { c->for_each_preorder(lambda); } }
+};
+struct BubbleTree {
+    BubbleNode* root;
+    BubbleTree(BubbleNode* r = 0) : root(r) {}
+    ~BubbleTree() { delete root; }
+    void for_each_preorder(function<void(Bubble&)> lambda) {
+        if (root) root->for_each_preorder(lambda); }
+};
 
 // Convert VG to Cactus Graph
 // Notes:
@@ -43,7 +68,11 @@ map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph);
 //  - returns "root" node as well as graph
 pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph);
 
-// Enumerate Cactus bubbles
+// Return the hierchical cactus decomposition
+BubbleTree cactusbubble_tree(VG& graph);
+
+// Enumerate Cactus bubbles.  Interface (and output on DAGs)
+// identical to superbubbles()
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph);
 
 }
