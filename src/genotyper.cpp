@@ -95,6 +95,33 @@ map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& 
     
 }
 
+map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites_with_cactus(VG& graph) {
+
+    // Set up our output map
+    map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> to_return;
+
+    // todo: use deomposition instead of converting tree into flat structure
+    BubbleTree bubble_tree = cactusbubble_tree(graph);
+
+    bubble_tree.for_each_preorder([&](Bubble& bubble) {
+            // cut root to be consistent with superbubbles()
+            if (bubble.start != bubble_tree.root->bubble.start ||
+                bubble.end != bubble_tree.root->bubble.end) {
+                vector<id_t> nodes = bubble.contents;
+                // include endpoints to be consistent with superbubbles()
+                nodes.push_back(bubble.start.node);
+                nodes.push_back(bubble.end.node);
+                // keep sorted by id to be consistent with superbubbles()
+                sort(nodes.begin(), nodes.end());
+                NodeTraversal start(graph.get_node(bubble.start.node), bubble.start.is_end);
+                NodeTraversal end(graph.get_node(bubble.end.node), !bubble.start.is_end);
+                to_return[minmax(start, end)] = nodes;
+            }
+        });
+
+    return to_return;
+}
+
 vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
     // We're going to emit traversals supported by any paths in the graph.
     

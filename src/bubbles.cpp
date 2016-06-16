@@ -267,8 +267,8 @@ BubbleTree cactusbubble_tree(VG& graph) {
                     out_node->children.push_back(new_node);
 
                     // This recursive explores the cycles in the subgraph rooted at next_cactus_node.
-                    new_node->bubble.start = side1->node;
-                    new_node->bubble.end = side2->node;
+                    new_node->bubble.start = NodeSide(side1->node, side1->is_end);
+                    new_node->bubble.end = NodeSide(side2->node, side1->is_end);
                     new_node->bubble.contents = cactus_recurse(stCactusEdgeEnd_getNode(cactus_edge_end2), new_node);
 
                     // Add all the edges in the super bubble to the total list of edges
@@ -291,8 +291,8 @@ BubbleTree cactusbubble_tree(VG& graph) {
 
     // compute root as special case (todo: smarten up)
     //  these were used for source/sink in compute_side_components() above
-    out_tree.root->bubble.start = graph.min_node_id(); 
-    out_tree.root->bubble.end = graph.max_node_id();
+    out_tree.root->bubble.start = NodeSide(graph.min_node_id(), true); 
+    out_tree.root->bubble.end = NodeSide(graph.max_node_id(), false);
     //  just run the tree to get all visited nodes (in case numbering not 1-N)
     set<id_t> visit_set;
     out_tree.for_each_preorder([&](Bubble& bubble) {
@@ -318,16 +318,15 @@ map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
             if (bubble.start != bubble_tree.root->bubble.start ||
                 bubble.end != bubble_tree.root->bubble.end) {
                 vector<id_t> nodes = bubble.contents;
-                nodes.push_back(bubble.start);
-                nodes.push_back(bubble.end);
+                nodes.push_back(bubble.start.node);
+                nodes.push_back(bubble.end.node);
                 sort(nodes.begin(), nodes.end());
-                output[minmax(bubble.start, bubble.end)] = nodes;
+                output[minmax(bubble.start.node, bubble.end.node)] = nodes;
             }
         });
 
     return output;
 }
-
     
 
 }

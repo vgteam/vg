@@ -96,6 +96,13 @@ public:
      * to the list of node IDs involved.
      */
     map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> find_sites(VG& graph);
+
+    /** 
+     * Same as find_sites but use Cactus instead of Superbubbles.
+     * This is more general and doesn't require DAGifcation etc., but we keep
+     * both versions around for now for debugging and comparison
+     */
+    map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> find_sites_with_cactus(VG& graph);
     
     /**
      * For the superbubble/site between start and end in the given orientations,

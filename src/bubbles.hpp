@@ -6,6 +6,8 @@
 #include <map>
 
 #include "types.hpp"
+#include "nodeside.hpp"
+
 #include "DetectSuperBubble.hpp"
 extern "C" {
     typedef struct _stCactusGraph stCactusGraph;
@@ -38,8 +40,8 @@ map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph);
 // and superbubbles in general
 
 struct Bubble {
-    id_t start;
-    id_t end;
+    NodeSide start;
+    NodeSide end;
     vector<id_t> contents;
 };
 
@@ -74,6 +76,7 @@ BubbleTree cactusbubble_tree(VG& graph);
 // Enumerate Cactus bubbles.  Interface (and output on DAGs)
 // identical to superbubbles()
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph);
+
 
 }
 
