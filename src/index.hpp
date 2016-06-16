@@ -115,6 +115,7 @@ public:
     bool bulk_load;
     bool mem_env;
     size_t block_cache_size;
+    mt19937 rng;
 
     void load_graph(VG& graph);
     void dump(std::ostream& out);

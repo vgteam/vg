@@ -1,6 +1,7 @@
 #ifndef DECON_HPP
 #define DECON_HPP
 #include <vector>
+#include <set>
 #include <array>
 #include <list>
 #include <string>
@@ -50,19 +51,22 @@ namespace vg{
             Deconstructor();
             Deconstructor(VG* graph);
             ~Deconstructor();
+            void set_xg(xg::XG* xindex);
             void unroll_my_vg(int steps);
             void dagify_my_vg(int steps);
             vg::VG* compact(int compact_steps);
             bool is_nested(SuperBubble sb);
             bool contains_nested(pair<int64_t, int64_t> start_and_end);
             SuperBubble report_superbubble(int64_t start, int64_t end);
-            vector<SuperBubble> get_all_superbubbles();
-            void sb2vcf(vector<SuperBubble> sbs, string outfile);
+            map<pair<id_t, id_t>, vector<id_t> > get_all_superbubbles();
+            void sb2vcf( string outfile);
             
 
         private:
 
 		  VG* my_vg;
+          xg::XG* my_xg;
+          map<pair<id_t, id_t>, vector<id_t> > my_sbs;
           map<id_t, pair<id_t, bool> > my_translation;
           map<id_t, pair<id_t, bool> > my_unroll_translation;
           map<id_t, pair<id_t, bool> > my_dagify_translation;

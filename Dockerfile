@@ -16,6 +16,8 @@ RUN \
     apt-get update && \
     apt-get install -y \
         build-essential \
+        gcc4.9 \
+        g++4.9 \
         pkg-config \
         jq/trusty-backports \
         sudo && \

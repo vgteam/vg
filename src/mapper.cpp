@@ -1,3 +1,4 @@
+#include <unordered_set>
 #include "mapper.hpp"
 
 namespace vg {
@@ -32,16 +33,16 @@ Mapper::Mapper(Index* idex,
     , max_mem_length(0)
     , min_mem_length(0)
     , max_target_factor(128)
-    , match(1)
-    , mismatch(4)
-    , gap_open(6)
-    , gap_extend(1)
     , max_query_graph_ratio(128)
-    , promote_consistent_pairs(false)
+    , report_consistent_pairs(false)
     , extra_pairing_multimaps(4)
     , always_rescue(false)
+    , fragment_size(0)
+    , mapping_quality_method(Approx)
+    , adjust_alignments_for_base_quality(false)
+    , aligner(nullptr)
 {
-    // Nothing to do. We just hold the default parameter values.
+    init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
 }
 
 Mapper::Mapper(Index* idex, gcsa::GCSA* g, gcsa::LCPArray* a) : Mapper(idex, nullptr, g, a)
@@ -80,7 +81,65 @@ Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr, nullptr) {
 }
 
 Mapper::~Mapper(void) {
-    // noop
+    if (aligner) {
+        delete aligner;
+    }
+}
+    
+double Mapper::estimate_gc_content() {
+    
+    uint64_t at = 0, gc = 0;
+    
+    if (gcsa) {
+        at = gcsa::Range::length(gcsa->find(string("A"))) + gcsa::Range::length(gcsa->find(string("T")));
+        gc = gcsa::Range::length(gcsa->find(string("G"))) + gcsa::Range::length(gcsa->find(string("C")));
+    }
+    else if (index) {
+        at = index->approx_size_of_kmer_matches("A") + index->approx_size_of_kmer_matches("T");
+        gc = index->approx_size_of_kmer_matches("G") + index->approx_size_of_kmer_matches("C");
+    }
+
+    if (at == 0 || gc == 0) {
+        return default_gc_content;
+    }
+    
+    return ((double) gc) / (at + gc);
+}
+
+    
+void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
+    // hacky, find max score so that scaling doesn't change score
+    int32_t max_score = match;
+    if (mismatch > max_score) max_score = mismatch;
+    if (gap_open > max_score) max_score = gap_open;
+    if (gap_extend > max_score) max_score = gap_extend;
+    
+    double gc_content = estimate_gc_content();
+    
+    aligner = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
+                                          255, gc_content);
+}
+    
+    
+void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
+    if (aligner) {
+        if (match == aligner->match && mismatch == aligner->mismatch &&
+            gap_open == aligner->gap_open && gap_extend == aligner->gap_extension) {
+            return;
+        }
+        delete aligner;
+    }
+    
+    init_aligner(match, mismatch, gap_open, gap_extend);
+}
+    
+Alignment Mapper::align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio) {
+    if (adjust_alignments_for_base_quality) {
+        return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
+    }
+    else  {
+        return vg.align(aln, *aligner, max_query_graph_ratio);
+    }
 }
 
 Alignment Mapper::align(const string& seq, int kmer_size, int stride, int band_width) {
@@ -154,78 +213,79 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     read2.clear_path();
     read2.set_score(0);
 
-    read2 = graph->align(read2, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+    read2 = align_to_graph(read2, *graph, max_query_graph_ratio);
     delete graph;
 }
 
-bool Mapper::alignments_consistent(const Alignment& aln1, const Alignment& aln2, int pair_window) {
-    // Simple first hack: alignments are consistent if any of their node IDs are within pair_window of each other.
-    
-    // TODO: Do an actual neighborhood extension with the index instead to try and find touching neighborhoods
-    
-    // TODO: really we should do a proper graph walk.
+map<string, double> Mapper::alignments_mean_path_positions(const Alignment& aln) {
+    map<string, double> mean_pos;
+    // Alignments are consistent if their median node id positions are within the fragment_size
     
     // We need the sets of nodes visited by each alignment
-    set<id_t> ids1;
-    set<id_t> ids2;
+    set<id_t> ids;
     
-    for(size_t i = 0; i < aln1.path().mapping_size(); i++) {
+    for(size_t i = 0; i < aln.path().mapping_size(); i++) {
         // Collect all the unique nodes visited by the first algnment
-        ids1.insert(aln1.path().mapping(i).position().node_id());
+        ids.insert(aln.path().mapping(i).position().node_id());
     }
-    
-    for(size_t i = 0; i < aln2.path().mapping_size(); i++) {
-        // Collect all the unique nodes visited by the second algnment
-        ids2.insert(aln2.path().mapping(i).position().node_id());
-    }
-    
-    for(auto id : ids2) {
-        // For every node that the second alignment visited
-        
-        // Find the smallest node visited by the other alignment that isn't less
-        // than this one.
-        auto nearest_above = ids1.lower_bound(id);
-        
-        if(nearest_above != ids1.end()) {
-            // There is such a node
-            if(*nearest_above - id <= pair_window) {
-                // And it's in the window! We're consistent!
-                return true;
+    //map<string, vector<size_t> > node_positions_in_paths(int64_t id) const;
+    map<string, map<int, vector<id_t> > > node_positions;
+    for(auto id : ids) {
+        //map<string, vector<size_t> >
+        for (auto& ref : xindex->node_positions_in_paths(id)) {
+            auto& name = ref.first;
+            for (auto pos : ref.second) {
+                node_positions[name][pos].push_back(id);
             }
         }
-        
-        if(nearest_above != ids1.begin()) {
-            // There's a node ID smaller than this one that might be closer.
-            auto& nearest_below = --nearest_above;
-            
-            if(id - *nearest_below <= pair_window) {
-                // And it's in the window! We're consistent!
-                return true;
+    }
+    // get median mapping positions
+    int idscount = 0;
+    double idssum = 0;
+    for (auto& ref : node_positions) {
+        for (auto& p : ref.second) {
+            for (auto& n : p.second) {
+                auto pos = p.first + get_node_length(n)/2;
+                if (ids.count(n)) {
+                    idscount++;
+                    idssum += pos;
+                }
             }
         }
-        
+        mean_pos[ref.first] = idssum/idscount;
     }
-    
-    // We couldn't find any nodes sufficiently close in ID space.
-    return false;
-    
-    
+    return mean_pos;
 }
 
-pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
-    const Alignment& read1, const Alignment& read2, int kmer_size, int stride, int band_width, int pair_window) {
-
-    // use paired-end resolution techniques
-    //
-    // map both reads independently, fetching some extra lower-score alignments
-    // put them all in lists, try and find the best consistent pair
-    // put that first, sort the rest by score, trim to requested number of multi-mappings, and return
+bool Mapper::alignments_consistent(const map<string, double>& pos1,
+                                   const map<string, double>& pos2,
+                                   int fragment_size_bound) {
+    set<string> comm_refs;
+    for (auto& p : pos1) {
+        auto& name = p.first;
+        if (pos2.find(name) != pos2.end()) {
+            comm_refs.insert(name);
+        }
+    }
+    // Alignments are consistent if their median node id positions are within the fragment_size
     
-    // problem: need to develop model of pair orientations
-    // solution: collect a buffer of alignments and then align them using unpaired approach
-    //           detect read orientation and mean (and sd) of pair distance
+    // get median mapping positions
+    for (auto& ref : comm_refs) {
+        // this is unsafe looking, but we know they have the same keys for these values
+        auto mean1 = pos1.find(ref)->second;
+        auto mean2 = pos2.find(ref)->second;
+        if (abs(mean1 - mean2) < fragment_size_bound) {
+            return true;
+        }
+    }
+    return false;
+}            
 
-    // TODO: what we *really* should be doing is using paired MEM seeding, so we
+pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
+    const Alignment& read1, const Alignment& read2,
+    int kmer_size, int stride, int band_width, int pair_window) {
+
+    // what we *really* should be doing is using paired MEM seeding, so we
     // don't have to make loads of full alignments of each read to search for
     // good pairs.
     
@@ -235,16 +295,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // Make an alignment to align in the same local orientation as the read
         Alignment aln_same = mate;
         // And one to align in the opposite local orientation
-        Alignment aln_opposite = mate;
-
+        // Always reverse the opposite direction sequence
+        Alignment aln_opposite = reverse_complement_alignment(mate, [&](id_t id) {return get_node_length(id);});
+        
         // We can't rescue off an unmapped read
         assert(read.has_path() && read.path().mapping_size() > 0);
-
-        // Always reverse the opposite direction sequence
-        aln_opposite.set_sequence(reverse_complement(aln_opposite.sequence()));
-        
-        // TODO: when we have quality-dependent alignment, reverse the qualities
-        // too.
 
         // Do both the alignments
         align_mate_in_window(read, aln_same, pair_window);
@@ -263,31 +318,51 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     };
     
+    // find the MEMs for the alignments
+    vector<MaximalExactMatch> mems1 = find_smems(read1.sequence());
+    for (auto& mem : mems1) { get_mem_hits_if_under_max(mem); }
+    vector<MaximalExactMatch> mems2 = find_smems(read2.sequence());
+    for (auto& mem : mems2) { get_mem_hits_if_under_max(mem); }
+    //cerr << "mems before " << mems1.size() << " " << mems2.size() << endl;
     // Do the initial alignments, making sure to get some extras if we're going to check consistency.
-    vector<Alignment> alignments1 = align_multi(read1, kmer_size, stride, band_width,
-        max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
-    vector<Alignment> alignments2 = align_multi(read2, kmer_size, stride, band_width,
-        max_multimaps + promote_consistent_pairs * extra_pairing_multimaps);
+
+    vector<MaximalExactMatch> pairable_mems1, pairable_mems2;
+    vector<MaximalExactMatch>* pairable_mems_ptr_1 = nullptr;
+    vector<MaximalExactMatch>* pairable_mems_ptr_2 = nullptr;
+
+    // find the MEMs for the alignments
+    if (report_consistent_pairs) {
+        vector<MaximalExactMatch> mems1 = find_smems(read1.sequence());
+        for (auto& mem : mems1) { get_mem_hits_if_under_max(mem); }
+        vector<MaximalExactMatch> mems2 = find_smems(read2.sequence());
+        for (auto& mem : mems2) { get_mem_hits_if_under_max(mem); }
+        
+        // use pair resolution filterings on the SMEMs to constrain the candidates
+        if (fragment_size) {
+            set<MaximalExactMatch*> pairable_mems = resolve_paired_mems(mems1, mems2);
+            for (auto& mem : mems1) if (pairable_mems.count(&mem)) pairable_mems1.push_back(mem);
+            for (auto& mem : mems2) if (pairable_mems.count(&mem)) pairable_mems2.push_back(mem);
+        } else {
+            pairable_mems1 = mems1;
+            pairable_mems2 = mems2;
+        }
+        pairable_mems_ptr_1 = &pairable_mems1;
+        pairable_mems_ptr_2 = &pairable_mems2;
+    }
     
+    //cerr << pairable_mems1.size() << " and " << pairable_mems2.size() << endl;
+
+    // use MEM alignment on the MEMs matching our constraints
+    vector<Alignment> alignments1 = align_multi_internal(!report_consistent_pairs, read1, kmer_size, stride, band_width,
+                                                         report_consistent_pairs * extra_pairing_multimaps, pairable_mems_ptr_1);
+    vector<Alignment> alignments2 = align_multi_internal(!report_consistent_pairs, read2, kmer_size, stride, band_width,
+                                                         report_consistent_pairs * extra_pairing_multimaps, pairable_mems_ptr_2);
+
     size_t best_score1 = 0;
-    for(auto& aligned : alignments1) {
-        // Go through all the read 1 alignments
-        if(aligned.score() > best_score1 && aligned.has_path() && aligned.path().mapping_size() > 0) {
-            // Find the top score among alignments that aren't unaligned.
-            best_score1 = aligned.score();
-        }
-    }
-    
     size_t best_score2 = 0;
-    for(auto& aligned : alignments2) {
-        // Go through all the read 2 alignments
-        if(aligned.score() > best_score2 && aligned.has_path() && aligned.path().mapping_size() > 0) {
-            // Find the top score among alignments that aren't unaligned.
-            best_score2 = aligned.score();
-        }
-    }
-    
     // A nonzero best score means we have any valid alignments of that read.
+    for (auto& aln : alignments1) best_score1 = max(best_score1, (size_t)aln.score());
+    for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
     
     // Rescue only if the top alignment on one side has no mappings
     if(best_score1 == 0 && best_score2 != 0) {
@@ -356,64 +431,92 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
         alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
     }
-    
-    // Find the consistent pair with highest total score and promote to primary.
-    // We can do this by going down each list.
-    int best_score = 0;
-    vector<Alignment>::iterator best1;
-    vector<Alignment>::iterator best2;
-    if(promote_consistent_pairs) {
-        for(auto aln1 = alignments1.begin(); aln1 != alignments1.end(); ++aln1) {
-            for(auto aln2 = alignments2.begin(); aln2 != alignments2.end(); ++aln2) {
-                // TODO: this is quadradic in number of alignments looked at. Is there a better way?
-                int pair_score = (*aln1).score() + (*aln2).score();
-                if(pair_score > best_score && alignments_consistent(*aln1, *aln2, pair_window)) {
-                    // This is the new best consistent pair
-                    best_score = pair_score;
-                    best1 = aln1;
-                    best2 = aln2;
-                }
-            } 
+
+    map<Alignment*, map<string, double> > aln_pos;
+    if (fragment_size) {
+        for (auto& aln : alignments1) {
+            aln_pos[&aln] = alignments_mean_path_positions(aln);
+        }
+        for (auto& aln : alignments2) {
+            aln_pos[&aln] = alignments_mean_path_positions(aln);
         }
     }
+
+    // There is a best consistent pair.
+    // Swap the best alignments first.
+    // We know we have at least one alignment on each side.
     
-    if(best_score > 0) {
-        // There is a best consistent pair.
-        // Swap the best alignments first.
-        // We know we have at least one alignment on each side.
+    // TODO: do I actually want to rescue a pair with no CONSISTENT mappings? otherwise pairs might get knocked down later and
+    // then I still return nothing
+    
+    if (report_consistent_pairs) {
+        // compare pairs by the sum of their individual scores
+        struct ComparePairedAlignmentScores {
+            vector<Alignment>& alns_1;
+            vector<Alignment>& alns_2;
+            
+        public:
+            ComparePairedAlignmentScores(vector<Alignment>& alns_1, vector<Alignment>& alns_2) : alns_1(alns_1), alns_2(alns_2) {}
+            bool operator()(const pair<int, int> idxs1, const pair<int, int> idxs2) {
+                return (alns_1[idxs1.first].score() + alns_2[idxs1.second].score()
+                            < alns_1[idxs2.first].score() + alns_2[idxs2.second].score());
+            }
+        };
         
-        iter_swap(best1, alignments1.begin());
-        iter_swap(best2, alignments2.begin());
+        ComparePairedAlignmentScores compare_paired_alignment_scores = ComparePairedAlignmentScores(alignments1, alignments2);
         
-        if(debug) cerr << "Found consistent pair" << endl;
-
-        // Truncate to max multimaps
-        if(alignments1.size() > max_multimaps) {
-            alignments1.resize(max_multimaps);
+        // think about the pairs being laid out on a grid over the individual end multimaps
+        // navigate from top left corner outward to add consistent pairs in decreasing score order
+        priority_queue<pair<int, int>, vector<pair<int, int>>, ComparePairedAlignmentScores> pair_queue(compare_paired_alignment_scores);
+        // keep track of which indices have been checked to avoid checking them twice when navigating from above and from the left
+        std::unordered_set<pair<int, int>> considered_pairs;
+        
+        pair<vector<Alignment>, vector<Alignment>> consistent_pairs;
+        // ensure that there is always an additional pair to compute a mapping quality against
+        int num_pairs = max_multimaps >= 2 ? max_multimaps : 2;
+        
+        pair_queue.push(make_pair(0, 0));
+        while (!pair_queue.empty() && consistent_pairs.first.size() < num_pairs) {
+            // get index of remaining pair with highest combined score
+            pair<int, int> aln_pair = pair_queue.top();
+            pair_queue.pop();
+            
+            if (alignments_consistent(aln_pos[&alignments1[aln_pair.first]], aln_pos[&alignments2[aln_pair.second]], fragment_size)) {
+                consistent_pairs.first.push_back(alignments1[aln_pair.first]);
+                consistent_pairs.second.push_back(alignments2[aln_pair.second]);
+            }
+            
+            // add in the two adjacent indices if we haven't already
+            pair<int,int> next_aln_pair_down = make_pair(aln_pair.first + 1, aln_pair.second);
+            pair<int,int> next_aln_pair_right = make_pair(aln_pair.first, aln_pair.second + 1);
+            if (next_aln_pair_down.first < alignments1.size() && considered_pairs.find(next_aln_pair_down) == considered_pairs.end()) {
+                pair_queue.push(next_aln_pair_down);
+                considered_pairs.insert(next_aln_pair_down);
+            }
+            if (next_aln_pair_right.second < alignments2.size() && considered_pairs.find(next_aln_pair_right) == considered_pairs.end()) {
+                pair_queue.push(next_aln_pair_right);
+                considered_pairs.insert(next_aln_pair_right);
+            }
         }
-        if(alignments2.size() > max_multimaps) {
-            alignments2.resize(max_multimaps);
-        }
 
-        // Sort the secondary alignments by score, descending
-        sort(alignments1.begin() + 1, alignments1.end(), [](const Alignment& a, const Alignment& b) {
-            return a.score() > b.score();
-        });
-        sort(alignments2.begin() + 1, alignments2.end(), [](const Alignment& a, const Alignment& b) {
-            return a.score() > b.score();
-        });
-
-    } else {
-        // We could not find any consistent pairs
-        if(debug) cerr << "Could not find any consistent pairs" << endl;
-
-        // Truncate to max multimaps
-        if(alignments1.size() > max_multimaps) {
-            alignments1.resize(max_multimaps);
+        compute_mapping_qualities(consistent_pairs);
+        
+        // remove the extra pair used to compute mapping quality if necessary
+        if (consistent_pairs.first.size() > max_multimaps) {
+            consistent_pairs.first.resize(max_multimaps);
+            consistent_pairs.second.resize(max_multimaps);
         }
-        if(alignments2.size() > max_multimaps) {
-            alignments2.resize(max_multimaps);
+        
+        // mark primary and secondary
+        for (int i = 0; i < consistent_pairs.first.size(); i++) {
+            consistent_pairs.first[i].mutable_fragment_next()->set_name(read2.name());
+            consistent_pairs.first[i].set_is_secondary(i > 0);
+            consistent_pairs.second[i].mutable_fragment_prev()->set_name(read1.name());
+            consistent_pairs.second[i].set_is_secondary(i > 0);
         }
+        return consistent_pairs;
+    }
+    else {
 
         // Sort all the alignments by score, descending
         sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
@@ -423,25 +526,27 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             return a.score() > b.score();
         });
 
+        // Truncate to max multimaps
+        if(alignments1.size() > max_multimaps) {
+            alignments1.resize(max_multimaps);
+        }
+        if(alignments2.size() > max_multimaps) {
+            alignments2.resize(max_multimaps);
+        }
+
+        // mark primary and secondary
+        for (int i = 0; i < alignments1.size(); i++) {
+            alignments1[i].mutable_fragment_next()->set_name(read2.name());
+            alignments1[i].set_is_secondary(i > 0);
+        }
+        for (int i = 0; i < alignments2.size(); i++) {
+            alignments2[i].mutable_fragment_prev()->set_name(read1.name());
+            alignments2[i].set_is_secondary(i > 0);
+        }
+        
+        return  make_pair(alignments1, alignments2);
     }
 
-    // link the fragments and set primary/secondary
-    for(size_t i = 0; i < alignments1.size(); i++) {
-        alignments1[i].mutable_fragment_next()->set_name(read2.name());
-        alignments1[i].set_is_secondary(i > 0);
-    }
-    for(size_t i = 0; i < alignments2.size(); i++) {
-        alignments2[i].mutable_fragment_prev()->set_name(read1.name());
-        alignments2[i].set_is_secondary(i > 0);
-    }
-
-    // TODO: pathfind between alignments?
-
-
-    // TODO
-    // mark them as discordant if there is an issue?
-    // this needs to be detected with care using statistics built up from a bunch of reads
-    return make_pair(alignments1, alignments2);
 }
 
 pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Alignment& read2, int kmer_size, int stride,
@@ -473,6 +578,106 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Al
 
     // Stick the alignments together
     return make_pair(aln1, aln2);
+}
+
+set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
+                                                    vector<MaximalExactMatch>& mems2) {
+    // find the MEMs that are within estimated_fragment_size of each other
+
+    set<MaximalExactMatch*> pairable;
+
+    // do a wide clustering and then do all pairs within each cluster
+    // we will use these to determine the alignment strand
+    //map<id_t, StrandCounts> node_strands;
+    // records a mapping of id->MEMs, for cluster ranking
+    map<id_t, vector<MaximalExactMatch*> > id_to_mems;
+    // for clustering
+    set<id_t> ids1, ids2;
+    vector<id_t> ids;
+
+    // run through the mems
+    for (auto& mem : mems1) {
+        size_t len = mem.begin - mem.end;
+        for (auto& node : mem.nodes) {
+            id_t id = gcsa::Node::id(node);
+            id_to_mems[id].push_back(&mem);
+            ids1.insert(id);
+            ids.push_back(id);
+        }
+    }
+    for (auto& mem : mems2) {
+        size_t len = mem.begin - mem.end;
+        for (auto& node : mem.nodes) {
+            id_t id = gcsa::Node::id(node);
+            id_to_mems[id].push_back(&mem);
+            ids2.insert(id);
+            ids.push_back(id);
+        }
+    }
+    // remove duplicates
+    //std::sort(ids.begin(), ids.end());
+    //ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+
+    // get each hit's path-relative position
+    map<string, map<int, vector<id_t> > > node_positions;
+    for (auto& id : ids) {
+        //map<string, vector<size_t> >
+        for (auto& ref : xindex->node_positions_in_paths(id)) {
+            auto& name = ref.first;
+            for (auto pos : ref.second) {
+                node_positions[name][pos].push_back(id);
+            }
+        }
+    }
+
+    vector<vector<id_t> > clusters;
+    for (auto& g : node_positions) {
+        //if (g.second.empty()) continue; // should be impossible
+        //cerr << g.first << endl;
+        clusters.emplace_back();
+        int prev = -1;
+        for (auto& x : g.second) {
+            auto cluster = &clusters.back();
+            //auto& prev = clusters.back().back();
+            auto curr = x.first;
+            //cerr << "p/c " << prev << " " << curr << endl;
+            if (prev == -1) {
+            } else if (curr - prev <= fragment_size) {
+                // in cluster
+                //cerr << "in cluster" << endl;
+            } else {
+                clusters.emplace_back();
+                cluster = &clusters.back();
+            }
+            //cerr << " " << x.first << endl;
+            for (auto& y : x.second) {
+                //cerr << "  " << y << endl;
+                cluster->push_back(y);
+            }
+            prev = curr;
+        }
+    }
+
+    for (auto& cluster : clusters) {
+        // for each pair of ids in the cluster
+        // which are not from the same read
+        // estimate the distance between them
+        // we're roughly in the expected range
+        bool has_first = false;
+        bool has_second = false;
+        for (auto& id : cluster) {
+            has_first |= ids1.count(id);
+            has_second |= ids2.count(id);
+        }
+        if (!has_first || !has_second) continue;
+        for (auto& id : cluster) {
+            for (auto& memptr : id_to_mems[id]) {
+                pairable.insert(memptr);
+            }
+        }
+    }
+
+    return pairable;
 }
 
 // We need a function to get the lengths of nodes, in case we need to
@@ -613,7 +818,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     for (int i = 0; i < bands.size(); ++i) {
         if (max_multimaps > 1) {
             vector<Alignment>& malns = multi_alns[i];
-            malns = align_multi(bands[i], kmer_size, stride);
+            malns = align_multi_internal(false, bands[i], kmer_size, stride, band_width, 0, nullptr);
             // always include an unaligned mapping
             malns.push_back(bands[i]);
             for (vector<Alignment>::iterator a = malns.begin(); a != malns.end(); ++a) {
@@ -827,33 +1032,158 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     return graph.adjacent(pos1, pos2);
 }
 
-vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width, int multimaps) {
-    // trigger a banded alignment if we need to
-    // note that this will in turn call align_multi on fragments of the read
-    if (aln.sequence().size() > band_width) {
-        if (debug) cerr << "switching to banded alignment" << endl;
-        return vector<Alignment>{align_banded(aln, kmer_size, stride, band_width)};
+void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
+    switch (mapping_quality_method) {
+        case Approx:
+            aligner->compute_mapping_quality(alns, true);
+            break;
+        case Exact:
+            aligner->compute_mapping_quality(alns, false);
+            break;
+        default: // None
+            break;
     }
-    if (kmer_size || index != nullptr) {
-        // if we've defined a kmer size, use the legacy style mapper
-        return align_multi_kmers(aln, kmer_size, stride, band_width, multimaps);
-    } else {
-        // otherwise use the mem mapper, which is a banded multi mapper by default
-        return align_mem(aln, multimaps);
+}
+    
+void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns) {
+    switch (mapping_quality_method) {
+        case Approx:
+            aligner->compute_paired_mapping_quality(pair_alns, true);
+            break;
+        case Exact:
+            aligner->compute_paired_mapping_quality(pair_alns, false);
+            break;
+        default: // None
+            break;
     }
 }
 
-vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size, int stride, int band_width, int multimaps) {
+vector<Alignment> Mapper::score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment) {
+    if (all_alns.size() == 0) {
+        all_alns.emplace_back();
+        Alignment& aln = all_alns.back();
+        aln = original_alignment;
+        aln.clear_path();
+        aln.set_score(0);
+        return all_alns;
+    }
+    
+    map<int, set<Alignment*> > alignment_by_score;
+    for (auto& ta : all_alns) {
+        Alignment* aln = &ta;
+        alignment_by_score[aln->score()].insert(aln);
+    }
+    // TODO: Filter down subject to a minimum score per base or something?
+    // Collect all the unique alignments (to compute mapping quality) and order by score
+    vector<Alignment> sorted_unique_alignments;
+    for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
+        // Copy over all the alignments in descending score order (following the pointers into the "alignments" vector)
+        // Iterating through a set keyed on ints backward is in descending order.
+        
+        // This is going to let us deduplicate our alignments with this score, by storing them serialized to strings in this set.
+        set<string> serializedAlignmentsUsed;
+        
+        for(Alignment* pointer : (*it).second) {
+            // We serialize the alignment to a string
+            string serialized;
+            pointer->SerializeToString(&serialized);
+            
+            if(!serializedAlignmentsUsed.count(serialized)) {
+                // This alignment hasn't been produced yet. Produce it. The
+                // order in the alignment vector doesn't matter for things with
+                // the same score.
+                sorted_unique_alignments.push_back(*pointer);
+                
+                // Save it so we can avoid putting it in the vector again
+                serializedAlignmentsUsed.insert(serialized);
+            }
+        }
+    }
+    return sorted_unique_alignments;
+}
+    
+// filters down to requested number of alignments and marks
+void Mapper::filter_and_process_multimaps(vector<Alignment>& sorted_unique_alignments, int additional_multimaps) {
+    int total_multimaps = max_multimaps + additional_multimaps;
+    if (sorted_unique_alignments.size() > total_multimaps){
+        sorted_unique_alignments.resize(total_multimaps);
+    }
+    
+    // TODO log best alignment score?
+    for(size_t i = 0; i < sorted_unique_alignments.size(); i++) {
+        // Mark all but the first, best alignment as secondary
+        sorted_unique_alignments[i].set_is_secondary(i > 0);
+    }
+}
+    
+vector<Alignment> Mapper::align_multi(const Alignment& aln, int kmer_size, int stride, int band_width) {
+    return align_multi_internal(true, aln, kmer_size, stride, band_width, 0, nullptr);
+}
+    
+vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, const Alignment& aln, int kmer_size, int stride,
+                                               int band_width, int additional_multimaps,
+                                               vector<MaximalExactMatch>* restricted_mems) {
+    
+    // trigger a banded alignment if we need to
+    // note that this will in turn call align_multi_internal on fragments of the read
+    if (aln.sequence().size() > band_width) {
+        // TODO: banded alignment currently doesn't support mapping qualities because it only produces one alignment
+        if (debug) cerr << "switching to banded alignment" << endl;
+        return vector<Alignment>{align_banded(aln, kmer_size, stride, band_width)};
+    }
+    
+    // try to get at least 2 multimaps so that we can calculate mapping quality
+    int additional_multimaps_for_quality;
+    if (additional_multimaps == 0 && max_multimaps == 1 && mapping_quality_method != None) {
+        additional_multimaps_for_quality = 1;
+    }
+    else {
+        additional_multimaps_for_quality = additional_multimaps;
+    }
+    
+    vector<Alignment> alignments;
+    if (kmer_size || xindex == nullptr) {
+        // if we've defined a kmer size, use the legacy style mapper
+        alignments = align_multi_kmers(aln, kmer_size, stride, band_width);
+    }
+    else {
+        // otherwise use the mem mapper, which is a banded multi mapper by default
+        
+        // use pre-restricted mems for paired mapping or find mems here
+        if (restricted_mems) {
+            // mem hits will already have been queried
+            alignments = align_mem_multi(aln, *restricted_mems, additional_multimaps_for_quality);
+        }
+        else {
+            vector<MaximalExactMatch> mems = find_smems(aln.sequence());
+            
+            // query mem hits
+            if (debug) cerr << "mems before filtering " << mems_to_json(mems) << endl;
+            for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
+            if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
+            
+            alignments = align_mem_multi(aln, mems, additional_multimaps_for_quality);
+        }
+    }
+    
+    alignments = score_sort_and_deduplicate_alignments(alignments, aln);
+    
+    // compute mapping quality before removing extra alignments
+    if (compute_unpaired_quality) {
+        compute_mapping_qualities(alignments);
+    }
+    
+    filter_and_process_multimaps(alignments, additional_multimaps);
+    
+    return alignments;
+}
+
+vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size, int stride, int band_width) {
 
     std::chrono::time_point<std::chrono::system_clock> start_both, end_both;
     if (debug) start_both = std::chrono::system_clock::now();
     const string& sequence = aln.sequence();
     
-    if(multimaps == 0) {
-        // Fill in real default multimap limit
-        multimaps = max_multimaps;
-    }
-
     // we assume a kmer size to be specified
     if (!kmer_size && !kmer_sizes.empty()) {
         // basically assumes one kmer size
@@ -870,7 +1200,7 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
 
     if (debug) cerr << "aligning " << aln.sequence() << endl;
 
-    // This will hold the best forward alignment (or an alignment with no apth and 0 score if no alignment is found).
+    // This will hold the best forward alignment (or an alignment with no path and 0 score if no alignment is found).
     Alignment best_f = aln;
 
     // This will hold all of the forward alignments up to max_multimaps
@@ -957,50 +1287,56 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
         std::chrono::duration<double> elapsed_seconds = end_both-start_both;
         cerr << elapsed_seconds.count() << "\t" << "b" << "\t" << sequence << endl;
     }
-
-    // Do a merge of the alignments up to the max limit
+    
+    // merge return all alignments found, don't bother sorting here
     vector<Alignment> merged;
-    // What alignments are we looking at next in out in-order merge?
-    size_t next_f = 0;
-    size_t next_r = 0;
-
-    // TODO: Apply a minimum score threshold?
-    while(merged.size() < multimaps) {
-        if(next_f < alignments_f.size()) {
-            // We have an available forward alignment
-            if(next_r < alignments_r.size()) {
-                // We also have an available reverse alignment
-                if(alignments_f[next_f].score() >= alignments_r[next_r].score()) {
-                    // Take the forward alignment if it has a greater or equal score.
-                    // TODO: this introduces a slight strand bias
-                    merged.push_back(alignments_f[next_f]);
-                    next_f++;
-                } else {
-                    // The reverse alignment is better
-                    merged.push_back(alignments_r[next_r]);
-                    next_r++;
-                }
-            } else {
-                // Just take the forward alignments, since they are the only ones left
-                merged.push_back(alignments_f[next_f]);
-                next_f++;
-            }
-        } else if(next_r < alignments_r.size()) {
-            // Just take the reverse alignments, since they are the only ones left
-            merged.push_back(alignments_r[next_r]);
-            next_r++;
-        } else {
-            // No alignments left, oh no!
-            break;
-        }
+    merged.reserve(alignments_f.size() + alignments_r.size());
+    for (int i = 0; i < alignments_f.size(); i++) {
+        merged.push_back(alignments_f[i]);
     }
-
-    // Set all but the first alignment secondary.
-    for(size_t i = 1; i < merged.size(); i++) {
-        merged[i].set_is_secondary(true);
+    for (int i = 0; i < alignments_r.size(); i++) {
+        merged.push_back(alignments_r[i]);
     }
-		//TODO So merged contains qualities up to this point.
-		// but once it returns to main_map, there will be no qualities...
+    
+//    // What alignments are we looking at next in out in-order merge?
+//    size_t next_f = 0;
+//    size_t next_r = 0;
+//
+//    // TODO: Apply a minimum score threshold?
+//    while(merged.size() < multimaps) {
+//        if(next_f < alignments_f.size()) {
+//            // We have an available forward alignment
+//            if(next_r < alignments_r.size()) {
+//                // We also have an available reverse alignment
+//                if(alignments_f[next_f].score() >= alignments_r[next_r].score()) {
+//                    // Take the forward alignment if it has a greater or equal score.
+//                    // TODO: this introduces a slight strand bias
+//                    merged.push_back(alignments_f[next_f]);
+//                    next_f++;
+//                } else {
+//                    // The reverse alignment is better
+//                    merged.push_back(alignments_r[next_r]);
+//                    next_r++;
+//                }
+//            } else {
+//                // Just take the forward alignments, since they are the only ones left
+//                merged.push_back(alignments_f[next_f]);
+//                next_f++;
+//            }
+//        } else if(next_r < alignments_r.size()) {
+//            // Just take the reverse alignments, since they are the only ones left
+//            merged.push_back(alignments_r[next_r]);
+//            next_r++;
+//        } else {
+//            // No alignments left, oh no!
+//            break;
+//        }
+//    }
+//
+//    // Set all but the first alignment secondary.
+//    for(size_t i = 1; i < merged.size(); i++) {
+//        merged[i].set_is_secondary(true);
+//    }
 
     // Return the merged list of good alignments. Does not bother updating the input alignment.
     return merged;
@@ -1009,6 +1345,8 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
 
 
 Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int band_width) {
+    // TODO computing mapping quality could be inefficient depending on the method chosen
+    
     // Do the multi-mapping
     vector<Alignment> best = align_multi(aln, kmer_size, stride, band_width);
 
@@ -1020,7 +1358,7 @@ Alignment Mapper::align(const Alignment& aln, int kmer_size, int stride, int ban
         return failed;
     }
 
-    // Otherwise, just repoirt the best alignment, since we know one exists
+    // Otherwise, just report the best alignment, since we know one exists
     return best[0];
 }
 
@@ -1044,6 +1382,11 @@ set<pos_t> Mapper::sequence_positions(const string& seq) {
 // Use the GCSA2 index to find super-maximal exact matches.
 vector<MaximalExactMatch>
 Mapper::find_smems(const string& seq) {
+    
+    if (!gcsa || !xindex) {
+        cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required to query MEMs" << endl;
+    }
+    
 
     string::const_iterator string_begin = seq.begin();
     string::const_iterator cursor = seq.end();
@@ -1056,7 +1399,7 @@ Mapper::find_smems(const string& seq) {
                               gcsa::range_type(0, gcsa->size() - 1)));
         return mems;
     }
-
+    
     // find MEMs using GCSA+LCP array
     // algorithm sketch:
     // set up a cursor pointing to the last position in the sequence
@@ -1320,7 +1663,7 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         edit->set_from_length(match_len);
         edit->set_to_length(match_len);
     }
-    aln.set_score(aln.sequence().size()*match);
+    aln.set_score(aln.sequence().size()*(aligner->match));
     return aln;
 }
 
@@ -1337,48 +1680,48 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
     return alns;
 }
 
-vector<Alignment> Mapper::align_mem(const Alignment& alignment, int multimaps) {
-
-    if (debug) cerr << "aligning " << pb2json(alignment) << endl;
-    if (!gcsa || !xindex) {
-        cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
-        exit(1);
-    }
-    
-    if(multimaps == 0) {
-        // Fill in real default multimap limit
-        multimaps = max_multimaps;
-    }
-
-    // use the GCSA index to determine the approximate MEMs of the read
-
-    // remove those mems which are shorter than our kmer_min (could use a new parameter)
-    // the short MEMs will have *many* hits, and we don't want to use them
-
-    // for the moment, we can just get the positions in all the mems
-    // but we may want to selectively use them
-    // such as by trying to use them as seeds in order from shortest to longest
-    vector<MaximalExactMatch> mems = find_smems(alignment.sequence());
-    if (debug) cerr << "mems before filling " << mems_to_json(mems) << endl;
-    for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
-    if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
-
-    return align_mem_multi(alignment, mems, multimaps);
-
-    /*
-    // TODO
-    if (max_multimaps > 1) {
-        // align once per subgraph hit we get, take the best alignment
-        // uses full-length alignment
-        return align_mem_multi(alignment, mems);
-    } else {
-        // aligns only the regions of the read which aren't in the MEMs
-        // stitching together the results using the resolve_banded_multi function
-        // which presently only returns the optimal result
-        return { align_mem_optimal(alignment, mems) };
-    }
-    */
-}
+//vector<Alignment> Mapper::align_mem(const Alignment& alignment, int additional_multimaps) {
+//
+//    if (debug) cerr << "aligning " << pb2json(alignment) << endl;
+//    if (!gcsa || !xindex) {
+//        cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
+//        exit(1);
+//    }
+//    
+////    if(multimaps == 0) {
+////        // Fill in real default multimap limit
+////        multimaps = max_multimaps;
+////    }
+//
+//    // use the GCSA index to determine the approximate MEMs of the read
+//
+//    // remove those mems which are shorter than our kmer_min (could use a new parameter)
+//    // the short MEMs will have *many* hits, and we don't want to use them
+//
+//    // for the moment, we can just get the positions in all the mems
+//    // but we may want to selectively use them
+//    // such as by trying to use them as seeds in order from shortest to longest
+//    vector<MaximalExactMatch> mems = find_smems(alignment.sequence());
+//    if (debug) cerr << "mems before filling " << mems_to_json(mems) << endl;
+//    for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
+//    if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
+//
+//    return align_mem_multi(alignment, mems, additional_multimaps);
+//
+//    /*
+//    // TODO
+//    if (max_multimaps > 1) {
+//        // align once per subgraph hit we get, take the best alignment
+//        // uses full-length alignment
+//        return align_mem_multi(alignment, mems);
+//    } else {
+//        // aligns only the regions of the read which aren't in the MEMs
+//        // stitching together the results using the resolve_banded_multi function
+//        // which presently only returns the optimal result
+//        return { align_mem_optimal(alignment, mems) };
+//    }
+//    */
+//}
 
 bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
     bool filled = false;
@@ -1405,6 +1748,7 @@ bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
 // use dynamic programming to fix up the intermediate portions
 // and then thread back through with resolve_banded_multi
 // VERY VERY EXPERIMENTAL
+// TODO: this doesn't compute mapping qualities, make sure to add that if we finish this routine
 Alignment Mapper::align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems) {
     // run through the mems, generating a set of alignments for each
     vector<vector<Alignment> > alns;
@@ -1442,9 +1786,9 @@ Alignment Mapper::align_mem_optimal(const Alignment& alignment, vector<MaximalEx
 
                 Alignment gapaln; gapaln.set_sequence(gap.sequence());
                 vector<MaximalExactMatch> flanking_mems = { *last_exact_match, mem };
-                int max_mem_gap_multi_mappings = 10;
+                int max_additional_mem_gap_multi_mappings = 10 - max_multimaps;
                 // then trim them using the trim counts
-                auto malns = align_mem_multi(gapaln, flanking_mems, max_mem_gap_multi_mappings);
+                auto malns = align_mem_multi(gapaln, flanking_mems, max_additional_mem_gap_multi_mappings);
                 vector<Alignment> trimmed;
                 for (auto& aln : malns) {
                     //cerr << "aln " << pb2json(aln) << endl;
@@ -1470,12 +1814,20 @@ Alignment Mapper::align_mem_optimal(const Alignment& alignment, vector<MaximalEx
     return merged;
 }
 
-vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int max_multi) {
-
+vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
+    
+    if (debug) cerr << "aligning " << pb2json(alignment) << endl;
+    if (!gcsa || !xindex) {
+        cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
+        exit(1);
+    }
+    
     struct StrandCounts {
         uint32_t forward;
         uint32_t reverse;
     };
+    
+    int total_multimaps = max_multimaps + additional_multimaps;
 
     // we will use these to determine the alignment strand for each subgraph
     map<id_t, StrandCounts> node_strands;
@@ -1488,7 +1840,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     for (auto& mem : mems) {
         //if (debug) cerr << "on mem " << mem.sequence() << endl;
         size_t len = mem.begin - mem.end;
-        // collect ids and orienations of hits to them on the forward mem
+        // collect ids and orientations of hits to them on the forward mem
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
             id_to_mems[id].push_back(&mem);
@@ -1525,7 +1877,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         }
     }
 
-    // rank the clusters by the fraction of the read which they cover
+    // rank the clusters by the fraction of the read that they cover
     map<vector<id_t>*, int> cluster_query_coverage;
     std::for_each(clusters.begin(), clusters.end(),
                   [&cluster_query_coverage,
@@ -1579,9 +1931,9 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     auto aln_fw = alignment;
     aln_fw.clear_path();
     aln_fw.set_score(0);
-    auto aln_rc = aln_fw;
-    aln_rc.set_sequence(reverse_complement(aln_fw.sequence()));
-
+    auto aln_rc = reverse_complement_alignment(aln_fw, (function<int64_t(int64_t)>)
+                                               ([&](int64_t id) { return get_node_length(id); }));
+    
     int max_target_length = alignment.sequence().size() * max_target_factor;
 
     size_t attempts = 0;
@@ -1592,7 +1944,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         // record our attempt count
         ++attempts;
         // bail out if we've passed our maximum number of attempts
-        if (attempts > max(max_attempts, max_multimaps)) break;
+        if (attempts > max(max_attempts, total_multimaps)) break;
         if (debug) {
             cerr << "attempt " << attempts
                  << " on cluster " << cluster.front() << "-" << cluster.back() << endl;
@@ -1625,96 +1977,30 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
             });
         if (debug) cerr << "got " << fw_mems << " forward and " << rc_mems << " reverse mems" << endl;
         if (fw_mems) {
-            Alignment aln = sub.align(aln_fw, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+            Alignment aln = align_to_graph(aln_fw, sub, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(aln);
-            if (attempts >= max_multimaps &&
+            if (attempts >= total_multimaps &&
                 greedy_accept &&
                 aln.identity() >= accept_identity) {
                 break;
             }
         }
         if (rc_mems) {
-            Alignment aln = sub.align(aln_rc, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+            Alignment aln = align_to_graph(aln_rc, sub, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(reverse_complement_alignment(aln,
                                                         (function<int64_t(int64_t)>)
                                                         ([&](int64_t id) { return get_node_length(id); })));
-            if (attempts >= max_multimaps &&
+            if (attempts >= total_multimaps &&
                 greedy_accept &&
                 aln.identity() >= accept_identity) {
                 break;
             }
         }
     }
-
-    int sum_score = 0;
-    double mean_score = 0;
-    map<int, set<Alignment*> > alignment_by_score;
-    for (auto& ta : alns) {
-        Alignment* aln = &ta;
-        alignment_by_score[aln->score()].insert(aln);
-    }
-
-    // set the max multimap count from the mapper object if we haven't been given it
-    if (!max_multi) max_multi = max_multimaps;
-
-    // Collect all the good alignments
-    // TODO: Filter down subject to a minimum score per base or something?
-    vector<Alignment> good;
-    for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
-        // Copy over all the alignments in descending score order (following the pointers into the "alignments" vector)
-        // Iterating through a set keyed on ints backward is in descending order.
-
-        // This is going to let us deduplicate our alignments with this score, by storing them serialized to strings in this set.
-        set<string> serializedAlignmentsUsed;
-
-        for(Alignment* pointer : (*it).second) {
-            // We serialize the alignment to a string
-            string serialized;
-            pointer->SerializeToString(&serialized);
-
-            if(!serializedAlignmentsUsed.count(serialized)) {
-                // This alignment hasn't been produced yet. Produce it. The
-                // order in the alignment vector doesn't matter for things with
-                // the same score.
-                good.push_back(*pointer);
-
-                // Save it so we can avoid putting it in the vector again
-                serializedAlignmentsUsed.insert(serialized);
-            }
-
-            if(good.size() >= max_multi) {
-                // Don't report too many mappings
-                break;
-            }
-        }
-
-        if(good.size() >= max_multi) {
-            // Don't report too many mappings
-            break;
-        }
-    }
-
-    // get the best alignment
-    if (!good.empty()) {
-        // TODO log best alignment score?
-    } else {
-        good.emplace_back();
-        Alignment& aln = good.back();
-        aln = alignment;
-        aln.clear_path();
-        aln.set_score(0);
-    }
     
-    for(size_t i = 1; i < good.size(); i++) {
-        // Mark all but the first, best alignment as secondary
-        good[i].set_is_secondary(true);
-    }
-
-    // Return all the multimappings
-    return good;
-    
+    return alns;
 }
 
 void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
@@ -1768,7 +2054,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         if (max_target_factor && graph.length() >= max_target_length) break;
 
         // otherwise, align
-        aln = graph.align(aln, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+        aln = align_to_graph(aln, graph, max_query_graph_ratio);
 
         sc_start = softclip_start(aln);
         sc_end = softclip_end(aln);
@@ -2161,7 +2447,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             ta.clear_path();
             ta.set_score(0);
 
-            ta = graph->align(ta, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+            ta = align_to_graph(ta, *graph, max_query_graph_ratio);
 
             // check if we start or end with soft clips
             // if so, try to expand the graph until we don't have any more (or we hit a threshold)
@@ -2231,7 +2517,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
                 ta.clear_path();
                 ta.set_score(0);
 
-                ta = graph->align(ta, match, mismatch, gap_open, gap_extend, max_query_graph_ratio);
+                ta = align_to_graph(ta, *graph, max_query_graph_ratio);
 
                 sc_start = softclip_start(ta);
                 sc_end = softclip_end(ta);
@@ -2249,7 +2535,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
             delete graph;
 
-            if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*match) << endl;
+            if (debug) cerr << "normalized score is " << (float)ta.score() / ((float)ta.sequence().size()*(aligner->match)) << endl;
             if (greedy_accept && ta.identity() >= accept_identity) {
                 if (debug) cerr << "greedy accept" << endl;
                 accepted = true;
@@ -2257,66 +2543,73 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
             }
         }
     }
-
-    // now find the best alignment
-    int sum_score = 0;
-    double mean_score = 0;
-    map<int, set<Alignment*> > alignment_by_score;
+    
+    vector<Alignment> alns;
+    alns.reserve(alignments.size());
     for (auto& ta : alignments) {
-        Alignment* aln = &ta.second;
-        alignment_by_score[aln->score()].insert(aln);
+        alns.push_back(ta.second);
     }
+    return alns;
 
-    // Collect all the good alignments
-    // TODO: Filter down subject to a minimum score per base or something?
-    vector<Alignment> good;
-    for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
-        // Copy over all the alignments in descending score order (following the pointers into the "alignments" vector)
-        // Iterating through a set keyed on ints backward is in descending order.
-
-        // This is going to let us deduplicate our alignments with this score, by storing them serialized to strings in this set.
-        set<string> serializedAlignmentsUsed;
-
-        for(Alignment* pointer : (*it).second) {
-            // We serialize the alignment to a string
-            string serialized;
-            pointer->SerializeToString(&serialized);
-
-            if(!serializedAlignmentsUsed.count(serialized)) {
-                // This alignment hasn't been produced yet. Produce it. The
-                // order in the alignment vector doesn't matter for things with
-                // the same score.
-                good.push_back(*pointer);
-
-                // Save it so we can avoid putting it in the vector again
-                serializedAlignmentsUsed.insert(serialized);
-            }
-
-            if(good.size() >= max_multimaps) {
-                // Don't report too many mappings
-                break;
-            }
-        }
-
-        if(good.size() >= max_multimaps) {
-            // Don't report too many mappings
-            break;
-        }
-    }
-
-    // get the best alignment
-    if (!good.empty()) {
-        // TODO log best alignment score?
-    } else {
-        good.emplace_back();
-        Alignment& aln = good.back();
-        aln = alignment;
-        aln.clear_path();
-        aln.set_score(0);
-    }
-
-    // Return all the multimappings
-    return good;
+//    // now find the best alignment
+//    int sum_score = 0;
+//    double mean_score = 0;
+//    map<int, set<Alignment*> > alignment_by_score;
+//    for (auto& ta : alignments) {
+//        Alignment* aln = &ta.second;
+//        alignment_by_score[aln->score()].insert(aln);
+//    }
+//
+//    // Collect all the good alignments
+//    // TODO: Filter down subject to a minimum score per base or something?
+//    vector<Alignment> good;
+//    for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
+//        // Copy over all the alignments in descending score order (following the pointers into the "alignments" vector)
+//        // Iterating through a set keyed on ints backward is in descending order.
+//
+//        // This is going to let us deduplicate our alignments with this score, by storing them serialized to strings in this set.
+//        set<string> serializedAlignmentsUsed;
+//
+//        for(Alignment* pointer : (*it).second) {
+//            // We serialize the alignment to a string
+//            string serialized;
+//            pointer->SerializeToString(&serialized);
+//
+//            if(!serializedAlignmentsUsed.count(serialized)) {
+//                // This alignment hasn't been produced yet. Produce it. The
+//                // order in the alignment vector doesn't matter for things with
+//                // the same score.
+//                good.push_back(*pointer);
+//
+//                // Save it so we can avoid putting it in the vector again
+//                serializedAlignmentsUsed.insert(serialized);
+//            }
+//
+//            if(good.size() >= max_multimaps) {
+//                // Don't report too many mappings
+//                break;
+//            }
+//        }
+//
+//        if(good.size() >= max_multimaps) {
+//            // Don't report too many mappings
+//            break;
+//        }
+//    }
+//
+//    // get the best alignment
+//    if (!good.empty()) {
+//        // TODO log best alignment score?
+//    } else {
+//        good.emplace_back();
+//        Alignment& aln = good.back();
+//        aln = alignment;
+//        aln.clear_path();
+//        aln.set_score(0);
+//    }
+//
+//    // Return all the multimappings
+//    return good;
 }
 
 const int balanced_stride(int read_length, int kmer_size, int stride) {

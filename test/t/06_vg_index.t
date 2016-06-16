@@ -57,7 +57,7 @@ is $(vg index -D -d x.vg.aln | wc -l) 100 "index can store alignments"
 is $(vg index -A -d x.vg.aln | vg view -a - | wc -l) 100 "index can dump alignments"
 
 vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg index -m - -d x.vg.map
-is $(vg index -D -d x.vg.map | wc -l) $(vg map -r <(vg sim -s 1337 -n 100 -x x.xg) -d x.idx | vg view -a - | jq -c '.path.mapping[]' | sort | uniq | wc -l) "index stores all unique mappings"
+is $(vg index -D -d x.vg.map | wc -l) 1476 "index stores all mappings"
 
 rm -rf x.idx x.vg.map x.vg.aln
 rm -f x.vg x.xg
@@ -125,11 +125,11 @@ rm -rf r.idx r.aln.idx r.xg
 vg index -k 16 -s -d c.idx cyclic/all.vg
 is $? 0 "index can store a cyclic graph"
 
-NUM_UNIQUE_READS=$(vg sim -s 1337 -n 100 cyclic/all.vg | sort | uniq | wc -l)
-vg map -r <(vg sim -s 1337 -n 100 cyclic/all.vg) -d c.idx | vg index -a - -d all.vg.aln
-is $(vg index -D -d all.vg.aln | wc -l) ${NUM_UNIQUE_READS} "index can store alignments to cyclic graphs"
+vg index -x c.xg cyclic/all.vg
+vg map -r <(vg sim -s 1337 -n 100 -x c.xg) -d c.idx | vg index -a - -d all.vg.aln
+is $(vg index -D -d all.vg.aln | wc -l) 100 "index can store alignments to cyclic graphs"
 
-rm -rf c.idx all.vg.aln
+rm -rf c.idx all.vg.aln c.xg
 
 is $(vg index -g x.gcsa -k 16 -V <(vg view -Fv cyclic/two_node.gfa) 2>&1 |  grep 'Index verification complete' | wc -l) 1 "GCSA2 index works on cyclic graphs with heads and tails"
 

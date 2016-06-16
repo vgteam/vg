@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 8
+plan tests 9
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -32,4 +32,6 @@ is $(vg view -Fv msgas/q_redundant.gfa | vg stats -S - | md5sum | cut -f 1 -d\ )
 vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz >t.vg
 is $(vg stats -n 13 -d t.vg | cut -f 2) 38 "distance to head is correct"
 is $(vg stats -n 13 -t t.vg | cut -f 2) 11 "distance to tail is correct"
+
+is $(vg stats -b t.vg | head -1 | cut -f 3) 1,2,3,4,5,6, "a superbubble's internal nodes are correctly reported"
 rm -f t.vg

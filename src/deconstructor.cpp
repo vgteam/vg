@@ -20,7 +20,10 @@ namespace vg {
 
     void Deconstructor::init(){
     }
-
+    
+    void Deconstructor::set_xg(xg::XG* xindex){
+        my_xg = xindex;
+    }
     void Deconstructor::unroll_my_vg(int steps){
         *my_vg = my_vg->unfold(steps, my_unroll_translation);
         if (my_translation.size() > 0){
@@ -45,7 +48,11 @@ namespace vg {
      *
      */
     bool Deconstructor::contains_nested(pair<int64_t, int64_t> start_and_end){
-
+        /*for (auto i: my_sbs){
+            if (i.first > start_and_end.first & i.second < start_and_end.second ){
+                return true;
+            }
+        }*/
         return false;
     }
 
@@ -138,7 +145,7 @@ namespace vg {
         return false;
     }
 
-    void Deconstructor::sb2vcf(vector<SuperBubble> bubs, string outfile){
+    void Deconstructor::sb2vcf(string outfile){
         Header h;
         h.set_date();
         h.set_source("VG");
@@ -159,47 +166,132 @@ namespace vg {
         if (!mask_file.empty()){
             //node_to_var = my_vg->get_node_to_variant(mask);
         }
-        for (auto s : bubs){
+        for (auto s : my_sbs){
             vcflib::Variant var;
-            /*set ref = str(ref)
-             * First fill out alleles[0] with ref
-             * then alts as 1....N
-             *
-             * push the alternate alleles into alts[] too
-             *
-             * Position: your guess is as good as mine
-             *
-             * id: need annotations
-             *
-             *
-             */
+        
+            // Make subgraphs out of the superbubble:
+            // Operating on a pair<id_t, id_t>, vector<id_t>
+            // then enumerate k_paths through the SuperBubbles
+            set<Node*> nodes;
+            set<Edge*> edges;
 
-            var.sequenceName = "seq";
-            var.position = 0;
-            var.id = ".";
-            map<int, vector<id_t> >::iterator it;
-            for (it = s.level_to_nodes.begin(); it != s.level_to_nodes.end(); it++){
-            //cout << s.start_node << "_" << s.end_node << "\t";
-                vector<id_t> middle_nodes = it->second;
-                for (int ind = 0; ind < middle_nodes.size(); ind++){
-                    Node* n = my_vg->get_node(middle_nodes[ind]);
-                    if (my_vg->paths.has_node_mapping(n)){
-                        var.ref = n->sequence();
-                        var.alleles.push_back(n->sequence());
-                    }
-                    else{
-                        var.alt.push_back(n->sequence());
-                    }
-                    //cout << middle_nodes[ind] << "\t";
+            for (int i = 0; i < s.second.size(); i++){
+                id_t n_id = s.second[i];
+                //cerr << n_id << endl;
+                Node* n_node = my_vg->get_node(n_id);
+                vector<Edge*> e_end = my_vg->edges_from(n_node);
+                nodes.insert(n_node);
+                if (i < s.second.size() - 1){
+                    edges.insert(e_end.begin(), e_end.end());
                 }
             }
 
-            cout << var << endl;
+            vg::VG t_graph = vg::VG(nodes, edges);
 
-            //cout << endl;
+            vector<Path> paths;
+
+            std::function<void(NodeTraversal)> no_op = [](NodeTraversal n){};
+            std::function<void(size_t, Path&)> extract_path = [&paths](size_t x_size, Path& path){
+                paths.push_back(path);
+            };
+            
+            t_graph.for_each_kpath(10000, false, 100, no_op, no_op, extract_path);
+
+            std::function<std::vector<Path>(vector<Path>)> uniquify = [](vector<Path> v){
+                map<string, Path> unqs;
+                vector<Path> ret;
+                for (auto x: v){
+                    unqs[path_to_string(x)] = x;
+                }
+
+                for (auto y : unqs){
+                    ret.push_back(y.second);
+                }
+                return ret;
+            };
+
+            paths = uniquify(paths);
+
+            std::function<bool(Path)> all_ref = [&](Path p){
+                for (int i = 0; i < p.mapping_size(); i++){
+                    Mapping m = p.mapping(i);
+                    Position pos = m.position();
+                    vg::id_t pos_id = pos.node_id();
+                    map<string, set<Mapping*> > path_to_mappings =  my_vg->paths.get_node_mapping(pos_id);
+
+                    if (path_to_mappings.size() <= 0){
+                        return false;
+                    }
+                }
+                return true;
+            };
+
+            /*
+             * This means we now have vectors for the superbubble
+             * that have the paths through the nodes within it (including end nodes)
+             * however, these paths are repeated several times.
+             * We should find a way to prevent them being inserted once for each node.
+             *
+             * Next on the agenda: use the get_path_dist thing from vg call / vg stats
+             * to get the distance to the head node.
+             * Might need an XG index for this.
+             *
+             * Also need a way to deal with GAMs for this i.e. a way to 
+             * count the number of times we see something come up in the gam
+             */
+            int first_len = (my_vg->get_node(1))->sequence().size();
+            map<string, set<Mapping*> > p_to_mappings =  my_vg->paths.get_node_mapping(s.first.first);
+            for (auto p_name : p_to_mappings){
+                var.sequenceName = p_name.first;
+            }
+            var.position = my_xg->approx_path_distance(var.sequenceName, 1, s.first.first) + (s.first.first == 1 ? 0 : first_len);
+
+            //var.sequenceName = my_vg->paths.get_node_mapping(pos_id);
+            //
+            for (auto x : paths){
+                //cerr << path_to_string(x) << endl;
+                stringstream ref_seq;
+                stringstream alt_seq;
+                bool is_ref = true;
+
+                for (int m_i = 1; m_i < x.mapping_size() -1 ; m_i++){
+                    Mapping m = x.mapping(m_i);
+                    id_t pos_id = m.position().node_id();
+                    Node* n = my_vg->get_node(pos_id);
+                    string n_seq = n->sequence();
+                    map<string, set<Mapping*> > path_to_mappings =  my_vg->paths.get_node_mapping(pos_id);
+                    if (path_to_mappings.size() == 0){
+                        is_ref = false;
+                    }
+
+                    if (is_ref){
+                        ref_seq << n_seq;
+                    }
+                    alt_seq << n_seq;
+
+                    //cerr << " REF: " << ref_seq.str() << " ALT: " << alt_seq.str() << endl;
+
+                }
+
+                if (is_ref){
+                    if(var.ref.empty()){
+                        string ref_str = ref_seq.str();
+                        var.ref = ref_str; //(ref_str.size() > 0) ? ref_str : (my_vg->get_node(s.first.first))->sequence();
+                        var.alleles.insert(var.alleles.begin(), var.ref);
+                    }
+                }
+                else{
+                    string alt_string = alt_seq.str();
+                    var.alt.push_back(alt_string);
+                    var.alleles.push_back(alt_string);
+                }
+
+            }
+            if (! (var.ref.empty() && var.alt.empty()) ){
+                cout << var << endl;
+            }
 
         }
-
 
     }
 
@@ -213,8 +305,12 @@ namespace vg {
      * and an index from node -> location in topo order. This makes
      * checking if things are nested trivial.
      */
-    vector<SuperBubble> Deconstructor::get_all_superbubbles(){
+    map<pair<id_t, id_t>, vector<id_t> >  Deconstructor::get_all_superbubbles(){
 
+        my_sbs = my_vg->superbubbles();
+        return my_sbs;
+
+        /*
         pair<id_t, id_t> endpoints;
         //map<id_t, pair<id_t, bool> > node_translation;
         //uint32_t dag_len = 1;
@@ -237,39 +333,6 @@ namespace vg {
         }
         map<int, vector<id_t> > level_to_node;
         int level = 0;
-
-        /**
-         * For each superbubble, BFS through it and record
-         * possible paths.
-         *
-         *
-        map<int, vector<id_t> > level_to_nodes;
-        for (int i = 0; i < supbubs.size(); i++){
-            vector<id_t> alleles;
-            queue<id_t> nq;
-            endpoints = supbubs[i];
-            nq.push(endpoints.first);
-            while(!nq.empty()){
-                id_t current = nq.front(); nq.pop();
-                vector<pair<id_t, bool>> edges_on_end = my_vg->edges_end(current);
-                for (int j = 0; j < edges_on_end.size(); j++){
-                    nq.push(edges_on_end[j].first);
-                    id_t next_id = (edges_on_end[j].first);
-                    if (next_id == endpoints.second){
-                        ret[i].level_to_nodes = level_to_nodes;
-                        ret[i].start_node = endpoints.first;
-                        ret[i].end_node = endpoints.second;
-                        break;
-                    }
-                    alleles.push_back(next_id);
-                }
-                level++;
-            }
-
-        }
-        */
-        //Use the DFS interface instead
-
         vector<id_t> rto;
 
 
@@ -328,7 +391,7 @@ namespace vg {
 
             
         }
-          */
+          
         bool in_bub = false;
         SuperBubble current;
         for (int i = rto.size() - 1; i > 0; i--){
@@ -351,7 +414,7 @@ namespace vg {
         reverse_topo_order = rto;
         
 
-        return ret;
+        return ret;*/
     }
 
 /*    map<id_t, int> cache_path_distances(){

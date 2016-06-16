@@ -264,6 +264,7 @@ public:
     // Get nodes and backward flags following edges that attach to this node's end
     vector<pair<id_t, bool>>& edges_end(Node* node);
     vector<pair<id_t, bool>>& edges_end(id_t id);
+    
     // properties of the graph
     size_t size(void); // number of nodes
     size_t length(void);
@@ -502,7 +503,6 @@ public:
     // them to the given map by node ID of sets of bases in the node that will need
     // to become the starts of new nodes.
     void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
-
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
     // break the specified nodes at those positions. Returns a map from old node
@@ -512,7 +512,6 @@ public:
     map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // flips the breakpoints onto the forward strand
-
    // Given a path on nodes that may or may not exist, and a map from node ID
     map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
@@ -609,7 +608,6 @@ public:
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
     void expand_context(VG& g, size_t steps, bool add_paths = true);
-
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     // destroy the node with the given ID.
@@ -685,6 +683,7 @@ public:
     vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
     vector<pair<id_t, id_t> > get_superbubbles();
 
+    map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
 
     // Takes in a pathname and the nucleotide position
     // (e.g. from a vcf) and returns the node id which
@@ -828,23 +827,37 @@ public:
 
     // Align to the graph. The graph must be acyclic and contain only end-to-start edges.
     // Will modify the graph by re-ordering the nodes.
+    
+    // align without base quality adjusted scores
+    Alignment align(const string& sequence,
+                    Aligner& aligner,
+                    size_t max_query_graph_ratio = 0,
+                    bool print_score_matrices = false);
     Alignment align(const Alignment& alignment,
-                    int32_t match = 1,
-                    int32_t mismatch = 4,
-                    int32_t gap_open = 6,
-                    int32_t gap_extension = 1,
+                    Aligner& aligner,
+                    size_t max_query_graph_ratio = 0,
+                    bool print_score_matrices = false);
+    
+    // align with default Aligner
+    Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
     Alignment align(const string& sequence,
-                    int32_t match = 1,
-                    int32_t mismatch = 4,
-                    int32_t gap_open = 6,
-                    int32_t gap_extension = 1,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
-    void destroy_alignable_graph(void);
+    
+    // align with base quality adjusted scores
+    Alignment align_qual_adjusted(const Alignment& alignment,
+                                  QualAdjAligner& qual_adj_aligner,
+                                  size_t max_query_graph_ratio = 0,
+                                  bool print_score_matrices = false);
+    Alignment align_qual_adjusted(const string& sequence,
+                                  QualAdjAligner& qual_adj_aligner,
+                                  size_t max_query_graph_ratio = 0,
+                                  bool print_score_matrices = false);
+    
+    
 
-    GSSWAligner* gssw_aligner;
 
     // returns all node-crossing paths with up to length across node boundaries
     // considers each node in forward orientation to produce the kpaths around it
@@ -1089,6 +1102,13 @@ private:
                         bool allow_dups,
                         bool allow_negatives,
                         Node* node = nullptr);
+    
+    // private method to funnel other align options into
+    Alignment align(const Alignment& alignment,
+                    Aligner* aligner,
+                    QualAdjAligner* qual_adj_aligner,
+                    size_t max_query_graph_ratio,
+                    bool print_score_matrices);
 
 
 public:
