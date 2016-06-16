@@ -140,8 +140,8 @@ map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites_with
 vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
     // We're going to emit traversals supported by any paths in the graph.
     
-    // Put all our subpaths in here to deduplicate them by sequence they spell out.
-    map<string, list<NodeTraversal>> results;
+    // Put all our subpaths in here to deduplicate them by sequence they spell out. And to count occurrences.
+    map<string, pair<list<NodeTraversal>, int>> results;
 
 #ifdef debug
     cerr << "Looking for paths between " << start << " and " << end << endl;
@@ -208,9 +208,14 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                     if(mapping->position().node_id() == end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // We have stumbled upon the end node in the orientation we wanted it in.
                         
-                        // Keep this subpath if it's for a new string
-                        // Also ends up replacing anything that was there for the string before
-                        results[allele_stream.str()] = path_traversed;
+                        if(results.count(allele_stream.str())) {
+                            // It is already there! Increment the observation count.
+                            results[allele_stream.str()].second++;
+                        } else {
+                            // Add it in
+                            results[allele_stream.str()] = make_pair(path_traversed, 1);
+                        }
+                        
                         // Then try the next embedded path
                         break;
                     }
@@ -237,9 +242,20 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
     // Now convert the unique results into Paths
     vector<Path> toReturn;
     
-    for(auto& string_and_traversals : results) {
+    for(auto& result : results) {
+        // Break out each result
+        const string& seq = result.first;
+        auto& traversals = result.second.first;
+        auto& count = result.second.second;
+        
+        if(count < min_recurrence) {
+            // We don't have enough initial hits for this sequence to justify
+            // trying to re-align the rest of the reads. Skip it.
+            continue;
+        }
+        
         // Convert each list of node traversals to a proper path and add it to our collection of paths to return
-        toReturn.push_back(path_from_node_traversals(string_and_traversals.second));
+        toReturn.push_back(path_from_node_traversals(traversals));
     }
     
     return toReturn;

@@ -68,6 +68,10 @@ public:
     // piece of sequence being correct?
     int default_sequence_quality = 15;
     
+    // How mnay times must a path recur before we try aligning to it?
+    // Note that the primary path counts as a recurrence.
+    int min_recurrence = 2;
+    
     // Remember that Phred scores can add to multiply just like normal log probs?
     // -10 log p1 + -10 log p2 = -10 (log p1 + log p2) = -10 log (p1 * p2)
     
