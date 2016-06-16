@@ -622,6 +622,17 @@ Alignment strip_from_end(const Alignment& aln, size_t drop) {
     return res;
 }
 
+Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Position& pos2) {
+    // cut the alignment into 3 (possibly empty) pieces
+    auto p = cut_path(aln.path(), pos1);
+    auto path1 = p.first;
+    p = cut_path(p.second, pos2);
+    auto path2 = p.first;
+    auto path3 = p.second;
+    // measure the length of the left and right bits, and use this to trim the current alignment
+    return strip_from_end(strip_from_start(aln, path_to_length(path1)), path_to_length(path3));
+}
+
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length) {
     vector<Alignment> revalns;
     for (auto& aln : alns) {
