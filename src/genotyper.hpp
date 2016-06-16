@@ -112,7 +112,7 @@ public:
      * This is more general and doesn't require DAGifcation etc., but we keep
      * both versions around for now for debugging and comparison
      */
-    map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> find_sites_with_cactus(VG& graph);
+    map<pair<NodeTraversal, NodeTraversal>, set<id_t>> find_sites_with_cactus(VG& graph);
     
     /**
      * For the superbubble/site between start and end in the given orientations,

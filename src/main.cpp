@@ -1664,7 +1664,7 @@ int main_genotype(int argc, char** argv) {
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
     
     // Unfold/unroll, find the superbubbles, and translate back.
-    map<pair<NodeTraversal, NodeTraversal>, set<vg::id_t>> sites = genotyper.find_sites(augmented_graph);
+    map<pair<NodeTraversal, NodeTraversal>, set<vg::id_t>> sites = genotyper.find_sites_with_cactus(augmented_graph);
     
     if(show_progress) {
         cerr << "Found " << sites.size() << " superbubbles" << endl;
