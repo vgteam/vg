@@ -630,7 +630,14 @@ Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Posit
     auto path2 = p.first;
     auto path3 = p.second;
     // measure the length of the left and right bits, and use this to trim the current alignment
-    return strip_from_end(strip_from_start(aln, path_to_length(path1)), path_to_length(path3));
+    auto trimmed = aln;
+    if (path1.mapping_size()) {
+        trimmed = strip_from_start(trimmed, path_to_length(path1));
+    }
+    if (path3.mapping_size()) {
+        trimmed = strip_from_end(trimmed, path_to_length(path3));
+    }
+    return trimmed;
 }
 
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length) {
