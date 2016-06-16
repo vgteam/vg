@@ -95,6 +95,7 @@ map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& 
     
 }
 
+#define debug
 vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
     // We're going to emit traversals supported by any paths in the graph.
     
@@ -119,8 +120,6 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                 // it early.
                 continue;
             }
-            
-            // TODO: instead of walking, use cut_path or cut_alignment
             
             for(auto* mapping : name_and_mappings.second) {
                 // Start at each mapping in the appropriate orientation
@@ -204,6 +203,7 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
     
     return toReturn;
 }
+#undef debug
 
 map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
     vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths) {
@@ -370,74 +370,116 @@ double Genotyper::get_genotype_probability(const vector<int>& genotype, const ve
     return all_non_supporting_wrong * all_supporting_drawn;
 }
 
-Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
+Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
     
     // Freebayes way (improved with multi-support):
-    
-    // Decide that each read supports one or more alleles
-    
-    
-    
-    
-    
-    // Compute total affinity for each path
-    vector<double> total_affinity(superbubble_paths.size(), 0);
-    for(auto& alignment_and_affinities : affinities) {
-        for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
-            // For each affinity of an alignment to a path
-            double affinity = alignment_and_affinities.second.at(i);
-            // Add it in to the total
-            total_affinity.at(i) += affinity;
-        }
-    }
-    
-    Genotype genotype;
     
     if(superbubble_paths.empty()) {
         // No paths! Nothing to say!
         throw runtime_error("No paths through superbubble! Can't genotype!");
     }
     
-    // If there's only one path, call hom ref
-    if(superbubble_paths.size() < 2) {
-        *genotype.add_allele() = superbubble_paths.front();
-        Support* support = genotype.add_support();
-        support->set_quality(total_affinity.front());
-        return genotype;
+    // Determine where the superbubble starts and ends, as Positions.
+    Position superbubble_start = superbubble_paths[0].mapping(0).position();
+    Position superbubble_end = superbubble_paths[0].mapping(superbubble_paths[0].mapping_size() - 1).position();
+    // We know these Positions will be to the incoming ends of their nodes, as
+    // read along the path. For the end position we want it to be past the end,
+    // so we push the end position to one past the end of the node in  its
+    // orientation.
+    superbubble_end.set_offset(graph.get_node(superbubble_end.node_id())->sequence().size());
+    
+    // We'll fill this in with the trimmed alignments and their consistency-with-alleles flags.
+    vector<pair<Alignment, vector<bool>>> alignment_consistency;
+    
+    for(auto& alignment_and_affinities : affinities) {
+        // If the alignment is going forward theough the superbubble, just cut it
+        
+        Alignment to_trim = *alignment_and_affinities.first;
+        cerr << "Looking at alignment " << to_trim.name() << endl;
+        
+        for(size_t i = 0; i < to_trim.path().mapping_size(); i++) {
+            // Scan along the alignment's path
+            cerr << "Mapping " << i << "/" << to_trim.path().mapping_size() << endl;
+            auto& pos = to_trim.path().mapping(i).position();
+            cerr << "Position: " << pb2json(pos) << endl;
+            if((pos.node_id() == superbubble_start.node_id() && pos.is_reverse() != superbubble_start.is_reverse()) ||
+            (pos.node_id() == superbubble_end.node_id() && pos.is_reverse() != superbubble_end.is_reverse())) {
+                // Flip so we can cut correctly.
+                // TODO: fix so cut supports cutting even when we visit nodes in reverse or when we articulate positions backwards from how they occur on the path!
+                to_trim = reverse_complement_alignment(to_trim, [&](id_t id) {
+                    // Flipping requires access to node lengths
+                    return graph.get_node(id)->sequence().size();
+                });
+            }
+        }
+    
+        cerr << "Trimming between " << superbubble_start.node_id() << " and " << superbubble_end.node_id() << endl;
+    
+        // Trim the alignment down to just the part in the superbubble
+        Alignment trimmed = trim_alignment(to_trim, superbubble_start, superbubble_end);
+        
+        // Calculate whether each affinity is enough to justify support.
+        // We say only the maximal affinities are support.
+        double max_affinity = *max_element(alignment_and_affinities.second.begin(), alignment_and_affinities.second.end());
+        
+        cerr << "Max affinity: " << max_affinity << endl;
+        
+        // Count up consistency
+        size_t consistent = 0;
+        
+        // Flag alleles we're consistent with
+        vector<bool> support_flags;
+        for(auto affinity : alignment_and_affinities.second) {
+            // Only maximal affinities represent consistency with an allele
+            support_flags.push_back(affinity == max_affinity);
+            consistent++;
+        }
+        
+        cerr << "Read consistent with " << consistent << " alleles" << endl;
+        
+        // Save the trimmed alignment and its consistency flags
+        alignment_consistency.emplace_back(std::move(trimmed), std::move(support_flags));
+        
     }
-    
-    // Find the two best paths
-    int best_allele = -1;
-    int second_best_allele = -1;
-    
-    for(int i = 0; i < superbubble_paths.size(); i++) {
-        if(best_allele == -1 || total_affinity[best_allele] < total_affinity[i]) {
-            // We have a new best allele
-            second_best_allele = best_allele;
-            best_allele = i;
-        } else if(second_best_allele == -1 || total_affinity[second_best_allele] < total_affinity[i]) {
-            // We have a new second best allele
-            second_best_allele = i;
+
+    // We'll go through all the genotypes and find the best
+    vector<int> best_genotype;
+    double best_probability = 0;
+
+    for(int allele1 = 0; allele1 < superbubble_paths.size(); allele1++) {
+        // For each first allele in the genotype
+        for(int allele2 = 0; allele2 <= allele1; allele2++) {
+            // For each second allele so we get all order-independent combinations
+            
+            // Make the combo
+            vector<int> genotype = {allele1, allele2};
+            
+            // Compute the probability of the genotype
+            double probability = get_genotype_probability(genotype, alignment_consistency);
+            
+            if(probability > best_probability || best_genotype.empty()) {
+                // This is the best genotype!
+                best_probability = probability;
+                best_genotype = genotype;
+            }
         }
     }
     
-    // Add the best allele with the most support
-    *genotype.add_allele() = superbubble_paths[best_allele];
-    Support* best_support = genotype.add_support();
-    best_support->set_quality(total_affinity[best_allele]);
+    // Now compute the vector of ints into a real Genotype object
+    Genotype genotype;
     
-    if(total_affinity[best_allele] > total_affinity[second_best_allele] * max_het_bias) {
-        // If we're too biased to one side, call hom that
-        return genotype;
+    // We only want to put each allele once
+    set<int> used_alleles;
+    
+    for(int allele : best_genotype) {
+        if(!used_alleles.count(allele)) {
+            // For each allele we haven't reported, report it.
+            used_alleles.insert(allele);
+            *genotype.add_allele() = superbubble_paths.at(allele);
+            Support* supoport = genotype.add_support();
+            // TODO: turn overall genotype probability into quality and stick it in
+        }
     }
-    
-    // Else call het by adding the second best allele as well
-    *genotype.add_allele() = superbubble_paths[second_best_allele];
-    Support* second_best_support = genotype.add_support();
-    second_best_support->set_quality(total_affinity[second_best_allele]);
-    
-    // TODO: use more support fields by investigating the Alignment associated
-    // with the affinity, as it relates to the allele's path
     
     return genotype;
 }

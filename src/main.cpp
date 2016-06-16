@@ -1651,7 +1651,15 @@ int main_genotype(int argc, char** argv) {
     map<string, Alignment*> reads_by_name;
     for(auto& alignment : alignments) {
         reads_by_name[alignment.name()] = &alignment;
+        // Make sure to replace the alignment's path with the path it has in the augmented graph
+        list<Mapping>& mappings = augmented_graph.paths.get_path(alignment.name());
+        alignment.mutable_path()->clear_mapping();
+        for(auto& mapping : mappings) {
+            // Copy over all the transformed mappings
+            *alignment.mutable_path()->add_mapping() = mapping;
+        }
     }
+    cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
     
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
     
@@ -1732,7 +1740,7 @@ int main_genotype(int argc, char** argv) {
                         }
                         
                         // Get a genotype        
-                        Genotype genotype = genotyper.get_genotype(paths, affinities);
+                        Genotype genotype = genotyper.get_genotype(augmented_graph, paths, affinities);
                         
                         if(output_json) {
                             // Dump in JSON

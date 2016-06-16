@@ -117,8 +117,9 @@ public:
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
+     * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */
-    Genotype get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
+    Genotype get_genotype(VG& graph, const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
         
     /**
      * Compute the probability of the observed alignments given the genotype.
