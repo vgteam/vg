@@ -99,9 +99,9 @@ public:
      * back to the space of the original graph.
      *
      * Returns a map from a pair of start, end node traversals for a superbubble
-     * to the list of node IDs involved.
+     * to the set of node IDs involved.
      */
-    map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> find_sites(VG& graph);
+    map<pair<NodeTraversal, NodeTraversal>, set<id_t>> find_sites(VG& graph);
 
     /** 
      * Same as find_sites but use Cactus instead of Superbubbles.
@@ -126,7 +126,7 @@ public:
      * Affinity is a double out of 1.0. Higher is better.
      */ 
     map<Alignment*, vector<double>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-        vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
+        set<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.

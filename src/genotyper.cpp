@@ -60,10 +60,10 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
     return round(total);
 }
 
-map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& graph) {
+map<pair<NodeTraversal, NodeTraversal>, set<id_t>> Genotyper::find_sites(VG& graph) {
 
     // Set up our output map
-    map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> to_return;
+    map<pair<NodeTraversal, NodeTraversal>, set<id_t>> to_return;
 
     // Unfold the graph
     // Copy the graph and unfold the copy. We need to hold this translation
@@ -100,8 +100,8 @@ map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& 
         auto& superbubble_nodes = to_return[make_pair(start, end)];
         
         for(auto id : superbubble.second) {
-            // Translate each ID and put it in the vector
-            superbubble_nodes.push_back(overall_translation[id].first);
+            // Translate each ID and put it in the set
+            superbubble_nodes.insert(overall_translation[id].first);
         }
     }
 
@@ -246,7 +246,7 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
 }
 
 map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-    vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths) {
+    set<id_t>& superbubble_contents, vector<Path>& superbubble_paths) {
     
     // Grab our thread ID, which determines which aligner we get.
     int tid = omp_get_thread_num();
@@ -260,6 +260,13 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
 #ifdef debug
     cerr << "Superbubble contains " << superbubble_contents.size() << " nodes" << endl;
 #endif
+
+    assert(!superbubble_paths.empty());
+    assert(superbubble_paths.front().mapping_size() >= 2);
+
+    // Find the start and end nodes of the superbubble
+    id_t superbubble_start = superbubble_paths.front().mapping(0).position().node_id();
+    id_t superbubble_end = superbubble_paths.front().mapping(superbubble_paths.front().mapping_size() - 1).position().node_id();
     
     for(auto id : superbubble_contents) {
         // For every node in the superbubble, what paths visit it?
@@ -329,6 +336,40 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
             // Alignment pointer.
             Alignment* read = reads_by_name.at(name);
             
+            // Look to make sure it touches more than one node actually in the
+            // superbubble, or a non-start, non-end node. If it just touches the
+            // start or just touches the end, it can't be informative.
+            set<id_t> touched_set;
+            // Will this read be informative?
+            bool informative = false;            
+            for(size_t i = 0; i < read->path().mapping_size(); i++) {
+                // Look at every node the read touches
+                id_t touched = read->path().mapping(i).position().node_id();
+                if(superbubble_contents.count(touched)) {
+                    // If it's in the superbubble, keep it
+                    touched_set.insert(touched);
+                }
+            }
+            
+            if(touched_set.size() >= 2) {
+                // We touch both the start and end, or an internal node.
+                informative = true;
+            } else {
+                // Throw out the start and end nodes, if we touched them.
+                touched_set.erase(superbubble_start);
+                touched_set.erase(superbubble_end);
+                if(!touched_set.empty()) {
+                    // We touch an internal node
+                    informative = true;
+                }
+            }
+            
+            if(!informative) {
+                // We only touch one of the start and end nodes, and can say nothing about the superbubble. Try the next read.
+                continue;
+            }
+            
+            // If we get here, we know this read is informative as to the internal status of this superbubble.
             Alignment aligned;
             if(read->sequence().size() == read->quality().size()) {
                 // Re-align a copy to this graph (using quality-adjusted alignment).
@@ -550,6 +591,9 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
     // We fill this in with totals
     vector<int> reads_consistent_with_allele(superbubble_paths.size(), 0);
     
+    // We'll store affinities by read name and allele here, for printing later.
+    map<string, vector<double>> debug_affinities;
+    
     for(auto& alignment_and_affinities : affinities) {
         // We need to clip down to just the important quality values        
         Alignment trimmed = *alignment_and_affinities.first;
@@ -559,6 +603,9 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
         
         // Stick them back in the now bogus-ified Alignment object.
         trimmed.set_quality(trimmed_qualities);
+        
+        // Hide all the affinities where we can pull them later
+        debug_affinities[trimmed.name()] = alignment_and_affinities.second;
         
         // Calculate whether each affinity is enough to justify support.
         // We say only the maximal affinities are support.
@@ -597,6 +644,12 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
             allele_name << superbubble_paths[i].mapping(j).position().node_id() << ",";
         }
         cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
+        for(auto& read_and_consistency : alignment_consistency) {
+            if(read_and_consistency.second[i]) {
+                // Dump all the consistent reads
+                cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i] << endl;
+            }
+        }
     }
 #endif
 
