@@ -575,7 +575,6 @@ string get_qualities_in_site(VG& graph, const Alignment& alignment, NodeTraversa
     
 }
 
-#define debug
 Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
     
     // Freebayes way (improved with multi-support):
@@ -661,8 +660,8 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
         }
         cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
         for(auto& read_and_consistency : alignment_consistency) {
-            if(read_and_consistency.second[i]) {
-                // Dump all the consistent reads
+            if(read_and_consistency.second[i] && read_and_consistency.first.sequence().size < 30) {
+                // Dump all the short consistent reads
                 cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i] << endl;
             }
         }
@@ -714,7 +713,6 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
     
     return genotype;
 }
-#undef debug
 
 /**
  * Create the reference allele for an empty vcflib Variant, since apaprently
