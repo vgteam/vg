@@ -94,9 +94,14 @@ public:
     Genotype get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
         
     /**
-     * Make a VCFlib variant from a genotype. Depends on an index of the reference path we want to call against.
+     * Make a VCFlib variant from a genotype. Depends on an index of the
+     * reference path we want to call against.
+     *
+     * Returns 0 or more variants we can articulate from the superbubble.
+     * Sometimes if we can't make a variant for the superbubble against the
+     * reference path, we'll emit 0 variants.
      */
-    vcflib::Variant genotype_to_variant(VG& graph, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Genotype& genotype);
+    vector<vcflib::Variant> genotype_to_variant(VG& graph, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Genotype& genotype);
     
     /**
      * Make a VCF header

@@ -1439,6 +1439,11 @@ void help_genotype(char** argv) {
          << "options:" << endl
          << "    -j, --json              output in JSON" << endl
          << "    -v, --vcf               output in VCF" << endl
+         << "    -r, --ref PATH          use the given path name as the reference path" << std::endl
+         << "    -c, --contig NAME       use the given name as the VCF contig name" << std::endl
+         << "    -s, --sample NAME       name the sample in the VCF with the given name" << std::endl
+         << "    -o, --offset INT        offset variant positions by this amount" << std::endl
+         << "    -l, --length INT        override total sequence length" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1460,6 +1465,17 @@ int main_genotype(int argc, char** argv) {
     
     // What reference path should we use
     string ref_path_name;
+    // What sample name should we use for output
+    string sample_name;
+    // What contig name override do we want?
+    string contig_name;
+    // What offset should we add to coordinates
+    int64_t variant_offset = 0;
+    // What length override should we use
+    int64_t length_override = 0;
+    
+    // Don't bother genotyping ref only superbubbles
+    bool skip_reference = true;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1468,13 +1484,18 @@ int main_genotype(int argc, char** argv) {
             {
                 {"json", no_argument, 0, 'j'},
                 {"vcf", no_argument, 0, 'v'},
+                {"ref", required_argument, 0, 'r'},
+                {"contig", required_argument, 0, 'c'},
+                {"sample", required_argument, 0, 's'},
+                {"offset", required_argument, 0, 'o'},
+                {"length", required_argument, 0, 'l'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvpt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:pt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1488,6 +1509,26 @@ int main_genotype(int argc, char** argv) {
             break;
         case 'v':
             output_vcf = true;
+            break;
+        case 'r':
+            // Set the reference path name
+            ref_path_name = optarg;
+            break;
+        case 'c':
+            // Set the contig name for output
+            contig_name = optarg;
+            break;
+        case 's':
+            // Set the sample name
+            sample_name = optarg;
+            break;
+        case 'o':
+            // Offset variants
+            variant_offset = std::stoll(optarg);
+            break;
+        case 'l':
+            // Set a length override
+            length_override = std::stoll(optarg);
             break;
         case 'p':
             show_progress = true;
@@ -1532,12 +1573,14 @@ int main_genotype(int argc, char** argv) {
         graph = new VG(in);
     }
     
-    // Guess the ref path name
-    if(graph->paths.size() == 1) {
-        // Autodetect the reference path name as the name of the only path
-        ref_path_name = (*(*graph).paths._paths.begin()).first;
-    } else {
-        ref_path_name = "ref";
+    if(ref_path_name.empty()) {
+        // Guess the ref path name
+        if(graph->paths.size() == 1) {
+            // Autodetect the reference path name as the name of the only path
+            ref_path_name = (*(*graph).paths._paths.begin()).first;
+        } else {
+            ref_path_name = "ref";
+        }
     }
 
     // setup reads index
@@ -1656,35 +1699,66 @@ int main_genotype(int argc, char** argv) {
                     // Get all the paths through the site
                     vector<Path> paths = genotyper.get_paths_through_site(augmented_graph, bounds_and_contents.first.first, bounds_and_contents.first.second);
                     
-                    if(show_progress) {
-                        #pragma omp critical (cerr)
-                        cerr << "Site " << bounds_and_contents.first.first << " - " << bounds_and_contents.first.second << " has " << paths.size() << " alleles" << endl;
-                    }
-                    
-                    // Get the affinities for all the paths
-                    map<Alignment*, vector<double>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
-                    
-                    for(auto& alignment_and_affinities : affinities) {
-                        #pragma omp critical (total_affinities)
-                        total_affinities += alignment_and_affinities.second.size();
-                    }
-                    
-                    // Get a genotype        
-                    Genotype genotype = genotyper.get_genotype(paths, affinities);
-                    
-                    if(output_json) {
-                        // Dump in JSON
-                        #pragma omp critical (cout)
-                        cout << pb2json(genotype) << endl;
-                    } else if(output_vcf) {
-                        vcflib::Variant variant = genotyper.genotype_to_variant(*graph, *reference_index, *vcf, genotype);
-                        variant.sequenceName = ref_path_name;
-                        // TODO: set contig or something
-                        cout << variant << endl;
+                    if(skip_reference && paths.size() == 1 && paths[0].mapping_size() == 2) {
+                        // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
+                        // TODO: can't continue out of task
+                    } else if(paths.empty()) {
+                        // Don't do anything for superbubbles with no routes through
                     } else {
-                        // Write out in Protobuf
-                        buffer[tid].push_back(genotype);
-                        stream::write_buffered(cout, buffer[tid], 100);
+                    
+                        if(show_progress) {
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << bounds_and_contents.first.first << " - " << bounds_and_contents.first.second << " has " << paths.size() << " alleles" << endl;
+                            for(auto& path : paths) {
+                                // Announce each allele in turn
+                                #pragma omp critical (cerr)
+                                { 
+                                    cerr << "\t";
+                                    for(size_t i = 0; i < path.mapping_size(); i++) {
+                                        auto& seq = augmented_graph.get_node(path.mapping(i).position().node_id())->sequence();
+                                        cerr << (path.mapping(i).position().is_reverse() ? reverse_complement(seq) : seq);
+                                    }
+                                    cerr << endl;
+                                }
+                            }
+                        }
+                        
+                        // Get the affinities for all the paths
+                        map<Alignment*, vector<double>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
+                        
+                        for(auto& alignment_and_affinities : affinities) {
+                            #pragma omp critical (total_affinities)
+                            total_affinities += alignment_and_affinities.second.size();
+                        }
+                        
+                        // Get a genotype        
+                        Genotype genotype = genotyper.get_genotype(paths, affinities);
+                        
+                        if(output_json) {
+                            // Dump in JSON
+                            #pragma omp critical (cout)
+                            cout << pb2json(genotype) << endl;
+                        } else if(output_vcf) {
+                            // Get 0 or more variants from the superbubble
+                            vector<vcflib::Variant> variants = genotyper.genotype_to_variant(*graph, *reference_index, *vcf, genotype);
+                            for(auto& variant : variants) {
+                                // Fix up all the variants
+                                if(contig_name.empty()) {
+                                    // Override path name
+                                    variant.sequenceName = contig_name;
+                                } else {
+                                    // Keep path name
+                                    variant.sequenceName = ref_path_name;
+                                }
+                                variant.position += variant_offset;
+                                #pragma omp critical(cout)
+                                cout << variant << endl;
+                            }
+                        } else {
+                            // Write out in Protobuf
+                            buffer[tid].push_back(genotype);
+                            stream::write_buffered(cout, buffer[tid], 100);
+                        }
                     }
                 }
             }
@@ -4120,6 +4194,7 @@ void help_stats(char** argv) {
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
          << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
+         << "    -C, --cactusbubbles   describe the cactus bubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -n, --node ID         consider node with the given id" << endl
          << "    -d, --to-head         show distance to head for each provided node" << endl
@@ -4145,6 +4220,7 @@ int main_stats(int argc, char** argv) {
     bool node_count = false;
     bool edge_count = false;
     bool superbubbles = false;
+    bool cactus = false;
     set<vg::id_t> ids;
 
     int c;
@@ -4166,11 +4242,12 @@ int main_stats(int argc, char** argv) {
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
             {"superbubbles", no_argument, 0, 'b'},
+            {"cactusbubbles", no_argument, 0, 'C'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEb",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbC",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4229,6 +4306,10 @@ int main_stats(int argc, char** argv) {
 
         case 'b':
             superbubbles = true;
+            break;
+
+        case 'C':
+            cactus = true;
             break;
 
         case 'h':
@@ -4307,6 +4388,18 @@ int main_stats(int argc, char** argv) {
 
     if (superbubbles) {
         for (auto& i : vg::superbubbles(*graph)) {
+            auto& b = i.first;
+            auto& v = i.second;
+            cout << b.first << "\t" << b.second << "\t";
+            for (auto& n : v) {
+                cout << n << ",";
+            }
+            cout << endl;
+        }
+    }
+
+    if (cactus) {
+        for (auto& i : vg::cactusbubbles(*graph)) {
             auto& b = i.first;
             auto& v = i.second;
             cout << b.first << "\t" << b.second << "\t";
