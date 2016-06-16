@@ -77,62 +77,35 @@ Mapping Translator::translate(const Mapping& mapping) {
     } else {
         // subset the translated path mapping.from_length() bases in or out
         // depending on its offset
-        //const string mapping_sequence(const Mapping& m, const string& node_seq);
-        if (mapping_is_match(mapping)) {
-            if (mapping.position().offset() == 0) {
-                // we can take the position from the translation
-                // so subset from the beginning of the translation
-                translated =
-                    cut_mapping(
-                        cut_mapping(translation.from().mapping(0),
-                                    mapping_from_length(mapping)).first,
-                        mapping_to_length(mapping)).first;
-            } else if (mapping.rank() == 1) {
-                // if we're the first but we don't have a position, it's possible that we are going to reach
-                // the old reference graph in the next step
-                translated =
-                    cut_mapping(
-                        cut_mapping(translation.from().mapping(0),
-                                    mapping_from_length(mapping)).second,
-                        mapping_to_length(mapping)).second;
-                //auto seq = mapping_sequence(mapping, translated.edit(0).sequence());
-                //translated.mutable_edit(0)->set_sequence(mapping_sequence(mapping, translated.edit(0).sequence()));
-                translated.clear_position();
-            } else {
-                // clear the position as we'd be unmapped in the from graph
-                translated.clear_position();
-            }
+        if (mapping.position().offset() == 0) {
+            // we can take the position from the translation
+            // so subset from the beginning of the translation
+            translated =
+                cut_mapping(translation.from().mapping(0),
+                            mapping_from_length(mapping)).first;
+            auto seq = translation.from().mapping(0).edit(0).sequence();
+            translated.clear_edit();
+            auto edit = translated.add_edit();
+            edit->set_sequence(mapping_sequence(mapping, seq));
+            edit->set_to_length(edit->sequence().size());
+        } else if (mapping.rank() == 1) {
+            // if we're the first but we don't have a position, it's possible that we are going to reach
+            // the old reference graph in the next step
+            translated =
+                cut_mapping(translation.from().mapping(0),
+                            mapping_from_length(mapping)).second;
+            auto seq = translation.from().mapping(0).edit(0).sequence();
+            translated.clear_edit();
+            auto edit = translated.add_edit();
+            edit->set_sequence(mapping_sequence(mapping, seq));
+            edit->set_to_length(edit->sequence().size());
+            translated.clear_position();
         } else {
-            if (mapping.position().offset() == 0) {
-                // we can take the position from the translation
-                // so subset from the beginning of the translation
-                translated =
-                    cut_mapping(translation.from().mapping(0),
-                                mapping_from_length(mapping)).first;
-                auto seq = translation.from().mapping(0).edit(0).sequence();
-                translated.clear_edit();
-                auto edit = translated.add_edit();
-                edit->set_sequence(mapping_sequence(mapping, seq));
-                edit->set_to_length(edit->sequence().size());
-            } else if (mapping.rank() == 1) {
-                // if we're the first but we don't have a position, it's possible that we are going to reach
-                // the old reference graph in the next step
-                translated =
-                    cut_mapping(translation.from().mapping(0),
-                                mapping_from_length(mapping)).second;
-                auto seq = translation.from().mapping(0).edit(0).sequence();
-                translated.clear_edit();
-                auto edit = translated.add_edit();
-                edit->set_sequence(mapping_sequence(mapping, seq));
-                edit->set_to_length(edit->sequence().size());
-                translated.clear_position();
-            } else {
-                // clear the position as we'd be unmapped in the from graph
-                translated.clear_position();
-            }
+            // clear the position as we'd be unmapped in the from graph
+            translated.clear_position();
         }
-        return translated;
     }
+    return translated;
 }
 
 Path Translator::translate(const Path& path) {
