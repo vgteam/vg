@@ -118,19 +118,20 @@ map<pair<NodeTraversal, NodeTraversal>, set<id_t>> Genotyper::find_sites_with_ca
     // todo: use deomposition instead of converting tree into flat structure
     BubbleTree bubble_tree = cactusbubble_tree(graph);
 
-    bubble_tree.for_each_preorder([&](Bubble& bubble) {
+    // copy nodes up to bubbles that contain their bubble
+    bubble_up_bubbles(bubble_tree);
+
+    bubble_tree.for_each_preorder([&](BubbleTree::Node* node) {
+            Bubble& bubble = node->v;
             // cut root to be consistent with superbubbles()
-            if (bubble.start != bubble_tree.root->bubble.start ||
-                bubble.end != bubble_tree.root->bubble.end) {
+            if (bubble.start != bubble_tree.root->v.start ||
+                bubble.end != bubble_tree.root->v.end) {
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
-                // include endpoints to be consistent with superbubbles()
-                nodes.insert(bubble.start.node);
-                nodes.insert(bubble.end.node);
                 NodeTraversal start(graph.get_node(bubble.start.node), bubble.start.is_end);
-                NodeTraversal end(graph.get_node(bubble.end.node), !bubble.start.is_end);
+                NodeTraversal end(graph.get_node(bubble.end.node), !bubble.end.is_end);
                 to_return[minmax(start, end)] = nodes;
             }
-        });
+        });    
 
     return to_return;
 }
