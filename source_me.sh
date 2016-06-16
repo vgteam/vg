@@ -9,7 +9,7 @@ export CC=$(which gcc)
 export CXX=$(which g++)
 
 # add bash autocompletion
-if [ -n "$BASH" ]
+if test -n "$BASH_VERSION"
 then
 	 _vg_complete()
 	 {
