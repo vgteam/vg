@@ -257,6 +257,10 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
     // What reads are relevant to this superbubble?
     set<string> relevant_read_names;
     
+#ifdef debug
+    cerr << "Superbubble contains " << superbubble_contents.size() << " nodes" << endl;
+#endif
+    
     for(auto id : superbubble_contents) {
         // For every node in the superbubble, what paths visit it?
         auto& mappings_by_name = graph.paths.get_node_mapping(id);
@@ -287,6 +291,10 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
         relevant_ids.erase(id);
     }
     
+#ifdef debug
+    cerr << relevant_read_names.size() << " reads visit an additional " << relevant_ids.size() << " nodes" << endl;
+#endif
+    
     // Make a vg graph with all the nodes used by the reads relevant to the
     // superbubble, but outside the superbubble itself.
     VG surrounding;
@@ -301,11 +309,11 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
         VG allele_graph(surrounding);
         
         for(size_t i = 0; i < path.mapping_size(); i++) {
-            // Add in every node on the path
+            // Add in every node on the path to the new allele graph
             id_t id = path.mapping(i).position().node_id();
-            surrounding.add_node(*graph.get_node(id));
+            allele_graph.add_node(*graph.get_node(id));
             // And its edges
-            surrounding.add_edges(graph.edges_of(graph.get_node(id)));
+            allele_graph.add_edges(graph.edges_of(graph.get_node(id)));
         }
         
         // Get rid of dangling edges
@@ -583,7 +591,12 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
     
 #ifdef debug
     for(int i = 0; i < reads_consistent_with_allele.size(); i++) {
-        cerr << "a" << i << ": " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
+        // Build a useful name for the allele
+        stringstream allele_name;
+        for(size_t j = 0; j < superbubble_paths[i].mapping_size(); j++) {
+            allele_name << superbubble_paths[i].mapping(j).position().node_id() << ",";
+        }
+        cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
     }
 #endif
 
