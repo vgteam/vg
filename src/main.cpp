@@ -3100,7 +3100,7 @@ void help_mod(char** argv) {
          << "    -R, --remove-null       removes nodes that have no sequence, forwarding their edges" << endl
          << "    -g, --subgraph ID       gets the subgraph rooted at node ID, multiple allowed" << endl
          << "    -x, --context N         steps the subgraph out by N steps (default: 1)" << endl
-         << "    -p, --prune-complex     remove nodes that are reached by paths of --path-length which" << endl
+         << "    -p, --prune-complex     remove nodes that are reached by paths of --length which" << endl
          << "                            cross more than --edge-max edges" << endl
          << "    -S, --prune-subgraphs   remove subgraphs which are shorter than --length" << endl
          << "    -l, --length N          for pruning complex regions and short subgraphs" << endl
@@ -3110,7 +3110,7 @@ void help_mod(char** argv) {
          << "    -K, --kill-labels       delete the labels from the graph, resulting in empty nodes" << endl
          << "    -e, --edge-max N        only consider paths which make edge choices at <= this many points" << endl
          << "    -m, --markers           join all head and tails nodes to marker nodes" << endl
-         << "                            ('###' starts and '$$$' ends) of --path-length, for debugging" << endl
+         << "                            ('###' starts and '$$$' ends) of --length, for debugging" << endl
          << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -y, --destroy-node ID   remove node with given id" << endl
          << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
