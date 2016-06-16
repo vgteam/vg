@@ -370,20 +370,36 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
             }
             
             // If we get here, we know this read is informative as to the internal status of this superbubble.
-            Alignment aligned;
+            Alignment aligned_fwd;
+            Alignment aligned_rev;
+            // We need a way to get graph node sizes to reverse these alignments
+            auto get_node_size = [&](id_t id) {
+                return graph.get_node(id)->sequence().size();
+            };
             if(read->sequence().size() == read->quality().size()) {
                 // Re-align a copy to this graph (using quality-adjusted alignment).
                 // TODO: actually use quality-adjusted alignment
-                aligned = allele_graph.align(*read);
+                aligned_fwd = allele_graph.align(*read);
+                aligned_rev = allele_graph.align(reverse_complement_alignment(*read, get_node_size));
             } else {
                 // If we don't have the right number of quality scores, use un-adjusted alignment instead.
-                aligned = allele_graph.align(*read);
+                aligned_fwd = allele_graph.align(*read);
+                aligned_rev = allele_graph.align(reverse_complement_alignment(*read, get_node_size));
             }
+            // Pick the best alignment, and emiot in original orientation
+            Alignment aligned = (aligned_rev.score() > aligned_fwd.score()) ? reverse_complement_alignment(aligned_rev, get_node_size) : aligned_fwd;
             
 #ifdef debug
             #pragma omp critical (cerr)
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
+
+            if(read->identity() > 0.9 && aligned.identity() < 0.5) {
+                // This read got suspiciously terrible
+                cerr << "Terrible read: " << pb2json(aligned) << endl;
+                cerr << "Graph: " << pb2json(allele_graph.graph) << endl;
+                exit(1);
+            }
             
             // Grab the identity and save it for this read and superbubble path
             toReturn[read].push_back(aligned.identity());
