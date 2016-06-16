@@ -60,10 +60,10 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
     return round(total);
 }
 
-map<pair<NodeTraversal, NodeTraversal>, set<id_t>> Genotyper::find_sites(VG& graph) {
+vector<Genotyper::Site> Genotyper::find_sites(VG& graph) {
 
-    // Set up our output map
-    map<pair<NodeTraversal, NodeTraversal>, set<id_t>> to_return;
+    // Set up our output vector
+    vector<Site> to_return;
 
     // Unfold the graph
     // Copy the graph and unfold the copy. We need to hold this translation
@@ -96,24 +96,29 @@ map<pair<NodeTraversal, NodeTraversal>, set<id_t>> Genotyper::find_sites(VG& gra
         auto& end_translation = overall_translation[superbubble.first.second];
         NodeTraversal end(graph.get_node(end_translation.first), end_translation.second);
         
-        // Find the vector we want all the nodes in
-        auto& superbubble_nodes = to_return[make_pair(start, end)];
-        
+        // Make a Site and tell it where to start and end
+        Site site;
+        site.start = start;
+        site.end = end;
+
         for(auto id : superbubble.second) {
             // Translate each ID and put it in the set
-            superbubble_nodes.insert(overall_translation[id].first);
+            site.contents.insert(overall_translation[id].first);
         }
+        
+        // Save the site
+        to_return.emplace_back(std::move(site));
     }
 
-    // Give back the collections of involved nodes by start and end
+    // Give back the collection of sites
     return to_return;    
     
 }
 
-map<pair<NodeTraversal, NodeTraversal>, set<id_t>> Genotyper::find_sites_with_cactus(VG& graph) {
+vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph) {
 
-    // Set up our output map
-    map<pair<NodeTraversal, NodeTraversal>, set<id_t>> to_return;
+    // Set up our output vector
+    vector<Site> to_return;
 
     // todo: use deomposition instead of converting tree into flat structure
     BubbleTree bubble_tree = cactusbubble_tree(graph);
@@ -129,30 +134,36 @@ map<pair<NodeTraversal, NodeTraversal>, set<id_t>> Genotyper::find_sites_with_ca
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
                 NodeTraversal start(graph.get_node(bubble.start.node), bubble.start.is_end);
                 NodeTraversal end(graph.get_node(bubble.end.node), bubble.end.is_end);
-                to_return[minmax(start, end)] = nodes;
+                // Fill in a Site
+                Site site;
+                site.start = min(start, end);
+                site.end = max(start, end);
+                swap(site.contents, nodes);
+                // Save the site
+                to_return.emplace_back(std::move(site));
             }
         });    
 
     return to_return;
 }
 
-vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
+vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const Site& site) {
     // We're going to emit traversals supported by any paths in the graph.
     
     // Put all our subpaths in here to deduplicate them by sequence they spell out. And to count occurrences.
     map<string, pair<list<NodeTraversal>, int>> results;
 
 #ifdef debug
-    cerr << "Looking for paths between " << start << " and " << end << endl;
+    cerr << "Looking for paths between " << site.start << " and " << site.end << endl;
 #endif
     
-    if(graph.paths.has_node_mapping(start.node) && graph.paths.has_node_mapping(end.node)) {
+    if(graph.paths.has_node_mapping(site.start.node) && graph.paths.has_node_mapping(site.end.node)) {
         // If we have some paths that visit both ends (in some orientation)
         
         // Get all the mappings to the end node, by path name
-        auto& endmappings_by_name = graph.paths.get_node_mapping(end.node);
+        auto& endmappings_by_name = graph.paths.get_node_mapping(site.end.node);
         
-        for(auto& name_and_mappings : graph.paths.get_node_mapping(start.node)) {
+        for(auto& name_and_mappings : graph.paths.get_node_mapping(site.start.node)) {
             // Go through the paths that visit the start node
             
             if(!endmappings_by_name.count(name_and_mappings.first)) {
@@ -176,12 +187,12 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                 // mapping? If start is a forward traversal and we found a
                 // forward mapping, we go right. If either is backward we go
                 // left, and if both are backward we go right again.
-                bool traversal_direction = mapping->position().is_reverse() != start.backward;
+                bool traversal_direction = mapping->position().is_reverse() != site.start.backward;
                 
                 // What orientation would we want to find the end node in? If
                 // we're traveling backward, we expect to find it in the
                 // opposite direction to the one we were given.
-                bool expected_end_orientation = end.backward != traversal_direction;
+                bool expected_end_orientation = site.end.backward != traversal_direction;
                 
                 // We're going to fill in this list with traversals.
                 list<NodeTraversal> path_traversed;
@@ -204,7 +215,7 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                     string seq = graph.get_node(mapping->position().node_id())->sequence();
                     allele_stream << (path_traversed.back().backward ? reverse_complement(seq) : seq);
                     
-                    if(mapping->position().node_id() == end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
+                    if(mapping->position().node_id() == site.end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // We have stumbled upon the end node in the orientation we wanted it in.
                         
                         if(results.count(allele_stream.str())) {
@@ -238,8 +249,8 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
         
     }
     
-    // Now convert the unique results into Paths
-    vector<Path> to_return;
+    // Now collect the unique results
+    vector<list<NodeTraversal>> to_return;
     
     for(auto& result : results) {
         // Break out each result
@@ -253,15 +264,15 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
             continue;
         }
         
-        // Convert each list of node traversals to a proper path and add it to our collection of paths to return
-        to_return.push_back(path_from_node_traversals(traversals));
+        // Send out each list of traversals
+        to_return.emplace_back(std::move(traversals));
     }
     
     return to_return;
 }
 
 map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-    set<id_t>& superbubble_contents, vector<Path>& superbubble_paths) {
+    const Site& site, const vector<list<NodeTraversal>>& superbubble_paths) {
     
     // Grab our thread ID, which determines which aligner we get.
     int tid = omp_get_thread_num();
@@ -273,17 +284,10 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
     set<string> relevant_read_names;
     
 #ifdef debug
-    cerr << "Superbubble contains " << superbubble_contents.size() << " nodes" << endl;
+    cerr << "Superbubble contains " << site.contents.size() << " nodes" << endl;
 #endif
 
-    assert(!superbubble_paths.empty());
-    assert(superbubble_paths.front().mapping_size() >= 2);
-
-    // Find the start and end nodes of the superbubble
-    id_t superbubble_start = superbubble_paths.front().mapping(0).position().node_id();
-    id_t superbubble_end = superbubble_paths.front().mapping(superbubble_paths.front().mapping_size() - 1).position().node_id();
-    
-    for(auto id : superbubble_contents) {
+    for(auto id : site.contents) {
         // For every node in the superbubble, what paths visit it?
         auto& mappings_by_name = graph.paths.get_node_mapping(id);
         for(auto& name_and_mappings : mappings_by_name) {
@@ -308,7 +312,7 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
         }
     }
     
-    for(auto id : superbubble_contents) {
+    for(auto id : site.contents) {
         // Throw out all the IDs that are also used in the superbubble itself
         relevant_ids.erase(id);
     }
@@ -331,21 +335,23 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
         // Now for each superbubble path, make a copy of that graph with it in
         VG allele_graph(surrounding);
         
-        for(size_t i = 0; i < path.mapping_size(); i++) {
+        for(auto it = path.begin(); it != path.end(); ++it) {
             // Add in every node on the path to the new allele graph
-            id_t id = path.mapping(i).position().node_id();
-            allele_graph.add_node(*graph.get_node(id));
+            allele_graph.add_node(*(*it).node);
             
             // Add in just the edge to the previous node on the path
-            if(i > 0) {
-                // There is something previous on the path. Make an edge
+            if(it != path.begin()) {
+                // There is something previous on the path.
+                auto prev = it;
+                --prev;
+                // Make an edge
                 Edge path_edge;
                 // And hook it to the correct side of the last node
-                path_edge.set_from(path.mapping(i - 1).position().node_id());
-                path_edge.set_from_start(path.mapping(i - 1).position().is_reverse());
+                path_edge.set_from((*prev).node->id());
+                path_edge.set_from_start((*prev).backward);
                 // And the correct side of the next node
-                path_edge.set_to(path.mapping(i).position().node_id());
-                path_edge.set_to_end(path.mapping(i).position().is_reverse());
+                path_edge.set_to((*it).node->id());
+                path_edge.set_to_end((*it).backward);
                 
                 assert(graph.has_edge(path_edge));
                 
@@ -376,7 +382,7 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
             for(size_t i = 0; i < read->path().mapping_size(); i++) {
                 // Look at every node the read touches
                 id_t touched = read->path().mapping(i).position().node_id();
-                if(superbubble_contents.count(touched)) {
+                if(site.contents.count(touched)) {
                     // If it's in the superbubble, keep it
                     touched_set.insert(touched);
                 }
@@ -387,8 +393,8 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
                 informative = true;
             } else {
                 // Throw out the start and end nodes, if we touched them.
-                touched_set.erase(superbubble_start);
-                touched_set.erase(superbubble_end);
+                touched_set.erase(site.start.node->id());
+                touched_set.erase(site.end.node->id());
                 if(!touched_set.empty()) {
                     // We touch an internal node
                     informative = true;
@@ -437,8 +443,35 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
 }
 
 
+list<NodeTraversal> Genotyper::get_traversal_of_site(VG& graph, const Site& site, const Path& path) {
+    
+    // We'll fill this in
+    list<NodeTraversal> to_return;
+    
+    for(size_t i = 0; i < path.mapping_size(); i++) {
+        // Make a NodeTraversal version of the Mapping
+        NodeTraversal traversal(graph.get_node(path.mapping(i).position().node_id()), path.mapping(i).position().is_reverse());
+        
+        if(site.contents.count(traversal.node->id())) {
+            // We're inside the bubble. This is super simple when we have the contents!
+            to_return.push_back(traversal);
+        }
+    
+    }
+    return to_return;
+}
+
+string Genotyper::traversals_to_string(const list<NodeTraversal>& path) {
+    stringstream seq;
+    for(auto& traversal : path) {
+        // Stick in each sequence in order, with orientation
+        seq << (traversal.backward ? reverse_complement(traversal.node->sequence()) : traversal.node->sequence());
+    }
+    return seq.str();
+}
+
 map<Alignment*, vector<double>> Genotyper::get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-    set<id_t>& superbubble_contents, vector<Path>& superbubble_paths) {
+    const Site& site, const vector<list<NodeTraversal>>& superbubble_paths) {
     
     // Grab our thread ID, which determines which aligner we get.
     int tid = omp_get_thread_num();
@@ -450,39 +483,17 @@ map<Alignment*, vector<double>> Genotyper::get_affinities_fast(VG& graph, const 
     set<string> relevant_read_names;
     
 #ifdef debug
-    cerr << "Superbubble contains " << superbubble_contents.size() << " nodes" << endl;
+    cerr << "Superbubble contains " << site.contents.size() << " nodes" << endl;
 #endif
 
-    assert(!superbubble_paths.empty());
-    assert(superbubble_paths.front().mapping_size() >= 2);
-
-    // Find the start and end nodes of the superbubble
-    id_t superbubble_start = superbubble_paths.front().mapping(0).position().node_id();
-    id_t superbubble_end = superbubble_paths.front().mapping(superbubble_paths.front().mapping_size() - 1).position().node_id();
-    
-    // Make the appropriate NodeTraversals
-    // TODO: just get these passed in or something
-    NodeTraversal start(graph.get_node(superbubble_start), superbubble_paths.front().mapping(0).position().is_reverse());
-    NodeTraversal end(graph.get_node(superbubble_end), superbubble_paths.front().mapping(superbubble_paths.front().mapping_size() - 1).position().is_reverse());
-    
     // Convert all the Paths used for alleles back to their strings.
-    // TODO: just take strings instead.
     vector<string> allele_strings;
     for(auto& path : superbubble_paths) {
-        // For every path, fill this in
-        stringstream seq;
-        
-        for(size_t i = 0; i < path.mapping_size(); i++) {
-            // For every node along the path...
-            auto& node_seq = graph.get_node(path.mapping(i).position().node_id())->sequence();
-            // Put the node's sequence if forward, and its RC sequence if reverse
-            seq << (path.mapping(i).position().is_reverse() ? reverse_complement(node_seq) : node_seq);
-        }
-        // Put in the completed string for this allele
-        allele_strings.push_back(seq.str());
+        // Convert all the Paths used for alleles back to their strings.
+        allele_strings.push_back(traversals_to_string(path));
     }
     
-    for(auto id : superbubble_contents) {
+    for(auto id : site.contents) {
         // For every node in the superbubble, what paths visit it?
         auto& mappings_by_name = graph.paths.get_node_mapping(id);
         for(auto& name_and_mappings : mappings_by_name) {
@@ -499,140 +510,42 @@ map<Alignment*, vector<double>> Genotyper::get_affinities_fast(VG& graph, const 
         // For each relevant read, work out a string for the superbubble and whether
         // it's anchored on each end.
         
-        // First get the list of mappings
-        auto& mappings = graph.paths.get_path(name);    
+        // Get the NodeTraversals for this read through this site.
+        auto read_traversal = get_traversal_of_site(graph, site, reads_by_name.at(name)->path());
         
-        // Set this to true while we are scanning through the bubble
-        bool in_bubble = false;
-        // Set this to true if we ever find the bubble;
-        bool found_bubble = false;
-        // This tracks whether we entered the bubble backward
-        bool go_through_backward = false;
-        // What traversal will we see when we reach the other end of the bubble?
-        NodeTraversal expected;
-        // Build up the sequence crossing the bubble;
-        stringstream bubble_stream;
-        
-        // Were we anchored at the place we started the bubble, and the place we ended the bubble?
-        bool anchored_in = false;
-        bool anchored_out = false;
-        
-        for(auto& mapping : mappings) {
-            // Traverse through, looking for the bubble start.
-            // Make a NodeTraversal for each node we visit
-            NodeTraversal traversal(graph.get_node(mapping.position().node_id()), mapping.position().is_reverse());
-            
-            if(!in_bubble) {
-                // Maybe we are entering a bubble
-                if(traversal == start) {
-                    // We are entering forward
-                    in_bubble = true;
-                    // And we are anchored
-                    anchored_in = true;
-                    // We expect the end
-                    expected = end;
-                    // We found the bubble at all
-                    found_bubble = true;
-                } else if(traversal == end.reverse()) {
-                    // We are entering backward
-                    in_bubble = true;
-                    go_through_backward = true;
-                    // And we are anchored
-                    anchored_in = true;
-                    // We expect the start, reversed
-                    expected = start.reverse();
-                    // We found the bubble at all
-                    found_bubble = true;
-                }
-            }
-            
-            if(in_bubble) {
-                // Tack this on to the sequence
-                bubble_stream << (traversal.backward ? reverse_complement(traversal.node->sequence()) : traversal.node->sequence());
-                
-                if(traversal == expected) {
-                    // We made it to the end!
-                    anchored_out = true;
-                    in_bubble = false;
-                    break;
-                }
+        if(read_traversal.front() == site.end.reverse() || read_traversal.back() == site.start.reverse()) {
+            // We really traversed this site backward. Flip it around.
+            read_traversal.reverse();
+            for(auto& item : read_traversal) {
+                // Flip around every traversal as well as reversing their order.
+                item = item.reverse();
             }
         }
         
-        if(!found_bubble) {
-            // Try backward!
-            // TODO: don't duplicate code!
-            for(auto it = mappings.rbegin(); it != mappings.rend(); ++it) {
-                // Traverse through backwards, looking for the bubble start.
-                auto& mapping = *it;
-                // Make a NodeTraversal for each node we visit. We're going backward so flip everything
-                NodeTraversal traversal(graph.get_node(mapping.position().node_id()), !mapping.position().is_reverse());
-                
-                if(!in_bubble) {
-                    // Maybe we are entering a bubble
-                    if(traversal == start) {
-                        // We are entering forward
-                        in_bubble = true;
-                        // And we are anchored
-                        anchored_in = true;
-                        // We expect the end
-                        expected = end;
-                        // We found the bubble at all
-                        found_bubble = true;
-                    } else if(traversal == end.reverse()) {
-                        // We are entering backward
-                        in_bubble = true;
-                        go_through_backward = true;
-                        // And we are anchored
-                        anchored_in = true;
-                        // We expect the start, reversed
-                        expected = start.reverse();
-                        // We found the bubble at all
-                        found_bubble = true;
-                    }
-                }
-                
-                if(in_bubble) {
-                    // Tack this on to the sequence
-                    bubble_stream << (traversal.backward ? reverse_complement(traversal.node->sequence()) : traversal.node->sequence());
-                    
-                    if(traversal == expected) {
-                        // We made it to the end!
-                        anchored_out = true;
-                        in_bubble = false;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if(!found_bubble) {
-            throw runtime_error("Couldn't find bubble in read in either direction!");
-        }
-        
-        // OK so we finished scanning the bubble
-        string seq = bubble_stream.str();  
-        if(go_through_backward) {
-            // Flip the string and the anchoring flags
-            seq = reverse_complement(seq);
-            swap(anchored_in, anchored_out);
-        }
+        // Get the string it spells out
+        auto seq = traversals_to_string(read_traversal);
         
         // Now decide if the read's seq supports each path.
         for(auto& path_seq : allele_strings) {
-            if(anchored_in && anchored_out) {
+            if(read_traversal.front() == site.start && read_traversal.back() == site.end) {
+                // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
                 to_return[reads_by_name.at(name)].push_back(seq == path_seq);
-            } else if(anchored_in) {
+            } else if(read_traversal.front() == site.start) {
+                // Anchored at start only.
                 // seq needs to be a prefix of path_seq
                 auto difference = std::mismatch(seq.begin(), seq.end(), path_seq.begin());
                 // If the first difference is the past-the-end of the prefix, then it's a prefix
                 to_return[reads_by_name.at(name)].push_back(difference.first == seq.end());
-            } else if(anchored_out) {
+            } else if(read_traversal.back() == site.end) {
+                // Anchored at end only.
                 // seq needs to be a suffix of path_seq
                 auto difference = std::mismatch(seq.rbegin(), seq.rend(), path_seq.rbegin());
                 // If the first difference is the past-the-rend of the suffix, then it's a suffix
                 to_return[reads_by_name.at(name)].push_back(difference.first == seq.rend());
+            } else {
+                // This read doesn't touch either end.
+                cerr << "Warning: read doesn't touch either end of its site!" << endl;
             }
         }
         
@@ -731,17 +644,7 @@ double Genotyper::get_genotype_probability(const vector<int>& genotype, const ve
     return all_non_supporting_wrong * all_supporting_drawn;
 }
 
-/**
- * Get all the quality values in the alignment between the start and end nodes
- * of a site. Handles alignments that enter the site from the end, and
- * alignments that never make it through the site.
- *
- * If we run out of qualities, or qualities aren't present, returns no
- * qualities.
- *
- * If an alignment goes through the site multipe times, we get all the qualities from when it is in the site.
- */
-string get_qualities_in_site(VG& graph, const Alignment& alignment, NodeTraversal start, NodeTraversal end) {
+string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Alignment& alignment) {
     // We'll fill this in.
     stringstream to_return;
     
@@ -762,17 +665,16 @@ string get_qualities_in_site(VG& graph, const Alignment& alignment, NodeTraversa
         
         if(!in_site) {
             // If we aren't in the site, we may be entering
-            if(traversal == start) {
+            if(traversal == site.start) {
                 // We entered through the start
                 in_site = true;
                 // We'll leave at the end
-                expected = end;
-            } else if(traversal.node == end.node && traversal.backward != end.backward) {
+                expected = site.end;
+            } else if(traversal == site.end.reverse()) {
                 // We entered through the end
                 in_site = true;
                 // We'll leave when we hit the start in reverse
-                expected = start;
-                expected.backward = !expected.backward;
+                expected = site.start.reverse();
             }
         }
         
@@ -809,29 +711,12 @@ string get_qualities_in_site(VG& graph, const Alignment& alignment, NodeTraversa
 }
 
 #define debug
-Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
+Genotype Genotyper::get_genotype(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
     
     // Freebayes way (improved with multi-support):
     
-    if(superbubble_paths.empty()) {
-        // No paths! Nothing to say!
-        throw runtime_error("No paths through superbubble! Can't genotype!");
-    }
-    
-    if(superbubble_paths.front().mapping_size() < 2) {
-        throw runtime_error("Too few mappings in superbubble path!");
-    }
-    
-    // Get Mappings bounding the superbubble
-    const Mapping& start_mapping = superbubble_paths.front().mapping(0);
-    const Mapping& end_mapping = superbubble_paths.front().mapping(superbubble_paths.front().mapping_size() - 1);
-    
-    // And NodeTraversals. TODO: pass them in instead?
-    NodeTraversal start(graph.get_node(start_mapping.position().node_id()), start_mapping.position().is_reverse());
-    NodeTraversal end(graph.get_node(end_mapping.position().node_id()), end_mapping.position().is_reverse());
-    
 #ifdef debug
-    cerr << "Looking between " << start << " and " << end << endl;
+    cerr << "Looking between " << site.start << " and " << site.end << endl;
 #endif
     
     // We'll fill this in with the trimmed alignments and their consistency-with-alleles flags.
@@ -848,7 +733,7 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
         Alignment trimmed = *alignment_and_affinities.first;
         
         // Trim down qualities to just those in the superbubble
-        auto trimmed_qualities = get_qualities_in_site(graph, trimmed, start, end);
+        auto trimmed_qualities = get_qualities_in_site(graph, site, trimmed);
         
         // Stick them back in the now bogus-ified Alignment object.
         trimmed.set_quality(trimmed_qualities);
@@ -889,8 +774,8 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
     for(int i = 0; i < reads_consistent_with_allele.size(); i++) {
         // Build a useful name for the allele
         stringstream allele_name;
-        for(size_t j = 0; j < superbubble_paths[i].mapping_size(); j++) {
-            allele_name << superbubble_paths[i].mapping(j).position().node_id() << ",";
+        for(auto& traversal : superbubble_paths[i]) {
+            allele_name << traversal.node->id() << ",";
         }
         cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
         for(auto& read_and_consistency : alignment_consistency) {
@@ -939,7 +824,8 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
         if(!used_alleles.count(allele)) {
             // For each allele we haven't reported, report it.
             used_alleles.insert(allele);
-            *genotype.add_allele() = superbubble_paths.at(allele);
+            // Convert back to Path
+            *genotype.add_allele() = path_from_node_traversals(superbubble_paths.at(allele));
             Support* support = genotype.add_support();
             // TODO: don't put all the consistent reads on the forward strand.
             support->set_forward(reads_consistent_with_allele[allele]);

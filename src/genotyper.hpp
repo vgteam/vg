@@ -48,6 +48,13 @@ struct ReferenceIndex {
 class Genotyper {
 public:
 
+    // Represents a superbubble
+    struct Site {
+        NodeTraversal start;
+        NodeTraversal end;
+        set<id_t> contents;
+    };
+
     // How many nodes max should we walk when checking if a path runs through a superbubble/site
     size_t max_path_search_steps = 100;
     
@@ -102,48 +109,68 @@ public:
      * Unfold and dagify a graph, find the superbubbles, and then convert them
      * back to the space of the original graph.
      *
-     * Returns a map from a pair of start, end node traversals for a superbubble
-     * to the set of node IDs involved.
+     * Returns a collection of Sites.
      */
-    map<pair<NodeTraversal, NodeTraversal>, set<id_t>> find_sites(VG& graph);
+    vector<Site> find_sites(VG& graph);
 
     /** 
      * Same as find_sites but use Cactus instead of Superbubbles.
      * This is more general and doesn't require DAGifcation etc., but we keep
      * both versions around for now for debugging and comparison
      */
-    map<pair<NodeTraversal, NodeTraversal>, set<id_t>> find_sites_with_cactus(VG& graph);
+    vector<Site> find_sites_with_cactus(VG& graph);
     
     /**
-     * For the superbubble/site between start and end in the given orientations,
-     * emit all unique subpaths that run from start to end, out of the paths in
-     * the graph.
+     * Given a path (which may run either direction through a site, or not touch
+     * the ends at all), collect a list of NodeTraversals in order for the part
+     * of the path that is inside the site, in the same orientation as the path.
      */
-    vector<Path> get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end);
+    list<NodeTraversal> get_traversal_of_site(VG& graph, const Site& site, const Path& path);
+    
+    /**
+     * Make a list of NodeTraversals into the string they represent.
+     */
+    string traversals_to_string(const list<NodeTraversal>& path);
+    
+    /**
+     * For the given site, emit all subpaths with unique sequences that run from
+     * start to end, out of the paths in the graph.
+     */
+    vector<list<NodeTraversal>> get_paths_through_site(VG& graph, const Site& site);
+    
+    /**
+     * Get all the quality values in the alignment between the start and end nodes
+     * of a site. Handles alignments that enter the site from the end, and
+     * alignments that never make it through the site.
+     *
+     * If we run out of qualities, or qualities aren't present, returns no
+     * qualities.
+     *
+     * If an alignment goes through the site multipe times, we get all the qualities from when it is in the site.
+     */
+    string get_qualities_in_site(VG& graph, const Site& site, const Alignment& alignment);
     
     /**
      * Get the affinity of all the reads relevant to the superbubble to all the
-     * paths through the superbubble. We need to know all the nodes involved in
-     * the superbubble so that we can clip them and their edges out and replace
-     * them with the paths in turn.
+     * paths through the superbubble.
      *
      * Affinity is a double out of 1.0. Higher is better.
      */ 
     map<Alignment*, vector<double>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-        set<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
+        const Site& site,  const vector<list<NodeTraversal>>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
     map<Alignment*, vector<double>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-        set<id_t>& superbubble_contents, vector<Path>& superbubble_paths);
+        const Site& site, const vector<list<NodeTraversal>>& superbubble_paths);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
      * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */
-    Genotype get_genotype(VG& graph, const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
+    Genotype get_genotype(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
         
     /**
      * Compute the probability of the observed alignments given the genotype.
