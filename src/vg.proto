@@ -156,10 +156,20 @@ message Pileup {
     repeated EdgePileup edge_pileups = 2;
 }
 
-message Genotype {
+message Locus {
     string name = 1;
     repeated Path allele = 2;
     repeated Support support = 3;
+    // sorted by likelihood or posterior
+    //  the first one is the "call"
+    repeated Genotype genotype = 4;
+}
+
+message Genotype {
+    // these refer to the offsets of the alleles in the Locus object
+    repeated int32 allele = 1;
+    bool is_phased = 2;
+    double likelihood = 3;
 }
 
 // aggregates information about the reads supporting an allele
