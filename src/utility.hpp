@@ -75,6 +75,42 @@ string tmpfilename(const string& base);
 // one.
 string get_or_make_variant_id(vcflib::Variant variant);
 
+// Simple little tree
+template<typename T>
+struct TreeNode {
+    T v;
+    vector<TreeNode<T>*> children;
+    ~TreeNode() { for (auto c : children) { delete c; } }
+    void for_each_preorder(function<void(TreeNode<T>*)> lambda) {
+        lambda(this);
+        for (auto c : children) {
+            c->for_each_preorder(lambda);
+        }
+    }
+    void for_each_postorder(function<void(TreeNode<T>*)> lambda) {
+        for (auto c : children) {
+            c->for_each_preorder(lambda);
+        }
+        lambda(this);
+    }
+};
+
+template<typename T>
+struct Tree {
+    typedef TreeNode<T> Node;
+    Node* root;
+    Tree(Node* r = 0) : root(r) {}
+    ~Tree() { delete root; }
+    void for_each_preorder(function<void(Node*)> lambda) {
+        if (root) root->for_each_preorder(lambda);
+    }
+    void for_each_postorder(function<void(Node*)> lambda) {
+       if (root) root->for_each_postorder(lambda);
+    }
+
+};
+
+
 }
 
 #endif

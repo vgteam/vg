@@ -13,16 +13,16 @@ using namespace std;
 using namespace supbub;
 
 SB_Input vg_to_sb_input(VG& graph){
-	//cout << this->edge_count() << endl;
-  SB_Input sbi;
-  sbi.num_vertices = graph.edge_count();
-  function<void(Edge*)> lambda = [&sbi](Edge* e){
-    //cout << e->from() << " " << e->to() << endl;
-    pair<id_t, id_t> dat = make_pair(e->from(), e->to() );
-    sbi.edges.push_back(dat);
-  };
-  graph.for_each_edge(lambda);
-  return sbi;
+    //cout << this->edge_count() << endl;
+    SB_Input sbi;
+    sbi.num_vertices = graph.edge_count();
+    function<void(Edge*)> lambda = [&sbi](Edge* e){
+        //cout << e->from() << " " << e->to() << endl;
+        pair<id_t, id_t> dat = make_pair(e->from(), e->to() );
+        sbi.edges.push_back(dat);
+    };
+    graph.for_each_edge(lambda);
+    return sbi;
 }
 
 vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi){
@@ -226,10 +226,11 @@ BubbleTree cactusbubble_tree(VG& graph) {
     stCactusGraph* cactus_graph = cac_pair.first;
     stCactusNode* root_node = cac_pair.second;
 
-    BubbleTree out_tree(new BubbleNode());
+    BubbleTree out_tree(new BubbleTree::Node());
         
     // recursive function to walk through the cycles in the cactus graph
-    function<vector<id_t>(stCactusNode*, BubbleNode*)> cactus_recurse = [&](stCactusNode* cactus_node, BubbleNode* out_node) {
+    function<vector<id_t>(stCactusNode*, BubbleTree::Node*)> cactus_recurse = [&](stCactusNode* cactus_node,
+                                                                                  BubbleTree::Node* out_node) {
 
         // walk through the edges incident with the node and find those that are at the
         // start of a chain
@@ -241,7 +242,7 @@ BubbleTree cactusbubble_tree(VG& graph) {
         while (cactus_edge_end = stCactusNodeEdgeEndIt_getNext(&edge_it)) {
             
             if (stCactusEdgeEnd_isChainEnd(cactus_edge_end) &&
-               stCactusEdgeEnd_getLinkOrientation(cactus_edge_end)) {
+                stCactusEdgeEnd_getLinkOrientation(cactus_edge_end)) {
                 // Add the edge to those visited
                 CactusSide* side = (CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end);
                 edgesVisited.push_back(side->node);
@@ -263,18 +264,20 @@ BubbleTree cactusbubble_tree(VG& graph) {
                     
                     assert(stCactusEdgeEnd_getNode(cactus_edge_end2) != cactus_node);
 
-                    BubbleNode* new_node = new BubbleNode();
+                    BubbleTree::Node* new_node = new BubbleTree::Node();
                     out_node->children.push_back(new_node);
 
                     // This recursive explores the cycles in the subgraph rooted at next_cactus_node.
-                    new_node->bubble.start = side1->node;
-                    new_node->bubble.end = side2->node;
-                    new_node->bubble.contents = cactus_recurse(stCactusEdgeEnd_getNode(cactus_edge_end2), new_node);
+                    new_node->v.start = NodeSide(side1->node, side1->is_end);
+                    new_node->v.end = NodeSide(side2->node, side1->is_end);
+                    new_node->v.contents = cactus_recurse(stCactusEdgeEnd_getNode(cactus_edge_end2), new_node);
+                    new_node->v.contents.insert(new_node->v.contents.begin(), side1->node);
+                    new_node->v.contents.push_back(side2->node);
 
                     // Add all the edges in the super bubble to the total list of edges
                     edgesVisited.insert(edgesVisited.begin(),
-                                        out_node->bubble.contents.begin(),
-                                        out_node->bubble.contents.end());
+                                        out_node->v.contents.begin(),
+                                        out_node->v.contents.end());
 
                     // Get the next link
                     cactus_edge_end2 = stCactusEdgeEnd_getLink(
@@ -291,43 +294,47 @@ BubbleTree cactusbubble_tree(VG& graph) {
 
     // compute root as special case (todo: smarten up)
     //  these were used for source/sink in compute_side_components() above
-    out_tree.root->bubble.start = graph.min_node_id(); 
-    out_tree.root->bubble.end = graph.max_node_id();
-    //  just run the tree to get all visited nodes (in case numbering not 1-N)
-    set<id_t> visit_set;
-    out_tree.for_each_preorder([&](Bubble& bubble) {
-            for (auto i : bubble.contents) {
-                visit_set.insert(i);
-            }
-        });
-    out_tree.root->bubble.contents.insert(out_tree.root->bubble.contents.begin(),
-                                   visit_set.begin(), visit_set.end());
+    out_tree.root->v.start = NodeSide(graph.min_node_id(), true); 
+    out_tree.root->v.end = NodeSide(graph.max_node_id(), false);
     
     return out_tree;
 
 }
 
+void bubble_up_bubbles(BubbleTree& bubble_tree) {
+    bubble_tree.for_each_postorder([&](BubbleTree::Node* node) {
+            for (auto& c: node->children) {
+                node->v.contents.insert(node->v.contents.end(),
+                                       c->v.contents.begin(), c->v.contents.end());
+                
+            }
+            if (!node->children.empty()) {
+                // todo : uniqueness shouldnt be issue -- debug while sober
+                set<id_t> unique_set{node->v.contents.begin(), node->v.contents.end()};
+                node->v.contents.clear();
+                node->v.contents.insert(node->v.contents.begin(), unique_set.begin(), unique_set.end());
+            }
+        });
+}
+
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
 
-    BubbleTree bubble_tree = cactusbubble_tree(graph);
-    
     map<pair<id_t, id_t>, vector<id_t> > output;
 
-    bubble_tree.for_each_preorder([&](Bubble& bubble) {
+    BubbleTree bubble_tree = cactusbubble_tree(graph);
+    bubble_up_bubbles(bubble_tree);
+    bubble_tree.for_each_preorder([&](BubbleTree::Node* node) {
+            Bubble& bubble = node->v;
             // cut root to be consistent with superbubbles()
-            if (bubble.start != bubble_tree.root->bubble.start ||
-                bubble.end != bubble_tree.root->bubble.end) {
-                vector<id_t> nodes = bubble.contents;
-                nodes.push_back(bubble.start);
-                nodes.push_back(bubble.end);
-                sort(nodes.begin(), nodes.end());
-                output[minmax(bubble.start, bubble.end)] = nodes;
+            if (bubble.start != bubble_tree.root->v.start ||
+                bubble.end != bubble_tree.root->v.end) {               
+                // sort nodes to be consistent with superbubbles
+                sort(bubble.contents.begin(), bubble.contents.end());
+                output[minmax(bubble.start.node, bubble.end.node)] = bubble.contents;
             }
         });
 
     return output;
 }
-
-    
 
 }

@@ -45,6 +45,10 @@ public:
 
 };
 
+inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
+    return out << nodetraversal.node->id() << " " << (nodetraversal.backward ? "rev" : "fwd");
+}
+
 }
 
 #endif

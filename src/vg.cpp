@@ -9999,12 +9999,4 @@ void VG::orient_nodes_forward(set<id_t>& nodes_flipped) {
 
 }
 
-NodeSide node_start(id_t id) {
-    return NodeSide(id, false);
-}
-
-NodeSide node_end(id_t id) {
-    return NodeSide(id, true);
-}
-
 } // end namespace

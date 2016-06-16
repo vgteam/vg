@@ -1738,12 +1738,20 @@ int main_genotype(int argc, char** argv) {
     map<string, Alignment*> reads_by_name;
     for(auto& alignment : alignments) {
         reads_by_name[alignment.name()] = &alignment;
+        // Make sure to replace the alignment's path with the path it has in the augmented graph
+        list<Mapping>& mappings = augmented_graph.paths.get_path(alignment.name());
+        alignment.mutable_path()->clear_mapping();
+        for(auto& mapping : mappings) {
+            // Copy over all the transformed mappings
+            *alignment.mutable_path()->add_mapping() = mapping;
+        }
     }
+    cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
     
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
     
     // Unfold/unroll, find the superbubbles, and translate back.
-    map<pair<NodeTraversal, NodeTraversal>, vector<vg::id_t>> sites = genotyper.find_sites(augmented_graph);
+    vector<Genotyper::Site> sites = genotyper.find_sites(augmented_graph);
     
     if(show_progress) {
         cerr << "Found " << sites.size() << " superbubbles" << endl;
@@ -1779,15 +1787,19 @@ int main_genotype(int argc, char** argv) {
                 #pragma omp task firstprivate(it) shared(total_affinities)
                 {
                 
-                    auto& bounds_and_contents = *it;
+                    auto& site = *it;
                     
                     int tid = omp_get_thread_num();
                     
                     // Get all the paths through the site
-                    vector<Path> paths = genotyper.get_paths_through_site(augmented_graph, bounds_and_contents.first.first, bounds_and_contents.first.second);
+                    vector<list<NodeTraversal>> paths = genotyper.get_paths_through_site(augmented_graph, site);
                     
-                    if(skip_reference && paths.size() == 1 && paths[0].mapping_size() == 2) {
+                    if(skip_reference && paths.size() == 1 && paths[0].size() == 2) {
                         // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
+                        // TODO: can't continue out of task
+                    } else if(skip_reference && paths.size() == 1 && output_vcf) {
+                        // Skip boring guaranteed ref only sites where there is just 1 path.
+                        // If it were the reference path, it'd be a noop, and if it's not the reference path, there's no way to express it as VCF.
                         // TODO: can't continue out of task
                     } else if(paths.empty()) {
                         // Don't do anything for superbubbles with no routes through
@@ -1795,23 +1807,16 @@ int main_genotype(int argc, char** argv) {
                     
                         if(show_progress) {
                             #pragma omp critical (cerr)
-                            cerr << "Site " << bounds_and_contents.first.first << " - " << bounds_and_contents.first.second << " has " << paths.size() << " alleles" << endl;
+                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() << " alleles" << endl;
                             for(auto& path : paths) {
                                 // Announce each allele in turn
                                 #pragma omp critical (cerr)
-                                { 
-                                    cerr << "\t";
-                                    for(size_t i = 0; i < path.mapping_size(); i++) {
-                                        auto& seq = augmented_graph.get_node(path.mapping(i).position().node_id())->sequence();
-                                        cerr << (path.mapping(i).position().is_reverse() ? reverse_complement(seq) : seq);
-                                    }
-                                    cerr << endl;
-                                }
+                                cerr << "\t" << genotyper.traversals_to_string(path) << endl;
                             }
                         }
                         
                         // Get the affinities for all the paths
-                        map<Alignment*, vector<double>> affinities = genotyper.get_affinities(augmented_graph, reads_by_name, bounds_and_contents.second, paths);
+                        map<Alignment*, vector<double>> affinities = genotyper.get_affinities_fast(augmented_graph, reads_by_name, site, paths);
                         
                         for(auto& alignment_and_affinities : affinities) {
                             #pragma omp critical (total_affinities)
@@ -1819,7 +1824,7 @@ int main_genotype(int argc, char** argv) {
                         }
                         
                         // Get a genotype        
-                        Genotype genotype = genotyper.get_genotype(paths, affinities);
+                        Genotype genotype = genotyper.get_genotype(augmented_graph, site, paths, affinities);
                         
                         if(output_json) {
                             // Dump in JSON

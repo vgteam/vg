@@ -6,6 +6,9 @@
 #include <map>
 
 #include "types.hpp"
+#include "utility.hpp"
+#include "nodeside.hpp"
+
 #include "DetectSuperBubble.hpp"
 extern "C" {
     typedef struct _stCactusGraph stCactusGraph;
@@ -36,29 +39,13 @@ map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph);
 // CACTUS BUBBLES
 // todo : refactor harmonize interface with stuff in deconstruct
 // and superbubbles in general
-
 struct Bubble {
-    id_t start;
-    id_t end;
+    NodeSide start;
+    NodeSide end;
     vector<id_t> contents;
 };
 
-// Recursive cactus structure: bubbles nested within other bubbles
-struct BubbleNode {
-    Bubble bubble;
-    vector<BubbleNode*> children;
-    ~BubbleNode() { for (auto c : children) { delete c; } }
-    void for_each_preorder(function<void(Bubble&)> lambda) {
-        lambda(bubble);
-        for (auto c : children) { c->for_each_preorder(lambda); } }
-};
-struct BubbleTree {
-    BubbleNode* root;
-    BubbleTree(BubbleNode* r = 0) : root(r) {}
-    ~BubbleTree() { delete root; }
-    void for_each_preorder(function<void(Bubble&)> lambda) {
-        if (root) root->for_each_preorder(lambda); }
-};
+typedef Tree<Bubble> BubbleTree;
 
 // Convert VG to Cactus Graph
 // Notes:
@@ -71,9 +58,17 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph);
 // Return the hierchical cactus decomposition
 BubbleTree cactusbubble_tree(VG& graph);
 
+// By default, bubble X's contents array doesn't have all the nodes
+// in its children's contents (ie each node only stored in lowest bubble
+// that contains it).  This function will store each node in every
+// bubble that contains it (like superbubbles)
+// Note: contents wont be in any particular order after
+void bubble_up_bubbles(BubbleTree& bubble_tree);
+
 // Enumerate Cactus bubbles.  Interface (and output on DAGs)
 // identical to superbubbles()
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph);
+
 
 }
 
