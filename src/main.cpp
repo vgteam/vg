@@ -1710,6 +1710,10 @@ int main_genotype(int argc, char** argv) {
                     if(skip_reference && paths.size() == 1 && paths[0].mapping_size() == 2) {
                         // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
                         // TODO: can't continue out of task
+                    } else if(skip_reference && paths.size() == 1 && output_vcf) {
+                        // Skip boring guaranteed ref only sites where there is just 1 path.
+                        // If it were the reference path, it'd be a noop, and if it's not the reference path, there's no way to express it as VCF.
+                        // TODO: can't continue out of task
                     } else if(paths.empty()) {
                         // Don't do anything for superbubbles with no routes through
                     } else {

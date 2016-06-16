@@ -568,6 +568,7 @@ string get_qualities_in_site(VG& graph, const Alignment& alignment, NodeTraversa
     
 }
 
+#define debug
 Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
     
     // Freebayes way (improved with multi-support):
@@ -653,7 +654,7 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
         }
         cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
         for(auto& read_and_consistency : alignment_consistency) {
-            if(read_and_consistency.second[i] && read_and_consistency.first.sequence().size < 30) {
+            if(read_and_consistency.second[i] && read_and_consistency.first.sequence().size() < 30) {
                 // Dump all the short consistent reads
                 cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i] << endl;
             }
@@ -699,13 +700,16 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
             // For each allele we haven't reported, report it.
             used_alleles.insert(allele);
             *genotype.add_allele() = superbubble_paths.at(allele);
-            Support* supoport = genotype.add_support();
+            Support* support = genotype.add_support();
+            // TODO: don't put all the consistent reads on the forward strand.
+            support->set_forward(reads_consistent_with_allele[allele]);
             // TODO: turn overall genotype probability into quality and stick it in
         }
     }
     
     return genotype;
 }
+#undef debug
 
 /**
  * Create the reference allele for an empty vcflib Variant, since apaprently
@@ -894,6 +898,9 @@ vector<vcflib::Variant> Genotyper::genotype_to_variant(VG& graph, const Referenc
     // Make the ref allele
     create_ref_allele(variant, refString);
     
+    // Make a vector of supports by assigned VCF allele number
+    vector<Support> support_by_alt;
+    
     // We're going to put all the allele indexes called as present in here.
     vector<int> called_alleles;
     
@@ -909,6 +916,13 @@ vector<vcflib::Variant> Genotyper::genotype_to_variant(VG& graph, const Referenc
         if(i < genotype.support_size()) {
             // Add the quality
             variant.quality += genotype.support(i).quality();
+            
+            if(support_by_alt.size() <= allele_number) {
+                // Make sure we have a slot to put the support in
+                support_by_alt.resize(allele_number + 1);
+            }
+            // Put it there
+            support_by_alt[allele_number] = genotype.support(i);
         }
     }
     
@@ -923,6 +937,13 @@ vector<vcflib::Variant> Genotyper::genotype_to_variant(VG& graph, const Referenc
     variant.format.push_back("GT");
     auto& genotype_out = variant.samples["SAMPLE"]["GT"];
     genotype_out.push_back(to_string(called_alleles[0]) + "/" + to_string(called_alleles[1]));
+    
+    // Compose the allele-specific depth
+    variant.format.push_back("AD");
+    for(auto& support : support_by_alt) {
+        // Add the forward and reverse support together and use that for AD for the allele.
+        variant.samples["SAMPLE"]["AD"].push_back(to_string(support.forward() + support.reverse()));
+    }
     
     // Set the variant position (now that we have budged it left if necessary
     variant.position = referenceIntervalStart + 1;
