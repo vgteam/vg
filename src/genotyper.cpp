@@ -27,6 +27,24 @@ string allele_to_string(VG& graph, const Path& allele) {
     return stream.str();
 }
 
+double Genotyper::phred_to_prob(int phred) {
+    return pow(10, -((double)phred) / 10);
+}
+
+int Genotyper::prob_to_phred(double prob) {
+    return round(-10.0 * log10(prob));
+}
+
+int Genotyper::alignment_score(const Alignment& alignment) {
+    double total = 0;
+    for(size_t i = 0; i < alignment.quality().size(); i++) {
+        total += alignment.quality()[i];
+    }
+    // Make the total now actually be an average
+    total /= alignment.quality().size();
+    return round(total);
+}
+
 map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& graph) {
 
     // Set up our output map
@@ -101,6 +119,8 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                 // it early.
                 continue;
             }
+            
+            // TODO: instead of walking, use cut_path or cut_alignment
             
             for(auto* mapping : name_and_mappings.second) {
                 // Start at each mapping in the appropriate orientation
@@ -287,12 +307,7 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
     return toReturn;
 }
 
-Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
-    
-    // Freebayes way (improved with multi-support):
-    
-    // Decide that each read supports one or more alleles
-    
+double Genotyper::get_genotype_probability(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
     // miscalled) * P(all reads that do support alleles from the genotype ended
@@ -306,6 +321,64 @@ Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const ma
     // TODO: handle contamination like Freebayes
     
     // TODO: split out a function to get P(obs | genotype) for a single genotype
+    
+    // This is the probability that all reads that don't support either allele in this genotype are wrong.
+    double all_non_supporting_wrong = 1;
+    
+    // This is the probability that all the reads that do support alleles in this genotype were drawn from the genotype they support.
+    double all_supporting_drawn = 1;
+    
+    for(auto& read_and_consistency : alignment_consistency) {
+        // For each read, work out if it supports a genotype we have or not.
+        
+        // Split out the alignment from its consistency flags
+        auto& read = read_and_consistency.first;
+        auto& consistency = read_and_consistency.second;
+        
+        // How many of the alleles in our genotype is it consistent with?
+        int consistent_alleles = 0;
+        for(int allele : genotype) {
+            if(consistency.at(allele)) {
+                // We're consistent with this allele
+                consistent_alleles++;
+            }
+        }
+        
+        if(consistent_alleles == 0) {
+            // This read is inconsistent with all the alleles in the genotype,
+            // so, given the genotype, the read must be sequenced or mapped
+            // wrong.
+            
+            if(use_mapq) {
+                // Compute P(mapped wrong or called wrong) = P(not (mapped right and called right)) = P(not (not mapped wrong and not called wrong))
+                all_non_supporting_wrong *= (1.0 - (1.0 - phred_to_prob(read.mapping_quality())) * (1.0 - phred_to_prob(alignment_score(read))));
+            } else {
+                // Compute P(called wrong).
+                all_non_supporting_wrong *= phred_to_prob(alignment_score(read));
+            }
+        } else {
+            // This read is consistent with some of the alleles in the genotype,
+            // so we must have drawn one of those alleles when sequencing.
+            
+            // So multiply in the probability that we hit one of those alleles
+            all_supporting_drawn *= ((double) consistent_alleles) / genotype.size();
+        }
+        
+    }
+    
+    // Now we've looked at all the reads, so AND everything together
+    return all_non_supporting_wrong * all_supporting_drawn;
+}
+
+Genotype Genotyper::get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
+    
+    // Freebayes way (improved with multi-support):
+    
+    // Decide that each read supports one or more alleles
+    
+    
+    
+    
     
     // Compute total affinity for each path
     vector<double> total_affinity(superbubble_paths.size(), 0);

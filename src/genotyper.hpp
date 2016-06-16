@@ -61,6 +61,33 @@ public:
     // to call het and call homozygous instead.
     double max_het_bias = 4;
     
+    // Should we use mapping quality when computing P(reads | genotype)?
+    bool use_mapq = false;
+    
+    // Remember that Phred scores can add to multiply just like normal log probs?
+    // -10 log p1 + -10 log p2 = -10 (log p1 + log p2) = -10 log (p1 * p2)
+    
+    /**
+     * Convert integer Phred score to probability.
+     */
+    double phred_to_prob(int phred);
+     
+    /**
+     * Convert probability to integer Phred score.
+     */
+    int prob_to_phred(double prob);
+
+    /**
+     * Given an Alignment, compute a phred score for the quality of the
+     * alignment's bases overall which is supposed to be interpretable as the
+     * probability that the call of the sequence is wrong (to the degree that it
+     * would no longer support the alleles it appears to support).
+     *
+     * In practice we're just going to average the quality scores for all the
+     * bases.
+     */
+    int alignment_score(const Alignment& alignment);
+
     /**
      * Unfold and dagify a graph, find the superbubbles, and then convert them
      * back to the space of the original graph.
@@ -92,6 +119,18 @@ public:
      * Compute annotated genotype from affinities and superbubble paths.
      */
     Genotype get_genotype(const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
+        
+    /**
+     * Compute the probability of the observed alignments given the genotype.
+     *
+     * Takes a genotype as a vector of allele numbers, and support data as a
+     * collection of pairs of Alignments and vectors of bools marking whether
+     * each alignment is consistent with each allele.
+     *
+     * Alignments should have had their quality values trimmed down to just the
+     * part covering the superbubble.
+     */
+    double get_genotype_probability(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency);
         
     /**
      * Make a VCFlib variant from a genotype. Depends on an index of the
