@@ -95,7 +95,6 @@ map<pair<NodeTraversal, NodeTraversal>, vector<id_t>> Genotyper::find_sites(VG& 
     
 }
 
-#define debug
 vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, NodeTraversal end) {
     // We're going to emit traversals supported by any paths in the graph.
     
@@ -162,7 +161,7 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
                     
                     // Stick the sequence of the node (appropriately oriented) in the stream for the allele sequence
                     string seq = graph.get_node(mapping->position().node_id())->sequence();
-                    allele_stream << path_traversed.back().backward ? reverse_complement(seq) : seq;
+                    allele_stream << (path_traversed.back().backward ? reverse_complement(seq) : seq);
                     
                     if(mapping->position().node_id() == end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // We have stumbled upon the end node in the orientation we wanted it in.
@@ -203,7 +202,6 @@ vector<Path> Genotyper::get_paths_through_site(VG& graph, NodeTraversal start, N
     
     return toReturn;
 }
-#undef debug
 
 map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
     vector<id_t>& superbubble_contents, vector<Path>& superbubble_paths) {
@@ -370,6 +368,75 @@ double Genotyper::get_genotype_probability(const vector<int>& genotype, const ve
     return all_non_supporting_wrong * all_supporting_drawn;
 }
 
+/**
+ * Get all the quality values in the alignment between the start and end nodes
+ * of a site. Handles alignments that enter the site from the end, and
+ * alignments that never make it through the site.
+ *
+ * If an alignment goes through the site multipe times, we get all the qualities from when it is in the site.
+ */
+string get_qualities_in_site(VG& graph, const Alignment& alignment, NodeTraversal start, NodeTraversal end) {
+    // We'll fill this in.
+    stringstream to_return;
+    
+    // Are we currently in the site?
+    bool in_site = false;
+    // What NodeTraversal do we need to see to leave?
+    NodeTraversal expected;
+    
+    // Where are we in the quality string?
+    size_t quality_pos = 0;
+    
+    for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
+        // For every mapping in the path in order
+        auto& mapping = alignment.path().mapping(i);
+        
+        // What NodeTraversal is this?
+        NodeTraversal traversal(graph.get_node(mapping.position().node_id()), mapping.position().is_reverse());
+        
+        if(!in_site) {
+            // If we aren't in the site, we may be entering
+            if(traversal == start) {
+                // We entered through the start
+                in_site = true;
+                // We'll leave at the end
+                expected = end;
+            } else if(traversal.node == end.node && traversal.backward != end.backward) {
+                // We entered through the end
+                in_site = true;
+                // We'll leave when we hit the start in reverse
+                expected = start;
+                expected.backward = !expected.backward;
+            }
+        }
+        
+        for(size_t j = 0; j < mapping.edit_size(); j++) {
+            // For every edit
+            auto& edit = mapping.edit(j);
+        
+            if(in_site) {
+                for(size_t k = 0; k < edit.to_length(); k++) {
+                    // Take each quality value from the edit and add it to our collection to return
+                    to_return << (char)alignment.quality()[quality_pos];
+                    quality_pos++;
+                }
+            } else {
+                // Skip this edit's qualities 
+                quality_pos += edit.to_length();
+            }
+        }
+        
+        if(in_site && traversal == expected) {
+            // This was the node we were supposed to leave the site at.
+            in_site = false;
+        }
+    }
+    
+    return to_return.str();
+    
+}
+
+#define debug
 Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
     
     // Freebayes way (improved with multi-support):
@@ -379,50 +446,41 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
         throw runtime_error("No paths through superbubble! Can't genotype!");
     }
     
-    // Determine where the superbubble starts and ends, as Positions.
-    Position superbubble_start = superbubble_paths[0].mapping(0).position();
-    Position superbubble_end = superbubble_paths[0].mapping(superbubble_paths[0].mapping_size() - 1).position();
-    // We know these Positions will be to the incoming ends of their nodes, as
-    // read along the path. For the end position we want it to be past the end,
-    // so we push the end position to one past the end of the node in  its
-    // orientation.
-    superbubble_end.set_offset(graph.get_node(superbubble_end.node_id())->sequence().size());
+    if(superbubble_paths.front().mapping_size() < 2) {
+        throw runtime_error("Too few mappings in superbubble path!");
+    }
+    
+    // Get Mappings bounding the superbubble
+    const Mapping& start_mapping = superbubble_paths.front().mapping(0);
+    const Mapping& end_mapping = superbubble_paths.front().mapping(superbubble_paths.front().mapping_size() - 1);
+    
+    // And NodeTraversals. TODO: pass them in instead?
+    NodeTraversal start(graph.get_node(start_mapping.position().node_id()), start_mapping.position().is_reverse());
+    NodeTraversal end(graph.get_node(end_mapping.position().node_id()), end_mapping.position().is_reverse());
+    
+#ifdef debug
+    cerr << "Looking between " << start << " and " << end << endl;
+#endif
     
     // We'll fill this in with the trimmed alignments and their consistency-with-alleles flags.
     vector<pair<Alignment, vector<bool>>> alignment_consistency;
     
+    // We fill this in with totals
+    vector<int> reads_consistent_with_allele(superbubble_paths.size(), 0);
+    
     for(auto& alignment_and_affinities : affinities) {
-        // If the alignment is going forward theough the superbubble, just cut it
+        // We need to clip down to just the important quality values        
+        Alignment trimmed = *alignment_and_affinities.first;
         
-        Alignment to_trim = *alignment_and_affinities.first;
-        cerr << "Looking at alignment " << to_trim.name() << endl;
+        // Trim down qualities to just those in the superbubble
+        auto trimmed_qualities = get_qualities_in_site(graph, trimmed, start, end);
         
-        for(size_t i = 0; i < to_trim.path().mapping_size(); i++) {
-            // Scan along the alignment's path
-            cerr << "Mapping " << i << "/" << to_trim.path().mapping_size() << endl;
-            auto& pos = to_trim.path().mapping(i).position();
-            cerr << "Position: " << pb2json(pos) << endl;
-            if((pos.node_id() == superbubble_start.node_id() && pos.is_reverse() != superbubble_start.is_reverse()) ||
-            (pos.node_id() == superbubble_end.node_id() && pos.is_reverse() != superbubble_end.is_reverse())) {
-                // Flip so we can cut correctly.
-                // TODO: fix so cut supports cutting even when we visit nodes in reverse or when we articulate positions backwards from how they occur on the path!
-                to_trim = reverse_complement_alignment(to_trim, [&](id_t id) {
-                    // Flipping requires access to node lengths
-                    return graph.get_node(id)->sequence().size();
-                });
-            }
-        }
-    
-        cerr << "Trimming between " << superbubble_start.node_id() << " and " << superbubble_end.node_id() << endl;
-    
-        // Trim the alignment down to just the part in the superbubble
-        Alignment trimmed = trim_alignment(to_trim, superbubble_start, superbubble_end);
+        // Stick them back in the now bogus-ified Alignment object.
+        trimmed.set_quality(trimmed_qualities);
         
         // Calculate whether each affinity is enough to justify support.
         // We say only the maximal affinities are support.
         double max_affinity = *max_element(alignment_and_affinities.second.begin(), alignment_and_affinities.second.end());
-        
-        cerr << "Max affinity: " << max_affinity << endl;
         
         // Count up consistency
         size_t consistent = 0;
@@ -431,16 +489,29 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
         vector<bool> support_flags;
         for(auto affinity : alignment_and_affinities.second) {
             // Only maximal affinities represent consistency with an allele
-            support_flags.push_back(affinity == max_affinity);
-            consistent++;
+            if(affinity == max_affinity) {
+                // Read consistent with allele
+                support_flags.push_back(true);
+                // Count total alleles read is consistent with
+                consistent++;
+                // Count total reads consistent with allele
+                reads_consistent_with_allele[support_flags.size() - 1]++;
+            } else {
+                // Read not consistent with allele
+                support_flags.push_back(false);
+            }
         }
-        
-        cerr << "Read consistent with " << consistent << " alleles" << endl;
         
         // Save the trimmed alignment and its consistency flags
         alignment_consistency.emplace_back(std::move(trimmed), std::move(support_flags));
         
     }
+    
+#ifdef debug
+    for(int i = 0; i < reads_consistent_with_allele.size(); i++) {
+        cerr << "a" << i << ": " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
+    }
+#endif
 
     // We'll go through all the genotypes and find the best
     vector<int> best_genotype;
@@ -456,6 +527,10 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
             
             // Compute the probability of the genotype
             double probability = get_genotype_probability(genotype, alignment_consistency);
+            
+#ifdef debug
+            cerr << "P(obs | a" << allele1 << "/a" << allele2 << ") = " << probability << endl;
+#endif
             
             if(probability > best_probability || best_genotype.empty()) {
                 // This is the best genotype!
@@ -483,6 +558,7 @@ Genotype Genotyper::get_genotype(VG& graph, const vector<Path>& superbubble_path
     
     return genotype;
 }
+#undef debug
 
 /**
  * Create the reference allele for an empty vcflib Variant, since apaprently
