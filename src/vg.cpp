@@ -3302,8 +3302,8 @@ void VG::create_progress(long count) {
 
 void VG::update_progress(long i) {
     if (show_progress && progress) {
-        if (i <= progress_count
-            && (long double) (i - last_progress) / (long double) progress_count >= 0.001
+        if ((i <= progress_count
+             && (long double) (i - last_progress) / (long double) progress_count >= 0.001)
             || i == progress_count) {
 #pragma omp critical (progress)
             {
@@ -6537,16 +6537,16 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         if (!simple_mode) {
             out << "    " << e->from() << " -> " << e->to();
             out << " [dir=both,";
-            if (!invert_edge_ports && e->from_start()
-                || invert_edge_ports && !e->from_start()) {
+            if ((!invert_edge_ports && e->from_start())
+                || (invert_edge_ports && !e->from_start())) {
                 out << "arrowtail=none,";
                 out << "tailport=sw,";
             } else {
                 out << "arrowtail=none,";
                 out << "tailport=ne,";
             }
-            if (!invert_edge_ports && e->to_end()
-                || invert_edge_ports && !e->to_end()) {
+            if ((!invert_edge_ports && e->to_end())
+                || (invert_edge_ports && !e->to_end())) {
                 out << "arrowhead=none,";
                 out << "headport=se";
             } else {
@@ -8253,7 +8253,6 @@ void VG::for_each_gcsa_kmer_position_parallel(int kmer_size, bool path_only,
                                               id_t& head_id, id_t& tail_id,
                                               function<void(KmerPosition&)> lambda) {
 
-    show_progress = show_progress;
     progress_message = "processing kmers of " + name;
     Node* head_node = nullptr, *tail_node = nullptr;
     if(head_id == 0) {
@@ -9159,7 +9158,7 @@ VG VG::unfold(uint32_t max_length,
         // (in which case we're done b/c we will traverse the rest of the graph up to max_length)
         set<NodeTraversal> next;
         travs_to_flip.insert(curr);
-        if (length <= 0 || seen.find(curr) != seen.end() && seen[curr] < length) {
+        if (length <= 0 || (seen.find(curr) != seen.end() && seen[curr] < length)) {
             return;
         }
         seen[curr] = length;

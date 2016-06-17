@@ -1098,7 +1098,7 @@ Path simplify(const Path& p) {
         auto m = simplify(p.mapping(i));
         //cerr << "simplified " << pb2json(m) << endl;
         // remove wholly-deleted or empty mappings as these are redundant
-        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))
+        if ((m.edit_size() == 1 && edit_is_deletion(m.edit(0)))
             || m.edit_size() == 0) continue;
         if (s.mapping_size()) {
             // if this isn't the first mapping
@@ -1204,10 +1204,10 @@ Mapping simplify(const Mapping& m) {
         for ( ; j < m.edit_size(); ++j) {
             auto& f = m.edit(j);
             // if the edit types are the same, merge them
-            if (edit_is_match(e) && edit_is_match(f)
-                || edit_is_sub(e) && edit_is_sub(f)
-                || edit_is_deletion(e) && edit_is_deletion(f)
-                || edit_is_insertion(e) && edit_is_insertion(f)) {
+            if ((edit_is_match(e) && edit_is_match(f))
+                || (edit_is_sub(e) && edit_is_sub(f))
+                || (edit_is_deletion(e) && edit_is_deletion(f))
+                || (edit_is_insertion(e) && edit_is_insertion(f))) {
                 // will be 0 for insertions, and + for the rest
                 e.set_from_length(e.from_length()+f.from_length());
                 // will be 0 for deletions, and + for the rest
