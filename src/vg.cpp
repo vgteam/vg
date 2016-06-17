@@ -6741,10 +6741,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                             << "\",fontcolor=\"" << color << "\"];" << endl;
                     }
                     if (i > 0 && adjacent_mappings(path.mapping(i-1), m)) {
-                        out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\"];" << endl;
+                        out << "    " << pathid-1 << " -> " << pathid << " [dir=none,color=\"" << color << "\",constraint=false];" << endl;
                     }
                     out << "    " << pathid << " -> " << m.position().node_id()
-                        << " [dir=none,color=\"" << color << "\", style=invis];" << endl;
+                        << " [dir=none,color=\"" << color << "\", style=invis,constraint=false];" << endl;
                     out << "    { rank = same; " << pathid << "; " << m.position().node_id() << "; };" << endl;
                     pathid++;
                     // if we're at the end
@@ -6752,7 +6752,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     if (path.is_circular() && i+1 == path.mapping_size()) {
                         // connect to the head of the path
                         out << "    " << pathid-1 << " -> " << path_starts[path.name()]
-                            << " [dir=none,color=\"" << color << "\"];" << endl;
+                            << " [dir=none,color=\"" << color << "\",constraint=false];" << endl;
                     }
                     
                 }
@@ -6764,7 +6764,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                         const Mapping& m2 = path.mapping(i+1);
                         out << m1.position().node_id() << " -> " << m2.position().node_id()
                             << " [dir=none,tailport=ne,headport=nw,color=\""
-                            << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\"];" << endl;
+                            << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\",constraint=false];" << endl;
                     }
                 }
                 if (path.is_circular()) {
@@ -6772,7 +6772,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                     const Mapping& m2 = path.mapping(0);
                     out << m1.position().node_id() << " -> " << m2.position().node_id()
                     << " [dir=none,tailport=ne,headport=nw,color=\""
-                    << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\"];" << endl;
+                    << color << "\",label=\"     " << path_label << "     \",fontcolor=\"" << color << "\",constraint=false];" << endl;
                 }
             }
         };
