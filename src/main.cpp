@@ -3848,6 +3848,7 @@ int main_sim(int argc, char** argv) {
 
     Sampler sampler(xgidx, seed_val);
     size_t max_iter = 1000;
+    int nonce = 1;
     for (int i = 0; i < num_reads; ++i) {
         auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
         size_t iter = 0;
@@ -3861,7 +3862,7 @@ int main_sim(int argc, char** argv) {
             // name the alignment
             string data;
             aln.SerializeToString(&data);
-            const string hash = sha1head(data, 16);
+            const string hash = sha1head(data, 16) + std::to_string(nonce++);
             aln.set_name(hash);
             // write it out as requested
             if (json_out) {
