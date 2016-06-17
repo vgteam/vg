@@ -230,11 +230,11 @@ pair<id_t, id_t> get_cactus_source_sink(VG& graph) {
 
     id_t source_id = source_ids[0]->id();
     for (auto n : source_ids) {
-        source_id = min(source_id, n->id());
+      source_id = min(source_id, (id_t)n->id());
     }
     id_t sink_id = sink_ids[0]->id();    
     for (auto n : sink_ids) {
-        sink_id = max(sink_id, n->id());
+      sink_id = max(sink_id, (id_t)n->id());
     }
 
     assert(source_id != sink_id);
