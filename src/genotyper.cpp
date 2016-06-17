@@ -1153,7 +1153,7 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
         
         // We first need the low and high alt numbers
         size_t low_alt = allele_to_alt.at(locus.genotype(i).allele(0));
-        size_t high_alt = allele_to_alt.at(locus.genotype(i).allele(0));
+        size_t high_alt = allele_to_alt.at(locus.genotype(i).allele(1));
         if(low_alt > high_alt) {
             // Flip them to be the right way around
             swap(low_alt, high_alt);
@@ -1163,11 +1163,15 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
         size_t index = (high_alt * (high_alt + 1)) / 2 + low_alt;
         // Store the likelihood
         likelihoods[index] = locus.genotype(i).likelihood();
+#ifdef debug
+        cerr << high_alt << "/" << low_alt << ": " << index << " = " << pb2json(locus.genotype(i)) << endl;
+#endif
     }
-    variant.format.push_back("GL");
+    
+    variant.format.push_back("PL");
     for(auto& likelihood : likelihoods) {
-        // Add all the likelihood strings
-        variant.samples[sample_name]["GL"].push_back(to_string(likelihood));
+        // Add all the likelihood strings, normalizing against the best
+        variant.samples[sample_name]["PL"].push_back(to_string(prob_to_phred(likelihood/best_genotype.likelihood())));
     }
     
     // Set the variant position (now that we have budged it left if necessary
