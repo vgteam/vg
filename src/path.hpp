@@ -13,6 +13,7 @@
 #include "utility.hpp"
 #include "types.hpp"
 #include "position.hpp"
+#include "nodetraversal.hpp"
 
 //#define debug
 
@@ -196,7 +197,9 @@ bool mapping_ends_in_deletion(const Mapping& m);
 bool mapping_starts_in_deletion(const Mapping& m);
 bool mapping_is_total_deletion(const Mapping& m);
 bool mapping_is_simple_match(const Mapping& m);
+bool path_is_simple_match(const Path& p);
 // convert the mapping to the particular node into the sequence implied by the mapping
+const string mapping_sequence(const Mapping& m, const string& node_seq);
 const string mapping_sequence(const Mapping& m, const Node& n);
 // Reverse-complement a Mapping and all the Edits in it. A function to get node
 // lengths is needed, because the mapping will need to count its position from
@@ -242,6 +245,9 @@ double divergence(const Mapping& m);
 double identity(const Path& path);
 // compare the agreement between two alignments
 double overlap(const Path& p1, const Path& p2);
+
+// Turn a list of node traversals into a path
+Path path_from_node_traversals(const list<NodeTraversal>& traversals);
 
 }
 

@@ -7,7 +7,6 @@ namespace vg {
 
 using namespace std;
 using namespace gfak;
-using namespace supbub;
 
 
 // construct from a stream of protobufs
@@ -168,77 +167,6 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     sort();
 }
 
-
-SB_Input VG::vg_to_sb_input(){
-	//cout << this->edge_count() << endl;
-  SB_Input sbi;
-  sbi.num_vertices = this->edge_count();
-	function<void(Edge*)> lambda = [&sbi](Edge* e){
-		//cout << e->from() << " " << e->to() << endl;
-    pair<id_t, id_t> dat = make_pair(e->from(), e->to() );
-    sbi.edges.push_back(dat);
-	};
-	this->for_each_edge(lambda);
-  return sbi;
-}
-
-vector<pair<id_t, id_t> > VG::get_superbubbles(SB_Input sbi){
-    vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (sbi.num_vertices);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
-    supbub::DetectSuperBubble dsb;
-    dsb.find(sbg, superBubblesList);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
-    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
-        ret.push_back(make_pair((*it).entrance, (*it).exit));
-    }
-    return ret;
-}
-vector<pair<id_t, id_t> > VG::get_superbubbles(void){
-    vector<pair<id_t, id_t> > ret;
-    supbub::Graph sbg (this->max_node_id() + 1);
-    //load up the sbgraph with edges
-    function<void(Edge*)> lambda = [&sbg](Edge* e){
-#ifdef debug
-        cout << e->from() << " " << e->to() << endl;
-#endif
-        sbg.addEdge(e->from(), e->to());
-    };
-
-    this->for_each_edge(lambda);
-
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
-
-    supbub::DetectSuperBubble dsb;
-    dsb.find(sbg, superBubblesList);
-    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
-    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
-        ret.push_back(make_pair((*it).entrance, (*it).exit));
-    }
-    return ret;
-}
-// check for conflict (duplicate nodes and edges) occurs within add_* functions
-
-map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
-    map<pair<id_t, id_t>, vector<id_t> > bubbles;
-    // ensure we're sorted
-    sort();
-    // if we have a DAG, then we can find all the nodes in each superbubble
-    // in constant time as they lie in the range between the entry and exit node
-    auto supbubs = get_superbubbles();
-    //     hash_map<Node*, int> node_index;
-    for (auto& bub : supbubs) {
-        auto start = node_index[get_node(bub.first)];
-        auto end = node_index[get_node(bub.second)];
-        // get the nodes in the range
-        auto& b = bubbles[bub];
-        for (int i = start; i <= end; ++i) {
-            b.push_back(graph.node(i).id());
-        }
-    }
-    return bubbles;
-}
-
 void VG::add_nodes(const set<Node*>& nodes) {
     for (auto node : nodes) {
         add_node(*node);
@@ -246,6 +174,12 @@ void VG::add_nodes(const set<Node*>& nodes) {
 }
 
 void VG::add_edges(const set<Edge*>& edges) {
+    for (auto edge : edges) {
+        add_edge(*edge);
+    }
+}
+
+void VG::add_edges(const vector<Edge*>& edges) {
     for (auto edge : edges) {
         add_edge(*edge);
     }
@@ -5431,7 +5365,7 @@ void VG::expand_path(list<NodeTraversal>& path, vector<list<NodeTraversal>::iter
 }
 
 // The correct way to edit the graph
-void VG::edit(const vector<Path>& paths_to_add) {
+vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     // Collect the breakpoints
     map<id_t, set<pos_t>> breakpoints;
 
@@ -5460,15 +5394,23 @@ void VG::edit(const vector<Path>& paths_to_add) {
     // Clear existing path ranks.
     paths.clear_mapping_ranks();
 
+    // get the node sizes, for use when making the translation
+    map<id_t, size_t> orig_node_sizes;
+    for_each_node([&](Node* node) {
+            orig_node_sizes[node->id()] = node->sequence().size();
+        });
+
     // Break any nodes that need to be broken. Save the map we need to translate
     // from offsets on old nodes to new nodes. Note that this would mess up the
     // ranks of nodes in their existing paths, which is why we clear and rebuild
     // them.
     auto node_translation = ensure_breakpoints(breakpoints);
 
+    // we will record the nodes that we add, so we can correctly make the returned translation
+    map<Node*, Path> added_nodes;
     for(auto path : simplified_paths) {
         // Now go through each new path again, and create new nodes/wire things up.
-        add_nodes_and_edges(path, node_translation);
+        add_nodes_and_edges(path, node_translation, added_nodes, orig_node_sizes);
     }
 
     // TODO: add the new path to the graph, with perfect match mappings to all
@@ -5497,6 +5439,104 @@ void VG::edit(const vector<Path>& paths_to_add) {
 
     // execute a semi partial order sort on the nodes
     sort();
+
+    // make the translation
+    return make_translation(node_translation, added_nodes, orig_node_sizes);
+}
+
+vector<Translation> VG::make_translation(const map<pos_t, Node*>& node_translation,
+                                         const map<Node*, Path>& added_nodes,
+                                         const map<id_t, size_t>& orig_node_sizes) {
+    vector<Translation> translation;
+    // invert the translation
+    map<Node*, pos_t> inv_node_trans;
+    for (auto& t : node_translation) {
+        if (!is_rev(t.first)) {
+            inv_node_trans[t.second] = t.first;
+        }
+    }
+    // walk the whole graph
+    for_each_node([&](Node* node) {
+            translation.emplace_back();
+            auto& trans = translation.back();
+            auto f = inv_node_trans.find(node);
+            auto added = added_nodes.find(node);
+            if (f != inv_node_trans.end()) {
+                // if the node is in the inverted translation, use the position to make a mapping
+                auto pos = f->second;
+                auto from_mapping = trans.mutable_from()->add_mapping();
+                auto to_mapping = trans.mutable_to()->add_mapping();
+                *to_mapping->mutable_position() = make_position(node->id(), is_rev(pos), 0);
+                *from_mapping->mutable_position() = make_position(pos);
+                auto match_length = node->sequence().size();
+                auto to_edit = to_mapping->add_edit();
+                to_edit->set_to_length(match_length);
+                to_edit->set_from_length(match_length);
+                auto from_edit = from_mapping->add_edit();
+                from_edit->set_to_length(match_length);
+                from_edit->set_from_length(match_length);
+            } else if (added != added_nodes.end()) {
+                // the node is novel
+                auto to_mapping = trans.mutable_to()->add_mapping();
+                *to_mapping->mutable_position() = make_position(node->id(), false, 0);
+                auto to_edit = to_mapping->add_edit();
+                to_edit->set_to_length(node->sequence().size());
+                to_edit->set_from_length(node->sequence().size());
+                auto from_path = trans.mutable_from();
+                *trans.mutable_from() = added->second;
+            } else {
+                // otherwise we assume that the graph is unchanged
+                auto from_mapping = trans.mutable_from()->add_mapping();
+                auto to_mapping = trans.mutable_to()->add_mapping();
+                *to_mapping->mutable_position() = make_position(node->id(), false, 0);
+                *from_mapping->mutable_position() = make_position(node->id(), false, 0);
+                auto match_length = node->sequence().size();
+                auto to_edit = to_mapping->add_edit();
+                to_edit->set_to_length(match_length);
+                to_edit->set_from_length(match_length);
+                auto from_edit = from_mapping->add_edit();
+                from_edit->set_to_length(match_length);
+                from_edit->set_from_length(match_length);
+            }
+        });
+    std::sort(translation.begin(), translation.end(),
+              [&](const Translation& t1, const Translation& t2) {
+                  if (!t1.from().mapping_size() && !t2.from().mapping_size()) {
+                      // warning: this won't work if we don't have to mappings
+                      // this guards against the lurking segfault
+                      return t1.to().mapping_size() && t2.to().mapping_size()
+                          && make_pos_t(t1.to().mapping(0).position())
+                          < make_pos_t(t2.to().mapping(0).position());
+                  } else if (!t1.from().mapping_size()) {
+                      return true;
+                  } else if (!t2.from().mapping_size()) {
+                      return false;
+                  } else {
+                      return make_pos_t(t1.from().mapping(0).position())
+                          < make_pos_t(t2.from().mapping(0).position());
+                  }
+              });
+    // append the reverse complement of the translation
+    vector<Translation> reverse_translation;
+    auto get_curr_node_length = [&](id_t id) {
+        return get_node(id)->sequence().size();
+    };
+    auto get_orig_node_length = [&](id_t id) {
+        auto f = orig_node_sizes.find(id);
+        if (f == orig_node_sizes.end()) {
+            cerr << "ERROR: could not find node " << id << " in original length table" << endl;
+            exit(1);
+        }
+        return f->second;
+    };
+    for (auto& trans : translation) {
+        reverse_translation.emplace_back();
+        auto& rev_trans = reverse_translation.back();
+        *rev_trans.mutable_to() = simplify(reverse_complement_path(trans.to(), get_curr_node_length));
+        *rev_trans.mutable_from() = simplify(reverse_complement_path(trans.from(), get_orig_node_length));
+    }
+    translation.insert(translation.end(), reverse_translation.begin(), reverse_translation.end());
+    return translation;
 }
 
 map<id_t, set<pos_t>> VG::forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints) {
@@ -5711,7 +5751,11 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
     return toReturn;
 }
 
-void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation) {
+void VG::add_nodes_and_edges(const Path& path,
+                             const map<pos_t, Node*>& node_translation,
+                             map<Node*, Path>& added_nodes,
+                             const map<id_t, size_t>& orig_node_sizes) {
+
     // The basic algorithm is to traverse the path edit by edit, keeping track
     // of a NodeSide for the last piece of sequence we were on. If we hit an
     // edit that creates new sequence, we create that new sequence as a node,
@@ -5727,13 +5771,6 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
 
     // We use this function to get the node that contains a position on an
     // original node.
-    /*
-    cerr << "node translation" << endl;
-    for (auto& p : node_translation) {
-        pos_t pos = p.first;
-        cerr << pos << " " << (p.second != nullptr?pb2json(*p.second):"null") << endl;
-    }
-    */
 
     if(!path.name().empty()) {
         // If the path has a name, we're going to add it to our collection of
@@ -5838,6 +5875,46 @@ void VG::add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_tra
                     m.position().is_reverse() ?
                     reverse_complement(e.sequence())
                     : e.sequence());
+
+                // store the path representing this novel sequence in the translation table
+                auto prev_position = edit_first_position;
+                auto& from_path = added_nodes[new_node];
+                auto prev_from_mapping = from_path.add_mapping();
+                *prev_from_mapping->mutable_position() = make_position(prev_position);
+                auto from_edit = prev_from_mapping->add_edit();
+                from_edit->set_sequence(e.sequence());
+                from_edit->set_to_length(e.to_length());
+                from_edit->set_from_length(e.from_length());
+                // find the position after the edit
+                // if the edit is not the last in a mapping, the position after is from_length of the edit after this
+                if (j + 1 < m.edit_size()) {
+                    auto next_position = prev_position;
+                    get_offset(next_position) += e.from_length();
+                    auto next_from_mapping = from_path.add_mapping();
+                    *next_from_mapping->mutable_position() = make_position(next_position);
+                } else { // implicitly (j + 1 == m.edit_size())
+                    // if the edit is the last in a mapping, look at the next mapping position
+                    if (i + 1 < path.mapping_size()) {
+                        auto& next_mapping = path.mapping(i+1);
+                        auto next_from_mapping = from_path.add_mapping();
+                        *next_from_mapping->mutable_position() = next_mapping.position();
+                    } else {
+                        // if we are at the end of the path, then this insertion has no end, and we do nothing
+                    }
+                }
+                // TODO what about forward into reverse????
+                if (is_rev(prev_position)) {
+                    from_path = simplify(
+                        reverse_complement_path(from_path, [&](int64_t id) {
+                                auto l = orig_node_sizes.find(id);
+                                if (l == orig_node_sizes.end()) {
+                                    cerr << "could not find node " << id << " in orig_node_sizes table" << endl;
+                                    exit(1);
+                                } else {
+                                    return l->second;
+                                }
+                            }));
+                }
 
                 if (!path.name().empty()) {
                     Mapping nm;
@@ -6302,7 +6379,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool simple_mode,
                 bool invert_edge_ports,
                 bool color_variants,
+                bool superbubble_ranking,
+                bool superbubble_labeling,
                 int random_seed) {
+
     // setup graphviz output
     out << "digraph graphname {" << endl;
     out << "    node [shape=plaintext];" << endl;
@@ -6312,13 +6392,53 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     //out << "    splines=line;" << endl;
     //out << "    splines=true;" << endl;
     //out << "    smoothType=spring;" << endl;
+
+    //map<id_t, vector<
+    map<id_t, set<pair<string, string>>> symbols_for_node;
+    if (superbubble_labeling) {
+        Pictographs picts(random_seed);
+        Colors colors(random_seed);
+        map<pair<id_t, id_t>, vector<id_t> > sb = superbubbles(*this);
+        for (auto& bub : sb) {
+            auto start_node = bub.first.first;
+            auto end_node = bub.first.second;
+            stringstream vb;
+            for (auto& i : bub.second) {
+                vb << i << ",";
+            }
+            auto repr = vb.str();
+            string emoji = picts.hashed(repr);
+            string color = colors.hashed(repr);
+            auto label = make_pair(color, emoji);
+            for (auto& i : bub.second) {
+                symbols_for_node[i].insert(label);
+            }
+        }
+    }
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        if (!simple_mode) {
-            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
+        stringstream nlabel;
+        if (superbubble_labeling) {
+            nlabel << "<";
+            nlabel << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
+            for(auto& string_and_color : symbols_for_node[n->id()]) {
+                // Put every symbol in its font tag.
+                nlabel << "<FONT COLOR=\"" << string_and_color.first << "\">" << string_and_color.second << "</FONT>";
+            }
+            nlabel << ">";
+        } else if (simple_mode) {
+            nlabel << n->id();
         } else {
-            out << "    " << n->id() << " [label=\"" << n->id() << "\",penwidth=2,shape=circle,";
+            nlabel << n->id() << ":" << n->sequence();
+        }
+
+        if (simple_mode) {
+            out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
+        } else if (superbubble_labeling) {
+            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
+        } else {
+            out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",shape=box,penwidth=2,";
         }
         // for neato output, which tends to randomly order the graph
         if (!simple_mode) {
@@ -6332,8 +6452,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             out << "color=red,";
         }
         out << "];" << endl;
-
-  }
+    }
 
     // We're going to fill this in with all the path (symbol, color) label
     // pairs that each edge should get, by edge pointer. If a path takes an
@@ -6456,6 +6575,46 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         if(is_backward) {
             // We don't need this duplicate edge
             delete e;
+        }
+    }
+
+    if (superbubble_ranking) {
+        map<pair<id_t, id_t>, vector<id_t> > sb = superbubbles(*this);
+        for (auto& bub : sb) {
+            vector<id_t> in_bubble;
+            vector<id_t> bubble_head;
+            vector<id_t> bubble_tail;
+            auto start_node = bub.first.first;
+            auto end_node = bub.first.second;
+            for (auto& i : bub.second) {
+                if (i != start_node && i != end_node) {
+                    // if we connect to the start node, add to the head
+                    in_bubble.push_back(i);
+                    if (has_edge(NodeSide(start_node,true), NodeSide(i,false))) {
+                        bubble_head.push_back(i);
+                    }
+                    if (has_edge(NodeSide(i,true), NodeSide(end_node,false))) {
+                        bubble_tail.push_back(i);
+                    }
+                    // if we connect to the end node, add to the tail
+                }
+            }
+            if (in_bubble.size() > 1) {
+                if (bubble_head.size() > 0) {
+                    out << "    { rank = same; ";
+                    for (auto& i : bubble_head) {
+                        out << i << "; ";
+                    }
+                    out << "}" << endl;
+                }
+                if (bubble_tail.size() > 0) {
+                    out << "    { rank = same; ";
+                    for (auto& i : bubble_tail) {
+                        out << i << "; ";
+                    }
+                    out << "}" << endl;
+                }
+            }
         }
     }
 
@@ -7648,6 +7807,20 @@ const string VG::path_sequence(const Path& path) {
     return seq;
 }
 
+double VG::path_identity(const Path& path1, const Path& path2) {
+    // convert paths to sequences
+    string seq1 = path_sequence(path1);
+    string seq2 = path_sequence(path2);
+    // align the two path sequences with ssw
+    SSWAligner aligner;
+    Alignment aln = aligner.align(seq1, seq2);
+    // compute best possible score (which is everything matches)
+    int max_len = max(seq1.length(), seq2.length());
+    int best_score = max_len * aligner.match;
+    // return fraction of score over best_score
+    return best_score == 0 ? 0 : (double)aln.score() / (double)best_score;
+}
+
 void VG::kmer_context(string& kmer,
                       int kmer_size,
                       bool path_only,
@@ -8731,8 +8904,8 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
     // Fill it in, we can't use the copy constructor since std::map doesn't speak vg::hash_map
     // TODO: is the vg::hash_map order fixed across systems?
     for_each_node([&](Node* node) {
-        unvisited[node->id()] = node;
-    });
+            unvisited[node->id()] = node;
+        });
 
     // How many nodes have we ordered and oriented?
     id_t seen = 0;
@@ -8811,7 +8984,6 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
             // See what all comes next, minus deleted edges.
             vector<NodeTraversal> next;
             nodes_next(n, next);
-
             for(NodeTraversal& next_node : next) {
 
 #ifdef debug
@@ -9884,14 +10056,6 @@ void VG::orient_nodes_forward(set<id_t>& nodes_flipped) {
         destroy_edge(edge);
     }
 
-}
-
-NodeSide node_start(id_t id) {
-    return NodeSide(id, false);
-}
-
-NodeSide node_end(id_t id) {
-    return NodeSide(id, true);
 }
 
 } // end namespace

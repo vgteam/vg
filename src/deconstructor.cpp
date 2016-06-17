@@ -1,4 +1,5 @@
 #include "deconstructor.hpp"
+#include "bubbles.hpp"
 
 using namespace std;
 
@@ -64,7 +65,7 @@ namespace vg {
     vg::VG* Deconstructor::compact(int compact_steps){
         map<id_t, SuperBubble> node_to_sb;
         for (int i = 0; i < compact_steps; i++){
-            vector<pair<int64_t, int64_t> > supbubs = my_vg->get_superbubbles();
+            vector<pair<int64_t, int64_t> > supbubs = get_superbubbles(*my_vg);
             if (supbubs.size() == 0){
                 break;
             }
@@ -188,7 +189,7 @@ namespace vg {
 
         vector<SuperBubble> ret;
 
-        vector<pair<id_t, id_t> > supbubs = my_vg->get_superbubbles();
+        vector<pair<id_t, id_t> > supbubs = get_superbubbles(*my_vg);
         for (auto pp : supbubs){
             SuperBubble bub;
             bub.start_node = pp.first;
