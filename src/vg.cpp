@@ -8839,7 +8839,7 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
 #endif
 
     // using a map instead of a set ensures a stable sort across different systems
-    map<id_t, NodeTraversal> s;
+    map<pair<string, id_t>, NodeTraversal> s;
 
     // We find the head and tails, if there are any
     vector<Node*> heads;
@@ -8851,21 +8851,21 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
     // them first, and then arbitrarily. We ignore tails since we only orient
     // right from nodes we pick.
     // Maps from node ID to first orientation we suggested for it.
-    map<id_t, NodeTraversal> seeds;
+    map<pair<string, id_t>, NodeTraversal> seeds;
     for(Node* head : heads) {
-        seeds[head->id()] = NodeTraversal(head, false);
+        seeds[make_pair(head->sequence(), head->id())] = NodeTraversal(head, false);
     }
 
     // We will use a std::map copy of node_by_id as our set of unvisited nodes,
     // and remove index entries from it when we visit nodes. It will be rebuilt
     // when we rebuild the indexes later. We know its order will be fixed across
     // systems.
-    map<id_t, Node*> unvisited;
+    map<pair<string, id_t>, Node*> unvisited;
     // Fill it in, we can't use the copy constructor since std::map doesn't speak vg::hash_map
     // TODO: is the vg::hash_map order fixed across systems?
     for_each_node([&](Node* node) {
-        unvisited[node->id()] = node;
-    });
+            unvisited[make_pair(node->sequence(), node->id())] = node;
+        });
 
     // How many nodes have we ordered and oriented?
     id_t seen = 0;
@@ -8878,15 +8878,15 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
             // Look at the first seed
             NodeTraversal first_seed = (*seeds.begin()).second;
 
-            if(unvisited.count(first_seed.node->id())) {
+            if(unvisited.count(make_pair(first_seed.node->sequence(), first_seed.node->id()))) {
                 // We have an unvisited seed. Use it
 #ifdef debug
 #pragma omp critical (cerr)
                 cerr << "Starting from seed " << first_seed.node->id() << " orientation " << first_seed.backward << endl;
 #endif
 
-                s[first_seed.node->id()] = first_seed;
-                unvisited.erase(first_seed.node->id());
+                s[make_pair(first_seed.node->sequence(), first_seed.node->id())] = first_seed;
+                unvisited.erase(make_pair(first_seed.node->sequence(), first_seed.node->id()));
             }
             // Whether we used the seed or not, don't keep it around
             seeds.erase(seeds.begin());
@@ -8907,7 +8907,7 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
         while (!s.empty()) {
             // Grab an oriented node
             NodeTraversal n = s.begin()->second;
-            s.erase(n.node->id());
+            s.erase(make_pair(n.node->sequence(), n.node->id()));
             l.push_back(n);
             ++seen;
 #ifdef debug
@@ -8922,7 +8922,7 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
             vector<NodeTraversal> prev;
             nodes_prev(n, prev);
             for(NodeTraversal& prev_node : prev) {
-                if(!unvisited.count(prev_node.node->id())) {
+                if(!unvisited.count(make_pair(prev_node.node->sequence(), prev_node.node->id()))) {
 #ifdef debug
 #pragma omp critical (cerr)
                     cerr << "\tHas left-side edge to cycle entry point " << prev_node.node->id()
@@ -8944,7 +8944,6 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
             // See what all comes next, minus deleted edges.
             vector<NodeTraversal> next;
             nodes_next(n, next);
-
             for(NodeTraversal& next_node : next) {
 
 #ifdef debug
@@ -8967,7 +8966,7 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
                 // Unindex it
                 unindex_edge_by_node_sides(edge);
 
-                if(unvisited.count(next_node.node->id())) {
+                if(unvisited.count(make_pair(next_node.node->sequence(), next_node.node->id()))) {
                     // We haven't already started here as an arbitrary cycle entry point
 
 #ifdef debug
@@ -8982,18 +8981,18 @@ void VG::topological_sort(deque<NodeTraversal>& l) {
                         cerr << "\t\t\tIs last incoming edge" << endl;
 #endif
                         // Keep this orientation and put it here
-                        s[next_node.node->id()] = next_node;
+                        s[make_pair(next_node.node->sequence(), next_node.node->id())] = next_node;
                         // Remember that we've visited and oriented this node, so we
                         // don't need to use it as a seed.
-                        unvisited.erase(next_node.node->id());
+                        unvisited.erase(make_pair(next_node.node->sequence(), next_node.node->id()));
 
-                    } else if(!seeds.count(next_node.node->id())) {
+                    } else if(!seeds.count(make_pair(next_node.node->sequence(), next_node.node->id()))) {
                         // We came to this node in this orientation; when we need a
                         // new node and orientation to start from (i.e. an entry
                         // point to the node's cycle), we might as well pick this
                         // one.
                         // Only take it if we don't already know of an orientation for this node.
-                        seeds[next_node.node->id()] = next_node;
+                        seeds[make_pair(next_node.node->sequence(), next_node.node->id())] = next_node;
 
 #ifdef debug
 #pragma omp critical (cerr)
