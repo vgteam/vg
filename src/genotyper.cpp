@@ -899,7 +899,7 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
     // Set up total support for overall depth
     Support* overall_support = to_return.mutable_overall_support();
     overall_support->set_forward(overall_forward_reads);
-    overall_support->set_forward(overall_reverse_reads);
+    overall_support->set_reverse(overall_reverse_reads);
     
     // Now we've populated the genotype so return it.
     return to_return;
