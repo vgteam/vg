@@ -4500,8 +4500,11 @@ int main_stats(int argc, char** argv) {
 
     if (superbubbles) {
         for (auto& i : vg::superbubbles(*graph)) {
-            auto& b = i.first;
-            auto& v = i.second;
+            auto b = i.first;
+            auto v = i.second;
+            // sort output for now, to be consistent with cactus
+            b = minmax(b.first, b.second);
+            sort(v.begin(), v.end());
             cout << b.first << "\t" << b.second << "\t";
             for (auto& n : v) {
                 cout << n << ",";

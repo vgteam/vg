@@ -53,7 +53,10 @@ typedef Tree<Bubble> BubbleTree;
 //    so graph should be sorted
 //  - returned cactus graph needs to be freed by stCactusGraph_destruct
 //  - returns "root" node as well as graph
-pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph);
+pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, id_t source_id, id_t sink_id);
+
+// Get source and sink nodes
+pair<id_t, id_t> get_cactus_source_sink(VG& graph);
 
 // Return the hierchical cactus decomposition
 BubbleTree cactusbubble_tree(VG& graph);
