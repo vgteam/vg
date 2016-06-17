@@ -511,7 +511,7 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
         // it's anchored on each end.
         
         // Make an Affinity to fill in
-        Affinity affinity;
+        Affinity base_affinity;
         
         // Get the NodeTraversals for this read through this site.
         auto read_traversal = get_traversal_of_site(graph, site, reads_by_name.at(name)->path());
@@ -525,14 +525,18 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
             }
             
             // We're on the reverse strand
-            affinity.is_reverse = true;
+            base_affinity.is_reverse = true;
         }
+        
+        size_t total_supported = 0;
         
         // Get the string it spells out
         auto seq = traversals_to_string(read_traversal);
         
         // Now decide if the read's seq supports each path.
         for(auto& path_seq : allele_strings) {
+            // We'll make an affinity for this allele
+            Affinity affinity = base_affinity;
             if(read_traversal.front() == site.start && read_traversal.back() == site.end) {
                 // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
@@ -557,7 +561,16 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
             // Fake a weight
             affinity.affinity = (double)affinity.consistent;
             to_return[reads_by_name.at(name)].push_back(affinity);
+            
+            // Add in to the total if it supports this
+            total_supported += affinity.consistent;
         }
+        
+        if(total_supported == 0) {
+            // This is weird. Complain.
+            cerr << "Warning! Bubble sequence " << seq << " supports nothing!" << endl;
+        }
+        
         
     }
     
@@ -1127,6 +1140,34 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     for(auto& support : support_by_alt) {
         // Add the forward and reverse support together and use that for AD for the allele.
         variant.samples[sample_name]["AD"].push_back(to_string(support.forward() + support.reverse()));
+    }
+    
+    // Work out genotype likelihoods
+    // Make a vector to shuffle them into VCF order
+    vector<double> likelihoods(locus.genotype_size() * (locus.genotype_size() - 1) / 2);
+    for(size_t i = 0; i < locus.genotype_size(); i++) {
+        // For every genotype, calculate its VCF-order index based on the VCF allele numbers
+        
+        // TODO: we can only do diploids
+        assert(locus.genotype(i).allele_size() == 2);
+        
+        // We first need the low and high alt numbers
+        size_t low_alt = allele_to_alt.at(locus.genotype(i).allele(0));
+        size_t high_alt = allele_to_alt.at(locus.genotype(i).allele(0));
+        if(low_alt > high_alt) {
+            // Flip them to be the right way around
+            swap(low_alt, high_alt);
+        }
+        
+        // Compute the position as (sort of) specified in the VCF spec
+        size_t index = (high_alt * (high_alt + 1)) / 2 + low_alt;
+        // Store the likelihood
+        likelihoods[index] = locus.genotype(i).likelihood();
+    }
+    variant.format.push_back("GL");
+    for(auto& likelihood : likelihoods) {
+        // Add all the likelihood strings
+        variant.samples[sample_name]["GL"].push_back(to_string(likelihood));
     }
     
     // Set the variant position (now that we have budged it left if necessary
