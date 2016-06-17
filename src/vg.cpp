@@ -6430,7 +6430,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         } else if (simple_mode) {
             nlabel << n->id();
         } else {
-            nlabel << n->id() << ":" << n->sequence();
+            nlabel << "<";
+            nlabel << "<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
+            nlabel << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">" << n->id() << ":" << n->sequence() << "</TD>";
+            nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
+            nlabel << ">";
         }
 
         if (simple_mode) {
@@ -6438,14 +6442,17 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         } else if (superbubble_labeling) {
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
         } else {
-            out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",shape=box,penwidth=2,";
+            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         }
-        // for neato output, which tends to randomly order the graph
+
+        // set pos for neato output, which tends to randomly order the graph
         if (!simple_mode) {
             if (is_head_node(n)) {
-                out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\"";
+                out << "rank=min,";
+                out << "pos=\"" << -graph.node_size()*100 << ", "<< -10 << "\",";
             } else if (is_tail_node(n)) {
-                out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\"";
+                out << "rank=max,";
+                out << "pos=\"" << graph.node_size()*100 << ", "<< -10 << "\",";
             }
         }
         if (color_variants && node_paths.size() == 0){
@@ -6548,17 +6555,17 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             if ((!invert_edge_ports && e->to_end())
                 || (invert_edge_ports && !e->to_end())) {
                 out << "arrowhead=none,";
-                out << "headport=se";
+                out << "tailport=se,";
             } else {
                 out << "arrowhead=none,";
-                out << "headport=nw";
+                out << "tailport=nw,";
             }
-            out << ",penwidth=2";
+            out << "penwidth=2,";
 
             if(annotations != symbols_for_edge.end()) {
                 // We need to put a label on the edge with all the colored
                 // characters for paths using it.
-                out << ",label=<";
+                out << "label=<";
 
                 for(auto& string_and_color : (*annotations).second) {
                     // Put every symbol in its font tag.
