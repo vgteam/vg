@@ -6380,6 +6380,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool invert_edge_ports,
                 bool color_variants,
                 bool superbubble_ranking,
+                bool superbubble_labeling,
                 int random_seed) {
 
     // setup graphviz output
@@ -6391,14 +6392,53 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     //out << "    splines=line;" << endl;
     //out << "    splines=true;" << endl;
     //out << "    smoothType=spring;" << endl;
-        
+
+    //map<id_t, vector<
+    map<id_t, set<pair<string, string>>> symbols_for_node;
+    if (superbubble_labeling) {
+        Pictographs picts(random_seed);
+        Colors colors(random_seed);
+        map<pair<id_t, id_t>, vector<id_t> > sb = superbubbles(*this);
+        for (auto& bub : sb) {
+            auto start_node = bub.first.first;
+            auto end_node = bub.first.second;
+            stringstream vb;
+            for (auto& i : bub.second) {
+                vb << i << ",";
+            }
+            auto repr = vb.str();
+            string emoji = picts.hashed(repr);
+            string color = colors.hashed(repr);
+            auto label = make_pair(color, emoji);
+            for (auto& i : bub.second) {
+                symbols_for_node[i].insert(label);
+            }
+        }
+    }
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        if (!simple_mode) {
-            out << "    " << n->id() << " [label=\"" << n->id() << ":" << n->sequence() << "\",shape=box,penwidth=2,";
+        stringstream nlabel;
+        if (superbubble_labeling) {
+            nlabel << "<";
+            nlabel << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
+            for(auto& string_and_color : symbols_for_node[n->id()]) {
+                // Put every symbol in its font tag.
+                nlabel << "<FONT COLOR=\"" << string_and_color.first << "\">" << string_and_color.second << "</FONT>";
+            }
+            nlabel << ">";
+        } else if (simple_mode) {
+            nlabel << n->id();
         } else {
-            out << "    " << n->id() << " [label=\"" << n->id() << "\",penwidth=2,shape=circle,";
+            nlabel << n->id() << ":" << n->sequence();
+        }
+
+        if (simple_mode) {
+            out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
+        } else if (superbubble_labeling) {
+            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
+        } else {
+            out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",shape=box,penwidth=2,";
         }
         // for neato output, which tends to randomly order the graph
         if (!simple_mode) {
