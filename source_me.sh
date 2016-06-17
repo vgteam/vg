@@ -11,5 +11,5 @@ export CXX=$(which g++)
 # add bash autocompletion
 if test -n "$BASH_VERSION"
 then
-	 . autocomp.bash
+	 . ./autocomp.bash
 fi
