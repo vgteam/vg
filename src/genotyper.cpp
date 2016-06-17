@@ -1144,7 +1144,7 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     
     // Work out genotype likelihoods
     // Make a vector to shuffle them into VCF order
-    vector<double> likelihoods(locus.genotype_size() * (locus.genotype_size() - 1) / 2);
+    vector<double> likelihoods(((locus.allele_size() - 1) * ((locus.allele_size() - 1) + 1)) / 2 + (locus.allele_size() - 1) + 1);
     for(size_t i = 0; i < locus.genotype_size(); i++) {
         // For every genotype, calculate its VCF-order index based on the VCF allele numbers
         
