@@ -650,11 +650,12 @@ public:
                 bool invert_edge_ports = false,
                 bool color_variants = false,
                 bool superbubble_ranking = false,
+                bool superbubble_labeling = false,
                 int random_seed = 0);
 
 
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                            bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
+                bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
    void to_gfa(ostream& out);
     void to_turtle(ostream& out, const string& rdf_base_uri, bool precompress);
     bool is_valid(bool check_nodes = true,

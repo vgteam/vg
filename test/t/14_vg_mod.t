@@ -109,5 +109,5 @@ vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg sim -s 1337 -n 100 -x x.xg >x.reads
 vg map -x x.xg -g x.gcsa -r x.reads -L 10 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
-is $(vg view -Z x.trans | jq -c --sort-keys . | sort | md5sum | cut -f 1 -d\ ) 9bb94f0a1bb25c52b74e7709463da51e "a valid graph translation can be export when the graph is edited"
+is $(vg view -Z x.trans | jq -c --sort-keys . | sort | md5sum | cut -f 1 -d\ ) 97fb2fcba8973939088b28010c1ce9af "a valid graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
