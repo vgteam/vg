@@ -1712,6 +1712,11 @@ int main_genotype(int argc, char** argv) {
             ref_path_name = "ref";
         }
     }
+    
+    if(sample_name.empty()) {
+        // Set a default sample name
+        sample_name = "SAMPLE";
+    }
 
     // setup reads index
     if (optind >= argc) {
@@ -1800,7 +1805,7 @@ int main_genotype(int argc, char** argv) {
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
     
     // Unfold/unroll, find the superbubbles, and translate back.
-    vector<Genotyper::Site> sites = genotyper.find_sites_with_cactus(augmented_graph);
+    vector<Genotyper::Site> sites = genotyper.find_sites(augmented_graph);
     
     if(show_progress) {
         cerr << "Found " << sites.size() << " superbubbles" << endl;
@@ -1822,7 +1827,7 @@ int main_genotype(int argc, char** argv) {
         reference_index = new ReferenceIndex(augmented_graph, ref_path_name);
         
         // Start up a VCF
-        vcf = genotyper.start_vcf(cout, *reference_index, ref_path_name);
+        vcf = genotyper.start_vcf(cout, *reference_index, sample_name, contig_name, length_override);
     }
         
     // We want to do this in paprallel, but we can't #pragma omp parallel for over a std::map
@@ -1865,7 +1870,7 @@ int main_genotype(int argc, char** argv) {
                         }
                         
                         // Get the affinities for all the paths
-                        map<Alignment*, vector<double>> affinities = genotyper.get_affinities_fast(augmented_graph, reads_by_name, site, paths);
+                        map<Alignment*, vector<Genotyper::Affinity>> affinities = genotyper.get_affinities_fast(augmented_graph, reads_by_name, site, paths);
                         
                         for(auto& alignment_and_affinities : affinities) {
                             #pragma omp critical (total_affinities)
@@ -1881,7 +1886,7 @@ int main_genotype(int argc, char** argv) {
                             cout << pb2json(genotyped) << endl;
                         } else if(output_vcf) {
                             // Get 0 or more variants from the superbubble
-                            vector<vcflib::Variant> variants = genotyper.locus_to_variant(*graph, site, *reference_index, *vcf, genotyped);
+                            vector<vcflib::Variant> variants = genotyper.locus_to_variant(*graph, site, *reference_index, *vcf, genotyped, sample_name);
                             for(auto& variant : variants) {
                                 // Fix up all the variants
                                 if(!contig_name.empty()) {
@@ -4529,8 +4534,11 @@ int main_stats(int argc, char** argv) {
 
     if (superbubbles) {
         for (auto& i : vg::superbubbles(*graph)) {
-            auto& b = i.first;
-            auto& v = i.second;
+            auto b = i.first;
+            auto v = i.second;
+            // sort output for now, to be consistent with cactus
+            b = minmax(b.first, b.second);
+            sort(v.begin(), v.end());
             cout << b.first << "\t" << b.second << "\t";
             for (auto& n : v) {
                 cout << n << ",";

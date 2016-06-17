@@ -92,7 +92,8 @@ map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph) {
 // (note we can't put NodeSides in header, so leave this function static)
 typedef set<NodeSide> SideSet;
 typedef map<NodeSide, int> Side2Component;
-static void compute_side_components(VG& graph, vector<SideSet>& components,
+static void compute_side_components(VG& graph, id_t source_id, id_t sink_id,
+                                    vector<SideSet>& components,
                                     Side2Component& side_to_component) {
 
     // update components datastructures with a side.  if comp is -1
@@ -109,8 +110,8 @@ static void compute_side_components(VG& graph, vector<SideSet>& components,
     };
 
     // make component for source--sink edge   
-    NodeSide first_side(graph.min_node_id(), false);
-    NodeSide last_side(graph.max_node_id(), true);
+    NodeSide first_side(source_id, false);
+    NodeSide last_side(sink_id, true);
     update_component(first_side, -1);
     update_component(last_side, 0);
     
@@ -150,7 +151,7 @@ void* mergeNodeObjects(void* a, void* b) {
 }
 
 // Step 2) Make a Cactus Graph
-pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
+pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, id_t source_id, id_t sink_id) {
 
     // in a cactus graph, every node is an adjacency component.
     // every edge is a *vg* node connecting the component
@@ -158,7 +159,7 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
     // start by identifying adjacency components
     vector<SideSet> components;
     Side2Component side_to_component;
-    compute_side_components(graph, components, side_to_component);
+    compute_side_components(graph, source_id, sink_id, components, side_to_component);
 
     // map cactus nodes back to components
     vector<stCactusNode*> cactus_nodes(components.size());
@@ -219,10 +220,36 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
 
 }
 
+pair<id_t, id_t> get_cactus_source_sink(VG& graph) {
+
+    auto source_ids = graph.head_nodes();
+    auto sink_ids = graph.tail_nodes();
+
+    // todo : relax?
+    assert(!source_ids.empty() && !sink_ids.empty());
+
+    id_t source_id = source_ids[0]->id();
+    for (auto n : source_ids) {
+      source_id = min(source_id, (id_t)n->id());
+    }
+    id_t sink_id = sink_ids[0]->id();    
+    for (auto n : sink_ids) {
+      sink_id = max(sink_id, (id_t)n->id());
+    }
+
+    assert(source_id != sink_id);
+
+    return make_pair(source_id, sink_id);
+}
+
+
 BubbleTree cactusbubble_tree(VG& graph) {
 
+    // get endpoints
+    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+    
     // convert to cactus
-    pair<stCactusGraph*, stCactusNode*> cac_pair = vg_to_cactus(graph);
+    pair<stCactusGraph*, stCactusNode*> cac_pair = vg_to_cactus(graph, source_sink.first, source_sink.second);
     stCactusGraph* cactus_graph = cac_pair.first;
     stCactusNode* root_node = cac_pair.second;
 
@@ -294,8 +321,8 @@ BubbleTree cactusbubble_tree(VG& graph) {
 
     // compute root as special case (todo: smarten up)
     //  these were used for source/sink in compute_side_components() above
-    out_tree.root->v.start = NodeSide(graph.min_node_id(), true); 
-    out_tree.root->v.end = NodeSide(graph.max_node_id(), false);
+    out_tree.root->v.start = NodeSide(source_sink.first, true); 
+    out_tree.root->v.end = NodeSide(source_sink.second, false);
     
     return out_tree;
 

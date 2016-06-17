@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 13
+plan tests 14
 
 vg construct -r 1mb1kgp/z.fa -v 1mb1kgp/z.vcf.gz >z.vg
 #is $? 0 "construction of a 1 megabase graph from the 1000 Genomes succeeds"
@@ -38,7 +38,15 @@ rm -f t.vg
 is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -b - | grep 79,80,81,299, | wc -l) 1 "superbubbles are detected even when the graph initially has reversing edges"
 is $(cat graphs/missed_bubble.gfa | vg view -Fv - | vg stats -C - | grep 79,80,81,299, | wc -l) 1 "cactusbubbles are detected even when the graph initially has reversing edges"
 
-vg stats z.bg -b > sb.txt
-vg stats z.bg -C > cb.txt
+vg stats z.vg -b > sb.txt
+vg stats z.vg -C > cb.txt
 is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical for 1mb1kgp"
 rm -f z.vg sb.txt cb.txt
+
+vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz | vg mod -X 1 - > tiny.vg
+vg stats tiny.vg -b > sb.txt
+vg stats tiny.vg -C > cb.txt
+is $(diff sb.txt cb.txt | wc -l) 0 "superbubbles and cactus bubbles identical for atomized tiny"
+
+rm sb.txt cb.txt tiny.vg
+

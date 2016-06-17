@@ -50,9 +50,33 @@ public:
 
     // Represents a superbubble
     struct Site {
+        // Where does the superbubble start?
         NodeTraversal start;
+        // Where does the superbubble end?
         NodeTraversal end;
+        // What nodes (including the start and end and the nodes of any nested
+        // superbubbles) are in the superbubble?
         set<id_t> contents;
+    };
+    
+    // Represents an assertion that a read is consistent or not consistent with
+    // an allele, including an affinity weight and a flag for strand
+    struct Affinity {
+        // Is the read consistent with this allele?
+        bool consistent = false;
+        // How consistent is the read with the allele, out of 1.
+        double affinity = 0;
+        // Is the read on the forward strand (false) or reverse strand (true)
+        bool is_reverse = false;
+        
+        // Have a default constructor
+        Affinity() = default;
+        
+        // Have a useful constructor
+        Affinity(double affinity, bool is_reverse) : consistent(affinity == 1), affinity(affinity), is_reverse(is_reverse) {
+            // Nothing to do
+        }
+        
     };
 
     // How many nodes max should we walk when checking if a path runs through a superbubble/site
@@ -156,21 +180,21 @@ public:
      *
      * Affinity is a double out of 1.0. Higher is better.
      */ 
-    map<Alignment*, vector<double>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
+    map<Alignment*, vector<Affinity>> get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
         const Site& site,  const vector<list<NodeTraversal>>& superbubble_paths);
         
     /**
      * Get affinities as above but using only string comparison instead of
      * alignment. Affinities are 0 for mismatch and 1 for a perfect match.
      */
-    map<Alignment*, vector<double>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
+    map<Alignment*, vector<Affinity>> get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
         const Site& site, const vector<list<NodeTraversal>>& superbubble_paths);
         
     /**
      * Compute annotated genotype from affinities and superbubble paths.
      * Needs access to the graph so it can chop up the alignments, which requires node sizes.
      */
-    Locus genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<double>>& affinities);
+    Locus genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities);
         
     /**
      * Compute the probability of the observed alignments given the genotype.
@@ -182,7 +206,7 @@ public:
      * Alignments should have had their quality values trimmed down to just the
      * part covering the superbubble.
      */
-    double get_genotype_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency);
+    double get_genotype_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
         
     /**
      * Make a VCFlib variant from a called Locus. Depends on an index of the
@@ -192,7 +216,8 @@ public:
      * Sometimes if we can't make a variant for the superbubble against the
      * reference path, we'll emit 0 variants.
      */
-    vector<vcflib::Variant> locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus);
+    vector<vcflib::Variant> locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus,
+        const string& sample_name = "SAMPLE");
     
     /**
      * Make a VCF header
@@ -202,7 +227,7 @@ public:
     /**
      * Start VCF output to a stream. Returns a VCFlib VariantCallFile that needs to be deleted.
      */
-    vcflib::VariantCallFile* start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& ref_path_name);
+    vcflib::VariantCallFile* start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& sample_name, const string& contig_name, size_t contig_size);
 
 };
 

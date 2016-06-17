@@ -158,11 +158,17 @@ message Pileup {
 
 message Locus {
     string name = 1;
+    // These are all the alleles at the locus, not just the called ones.
+    // Note that a primary reference allele may or may not appear.
     repeated Path allele = 2;
+    // These supports are per-allele, matching the alleles above
     repeated Support support = 3;
     // sorted by likelihood or posterior
     //  the first one is the "call"
     repeated Genotype genotype = 4;
+    // We also have a Support for the locus overall, because reads may have
+    // supported multiple alleles and we want to know how many total there were.
+    Support overall_support = 5;
 }
 
 message Genotype {

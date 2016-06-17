@@ -271,14 +271,14 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
     return to_return;
 }
 
-map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
+map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
     const Site& site, const vector<list<NodeTraversal>>& superbubble_paths) {
     
     // Grab our thread ID, which determines which aligner we get.
     int tid = omp_get_thread_num();
     
     // We're going to build this up gradually, appending to all the vectors.
-    map<Alignment*, vector<double>> to_return;
+    map<Alignment*, vector<Affinity>> to_return;
     
     // What reads are relevant to this superbubble?
     set<string> relevant_read_names;
@@ -432,7 +432,7 @@ map<Alignment*, vector<double>> Genotyper::get_affinities(VG& graph, const map<s
 #endif
 
             // Grab the identity and save it for this read and superbubble path
-            to_return[read].push_back(aligned.identity());
+            to_return[read].push_back(Affinity(aligned.identity(), aligned_rev.score() > aligned_fwd.score()));
             
         }
     }
@@ -470,14 +470,14 @@ string Genotyper::traversals_to_string(const list<NodeTraversal>& path) {
     return seq.str();
 }
 
-map<Alignment*, vector<double>> Genotyper::get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
+map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
     const Site& site, const vector<list<NodeTraversal>>& superbubble_paths) {
     
     // Grab our thread ID, which determines which aligner we get.
     int tid = omp_get_thread_num();
     
     // We're going to build this up gradually, appending to all the vectors.
-    map<Alignment*, vector<double>> to_return;
+    map<Alignment*, vector<Affinity>> to_return;
     
     // What reads are relevant to this superbubble?
     set<string> relevant_read_names;
@@ -510,6 +510,9 @@ map<Alignment*, vector<double>> Genotyper::get_affinities_fast(VG& graph, const 
         // For each relevant read, work out a string for the superbubble and whether
         // it's anchored on each end.
         
+        // Make an Affinity to fill in
+        Affinity base_affinity;
+        
         // Get the NodeTraversals for this read through this site.
         auto read_traversal = get_traversal_of_site(graph, site, reads_by_name.at(name)->path());
         
@@ -520,34 +523,54 @@ map<Alignment*, vector<double>> Genotyper::get_affinities_fast(VG& graph, const 
                 // Flip around every traversal as well as reversing their order.
                 item = item.reverse();
             }
+            
+            // We're on the reverse strand
+            base_affinity.is_reverse = true;
         }
+        
+        size_t total_supported = 0;
         
         // Get the string it spells out
         auto seq = traversals_to_string(read_traversal);
         
         // Now decide if the read's seq supports each path.
         for(auto& path_seq : allele_strings) {
+            // We'll make an affinity for this allele
+            Affinity affinity = base_affinity;
             if(read_traversal.front() == site.start && read_traversal.back() == site.end) {
                 // Anchored at both ends.
                 // Need an exact match. Record if we have one or not.
-                to_return[reads_by_name.at(name)].push_back(seq == path_seq);
+                affinity.consistent = (seq == path_seq);
             } else if(read_traversal.front() == site.start) {
                 // Anchored at start only.
                 // seq needs to be a prefix of path_seq
                 auto difference = std::mismatch(seq.begin(), seq.end(), path_seq.begin());
                 // If the first difference is the past-the-end of the prefix, then it's a prefix
-                to_return[reads_by_name.at(name)].push_back(difference.first == seq.end());
+                affinity.consistent = (difference.first == seq.end());
             } else if(read_traversal.back() == site.end) {
                 // Anchored at end only.
                 // seq needs to be a suffix of path_seq
                 auto difference = std::mismatch(seq.rbegin(), seq.rend(), path_seq.rbegin());
                 // If the first difference is the past-the-rend of the suffix, then it's a suffix
-                to_return[reads_by_name.at(name)].push_back(difference.first == seq.rend());
+                affinity.consistent = (difference.first == seq.rend());
             } else {
                 // This read doesn't touch either end.
                 cerr << "Warning: read doesn't touch either end of its site!" << endl;
             }
+            
+            // Fake a weight
+            affinity.affinity = (double)affinity.consistent;
+            to_return[reads_by_name.at(name)].push_back(affinity);
+            
+            // Add in to the total if it supports this
+            total_supported += affinity.consistent;
         }
+        
+        if(total_supported == 0) {
+            // This is weird. Complain.
+            cerr << "Warning! Bubble sequence " << seq << " supports nothing!" << endl;
+        }
+        
         
     }
     
@@ -558,7 +581,7 @@ map<Alignment*, vector<double>> Genotyper::get_affinities_fast(VG& graph, const 
 }
 
 
-double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<bool>>> alignment_consistency) {
+double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
     // miscalled) * P(all reads that do support alleles from the genotype ended
@@ -570,8 +593,6 @@ double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vec
     // allele picked out of the one or two available).
     
     // TODO: handle contamination like Freebayes
-    
-    // TODO: split out a function to get P(obs | genotype) for a single genotype
     
     // This is the probability that all reads that don't support either allele in this genotype are wrong.
     double all_non_supporting_wrong = 1;
@@ -594,10 +615,15 @@ double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vec
         
         // How many of the alleles in our genotype is it consistent with?
         int consistent_alleles = 0;
+        // TODO: We assume it's the same orientation for all the consistent alleles.
+        // We can't really fill this in if it's not consistent. How would we know the orientation if it didn't match up?
+        bool read_reverse;
         for(int allele : genotype) {
-            if(consistency.at(allele)) {
+            if(consistency.at(allele).consistent) {
                 // We're consistent with this allele
                 consistent_alleles++;
+                // And in this orientation
+                read_reverse = consistency.at(allele).is_reverse;
             }
         }
         
@@ -639,6 +665,9 @@ double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vec
         }
         
     }
+    
+    // TODO: somehow add in the probability of the read orientations all coming out this way for the supporting reads.
+    // TODO: do we want to do that for the reads that are wrong as well???
     
     // Now we've looked at all the reads, so AND everything together
     return all_non_supporting_wrong * all_supporting_drawn;
@@ -711,7 +740,7 @@ string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Align
 }
 
 #define debug
-Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<double>>& affinities) {
+Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities) {
     
     // Freebayes way (improved with multi-support)
     
@@ -728,13 +757,20 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
 #endif
     
     // We'll fill this in with the trimmed alignments and their consistency-with-alleles flags.
-    vector<pair<Alignment, vector<bool>>> alignment_consistency;
+    vector<pair<Alignment, vector<Affinity>>> alignment_consistency;
     
-    // We fill this in with totals
+    // We fill this in with totals of reads supporting alleles
     vector<int> reads_consistent_with_allele(superbubble_paths.size(), 0);
+    // And this with the same thing split out by forward and reverse strand
+    vector<pair<int, int>> strand_support_for_allele(superbubble_paths.size(), make_pair(0, 0));
     
     // We'll store affinities by read name and allele here, for printing later.
-    map<string, vector<double>> debug_affinities;
+    map<string, vector<Affinity>> debug_affinities;
+    
+    // We track overall forward and reverse strand reads, of reads that
+    // support any allele.
+    size_t overall_forward_reads = 0;
+    size_t overall_reverse_reads = 0;
     
     for(auto& alignment_and_affinities : affinities) {
         // We need to clip down to just the important quality values        
@@ -749,32 +785,49 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
         // Hide all the affinities where we can pull them later
         debug_affinities[trimmed.name()] = alignment_and_affinities.second;
         
-        // Calculate whether each affinity is enough to justify support.
-        // We say only the maximal affinities are support.
-        double max_affinity = *max_element(alignment_and_affinities.second.begin(), alignment_and_affinities.second.end());
+        // Affinities already know whether they are consistent with an allele. Don't second-guess them.
+        // Fine even with alignment; no read we embedded should ever have non-perfect identity.
+
+        // We'll set these if the read supports anything in a forward or reverse
+        // orientation.
+        bool is_forward = false;
+        bool is_reverse = false;
         
-        // Count up consistency
-        size_t consistent = 0;
-        
-        // Flag alleles we're consistent with
-        vector<bool> support_flags;
-        for(auto affinity : alignment_and_affinities.second) {
-            // Only maximal affinities represent consistency with an allele
-            if(affinity == max_affinity) {
-                // Read consistent with allele
-                support_flags.push_back(true);
-                // Count total alleles read is consistent with
-                consistent++;
-                // Count total reads consistent with allele
-                reads_consistent_with_allele[support_flags.size() - 1]++;
-            } else {
-                // Read not consistent with allele
-                support_flags.push_back(false);
+        for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
+            // Count up reads consistent with each allele
+            if(alignment_and_affinities.second.at(i).consistent) {
+                // This read is consistent with this allele
+                reads_consistent_with_allele[i]++;
+                if(alignment_and_affinities.second.at(i).is_reverse) {
+                    // It is on the reverse strand
+                    strand_support_for_allele[i].second++;
+                    is_reverse = true;
+                } else {
+                    // It is on the forward strand
+                    strand_support_for_allele[i].first++;
+                    is_forward = true;
+                }
             }
         }
         
-        // Save the trimmed alignment and its consistency flags
-        alignment_consistency.emplace_back(std::move(trimmed), std::move(support_flags));
+        if(is_forward) {
+            if(is_reverse) {
+                // This is weird
+                cerr << "Warning! Read supports alleles as both forward and reverse!" << endl;
+                // Just call it forward
+            }
+            // This read supports an allele forward, so call it a forward read for the site
+            overall_forward_reads++;
+        } else if(is_reverse) {
+            // This read supports an allele reverse, so call it a forward read for the site
+            overall_reverse_reads++;
+        } else {
+            // Reads generally ought to support at least one allele, unless we have weird softclips.
+            cerr << "Warning! Read supports no alleles!" << endl;
+        }
+        
+        // Save the trimmed alignment and its affinities, which we use to get GLs.
+        alignment_consistency.emplace_back(std::move(trimmed), alignment_and_affinities.second);
         
     }
     
@@ -787,9 +840,9 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
         }
         cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
         for(auto& read_and_consistency : alignment_consistency) {
-            if(read_and_consistency.second[i] && read_and_consistency.first.sequence().size() < 30) {
+            if(read_and_consistency.second[i].consistent && read_and_consistency.first.sequence().size() < 30) {
                 // Dump all the short consistent reads
-                cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i] << endl;
+                cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i].affinity << endl;
             }
         }
     }
@@ -823,11 +876,12 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
     // This sorts ascening with reverse iterators.
     sort(genotypes_by_likelihood.rbegin(), genotypes_by_likelihood.rend());
     
-    for(auto& count : reads_consistent_with_allele) {
-        // Add the supports for all the alleles
+    for(size_t i = 0; i < superbubble_paths.size(); i++) {
+        // For each allele, make a support
         Support* support = to_return.add_support();
-        // TODO: don't put all the consistent reads on the forward strand.
-        support->set_forward(count);
+        // Set forward and reverse depth
+        support->set_forward(strand_support_for_allele[i].first);
+        support->set_reverse(strand_support_for_allele[i].second);
     }
     
     for(auto& likelihood_and_alleles : genotypes_by_likelihood) {
@@ -841,6 +895,11 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
             genotype->add_allele(allele_id);
         }
     }
+    
+    // Set up total support for overall depth
+    Support* overall_support = to_return.mutable_overall_support();
+    overall_support->set_forward(overall_forward_reads);
+    overall_support->set_reverse(overall_reverse_reads);
     
     // Now we've populated the genotype so return it.
     return to_return;
@@ -928,14 +987,14 @@ void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample
     stream << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t" << sample_name << std::endl;
 }
 
-vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& ref_path_name) {
+vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& sample_name, const string& contig_name, size_t contig_size) {
     // Generate a vcf header. We can't make Variant records without a
     // VariantCallFile, because the variants need to know which of their
     // available info fields or whatever are defined in the file's header, so
     // they know what to output.
     // Handle length override if specified.
     std::stringstream headerStream;
-    write_vcf_header(headerStream, "SAMPLE", ref_path_name, index.sequence.size());
+    write_vcf_header(headerStream, sample_name, contig_name, contig_size > 0 ? contig_size : index.sequence.size());
     
     // Load the headers into a new VCF file object
     vcflib::VariantCallFile* vcf = new vcflib::VariantCallFile();
@@ -949,7 +1008,7 @@ vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const Refere
     return vcf;
 }
 
-vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus) {
+vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus, const string& sample_name) {
     // Make a vector to fill in
     vector<vcflib::Variant> to_return;
     
@@ -1065,16 +1124,54 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     
     // Compose the ML genotype
     variant.format.push_back("GT");
-    auto& genotype_out = variant.samples["SAMPLE"]["GT"];
+    auto& genotype_out = variant.samples[sample_name]["GT"];
     // Translate each allele to a VCF alt number, and put them in a string with the right separator
     genotype_out.push_back(to_string(allele_to_alt[best_genotype.allele(0)]) + (best_genotype.is_phased() ? "|" : "/")  +
         to_string(allele_to_alt[best_genotype.allele(1)]));
+        
+    // Put the total depth overall (not double-counting)
+    string depth_string = std::to_string(locus.overall_support().forward() + locus.overall_support().reverse());
+    variant.format.push_back("DP");
+    variant.samples[sample_name]["DP"].push_back(depth_string);
+    variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
     
     // Compose the allele-specific depth
     variant.format.push_back("AD");
     for(auto& support : support_by_alt) {
         // Add the forward and reverse support together and use that for AD for the allele.
-        variant.samples["SAMPLE"]["AD"].push_back(to_string(support.forward() + support.reverse()));
+        variant.samples[sample_name]["AD"].push_back(to_string(support.forward() + support.reverse()));
+    }
+    
+    // Work out genotype likelihoods
+    // Make a vector to shuffle them into VCF order
+    vector<double> likelihoods(((locus.allele_size() - 1) * ((locus.allele_size() - 1) + 1)) / 2 + (locus.allele_size() - 1) + 1);
+    for(size_t i = 0; i < locus.genotype_size(); i++) {
+        // For every genotype, calculate its VCF-order index based on the VCF allele numbers
+        
+        // TODO: we can only do diploids
+        assert(locus.genotype(i).allele_size() == 2);
+        
+        // We first need the low and high alt numbers
+        size_t low_alt = allele_to_alt.at(locus.genotype(i).allele(0));
+        size_t high_alt = allele_to_alt.at(locus.genotype(i).allele(1));
+        if(low_alt > high_alt) {
+            // Flip them to be the right way around
+            swap(low_alt, high_alt);
+        }
+        
+        // Compute the position as (sort of) specified in the VCF spec
+        size_t index = (high_alt * (high_alt + 1)) / 2 + low_alt;
+        // Store the likelihood
+        likelihoods[index] = locus.genotype(i).likelihood();
+#ifdef debug
+        cerr << high_alt << "/" << low_alt << ": " << index << " = " << pb2json(locus.genotype(i)) << endl;
+#endif
+    }
+    
+    variant.format.push_back("PL");
+    for(auto& likelihood : likelihoods) {
+        // Add all the likelihood strings, normalizing against the best
+        variant.samples[sample_name]["PL"].push_back(to_string(prob_to_phred(likelihood/best_genotype.likelihood())));
     }
     
     // Set the variant position (now that we have budged it left if necessary
