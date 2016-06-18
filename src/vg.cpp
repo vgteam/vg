@@ -5406,11 +5406,13 @@ vector<Translation> VG::edit(const vector<Path>& paths_to_add) {
     // them.
     auto node_translation = ensure_breakpoints(breakpoints);
 
+    // we remember the sequences of nodes we've added at particular positions on the forward strand
+    map<pair<pos_t, string>, Node*> added_seqs;
     // we will record the nodes that we add, so we can correctly make the returned translation
     map<Node*, Path> added_nodes;
     for(auto path : simplified_paths) {
         // Now go through each new path again, and create new nodes/wire things up.
-        add_nodes_and_edges(path, node_translation, added_nodes, orig_node_sizes);
+        add_nodes_and_edges(path, node_translation, added_seqs, added_nodes, orig_node_sizes);
     }
 
     // TODO: add the new path to the graph, with perfect match mappings to all
@@ -5753,12 +5755,14 @@ map<pos_t, Node*> VG::ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoint
 
 void VG::add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
+                             map<pair<pos_t, string>, Node*>& added_seqs,
                              map<Node*, Path>& added_nodes,
                              const map<id_t, size_t>& orig_node_sizes) {
 
     // The basic algorithm is to traverse the path edit by edit, keeping track
     // of a NodeSide for the last piece of sequence we were on. If we hit an
-    // edit that creates new sequence, we create that new sequence as a node,
+    // edit that creates new sequence, we check if it has been added before
+    // If it has, we use it. If not, we create that new sequence as a node,
     // and attach it to the dangling NodeSide, and leave its end dangling. If we
     // hit an edit that corresponds to a match, we know that there's a
     // breakpoint on each end (since it's bordered by a non-perfect-match or the
@@ -5870,15 +5874,10 @@ void VG::add_nodes_and_edges(const Path& path,
 #ifdef debug_edit
                 cerr << "Handling ins/sub relative to " << node_id << endl;
 #endif
-                // Create the new node, reversing it if we are reversed
-                Node* new_node = create_node(
-                    m.position().is_reverse() ?
-                    reverse_complement(e.sequence())
-                    : e.sequence());
-
                 // store the path representing this novel sequence in the translation table
                 auto prev_position = edit_first_position;
-                auto& from_path = added_nodes[new_node];
+                //auto& from_path = added_nodes[new_node];
+                Path from_path;
                 auto prev_from_mapping = from_path.add_mapping();
                 *prev_from_mapping->mutable_position() = make_position(prev_position);
                 auto from_edit = prev_from_mapping->add_edit();
@@ -5887,8 +5886,9 @@ void VG::add_nodes_and_edges(const Path& path,
                 from_edit->set_from_length(e.from_length());
                 // find the position after the edit
                 // if the edit is not the last in a mapping, the position after is from_length of the edit after this
+                pos_t next_position;
                 if (j + 1 < m.edit_size()) {
-                    auto next_position = prev_position;
+                    next_position = prev_position;
                     get_offset(next_position) += e.from_length();
                     auto next_from_mapping = from_path.add_mapping();
                     *next_from_mapping->mutable_position() = make_position(next_position);
@@ -5914,6 +5914,23 @@ void VG::add_nodes_and_edges(const Path& path,
                                     return l->second;
                                 }
                             }));
+                }
+
+                // Create the new node, reversing it if we are reversed
+                Node* new_node;
+                pos_t start_pos = make_pos_t(from_path.mapping(0).position());
+                auto fwd_seq = m.position().is_reverse() ?
+                    reverse_complement(e.sequence())
+                    : e.sequence();
+                auto novel_edit_key = make_pair(start_pos, fwd_seq);
+                auto added = added_seqs.find(novel_edit_key);
+                if (added != added_seqs.end()) {
+                    // if we have the node already, don't make it again, just use the existing one
+                    new_node = added->second;
+                } else {
+                    new_node = create_node(fwd_seq);
+                    added_seqs[novel_edit_key] = new_node;
+                    added_nodes[new_node] = path;
                 }
 
                 if (!path.name().empty()) {
