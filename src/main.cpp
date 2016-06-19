@@ -49,7 +49,8 @@ void help_translate(char** argv) {
          << "    -p, --paths FILE      project the input paths into the from-graph" << endl
          << "    -a, --alns FILE       project the input alignments into the from-graph" << endl
          << "    -m, --mapping JSON    print the from-mapping corresponding to the given JSON mapping" << endl
-         << "    -P, --position JSON   print the from-position corresponding to the given JSON position" << endl;
+         << "    -P, --position JSON   print the from-position corresponding to the given JSON position" << endl
+         << "    -o, --overlay FILE    overlay this translation on top of the one we are given" << endl;
 }
 
 int main_translate(int argc, char** argv) {
@@ -63,6 +64,7 @@ int main_translate(int argc, char** argv) {
     string mapping_string;
     string path_file;
     string aln_file;
+    string overlay_file;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -74,11 +76,12 @@ int main_translate(int argc, char** argv) {
             {"mapping", required_argument, 0, 'm'},
             {"paths", required_argument, 0, 'p'},
             {"alns", required_argument, 0, 'a'},
+            {"overlay", required_argument, 0, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:m:P:a:",
+        c = getopt_long (argc, argv, "hp:m:P:a:o:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -101,6 +104,10 @@ int main_translate(int argc, char** argv) {
 
         case 'a':
             aln_file = optarg;
+            break;
+
+        case 'o':
+            overlay_file = optarg;
             break;
 
         case 'h':
@@ -155,6 +162,17 @@ int main_translate(int argc, char** argv) {
         };
         ifstream aln_in(aln_file);
         stream::for_each(aln_in, lambda);
+        stream::write_buffered(cout, buffer, 0);
+    }
+
+    if (!overlay_file.empty()) {
+        vector<Translation> buffer;
+        function<void(Translation&)> lambda = [&](Translation& trans) {
+            buffer.push_back(translator->overlay(trans));
+            stream::write_buffered(cout, buffer, 100);
+        };
+        ifstream overlay_in(overlay_file);
+        stream::for_each(overlay_in, lambda);
         stream::write_buffered(cout, buffer, 0);
     }
 
@@ -3848,6 +3866,7 @@ int main_sim(int argc, char** argv) {
 
     Sampler sampler(xgidx, seed_val);
     size_t max_iter = 1000;
+    int nonce = 1;
     for (int i = 0; i < num_reads; ++i) {
         auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
         size_t iter = 0;
@@ -3861,7 +3880,7 @@ int main_sim(int argc, char** argv) {
             // name the alignment
             string data;
             aln.SerializeToString(&data);
-            const string hash = sha1head(data, 16);
+            const string hash = sha1head(data, 16) + std::to_string(nonce++);
             aln.set_name(hash);
             // write it out as requested
             if (json_out) {

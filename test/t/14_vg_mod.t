@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 36
+plan tests 37
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -111,3 +111,11 @@ vg map -x x.xg -g x.gcsa -r x.reads -L 10 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
 is $(vg view -Z x.trans | jq -c --sort-keys . | sort | md5sum | cut -f 1 -d\ ) 97fb2fcba8973939088b28010c1ce9af "a valid graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans
+
+vg construct -r tiny/tiny.fa >flat.vg
+vg view flat.vg| sed 's/CAAATAAGGCTTGGAAATTTTCTGGAGTTCTATTATATTCCAACTCTCTG/CAAATAAGGCTTGGAAATTTTCTGGAGATCTATTATACTCCAACTCTCTG/' | vg view -Fv - >2snp.vg
+vg index -x 2snp.xg 2snp.vg
+vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
+vg map -V flat.vg -k 8 -G 2snp.sim >2snp.gam
+is $(vg mod -i 2snp.gam flat.vg | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f -1 -d\ ) d47169ce8fb4251904d1d2238a44555c "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
+rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam

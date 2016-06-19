@@ -398,6 +398,7 @@ public:
     // of which can be accomplished with the simplify() function).
     void add_nodes_and_edges(const Path& path,
                              const map<pos_t, Node*>& node_translation,
+                             map<pair<pos_t, string>, Node*>& added_seqs,
                              map<Node*, Path>& added_nodes,
                              const map<id_t, size_t>& orig_node_sizes);
 

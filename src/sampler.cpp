@@ -67,7 +67,7 @@ vector<Edit> Sampler::mutate_edit(const Edit& edit,
                 } while (n == c);
                 // make the edit for the sub
                 Edit* e = new_mapping.add_edit();
-                string s(1, c);
+                string s(1, n);
                 e->set_sequence(s);
                 e->set_from_length(1);
                 e->set_to_length(1);

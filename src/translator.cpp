@@ -130,4 +130,11 @@ bool is_match(const Translation& translation) {
         && path_to_length(translation.from()) == path_to_length(translation.to());
 }
 
+Translation Translator::overlay(const Translation& trans) {
+    Translation result;
+    *result.mutable_to() = trans.to();
+    *result.mutable_from() = translate(trans.from());
+    return result;
+}
+
 }
