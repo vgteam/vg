@@ -5930,7 +5930,7 @@ void VG::add_nodes_and_edges(const Path& path,
                 } else {
                     new_node = create_node(fwd_seq);
                     added_seqs[novel_edit_key] = new_node;
-                    added_nodes[new_node] = path;
+                    added_nodes[new_node] = from_path;
                 }
 
                 if (!path.name().empty()) {
