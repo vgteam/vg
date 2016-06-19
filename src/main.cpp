@@ -1619,6 +1619,9 @@ int main_genotype(int argc, char** argv) {
 
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
+    
+    // Should we do superbubbles/sites with Cactus (true) or supbub (false)
+    bool use_cactus;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1633,13 +1636,14 @@ int main_genotype(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
+                {"cactus", no_argument, 0, 'C'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:pt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:Cpt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1677,6 +1681,10 @@ int main_genotype(int argc, char** argv) {
         case 'a':
             // Dump augmented graph
             augmented_file_name = optarg;
+            break;
+        case 'C':
+            // Use Cactus to find sites
+            use_cactus = true;
             break;
         case 'p':
             show_progress = true;
@@ -1823,7 +1831,7 @@ int main_genotype(int argc, char** argv) {
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
     
     // Unfold/unroll, find the superbubbles, and translate back.
-    vector<Genotyper::Site> sites = genotyper.find_sites(augmented_graph);
+    vector<Genotyper::Site> sites = use_cactus ? genotyper.find_sites_with_cactus(augmented_graph) : genotyper.find_sites(augmented_graph);
     
     if(show_progress) {
         cerr << "Found " << sites.size() << " superbubbles" << endl;
