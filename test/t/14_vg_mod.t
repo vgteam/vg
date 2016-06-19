@@ -118,4 +118,4 @@ vg index -x 2snp.xg 2snp.vg
 vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg map -V flat.vg -k 8 -G 2snp.sim >2snp.gam
 is $(vg mod -i 2snp.gam flat.vg | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f -1 -d\ ) d47169ce8fb4251904d1d2238a44555c "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
-rm -f flat.vg 2snp.vg 2snp.xg 2snp.sm 2snp.gam
+rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam

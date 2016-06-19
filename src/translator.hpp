@@ -36,7 +36,7 @@ public:
     Mapping translate(const Mapping& mapping);
     Path translate(const Path& path);
     Alignment translate(const Alignment& aln);
-
+    Translation overlay(const Translation& trans);
 };
 
 bool is_match(const Translation& translation);
