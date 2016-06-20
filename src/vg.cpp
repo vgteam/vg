@@ -6572,10 +6572,10 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
             if ((!invert_edge_ports && e->to_end())
                 || (invert_edge_ports && !e->to_end())) {
                 out << "arrowhead=none,";
-                out << "tailport=se,";
+                out << "headport=se,";
             } else {
                 out << "arrowhead=none,";
-                out << "tailport=nw,";
+                out << "headport=nw,";
             }
             out << "penwidth=2,";
 
