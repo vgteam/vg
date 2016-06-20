@@ -103,8 +103,8 @@ public:
     // Note that the primary path counts as a recurrence.
     int min_recurrence = 2;
     
-    // Remember that Phred scores can add to multiply just like normal log probs?
-    // -10 log p1 + -10 log p2 = -10 (log p1 + log p2) = -10 log (p1 * p2)
+    // What should our prior on being heterozygous at a site be?
+    double het_prior_logprob = prob_to_logprob(0.001);
     
     /**
      * Given an Alignment, compute a phred score for the quality of the
@@ -199,6 +199,18 @@ public:
      * Returns a log base 2 likelihood.
      */
     double get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
+    
+    /**
+     * Compute the prior probability of the given genotype.
+     *
+     * Takes a genotype as a vector of allele numbers. It is not guaranteed that
+     * allele 0 corresponds to any notion of primary reference-ness.
+     *
+     * Returns a log base 2 prior probability.
+     *
+     * TODO: add in strand bias
+     */
+    double get_genotype_log_prior(const vector<int>& genotype);
         
     /**
      * Make a VCFlib variant from a called Locus. Depends on an index of the

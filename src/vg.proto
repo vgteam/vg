@@ -177,6 +177,8 @@ message Genotype {
     bool is_phased = 2;
     double likelihood = 3;
     double log_likelihood = 4; // Likelihood logged base 2
+    double log_prior = 5; // Prior logged base 2
+    double log_posterior = 6; // Posterior logged base 2 (unnormalized)
 }
 
 // aggregates information about the reads supporting an allele
