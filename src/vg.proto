@@ -176,6 +176,7 @@ message Genotype {
     repeated int32 allele = 1;
     bool is_phased = 2;
     double likelihood = 3;
+    double log_likelihood = 4; // Likelihood logged base 2
 }
 
 // aggregates information about the reads supporting an allele

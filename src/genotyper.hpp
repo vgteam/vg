@@ -99,23 +99,13 @@ public:
     // piece of sequence being correct?
     int default_sequence_quality = 15;
     
-    // How mnay times must a path recur before we try aligning to it?
+    // How many times must a path recur before we try aligning to it?
     // Note that the primary path counts as a recurrence.
     int min_recurrence = 2;
     
     // Remember that Phred scores can add to multiply just like normal log probs?
     // -10 log p1 + -10 log p2 = -10 (log p1 + log p2) = -10 log (p1 * p2)
     
-    /**
-     * Convert integer Phred score to probability.
-     */
-    double phred_to_prob(int phred);
-     
-    /**
-     * Convert probability to integer Phred score.
-     */
-    int prob_to_phred(double prob);
-
     /**
      * Given an Alignment, compute a phred score for the quality of the
      * alignment's bases overall which is supposed to be interpretable as the
@@ -205,8 +195,10 @@ public:
      *
      * Alignments should have had their quality values trimmed down to just the
      * part covering the superbubble.
+     *
+     * Returns a log base 2 likelihood.
      */
-    double get_genotype_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
+    double get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
         
     /**
      * Make a VCFlib variant from a called Locus. Depends on an index of the
