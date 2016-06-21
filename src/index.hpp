@@ -77,8 +77,9 @@ namespace vg {
   +k+kmer+node_id                       position of kmer in node [int32_t]
   +p+path_id+pos+backward+node_id       mapping [vg::Mapping]
   +s+node_id+offset                     mapping [vg::Mapping] // mapping-only "side" against one node
-  +a+node_id+offset                     alignment [vg::Alignment]
-
+  +a+node_id+offset                     align_id // for sorting
+  +b+align_id                           alignment [vg::Alignment] // stores base alignments
+  +t+node_id+strand+align_id            alignment traversal // allows us to quickly go from node traversal to alignments
  */
 
 class Index {
@@ -143,6 +144,11 @@ public:
     void put_path_position(int64_t path_id, int64_t path_pos, bool backward, int64_t node_id, const Mapping& mapping);
     void put_mapping(const Mapping& mapping);
     void put_alignment(const Alignment& alignment);
+    void put_base(int64_t aln_id, const Alignment& alignment);
+    void put_traversal(int64_t aln_id, const Mapping& mapping);
+
+    // cross-index alignment by aln_id and record its traversals
+    void cross_alignment(int64_t aln_id, const Alignment& alignment);
 
     rocksdb::Status get_node(int64_t id, Node& node);
     // Takes the nodes and orientations and gets the Edge object with any associated edge data.
@@ -155,6 +161,9 @@ public:
     void get_alignments(int64_t node_id, vector<Alignment>& alignments);
     void get_alignments(int64_t id1, int64_t id2, vector<Alignment>& alignments);
     void for_alignment_in_range(int64_t id1, int64_t id2, std::function<void(const Alignment&)> lambda);
+    void for_alignment_to_node(int64_t node_id, std::function<void(const Alignment&)> lambda);
+    void for_alignment_to_nodes(const vector<int64_t>& ids, std::function<void(const Alignment&)> lambda);
+    void for_base_alignments(const set<int64_t>& aln_ids, std::function<void(const Alignment&)> lambda);
 
     // obtain the key corresponding to each entity
     const string key_for_node(int64_t id);
@@ -172,6 +181,9 @@ public:
     const string key_for_mapping(const Mapping& mapping);
     const string key_for_alignment_prefix(int64_t node_id);
     const string key_for_alignment(const Alignment& alignment);
+    const string key_for_base(int64_t aln_id);
+    const string key_prefix_for_traversal(int64_t node_id);
+    const string key_for_traversal(int64_t aln_id, const Mapping& mapping);
 
     // deserialize a key/value pair
     void parse_node(const string& key, const string& value, int64_t& id, Node& node);
@@ -189,6 +201,8 @@ public:
                              int64_t& path_id, int64_t& path_pos, bool& backward, int64_t& node_id, Mapping& mapping);
     void parse_mapping(const string& key, const string& value, int64_t& node_id, string& hash, Mapping& mapping);
     void parse_alignment(const string& key, const string& value, int64_t& node_id, string& hash, Alignment& alignment);
+    void parse_base(const string& key, const string& value, int64_t& aln_id, Alignment& alignment);
+    void parse_traversal(const string& key, const string& value, int64_t& node_id, int16_t& rank, bool& backward, int64_t& aln_id);
 
     // for dumping graph state/ inspection
     string entry_to_string(const string& key, const string& value);
@@ -200,6 +214,8 @@ public:
     string path_position_to_string(const string& key, const string& value);
     string mapping_entry_to_string(const string& key, const string& value);
     string alignment_entry_to_string(const string& key, const string& value);
+    string base_entry_to_string(const string& key, const string& value);
+    string traversal_entry_to_string(const string& key, const string& value);
 
     // accessors, traversal, context
     void get_context(int64_t id, VG& graph);

@@ -1098,7 +1098,7 @@ Path simplify(const Path& p) {
         auto m = simplify(p.mapping(i));
         //cerr << "simplified " << pb2json(m) << endl;
         // remove wholly-deleted or empty mappings as these are redundant
-        if (m.edit_size() == 1 && edit_is_deletion(m.edit(0))
+        if ((m.edit_size() == 1 && edit_is_deletion(m.edit(0)))
             || m.edit_size() == 0) continue;
         if (s.mapping_size()) {
             // if this isn't the first mapping
@@ -1204,10 +1204,10 @@ Mapping simplify(const Mapping& m) {
         for ( ; j < m.edit_size(); ++j) {
             auto& f = m.edit(j);
             // if the edit types are the same, merge them
-            if (edit_is_match(e) && edit_is_match(f)
-                || edit_is_sub(e) && edit_is_sub(f)
-                || edit_is_deletion(e) && edit_is_deletion(f)
-                || edit_is_insertion(e) && edit_is_insertion(f)) {
+            if ((edit_is_match(e) && edit_is_match(f))
+                || (edit_is_sub(e) && edit_is_sub(f))
+                || (edit_is_deletion(e) && edit_is_deletion(f))
+                || (edit_is_insertion(e) && edit_is_insertion(f))) {
                 // will be 0 for insertions, and + for the rest
                 e.set_from_length(e.from_length()+f.from_length());
                 // will be 0 for deletions, and + for the rest
@@ -1244,13 +1244,14 @@ bool mapping_is_simple_match(const Mapping& m) {
     return m.edit_size() == 1 && edit_is_match(m.edit(0));
 }
 
-const string mapping_sequence(const Mapping& mp, const Node& n) {
-    if (!mp.has_position()) {
-        assert(mp.edit_size()==1);
-        return mp.edit(0).sequence();
+bool path_is_simple_match(const Path& p) {
+    for (size_t i = 0; i < p.mapping_size(); ++i) {
+        if (!mapping_is_simple_match(p.mapping(i))) return false;
     }
-    assert(mp.position().node_id() == n.id());
-    auto& node_seq = n.sequence();
+    return true;
+}
+
+const string mapping_sequence(const Mapping& mp, const string& node_seq) {
     string seq;
     // todo reverse the mapping
     function<int64_t(id_t)> lambda = [&node_seq](id_t i){return node_seq.size();};
@@ -1282,6 +1283,16 @@ const string mapping_sequence(const Mapping& mp, const Node& n) {
         seq = node_seq;
     }
     return (mp.position().is_reverse() ? reverse_complement(seq) : seq);
+}
+
+const string mapping_sequence(const Mapping& mp, const Node& n) {
+    if (!mp.has_position()) {
+        assert(mp.edit_size()==1);
+        return mp.edit(0).sequence();
+    }
+    assert(mp.position().node_id() == n.id());
+    auto& node_seq = n.sequence();
+    return mapping_sequence(mp, node_seq);
 }
 
 Mapping reverse_complement_mapping(const Mapping& m,
@@ -1477,6 +1488,7 @@ pair<Mapping, Mapping> cut_mapping(const Mapping& m, size_t offset) {
 }
 
 // divide path at reference-relative position
+// TODO make this work on the reverse strand / inverting paths
 pair<Path, Path> cut_path(const Path& path, const Position& pos) {
     Path p1, p2;
     size_t i = 0;
@@ -1673,6 +1685,35 @@ double overlap(const Path& p1, const Path& p2) {
     // to make a mapping for each position in both paths
     // then to compare these
     // simpler --- just compare mappings
+}
+
+Path path_from_node_traversals(const list<NodeTraversal>& traversals) {
+    // We'll fill in this path
+    Path toReturn;
+    
+    // What rank should the next node be?
+    size_t rank = 1;
+    
+    for(const auto& traversal : traversals) {
+        // Add a mapping for each NodeTraversal
+        Mapping* mapping = toReturn.add_mapping();
+        
+        // Set up the position
+        mapping->mutable_position()->set_node_id(traversal.node->id());
+        mapping->mutable_position()->set_is_reverse(traversal.backward);
+        
+        // Set the rank
+        mapping->set_rank(rank++);
+        
+        // Add an edit
+        Edit* edit = mapping->add_edit();
+        // Make it cover the full node
+        edit->set_from_length(traversal.node->sequence().size());
+        edit->set_to_length(traversal.node->sequence().size());
+    }
+    
+    // We're done making the path
+    return toReturn;
 }
 
 }

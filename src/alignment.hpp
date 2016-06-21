@@ -81,6 +81,7 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug=false);
 Alignment merge_alignments(const Alignment& a1, const Alignment& a2, bool debug=false);
 Alignment strip_from_start(const Alignment& aln, size_t drop);
 Alignment strip_from_end(const Alignment& aln, size_t drop);
+Alignment trim_alignment(const Alignment& aln, const Position& pos1, const Position& pos2);
 // generate a digest of the alignmnet
 const string hash_alignment(const Alignment& aln);
 // Flip the alignment's sequence and is_reverse flag, and flip and re-order its

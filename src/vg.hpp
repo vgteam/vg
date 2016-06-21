@@ -43,120 +43,17 @@
 
 #include "globalDefs.hpp"
 #include "Graph.hpp"
-#include "DetectSuperBubble.hpp"
 #include "helperDefs.hpp"
 
+#include "bubbles.hpp"
+
+#include "nodetraversal.hpp"
+#include "nodeside.hpp"
 
 // uncomment to enable verbose debugging to stderr
 //#define debug
 
 namespace vg {
-
-
-// Represents a node traversed in a certain orientation. The default orientation
-// is start to end, but if `backward` is set, represents the node being
-// traversed end to start. A list of these can serve as an edit-free version of
-// a path, especially if supplemented with a length and an initial node offset.
-// A path node has a left and a right side, which are the start and end of the
-// node if it is forward, or the end and start of the node if it is backward.
-class NodeTraversal {
-public:
-    Node* node;
-    bool backward;
-
-    inline NodeTraversal(Node* node, bool backward = false): node(node), backward(backward) {
-        // Nothing to do
-    }
-
-    inline NodeTraversal(): NodeTraversal(nullptr) {
-        // Nothing to do
-    }
-
-    inline bool operator==(const NodeTraversal& other) const {
-        return node == other.node && backward == other.backward;
-    }
-
-    inline bool operator!=(const NodeTraversal& other) const {
-        return node != other.node || backward != other.backward;
-    }
-
-    inline bool operator<(const NodeTraversal& other) const {
-        return node < other.node || (node == other.node && backward < other.backward);
-    }
-
-    // reverse complement the node traversal
-    inline NodeTraversal reverse(void) const {
-        return NodeTraversal(node, !backward);
-    }
-
-};
-
-inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
-    return out << nodetraversal.node->id() << " " << (nodetraversal.backward ? "rev" : "fwd");
-}
-
-// Represents one side of a Node, identified by ID, for the purposes of
-// indexing edges.
-class NodeSide {
-public:
-    id_t node;
-    bool is_end;
-
-    // We need this to be a converting constructor so we can represent the empty and deleted item keys in a pair_hash_map.
-    inline NodeSide(id_t node, bool is_end = false): node(node), is_end(is_end) {
-        // Nothing to do
-    }
-
-    inline NodeSide(): NodeSide(0, false) {
-        // Nothing to do
-    }
-
-    inline bool operator==(const NodeSide& other) const {
-        return node == other.node && is_end == other.is_end;
-    }
-
-    inline bool operator!=(const NodeSide& other) const {
-        return node != other.node || is_end != other.is_end;
-    }
-
-    inline bool operator<(const NodeSide& other) const {
-        return node < other.node || (node == other.node && is_end < other.is_end);
-    }
-
-    // Make an edge into a canonically ordered pair of NodeSides
-    static inline pair<NodeSide, NodeSide> pair_from_edge(Edge* e) {
-        return minmax(NodeSide(e->from(), !e->from_start()), NodeSide(e->to(), e->to_end()));
-    }
-
-    // Make an edge into a canonically ordered pair of NodeSides
-    static inline pair<NodeSide, NodeSide> pair_from_edge(const Edge& e) {
-        return minmax(NodeSide(e.from(), !e.from_start()), NodeSide(e.to(), e.to_end()));
-    }
-
-    // Make a canonically ordered pair of NodeSides from an edge off of the
-    // start of a node, to another node in the given relative orientation.
-    static inline pair<NodeSide, NodeSide> pair_from_start_edge(id_t start_id, const pair<id_t, bool>& oriented_other) {
-        // If it's in the same relative orientation, we go to its end.
-        return minmax(NodeSide(start_id, false), NodeSide(oriented_other.first, !oriented_other.second));
-    }
-
-    // Make a canonically ordered pair of NodeSides from an edge off of the
-    // end of a node, to another node in the given relative orientation.
-    static inline pair<NodeSide, NodeSide> pair_from_end_edge(id_t end_id, const pair<id_t, bool>& oriented_other) {
-        // If it's in the same relative orientation, we go to its start.
-        return minmax(NodeSide(end_id, true), NodeSide(oriented_other.first, oriented_other.second));
-    }
-
-    // reverse complement the node side
-    inline NodeSide flip(void) const {
-        return NodeSide(node, !is_end);
-    }
-
-};
-
-// helpers to be more clear
-NodeSide node_start(id_t id);
-NodeSide node_end(id_t id);
 
 // We create a struct that represents each kmer record we want to send to gcsa2
 struct KmerPosition {
@@ -167,29 +64,6 @@ struct KmerPosition {
     set<string> next_positions;
 };
 
-struct SB_Input{
-    int num_vertices;
-    vector<pair<id_t, id_t> > edges;
-};
-
-inline ostream& operator<<(ostream& out, const NodeSide& nodeside) {
-    return out << nodeside.node << " " << (nodeside.is_end ? "end" : "start");
-}
-
-}
-
-// Go up to std namespace for a moment
-namespace std {
-// We need to implement a hash function for these if we want to be able to use them in keys.
-template <> struct hash<vg::NodeSide>
-{
-    // Produce a hash of a NodeSide
-    size_t operator()(const vg::NodeSide& item) const
-    {
-        // Hash it just as we would a pair.
-        return hash<pair<id_t, bool>>()(make_pair(item.node, item.is_end));
-    }
-};
 }
 
 namespace vg {
@@ -495,9 +369,10 @@ public:
 
     // edit the graph to include the path
     void include(const Path& path);
+
     // Edit the graph to include all the sequence and edges added by the given
     // paths. Can handle paths that visit nodes in any orientation.
-    void edit(const vector<Path>& paths);
+    vector<Translation> edit(const vector<Path>& paths);
 
     // Find all the points at which a Path enters or leaves nodes in the graph. Adds
     // them to the given map by node ID of sets of bases in the node that will need
@@ -520,13 +395,23 @@ public:
     // all the new sequence and edges required by the path. The given path must
     // not contain adjacent perfect match edits in the same mapping (the removal
     // of which can be accomplished with the simplify() function).
-    void add_nodes_and_edges(const Path& path, const map<pos_t, Node*>& node_translation);
+    void add_nodes_and_edges(const Path& path,
+                             const map<pos_t, Node*>& node_translation,
+                             map<pair<pos_t, string>, Node*>& added_seqs,
+                             map<Node*, Path>& added_nodes,
+                             const map<id_t, size_t>& orig_node_sizes);
+
+    // produces a graph Translation object from information about the editing process
+    vector<Translation> make_translation(const map<pos_t, Node*>& node_translation,
+                                         const map<Node*, Path>& added_nodes,
+                                         const map<id_t, size_t>& orig_node_sizes);
 
     // Add in the given node, by value
     void add_node(const Node& node);
     void add_nodes(const vector<Node>& nodes);
     void add_edge(const Edge& edge);
     void add_edges(const vector<Edge>& edges);
+    void add_edges(const vector<Edge*>& edges);
     void add_nodes(const set<Node*>& nodes);
     void add_edges(const set<Edge*>& edges);
 
@@ -676,7 +561,11 @@ public:
     int path_end_node_offset(list<NodeTraversal>& path, int32_t offset, int path_length);
     // converts the stored paths in this graph to alignments
     const vector<Alignment> paths_as_alignments(void);
+    // return sequence string of path
     const string path_sequence(const Path& path);
+    // return percent identity between two paths (# matches / (#matches + #mismatches))
+    // note: uses ssw aligner, so will only work on small paths
+    double path_identity(const Path& path1, const Path& path2);
     string trav_sequence(const NodeTraversal& trav);
 
     SB_Input vg_to_sb_input();
@@ -793,11 +682,13 @@ public:
                 bool simple_mode = false,
                 bool invert_edge_ports = false,
                 bool color_variants = false,
+                bool superbubble_ranking = false,
+                bool superbubble_labeling = false,
                 int random_seed = 0);
 
 
     void to_dot(ostream& out, vector<Alignment> alignments = {}, bool show_paths = false, bool walk_paths = false,
-                            bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
+                bool annotate_paths = false, bool show_mappings = false, bool invert_edge_ports = false, int random_seed = 0, bool color_variants = false);
    void to_gfa(ostream& out);
     void to_turtle(ostream& out, const string& rdf_base_uri, bool precompress);
     bool is_valid(bool check_nodes = true,

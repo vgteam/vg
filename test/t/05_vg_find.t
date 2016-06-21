@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 29
+plan tests 30
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -79,3 +79,10 @@ is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) a7bce59
 is $(vg find -M ATTCATNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) $(vg find -M ATTCATNNNNNNNNAGTTAA -g giab.gcsa | md5sum | cut -f -1 -d\ ) "we find the same MEMs sequences with different lengths of Ns"
 rm -f giab.vg giab.xg giab.gcsa
 
+vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
+vg index -x x.xg -g x.gcsa -k 11 x.vg
+vg sim -s 1337 -n 100 -x x.xg >x.reads
+vg map -x x.xg -g x.gcsa -r x.reads >x.gam
+vg index -d x.db -N x.gam
+is $(vg find -o 127 -d x.db | vg view -a - | wc -l) 6 "the index can return the set of alignments mapping to a particular node"
+rm -rf x.vg x.xg x.gcsa x.reads x.gam x.db

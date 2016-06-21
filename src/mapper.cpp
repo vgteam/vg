@@ -1383,10 +1383,10 @@ set<pos_t> Mapper::sequence_positions(const string& seq) {
 vector<MaximalExactMatch>
 Mapper::find_smems(const string& seq) {
     
-    if (!gcsa || !xindex) {
-        cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required to query MEMs" << endl;
+    if (!gcsa) {
+        cerr << "error:[vg::Mapper] a GCSA2 index is required to query MEMs" << endl;
+        exit(1);
     }
-    
 
     string::const_iterator string_begin = seq.begin();
     string::const_iterator cursor = seq.end();

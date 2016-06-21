@@ -159,8 +159,38 @@ message Pileup {
     repeated EdgePileup edge_pileups = 2;
 }
 
+message Locus {
+    string name = 1;
+    // These are all the alleles at the locus, not just the called ones.
+    // Note that a primary reference allele may or may not appear.
+    repeated Path allele = 2;
+    // These supports are per-allele, matching the alleles above
+    repeated Support support = 3;
+    // sorted by likelihood or posterior
+    //  the first one is the "call"
+    repeated Genotype genotype = 4;
+    // We also have a Support for the locus overall, because reads may have
+    // supported multiple alleles and we want to know how many total there were.
+    Support overall_support = 5;
+}
+
 message Genotype {
-    repeated Path allele = 1;
-    Position start = 2;
-    Position end = 3;
+    // these refer to the offsets of the alleles in the Locus object
+    repeated int32 allele = 1;
+    bool is_phased = 2;
+    double likelihood = 3;
+}
+
+// aggregates information about the reads supporting an allele
+message Support {
+    double quality = 1;
+    int32 forward = 2;
+    int32 reverse = 3;
+    int32 left = 4;
+    int32 right = 5;
+}
+
+message Translation {
+    Path from = 1;
+    Path to = 2;
 }

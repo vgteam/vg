@@ -4,8 +4,14 @@ language: cpp
 compiler: gcc
 sudo: required
 dist: trusty
+# We have some shenanigans to let us cache submodules, and update changed files without messing up mtimes and triggering rebuilds unnecessarily.
 before_install:
+  - if [ -e deps ]; then mv deps deps_cached; fi
   - git submodule update --init --recursive
+  - rsync -rv --checksum deps/ deps_cached/
+  - rm -Rf deps
+  - mv deps_cached deps
+  - ls -lah deps/; ls -lah lib/; ls -lah include/
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then ls /etc/apt/sources.list.d; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo rm /etc/apt/sources.list.d/google-chrome.list; fi
@@ -24,9 +30,9 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which g++-4.9 || (brew unlink gcc && brew install gcc49); fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir ./bin; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which g++-4.9` ./bin/g++; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -s `which gcc-4.9` ./bin/gcc; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p ./bin; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-4.9` ./bin/g++; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-4.9` ./bin/gcc; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
@@ -34,7 +40,17 @@ install:
 script:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make -j4 && make test && make static -j4; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then make -j4 && make test; fi
-
+# Cache all our dependency directories, and our lib and include
+cache:
+  directories:
+    - deps
+    - lib
+    - include
+    - bin
+before_cache:
+  - rm -f lib/libvg.*
+  - rm -f include/vg.pb.h include/vg_git_version.hpp
+  - rm -f bin/vg /bin/vg* bin/g++ bin/gcc
 os:
   - linux
   - osx

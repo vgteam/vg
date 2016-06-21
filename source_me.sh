@@ -7,3 +7,9 @@ export INCLUDE_PATH=`pwd`/include:$INCLUDE_PATH
 export PATH=`pwd`/bin:`pwd`/scripts:$PATH
 export CC=$(which gcc)
 export CXX=$(which g++)
+
+# add bash autocompletion
+if test -n "$BASH_VERSION"
+then
+	 . ./autocomp.bash
+fi
