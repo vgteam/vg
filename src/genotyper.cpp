@@ -27,14 +27,6 @@ string allele_to_string(VG& graph, const Path& allele) {
     return stream.str();
 }
 
-double Genotyper::phred_to_prob(int phred) {
-    return pow(10, -((double)phred) / 10);
-}
-
-int Genotyper::prob_to_phred(double prob) {
-    return round(-10.0 * log10(prob));
-}
-
 int Genotyper::alignment_qual_score(const Alignment& alignment) {
     if(alignment.quality().empty()) {
         // Special case: qualities not given. Assume something vaguely sane so
@@ -581,7 +573,7 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
 }
 
 
-double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency) {
+double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
     // miscalled) * P(all reads that do support alleles from the genotype ended
@@ -594,11 +586,11 @@ double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vec
     
     // TODO: handle contamination like Freebayes
     
-    // This is the probability that all reads that don't support either allele in this genotype are wrong.
-    double all_non_supporting_wrong = 1;
+    // This is the log probability that all reads that don't support either allele in this genotype are wrong.
+    double all_non_supporting_wrong = prob_to_logprob(1);
     
-    // This is the probability that all the reads that do support alleles in this genotype were drawn from the genotype they support.
-    double all_supporting_drawn = 1;
+    // This is the log probability that all the reads that do support alleles in this genotype were drawn from the genotype they support.
+    double all_supporting_drawn = prob_to_logprob(1);
     
 #ifdef debug
     if(genotype.size() > 1) {
@@ -638,30 +630,31 @@ double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vec
             // so, given the genotype, the read must be sequenced or mapped
             // wrong.
             
-            double prob_wrong;
+            double logprob_wrong;
             if(use_mapq) {
                 // Compute P(mapped wrong or called wrong) = P(not (mapped right and called right)) = P(not (not mapped wrong and not called wrong))
-                prob_wrong = (1.0 - (1.0 - phred_to_prob(read.mapping_quality())) * (1.0 - phred_to_prob(read_qual)));
+                logprob_wrong = logprob_invert(logprob_invert(phred_to_logprob(read.mapping_quality())) +
+                    logprob_invert(phred_to_logprob(read_qual)));
             } else {
                 // Compute P(called wrong).
-                prob_wrong = phred_to_prob(read_qual);
+                logprob_wrong = phred_to_logprob(read_qual);
             }
 #ifdef debug
-            cerr << "P(wrong) = " << prob_wrong << endl;
+            cerr << "P(wrong) = " << logprob_to_prob(logprob_wrong) << endl;
 #endif
-            all_non_supporting_wrong *= prob_wrong;
+            all_non_supporting_wrong += logprob_wrong;
         } else {
             // This read is consistent with some of the alleles in the genotype,
             // so we must have drawn one of those alleles when sequencing.
             
             // So multiply in the probability that we hit one of those alleles
-            double prob_drawn = ((double) consistent_alleles) / genotype.size();
+            double logprob_drawn = prob_to_logprob(((double) consistent_alleles) / genotype.size());
             
 #ifdef debug
-            cerr << "P(drawn) = " << prob_drawn << endl;
+            cerr << "P(drawn) = " << logprob_to_prob(logprob_drawn << endl);
 #endif
             
-            all_supporting_drawn *= prob_drawn;
+            all_supporting_drawn += logprob_drawn;
         }
         
     }
@@ -670,7 +663,21 @@ double Genotyper::get_genotype_likelihood(const vector<int>& genotype, const vec
     // TODO: do we want to do that for the reads that are wrong as well???
     
     // Now we've looked at all the reads, so AND everything together
-    return all_non_supporting_wrong * all_supporting_drawn;
+    return all_non_supporting_wrong + all_supporting_drawn;
+}
+
+double Genotyper::get_genotype_log_prior(const vector<int>& genotype) {
+    assert(genotype.size() == 2);
+    
+    
+    // Priors are boring: certain amount for het, inverse of that for everyone else
+    if(genotype[0] != genotype[1]) {
+        // This is a het!
+        return het_prior_logprob;
+    } else {
+        // This is a homozygote. Much more common.
+        return logprob_invert(het_prior_logprob);
+    }
 }
 
 string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Alignment& alignment) {
@@ -848,9 +855,9 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
     }
 #endif
 
-    // We'll go through all the genotypes and put them with their likelihoods,
-    // then sort to find the best
-    vector<pair<double, vector<int>>> genotypes_by_likelihood;
+    // We'll go through all the genotypes, fill in their probabilities, put them
+    // in here, and then sort them to find the best.
+    vector<Genotype> genotypes_sorted;
 
     for(int allele1 = 0; allele1 < superbubble_paths.size(); allele1++) {
         // For each first allele in the genotype
@@ -858,23 +865,46 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
             // For each second allele so we get all order-independent combinations
             
             // Make the combo
-            vector<int> genotype = {allele1, allele2};
+            vector<int> genotype_vector = {allele1, allele2};
             
-            // Compute the probability of the data given the genotype
-            double probability = get_genotype_likelihood(genotype, alignment_consistency);
+            // Compute the log probability of the data given the genotype
+            double log_likelihood = get_genotype_log_likelihood(genotype_vector, alignment_consistency);
+            
+            // Compute the prior
+            double log_prior = get_genotype_log_prior(genotype_vector);
+            
+            // Apply Bayes Rule
+            double log_posterior_unnormalized = log_likelihood + log_prior;
             
 #ifdef debug
-            cerr << "P(obs | a" << allele1 << "/a" << allele2 << ") = " << probability << endl;
+            cerr << "P(obs | a" << allele1 << "/a" << allele2 << ") = " << logprob_to_prob(log_likelihood) <<
+                " (" << log_likelihood << ")" << endl;
+            cerr << "P(a" << allele1 << "/a" << allele2 << ") = " << logprob_to_prob(log_prior) <<
+                " (" << log_prior << ")" << endl;
+            cerr << "P(a" << allele1 << "/a" << allele2 << " | obs) * P(obs) = " <<
+                logprob_to_prob(log_posterior_unnormalized) << " (" << log_posterior_unnormalized << ")" << endl;
 #endif
+
+            // Fill in the actual Genotype object
+            Genotype genotype;
+            genotype.set_log_likelihood(log_likelihood);
+            genotype.set_log_prior(log_prior);
+            genotype.set_log_posterior(log_posterior_unnormalized);
+            
+            for(auto allele_id : genotype_vector) {
+                // Copy over all the indexes of alleles in the genotype
+                genotype.add_allele(allele_id);
+            }
             
             // Put it in to sort
-            genotypes_by_likelihood.push_back(make_pair(probability, genotype));
+            genotypes_sorted.push_back(genotype);
         }
     }
     
-    // Sort the genotypes in order of descending likelihood.
-    // This sorts ascening with reverse iterators.
-    sort(genotypes_by_likelihood.rbegin(), genotypes_by_likelihood.rend());
+    // Sort the genotypes in order of descending log posterior.
+    sort(genotypes_sorted.begin(), genotypes_sorted.end(), [](const Genotype& a, const Genotype& b) {
+        return a.log_posterior() > b.log_posterior();
+    });
     
     for(size_t i = 0; i < superbubble_paths.size(); i++) {
         // For each allele, make a support
@@ -884,16 +914,9 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
         support->set_reverse(strand_support_for_allele[i].second);
     }
     
-    for(auto& likelihood_and_alleles : genotypes_by_likelihood) {
-        // Add a genotype to the Locus for every one we looked at
-        auto* genotype = to_return.add_genotype();
-        // Set the likelihood
-        genotype->set_likelihood(likelihood_and_alleles.first);
-        // Set the allele references
-        for(auto allele_id : likelihood_and_alleles.second) {
-            // Copy over all the indexes of alleles in the genotype
-            genotype->add_allele(allele_id);
-        }
+    for(auto& genotype : genotypes_sorted) {
+        // Add a genotype to the Locus for every one we looked at, in order by descending posterior
+        *to_return.add_genotype() = genotype;
     }
     
     // Set up total support for overall depth
@@ -1142,9 +1165,9 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
         variant.samples[sample_name]["AD"].push_back(to_string(support.forward() + support.reverse()));
     }
     
-    // Work out genotype likelihoods
+    // Work out genotype log likelihoods
     // Make a vector to shuffle them into VCF order
-    vector<double> likelihoods(((locus.allele_size() - 1) * ((locus.allele_size() - 1) + 1)) / 2 + (locus.allele_size() - 1) + 1);
+    vector<double> log_likelihoods(((locus.allele_size() - 1) * ((locus.allele_size() - 1) + 1)) / 2 + (locus.allele_size() - 1) + 1);
     for(size_t i = 0; i < locus.genotype_size(); i++) {
         // For every genotype, calculate its VCF-order index based on the VCF allele numbers
         
@@ -1161,17 +1184,17 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
         
         // Compute the position as (sort of) specified in the VCF spec
         size_t index = (high_alt * (high_alt + 1)) / 2 + low_alt;
-        // Store the likelihood
-        likelihoods[index] = locus.genotype(i).likelihood();
+        // Store the log likelihood
+        log_likelihoods[index] = locus.genotype(i).log_likelihood();
 #ifdef debug
         cerr << high_alt << "/" << low_alt << ": " << index << " = " << pb2json(locus.genotype(i)) << endl;
 #endif
     }
     
     variant.format.push_back("PL");
-    for(auto& likelihood : likelihoods) {
+    for(auto& log_likelihood : log_likelihoods) {
         // Add all the likelihood strings, normalizing against the best
-        variant.samples[sample_name]["PL"].push_back(to_string(prob_to_phred(likelihood/best_genotype.likelihood())));
+        variant.samples[sample_name]["PL"].push_back(to_string(logprob_to_phred(log_likelihood - best_genotype.log_likelihood())));
     }
     
     // Set the variant position (now that we have budged it left if necessary
