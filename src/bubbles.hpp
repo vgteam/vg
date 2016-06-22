@@ -72,6 +72,13 @@ void bubble_up_bubbles(BubbleTree& bubble_tree);
 // identical to superbubbles()
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph);
 
+// Convert back from Cactus to VG
+// (to, for example, display using vg view)
+// todo: also provide mapping info to get nodes embedded in cactus components
+VG cactus_to_vg(stCactusGraph* cactus_graph);
+
+// Convert vg into vg formatted cactus representation
+VG cactusify(VG& graph);
 
 }
 

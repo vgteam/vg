@@ -381,4 +381,54 @@ map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
     return output;
 }
 
+VG cactus_to_vg(stCactusGraph* cactus_graph) {
+    VG vg_graph;
+    unordered_map<stCactusNode*, Node*> node_map;
+
+    // keep track of mapping between nodes in graph
+    function<Node*(stCactusNode*)> map_node = [&](stCactusNode* cac_node) -> Node* {
+        if (node_map.find(cac_node) == node_map.end()) {
+            id_t cac_id = *(id_t*)stCactusNode_getObject(cac_node);
+            Node* vg_node = vg_graph.create_node("N", cac_id);
+            node_map[cac_node] = vg_node;
+            return vg_node;
+        } else {
+            return node_map[cac_node];
+        }
+    };
+
+    // iterate nodes in cactus graph
+    stCactusGraphNodeIt* node_it = stCactusGraphNodeIterator_construct(cactus_graph);
+    stCactusNode* cac_node = stCactusGraphNodeIterator_getNext(node_it);
+    
+    for (; cac_node != NULL; cac_node = stCactusGraphNodeIterator_getNext(node_it)) {
+        // iterate edges of node
+        stCactusNodeEdgeEndIt edge_it = stCactusNode_getEdgeEndIt(cac_node);
+        stCactusEdgeEnd* edge_end = stCactusNodeEdgeEndIt_getNext(&edge_it);
+        for (; edge_end != NULL; edge_end = stCactusNodeEdgeEndIt_getNext(&edge_it)) {
+            pair<stCactusNode*, stCactusNode*> cac_edge = make_pair(
+                stCactusEdgeEnd_getNode(edge_end),
+                stCactusEdgeEnd_getOtherNode(edge_end));
+            // how to use?
+            CactusSide* cac_side = (CactusSide*)stCactusEdgeEnd_getObject(
+                stCactusEdgeEnd_getLink(edge_end));
+            // make a new vg edge
+            Edge* vg_edge = vg_graph.create_edge(map_node(cac_edge.first),
+                                                 map_node(cac_edge.second));
+        }
+    }
+    stCactusGraphNodeIterator_destruct(node_it);
+
+    return vg_graph;
+}
+
+VG cactusify(VG& graph) {
+    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+    stCactusGraph* cactus_graph = vg_to_cactus(graph, source_sink.first,
+                                               source_sink.second).first;
+    VG out_graph = cactus_to_vg(cactus_graph);
+    stCactusGraph_destruct(cactus_graph);
+    return out_graph;
+}
+
 }
