@@ -1584,6 +1584,7 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << std::endl
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
+         << "    -C, --cactus            use cactus for site finding" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1713,7 +1714,7 @@ int main_genotype(int argc, char** argv) {
         return 1;
     }
     if (show_progress) {
-        cerr << "Reading input graph" << endl;
+        cerr << "Reading input graph..." << endl;
     }
     VG* graph;
     string graph_file_name = argv[optind++];
@@ -1739,6 +1740,10 @@ int main_genotype(int argc, char** argv) {
         }
     }
     
+    if(output_vcf && show_progress) {
+        cerr << "Calling against path " << ref_path_name << endl;
+    }
+    
     if(sample_name.empty()) {
         // Set a default sample name
         sample_name = "SAMPLE";
@@ -1749,6 +1754,11 @@ int main_genotype(int argc, char** argv) {
         help_call(argv);
         return 1;
     }
+    
+    if(show_progress) {
+        cerr << "Loading reads..." << endl;
+    }
+    
     string reads_index_name = argv[optind];
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
