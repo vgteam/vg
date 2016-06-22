@@ -7,7 +7,7 @@ pos_t Sampler::position(void) {
     size_t offset = xdist(rng);
     id_t id = xgidx->node_at_seq_pos(offset);
     uniform_int_distribution<size_t> flip(0, 1);
-    bool rev = flip(rng);
+    bool rev = forward_only ? false : flip(rng);
     // 1-0 base conversion
     size_t node_offset = offset - xgidx->node_start(id) - 1;
     return make_pos_t(id, rev, node_offset);
@@ -227,7 +227,17 @@ char Sampler::pos_char(pos_t pos) {
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
     map<pos_t, char> nexts;
-    Node node = xgidx->node(id(pos));
+    
+    // See if the node is cached (did we just visit it?)
+    pair<Node, bool> cached = node_cache.retrieve(id(pos));
+    
+    if(!cached.second) {
+        // If it's not in the cache, put it in
+        cached.first = xgidx->node(id(pos));
+        node_cache.put(id(pos), cached.first);
+    }
+    
+    Node& node = cached.first;
     // if we are still in the node, return the next position and character
     if (offset(pos) < node.sequence().size()-1) {
         ++get_offset(pos);
