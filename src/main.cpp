@@ -5699,6 +5699,13 @@ int main_index(int argc, char** argv) {
 
                     // Find where this path is in our vector
                     Path& to_save = active_phase_paths[phase_number];
+                    xg::XG::thread_t to_save_thread;
+                    for (int i = 0; i < to_save.mapping_size(); ++i) {
+                        to_save_thread.emplace_back();
+                        auto& mapping = to_save_thread.back();
+                        mapping.node_id = to_save.mapping(i).position().node_id();
+                        mapping.is_reverse = to_save.mapping(i).position().is_reverse();
+                    }
 
                     if(to_save.mapping_size() > 0) {
                         // Only actually do anything if we put in some mappings.
@@ -5710,7 +5717,7 @@ int main_index(int argc, char** argv) {
                                 "_" + to_string(saved_phase_paths[phase_number]++));
 
                         // Actually send the path off to XG
-                        index.insert_thread(to_save);
+                        index.insert_thread(to_save_thread);
 
                         // Clear it out for re-use
                         to_save = Path();
