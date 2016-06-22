@@ -38,8 +38,8 @@ namespace vg {
                                        bool print_score_matrices = false);
         string graph_cigar(gssw_graph_mapping* gm);
         
-        double maximum_mapping_quality_exact(vector<double> scaled_scores, size_t* max_idx_out);
-        double maximum_mapping_quality_approx(vector<double> scaled_scores, size_t* max_idx_out);
+        double maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out);
+        double maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out);
         // TODO: this algorithm has numerical problems, just removing it for now
         //vector<double> all_mapping_qualities_exact(vector<double> scaled_scores);
         
@@ -61,7 +61,7 @@ namespace vg {
         void init_mapping_quality(double gc_content);
         bool is_mapping_quality_initialized();
         
-        // stores -10 * log_10(P_err) in alignment(s) mapping_quality field where P_err is the
+        // stores -10 * log_10(P_err) in alignment mapping_quality field where P_err is the
         // probability that the alignment is not the correct one (assuming that one of the alignments
         // in the vector is correct). alignments must have been created with this Aligner for quality
         // score to be valid
