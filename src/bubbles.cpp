@@ -245,25 +245,42 @@ pair<id_t, id_t> get_cactus_source_sink(VG& graph) {
     // todo : relax?
     assert(!source_ids.empty() && !sink_ids.empty());
 
-    id_t source_id = source_ids[0]->id();
+    // important : graph must be sorted!
+
+    // using these ranks requires graph.sort() to have been run
+    // to make sense
+    int source_rank = graph.size();
     for (auto n : source_ids) {
-      source_id = min(source_id, (id_t)n->id());
+      source_rank = min(source_rank, graph.node_rank(n));
     }
-    id_t sink_id = sink_ids[0]->id();    
+    int sink_rank = 0;
     for (auto n : sink_ids) {
-      sink_id = max(sink_id, (id_t)n->id());
+      sink_rank = max(sink_rank, graph.node_rank(n));
     }
+
+    // go back from rank to node
+    id_t source_id = graph.graph.node(source_rank).id();
+    id_t sink_id = graph.graph.node(sink_rank).id();
 
     assert(source_id != sink_id);
 
     return make_pair(source_id, sink_id);
 }
 
+pair<id_t, id_t> get_cactus_source_sink(VG& graph, const string& path_name) {
 
-BubbleTree cactusbubble_tree(VG& graph) {
+    list<Mapping>& path = graph.paths.get_path(path_name);
+    
+    id_t source_id = path.front().position().node_id();
+    id_t sink_id = path.back().position().node_id();
+    
+    assert(graph.is_head_node(min(source_id, sink_id)));
+    assert(graph.is_tail_node(max(source_id, sink_id)));
+    
+    return minmax(source_id, sink_id);
+}
 
-    // get endpoints
-    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+BubbleTree cactusbubble_tree(VG& graph, pair<id_t, id_t> source_sink) {
     
     // convert to cactus
     pair<stCactusGraph*, stCactusNode*> cac_pair = vg_to_cactus(graph, source_sink.first, source_sink.second);
@@ -363,9 +380,14 @@ void bubble_up_bubbles(BubbleTree& bubble_tree) {
 
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
 
+    graph.sort();
+
     map<pair<id_t, id_t>, vector<id_t> > output;
 
-    BubbleTree bubble_tree = cactusbubble_tree(graph);
+    // get endpoints
+    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+
+    BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
     bubble_up_bubbles(bubble_tree);
     bubble_tree.for_each_preorder([&](BubbleTree::Node* node) {
             Bubble& bubble = node->v;

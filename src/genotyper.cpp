@@ -112,8 +112,14 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph) {
     // Set up our output vector
     vector<Site> to_return;
 
+    // cactus needs the nodes to be sorted in order to find a source and sink
+    graph.sort();
+    
+    // get endpoints using node ranks
+    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+
     // todo: use deomposition instead of converting tree into flat structure
-    BubbleTree bubble_tree = cactusbubble_tree(graph);
+    BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
 
     // copy nodes up to bubbles that contain their bubble
     bubble_up_bubbles(bubble_tree);

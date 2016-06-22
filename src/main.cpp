@@ -3752,6 +3752,8 @@ int main_mod(int argc, char** argv) {
     }
 
     if (cactus) {
+        // ensure we're sorted
+        graph->sort();
         *graph = cactusify(*graph);
         // no paths survive, make sure they are erased
         graph->paths = Paths();
