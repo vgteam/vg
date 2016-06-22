@@ -1584,6 +1584,7 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << std::endl
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
+         << "    -C, --cactus            genotype the cacuts bubbles of the graph" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1621,7 +1622,7 @@ int main_genotype(int argc, char** argv) {
     string augmented_file_name;
     
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
-    bool use_cactus;
+    bool use_cactus = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1873,6 +1874,7 @@ int main_genotype(int argc, char** argv) {
                     
                     // Get all the paths through the site
                     vector<list<NodeTraversal>> paths = genotyper.get_paths_through_site(augmented_graph, site);
+                    cerr << "got " << paths.size() << " paths through site" << endl;
                     
                     if(skip_reference && paths.size() == 1 && paths[0].size() == 2) {
                         // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
@@ -3888,7 +3890,8 @@ int main_sim(int argc, char** argv) {
             // name the alignment
             string data;
             aln.SerializeToString(&data);
-            const string hash = sha1head(data, 16) + std::to_string(nonce++);
+            data += std::to_string(nonce++);
+            const string hash = sha1head(data, 16);
             aln.set_name(hash);
             // write it out as requested
             if (json_out) {
@@ -5658,7 +5661,6 @@ int main_index(int argc, char** argv) {
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
         xg::XG index = graphs.to_xg(store_threads);
 
-
         if(variant_file.is_open()) {
             // Now go through and add the varaints.
 
@@ -7194,8 +7196,8 @@ void help_view(char** argv) {
 
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
-         << "    -B, --bubble-rank    use superbubbles to force ranking in dot output" << endl
-         << "    -Y, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
+         << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
+         << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
@@ -7254,6 +7256,7 @@ int main_view(int argc, char** argv) {
     bool color_variants = false;
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
+    bool cactusbubble_labeling = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -7290,8 +7293,8 @@ int main_view(int argc, char** argv) {
                 {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
-                {"bubble-rank", no_argument, 0, 'B'},
-                {"bubble-label", no_argument, 0, 'Y'},
+                {"cactus-label", no_argument, 0, 'Y'},
+                {"bubble-label", no_argument, 0, 'B'},
                 {0, 0, 0, 0}
             };
 
@@ -7317,11 +7320,11 @@ int main_view(int argc, char** argv) {
             simple_dot = true;
             break;
 
-        case 'B':
-            superbubble_ranking = true;
+        case 'Y':
+            cactusbubble_labeling = true;
             break;
 
-        case 'Y':
+        case 'B':
             superbubble_labeling = true;
             break;
 
@@ -7711,6 +7714,7 @@ int main_view(int argc, char** argv) {
                       color_variants,
                       superbubble_ranking,
                       superbubble_labeling,
+                      cactusbubble_labeling,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
