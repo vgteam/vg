@@ -6435,29 +6435,38 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        stringstream nlabel;
+
+        stringstream inner_label;
         if (superbubble_labeling) {
-            nlabel << "<";
-            nlabel << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
+            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
             for(auto& string_and_color : symbols_for_node[n->id()]) {
                 // Put every symbol in its font tag.
-                nlabel << "<FONT COLOR=\"" << string_and_color.first << "\">" << string_and_color.second << "</FONT>";
+                inner_label << "<FONT COLOR=\"" << string_and_color.first << "\">" << string_and_color.second << "</FONT>";
             }
-            nlabel << ">";
+            inner_label << "</TD>";
         } else if (simple_mode) {
-            nlabel << n->id();
+            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            inner_label << n->id();
+            inner_label << "</TD>";
         } else {
-            nlabel << "<";
-            nlabel << "<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
-            nlabel << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">" << n->id() << ":" << n->sequence() << "</TD>";
-            nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
-            nlabel << ">";
+            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            inner_label << n->id() << ":" << n->sequence();
+            inner_label << "</TD>";
         }
+
+        stringstream nlabel;
+        nlabel << "<";
+        nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
+        nlabel << inner_label.str();
+        nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
+        nlabel << ">";
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
         } else if (superbubble_labeling) {
-            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
+            //out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
+            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";      
         } else {
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         }

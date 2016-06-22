@@ -79,7 +79,12 @@ map<pair<id_t, id_t>, vector<id_t> > superbubbles(VG& graph) {
         // get the nodes in the range
         auto& b = bubbles[bub];
         for (int i = start; i <= end; ++i) {
-            b.push_back(graph.graph.node(i).id());
+            auto node = graph.graph.mutable_node(i);
+            if (i == start || i == end
+                || !graph.is_head_node(node)
+                && !graph.is_tail_node(node)) {
+                b.push_back(node->id());
+            }
         }
     }
     return bubbles;
