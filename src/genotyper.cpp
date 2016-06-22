@@ -107,7 +107,7 @@ vector<Genotyper::Site> Genotyper::find_sites(VG& graph) {
     
 }
 
-vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph) {
+vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const string& ref_path_name) {
 
     // Set up our output vector
     vector<Site> to_return;
@@ -116,7 +116,7 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph) {
     graph.sort();
     
     // get endpoints using node ranks
-    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph, ref_path_name);
 
     // todo: use deomposition instead of converting tree into flat structure
     BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
