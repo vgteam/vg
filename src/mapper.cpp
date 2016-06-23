@@ -367,6 +367,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // Rescue only if the top alignment on one side has no mappings
     if(best_score1 == 0 && best_score2 != 0) {
         // Must rescue 1 off of 2
+        if (debug) cerr << "Rescue read 1 off of read 2" << endl;
         alignments1.clear();
         for(auto base : alignments2) {
             if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
@@ -383,6 +384,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     } else if(best_score1 != 0 && best_score2 == 0) {
         // Must rescue 2 off of 1
+        if (debug) cerr << "Rescue read 2 off of read 1" << endl;
         alignments2.clear();
         for(auto base : alignments1) {
             if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
@@ -431,6 +433,9 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
         alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
     }
+
+    // We should always have the same number now.
+    if (debug) cerr << alignments1.size() << " alignments for read 1, " << alignments2.size() << " for read 2" << endl;
 
     map<Alignment*, map<string, double> > aln_pos;
     if (fragment_size) {

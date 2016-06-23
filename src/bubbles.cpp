@@ -152,7 +152,24 @@ struct CactusSide {
 };
 
 void* mergeNodeObjects(void* a, void* b) {
-    return *(id_t*)a < *(id_t*)b ? a : b; 
+    // One of the objects is going to get returned, and the other one is going
+    // to get freed (since the graph is supposed to won them all).
+    id_t* to_return;
+    id_t* to_free;
+    
+    if(*(id_t*)a < *(id_t*)b) {
+        to_return = (id_t*)a;
+        to_free = (id_t*)b;
+    } else {
+        to_free = (id_t*)a;
+        to_return = (id_t*)b;
+    }
+    
+    // Free the thing we aren't keeping
+    free(to_free);
+    
+    // Return the one we are
+    return (void*)to_return;
 }
 
 // Step 2) Make a Cactus Graph

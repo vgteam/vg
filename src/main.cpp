@@ -1584,7 +1584,7 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << std::endl
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
-         << "    -C, --cactus            genotype the cacuts bubbles of the graph" << std::endl
+         << "    -C, --cactus            use cactus for site finding" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1714,7 +1714,7 @@ int main_genotype(int argc, char** argv) {
         return 1;
     }
     if (show_progress) {
-        cerr << "Reading input graph" << endl;
+        cerr << "Reading input graph..." << endl;
     }
     VG* graph;
     string graph_file_name = argv[optind++];
@@ -1740,6 +1740,10 @@ int main_genotype(int argc, char** argv) {
         }
     }
     
+    if(output_vcf && show_progress) {
+        cerr << "Calling against path " << ref_path_name << endl;
+    }
+    
     if(sample_name.empty()) {
         // Set a default sample name
         sample_name = "SAMPLE";
@@ -1750,6 +1754,11 @@ int main_genotype(int argc, char** argv) {
         help_call(argv);
         return 1;
     }
+    
+    if(show_progress) {
+        cerr << "Loading reads..." << endl;
+    }
+    
     string reads_index_name = argv[optind];
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
@@ -3874,7 +3883,7 @@ int main_sim(int argc, char** argv) {
         return 1;
     }
 
-    Sampler sampler(xgidx, seed_val);
+    Sampler sampler(xgidx, seed_val, forward_only);
     size_t max_iter = 1000;
     int nonce = 1;
     for (int i = 0; i < num_reads; ++i) {
@@ -4809,7 +4818,9 @@ void help_find(char** argv) {
          << "    -T, --table            instead of a graph, return a table of kmers" << endl
          << "                           (works only with kmers in the index)" << endl
          << "    -C, --kmer-count       report approximate count of kmer (-k) in db" << endl
-         << "    -D, --distance         return distance on path between pair of nodes (-n). if -P not used, best path chosen heurstically" << endl;
+         << "    -D, --distance         return distance on path between pair of nodes (-n). if -P not used, best path chosen heurstically" << endl
+         << "haplotypes:" << endl
+         << "    -H, --haplotypes FILE  count xg threads in agreement with alignments in the GAM" << endl;
 
 }
 
@@ -4843,6 +4854,7 @@ int main_find(int argc, char** argv) {
     vg::id_t start_id = 0;
     vg::id_t end_id = 0;
     bool pairwise_distance = false;
+    string haplotype_alignments;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4873,11 +4885,12 @@ int main_find(int argc, char** argv) {
                 {"alns-in", required_argument, 0, 'i'},
                 {"alns-on", required_argument, 0, 'o'},
                 {"distance", no_argument, 0, 'D'},
+                {"haplotypes", required_argument, 0, 'H'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:D",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -4977,6 +4990,10 @@ int main_find(int argc, char** argv) {
 
         case 'D':
             pairwise_distance = true;
+            break;
+            
+        case 'H':
+            haplotype_alignments = optarg;
             break;
 
         case 'h':
@@ -5157,6 +5174,31 @@ int main_find(int argc, char** argv) {
             VG vgg; vgg.extend(graph); // removes dupes
             vgg.remove_orphan_edges();
             vgg.serialize_to_ostream(cout);
+        }
+        if(!haplotype_alignments.empty()) {
+            // What should we do with each alignment?
+            function<void(Alignment&)> lambda = [&xindex](Alignment& aln) {
+                // Count the amtches to the path. The path might be empty, in
+                // which case it will yield the biggest size_t you can have.
+                size_t matches = xindex.count_matches(aln.path());
+                
+                // We do this single-threaded, at least for now, so we don't
+                // need to worry about coordinating output, and we can just
+                // spit out the counts as bare numbers.
+                cout << matches << endl;
+            };
+            if (haplotype_alignments == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(haplotype_alignments.c_str());
+                if(!in.is_open()) {
+                    cerr << "[vg find] error: could not open alignments file " << haplotype_alignments << endl;
+                    exit(1);
+                }
+                stream::for_each(in, lambda);
+            }
+            
         }
     } else if (!db_name.empty()) {
         if (!node_ids.empty() && path_name.empty()) {
@@ -5654,13 +5696,19 @@ int main_index(int argc, char** argv) {
         // TODO: a better way to store path metadata
         map<string, Path> alt_paths;
         // This is matched against the entire string.
-        //regex is_alt("_alt_.+_[0-9]+");
+        regex is_alt("_alt_.+_[0-9]+");
 
         // store the graphs
         VGset graphs(file_names);
         // Turn into an XG index, except for the alt paths which we pull out and load into RAM instead.
-        xg::XG index = graphs.to_xg(store_threads);
-
+        xg::XG index = graphs.to_xg(store_threads, is_alt, alt_paths);
+        
+        // We're going to collect all the phase threads as XG threads (which
+        // aren't huge like Protobuf Paths), and then insert them all into xg in
+        // a batch, for speed. This will take a lot of memory (although not as
+        // much as a real vg::Paths index or vector<Path> would)
+        vector<xg::XG::thread_t> all_phase_threads;
+        
         if(variant_file.is_open()) {
             // Now go through and add the varaints.
 
@@ -5683,9 +5731,9 @@ int main_index(int argc, char** argv) {
 
                 // How many bases is it?
                 size_t path_length = index.path_length(path_name);
-
-                // Allocate some Paths to store phase threads
-                vector<Path> active_phase_paths{num_phases};
+                
+                // Allocate some threads to store phase threads
+                vector<xg::XG::thread_t> active_phase_threads{num_phases};
                 // We need to remember how many paths of a particular phase have
                 // already been generated.
                 vector<int> saved_phase_paths(num_phases, 0);
@@ -5700,29 +5748,24 @@ int main_index(int argc, char** argv) {
                     // index under a name and make a new Path for that phase.
 
                     // Find where this path is in our vector
-                    Path& to_save = active_phase_paths[phase_number];
-                    xg::XG::thread_t to_save_thread;
-                    for (int i = 0; i < to_save.mapping_size(); ++i) {
-                        to_save_thread.emplace_back();
-                        auto& mapping = to_save_thread.back();
-                        mapping.node_id = to_save.mapping(i).position().node_id();
-                        mapping.is_reverse = to_save.mapping(i).position().is_reverse();
-                    }
-
-                    if(to_save.mapping_size() > 0) {
+                    xg::XG::thread_t& to_save = active_phase_threads[phase_number];
+                    
+                    if(to_save.size() > 0) {
                         // Only actually do anything if we put in some mappings.
-
-                        // Make sure the path has a name, and increment the
-                        // number of saved paths for this phase so the next path
-                        // will get a different name.
-                        to_save.set_name("_phase_" + to_string(phase_number) +
-                                "_" + to_string(saved_phase_paths[phase_number]++));
-
-                        // Actually send the path off to XG
-                        index.insert_thread(to_save_thread);
-
+                        
+                        // Count this thread from this phase as being saved.
+                        saved_phase_paths[phase_number]++;
+                        
+                        // We don't tie threads from a pahse together in the
+                        // index yet.
+                            
+                        // Copy the thread over to our batch that we GPBWT all
+                        // at once, exploiting the fact that VCF-derived graphs
+                        // are DAGs.
+                        all_phase_threads.push_back(to_save);
+                        
                         // Clear it out for re-use
-                        to_save = Path();
+                        to_save.clear();
                     }
                 };
 
@@ -5731,41 +5774,36 @@ int main_index(int argc, char** argv) {
                 // Mapping just represents an oriented node traversal.
                 auto append_mapping = [&](size_t phase_number, const Mapping& mapping) {
                     // Find the path to add to
-                    Path& to_extend = active_phase_paths[phase_number];
-
+                    xg::XG::thread_t& to_extend = active_phase_threads[phase_number];
+                    
                     // See if the edge we need to follow exists
-                    if(to_extend.mapping_size() > 0) {
+                    if(to_extend.size() > 0) {
                         // If there's a previous mapping, go find it
-                        const Mapping& previous = to_extend.mapping(to_extend.mapping_size() - 1);
-
+                        const xg::XG::ThreadMapping& previous = to_extend[to_extend.size() - 1];
+                        
                         // Break out the IDs and flags we need to check for the edge
-                        int64_t last_node = previous.position().node_id();
-                        bool last_from_start = previous.position().is_reverse();
-
+                        int64_t last_node = previous.node_id;
+                        bool last_from_start = previous.is_reverse;
+                        
                         int64_t new_node = mapping.position().node_id();
                         bool new_to_end = mapping.position().is_reverse();
 
                         if(!index.has_edge(last_node, last_from_start, new_node, new_to_end)) {
                             // We can't have a thread take this edge. Split ane
                             // emit the current mappings and start a new path.
+#ifdef debug
                             cerr << "warning:[vg index] phase " << phase_number << " wants edge "
                                 << last_node << (last_from_start ? "L" : "R") << " - "
                                 << new_node << (new_to_end ? "R" : "L")
                                 << " which does not exist. Splitting!" << endl;
-
+#endif                    
                             finish_phase(phase_number);
                         }
                     }
-
-                    // Make a new Mapping in the Path
-                    Mapping& new_place = *(active_phase_paths[phase_number].add_mapping());
-
-                    // Set it
-                    new_place = mapping;
-
-                    // Make sure to clear out the rank and edits
-                    new_place.set_rank(0);
-                    new_place.clear_edit();
+                    
+                    // Add a new ThreadMapping for the mapping
+                    xg::XG::ThreadMapping tm = {mapping.position().node_id(), mapping.position().is_reverse()};
+                    active_phase_threads[phase_number].push_back(tm);
                 };
 
                 // We need an easy way to append any reference mappings from the
@@ -5940,11 +5978,22 @@ int main_index(int argc, char** argv) {
                 }
 
             }
-
-
+            
+            if(show_progress) {
+                cerr << "Inserting all phase threads into DAG..." << endl;
+            }
+            
+            // Now insert all the threads in a batch into the known-DAG VCF-
+            // derived graph.
+            index.insert_threads_into_dag(all_phase_threads);
+            all_phase_threads.clear();
+            
         }
-
-
+        
+        if(show_progress) {
+            cerr << "Saving index to disk..." << endl;
+        }
+        
         // save the xg version to the file name we've been given
         ofstream db_out(xg_name);
         index.serialize(db_out);

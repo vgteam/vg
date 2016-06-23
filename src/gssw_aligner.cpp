@@ -2,7 +2,7 @@
 #include "gssw_aligner.hpp"
 
 // log(10)
-static const double LN10 = log(10.0);
+static const double quality_scale_factor = 10.0 / log(10.0);
 static const double exp_overflow_limit = log(std::numeric_limits<double>::max());
 
 using namespace vg;
@@ -276,8 +276,14 @@ bool Aligner::is_mapping_quality_initialized() {
     return (log_base <= 0.0);
 }
 
-double Aligner::maximum_mapping_quality_exact(vector<double> scaled_scores, size_t* max_idx_out) {
+double Aligner::maximum_mapping_quality_exact(vector<double>& scaled_scores, size_t* max_idx_out) {
     size_t size = scaled_scores.size();
+        
+    // if necessary, assume a null alignment of 0.0 for comparison since this is local
+    if (size == 1) {
+        scaled_scores.push_back(0.0);
+    }
+    
     double max_score = scaled_scores[0];
     size_t max_idx = 0;
     for (size_t i = 1; i < size; i++) {
@@ -311,10 +317,10 @@ double Aligner::maximum_mapping_quality_exact(vector<double> scaled_scores, size
 }
 
 // TODO: this algorithm has numerical problems that would be difficult to solve without increasing the
-// time complexity, adding the probability of the maximum likelihood tends to erase the contribution
+// time complexity: adding the probability of the maximum likelihood tends to erase the contribution
 // of the other terms so that when you subtract them off you get scores of 0 or infinity
 
-//vector<double> Aligner::all_mapping_qualities_exact(vector<double> scaled_scores) {
+//vector<double> Aligner::all_mapping_qualities_exact(vector<double>& scaled_scores) {
 //    
 //    double max_score = *max_element(scaled_scores.begin(), scaled_scores.end());
 //    size_t size = scaled_scores.size();
@@ -345,8 +351,13 @@ double Aligner::maximum_mapping_quality_exact(vector<double> scaled_scores, size
 //    return mapping_qualities;
 //}
 
-double Aligner::maximum_mapping_quality_approx(vector<double> scaled_scores, size_t* max_idx_out) {
+double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, size_t* max_idx_out) {
     size_t size = scaled_scores.size();
+    
+    // if necessary, assume a null alignment of 0.0 for comparison since this is local
+    if (size == 1) {
+        scaled_scores.push_back(0.0);
+    }
 
     double max_score = scaled_scores[0];
     size_t max_idx = 0;
@@ -378,7 +389,7 @@ double Aligner::maximum_mapping_quality_approx(vector<double> scaled_scores, siz
     
     *max_idx_out = max_idx;
     
-    return (10.0 / LN10) * (max_score - next_count * next_score);
+    return quality_scale_factor * (max_score - next_count * next_score);
 }
 
 void Aligner::compute_mapping_quality(vector<Alignment>& alignments, bool fast_approximation) {
@@ -390,11 +401,6 @@ void Aligner::compute_mapping_quality(vector<Alignment>& alignments, bool fast_a
     size_t size = alignments.size();
     
     if (size == 0) {
-        return;
-    }
-    
-    if (size == 1) {
-        alignments[0].set_mapping_quality(std::numeric_limits<int32_t>::max());
         return;
     }
     
@@ -435,12 +441,6 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     }
     
     if (size == 0) {
-        return;
-    }
-    
-    if (size == 1) {
-        alignment_pairs.first[0].set_mapping_quality(std::numeric_limits<int32_t>::max());
-        alignment_pairs.second[0].set_mapping_quality(std::numeric_limits<int32_t>::max());
         return;
     }
     
