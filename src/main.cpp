@@ -221,6 +221,7 @@ int main_filter(int argc, char** argv) {
     string outbase;
     int context_size = 0;
     bool verbose = false;
+    double min_mapq = 0.;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -240,11 +241,12 @@ int main_filter(int argc, char** argv) {
                 {"output-basename",  required_argument, 0, 'B'},
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
+                {"min-mapq", required_argument, 0, 'q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:v",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -288,6 +290,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'c':
             context_size = atoi(optarg);
+            break;
+        case 'q':
+            min_mapq = atof(optarg);
             break;
         case 'v':
             verbose = true;
@@ -484,6 +489,8 @@ int main_filter(int argc, char** argv) {
     size_t min_pri_delta_count = 0;
     size_t max_sec_overhang_count = 0;
     size_t max_pri_overhang_count = 0;
+    size_t min_sec_mapq_count = 0;
+    size_t min_pri_mapq_count = 0;
 
     // for deltas, we keep track of last primary
     Alignment prev;
@@ -551,6 +558,10 @@ int main_filter(int argc, char** argv) {
                 ++max_sec_overhang_count;
                 keep = false;
             }
+            if (aln.mapping_quality() < min_mapq) {
+                ++min_sec_mapq_count;
+                keep = false;
+            }
             if (!keep) {
                 ++sec_filtered_count;
             }
@@ -593,6 +604,10 @@ int main_filter(int argc, char** argv) {
             }
             if (overhang > max_overhang) {
                 ++max_pri_overhang_count;
+                keep_prev = false;
+            }
+            if (aln.mapping_quality() < min_mapq) {
+                ++min_pri_mapq_count;
                 keep_prev = false;
             }
             if (!keep_prev) {
