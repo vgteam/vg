@@ -1757,7 +1757,20 @@ int main_genotype(int argc, char** argv) {
 
     index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
         // Extract all the alignments
-        alignments.push_back(alignment);
+        
+        // Only take alignments that don't visit nodes not in the graph
+        bool contained = true;
+        for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
+            if(!graph->has_node(alignment.path().mapping(i).position().node_id())) {
+                // Throw out the read
+                contained = false;
+            }
+        }
+        
+        if(contained) {
+            // This alignment completely falls within the graph
+            alignments.push_back(alignment);
+        }
     });
         
     if(show_progress) {

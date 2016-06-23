@@ -151,12 +151,27 @@ void Genotyper::run(VG& graph,
                     if(skip_reference && paths.size() == 1 && paths[0].size() == 2) {
                         // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
                         // TODO: can't continue out of task
+                        if(show_progress) {
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() <<
+                                " alleles: skipped for being trivial" << endl;
+                        }
                     } else if(skip_reference && paths.size() == 1 && output_vcf) {
                         // Skip boring guaranteed ref only sites where there is just 1 path.
                         // If it were the reference path, it'd be a noop, and if it's not the reference path, there's no way to express it as VCF.
                         // TODO: can't continue out of task
+                        if(show_progress) {
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() <<
+                                " alleles: skipped for being fixed reference" << endl;
+                        }
                     } else if(paths.empty()) {
                         // Don't do anything for superbubbles with no routes through
+                        if(show_progress) {
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() <<
+                                " alleles: skipped for having no alleles" << endl;
+                        }
                     } else {
                     
                         if(show_progress) {
@@ -168,7 +183,7 @@ void Genotyper::run(VG& graph,
                                 cerr << "\t" << traversals_to_string(path) << endl;
                             }
                         }
-
+                        
                         // Get the affinities for all the paths
                         map<Alignment*, vector<Genotyper::Affinity>> affinities = get_affinities_fast(graph, reads_by_name, site, paths);
                         
@@ -179,8 +194,7 @@ void Genotyper::run(VG& graph,
                         
                         // Get a genotyped locus in the original frame
                         Locus genotyped = genotype_site(graph, site, paths, affinities);
-                        //translator.translate(
-
+                        
                         if(output_json) {
                             // Dump in JSON
                             #pragma omp critical (cout)
