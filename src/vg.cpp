@@ -6398,6 +6398,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool color_variants,
                 bool superbubble_ranking,
                 bool superbubble_labeling,
+                bool cactusbubble_labeling,
                 int random_seed) {
 
     // setup graphviz output
@@ -6412,10 +6413,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 
     //map<id_t, vector<
     map<id_t, set<pair<string, string>>> symbols_for_node;
-    if (superbubble_labeling) {
+    if (superbubble_labeling || cactusbubble_labeling) {
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        map<pair<id_t, id_t>, vector<id_t> > sb = superbubbles(*this);
+        map<pair<id_t, id_t>, vector<id_t> > sb =
+            (cactusbubble_labeling ? cactusbubbles(*this) : superbubbles(*this));
         for (auto& bub : sb) {
             auto start_node = bub.first.first;
             auto end_node = bub.first.second;
@@ -6437,7 +6439,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         auto node_paths = paths.of_node(n->id());
 
         stringstream inner_label;
-        if (superbubble_labeling) {
+        if (superbubble_labeling || cactusbubble_labeling) {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
             for(auto& string_and_color : symbols_for_node[n->id()]) {
@@ -6464,7 +6466,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
-        } else if (superbubble_labeling) {
+        } else if (superbubble_labeling || cactusbubble_labeling) {
             //out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";      
         } else {

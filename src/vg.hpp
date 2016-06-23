@@ -652,6 +652,7 @@ public:
                 bool color_variants = false,
                 bool superbubble_ranking = false,
                 bool superbubble_labeling = false,
+                bool cactusbubble_labeling = false,
                 int random_seed = 0);
 
 

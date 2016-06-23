@@ -77,7 +77,7 @@ vector<Genotyper::Site> Genotyper::find_sites(VG& graph) {
     unfold_translation.clear();
     
     // Find the superbubbles in the DAG
-    map<pair<id_t, id_t>, vector<id_t>> superbubbles = vg::superbubbles(transformed);
+    map<pair<id_t, id_t>, vector<id_t>> superbubbles = vg::cactusbubbles(transformed);
     
     for(auto& superbubble : superbubbles) {
         
@@ -159,6 +159,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
             // Go through the paths that visit the start node
             
             if(!endmappings_by_name.count(name_and_mappings.first)) {
+                //cerr << "no endmappings match" << endl;
                 // No path by this name has any mappings to the end node. Skip
                 // it early.
                 continue;
@@ -209,7 +210,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                     
                     if(mapping->position().node_id() == site.end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // We have stumbled upon the end node in the orientation we wanted it in.
-                        
+                        cerr << name_and_mappings.first << " crosses" << endl;
                         if(results.count(allele_stream.str())) {
                             // It is already there! Increment the observation count.
                             results[allele_stream.str()].second++;
