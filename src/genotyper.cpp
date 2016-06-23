@@ -77,7 +77,7 @@ vector<Genotyper::Site> Genotyper::find_sites(VG& graph) {
     unfold_translation.clear();
     
     // Find the superbubbles in the DAG
-    map<pair<id_t, id_t>, vector<id_t>> superbubbles = vg::cactusbubbles(transformed);
+    map<pair<id_t, id_t>, vector<id_t>> superbubbles = vg::superbubbles(transformed);
     
     for(auto& superbubble : superbubbles) {
         
