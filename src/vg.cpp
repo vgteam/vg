@@ -252,7 +252,7 @@ vector<pair<id_t, id_t> > VG::get_superbubbles(void){
     return ret;
 }
 // check for conflict (duplicate nodes and edges) occurs within add_* functions
-
+/*
 map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
     map<pair<id_t, id_t>, vector<id_t> > bubbles;
     // ensure we're sorted
@@ -272,7 +272,7 @@ map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
     }
     return bubbles;
 }
-
+*/
 void VG::add_nodes(const set<Node*>& nodes) {
     for (auto node : nodes) {
         add_node(*node);

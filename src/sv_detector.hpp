@@ -84,6 +84,8 @@ class SV_DETECTOR{
         /** Returns a vector of StructuralVariant objects, which can be turned into VCFs **/
         vector<StructuralVariant> gam_to_known_sv(string gamfile);
 
+        
+
         /** Returns a list of alt_path names that the alignment matches to **/
         vector<string> alignment_to_known_sv(Alignment aln);
 
@@ -104,7 +106,10 @@ class SV_DETECTOR{
         map<vg::id_t, string> node_id_to_path;
         map<vg::id_t, string> node_to_variant;
 
-
+        //Alignment realign(Alignment& aln);
+        //void incorporate(Alignment& aln);
+        //
+        //
         /**
          * Min depth
          * Min Qual

@@ -308,7 +308,7 @@ namespace vg {
      */
     map<pair<id_t, id_t>, vector<id_t> >  Deconstructor::get_all_superbubbles(){
 
-        my_sbs = my_vg->superbubbles();
+        my_sbs = superbubbles(*my_vg);
         return my_sbs;
 
         /*
