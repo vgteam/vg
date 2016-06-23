@@ -8,9 +8,8 @@ _vg_complete()
 	 if [ $COMP_CWORD -eq 1 ]
 	 then
 		  COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-	 else 
-		  local files=(*)
-		  [[ -e ${files[0]} ]] && COMPREPLY=( "${files[@]##*/}" )
+	 else
+		  COMPREPLY=( $(compgen -W "$(ls)" -- $cur) )
 	 fi
 	 return 0
 }
