@@ -59,7 +59,7 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, id_t source_id, id_t
 pair<id_t, id_t> get_cactus_source_sink(VG& graph);
 
 // Get source and sink nodes from path endpoints
-pair<id_t, id_t> get_cactus_source_sink(VG& graph, const string& path_name);
+pair<id_t, id_t> get_cactus_source_sink(VG& graph, const string& path_name, int steps = 5);
 
 // Return the hierchical cactus decomposition
 // Input graph must be sorted!

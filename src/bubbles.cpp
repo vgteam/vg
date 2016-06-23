@@ -138,6 +138,7 @@ static void compute_side_components(VG& graph, id_t source_id, id_t sink_id,
             add_node_side(NodeSide(n->id(), false));
             add_node_side(NodeSide(n->id(), true));
         });
+    
 
 }
 
@@ -267,17 +268,55 @@ pair<id_t, id_t> get_cactus_source_sink(VG& graph) {
     return make_pair(source_id, sink_id);
 }
 
-pair<id_t, id_t> get_cactus_source_sink(VG& graph, const string& path_name) {
+pair<id_t, id_t> get_cactus_source_sink(VG& graph, const string& path_name, int steps) {
 
     list<Mapping>& path = graph.paths.get_path(path_name);
     
     id_t source_id = path.front().position().node_id();
     id_t sink_id = path.back().position().node_id();
+
+    // search context of path ends for actual head and tail nodes
+    function<pair<id_t, id_t>(id_t)> find_endpoints = [&](id_t node_id) -> pair<id_t, id_t> {
+        pair<id_t, id_t> found_ends(graph.is_head_node(node_id) ? node_id : 0,
+                                    graph.is_tail_node(node_id) ? node_id : 0);
+        VG context;
+        graph.nonoverlapping_node_context_without_paths(graph.get_node(node_id), context);
+        graph.expand_context(context, steps, false);
+        context.for_each_node([&](Node* node) {
+                if (found_ends.first == 0 && graph.is_head_node(node->id())) {
+                    // todo: pick best from many?
+                    found_ends.first = node->id();
+                }
+                if (found_ends.second == 0 && graph.is_tail_node(node->id())) {
+                    found_ends.second = node->id();
+                }
+            });
+        return found_ends;
+    };
+
+    auto source_ends = find_endpoints(source_id);
+    auto sink_ends = find_endpoints(sink_id);
+
+    // favour  head/tail or tail/head matchup
+    if (source_ends.first > 0 && sink_ends.second > 0) {
+        source_id = source_ends.first;
+        sink_id = sink_ends.second;
+    } else if (source_ends.second > 0 && sink_ends.first > 0) {
+        source_id = sink_ends.first;
+        sink_id = source_ends.second;
+    } // settle for head / head or tail / tail (to what results?)
+    else if (source_ends.first > 0 && sink_ends.first > 0) {
+        source_id = source_ends.first;
+        sink_id = sink_ends.first;
+    } else if (source_ends.second > 0 && sink_ends.second > 0) {
+        source_id = source_ends.second;
+        sink_id = sink_ends.second;
+    }
+            
+    assert(graph.is_head_node(source_id) || graph.is_tail_node(source_id));
+    assert(graph.is_head_node(sink_id) || graph.is_tail_node(sink_id));
     
-    assert(graph.is_head_node(min(source_id, sink_id)));
-    assert(graph.is_tail_node(max(source_id, sink_id)));
-    
-    return minmax(source_id, sink_id);
+    return make_pair(source_id, sink_id);
 }
 
 BubbleTree cactusbubble_tree(VG& graph, pair<id_t, id_t> source_sink) {
