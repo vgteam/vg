@@ -228,14 +228,14 @@ public:
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
     float min_identity; // require that alignment identity is at least this much to accept alignment
     // paired-end consistency enforcement
-    bool report_consistent_pairs; // Should consistent paired mappings be made primary over higher-scoring inconsistent ones?
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings
     
     bool adjust_alignments_for_base_quality; // use base quality adjusted alignments
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
-    int fragment_size; // Used to bound clustering of MEMs during paired end mapping
+    int fragment_size; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
+                       // if consistent pairs should be reported
 
 
 };

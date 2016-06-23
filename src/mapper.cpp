@@ -34,7 +34,6 @@ Mapper::Mapper(Index* idex,
     , min_mem_length(0)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
-    , report_consistent_pairs(false)
     , extra_pairing_multimaps(4)
     , always_rescue(false)
     , fragment_size(0)
@@ -331,7 +330,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     vector<MaximalExactMatch>* pairable_mems_ptr_2 = nullptr;
 
     // find the MEMs for the alignments
-    if (report_consistent_pairs) {
+    if (fragment_size) {
         vector<MaximalExactMatch> mems1 = find_smems(read1.sequence());
         for (auto& mem : mems1) { get_mem_hits_if_under_max(mem); }
         vector<MaximalExactMatch> mems2 = find_smems(read2.sequence());
@@ -351,6 +350,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     
     //cerr << pairable_mems1.size() << " and " << pairable_mems2.size() << endl;
+    
+    bool report_consistent_pairs = (bool) fragment_size;
 
     // use MEM alignment on the MEMs matching our constraints
     vector<Alignment> alignments1 = align_multi_internal(!report_consistent_pairs, read1, kmer_size, stride, band_width,
@@ -449,7 +450,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // TODO: do I actually want to rescue a pair with no CONSISTENT mappings? otherwise pairs might get knocked down later and
     // then I still return nothing
     
-    if (report_consistent_pairs) {
+    if (fragment_size) {
         // compare pairs by the sum of their individual scores
         struct ComparePairedAlignmentScores {
             vector<Alignment>& alns_1;
@@ -475,15 +476,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // ensure that there is always an additional pair to compute a mapping quality against
         int num_pairs = max_multimaps >= 2 ? max_multimaps : 2;
         
+        
         pair_queue.push(make_pair(0, 0));
         while (!pair_queue.empty() && consistent_pairs.first.size() < num_pairs) {
             // get index of remaining pair with highest combined score
             pair<int, int> aln_pair = pair_queue.top();
             pair_queue.pop();
             
+            
             if (alignments_consistent(aln_pos[&alignments1[aln_pair.first]], aln_pos[&alignments2[aln_pair.second]], fragment_size)) {
                 consistent_pairs.first.push_back(alignments1[aln_pair.first]);
                 consistent_pairs.second.push_back(alignments2[aln_pair.second]);
+                
             }
             
             // add in the two adjacent indices if we haven't already
@@ -498,6 +502,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 considered_pairs.insert(next_aln_pair_right);
             }
         }
+
 
         compute_mapping_qualities(consistent_pairs);
         
