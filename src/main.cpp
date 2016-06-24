@@ -196,7 +196,8 @@ void help_filter(char** argv) {
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
-         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl;
+         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
+         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl;
          
          
 }

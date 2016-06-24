@@ -719,12 +719,14 @@ void Caller::create_node_calls(const NodePileup& np) {
             }        
             else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
                 // add reference
-                StrandSupport sup(0, 0);
+                StrandSupport sup(0, 0, 0);
                 if (_node_calls[cur].first == ".") {
                     sup += _node_supports[cur].first;
+                    sup.likelihood = _node_likelihoods[cur];
                 }
                 if (_node_calls[cur].second == ".") {
                     sup += _node_supports[cur].second;
+                    sup.likelihood = _node_likelihoods[cur];
                 }
                 string new_seq = seq.substr(cur, next - cur);
                 Node* node = _call_graph.create_node(new_seq, ++_max_id);

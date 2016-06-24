@@ -44,6 +44,7 @@ struct StrandSupport {
     StrandSupport& operator+=(const StrandSupport& other) {
         fs += other.fs;
         rs += other.rs;
+        likelihood = max(likelihood, other.likelihood);
         return *this;
     }
 };
