@@ -132,7 +132,7 @@ public:
      * This is more general and doesn't require DAGifcation etc., but we keep
      * both versions around for now for debugging and comparison
      */
-    vector<Site> find_sites_with_cactus(VG& graph);
+    vector<Site> find_sites_with_cactus(VG& graph, const string& ref_path_name);
     
     /**
      * Given a path (which may run either direction through a site, or not touch
