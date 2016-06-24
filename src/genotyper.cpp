@@ -52,7 +52,7 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
     return round(total);
 }
 
-vector<Genotyper::Site> Genotyper::find_sites(VG& graph) {
+vector<Genotyper::Site> Genotyper::find_sites_with_supbub(VG& graph) {
 
     // Set up our output vector
     vector<Site> to_return;
@@ -210,7 +210,6 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                     
                     if(mapping->position().node_id() == site.end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // We have stumbled upon the end node in the orientation we wanted it in.
-                        cerr << name_and_mappings.first << " crosses" << endl;
                         if(results.count(allele_stream.str())) {
                             // It is already there! Increment the observation count.
                             results[allele_stream.str()].second++;

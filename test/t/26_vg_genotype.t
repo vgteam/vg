@@ -37,4 +37,3 @@ vg sim -n 30 -l 50 -e 0.005 -s 8675309 -x flat2.xg -a >flat2.sim
 vg map -x flat.xg -g flat.gcsa -G <(cat flat1.sim flat2.sim) >flat.gam
 vg index -d flat.gam.index -N flat.gam
 vg genotype flat.vg flat.gam.index -v
-vg mod -i flat.gam flat.vg | vg view -dp - | dot2browser

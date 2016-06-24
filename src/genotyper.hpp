@@ -125,7 +125,7 @@ public:
      *
      * Returns a collection of Sites.
      */
-    vector<Site> find_sites(VG& graph);
+    vector<Site> find_sites_with_supbub(VG& graph);
 
     /** 
      * Same as find_sites but use Cactus instead of Superbubbles.
