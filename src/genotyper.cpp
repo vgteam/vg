@@ -1401,9 +1401,9 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     }
     
     // Work out genotype log likelihoods
-    // Make a vector to shuffle them into VCF order. Fill it with -inf for impossible genotypes.
+    // Make a vector to shuffle them into VCF order. Fill it with inf for impossible genotypes.
     vector<double> log_likelihoods((max_alt_number * (max_alt_number + 1)) / 2 + max_alt_number + 1,
-        -numeric_limits<double>::infinity());
+        numeric_limits<double>::infinity());
     for(size_t i = 0; i < locus.genotype_size(); i++) {
         // For every genotype, calculate its VCF-order index based on the VCF allele numbers
         
