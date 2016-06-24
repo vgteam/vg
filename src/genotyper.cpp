@@ -1413,7 +1413,7 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
         // Compute the position as (sort of) specified in the VCF spec
         size_t index = (high_alt * (high_alt + 1)) / 2 + low_alt;
         // Store the log likelihood
-        log_likelihoods[index] = locus.genotype(i).log_likelihood();
+        log_likelihoods.at(index) = locus.genotype(i).log_likelihood();
 #ifdef debug
         cerr << high_alt << "/" << low_alt << ": " << index << " = " << pb2json(locus.genotype(i)) << endl;
 #endif
