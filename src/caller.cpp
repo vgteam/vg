@@ -127,9 +127,22 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
     if (pileup.num_reads() >= _min_depth &&
         pileup.num_reads() <= _max_depth) {
 
-        // to do: factor in likelihood?
-        Edge edge = pileup.edge(); // gcc not happy about passing directly
-        _called_edges[NodeSide::pair_from_edge(edge)] = pileup.num_reads();
+        // hack in a likelihood that's somewhat comparable to snp likelihoods
+        double log_likelihood = -(double)pileup.num_reads() * log(2); 
+        
+        for (int i = 0; i < pileup.num_reads(); ++i) {
+            char qual = pileup.qualities().length() >= 0 ? pileup.qualities()[i]  : _default_quality;
+            double perr = phred_to_prob(qual);
+            log_likelihood += safe_log(2. * (1. - perr));
+        }
+        
+        if (log_likelihood > _min_log_likelihood) {
+            Edge edge = pileup.edge(); // gcc not happy about passing directly
+            _called_edges[NodeSide::pair_from_edge(edge)] = StrandSupport(
+                pileup.num_forward_reads(),
+                pileup.num_reads() - pileup.num_forward_reads(),
+                log_likelihood);
+        }
     }
 }
 
@@ -664,7 +677,7 @@ double Caller::genotype_log_likelihood(const BasePileup& bp,
             }
 
             char qual = base_offsets[i].second >= 0 ? quals[base_offsets[i].second] : _default_quality;
-            perr = phred2prob(qual);
+            perr = phred_to_prob(qual);
             if (base == ref_base) {
                 // ref
                 log_likelihood += safe_log((m - g) * perr + g * (1. - perr));
@@ -887,7 +900,7 @@ void Caller::write_edge_tsv(Edge* edge, char call, StrandSupport support)
 {
     *_text_calls << "E\t" << edge->from() << "," << edge->from_start() << "," 
                  << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << support.fs
-                 << "\t" << support.rs << "\t.\t.\t.\n";
+                 << "\t" << support.rs << "\t.\t.\t" << support.likelihood << endl;
 }
 
 void Caller::write_nd_tsv()

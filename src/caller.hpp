@@ -166,7 +166,7 @@ public:
     // to figure out where edges go
     NodeDivider _node_divider;
     unordered_set<int64_t> _visited_nodes;
-    unordered_map<pair<NodeSide, NodeSide>, int> _called_edges; // map to support
+    unordered_map<pair<NodeSide, NodeSide>, StrandSupport> _called_edges; // map to support
     // deletes can don't necessarily need to be in incident to node ends
     // so we throw in an offset into the mix. 
     typedef pair<NodeSide, int> NodeOffSide;
@@ -274,14 +274,6 @@ public:
     // log function that tries to avoid 0s
     static double safe_log(double v) {
         return v == 0. ? Log_zero : ::log(v);
-    }
-
-    // tranform ascii phred into probability of error
-    static double phred2prob(char q) {
-        //q -= 33; dont think we need this after all
-        assert(q >= 0);
-        // error prob = 10^(-PHRED/10)
-        return pow(10., -(double)q / (10.));
     }
 
     // call missing
