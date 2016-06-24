@@ -426,6 +426,8 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     base_likelihood = mp_snp_genotype(bp, base_offsets, top_base, second_base, g);
     Genotype& base_call = insertion ? _insert_calls[offset] : _node_calls[offset];
     pair<StrandSupport, StrandSupport>& support = insertion ? _insert_supports[offset] : _node_supports[offset];
+    support.first.likelihood = base_likelihood;
+    support.second.likelihood = base_likelihood;
 
     if (base_likelihood >= _min_log_likelihood) {
         // update the node calls
@@ -878,14 +880,14 @@ void Caller::create_node_calls(const NodePileup& np) {
 void Caller::write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
     *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << support.fs << "\t"
-                 << support.rs << "\t" << orig_id << "\t" << orig_offset << endl;
+                 << support.rs << "\t" << orig_id << "\t" << orig_offset << "\t" << support.likelihood << endl;
 }
 
 void Caller::write_edge_tsv(Edge* edge, char call, StrandSupport support)
 {
     *_text_calls << "E\t" << edge->from() << "," << edge->from_start() << "," 
                  << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << support.fs
-                 << "\t" << support.rs << "\t.\t.\n";
+                 << "\t" << support.rs << "\t.\t.\t.\n";
 }
 
 void Caller::write_nd_tsv()

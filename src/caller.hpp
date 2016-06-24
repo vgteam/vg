@@ -22,7 +22,8 @@ using namespace std;
 struct StrandSupport {
     int fs; // forward support
     int rs; // reverse support
-    StrandSupport(int f = 0, int r = 0) : fs(f), rs(r) {}
+    double likelihood; // log likelihood from caller (0 if not available)
+    StrandSupport(int f = 0, int r = 0, double ll = 0) : fs(f), rs(r), likelihood(ll) {}
     bool operator<(const StrandSupport& other) const {
         if ((fs + rs) == (other.fs + other.rs)) {
             // more strand bias taken as less support
