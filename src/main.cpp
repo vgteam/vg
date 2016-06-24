@@ -6220,9 +6220,8 @@ void help_map(char** argv) {
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -a, --consistent-pairs     report pairs instead of individual alignments and filter to consistent pairings" << endl
+         << "    -W, --fragment-window N    report pairs instead of individual alignments and filter to consistent pairings within this fragment-window" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
-         << "    -W, --fragment-window N    use SMEM based distance estimation to allow only pairable SMEMs with this fragment length" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "generic mapping parameters:" << endl
@@ -6309,7 +6308,6 @@ int main_map(int argc, char** argv) {
     int gap_open = 6;
     int gap_extend = 1;
     bool qual_adjust_alignments = false;
-    bool report_consistent_pairs = false;
     int extra_pairing_multimaps = 4;
     int method_code = 1;
     string gam_input;
@@ -6371,7 +6369,6 @@ int main_map(int argc, char** argv) {
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, '1'},
-                {"consistent-pairs", no_argument, 0, 'a'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
                 {"map-qual-method", required_argument, 0, 'v'},
                 {"compare", required_argument, 0, 'w'},
@@ -6380,7 +6377,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1au:v:w:W:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:",
                          long_options, &option_index);
 
 
@@ -6578,10 +6575,6 @@ int main_map(int argc, char** argv) {
             
         case '1':
             qual_adjust_alignments = true;
-            break;
-            
-        case 'a':
-            report_consistent_pairs = true;
             break;
         
         case 'u':
@@ -6793,7 +6786,6 @@ int main_map(int argc, char** argv) {
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
-        m->report_consistent_pairs = report_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
         m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
