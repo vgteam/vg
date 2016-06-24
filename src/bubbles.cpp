@@ -138,6 +138,7 @@ static void compute_side_components(VG& graph, id_t source_id, id_t sink_id,
             add_node_side(NodeSide(n->id(), false));
             add_node_side(NodeSide(n->id(), true));
         });
+    
 
 }
 
@@ -245,25 +246,80 @@ pair<id_t, id_t> get_cactus_source_sink(VG& graph) {
     // todo : relax?
     assert(!source_ids.empty() && !sink_ids.empty());
 
-    id_t source_id = source_ids[0]->id();
+    // important : graph must be sorted!
+
+    // using these ranks requires graph.sort() to have been run
+    // to make sense
+    int source_rank = graph.size();
     for (auto n : source_ids) {
-      source_id = min(source_id, (id_t)n->id());
+      source_rank = min(source_rank, graph.node_rank(n));
     }
-    id_t sink_id = sink_ids[0]->id();    
+    int sink_rank = 0;
     for (auto n : sink_ids) {
-      sink_id = max(sink_id, (id_t)n->id());
+      sink_rank = max(sink_rank, graph.node_rank(n));
     }
+
+    // go back from rank to node
+    id_t source_id = graph.graph.node(source_rank).id();
+    id_t sink_id = graph.graph.node(sink_rank).id();
 
     assert(source_id != sink_id);
 
     return make_pair(source_id, sink_id);
 }
 
+pair<id_t, id_t> get_cactus_source_sink(VG& graph, const string& path_name, int steps) {
 
-BubbleTree cactusbubble_tree(VG& graph) {
+    list<Mapping>& path = graph.paths.get_path(path_name);
+    
+    id_t source_id = path.front().position().node_id();
+    id_t sink_id = path.back().position().node_id();
 
-    // get endpoints
-    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+    // search context of path ends for actual head and tail nodes
+    function<pair<id_t, id_t>(id_t)> find_endpoints = [&](id_t node_id) -> pair<id_t, id_t> {
+        pair<id_t, id_t> found_ends(graph.is_head_node(node_id) ? node_id : 0,
+                                    graph.is_tail_node(node_id) ? node_id : 0);
+        VG context;
+        graph.nonoverlapping_node_context_without_paths(graph.get_node(node_id), context);
+        graph.expand_context(context, steps, false);
+        context.for_each_node([&](Node* node) {
+                if (found_ends.first == 0 && graph.is_head_node(node->id())) {
+                    // todo: pick best from many?
+                    found_ends.first = node->id();
+                }
+                if (found_ends.second == 0 && graph.is_tail_node(node->id())) {
+                    found_ends.second = node->id();
+                }
+            });
+        return found_ends;
+    };
+
+    auto source_ends = find_endpoints(source_id);
+    auto sink_ends = find_endpoints(sink_id);
+
+    // favour  head/tail or tail/head matchup
+    if (source_ends.first > 0 && sink_ends.second > 0) {
+        source_id = source_ends.first;
+        sink_id = sink_ends.second;
+    } else if (source_ends.second > 0 && sink_ends.first > 0) {
+        source_id = sink_ends.first;
+        sink_id = source_ends.second;
+    } // settle for head / head or tail / tail (to what results?)
+    else if (source_ends.first > 0 && sink_ends.first > 0) {
+        source_id = source_ends.first;
+        sink_id = sink_ends.first;
+    } else if (source_ends.second > 0 && sink_ends.second > 0) {
+        source_id = source_ends.second;
+        sink_id = sink_ends.second;
+    }
+            
+    assert(graph.is_head_node(source_id) || graph.is_tail_node(source_id));
+    assert(graph.is_head_node(sink_id) || graph.is_tail_node(sink_id));
+    
+    return make_pair(source_id, sink_id);
+}
+
+BubbleTree cactusbubble_tree(VG& graph, pair<id_t, id_t> source_sink) {
     
     // convert to cactus
     pair<stCactusGraph*, stCactusNode*> cac_pair = vg_to_cactus(graph, source_sink.first, source_sink.second);
@@ -363,9 +419,14 @@ void bubble_up_bubbles(BubbleTree& bubble_tree) {
 
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
 
+    graph.sort();
+
     map<pair<id_t, id_t>, vector<id_t> > output;
 
-    BubbleTree bubble_tree = cactusbubble_tree(graph);
+    // get endpoints
+    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+
+    BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
     bubble_up_bubbles(bubble_tree);
     bubble_tree.for_each_preorder([&](BubbleTree::Node* node) {
             Bubble& bubble = node->v;
@@ -379,6 +440,56 @@ map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
         });
 
     return output;
+}
+
+VG cactus_to_vg(stCactusGraph* cactus_graph) {
+    VG vg_graph;
+    unordered_map<stCactusNode*, Node*> node_map;
+
+    // keep track of mapping between nodes in graph
+    function<Node*(stCactusNode*)> map_node = [&](stCactusNode* cac_node) -> Node* {
+        if (node_map.find(cac_node) == node_map.end()) {
+            id_t cac_id = *(id_t*)stCactusNode_getObject(cac_node);
+            Node* vg_node = vg_graph.create_node("N", cac_id);
+            node_map[cac_node] = vg_node;
+            return vg_node;
+        } else {
+            return node_map[cac_node];
+        }
+    };
+
+    // iterate nodes in cactus graph
+    stCactusGraphNodeIt* node_it = stCactusGraphNodeIterator_construct(cactus_graph);
+    stCactusNode* cac_node = stCactusGraphNodeIterator_getNext(node_it);
+    
+    for (; cac_node != NULL; cac_node = stCactusGraphNodeIterator_getNext(node_it)) {
+        // iterate edges of node
+        stCactusNodeEdgeEndIt edge_it = stCactusNode_getEdgeEndIt(cac_node);
+        stCactusEdgeEnd* edge_end = stCactusNodeEdgeEndIt_getNext(&edge_it);
+        for (; edge_end != NULL; edge_end = stCactusNodeEdgeEndIt_getNext(&edge_it)) {
+            pair<stCactusNode*, stCactusNode*> cac_edge = make_pair(
+                stCactusEdgeEnd_getNode(edge_end),
+                stCactusEdgeEnd_getOtherNode(edge_end));
+            // how to use?
+            CactusSide* cac_side = (CactusSide*)stCactusEdgeEnd_getObject(
+                stCactusEdgeEnd_getLink(edge_end));
+            // make a new vg edge
+            Edge* vg_edge = vg_graph.create_edge(map_node(cac_edge.first),
+                                                 map_node(cac_edge.second));
+        }
+    }
+    stCactusGraphNodeIterator_destruct(node_it);
+
+    return vg_graph;
+}
+
+VG cactusify(VG& graph) {
+    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph);
+    stCactusGraph* cactus_graph = vg_to_cactus(graph, source_sink.first,
+                                               source_sink.second).first;
+    VG out_graph = cactus_to_vg(cactus_graph);
+    stCactusGraph_destruct(cactus_graph);
+    return out_graph;
 }
 
 }

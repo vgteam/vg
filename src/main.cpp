@@ -1841,7 +1841,7 @@ int main_genotype(int argc, char** argv) {
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
     
     // Unfold/unroll, find the superbubbles, and translate back.
-    vector<Genotyper::Site> sites = use_cactus ? genotyper.find_sites_with_cactus(augmented_graph) : genotyper.find_sites(augmented_graph);
+    vector<Genotyper::Site> sites = use_cactus ? genotyper.find_sites_with_cactus(augmented_graph, ref_path_name) : genotyper.find_sites(augmented_graph);
     
     if(show_progress) {
         cerr << "Found " << sites.size() << " superbubbles" << endl;
@@ -3296,6 +3296,7 @@ void help_mod(char** argv) {
          << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -y, --destroy-node ID   remove node with given id" << endl
          << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
+         << "    -a, --cactus            convert to cactus graph representation" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -3342,6 +3343,7 @@ int main_mod(int argc, char** argv) {
     int until_normal_iter = 0;
     string translation_file;
     bool flip_doubly_reversed_edges = false;
+    bool cactus = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3388,11 +3390,12 @@ int main_mod(int argc, char** argv) {
             {"destroy-node", required_argument, 0, 'y'},
             {"translation", required_argument, 0, 'Z'},
             {"unreverse-edges", required_argument, 0, 'E'},
+            {"cactus", no_argument, 0, 'a'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:E",
+        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Ea",
                 long_options, &option_index);
 
 
@@ -3519,7 +3522,6 @@ int main_mod(int argc, char** argv) {
             dagify_to = atoi(optarg);
             break;
 
-
         case 'L':
             dagify_component_length_max = atoi(optarg);
             break;
@@ -3550,6 +3552,10 @@ int main_mod(int argc, char** argv) {
 
         case 'y':
             destroy_node_id = atoi(optarg);
+            break;
+            
+        case 'a':
+            cactus = true;
             break;
 
         case 'h':
@@ -3743,6 +3749,14 @@ int main_mod(int argc, char** argv) {
 
     if (destroy_node_id > 0) {
         graph->destroy_node(destroy_node_id);
+    }
+
+    if (cactus) {
+        // ensure we're sorted
+        graph->sort();
+        *graph = cactusify(*graph);
+        // no paths survive, make sure they are erased
+        graph->paths = Paths();
     }
 
     graph->serialize_to_ostream(std::cout);
