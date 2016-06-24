@@ -1348,11 +1348,18 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     // This maps from locus allele index to VCF record alt number
     vector<int> allele_to_alt;
     
+    // This records the max alt number used. We might have more alts than
+    // alleles if the reference was never considered as an allele.
+    int max_alt_number = 0;
+    
     for(size_t i = 0; i < locus.allele_size(); i++) {
         // For each allele
         
         // Add it/find its number if it already exists (i.e. is the ref)
         int alt_number = add_alt_allele(variant, allele_strings[i]);
+        
+        // See if it's a new max
+        max_alt_number = max(max_alt_number, alt_number);
         
         // Remember what VCF alt number it got
         allele_to_alt.push_back(alt_number);
@@ -1394,8 +1401,9 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     }
     
     // Work out genotype log likelihoods
-    // Make a vector to shuffle them into VCF order
-    vector<double> log_likelihoods(((locus.allele_size() - 1) * ((locus.allele_size() - 1) + 1)) / 2 + (locus.allele_size() - 1) + 1);
+    // Make a vector to shuffle them into VCF order. Fill it with -inf for impossible genotypes.
+    vector<double> log_likelihoods((max_alt_number * (max_alt_number + 1)) / 2 + max_alt_number + 1,
+        -numeric_limits<double>::infinity());
     for(size_t i = 0; i < locus.genotype_size(); i++) {
         // For every genotype, calculate its VCF-order index based on the VCF allele numbers
         
