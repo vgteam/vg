@@ -2012,6 +2012,7 @@ void help_pileup(char** argv) {
          << "    -m, --max-mismatches N  ignore bases with > N mismatches within window centered on read (default=1)" << endl
          << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
          << "    -d, --max-depth N       maximum depth pileup to create (further maps ignored) (default=1000)" << endl
+         << "    -a, --use-mapq          combine mapping qualities with base qualities" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -v, --verbose           print stats on bases filtered" << endl;
@@ -2032,6 +2033,7 @@ int main_pileup(int argc, char** argv) {
     int window_size = 0;
     int max_depth = 1000; // used to prevent protobuf messages getting to big
     bool verbose = false;
+    bool use_mapq = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -2043,14 +2045,15 @@ int main_pileup(int argc, char** argv) {
                 {"max-mismatches", required_argument, 0, 'm'},
                 {"window-size", required_argument, 0, 'w'},
                 {"progress", required_argument, 0, 'p'},
-                {"max-depth", max_depth, 0, 'd'},
+                {"max-depth", required_argument, 0, 'd'},
+                {"use-mapq", no_argument, 0, 'a'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "jq:m:w:pd:t:v",
+        c = getopt_long (argc, argv, "jq:m:w:pd:at:v",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -2073,7 +2076,10 @@ int main_pileup(int argc, char** argv) {
             break;
         case 'd':
             max_depth = atoi(optarg);
-            break;            
+            break;
+        case 'a':
+            use_mapq = true;
+            break;
         case 'p':
             show_progress = true;
             break;
@@ -2137,7 +2143,7 @@ int main_pileup(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing pileups" << endl;
     }
-    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth));
+    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth, use_mapq));
     function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
         int tid = omp_get_thread_num();
         pileups[tid].compute_from_alignment(aln);
