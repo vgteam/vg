@@ -1703,14 +1703,14 @@ int main_genotype(int argc, char** argv) {
           abort ();
         }
     }
+
     if(thread_count > 0) {
         omp_set_num_threads(thread_count);
     }
-    thread_count = get_thread_count();
 
     // read the graph
     if (optind >= argc) {
-        help_call(argv);
+        help_genotype(argv);
         return 1;
     }
     if (show_progress) {
@@ -1729,41 +1729,18 @@ int main_genotype(int argc, char** argv) {
         }
         graph = new VG(in);
     }
-    
-    if(ref_path_name.empty()) {
-        // Guess the ref path name
-        if(graph->paths.size() == 1) {
-            // Autodetect the reference path name as the name of the only path
-            ref_path_name = (*(*graph).paths._paths.begin()).first;
-        } else {
-            ref_path_name = "ref";
-        }
-    }
-    
-    if(output_vcf && show_progress) {
-        cerr << "Calling against path " << ref_path_name << endl;
-    }
-    
-    if(sample_name.empty()) {
-        // Set a default sample name
-        sample_name = "SAMPLE";
-    }
 
     // setup reads index
     if (optind >= argc) {
-        help_call(argv);
+        help_genotype(argv);
         return 1;
-    }
-    
-    if(show_progress) {
-        cerr << "Loading reads..." << endl;
     }
     
     string reads_index_name = argv[optind];
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
     index.open_read_only(reads_index_name);
-    
+
     // Build the set of all the node IDs to operate on
     vector<vg::id_t> graph_ids;
     graph->for_each_node([&](Node* node) {
@@ -1771,221 +1748,39 @@ int main_genotype(int argc, char** argv) {
         graph_ids.push_back(node->id());
     });
 
-    // Load all the reads into memory
-    // TODO: support breaking up into chunks by sets of IDs or something
+    // Load all the reads matching the graph into memory
     vector<Alignment> alignments;
-    
+
+    if(show_progress) {
+        cerr << "Loading reads..." << endl;
+    }
+
     index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
         // Extract all the alignments
         alignments.push_back(alignment);
     });
-    
+        
     if(show_progress) {
         cerr << "Loaded " << alignments.size() << " alignments" << endl;
     }
     
-    // Make sure they have names. TODO: we assume that if they do have names
-    // they are already unique, and that they aren't like the names we generate.
-    for(size_t i = 0; i < alignments.size(); i++) {
-        if(alignments[i].name().empty()) {
-            // Generate a unique name
-            alignments[i].set_name("_unnamed_alignment_" + to_string(i));
-        }
-    }
-    
-    // Suck out paths
-    vector<Path> paths;
-    for(auto& alignment : alignments) {
-        // Copy over each path, naming it after its alignment
-        Path path = alignment.path();
-        path.set_name(alignment.name());
-        paths.push_back(path);
-    }
-    
-    // Run them through vg::edit() to add them to the graph. Save the translations.
-    vector<Translation> augmentation_translations = graph->edit(paths);
-    
-    if(show_progress) {
-        cerr << "Augmented graph; got " << augmentation_translations.size() << " translations" << endl;
-    }
-
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
-    
-    // Grab a reference to the (now augmented) graph
-    VG& augmented_graph = *graph;
-    
-    // Make sure that we actually have an index for traversing along paths.
-    augmented_graph.paths.rebuild_mapping_aux();
-    
-    if(!augmented_file_name.empty()) {
-        ofstream augmented_stream(augmented_file_name);
-        augmented_graph.serialize_to_ostream(augmented_stream);
-        augmented_stream.close();
-    }
-    
-    // store the reads that are embedded in the augmented graph, by their unique names
-    map<string, Alignment*> reads_by_name;
-    for(auto& alignment : alignments) {
-        reads_by_name[alignment.name()] = &alignment;
-        // Make sure to replace the alignment's path with the path it has in the augmented graph
-        list<Mapping>& mappings = augmented_graph.paths.get_path(alignment.name());
-        alignment.mutable_path()->clear_mapping();
-        for(auto& mapping : mappings) {
-            // Copy over all the transformed mappings
-            *alignment.mutable_path()->add_mapping() = mapping;
-        }
-    }
-    cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
-    
-    // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
-    
-    // Unfold/unroll, find the superbubbles, and translate back.
-    vector<Genotyper::Site> sites = use_cactus ? genotyper.find_sites_with_cactus(augmented_graph, ref_path_name)
-        : genotyper.find_sites_with_supbub(augmented_graph);
-    
-    if(show_progress) {
-        cerr << "Found " << sites.size() << " superbubbles" << endl;
-    }
-    
-    // We're going to count up all the affinities we compute
-    size_t total_affinities = 0;
-    
-    // We need a buffer for output
-    vector<vector<Locus>> buffer;
-    buffer.resize(thread_count);
-    
-    // If we're doing VCF output we need a VCF header
-    vcflib::VariantCallFile* vcf = nullptr;
-    // And a reference index tracking the primary path
-    ReferenceIndex* reference_index = nullptr;
-    if(output_vcf) {
-        // Build a reference index on our reference path
-        reference_index = new ReferenceIndex(augmented_graph, ref_path_name);
-        
-        // Start up a VCF
-        vcf = genotyper.start_vcf(cout, *reference_index, sample_name, contig_name, length_override);
-    }
-        
-    // We want to do this in paprallel, but we can't #pragma omp parallel for over a std::map
-    #pragma omp parallel shared(total_affinities)
-    {
-        #pragma omp single nowait
-        {
-            for(auto it = sites.begin(); it != sites.end(); it++) {
-                // For each site in parallel
-                
-                #pragma omp task firstprivate(it) shared(total_affinities)
-                {
-                
-                    auto& site = *it;
-                    
-                    int tid = omp_get_thread_num();
-                    
-                    // Get all the paths through the site
-                    vector<list<NodeTraversal>> paths = genotyper.get_paths_through_site(augmented_graph, site);
-                    cerr << "got " << paths.size() << " paths through site" << endl;
-                    
-                    if(skip_reference && paths.size() == 1 && paths[0].size() == 2) {
-                        // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
-                        // TODO: can't continue out of task
-                    } else if(skip_reference && paths.size() == 1 && output_vcf) {
-                        // Skip boring guaranteed ref only sites where there is just 1 path.
-                        // If it were the reference path, it'd be a noop, and if it's not the reference path, there's no way to express it as VCF.
-                        // TODO: can't continue out of task
-                    } else if(paths.empty()) {
-                        // Don't do anything for superbubbles with no routes through
-                    } else {
-                    
-                        if(show_progress) {
-                            #pragma omp critical (cerr)
-                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() << " alleles" << endl;
-                            for(auto& path : paths) {
-                                // Announce each allele in turn
-                                #pragma omp critical (cerr)
-                                cerr << "\t" << genotyper.traversals_to_string(path) << endl;
-                            }
-                        }
-                        
-                        // Get the affinities for all the paths
-                        map<Alignment*, vector<Genotyper::Affinity>> affinities = genotyper.get_affinities_fast(augmented_graph, reads_by_name, site, paths);
-                        
-                        for(auto& alignment_and_affinities : affinities) {
-                            #pragma omp critical (total_affinities)
-                            total_affinities += alignment_and_affinities.second.size();
-                        }
-                        
-                        // Get a genotyped locus       
-                        Locus genotyped = genotyper.genotype_site(augmented_graph, site, paths, affinities);
-                        
-                        if(output_json) {
-                            // Dump in JSON
-                            #pragma omp critical (cout)
-                            cout << pb2json(genotyped) << endl;
-                        } else if(output_vcf) {
-                            // Get 0 or more variants from the superbubble
-                            vector<vcflib::Variant> variants = genotyper.locus_to_variant(*graph, site, *reference_index, *vcf, genotyped, sample_name);
-                            for(auto& variant : variants) {
-                                // Fix up all the variants
-                                if(!contig_name.empty()) {
-                                    // Override path name
-                                    variant.sequenceName = contig_name;
-                                } else {
-                                    // Keep path name
-                                    variant.sequenceName = ref_path_name;
-                                }
-                                variant.position += variant_offset;
-                                #pragma omp critical(cout)
-                                cout << variant << endl;
-                            }
-                        } else {
-                            // Write out in Protobuf
-                            buffer[tid].push_back(genotyped);
-                            stream::write_buffered(cout, buffer[tid], 100);
-                        }
-                    }
-                }
-            }
-        }
-    }           
-    
-    if(!output_json && !output_vcf) {
-        // Flush the protobuf output buffers
-        for(int i = 0; i < buffer.size(); i++) {
-            stream::write_buffered(cout, buffer[i], 0);
-        }
-    } 
+    genotyper.run(*graph,
+                  alignments,
+                  cout,
+                  ref_path_name,
+                  contig_name,
+                  sample_name,
+                  augmented_file_name,
+                  use_cactus,
+                  show_progress,
+                  output_vcf,
+                  output_json,
+                  skip_reference,
+                  length_override,
+                  variant_offset);
 
-
-    if(show_progress) {
-        cerr << "Computed " << total_affinities << " affinities" << endl;
-    }
-
-    
-
-    // TODO: use graph and reads to:
-    // - Augment graph
-    // - Find superbubbles or cactus branches to determine sites
-    // - Generate proposals for paths through each site (from reads?)
-    // - Compute affinities of each read for each proposed path through a site
-    // - Compute diploid genotypes for each site
-    // - Output as vcf or as native format (to be defined)
-
-    if(reference_index != nullptr) {
-        // Clean up the reference index if needed
-        delete reference_index;
-    }
-
-    if(vcf != nullptr) {
-        // Clean up the vcf file if needed
-        delete vcf;
-    }
-
-    if(graph != nullptr) {
-        // Clean up the graph
-        delete graph;
-    }
-    
     return 0;
 }
 
