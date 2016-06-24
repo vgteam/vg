@@ -148,6 +148,37 @@ void Genotyper::run(VG& graph,
                     vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site);
                     cerr << "got " << paths.size() << " paths through site" << endl;
                     
+                    if(reference_index->byId.count(site.start.node->id()) && 
+                        reference_index->byId.count(site.end.node->id())) {
+                        // This site is on the reference
+                        
+                        // Where do the start and end nodes fall in the reference?
+                        auto start_ref_appearance = reference_index->byId.at(site.start.node->id());
+                        auto end_ref_appearance = reference_index->byId.at(site.end.node->id());
+                        
+                        
+                        // Are the ends running with the reference (false) or against it (true)
+                        auto start_rel_orientation = (site.start.backward != start_ref_appearance.second);
+                        auto end_rel_orientation = (site.end.backward != end_ref_appearance.second);
+                        
+                        if(show_progress) {
+                            // Determine where the site starts and ends along the reference path
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " runs reference " << 
+                                start_ref_appearance.first << " to " << 
+                                end_ref_appearance.first << endl;
+                                
+                            if(!start_rel_orientation && !end_rel_orientation &&
+                                end_ref_appearance.first < start_ref_appearance.first) {
+                                // The site runs backward in the reference (but somewhat sensibly).
+                                #pragma omp critical (cerr)
+                                cerr << "Warning! Site runs backwards!" << endl;
+                            } 
+                                
+                        }
+                            
+                    }
+                    
                     if(skip_reference && paths.size() == 1 && paths[0].size() == 2) {
                         // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
                         // TODO: can't continue out of task
