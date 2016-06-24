@@ -1615,9 +1615,6 @@ int main_genotype(int argc, char** argv) {
     // What length override should we use
     int64_t length_override = 0;
     
-    // Don't bother genotyping ref only superbubbles
-    bool skip_reference = true;
-
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
     
@@ -1790,7 +1787,6 @@ int main_genotype(int argc, char** argv) {
                   show_progress,
                   output_vcf,
                   output_json,
-                  skip_reference,
                   length_override,
                   variant_offset);
 
@@ -4398,7 +4394,9 @@ int main_stats(int argc, char** argv) {
         for (auto& i : vg::superbubbles(*graph)) {
             auto b = i.first;
             auto v = i.second;
-            // sort output for now, to be consistent with cactus
+            // sort output for now, to be consistent with cactus. We don't have
+            // any orientations involved here, so we're free to re-order as we
+            // wish.
             b = minmax(b.first, b.second);
             sort(v.begin(), v.end());
             cout << b.first << "\t" << b.second << "\t";

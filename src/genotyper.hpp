@@ -119,7 +119,6 @@ public:
              bool show_progress = false,
              bool output_vcf = false,
              bool output_json = false,
-             bool skip_reference = false,
              int length_override = 0,
              int variant_offset = 0);
     
