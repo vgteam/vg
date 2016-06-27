@@ -440,7 +440,7 @@ map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
                 bubble.end != bubble_tree.root->v.end) {               
                 // sort nodes to be consistent with superbubbles
                 sort(bubble.contents.begin(), bubble.contents.end());
-                output[minmax(bubble.start.node, bubble.end.node)] = bubble.contents;
+                output[make_pair(bubble.start.node, bubble.end.node)] = bubble.contents;
             }
         });
 
