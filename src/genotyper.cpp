@@ -145,7 +145,6 @@ void Genotyper::run(VG& graph,
                     
                     // Get all the paths through the site
                     vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site);
-                    cerr << "got " << paths.size() << " paths through site" << endl;
                     
                     if(paths.size() == 0) {
                         // TODO: this compensates for inside-out sites from
@@ -166,9 +165,10 @@ void Genotyper::run(VG& graph,
                         }
                     }
                     
-                    if(reference_index->byId.count(site.start.node->id()) && 
+                    if(reference_index != nullptr &&
+                        reference_index->byId.count(site.start.node->id()) && 
                         reference_index->byId.count(site.end.node->id())) {
-                        // This site is on the reference
+                        // This site is on the reference (and we are indexing a reference because we are going to vcf)
                         
                         // Where do the start and end nodes fall in the reference?
                         auto start_ref_appearance = reference_index->byId.at(site.start.node->id());
