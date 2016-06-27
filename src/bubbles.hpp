@@ -53,17 +53,17 @@ typedef Tree<Bubble> BubbleTree;
 //    so graph should be sorted
 //  - returned cactus graph needs to be freed by stCactusGraph_destruct
 //  - returns "root" node as well as graph
-pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, id_t source_id, id_t sink_id);
+pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, pair<NodeSide, NodeSide> source_sink);
 
 // Get source and sink nodes, relying on node ranks of sorted graph
-pair<id_t, id_t> get_cactus_source_sink(VG& graph);
+pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph);
 
 // Get source and sink nodes from path endpoints
-pair<id_t, id_t> get_cactus_source_sink(VG& graph, const string& path_name, int steps = 5);
+pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph, const string& path_name, int steps = 5);
 
 // Return the hierchical cactus decomposition
 // Input graph must be sorted!
-BubbleTree cactusbubble_tree(VG& graph, pair<id_t, id_t> source_sink);
+BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink);
 
 // By default, bubble X's contents array doesn't have all the nodes
 // in its children's contents (ie each node only stored in lowest bubble
