@@ -1,5 +1,6 @@
 #include "genotyper.hpp"
 #include "bubbles.hpp"
+#include "distributions.hpp"
 
 namespace vg {
 
@@ -876,7 +877,6 @@ Genotyper::get_affinities_fast(VG& graph,
     return to_return;
 }
 
-
 double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
@@ -901,6 +901,16 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         cerr << "Calculating P(a" << genotype[0] << "/a" << genotype[1] << ")" << endl;
     }
 #endif
+
+    // We want to keep count of how many reads support each allele in each
+    // orientation. TODO: we might be sort of double-counting reads that support
+    // multiple alleles, because we'll be treating them as having independent
+    // orientations per allele, when really they're very likely to be oriented
+    // the same way.
+    
+    // Maps from int allele number (as appears in Genotype) to total reads
+    // forward and reverse giving support.
+    map<int, pair<int, int>> strand_count_by_allele_and_orientation;
     
     for(auto& read_and_consistency : alignment_consistency) {
         // For each read, work out if it supports a genotype we have or not.
@@ -911,22 +921,26 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         
         // How many of the alleles in our genotype is it consistent with?
         int consistent_alleles = 0;
-        // TODO: We assume it's the same orientation for all the consistent alleles.
-        // We can't really fill this in if it's not consistent. How would we know the orientation if it didn't match up?
-        bool read_reverse;
         for(int allele : genotype) {
             if(consistency.at(allele).consistent) {
                 // We're consistent with this allele
                 consistent_alleles++;
                 // And in this orientation
-                read_reverse = consistency.at(allele).is_reverse;
+                if(consistency.at(allele).is_reverse) {
+                    // Consistent with reverse
+                    strand_count_by_allele_and_orientation[allele].second++;
+                } else {
+                    // Consistent with forward
+                    strand_count_by_allele_and_orientation[allele].first++;
+                }
             }
         }
         
         auto read_qual = alignment_qual_score(read);
         
 #ifdef debug
-        cerr << "Read (qual score " << read_qual << ") consistent with " << consistent_alleles << " genotype alleles observed." << endl;
+        cerr << "Read (qual score " << read_qual << ") consistent with " << consistent_alleles
+            << " genotype alleles observed." << endl;
 #endif
         
         if(consistent_alleles == 0) {
@@ -951,11 +965,14 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
             // This read is consistent with some of the alleles in the genotype,
             // so we must have drawn one of those alleles when sequencing.
             
+            // We account for this in a framework where we consider the reads
+            // indistinguishable, so ignore it for now.
+            
             // So multiply in the probability that we hit one of those alleles
             double logprob_drawn = prob_to_logprob(((double) consistent_alleles) / genotype.size());
             
 #ifdef debug
-            cerr << "P(drawn) = " << logprob_to_prob(logprob_drawn << endl);
+            cerr << "P(drawn) = " << logprob_to_prob(logprob_drawn) << endl;
 #endif
             
             all_supporting_drawn += logprob_drawn;
@@ -963,11 +980,41 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         
     }
     
-    // TODO: somehow add in the probability of the read orientations all coming out this way for the supporting reads.
-    // TODO: do we want to do that for the reads that are wrong as well???
+    // Multiply in in the probability that the supporting reads all came from
+    // the strands they are on.
+    double strands_as_specified = prob_to_logprob(1);
+    // Each strand is equally likely
+    vector<double> probs_by_orientation = {0.5, 0.5};
+    for(auto& kv : strand_count_by_allele_and_orientation) {
+        // For the forward and reverse strand counts for all the alleles
+        auto& forward_count = kv.second.first;
+        auto& reverse_count = kv.second.second;
+        
+#ifdef debug
+            cerr << "Allele "  << kv.first << " supported by " << forward_count << " forward, "
+                << reverse_count << " reverse" << endl;
+#endif
+
+        // Convert to a vector to satisfy the multinomial PMF function.
+        vector<int> obs = {forward_count, reverse_count};
+
+        // Get the log probability under multinomial.
+        double logprob = multinomial_sampling_prob_ln(probs_by_orientation, obs);
+        
+#ifdef debug
+            cerr << "P = " << logprob_to_prob(logprob) << endl;
+#endif
+
+        strands_as_specified += logprob;
+        
+    }
+
+    // TODO: handle support counts as if reads are indistinguishable as well.
+    // This gets complicated because of multi-support; we can't just use the
+    // multinomial PMF.
     
     // Now we've looked at all the reads, so AND everything together
-    return all_non_supporting_wrong + all_supporting_drawn;
+    return all_non_supporting_wrong + all_supporting_drawn + strands_as_specified;
 }
 
 double Genotyper::get_genotype_log_prior(const vector<int>& genotype) {
@@ -1133,7 +1180,7 @@ Locus Genotyper::genotype_site(VG& graph,
             // This read supports an allele forward, so call it a forward read for the site
             overall_forward_reads++;
         } else if(is_reverse) {
-            // This read supports an allele reverse, so call it a forward read for the site
+            // This read supports an allele reverse, so call it a reverse read for the site
             overall_reverse_reads++;
         } else if(min_recurrence <= 1) {
             // Reads generally ought to support at least one allele, unless we

@@ -110,6 +110,26 @@ vector<T> vpmax(const std::vector<std::vector<T>>& vv) {
     return c;
 }
 
+/**
+ * Compute the sum of the values in a collection. Values must be default-
+ * constructable (like numbers are).
+ */
+template<typename Collection>
+typename Collection::value_type sum(const Collection& collection) {
+    
+    // Set up an alias
+    using Item = typename Collection::value_type;
+    
+    // Make a new zero-valued item to hold the sum
+    auto total = Item();
+    for(auto& to_sum : collection) {
+        total += to_sum;
+    }
+    
+    return total;
+    
+}
+
 string tmpfilename(const string& base);
 
 // Code to detect if a variant lacks an ID and give it a unique but repeatable
