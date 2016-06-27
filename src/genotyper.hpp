@@ -215,7 +215,7 @@ public:
      * Alignments should have had their quality values trimmed down to just the
      * part covering the superbubble.
      *
-     * Returns a log base 2 likelihood.
+     * Returns a natural log likelihood.
      */
     double get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
     
@@ -225,7 +225,7 @@ public:
      * Takes a genotype as a vector of allele numbers. It is not guaranteed that
      * allele 0 corresponds to any notion of primary reference-ness.
      *
-     * Returns a log base 2 prior probability.
+     * Returns a natural log prior probability.
      *
      * TODO: add in strand bias
      */

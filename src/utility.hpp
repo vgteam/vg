@@ -36,13 +36,13 @@ string cigar_string(vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 double median(std::vector<int> &v);
 
-// Convert a probability to a base-2 log probability.
+// Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
-    return log2(prob);
+    return log(prob);
 }
-// Convert a base-2 log probability to a probability
+// Convert natural log probability to a probability
 inline double logprob_to_prob(double logprob) {
-    return pow(2, logprob);
+    return exp(logprob);
 }
 // Add two probabilities (expressed as logprobs) together and return the result
 // as a logprob.
@@ -67,14 +67,14 @@ inline int prob_to_phred(double prob) {
     return round(-10.0 * log10(prob));
 }
 
-// Convert a Phred quality score directly to a base-2 log probability of wrongness.
+// Convert a Phred quality score directly to a natural log probability of wrongness.
 inline double phred_to_logprob(int phred) {
-    return (-((double)phred) / 10) / log10(2.0);
+    return (-((double)phred) / 10) / log10(exp(1.0));
 }
 
-// Convert a base-2 log probability of wrongness directly to a Phred quality score.
+// Convert a natural log probability of wrongness directly to a Phred quality score.
 inline int logprob_to_phred(double logprob ) {
-    return round(-10.0 * logprob * log10(2.0));
+    return round(-10.0 * logprob * log10(exp(1.0)));
 }
 
 template<typename T, typename V>
