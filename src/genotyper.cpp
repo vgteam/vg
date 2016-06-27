@@ -25,7 +25,6 @@ void Genotyper::run(VG& graph,
                     bool show_progress,
                     bool output_vcf,
                     bool output_json,
-                    bool skip_reference,
                     int length_override,
                     int variant_offset) {
 
@@ -146,17 +145,69 @@ void Genotyper::run(VG& graph,
                     
                     // Get all the paths through the site
                     vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site);
-                    cerr << "got " << paths.size() << " paths through site" << endl;
                     
-                    if(skip_reference && paths.size() == 1 && paths[0].size() == 2) {
-                        // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
-                        // TODO: can't continue out of task
-                    } else if(skip_reference && paths.size() == 1 && output_vcf) {
-                        // Skip boring guaranteed ref only sites where there is just 1 path.
-                        // If it were the reference path, it'd be a noop, and if it's not the reference path, there's no way to express it as VCF.
-                        // TODO: can't continue out of task
-                    } else if(paths.empty()) {
+                    if(paths.size() == 0) {
+                        // TODO: this compensates for inside-out sites from
+                        // Cactus. Make Cactus give us sites that can actually
+                        // be traversed through.
+                        
+                        // Flip the site around and try again
+                        swap(site.start, site.end);
+                        vector<list<NodeTraversal>> reverse_paths = get_paths_through_site(graph, site);
+                        if(reverse_paths.size() != 0) {
+                            // We actually got some paths. Use them
+                            swap(paths, reverse_paths);
+                            #pragma omp critical (cerr)
+                            cerr << "Warning! Corrected inside-out site " << site.end << " - " << site.start << endl;
+                        } else {
+                            // Put original start and end back for complaining
+                            swap(site.start, site.end);
+                        }
+                    }
+                    
+                    if(reference_index != nullptr &&
+                        reference_index->byId.count(site.start.node->id()) && 
+                        reference_index->byId.count(site.end.node->id())) {
+                        // This site is on the reference (and we are indexing a reference because we are going to vcf)
+                        
+                        // Where do the start and end nodes fall in the reference?
+                        auto start_ref_appearance = reference_index->byId.at(site.start.node->id());
+                        auto end_ref_appearance = reference_index->byId.at(site.end.node->id());
+                        
+                        
+                        // Are the ends running with the reference (false) or against it (true)
+                        auto start_rel_orientation = (site.start.backward != start_ref_appearance.second);
+                        auto end_rel_orientation = (site.end.backward != end_ref_appearance.second);
+                        
+                        if(show_progress) {
+                            // Determine where the site starts and ends along the reference path
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " runs reference " << 
+                                start_ref_appearance.first << " to " << 
+                                end_ref_appearance.first << endl;
+                                
+                            if(!start_rel_orientation && !end_rel_orientation &&
+                                end_ref_appearance.first < start_ref_appearance.first) {
+                                // The site runs backward in the reference (but somewhat sensibly).
+                                #pragma omp critical (cerr)
+                                cerr << "Warning! Site runs backwards!" << endl;
+                            } 
+                                
+                        }
+                            
+                    }
+                    
+                    // Even if it looks like there's only one path, it might not
+                    // be the reference path, because the reference path might
+                    // not have passed the min recurrence filter. So we can't
+                    // skip things yet.
+                    if(paths.empty()) {
                         // Don't do anything for superbubbles with no routes through
+                        if(show_progress) {
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() <<
+                                " alleles: skipped for having no alleles" << endl;
+                        }
                     } else {
                     
                         if(show_progress) {
@@ -168,7 +219,7 @@ void Genotyper::run(VG& graph,
                                 cerr << "\t" << traversals_to_string(path) << endl;
                             }
                         }
-
+                        
                         // Get the affinities for all the paths
                         map<Alignment*, vector<Genotyper::Affinity>> affinities = get_affinities_fast(graph, reads_by_name, site, paths);
                         
@@ -179,8 +230,7 @@ void Genotyper::run(VG& graph,
                         
                         // Get a genotyped locus in the original frame
                         Locus genotyped = genotype_site(graph, site, paths, affinities);
-                        //translator.translate(
-
+                        
                         if(output_json) {
                             // Dump in JSON
                             #pragma omp critical (cout)
@@ -303,7 +353,8 @@ vector<Genotyper::Site> Genotyper::find_sites_with_supbub(VG& graph) {
     
     for(auto& superbubble : superbubbles) {
         
-        // Translate the superbubble coordinates into NodeTraversals
+        // Translate the superbubble coordinates into NodeTraversals.
+        // This is coming from a DAG so we only need to look at the translation for orientation.
         auto& start_translation = overall_translation[superbubble.first.first];
         NodeTraversal start(graph.get_node(start_translation.first), start_translation.second);
         
@@ -354,10 +405,12 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
                 NodeTraversal start(graph.get_node(bubble.start.node), bubble.start.is_end);
                 NodeTraversal end(graph.get_node(bubble.end.node), bubble.end.is_end);
-                // Fill in a Site
+                // Fill in a Site. Make sure to preserve original endpoint
+                // ordering, because swapping them without flipping their
+                // orientation flags will make an inside-out site.
                 Site site;
-                site.start = min(start, end);
-                site.end = max(start, end);
+                site.start = start;
+                site.end = end;
                 swap(site.contents, nodes);
                 // Save the site
                 to_return.emplace_back(std::move(site));
@@ -440,10 +493,16 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                         // We have stumbled upon the end node in the orientation we wanted it in.
                         if(results.count(allele_stream.str())) {
                             // It is already there! Increment the observation count.
+#ifdef debug
+                            cerr << "\tFinished; got known sequence " << allele_stream.str() << endl;
+#endif
                             results[allele_stream.str()].second++;
                         } else {
                             // Add it in
                             results[allele_stream.str()] = make_pair(path_traversed, 1);
+#ifdef debug
+                            cerr << "\tFinished; got novel sequence " << allele_stream.str() << endl;
+#endif
                         }
                         
                         // Then try the next embedded path
@@ -480,7 +539,9 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
         
         if(count < min_recurrence) {
             // We don't have enough initial hits for this sequence to justify
-            // trying to re-align the rest of the reads. Skip it.
+            // trying to re-align the rest of the reads. Skip it. Note that the
+            // reference path counts as a single recurrence, so we might throw
+            // it out if nothing else covers it.
             continue;
         }
         
@@ -786,8 +847,8 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
             total_supported += affinity.consistent;
         }
         
-        if(total_supported == 0) {
-            // This is weird. Complain.
+        if(total_supported == 0 && min_recurrence <= 1) {
+            // This is weird. Doesn't match anything and we had no excuse to remove alleles.
             cerr << "Warning! Bubble sequence " << seq << " supports nothing!" << endl;
         }
         
@@ -1056,8 +1117,10 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
         } else if(is_reverse) {
             // This read supports an allele reverse, so call it a forward read for the site
             overall_reverse_reads++;
-        } else {
-            // Reads generally ought to support at least one allele, unless we have weird softclips.
+        } else if(min_recurrence <= 1) {
+            // Reads generally ought to support at least one allele, unless we
+            // have weird softclips or they were for elided non-recurrent
+            // alleles.
             cerr << "Warning! Read supports no alleles!" << endl;
         }
         
