@@ -29,10 +29,13 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LD_LIBRARY_PATH=/usr/local/lib/; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export CFLAGS="-I/usr/local/include/"; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export LIBRARY_PATH=$LD_LIBRARY_PATH; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then which g++-4.9 || (brew unlink gcc && brew install gcc49); fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then mkdir -p ./bin; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which g++-4.9` ./bin/g++; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ln -sf `which gcc-4.9` ./bin/gcc; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$CC" == "clang" ]]; then which clang-omp++ || brew install clang-omp; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$CC" == "clang" ]]; then ln -sf `which clang-omp++` ./bin/g++; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$CC" == "clang" ]]; then ln -sf `which clang-omp` ./bin/gcc; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$CC" == "gcc" ]]; then which g++-4.9 || (brew unlink gcc && brew install gcc49); fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$CC" == "gcc" ]]; then ln -sf `which g++-4.9` ./bin/g++; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" && "$CC" == "gcc" ]]; then ln -sf `which gcc-4.9` ./bin/gcc; fi
   - python ./configure.py
   - source ./source_me.sh
 install:
@@ -56,4 +59,8 @@ os:
   - osx
 compiler:
   - gcc
-
+  - clang
+matrix:
+  exclude:
+    - os: linux
+      compiler: clang

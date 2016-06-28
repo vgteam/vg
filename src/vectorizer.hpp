@@ -42,6 +42,18 @@ class Vectorizer{
         }
         return sout.str();
     }
+    // specialized template necessary to explicitly cast bit
+    string format(bit_vector v){
+        stringstream sout;
+        for (int i = 0; i < v.size(); i++){
+            int val = v[i];
+            sout << val;
+            if (i < v.size() - 1){
+                sout << "\t";
+            }
+        }
+        return sout.str();
+    }
     template<typename T> string wabbitize(string name, T v){
         stringstream sout;
         if (!(wabbit_map.count(name) > 0)){
