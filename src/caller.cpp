@@ -169,7 +169,7 @@ void Caller::update_call_graph() {
         if (!_leave_uncalled && !called) {
             return;
         }
-        StrandSupport support = called ? called_it->second : StrandSupport(0, 0);
+        StrandSupport support = called ? called_it->second : StrandSupport();
         assert(support.fs >= 0 && support.rs >= 0);
         
         Node* side1 = _graph->get_node(sides.first.node);
@@ -381,7 +381,7 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                     if (!_call_graph.has_edge(side1, side2)) {
                         Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
                                                              left_side1, !left_side2);
-                        StrandSupport edge_support = support >= StrandSupport(0, 0) ? support :
+                        StrandSupport edge_support = support >= StrandSupport() ? support :
                             min(call_sides1.sup(i), call_sides2.sup(j));
                         // hack to decrease support for an edge that spans an insertion, by subtracting
                         // that insertion's copy number.  
@@ -719,7 +719,7 @@ void Caller::create_node_calls(const NodePileup& np) {
             }        
             else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
                 // add reference
-                StrandSupport sup(0, 0, 0);
+                StrandSupport sup;
                 if (_node_calls[cur].first == ".") {
                     sup += _node_supports[cur].first;
                     sup.likelihood = _node_likelihoods[cur];
@@ -749,7 +749,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                 
                     if (call1 == "." || (_leave_uncalled && altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
                         // reference base
-                        StrandSupport sup = call1 == "." ? support1 : StrandSupport(0, 0);
+                        StrandSupport sup = call1 == "." ? support1 : StrandSupport();
                         assert(call2 != "."); // should be handled above
                         string new_seq = seq.substr(cur, 1);
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
@@ -912,7 +912,7 @@ void Caller::write_nd_tsv()
         for (auto& j : i.second) {
             int64_t orig_node_offset = j.first;
             NodeDivider::Entry& entry = j.second;
-            char call = entry.sup_ref == StrandSupport(0, 0) ? 'U' : 'R';
+            char call = entry.sup_ref == StrandSupport() ? 'U' : 'R';
             write_node_tsv(entry.ref, call, entry.sup_ref, orig_node_id, orig_node_offset);
             if (entry.alt1 != NULL) {
                 write_node_tsv(entry.alt1, 'S', entry.sup_alt1, orig_node_id, orig_node_offset);

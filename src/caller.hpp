@@ -23,7 +23,7 @@ struct StrandSupport {
     int fs; // forward support
     int rs; // reverse support
     double likelihood; // log likelihood from caller (0 if not available)
-    StrandSupport(int f = 0, int r = 0, double ll = 0) : fs(f), rs(r), likelihood(ll) {}
+    StrandSupport(int f = 0, int r = 0, double ll = -1e100) : fs(f), rs(r), likelihood(ll) {}
     bool operator<(const StrandSupport& other) const {
         if ((fs + rs) == (other.fs + other.rs)) {
             // more strand bias taken as less support
@@ -39,7 +39,7 @@ struct StrandSupport {
     }
     // min out at 0
     StrandSupport operator-(const StrandSupport& other) const {
-        return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs));
+        return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs), likelihood);
     }
     StrandSupport& operator+=(const StrandSupport& other) {
         fs += other.fs;
@@ -48,6 +48,10 @@ struct StrandSupport {
         return *this;
     }
 };
+
+ostream& operator<<(ostream& os, const StrandSupport& sup) {
+    return os << sup.fs << ", " << sup.rs << ", " << sup.likelihood;
+}
 
 // We need to break apart nodes but remember where they came from to update edges.
 // Wrap all this up in this class.  For a position in the input graph, we can have
