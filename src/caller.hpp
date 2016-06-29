@@ -49,7 +49,7 @@ struct StrandSupport {
     }
 };
 
-ostream& operator<<(ostream& os, const StrandSupport& sup) {
+inline ostream& operator<<(ostream& os, const StrandSupport& sup) {
     return os << sup.fs << ", " << sup.rs << ", " << sup.likelihood;
 }
 
