@@ -156,6 +156,7 @@ message Pileup {
     repeated EdgePileup edge_pileups = 2;
 }
 
+// Describes a genetic locus with multiple possible alleles, a genotype, and observational support
 message Locus {
     string name = 1;
     // These are all the alleles at the locus, not just the called ones.
@@ -171,6 +172,7 @@ message Locus {
     Support overall_support = 5;
 }
 
+// Describes a genotype at a particular locus
 message Genotype {
     // these refer to the offsets of the alleles in the Locus object
     repeated int32 allele = 1;
@@ -181,7 +183,7 @@ message Genotype {
     double log_posterior = 6; // Posterior logged base 2 (unnormalized)
 }
 
-// aggregates information about the reads supporting an allele
+// Aggregates information about the reads supporting an allele
 message Support {
     double quality = 1;
     int32 forward = 2;
@@ -190,6 +192,11 @@ message Support {
     int32 right = 5;
 }
 
+// Translations map from one graph to another
+// A collection of these provides a covering mapping between a from and to graph
+// If each "from" path through the base graph corresponds to a "to" path in an updated graph
+// then we can use these translations to project positions, mappings, and paths in the new
+// graph into the old one using the Translator interface
 message Translation {
     Path from = 1;
     Path to = 2;
