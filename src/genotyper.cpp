@@ -67,14 +67,12 @@ void Genotyper::run(VG& graph,
     
     // Run them through vg::edit() to add them to the graph. Save the translations.
     vector<Translation> augmentation_translations = graph.edit(paths);
-    
+    translator.load(augmentation_translations);
+
     if(show_progress) {
         cerr << "Augmented graph; got " << augmentation_translations.size() << " translations" << endl;
     }
 
-    // Set up the translator to map back
-    Translator translator(augmentation_translations);
-    
     // Make sure that we actually have an index for traversing along paths.
     graph.paths.rebuild_mapping_aux();
     
@@ -174,7 +172,6 @@ void Genotyper::run(VG& graph,
                         auto start_ref_appearance = reference_index->byId.at(site.start.node->id());
                         auto end_ref_appearance = reference_index->byId.at(site.end.node->id());
                         
-                        
                         // Are the ends running with the reference (false) or against it (true)
                         auto start_rel_orientation = (site.start.backward != start_ref_appearance.second);
                         auto end_rel_orientation = (site.end.backward != end_ref_appearance.second);
@@ -230,12 +227,7 @@ void Genotyper::run(VG& graph,
                         
                         // Get a genotyped locus in the original frame
                         Locus genotyped = genotype_site(graph, site, paths, affinities);
-                        
-                        if(output_json) {
-                            // Dump in JSON
-                            #pragma omp critical (cout)
-                            cout << pb2json(genotyped) << endl;
-                        } else if(output_vcf) {
+                        if (output_vcf) {
                             // Get 0 or more variants from the superbubble
                             vector<vcflib::Variant> variants =
                                 locus_to_variant(graph, site, *reference_index, *vcf, genotyped, sample_name);
@@ -253,9 +245,28 @@ void Genotyper::run(VG& graph,
                                 cout << variant << endl;
                             }
                         } else {
-                            // Write out in Protobuf
-                            buffer[tid].push_back(genotyped);
-                            stream::write_buffered(cout, buffer[tid], 100);
+                            // project into original graph
+                            genotyped = translator.translate(genotyped);
+                            // record a consistent name based on the start and end position of the first allele
+                            stringstream name;
+                            if (genotyped.allele_size() && genotyped.allele(0).mapping_size()) {
+                                name << make_pos_t(genotyped.allele(0).mapping(0).position())
+                                     << "_"
+                                     << make_pos_t(genotyped
+                                                   .allele(0)
+                                                   .mapping(genotyped.allele(0).mapping_size()-1)
+                                                   .position());
+                            }
+                            genotyped.set_name(name.str());
+                            if (output_json) {
+                                // Dump in JSON
+                                #pragma omp critical (cout)
+                                cout << pb2json(genotyped) << endl;
+                            } else {
+                                // Write out in Protobuf
+                                buffer[tid].push_back(genotyped);
+                                stream::write_buffered(cout, buffer[tid], 100);
+                            }
                         }
                     }
                 }
@@ -552,8 +563,11 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
     return to_return;
 }
 
-map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-    const Site& site, const vector<list<NodeTraversal>>& superbubble_paths) {
+map<Alignment*, vector<Genotyper::Affinity>>
+    Genotyper::get_affinities(VG& graph,
+                              const map<string, Alignment*>& reads_by_name,
+                              const Site& site,
+                              const vector<list<NodeTraversal>>& superbubble_paths) {
     
     // Grab our thread ID, which determines which aligner we get.
     int tid = omp_get_thread_num();
@@ -751,11 +765,11 @@ string Genotyper::traversals_to_string(const list<NodeTraversal>& path) {
     return seq.str();
 }
 
-map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-    const Site& site, const vector<list<NodeTraversal>>& superbubble_paths) {
-    
-    // Grab our thread ID, which determines which aligner we get.
-    int tid = omp_get_thread_num();
+map<Alignment*, vector<Genotyper::Affinity> >
+Genotyper::get_affinities_fast(VG& graph,
+                               const map<string, Alignment*>& reads_by_name,
+                               const Site& site,
+                               const vector<list<NodeTraversal> >& superbubble_paths) {
     
     // We're going to build this up gradually, appending to all the vectors.
     map<Alignment*, vector<Affinity>> to_return;
@@ -1036,8 +1050,11 @@ string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Align
 }
 
 #define debug
-Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities) {
-    
+Locus Genotyper::genotype_site(VG& graph,
+                               const Site& site,
+                               const vector<list<NodeTraversal>>& superbubble_paths,
+                               const map<Alignment*, vector<Affinity>>& affinities) {
+
     // Freebayes way (improved with multi-support)
     
     // We're going to populate this locus
@@ -1051,7 +1068,7 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
 #ifdef debug
     cerr << "Looking between " << site.start << " and " << site.end << endl;
 #endif
-    
+
     // We'll fill this in with the trimmed alignments and their consistency-with-alleles flags.
     vector<pair<Alignment, vector<Affinity>>> alignment_consistency;
     
@@ -1322,7 +1339,14 @@ vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const Refere
     return vcf;
 }
 
-vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus, const string& sample_name) {
+vector<vcflib::Variant>
+Genotyper::locus_to_variant(VG& graph,
+                            const Site& site,
+                            const ReferenceIndex& index,
+                            vcflib::VariantCallFile& vcf,
+                            const Locus& locus,
+                            const string& sample_name) {
+
     // Make a vector to fill in
     vector<vcflib::Variant> to_return;
     

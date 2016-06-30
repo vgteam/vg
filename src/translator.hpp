@@ -27,8 +27,10 @@ public:
 
     vector<Translation> translations;
     map<pos_t, Translation*> pos_to_trans;
+    Translator(void);
     Translator(istream& in);
     Translator(const vector<Translation>& trans);
+    void load(const vector<Translation>& trans);
     void build_position_table(void);
     Translation get_translation(const Position& position);
     Position translate(const Position& position);
@@ -36,6 +38,7 @@ public:
     Mapping translate(const Mapping& mapping);
     Path translate(const Path& path);
     Alignment translate(const Alignment& aln);
+    Locus translate(const Locus& locus);
     Translation overlay(const Translation& trans);
 };
 

@@ -7056,6 +7056,10 @@ void help_view(char** argv) {
          << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
+         << "    -q, --locus-in       input stream is Locus format" << endl
+         << "    -z, --locus-out      output stream Locus format" << endl
+         << "    -Q, --loci FILE      input is Locus format for use by dot output" << endl
+
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
@@ -7106,6 +7110,7 @@ int main_view(int argc, char** argv) {
     string rdf_base_uri;
     bool input_json = false;
     string alignments;
+    string loci_file;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
     bool show_paths_in_dot = false;
@@ -7157,11 +7162,14 @@ int main_view(int argc, char** argv) {
                 {"translation-in", no_argument, 0, 'Z'},
                 {"cactus-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
+                {"locus-in", no_argument, 0, 'q'},
+                {"loci", no_argument, 0, 'Q'},
+                {"locus-out", no_argument, 0, 'z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBY",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYqQ:z",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -7311,6 +7319,22 @@ int main_view(int argc, char** argv) {
             }
             break;
 
+        case 'q':
+            input_type = "locus";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
+            break;
+
+        case 'z':
+            output_type = "locus";
+            break;
+
+        case 'Q':
+            loci_file = optarg;
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -7338,6 +7362,13 @@ int main_view(int argc, char** argv) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
         ifstream in;
         in.open(alignments.c_str());
+        stream::for_each(in, lambda);
+    }
+    vector<Locus> loci;
+    if (!loci_file.empty()) {
+        function<void(Locus&)> lambda = [&loci](Locus& locus) { loci.push_back(locus); };
+        ifstream in;
+        in.open(loci_file.c_str());
         stream::for_each(in, lambda);
     }
 
@@ -7547,7 +7578,25 @@ int main_view(int argc, char** argv) {
             return 1;
         }
         return 0;
+    } else if (input_type == "locus") {
+        if (output_type == "json") {
+            function<void(Locus&)> lambda = [](Locus& l) {
+                cout << pb2json(l) << "\n";
+            };
+            if (file_name == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(file_name.c_str());
+                stream::for_each(in, lambda);
+            }
+        } else {
+            cerr << "[vg view] error: (binary) Locus can only be converted to JSON" << endl;
+            return 1;
+        }
+        return 0;
     }
+
 
     if(graph == nullptr) {
         // Make sure we didn't forget to implement an input format.
@@ -7567,6 +7616,7 @@ int main_view(int argc, char** argv) {
     if (output_type == "dot") {
         graph->to_dot(std::cout,
                       alns,
+                      loci,
                       show_paths_in_dot,
                       walk_paths_in_dot,
                       annotate_paths_in_dot,

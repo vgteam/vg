@@ -107,6 +107,9 @@ public:
     // What should our prior on being heterozygous at a site be?
     double het_prior_logprob = prob_to_logprob(0.001);
 
+    // Provides a mechanism to translate back to the original graph
+    Translator translator;
+
     // Process and write output
     void run(VG& graph,
              vector<Alignment>& alignments,

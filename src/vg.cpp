@@ -6388,7 +6388,9 @@ bool VG::is_valid(bool check_nodes,
     return true;
 }
 
-void VG::to_dot(ostream& out, vector<Alignment> alignments,
+void VG::to_dot(ostream& out,
+                vector<Alignment> alignments,
+                vector<Locus> loci,
                 bool show_paths,
                 bool walk_paths,
                 bool annotate_paths,
@@ -6734,9 +6736,41 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         // todo --- circular alignments
     }
 
+    int locusid = alnid;
+    {
+        Pictographs picts(random_seed);
+        Colors colors(random_seed);
+        for (auto& locus : loci) {
+            // get the paths of the alleles
+            string path_label = picts.hashed(locus.name());
+            string color = colors.hashed(locus.name());
+            for (int j = 0; j < locus.allele_size(); ++j) {
+                auto& path = locus.allele(j);
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    const Mapping& m = path.mapping(i);
+                    stringstream mapid;
+                    mapid << path_label << " " << m.position().node_id();
+                    out << "    "
+                        << locusid << " [label=\""
+                        << mapid.str() << "\",fontcolor=\"" << color << "\",fontsize=10];" << endl;
+                    if (i > 0) {
+                        out << "    "
+                            << locusid-1 << " -> "
+                            << locusid << " [dir=none,color=\"" << color << "\",constraint=false];" << endl;
+                    }
+                    out << "    "
+                        << locusid << " -> " << m.position().node_id()
+                        << " [dir=none,style=invis];" << endl;
+                    out << "    { rank = same; " << locusid << "; " << m.position().node_id() << "; };" << endl;
+                    locusid++;
+                }
+            }
+        }
+    }
+
     // include paths
     if (show_paths || walk_paths) {
-        int pathid = alnid;
+        int pathid = locusid;
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         map<string, int> path_starts;
