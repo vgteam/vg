@@ -48,6 +48,7 @@ void help_translate(char** argv) {
          << "options:" << endl
          << "    -p, --paths FILE      project the input paths into the from-graph" << endl
          << "    -a, --alns FILE       project the input alignments into the from-graph" << endl
+         << "    -l, --loci FILE       project the input locus descriptions into the from-graph" << endl
          << "    -m, --mapping JSON    print the from-mapping corresponding to the given JSON mapping" << endl
          << "    -P, --position JSON   print the from-position corresponding to the given JSON position" << endl
          << "    -o, --overlay FILE    overlay this translation on top of the one we are given" << endl;
@@ -64,6 +65,7 @@ int main_translate(int argc, char** argv) {
     string mapping_string;
     string path_file;
     string aln_file;
+    string loci_file;
     string overlay_file;
 
     int c;
@@ -76,12 +78,13 @@ int main_translate(int argc, char** argv) {
             {"mapping", required_argument, 0, 'm'},
             {"paths", required_argument, 0, 'p'},
             {"alns", required_argument, 0, 'a'},
+            {"loci", required_argument, 0, 'l'},
             {"overlay", required_argument, 0, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:m:P:a:o:",
+        c = getopt_long (argc, argv, "hp:m:P:a:o:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -104,6 +107,10 @@ int main_translate(int argc, char** argv) {
 
         case 'a':
             aln_file = optarg;
+            break;
+
+        case 'l':
+            loci_file = optarg;
             break;
 
         case 'o':
@@ -162,6 +169,15 @@ int main_translate(int argc, char** argv) {
         };
         ifstream aln_in(aln_file);
         stream::for_each(aln_in, lambda);
+        stream::write_buffered(cout, buffer, 0);
+    } else if (!loci_file.empty()) {
+        vector<Locus> buffer;
+        function<void(Locus&)> lambda = [&](Locus& locus) {
+            buffer.push_back(translator->translate(locus));
+            stream::write_buffered(cout, buffer, 100);
+        };
+        ifstream loci_in(loci_file);
+        stream::for_each(loci_in, lambda);
         stream::write_buffered(cout, buffer, 0);
     }
 
