@@ -383,14 +383,19 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                                                              left_side1, !left_side2);
                         StrandSupport edge_support = support >= StrandSupport() ? support :
                             min(call_sides1.sup(i), call_sides2.sup(j));
-                        // hack to decrease support for an edge that spans an insertion, by subtracting
-                        // that insertion's copy number.  
+
                         NodeOffSide no1(NodeSide(node1->id(), !left_side1), from_offset);
                         NodeOffSide no2(NodeSide(node2->id(), !left_side2), to_offset);
+                        // take augmented deletion edge support from the pileup
+                        if (cat == 'L') {
+                            edge_support = _deletion_supports[make_pair(no1, no2)];
+                        }
+                        // hack to decrease support for an edge that spans an insertion, by subtracting
+                        // that insertion's copy number.  
                         auto is_it = _insertion_supports.find(make_pair(no1, no2));
                         if (is_it != _insertion_supports.end()) {
                             edge_support = edge_support - is_it->second;
-                        }
+                        }                        
                         // can edges be written more than once with different cats?
                         // if so, first one will prevail. should check if this
                         // can impact vcf converter...
@@ -803,6 +808,9 @@ void Caller::create_node_calls(const NodePileup& np) {
                         // we're just going to update the divider here, since all
                         // edges get done at the end
                         _augmented_edges[make_pair(s1, s2)] = 'L';
+                        // keep track of its support
+                        _deletion_supports[make_pair(s1, s2)] = support1;
+                        
                         // also need to bridge any fragments created above
                         if ((from_start && from_offset > 0) ||
                             (!from_start && from_offset < node1->sequence().length() - 1)) {

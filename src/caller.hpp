@@ -192,6 +192,10 @@ public:
     typedef unordered_map<pair<NodeOffSide, NodeOffSide>, StrandSupport> EdgeSupHash;
     EdgeSupHash _insertion_supports;
 
+    // need to keep track of support for augmented deletions
+    // todo: generalize augmented edge support
+    EdgeSupHash _deletion_supports;
+
     // used to favour homozygous genotype (r from MAQ paper)
     double _het_log_prior;
     double _hom_log_prior;
