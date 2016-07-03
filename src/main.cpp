@@ -7651,24 +7651,36 @@ int main_view(int argc, char** argv) {
         }
         return 0;
     } else if (input_type == "locus") {
-        if (output_type == "json") {
-            function<void(Locus&)> lambda = [](Locus& l) {
-                cout << pb2json(l) << "\n";
-            };
-            if (file_name == "-") {
-                stream::for_each(std::cin, lambda);
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Locus&)> lambda = [](Locus& l) {
+                    cout << pb2json(l) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
             } else {
-                ifstream in;
-                in.open(file_name.c_str());
-                stream::for_each(in, lambda);
+                // todo
+                cerr << "[vg view] error: (binary) Locus can only be converted to JSON" << endl;
+                return 1;
             }
         } else {
-            cerr << "[vg view] error: (binary) Locus can only be converted to JSON" << endl;
-            return 1;
+            if (output_type == "json" || output_type == "locus") {
+                JSONStreamHelper<Locus> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON Locus can only be converted to Locus or JSON" << endl;
+                return 1;
+            }
         }
+        cout.flush();
         return 0;
     }
-
 
     if(graph == nullptr) {
         // Make sure we didn't forget to implement an input format.
@@ -7708,6 +7720,8 @@ int main_view(int argc, char** argv) {
         graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
+    } else if (output_type == "locus") {
+        
     } else {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;

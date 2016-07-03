@@ -6,7 +6,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 PATH=../bin:$PATH # for vg
 
 
-plan tests 3
+plan tests 4
 
 vg construct -v tiny/tiny.vcf.gz -r tiny/tiny.fa > tiny.vg
 vg index -x tiny.vg.xg tiny.vg
@@ -44,5 +44,8 @@ vg mod -Q flat.loci flat.vg | vg mod -D - | vg mod -n - | vg mod -c - >flat_mod.
 is $(vg view flat_mod.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
    $(vg view flat_msga.vg | grep ^S | cut -f 3 | sort | md5sum | cut -f 1 -d\ ) \
    "called genotypes are correct in a small simulated example"
+
+vg view -q flat.loci | vg view -qJz - | vg view -q - >/dev/null
+is "$?" "0" "genotype format can be converted to and from JSON"
 
 rm -rf flat.vg flat.xg flat.gcsa.lcp flat.gcsa flat1.fa flat1.fa.gam flat1.vg flat1.xg flat1.sim flat2.fa flat2.fa.gam flat2.vg flat2.xg flat2.sim flat.gam flat.gam.index flats.fa flats.fa.fai flat.loci flat_msga.vg flat_mod.vg
