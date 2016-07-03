@@ -5,14 +5,14 @@ namespace vg {
 
 using namespace std;
 
-    // genotyper:
-    // use graph and reads to:
-    // - Augment graph
-    // - Find superbubbles or cactus branches to determine sites
-    // - Generate proposals for paths through each site (from reads?)
-    // - Compute affinities of each read for each proposed path through a site
-    // - Compute diploid genotypes for each site
-    // - Output as vcf or as native format
+// genotyper:
+// use graph and reads to:
+// - Augment graph
+// - Find superbubbles or cactus branches to determine sites
+// - Generate proposals for paths through each site (from reads?)
+// - Compute affinities of each read for each proposed path through a site
+// - Compute diploid genotypes for each site
+// - Output as vcf or as native format
 
 void Genotyper::run(VG& graph,
                     vector<Alignment>& alignments,
@@ -494,7 +494,8 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
 #endif
                     
                     // Say we visit this node along the path, in this orientation
-                    path_traversed.push_back(NodeTraversal(graph.get_node(mapping->position().node_id()), mapping->position().is_reverse() != traversal_direction));
+                    path_traversed.push_back(NodeTraversal(graph.get_node(mapping->position().node_id()),
+                                                           mapping->position().is_reverse() != traversal_direction));
                     
                     // Stick the sequence of the node (appropriately oriented) in the stream for the allele sequence
                     string seq = graph.get_node(mapping->position().node_id())->sequence();
