@@ -80,7 +80,6 @@ class SV_DETECTOR{
         SV_DETECTOR(VG* g);
         ~SV_DETECTOR();
 
-        void cache_paths_of_graph();
         /** Returns a vector of StructuralVariant objects, which can be turned into VCFs **/
         vector<StructuralVariant> gam_to_known_sv(string gamfile);
 
@@ -90,7 +89,7 @@ class SV_DETECTOR{
         vector<string> alignment_to_known_sv(Alignment aln);
 
         /** Looks for signatures based on Filter and returns StructuralVariant objects **/
-        vector<StructuralVariant> alignment_to_putative_sv(Alignment aln);
+        bool alignment_to_putative_sv(Alignment aln);
 
         //vector<Deletion> alignment_to_deletion(Alignment& aln);
 
@@ -107,7 +106,8 @@ class SV_DETECTOR{
         map<vg::id_t, string> node_to_variant;
 
         //Alignment realign(Alignment& aln);
-        //void incorporate(Alignment& aln);
+        //void incorporate(Alignment& aln, vg:VG* mod_graph);
+        //void score(Alignment& aln);
         //
         //
         /**

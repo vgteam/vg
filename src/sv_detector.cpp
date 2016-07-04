@@ -17,10 +17,6 @@ SV_DETECTOR::~SV_DETECTOR(){
 
 
 
-vector<StructuralVariant> SV_DETECTOR::alignment_to_putative_sv(Alignment aln){
-    vector<StructuralVariant> ret;
-
-}
 /**
 void SV_DETECTOR::cache_paths_of_graph(){
     regex is_alt("_alt_.+_[0-9]+");
@@ -69,6 +65,11 @@ vector<StructuralVariant> SV_DETECTOR::gam_to_known_sv(string gamfile){
 }
 
 vector<string> SV_DETECTOR::alignment_to_known_sv(Alignment aln){
+
+}
+
+
+bool SV_DETECTOR::alignment_to_putative_sv(Alignment aln){
 
 }
 
