@@ -643,6 +643,7 @@ public:
 
     void to_dot(ostream& out,
                 vector<Alignment> alignments = {},
+                vector<Locus> loci = {},
                 bool show_paths = false,
                 bool walk_paths = false,
                 bool annotate_paths = false,

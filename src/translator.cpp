@@ -5,6 +5,8 @@ namespace vg {
 
 using namespace std;
 
+Translator::Translator(void) { }
+
 Translator::Translator(istream& in) {
     function<void(Translation&)> lambda = [&](Translation& trans) {
         translations.push_back(trans);
@@ -14,6 +16,10 @@ Translator::Translator(istream& in) {
 }
 
 Translator::Translator(const vector<Translation>& trans) {
+    load(trans);
+}
+
+void Translator::load(const vector<Translation>& trans) {
     translations = trans;
     build_position_table();
 }
@@ -118,6 +124,14 @@ Path Translator::translate(const Path& path) {
 Alignment Translator::translate(const Alignment& aln) {
     Alignment result = aln;
     *result.mutable_path() = translate(aln.path());
+    return result;
+}
+
+Locus Translator::translate(const Locus& locus) {
+    Locus result = locus;
+    for (int i = 0; i < locus.allele_size(); ++i) {
+        *result.mutable_allele(i) = translate(locus.allele(i));
+    }
     return result;
 }
 
