@@ -6535,8 +6535,10 @@ void VG::to_dot(ostream& out,
         paths.for_each(lambda);
     }
 
+    id_t max_edge_id = 0;
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
+        max_edge_id = max((id_t)max_edge_id, max((id_t)e->from(), (id_t)e->to()));
         auto from_paths = paths.of_node(e->from());
         auto to_paths = paths.of_node(e->to());
         set<string> both_paths;
@@ -6656,7 +6658,7 @@ void VG::to_dot(ostream& out,
     }
 
     // add nodes for the alignments and link them to the nodes they match
-    int alnid = max_node_id()+1;
+    int alnid = max(max_node_id()+1, max_edge_id+1);
     for (auto& aln : alignments) {
         // check direction
         if (!aln.has_path()) continue; // skip pathless alignments
