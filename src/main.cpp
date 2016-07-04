@@ -6621,11 +6621,6 @@ int main_map(int argc, char** argv) {
             qual_adjust_alignments = true;
             break;
             
-        case 'a':
-            report_consistent_pairs = true;
-            break;
-
-        
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
                 break;
