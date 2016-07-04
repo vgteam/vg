@@ -8,8 +8,12 @@ export PATH=`pwd`/bin:`pwd`/scripts:$PATH
 export CC=$(which gcc)
 export CXX=$(which g++)
 
+#
+#  disable until file arguments work as in normal bash :(
+#
 # add bash autocompletion
-if test -n "$BASH_VERSION"
-then
-	 . ./autocomp.bash
-fi
+#if test -n "$BASH_VERSION"
+#then
+#
+#	 . ./autocomp.bash
+#fi

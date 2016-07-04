@@ -12,6 +12,7 @@
 #include <list>
 #include "vg.pb.h"
 #include "vg.hpp"
+#include "translator.hpp"
 #include "hash_map.hpp"
 #include "utility.hpp"
 #include "types.hpp"
@@ -105,6 +106,21 @@ public:
     
     // What should our prior on being heterozygous at a site be?
     double het_prior_logprob = prob_to_logprob(0.001);
+
+    // Process and write output
+    void run(VG& graph,
+             vector<Alignment>& alignments,
+             ostream& out,
+             string ref_path_name = "",
+             string contig_name = "",
+             string sample_name = "",
+             string augmented_file_name = "",
+             bool use_cactus = false,
+             bool show_progress = false,
+             bool output_vcf = false,
+             bool output_json = false,
+             int length_override = 0,
+             int variant_offset = 0);
     
     /**
      * Given an Alignment, compute a phred score for the quality of the
@@ -125,14 +141,14 @@ public:
      *
      * Returns a collection of Sites.
      */
-    vector<Site> find_sites(VG& graph);
+    vector<Site> find_sites_with_supbub(VG& graph);
 
     /** 
      * Same as find_sites but use Cactus instead of Superbubbles.
      * This is more general and doesn't require DAGifcation etc., but we keep
      * both versions around for now for debugging and comparison
      */
-    vector<Site> find_sites_with_cactus(VG& graph);
+    vector<Site> find_sites_with_cactus(VG& graph, const string& ref_path_name);
     
     /**
      * Given a path (which may run either direction through a site, or not touch

@@ -5,6 +5,278 @@ namespace vg {
 
 using namespace std;
 
+    // genotyper:
+    // use graph and reads to:
+    // - Augment graph
+    // - Find superbubbles or cactus branches to determine sites
+    // - Generate proposals for paths through each site (from reads?)
+    // - Compute affinities of each read for each proposed path through a site
+    // - Compute diploid genotypes for each site
+    // - Output as vcf or as native format
+
+void Genotyper::run(VG& graph,
+                    vector<Alignment>& alignments,
+                    ostream& out,
+                    string ref_path_name,
+                    string contig_name,
+                    string sample_name,
+                    string augmented_file_name,
+                    bool use_cactus,
+                    bool show_progress,
+                    bool output_vcf,
+                    bool output_json,
+                    int length_override,
+                    int variant_offset) {
+
+    if(ref_path_name.empty()) {
+        // Guess the ref path name
+        if(graph.paths.size() == 1) {
+            // Autodetect the reference path name as the name of the only path
+            ref_path_name = (*graph.paths._paths.begin()).first;
+        } else {
+            ref_path_name = "ref";
+        }
+    }
+    
+    if(output_vcf && show_progress) {
+        cerr << "Calling against path " << ref_path_name << endl;
+    }
+    
+    if(sample_name.empty()) {
+        // Set a default sample name
+        sample_name = "SAMPLE";
+    }
+
+    // Make sure they have names. TODO: we assume that if they do have names
+    // they are already unique, and that they aren't like the names we generate.
+    for(size_t i = 0; i < alignments.size(); i++) {
+        if(alignments[i].name().empty()) {
+            // Generate a unique name
+            alignments[i].set_name("_unnamed_alignment_" + to_string(i));
+        }
+    }
+    
+    // Suck out paths
+    vector<Path> paths;
+    for(auto& alignment : alignments) {
+        // Copy over each path, naming it after its alignment
+        Path path = alignment.path();
+        path.set_name(alignment.name());
+        paths.push_back(path);
+    }
+    
+    // Run them through vg::edit() to add them to the graph. Save the translations.
+    vector<Translation> augmentation_translations = graph.edit(paths);
+    
+    if(show_progress) {
+        cerr << "Augmented graph; got " << augmentation_translations.size() << " translations" << endl;
+    }
+
+    // Set up the translator to map back
+    Translator translator(augmentation_translations);
+    
+    // Make sure that we actually have an index for traversing along paths.
+    graph.paths.rebuild_mapping_aux();
+    
+    if(!augmented_file_name.empty()) {
+        ofstream augmented_stream(augmented_file_name);
+        graph.serialize_to_ostream(augmented_stream);
+        augmented_stream.close();
+    }
+    
+    // store the reads that are embedded in the augmented graph, by their unique names
+    map<string, Alignment*> reads_by_name;
+    for(auto& alignment : alignments) {
+        reads_by_name[alignment.name()] = &alignment;
+        // Make sure to replace the alignment's path with the path it has in the augmented graph
+        list<Mapping>& mappings = graph.paths.get_path(alignment.name());
+        alignment.mutable_path()->clear_mapping();
+        for(auto& mapping : mappings) {
+            // Copy over all the transformed mappings
+            *alignment.mutable_path()->add_mapping() = mapping;
+        }
+    }
+    cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
+    
+    // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
+    
+    // Unfold/unroll, find the superbubbles, and translate back.
+    vector<Genotyper::Site> sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
+        : find_sites_with_supbub(graph);
+    
+    if(show_progress) {
+        cerr << "Found " << sites.size() << " superbubbles" << endl;
+    }
+    
+    // We're going to count up all the affinities we compute
+    size_t total_affinities = 0;
+    
+    // We need a buffer for output
+    vector<vector<Locus>> buffer;
+    int thread_count = get_thread_count();
+    buffer.resize(thread_count);
+    
+    // If we're doing VCF output we need a VCF header
+    vcflib::VariantCallFile* vcf = nullptr;
+    // And a reference index tracking the primary path
+    ReferenceIndex* reference_index = nullptr;
+    if(output_vcf) {
+        // Build a reference index on our reference path
+        reference_index = new ReferenceIndex(graph, ref_path_name);
+        
+        // Start up a VCF
+        vcf = start_vcf(cout, *reference_index, sample_name, contig_name, length_override);
+    }
+        
+    // We want to do this in parallel, but we can't #pragma omp parallel for over a std::map
+    #pragma omp parallel shared(total_affinities)
+    {
+        #pragma omp single nowait
+        {
+            for(auto it = sites.begin(); it != sites.end(); it++) {
+                // For each site in parallel
+                
+                #pragma omp task firstprivate(it) shared(total_affinities)
+                {
+                
+                    auto& site = *it;
+                    
+                    int tid = omp_get_thread_num();
+                    
+                    // Get all the paths through the site
+                    vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site);
+                    
+                    if(paths.size() == 0) {
+                        // TODO: this compensates for inside-out sites from
+                        // Cactus. Make Cactus give us sites that can actually
+                        // be traversed through.
+                        
+                        // Flip the site around and try again
+                        swap(site.start, site.end);
+                        vector<list<NodeTraversal>> reverse_paths = get_paths_through_site(graph, site);
+                        if(reverse_paths.size() != 0) {
+                            // We actually got some paths. Use them
+                            swap(paths, reverse_paths);
+                            #pragma omp critical (cerr)
+                            cerr << "Warning! Corrected inside-out site " << site.end << " - " << site.start << endl;
+                        } else {
+                            // Put original start and end back for complaining
+                            swap(site.start, site.end);
+                        }
+                    }
+                    
+                    if(reference_index != nullptr &&
+                        reference_index->byId.count(site.start.node->id()) && 
+                        reference_index->byId.count(site.end.node->id())) {
+                        // This site is on the reference (and we are indexing a reference because we are going to vcf)
+                        
+                        // Where do the start and end nodes fall in the reference?
+                        auto start_ref_appearance = reference_index->byId.at(site.start.node->id());
+                        auto end_ref_appearance = reference_index->byId.at(site.end.node->id());
+                        
+                        
+                        // Are the ends running with the reference (false) or against it (true)
+                        auto start_rel_orientation = (site.start.backward != start_ref_appearance.second);
+                        auto end_rel_orientation = (site.end.backward != end_ref_appearance.second);
+                        
+                        if(show_progress) {
+                            // Determine where the site starts and ends along the reference path
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " runs reference " << 
+                                start_ref_appearance.first << " to " << 
+                                end_ref_appearance.first << endl;
+                                
+                            if(!start_rel_orientation && !end_rel_orientation &&
+                                end_ref_appearance.first < start_ref_appearance.first) {
+                                // The site runs backward in the reference (but somewhat sensibly).
+                                #pragma omp critical (cerr)
+                                cerr << "Warning! Site runs backwards!" << endl;
+                            } 
+                                
+                        }
+                            
+                    }
+                    
+                    // Even if it looks like there's only one path, it might not
+                    // be the reference path, because the reference path might
+                    // not have passed the min recurrence filter. So we can't
+                    // skip things yet.
+                    if(paths.empty()) {
+                        // Don't do anything for superbubbles with no routes through
+                        if(show_progress) {
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() <<
+                                " alleles: skipped for having no alleles" << endl;
+                        }
+                    } else {
+                    
+                        if(show_progress) {
+                            #pragma omp critical (cerr)
+                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() << " alleles" << endl;
+                            for(auto& path : paths) {
+                                // Announce each allele in turn
+                                #pragma omp critical (cerr)
+                                cerr << "\t" << traversals_to_string(path) << endl;
+                            }
+                        }
+                        
+                        // Get the affinities for all the paths
+                        map<Alignment*, vector<Genotyper::Affinity>> affinities = get_affinities_fast(graph, reads_by_name, site, paths);
+                        
+                        for(auto& alignment_and_affinities : affinities) {
+                            #pragma omp critical (total_affinities)
+                            total_affinities += alignment_and_affinities.second.size();
+                        }
+                        
+                        // Get a genotyped locus in the original frame
+                        Locus genotyped = genotype_site(graph, site, paths, affinities);
+                        
+                        if(output_json) {
+                            // Dump in JSON
+                            #pragma omp critical (cout)
+                            cout << pb2json(genotyped) << endl;
+                        } else if(output_vcf) {
+                            // Get 0 or more variants from the superbubble
+                            vector<vcflib::Variant> variants =
+                                locus_to_variant(graph, site, *reference_index, *vcf, genotyped, sample_name);
+                            for(auto& variant : variants) {
+                                // Fix up all the variants
+                                if(!contig_name.empty()) {
+                                    // Override path name
+                                    variant.sequenceName = contig_name;
+                                } else {
+                                    // Keep path name
+                                    variant.sequenceName = ref_path_name;
+                                }
+                                variant.position += variant_offset;
+                                #pragma omp critical(cout)
+                                cout << variant << endl;
+                            }
+                        } else {
+                            // Write out in Protobuf
+                            buffer[tid].push_back(genotyped);
+                            stream::write_buffered(cout, buffer[tid], 100);
+                        }
+                    }
+                }
+            }
+        }
+    }           
+    
+    if(!output_json && !output_vcf) {
+        // Flush the protobuf output buffers
+        for(int i = 0; i < buffer.size(); i++) {
+            stream::write_buffered(cout, buffer[i], 0);
+        }
+    } 
+
+
+    if(show_progress) {
+        cerr << "Computed " << total_affinities << " affinities" << endl;
+    }
+
+}
+
 /**
  * Turn the given path (which must be a thread) into an allele. Drops the first
  * and last mappings and looks up the sequences for the nodes of the others.
@@ -52,7 +324,7 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
     return round(total);
 }
 
-vector<Genotyper::Site> Genotyper::find_sites(VG& graph) {
+vector<Genotyper::Site> Genotyper::find_sites_with_supbub(VG& graph) {
 
     // Set up our output vector
     vector<Site> to_return;
@@ -81,7 +353,8 @@ vector<Genotyper::Site> Genotyper::find_sites(VG& graph) {
     
     for(auto& superbubble : superbubbles) {
         
-        // Translate the superbubble coordinates into NodeTraversals
+        // Translate the superbubble coordinates into NodeTraversals.
+        // This is coming from a DAG so we only need to look at the translation for orientation.
         auto& start_translation = overall_translation[superbubble.first.first];
         NodeTraversal start(graph.get_node(start_translation.first), start_translation.second);
         
@@ -107,13 +380,19 @@ vector<Genotyper::Site> Genotyper::find_sites(VG& graph) {
     
 }
 
-vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph) {
+vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const string& ref_path_name) {
 
     // Set up our output vector
     vector<Site> to_return;
 
+    // cactus needs the nodes to be sorted in order to find a source and sink
+    graph.sort();
+    
+    // get endpoints using node ranks
+    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph, ref_path_name);
+
     // todo: use deomposition instead of converting tree into flat structure
-    BubbleTree bubble_tree = cactusbubble_tree(graph);
+    BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
 
     // copy nodes up to bubbles that contain their bubble
     bubble_up_bubbles(bubble_tree);
@@ -126,10 +405,12 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph) {
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
                 NodeTraversal start(graph.get_node(bubble.start.node), bubble.start.is_end);
                 NodeTraversal end(graph.get_node(bubble.end.node), bubble.end.is_end);
-                // Fill in a Site
+                // Fill in a Site. Make sure to preserve original endpoint
+                // ordering, because swapping them without flipping their
+                // orientation flags will make an inside-out site.
                 Site site;
-                site.start = min(start, end);
-                site.end = max(start, end);
+                site.start = start;
+                site.end = end;
                 swap(site.contents, nodes);
                 // Save the site
                 to_return.emplace_back(std::move(site));
@@ -159,6 +440,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
             // Go through the paths that visit the start node
             
             if(!endmappings_by_name.count(name_and_mappings.first)) {
+                //cerr << "no endmappings match" << endl;
                 // No path by this name has any mappings to the end node. Skip
                 // it early.
                 continue;
@@ -209,13 +491,18 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                     
                     if(mapping->position().node_id() == site.end.node->id() && mapping->position().is_reverse() == expected_end_orientation) {
                         // We have stumbled upon the end node in the orientation we wanted it in.
-                        
                         if(results.count(allele_stream.str())) {
                             // It is already there! Increment the observation count.
+#ifdef debug
+                            cerr << "\tFinished; got known sequence " << allele_stream.str() << endl;
+#endif
                             results[allele_stream.str()].second++;
                         } else {
                             // Add it in
                             results[allele_stream.str()] = make_pair(path_traversed, 1);
+#ifdef debug
+                            cerr << "\tFinished; got novel sequence " << allele_stream.str() << endl;
+#endif
                         }
                         
                         // Then try the next embedded path
@@ -252,7 +539,9 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
         
         if(count < min_recurrence) {
             // We don't have enough initial hits for this sequence to justify
-            // trying to re-align the rest of the reads. Skip it.
+            // trying to re-align the rest of the reads. Skip it. Note that the
+            // reference path counts as a single recurrence, so we might throw
+            // it out if nothing else covers it.
             continue;
         }
         
@@ -558,8 +847,8 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
             total_supported += affinity.consistent;
         }
         
-        if(total_supported == 0) {
-            // This is weird. Complain.
+        if(total_supported == 0 && min_recurrence <= 1) {
+            // This is weird. Doesn't match anything and we had no excuse to remove alleles.
             cerr << "Warning! Bubble sequence " << seq << " supports nothing!" << endl;
         }
         
@@ -828,8 +1117,10 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
         } else if(is_reverse) {
             // This read supports an allele reverse, so call it a forward read for the site
             overall_reverse_reads++;
-        } else {
-            // Reads generally ought to support at least one allele, unless we have weird softclips.
+        } else if(min_recurrence <= 1) {
+            // Reads generally ought to support at least one allele, unless we
+            // have weird softclips or they were for elided non-recurrent
+            // alleles.
             cerr << "Warning! Read supports no alleles!" << endl;
         }
         
@@ -1120,11 +1411,18 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     // This maps from locus allele index to VCF record alt number
     vector<int> allele_to_alt;
     
+    // This records the max alt number used. We might have more alts than
+    // alleles if the reference was never considered as an allele.
+    int max_alt_number = 0;
+    
     for(size_t i = 0; i < locus.allele_size(); i++) {
         // For each allele
         
         // Add it/find its number if it already exists (i.e. is the ref)
         int alt_number = add_alt_allele(variant, allele_strings[i]);
+        
+        // See if it's a new max
+        max_alt_number = max(max_alt_number, alt_number);
         
         // Remember what VCF alt number it got
         allele_to_alt.push_back(alt_number);
@@ -1166,8 +1464,9 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     }
     
     // Work out genotype log likelihoods
-    // Make a vector to shuffle them into VCF order
-    vector<double> log_likelihoods(((locus.allele_size() - 1) * ((locus.allele_size() - 1) + 1)) / 2 + (locus.allele_size() - 1) + 1);
+    // Make a vector to shuffle them into VCF order. Fill it with inf for impossible genotypes.
+    vector<double> log_likelihoods((max_alt_number * (max_alt_number + 1)) / 2 + max_alt_number + 1,
+        numeric_limits<double>::infinity());
     for(size_t i = 0; i < locus.genotype_size(); i++) {
         // For every genotype, calculate its VCF-order index based on the VCF allele numbers
         
@@ -1185,7 +1484,7 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
         // Compute the position as (sort of) specified in the VCF spec
         size_t index = (high_alt * (high_alt + 1)) / 2 + low_alt;
         // Store the log likelihood
-        log_likelihoods[index] = locus.genotype(i).log_likelihood();
+        log_likelihoods.at(index) = locus.genotype(i).log_likelihood();
 #ifdef debug
         cerr << high_alt << "/" << low_alt << ": " << index << " = " << pb2json(locus.genotype(i)) << endl;
 #endif
