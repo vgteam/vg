@@ -326,6 +326,33 @@ pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph, const string& path_na
     return make_pair(source, sink);
 }
 
+void remove_heads_and_tails(VG& graph, pair<NodeSide, NodeSide> source_sink) {
+    // collect all heads and tails
+    vector<id_t> heads_tails;
+    graph.for_each_node([&](Node* node) {
+            if (graph.is_head_node(node->id()) || graph.is_tail_node(node->id())) {
+                heads_tails.push_back(node->id());
+            }
+        });
+
+    // iteratively prune until the source and sink are the only heads and tails.
+    vector<id_t> next;
+    while (!heads_tails.empty()) {
+        for (auto node_id : heads_tails) {
+            if (graph.has_node(node_id) && // node can linked to from multiple source/sinks
+                (graph.is_head_node(node_id) || graph.is_tail_node(node_id)) &&
+                node_id != source_sink.first.node && node_id != source_sink.second.node) {
+                for (auto adj : graph.sides_context(node_id)) {                
+                    next.push_back(adj.first.node);
+                }
+                graph.destroy_node(node_id);
+            }
+        }
+        swap(heads_tails, next);
+        next.clear();
+    }
+}
+
 BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink) {
     
     // convert to cactus
@@ -362,9 +389,9 @@ BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink) {
                 while(cactus_edge_end != cactus_edge_end2) {
 
                     // Report super bubble!!!!!!!
-                    CactusSide* side1 = (CactusSide*)stCactusEdgeEnd_getObject(
+                    CactusSide* side1 = (CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end2);
+                    CactusSide* side2 = (CactusSide*)stCactusEdgeEnd_getObject(
                         stCactusEdgeEnd_getLink(cactus_edge_end2));
-                    CactusSide* side2 = (CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end2);
 
                     // Add the next edge in the chain to the edges visited
                     edgesVisited.push_back(side2->node);
@@ -376,7 +403,7 @@ BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink) {
 
                     // This recursive explores the cycles in the subgraph rooted at next_cactus_node.
                     new_node->v.start = NodeSide(side1->node, side1->is_end);
-                    new_node->v.end = NodeSide(side2->node, side1->is_end);
+                    new_node->v.end = NodeSide(side2->node, side2->is_end);
                     new_node->v.contents = cactus_recurse(stCactusEdgeEnd_getNode(cactus_edge_end2), new_node);
                     new_node->v.contents.insert(new_node->v.contents.begin(), side1->node);
                     new_node->v.contents.push_back(side2->node);
@@ -426,7 +453,6 @@ void bubble_up_bubbles(BubbleTree& bubble_tree) {
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
 
     graph.sort();
-
     map<pair<id_t, id_t>, vector<id_t> > output;
 
     // get endpoints
@@ -441,7 +467,7 @@ map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
                 bubble.end != bubble_tree.root->v.end) {               
                 // sort nodes to be consistent with superbubbles
                 sort(bubble.contents.begin(), bubble.contents.end());
-                output[minmax(bubble.start.node, bubble.end.node)] = bubble.contents;
+                output[make_pair(bubble.start.node, bubble.end.node)] = bubble.contents;
             }
         });
 

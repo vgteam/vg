@@ -61,6 +61,9 @@ pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph);
 // Get source and sink nodes from path endpoints
 pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph, const string& path_name, int steps = 5);
 
+// Remove all head and tail nodes that aren't a source or sink
+void remove_heads_and_tails(VG& graph, pair<NodeSide, NodeSide> source_sink);
+
 // Return the hierchical cactus decomposition
 // Input graph must be sorted!
 BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink);

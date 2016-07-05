@@ -4462,27 +4462,13 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    if (superbubbles) {
-        for (auto& i : vg::superbubbles(*graph)) {
+    if (superbubbles || cactus) {
+        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::cactusbubbles(*graph);
+        for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
-            // sort output for now, to be consistent with cactus. We don't have
-            // any orientations involved here, so we're free to re-order as we
-            // wish.
-            b = minmax(b.first, b.second);
+            // sort output for now, to help do diffs in testing
             sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
-        }
-    }
-
-    if (cactus) {
-        for (auto& i : vg::cactusbubbles(*graph)) {
-            auto& b = i.first;
-            auto& v = i.second;
             cout << b.first << "\t" << b.second << "\t";
             for (auto& n : v) {
                 cout << n << ",";
