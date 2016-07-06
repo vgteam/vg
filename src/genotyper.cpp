@@ -400,7 +400,7 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
     graph.sort();
     
     // get endpoints using node ranks
-    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph, ref_path_name);
+    pair<NodeSide, NodeSide> source_sink = get_cactus_source_sink(graph, ref_path_name);
 
     // todo: use deomposition instead of converting tree into flat structure
     BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
@@ -414,7 +414,7 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
             if (bubble.start != bubble_tree.root->v.start ||
                 bubble.end != bubble_tree.root->v.end) {
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
-                NodeTraversal start(graph.get_node(bubble.start.node), bubble.start.is_end);
+                NodeTraversal start(graph.get_node(bubble.start.node), !bubble.start.is_end);
                 NodeTraversal end(graph.get_node(bubble.end.node), bubble.end.is_end);
                 // Fill in a Site. Make sure to preserve original endpoint
                 // ordering, because swapping them without flipping their
