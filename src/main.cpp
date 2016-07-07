@@ -1782,7 +1782,15 @@ int main_genotype(int argc, char** argv) {
         
         if(contained) {
             // This alignment completely falls within the graph
-            alignments.push_back(alignment);
+            
+            // Correct its quality scores from phred+33, as in GAM or an index,
+            // to phred, as used within vg for math.
+            // TODO: just keep them like this all the time
+            auto alignment_copy = alignment;
+            
+            alignment_copy.set_quality(string_quality_char_to_short(alignment_copy.quality()));
+            
+            alignments.push_back(alignment_copy);
         }
     });
         

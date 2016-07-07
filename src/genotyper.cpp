@@ -767,7 +767,6 @@ string Genotyper::traversals_to_string(const list<NodeTraversal>& path) {
     return seq.str();
 }
 
-#define debug
 map<Alignment*, vector<Genotyper::Affinity> >
 Genotyper::get_affinities_fast(VG& graph,
                                const map<string, Alignment*>& reads_by_name,
@@ -983,9 +982,6 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
                 logprob_wrong = phred_to_logprob(read_qual);
             }
             
-            // TODO: don't override
-            logprob_wrong = prob_to_logprob(0.001);
-            
 #ifdef debug
             cerr << "P(wrong) = " << logprob_to_prob(logprob_wrong) << endl;
 #endif
@@ -1128,7 +1124,6 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
 
     
 }
-#undef debug
 
 double Genotyper::get_genotype_log_prior(const vector<int>& genotype) {
     assert(genotype.size() == 2);
@@ -1210,7 +1205,6 @@ string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Align
     
 }
 
-#define debug
 Locus Genotyper::genotype_site(VG& graph,
                                const Site& site,
                                const vector<list<NodeTraversal>>& superbubble_paths,
@@ -1396,7 +1390,6 @@ Locus Genotyper::genotype_site(VG& graph,
     // Now we've populated the genotype so return it.
     return to_return;
 }
-#undef debug
 
 /**
  * Create the reference allele for an empty vcflib Variant, since apaprently
