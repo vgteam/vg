@@ -56,7 +56,6 @@ inline double logprob_invert(double logprob) {
     return prob_to_logprob(1.0 - logprob_to_prob(logprob));
 }
 
-
 // Convert integer Phred quality score to probability of wrongness.
 inline double phred_to_prob(int phred) {
     return pow(10, -((double)phred) / 10);
@@ -128,6 +127,52 @@ typename Collection::value_type sum(const Collection& collection) {
     
     return total;
     
+}
+
+/**
+ * Compute the sum of the values in a collection, where the values are log
+ * probabilities and the result is the log of the total probability. Items must
+ * be convertible to/from doubles for math.
+ */
+template<typename Collection>
+typename Collection::value_type logprob_sum(const Collection& collection) {
+    
+    // Set up an alias
+    using Item = typename Collection::value_type;
+    
+    // Pull out the minimum value
+    auto min_iterator = min_element(begin(collection), end(collection));
+    
+    if(min_iterator == end(collection)) {
+        // Nothing there, p = 0
+        return Item(prob_to_logprob(0));
+    }
+    
+    auto check_iterator = begin(collection);
+    ++check_iterator;
+    if(check_iterator == end(collection)) {
+        // We only have a single element anyway. We don't want to subtract it
+        // out because we'll get 0s.
+        return *min_iterator;
+    }
+    
+    // Pull this much out of every logprob.
+    Item pulled_out = *min_iterator;
+    
+    if(logprob_to_prob(pulled_out) == 0) {
+        // Can't divide by 0!
+        // TODO: fix this in selection
+        pulled_out = prob_to_logprob(1);
+    }
+    
+    Item total(0);
+    for(auto& to_add : collection) {
+        // Sum up all the scaled probabilities.
+        total += logprob_to_prob(to_add - pulled_out);
+    }
+    
+    // Re-log and re-scale
+    return pulled_out + prob_to_logprob(total);
 }
 
 string tmpfilename(const string& base);

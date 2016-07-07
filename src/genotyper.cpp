@@ -767,6 +767,7 @@ string Genotyper::traversals_to_string(const list<NodeTraversal>& path) {
     return seq.str();
 }
 
+#define debug
 map<Alignment*, vector<Genotyper::Affinity> >
 Genotyper::get_affinities_fast(VG& graph,
                                const map<string, Alignment*>& reads_by_name,
@@ -813,6 +814,12 @@ Genotyper::get_affinities_fast(VG& graph,
         // Get the NodeTraversals for this read through this site.
         auto read_traversal = get_traversal_of_site(graph, site, reads_by_name.at(name)->path());
         
+        if(read_traversal.size() == 1 && (read_traversal.front() == site.start || read_traversal.back() == site.end)) {
+            // This read only touches the head or tail of the site, and so
+            // cannot possibly be informative.
+            continue;
+        }
+        
         if(read_traversal.front() == site.end.reverse() || read_traversal.back() == site.start.reverse()) {
             // We really traversed this site backward. Flip it around.
             read_traversal.reverse();
@@ -829,6 +836,10 @@ Genotyper::get_affinities_fast(VG& graph,
         
         // Get the string it spells out
         auto seq = traversals_to_string(read_traversal);
+        
+#ifdef debug
+        cerr << "Consistency of " << reads_by_name.at(name)->sequence() << endl;
+#endif
         
         // Now decide if the read's seq supports each path.
         for(auto& path_seq : allele_strings) {
@@ -854,6 +865,10 @@ Genotyper::get_affinities_fast(VG& graph,
                 // This read doesn't touch either end.
                 cerr << "Warning: read doesn't touch either end of its site!" << endl;
             }
+            
+#ifdef debug
+            cerr << "\t" << path_seq << " vs observed " << (read_traversal.front() == site.start) << " " << seq << " " << (read_traversal.back() == site.end) << ": " << affinity.consistent << endl;
+#endif
             
             // Fake a weight
             affinity.affinity = (double)affinity.consistent;
@@ -885,8 +900,8 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
     
     // This works out to the product over all reads that don't support either
     // alleles of 1 - ((1 - MAPQ) * (1 - P(bases called wrong)), times the
-    // product over all the reads that do support one of the alleles of P(that
-    // allele picked out of the one or two available).
+    // likelihood of the observed (censored by multi-support) read counts coming
+    // from the alleles they support, and the strands they are observed on.
     
     // TODO: handle contamination like Freebayes
     
@@ -897,7 +912,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
     double all_supporting_drawn = prob_to_logprob(1);
     
 #ifdef debug
-    if(genotype.size() > 1) {
+    if(genotype.size() == 2) {
         cerr << "Calculating P(a" << genotype[0] << "/a" << genotype[1] << ")" << endl;
     }
 #endif
@@ -921,7 +936,17 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         
         // How many of the alleles in our genotype is it consistent with?
         int consistent_alleles = 0;
+        // We only count each allele in the genotype once.
+        set<int> alleles_seen;
         for(int allele : genotype) {
+            if(alleles_seen.count(allele)) {
+                // Counted up consistency with this allele already.
+                continue;
+            }
+            alleles_seen.insert(allele);
+            
+            // For each unique allele in the genotype...
+            
             if(consistency.at(allele).consistent) {
                 // We're consistent with this allele
                 consistent_alleles++;
@@ -938,7 +963,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         
         auto read_qual = alignment_qual_score(read);
         
-#ifdef debug
+#ifdef verbose_debug
         cerr << "Read (qual score " << read_qual << ") consistent with " << consistent_alleles
             << " genotype alleles observed." << endl;
 #endif
@@ -957,6 +982,10 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
                 // Compute P(called wrong).
                 logprob_wrong = phred_to_logprob(read_qual);
             }
+            
+            // TODO: don't override
+            logprob_wrong = prob_to_logprob(0.001);
+            
 #ifdef debug
             cerr << "P(wrong) = " << logprob_to_prob(logprob_wrong) << endl;
 #endif
@@ -967,15 +996,6 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
             
             // We account for this in a framework where we consider the reads
             // indistinguishable, so ignore it for now.
-            
-            // So multiply in the probability that we hit one of those alleles
-            double logprob_drawn = prob_to_logprob(((double) consistent_alleles) / genotype.size());
-            
-#ifdef debug
-            cerr << "P(drawn) = " << logprob_to_prob(logprob_drawn) << endl;
-#endif
-            
-            all_supporting_drawn += logprob_drawn;
         }
         
     }
@@ -990,32 +1010,125 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         auto& forward_count = kv.second.first;
         auto& reverse_count = kv.second.second;
         
-#ifdef debug
-            cerr << "Allele "  << kv.first << " supported by " << forward_count << " forward, "
-                << reverse_count << " reverse" << endl;
-#endif
-
         // Convert to a vector to satisfy the multinomial PMF function.
         vector<int> obs = {forward_count, reverse_count};
 
         // Get the log probability under multinomial.
+        
+        // TODO: we're counting oriented reads supporting multiple alleles
+        // multiple times. Maybe we should look at orientation overall somehow?
+        // Or treat orientations of alleles as the thing we do our master
+        // censored multinomial likelihood over?
         double logprob = multinomial_sampling_prob_ln(probs_by_orientation, obs);
         
 #ifdef debug
-            cerr << "P = " << logprob_to_prob(logprob) << endl;
+        cerr << "Allele "  << kv.first << " supported by " << forward_count << " forward, "
+            << reverse_count << " reverse (P=" << logprob_to_prob(logprob) << ")" << endl;
 #endif
 
         strands_as_specified += logprob;
         
     }
-
-    // TODO: handle support counts as if reads are indistinguishable as well.
-    // This gets complicated because of multi-support; we can't just use the
-    // multinomial PMF.
     
+    // Multiply in probability that the reads came from alleles they support,
+    // treating reads as indistinguishable and using a multinomial/binomial
+    // model.
+    double alleles_as_specified = prob_to_logprob(1);
+    if(genotype.size() == 2) {
+        // For diploids, we can easily handle multi-support as censorship. We
+        // know that at least the reads that only support allele 0 are from
+        // allele 0, and that at most the reads that only support allele 0 and
+        // those that support both alleles all are from allele 0. We end up
+        // summing over a normalized choose (since the success probability is
+        // known and fixed at 1/2), as described in Frey and Marrero (2008) "A
+        // surprising MLE for Interval-Censored Binomial Data".
+        
+        // Work out how many reads support allele 0 only.
+        int first_only_reads = 0;
+        // And how many support both
+        int ambiguous_reads = 0;
+        // And how many total reads there are (# of trials).
+        int total_reads = 0;
+        
+        for(auto& read_and_consistency : alignment_consistency) {
+            auto& consistency = read_and_consistency.second;
+            
+            if(consistency.at(genotype.at(0)).consistent) {
+                // Read is consistent with first allele
+                if(consistency.at(genotype.at(1)).consistent) {
+                    // And also second, so it's ambiguous
+                    ambiguous_reads++;
+#ifdef debug
+                    cerr << "Ambiguous read: " << read_and_consistency.first.sequence() << endl;
+                    for(int i = 0; i < consistency.size(); i++) {
+                        cerr << "\t" << i << ": " << consistency[i].consistent << endl;
+                    }
+#endif
+                } else {
+                    // And only first allele
+                    first_only_reads++;
+                }
+                total_reads++;
+            } else if(consistency.at(genotype.at(1)).consistent) {
+                // It's consistent with only the second allele.
+                total_reads++;
+            }
+            // Don't count reads inconsistent with the genotype in this analysis.
+        }
+
+        // Now do the likelihood. We know each atom will be weighted by the same
+        // factor (for assigning all the reads at 50% probability) so we can
+        // pull it out of the sum.
+        double log_atom_weight = prob_to_logprob(0.5) * total_reads;
+        
+        // We calculate the probability of each atom, then sum, and then weight.
+        vector<double> unweighted_atom_logprobs;
+        
+        for(int i = first_only_reads; i <= first_only_reads + ambiguous_reads; i++) {
+            // For each possible actual number of reads from the first allele,
+            // add in the probability of that atom.
+            auto unweighted_atom_logprob = choose_ln(total_reads, i);
+            unweighted_atom_logprobs.push_back(unweighted_atom_logprob);
+
+#ifdef debug
+            cerr << "P(" << i << " from first allele) = " << logprob_to_prob(unweighted_atom_logprob)
+                << " * " << logprob_to_prob(log_atom_weight) << " = " 
+                << logprob_to_prob(unweighted_atom_logprob + log_atom_weight) << endl;
+#endif
+            
+        }
+        
+        // Weight all the atoms with the shared weight, and then multiply in (to
+        // probability of 1) the probability of observing this range of possible
+        // totals of reads from each of the two alleles.
+        alleles_as_specified = (logprob_sum(unweighted_atom_logprobs) + log_atom_weight);
+        
+#ifdef debug
+        cerr << "P(" << first_only_reads << " to "  << (first_only_reads + ambiguous_reads) << " from first allele) = "
+            << logprob_to_prob(logprob_sum(unweighted_atom_logprobs)) << " * " << logprob_to_prob(log_atom_weight) 
+            << " = " << logprob_to_prob(alleles_as_specified) << endl;
+#endif
+        
+    } else {
+        cerr << "Warning: not accounting for allele assignment likelihood in non-diploid genotype!" << endl;
+    }
+
     // Now we've looked at all the reads, so AND everything together
-    return all_non_supporting_wrong + all_supporting_drawn + strands_as_specified;
+    double total_logprob = all_non_supporting_wrong + all_supporting_drawn + strands_as_specified + alleles_as_specified;
+
+#ifdef debug
+    if(genotype.size() == 2) {
+        cerr << "logP(a" << genotype[0] << "/a" << genotype[1] << ") = " << all_non_supporting_wrong << " + "
+            << all_supporting_drawn << " + " << strands_as_specified << " + " << alleles_as_specified << " = "
+            << total_logprob << endl;
+    }
+#endif
+
+    return total_logprob;
+
+    
 }
+#undef debug
 
 double Genotyper::get_genotype_log_prior(const vector<int>& genotype) {
     assert(genotype.size() == 2);

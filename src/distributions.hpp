@@ -62,8 +62,17 @@ inline real_t factorial_ln(int n) {
 /**
  * Raise a log probability to a power
  */
-real_t powln(real_t m, int n) {
+inline real_t pow_ln(real_t m, int n) {
     return m * n;
+}
+
+/**
+ * Compute the number of ways to select k items from a collection of n
+ * distinguishable items, ignoring order. Returns the natural log of the
+ * (integer) result.
+ */
+inline real_t choose_ln(int n, int k) {
+    return factorial_ln(n) - (factorial_ln(k) + factorial_ln(n - k));
 }
 
 /**
@@ -79,7 +88,7 @@ real_t multinomial_sampling_prob_ln(const vector<ProbIn>& probs, const vector<in
     typename vector<ProbIn>::const_iterator p = probs.begin();
     vector<int>::const_iterator o = obs.begin();
     for (; p != probs.end() && o != obs.end(); ++p, ++o) {
-        probsPowObs.push_back(powln(log(*p), *o));
+        probsPowObs.push_back(pow_ln(log(*p), *o));
     }
     // Use the collection sum defined in utility.hpp
     return factorial_ln(sum(obs)) - sum(factorials) + sum(probsPowObs);
