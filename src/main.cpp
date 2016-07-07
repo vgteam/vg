@@ -1600,6 +1600,7 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << std::endl
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
+         << "    -q, --use_mapq          use mapping qualities" << std::endl
          << "    -C, --cactus            use cactus for site finding" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -1631,6 +1632,9 @@ int main_genotype(int argc, char** argv) {
     // What length override should we use
     int64_t length_override = 0;
     
+    // Should we use mapping qualities?
+    bool use_mapq = false;
+    
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
     
@@ -1650,6 +1654,7 @@ int main_genotype(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
+                {"use_mapq", no_argument, 0, 'q'},
                 {"cactus", no_argument, 0, 'C'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
@@ -1657,7 +1662,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:Cpt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCpt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1695,6 +1700,10 @@ int main_genotype(int argc, char** argv) {
         case 'a':
             // Dump augmented graph
             augmented_file_name = optarg;
+            break;
+        case 'q':
+            // Use mapping qualities
+            use_mapq = true;
             break;
         case 'C':
             // Use Cactus to find sites
@@ -1800,6 +1809,9 @@ int main_genotype(int argc, char** argv) {
     
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
+    // Configure it
+    genotyper.use_mapq = use_mapq;
+    // TODO: move arguments below up into configuration
     genotyper.run(*graph,
                   alignments,
                   cout,
