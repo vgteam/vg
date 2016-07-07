@@ -6545,13 +6545,6 @@ void VG::to_dot(ostream& out,
         std::set_intersection(from_paths.begin(), from_paths.end(),
                               to_paths.begin(), to_paths.end(),
                               std::inserter(both_paths, both_paths.begin()));
-        // are both nodes in the same path?
-        /*
-        bool in_path = !(!paths.empty()
-                        && (both_paths.empty()
-                            || !paths.are_consecutive_nodes_in_path(e->from(), e->to(),
-                                                                    *both_paths.begin())));
-                                                                    */
 
         // Grab the annotation symbols for this edge.
         auto annotations = symbols_for_edge.find(e);
