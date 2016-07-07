@@ -64,7 +64,7 @@ Where genomes are small and sequences from different individuals can be reliably
 In practice, complete de novo genome assemblies are not obtainable for large genomes such as \emph{Homo sapiens}, and we require prior information to interpret new sequence data in its correct genomic context.  
 The current paradigm is to align sequence reads to a single high quality reference genome sequence obtained from one (or a few)  closely-related individuals.  
 While expedient, this approach biases our results towards a reference that may poorly represent alleles present in the sample we obtained our sequence reads from.  
-There is even likely to be sequence in the new sample that is not present in the reference {cite BGI pangenome paper}.  
+There is even likely to be sequence in the new sample that is not present in the reference \cite{li2010building}.
 
 In principle we would like to align to a genome that is as similar to our sample as possible, ideally a ``personalized'' reference genome \cite{Yuan_2012}, which already incorporates sequence variants present in the individual.  
 Of course there is a chicken and egg problem in knowing what the variants are before aligning data from a sample, but most differences between any one genome and the reference are shared in the population, so if we can build a structure that contains known shared variation then that could potentially contain most of the correct personalised reference sequence for any individual from the population or species.
