@@ -223,7 +223,7 @@ void Genotyper::run(VG& graph,
                         }
                         
                         // Get the affinities for all the paths
-                        map<Alignment*, vector<Genotyper::Affinity>> affinities = get_affinities_fast(graph, reads_by_name, site, paths);
+                        map<Alignment*, vector<Genotyper::Affinity>> affinities = get_affinities(graph, reads_by_name, site, paths);
                         
                         for(auto& alignment_and_affinities : affinities) {
                             #pragma omp critical (total_affinities)
@@ -715,6 +715,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
             
             if(!informative) {
                 // We only touch one of the start and end nodes, and can say nothing about the superbubble. Try the next read.
+                // TODO: mark these as ambiguous/consistent with everything (but strand?)
                 continue;
             }
             
@@ -735,7 +736,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
                 aligned_fwd = allele_graph.align(*read);
                 aligned_rev = allele_graph.align(reverse_complement_alignment(*read, get_node_size));
             }
-            // Pick the best alignment, and emiot in original orientation
+            // Pick the best alignment, and emit in original orientation
             Alignment aligned = (aligned_rev.score() > aligned_fwd.score()) ? reverse_complement_alignment(aligned_rev, get_node_size) : aligned_fwd;
             
 #ifdef debug
@@ -747,6 +748,31 @@ map<Alignment*, vector<Genotyper::Affinity>>
             to_return[read].push_back(Affinity(aligned.identity(), aligned_rev.score() > aligned_fwd.score()));
             
         }
+    }
+    
+    for(auto& name : relevant_read_names) {
+        // For every read that touched the superbubble, mark it consistent with
+        // its best alleles.
+        
+        // Grab its original Alignment pointer.
+        Alignment* read = reads_by_name.at(name);
+        
+        double best_affinity = 0;
+        for(auto& affinity : to_return[read]) {
+            // Look for the max affinity found
+            if(affinity.affinity > best_affinity) {
+                best_affinity = affinity.affinity;
+            }
+        }
+        
+        for(auto& affinity : to_return[read]) {
+            if(affinity.affinity > best_affinity) {
+                // Mark all the Affinities that are that good as representing
+                // consistency of the read with the allele.
+                affinity.consistent = true;
+            }
+        }
+            
     }
     
     // After scoring all the reads against all the versions of the superbubble,
@@ -829,12 +855,6 @@ Genotyper::get_affinities_fast(VG& graph,
         // Get the NodeTraversals for this read through this site.
         auto read_traversal = get_traversal_of_site(graph, site, reads_by_name.at(name)->path());
         
-        if(read_traversal.size() == 1 && (read_traversal.front() == site.start || read_traversal.back() == site.end)) {
-            // This read only touches the head or tail of the site, and so
-            // cannot possibly be informative.
-            continue;
-        }
-        
         if(read_traversal.front() == site.end.reverse() || read_traversal.back() == site.start.reverse()) {
             // We really traversed this site backward. Flip it around.
             read_traversal.reverse();
@@ -845,6 +865,12 @@ Genotyper::get_affinities_fast(VG& graph,
             
             // We're on the reverse strand
             base_affinity.is_reverse = true;
+        }
+        
+        if(read_traversal.size() == 1 && (read_traversal.front() == site.start || read_traversal.back() == site.end)) {
+            // This read only touches the head or tail of the site, and so
+            // cannot possibly be informative.
+            continue;
         }
         
         size_t total_supported = 0;
@@ -967,7 +993,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
             
             // For each unique allele in the genotype...
             
-            if(consistency.at(allele).consistent) {
+            if(consistency.size() > allele && consistency.at(allele).consistent) {
                 // We're consistent with this allele
                 consistent_alleles++;
                 // And in this orientation
@@ -1053,14 +1079,17 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
     // treating reads as indistinguishable and using a multinomial/binomial
     // model.
     double alleles_as_specified = prob_to_logprob(1);
-    if(genotype.size() == 2) {
-        // For diploids, we can easily handle multi-support as censorship. We
-        // know that at least the reads that only support allele 0 are from
-        // allele 0, and that at most the reads that only support allele 0 and
-        // those that support both alleles all are from allele 0. We end up
-        // summing over a normalized choose (since the success probability is
-        // known and fixed at 1/2), as described in Frey and Marrero (2008) "A
-        // surprising MLE for Interval-Censored Binomial Data".
+    if(genotype.size() == 2 && genotype.at(0) != genotype.at(1)) {
+        // For diploid heterozygotes, we can easily handle multi-support as
+        // censorship. We know that at least the reads that only support allele
+        // 0 are from allele 0, and that at most the reads that only support
+        // allele 0 and those that support both alleles all are from allele 0.
+        // We end up summing over a normalized choose (since the success
+        // probability is known and fixed at 1/2), as described in Frey and
+        // Marrero (2008) "A surprising MLE for Interval-Censored Binomial
+        // Data". Diploid homozygotes don't need any of this logic, and keep the
+        // default probability of 1 above for the support distribution across
+        // alleles.
         
         // Work out how many reads support allele 0 only.
         int first_only_reads = 0;
@@ -1071,6 +1100,12 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         
         for(auto& read_and_consistency : alignment_consistency) {
             auto& consistency = read_and_consistency.second;
+            
+            if(consistency.size() <= max(genotype.at(0), genotype.at(1))) {
+                // No consistency info calculated for this useless uninformative
+                // read.
+                continue;
+            }
             
             if(consistency.at(genotype.at(0)).consistent) {
                 // Read is consistent with first allele
@@ -1130,7 +1165,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
             << " = " << logprob_to_prob(alleles_as_specified) << endl;
 #endif
         
-    } else {
+    } else if(genotype.size() != 2) {
         #pragma omp critical (cerr)
         cerr << "Warning: not accounting for allele assignment likelihood in non-diploid genotype!" << endl;
     }
@@ -1332,7 +1367,7 @@ Locus Genotyper::genotype_site(VG& graph,
     }
     
 #ifdef debug
-    for(int i = 0; i < reads_consistent_with_allele.size(); i++) {
+    for(int i = 0; i < superbubble_paths.size(); i++) {
         // Build a useful name for the allele
         stringstream allele_name;
         for(auto& traversal : superbubble_paths[i]) {
@@ -1342,7 +1377,9 @@ Locus Genotyper::genotype_site(VG& graph,
         {
             cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
             for(auto& read_and_consistency : alignment_consistency) {
-                if(read_and_consistency.second[i].consistent && read_and_consistency.first.sequence().size() < 30) {
+                if(read_and_consistency.second.size() > i && 
+                    read_and_consistency.second[i].consistent &&
+                    read_and_consistency.first.sequence().size() < 30) {
                     // Dump all the short consistent reads
                     cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i].affinity << endl;
                 }
@@ -1706,6 +1743,16 @@ Genotyper::locus_to_variant(VG& graph,
         // Add the forward and reverse support together and use that for AD for the allele.
         variant.samples[sample_name]["AD"].push_back(to_string(support.forward() + support.reverse()));
     }
+    
+    // Do support for ref and alt alleles by strand
+    variant.format.push_back("SB");
+    for(auto& support : support_by_alt) {
+        // Add the forward and reverse support in sequence, for ref and all the alts.
+        // TODO: make this really only have the alt that's called.
+        variant.samples[sample_name]["SB"].push_back(to_string(site_is_reverse ? support.reverse() : support.forward()));
+        variant.samples[sample_name]["SB"].push_back(to_string(site_is_reverse ? support.forward() : support.reverse()));
+    }
+    
     
     // Work out genotype log likelihoods
     // Make a vector to shuffle them into VCF order. Fill it with inf for impossible genotypes.
