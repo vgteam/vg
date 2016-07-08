@@ -695,6 +695,11 @@ map<Alignment*, vector<Genotyper::Affinity>>
         #pragma omp critical (cerr)
         cerr << "Align to " << pb2json(allele_graph.graph) << endl;
 #endif
+
+        // Grab the sequence of the path we are trying the reads against, so we
+        // can check for identity across the site and not just globally for the
+        // read.
+        auto path_seq = traversals_to_string(path);
         
         for(auto& name : relevant_read_names) {
             // For every read that touched the superbubble, grab its original
@@ -760,32 +765,78 @@ map<Alignment*, vector<Genotyper::Affinity>>
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
 
+            // Save the identity and orientation
+            Affinity affinity(aligned.identity(), aligned_rev.score() > aligned_fwd.score());
+            
+            // Get the NodeTraversals for the winning alignment through the site.
+            auto read_traversal = get_traversal_of_site(graph, site, aligned.path());
+            
+            if(affinity.is_reverse) {
+                // We really traversed this site backward. Flip it around.
+                read_traversal.reverse();
+                for(auto& item : read_traversal) {
+                    // Flip around every traversal as well as reversing their order.
+                    item = item.reverse();
+                }
+                
+            }
+            
+            // Decide we're consistent if the alignment's string across the site
+            // matches the string for the allele, anchored at the appropriate
+            // ends.
+            
+            // Get the string this read spells out in its best alignment to this allele
+            auto seq = traversals_to_string(read_traversal);
+            
+            // Now decide if the read's seq supports this path.
+            if(read_traversal.front() == site.start && read_traversal.back() == site.end) {
+                // Anchored at both ends.
+                // Need an exact match. Record if we have one or not.
+                affinity.consistent = (seq == path_seq);
+            } else if(read_traversal.front() == site.start) {
+                // Anchored at start only.
+                // seq needs to be a prefix of path_seq
+                auto difference = std::mismatch(seq.begin(), seq.end(), path_seq.begin());
+                // If the first difference is the past-the-end of the prefix, then it's a prefix
+                affinity.consistent = (difference.first == seq.end());
+            } else if(read_traversal.back() == site.end) {
+                // Anchored at end only.
+                // seq needs to be a suffix of path_seq
+                auto difference = std::mismatch(seq.rbegin(), seq.rend(), path_seq.rbegin());
+                // If the first difference is the past-the-rend of the suffix, then it's a suffix
+                affinity.consistent = (difference.first == seq.rend());
+            } else {
+                // This read doesn't touch either end.
+                #pragma omp critical (cerr)
+                cerr << "Warning: realigned read doesn't touch either end of its site!" << endl;
+            }
+
             // Grab the identity and save it for this read and superbubble path
-            to_return[read].push_back(Affinity(aligned.identity(), aligned_rev.score() > aligned_fwd.score()));
+            to_return[read].push_back(affinity);
             
         }
     }
     
     for(auto& name : relevant_read_names) {
-        // For every read that touched the superbubble, mark it consistent with
-        // its best alleles.
+        // For every read that touched the superbubble, mark it consistent only
+        // with its best-identity alleles that don't mismatch in the allele.
         
         // Grab its original Alignment pointer.
         Alignment* read = reads_by_name.at(name);
         
         double best_affinity = 0;
         for(auto& affinity : to_return[read]) {
-            // Look for the max affinity found
-            if(affinity.affinity > best_affinity) {
+            // Look for the max affinity found on anything already consistent
+            if(affinity.consistent && affinity.affinity > best_affinity) {
                 best_affinity = affinity.affinity;
             }
         }
         
         for(auto& affinity : to_return[read]) {
-            if(affinity.affinity > best_affinity) {
-                // Mark all the Affinities that are that good as representing
-                // consistency of the read with the allele.
-                affinity.consistent = true;
+            if(affinity.affinity < best_affinity) {
+                // Mark all the Affinities that are worse as not actually being
+                // consistent.
+                affinity.consistent = false;
             }
         }
             
