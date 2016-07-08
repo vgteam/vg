@@ -1602,6 +1602,7 @@ void help_genotype(char** argv) {
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
          << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1634,6 +1635,8 @@ int main_genotype(int argc, char** argv) {
     
     // Should we use mapping qualities?
     bool use_mapq = false;
+    // Should we do indel realignment?
+    bool realign_indels = false;
     
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
@@ -1656,13 +1659,14 @@ int main_genotype(int argc, char** argv) {
                 {"augmented", required_argument, 0, 'a'},
                 {"use_mapq", no_argument, 0, 'q'},
                 {"cactus", no_argument, 0, 'C'},
+                {"realign_indels", no_argument, 0, 'i'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCpt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCipt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1708,6 +1712,10 @@ int main_genotype(int argc, char** argv) {
         case 'C':
             // Use Cactus to find sites
             use_cactus = true;
+            break;
+        case 'i':
+            // Do indel realignment
+            realign_indels = true;
             break;
         case 'p':
             show_progress = true;
@@ -1811,6 +1819,7 @@ int main_genotype(int argc, char** argv) {
     Genotyper genotyper;
     // Configure it
     genotyper.use_mapq = use_mapq;
+    genotyper.realign_indels = realign_indels;
     // TODO: move arguments below up into configuration
     genotyper.run(*graph,
                   alignments,

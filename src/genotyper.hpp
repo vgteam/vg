@@ -96,6 +96,10 @@ public:
     // Should we use mapping quality when computing P(reads | genotype)?
     bool use_mapq = false;
     
+    // Whould we do indel realignment, or should we use fast substring
+    // affinities for everything?
+    bool realign_indels = false;
+    
     // If base qualities aren't available, what is the Phred-scale qualtiy of a
     // piece of sequence being correct?
     int default_sequence_quality = 15;

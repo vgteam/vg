@@ -222,8 +222,24 @@ void Genotyper::run(VG& graph,
                             }
                         }
                         
+                        // Compute the lengths of all the alleles
+                        set<size_t> allele_lengths;
+                        for(auto& path : paths) {
+                            allele_lengths.insert(traversals_to_string(path).size());
+                        }
+                        
                         // Get the affinities for all the paths
-                        map<Alignment*, vector<Genotyper::Affinity>> affinities = get_affinities(graph, reads_by_name, site, paths);
+                        map<Alignment*, vector<Genotyper::Affinity>> affinities;
+                        
+                        if(allele_lengths.size() > 1 && realign_indels) {
+                            // This is an indel, because we can change lengths. Use the slow route to do idnel realignment.
+                            affinities = get_affinities(graph, reads_by_name, site, paths);
+                        } else {
+                            // Just use string comparison. Don't re-align when
+                            // length can't change, or when indle realignment is
+                            // off.
+                            affinities = get_affinities_fast(graph, reads_by_name, site, paths);
+                        }
                         
                         for(auto& alignment_and_affinities : affinities) {
                             #pragma omp critical (total_affinities)
