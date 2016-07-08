@@ -22,8 +22,10 @@ using namespace std;
 struct StrandSupport {
     int fs; // forward support
     int rs; // reverse support
+    int os; // support for other stuff (ie errors)
     double likelihood; // log likelihood from caller (0 if not available)
-    StrandSupport(int f = 0, int r = 0, double ll = -1e100) : fs(f), rs(r), likelihood(ll) {}
+    StrandSupport(int f = 0, int r = 0, int o = 0, double ll = -1e100) :
+        fs(f), rs(r), os(o), likelihood(ll) {}
     bool operator<(const StrandSupport& other) const {
         if ((fs + rs) == (other.fs + other.rs)) {
             // more strand bias taken as less support
@@ -35,22 +37,26 @@ struct StrandSupport {
         return !(*this < other);
     }
     bool operator==(const StrandSupport& other) const {
-        return fs == other.fs && rs == other.rs;
+        return fs == other.fs && rs == other.rs && os == other.os && likelihood == other.likelihood;
     }
     // min out at 0
     StrandSupport operator-(const StrandSupport& other) const {
-        return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs), likelihood);
+        return StrandSupport(max(0, fs - other.fs), max(0, rs - other.rs),
+                             max(0, os - other.os), likelihood);
     }
     StrandSupport& operator+=(const StrandSupport& other) {
         fs += other.fs;
         rs += other.rs;
+        os += other.os;
         likelihood = max(likelihood, other.likelihood);
         return *this;
     }
+    int depth() { return fs + rs + os; }
+    int total() { return fs + rs; }
 };
 
 inline ostream& operator<<(ostream& os, const StrandSupport& sup) {
-    return os << sup.fs << ", " << sup.rs << ", " << sup.likelihood;
+    return os << sup.fs << ", " << sup.rs << ", " << sup.os << ", " << sup.likelihood;
 }
 
 // We need to break apart nodes but remember where they came from to update edges.
@@ -155,13 +161,11 @@ public:
     // - = missing
     typedef pair<string, string> Genotype;
     vector<Genotype> _node_calls;
-    vector<double> _node_likelihoods;
     vector<pair<StrandSupport, StrandSupport> > _node_supports;
     // separate structure for isnertion calls since they
     // don't really have reference coordinates (instead happen just to
     // right of offset).  
     vector<Genotype> _insert_calls;
-    vector<double> _insert_likelihoods;
     vector<pair<StrandSupport, StrandSupport> > _insert_supports;
     // buffer for current node;
     const Node* _node;
@@ -257,15 +261,16 @@ public:
                                  string& second_base, int& second_count, int& second_rev_count,
                                  int& total_count, bool inserts);
     
-    // compute genotype for a position with maximum prob
-    double mp_snp_genotype(const BasePileup& bp,
-                           const vector<pair<int64_t, int64_t> >& base_offsets,
-                           const string& top_base, const string& second_base,
-                           Genotype& mp_genotype);
-    // compute likelihood of a genotype samtools-style
-    double genotype_log_likelihood(const BasePileup& pb,
-                                   const vector<pair<int64_t, int64_t> >& base_offsets,
-                                   double g, const string& first, const string& second);
+    // compute a likelihood from the pileup qualities
+    // "first" and "second" are used to virtually split the pileup across two nodes:
+    // all bases == "first" are kept
+    // all bases == "second" are ignored
+    // all otherse are squarerooted (to split their probabilities evenly between the two virtual pileups)
+    // returns pair of (likelihood, effective depth), where the effective depth is the number
+    // of pileup entries that were considered in computing the likelihood
+    pair<double, int> base_log_likelihood(const BasePileup& pb,
+                                             const vector<pair<int64_t, int64_t> >& base_offsets,
+                                             const string& val, const string& first, const string& second);
 
     // write graph structure corresponding to all the calls for the current
     // node.  

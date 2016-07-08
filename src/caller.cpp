@@ -56,10 +56,8 @@ Caller::~Caller() {
 
 void Caller::clear() {
     _node_calls.clear();
-    _node_likelihoods.clear();
     _node_supports.clear();
     _insert_calls.clear();
-    _insert_likelihoods.clear();
     _insert_supports.clear();
     _call_graph = VG();
     _node_divider.clear();
@@ -89,10 +87,6 @@ void Caller::call_node_pileup(const NodePileup& pileup) {
     string def_char = "-";
     _node_calls.assign(_node->sequence().length(), Genotype(def_char, def_char));
     _insert_calls.assign(_node->sequence().length(), Genotype(def_char, def_char));
-    _node_likelihoods.clear();
-    _node_likelihoods.assign(_node->sequence().length(), safe_log(0));
-    _insert_likelihoods.clear();
-    _insert_likelihoods.assign(_node->sequence().length(), safe_log(0));
     _node_supports.clear();
     _node_supports.assign(_node->sequence().length(), make_pair(
                               StrandSupport(), StrandSupport()));
@@ -127,22 +121,21 @@ void Caller::call_edge_pileup(const EdgePileup& pileup) {
     if (pileup.num_reads() >= _min_depth &&
         pileup.num_reads() <= _max_depth) {
 
-        // hack in a likelihood that's somewhat comparable to snp likelihoods
-        double log_likelihood = -(double)pileup.num_reads() * log(2); 
+        // use equivalent logic to SNPs (see base_log_likelihood)
+        double log_likelihood = 0;
         
         for (int i = 0; i < pileup.num_reads(); ++i) {
             char qual = pileup.qualities().length() >= 0 ? pileup.qualities()[i]  : _default_quality;
             double perr = phred_to_prob(qual);
-            log_likelihood += safe_log(2. * (1. - perr));
+            log_likelihood += safe_log(1. - perr);
         }
         
-        if (log_likelihood > _min_log_likelihood) {
-            Edge edge = pileup.edge(); // gcc not happy about passing directly
-            _called_edges[NodeSide::pair_from_edge(edge)] = StrandSupport(
-                pileup.num_forward_reads(),
-                pileup.num_reads() - pileup.num_forward_reads(),
-                log_likelihood);
-        }
+        Edge edge = pileup.edge(); // gcc not happy about passing directly
+        _called_edges[NodeSide::pair_from_edge(edge)] = StrandSupport(
+            pileup.num_forward_reads(),
+            pileup.num_reads() - pileup.num_forward_reads(),
+            0,
+            log_likelihood);
     }
 }
 
@@ -425,7 +418,8 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     int second_rev_count;
     int total_count;
     compute_top_frequencies(bp, base_offsets, top_base, top_count, top_rev_count,
-                            second_base, second_count, second_rev_count, total_count, insertion);
+                            second_base, second_count, second_rev_count, total_count,
+                            insertion);
 
     // note first and second base will be upper case too
     string ref_base = string(1, ::toupper(bp.ref_base()));
@@ -436,41 +430,34 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     // compute strand bias
     double top_sb = top_count > 0 ? abs(0.5 - (double)top_rev_count / (double)top_count) : 0;
     double second_sb = second_count > 0 ? abs(0.5 - (double)second_rev_count / (double)second_count) : 0;
-    
-    // compute max likelihood snp genotype.  it will be one of the three combinations
-    // of the top two bases (we don't care about case here)
-    pair<string, string> g;
-    double& base_likelihood = insertion ? _insert_likelihoods[offset] : _node_likelihoods[offset];
-    base_likelihood = mp_snp_genotype(bp, base_offsets, top_base, second_base, g);
+
+    // get references to node-level members we want to update
     Genotype& base_call = insertion ? _insert_calls[offset] : _node_calls[offset];
     pair<StrandSupport, StrandSupport>& support = insertion ? _insert_supports[offset] : _node_supports[offset];
-    support.first.likelihood = base_likelihood;
-    support.second.likelihood = base_likelihood;
 
-    if (base_likelihood >= _min_log_likelihood) {
-        // update the node calls
-        if (top_count >= min_support && top_sb <= _max_strand_bias) {
-            if (g.first != ref_base) {
-                base_call.first = g.first;
-            } else {
-                base_call.first = ".";
-            }
-            support.first.fs = top_count - top_rev_count;
-            support.first.rs = top_rev_count;
-        }
-        if (second_count >= min_support && second_sb <= _max_strand_bias) {
-            if (g.second != ref_base && g.second != g.first) {
-                base_call.second = g.second;
-            } else {
-                base_call.second = ".";
-            }
-            support.second.fs = second_count - second_rev_count;
-            support.second.rs = second_rev_count;
-        }
+    // we create augmented structures for anything that passes the above support and
+    // strand bias filters (note, these should be minimal, with decisions being
+    // pushed back to vcf export)
+    bool first_passes = top_count >= min_support && top_sb <= _max_strand_bias;
+    bool second_passes = second_count >= min_support && second_sb <= _max_strand_bias;
+
+    if (first_passes) {
+        base_call.first = top_base != ref_base ? top_base : ".";
+        support.first.fs = top_count - top_rev_count;
+        support.first.rs = top_rev_count;
+        string alt_base = second_passes ? second_base : "";
+        auto ld =  base_log_likelihood(bp, base_offsets, top_base, top_base, alt_base);
+        support.first.likelihood = ld.first;
+        support.first.os = max(0, ld.second - top_count);
     }
-    if (base_call.first == "-" && base_call.second != "-") {
-        swap(base_call.first, base_call.second);
-        swap(support.first, support.second);
+    if (second_passes) {
+        base_call.second = second_base != ref_base ? second_base : ".";
+        support.second.fs = second_count - second_rev_count;
+        support.second.rs = second_rev_count;
+        string alt_base = first_passes ? top_base : "";
+        auto ld = base_log_likelihood(bp, base_offsets, second_base, second_base, alt_base);
+        support.second.likelihood = ld.first;
+        support.second.os = max(0, ld.second - second_count);
     }
 }
 
@@ -594,76 +581,18 @@ void Caller::compute_top_frequencies(const BasePileup& bp,
     second_rev_count = rev_hist[second_base];
 }
 
-// Estimate the most probable snp genotype
-double Caller::mp_snp_genotype(const BasePileup& bp,
-                               const vector<pair<int64_t, int64_t> >& base_offsets,
-                               const string& top_base, const string& second_base,
-                               Genotype& mp_genotype) {
-
-    string ref_base = string(1, ::toupper(bp.ref_base()));
-    
-    // genotype with 2 reference bases
-    double gl = genotype_log_likelihood(bp, base_offsets, 2, top_base, second_base);
-    double mp = _hom_log_prior + gl;
-    double ml = gl;
-    mp_genotype = make_pair(top_base == ref_base ? ref_base : "-",
-                            second_base == ref_base ? ref_base : "-");
-
-    // genotype with 1 reference base
-    if (top_base != ref_base) {
-        double gl = genotype_log_likelihood(bp, base_offsets, 1, top_base, top_base);
-        double p = _het_log_prior + gl;
-        if (p > mp) {
-            mp = p;
-            ml = gl;
-            mp_genotype = make_pair(top_base,
-                                    second_base == ref_base ? ref_base : "-");
-        }
-    }
-    if (second_base != ref_base) {
-        double gl = genotype_log_likelihood(bp, base_offsets, 1, second_base, second_base);
-        double p = _het_log_prior + gl;
-        if (p > mp) {
-            mp = p;
-            ml = gl;
-            mp_genotype = make_pair(top_base == ref_base ? ref_base : "-",
-                                    second_base);
-        }
-    }
-    // genotype with 0 reference bases
-    if (top_base != ref_base && second_base != ref_base) {
-        double gl = genotype_log_likelihood(bp, base_offsets, 0, top_base, second_base);
-        double p = _het_log_prior + gl;
-        if (p > mp) {
-            mp = p;
-            ml = gl;
-            mp_genotype = make_pair(top_base, second_base);
-        }
-    }
-
-    return ml;
-}
-
-// This is adapted from Equation 2 (tranformed to log) from
-// A statistical framework for SNP calling ... , Heng Li, Bioinformatics, 2011
-// http://bioinformatics.oxfordjournals.org/content/27/21/2987.full
-double Caller::genotype_log_likelihood(const BasePileup& bp,
-                                       const vector<pair<int64_t, int64_t> >& base_offsets,
-                                       double g, const string& first, const string& second) {
-    // g = number of ref alleles
-    // first, second = alt alleles (can be the same if only considering one)
-    double m = 2.; // ploidy. always assume two alleles
-    double k = (double)base_offsets.size(); // depth
-
-    double log_likelihood = -k * log(m); // 1 / m^k
+pair<double, int> Caller::base_log_likelihood(const BasePileup& bp,
+                                              const vector<pair<int64_t, int64_t> >& base_offsets,
+                                              const string& val, const string& first, const string& second) {
+    double log_likelihood = 0;
 
     const string& bases = bp.bases();
     const string& quals = bp.qualities();
     double perr;
-    string ref_base = string(1, ::toupper(bp.ref_base()));
     // inserts are treated completely seprately.  toggle here:
     bool insert = first[0] == '+';
     assert(!insert || second.empty() || second[0] == '+');
+    double depth = 0;
 
     for (int i = 0; i < base_offsets.size(); ++i) {
         string base = Pileups::extract(bp, base_offsets[i].first);
@@ -683,22 +612,28 @@ double Caller::genotype_log_likelihood(const BasePileup& bp,
 
             char qual = base_offsets[i].second >= 0 ? quals[base_offsets[i].second] : _default_quality;
             perr = phred_to_prob(qual);
-            if (base == ref_base) {
-                // ref
-                log_likelihood += safe_log((m - g) * perr + g * (1. - perr));
-            } else if (base == first || base == second) {
-                // alt
-                log_likelihood += safe_log((m - g) * (1. - perr) + g * perr);
+
+            double log_prob;
+            if (!second.empty() && base == second) {
+                // we pretend second base is in another pileup
+                log_prob = 0.;
             } else {
-                // just call anything else an error
-                log_likelihood += safe_log(2. * perr);
+                log_prob = safe_log(base == val ? 1 - perr : perr);
+                depth += 1;
+                if (!second.empty() && base != first) {
+                    // we pretend anything not first or second base is split
+                    // across two pileups by square rooting the probability. 
+                    log_prob *= 0.5;
+                    depth -= 0.5;
+                }
             }
+
+            log_likelihood += log_prob;
         }
     }
 
-    return log_likelihood;
+    return make_pair(log_likelihood, (int)depth);
 }
-
 
 // please refactor me! 
 void Caller::create_node_calls(const NodePileup& np) {
@@ -727,11 +662,11 @@ void Caller::create_node_calls(const NodePileup& np) {
                 StrandSupport sup;
                 if (_node_calls[cur].first == ".") {
                     sup += _node_supports[cur].first;
-                    sup.likelihood = _node_likelihoods[cur];
+                    sup.likelihood = _node_supports[cur].first.likelihood;
                 }
                 if (_node_calls[cur].second == ".") {
                     sup += _node_supports[cur].second;
-                    sup.likelihood = _node_likelihoods[cur];
+                    sup.likelihood = _node_supports[cur].second.likelihood;
                 }
                 string new_seq = seq.substr(cur, next - cur);
                 Node* node = _call_graph.create_node(new_seq, ++_max_id);
@@ -903,14 +838,16 @@ void Caller::create_node_calls(const NodePileup& np) {
 void Caller::write_node_tsv(Node* node, char call, StrandSupport support, int64_t orig_id, int orig_offset)
 {
     *_text_calls << "N\t" << node->id() << "\t" << call << "\t" << support.fs << "\t"
-                 << support.rs << "\t" << orig_id << "\t" << orig_offset << "\t" << support.likelihood << endl;
+                 << support.rs << "\t" << support.os << "\t" << support.likelihood << "\t"
+                 << orig_id << "\t" << orig_offset << endl;
 }
 
 void Caller::write_edge_tsv(Edge* edge, char call, StrandSupport support)
 {
     *_text_calls << "E\t" << edge->from() << "," << edge->from_start() << "," 
                  << edge->to() << "," << edge->to_end() << "\t" << call << "\t" << support.fs
-                 << "\t" << support.rs << "\t.\t.\t" << support.likelihood << endl;
+                 << "\t" << support.rs << "\t" << support.os << "\t" << support.likelihood
+                 << "\t.\t." << endl;
 }
 
 void Caller::write_nd_tsv()
