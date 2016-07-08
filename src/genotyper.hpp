@@ -104,6 +104,9 @@ public:
     // Note that the primary path counts as a recurrence.
     int min_recurrence = 2;
     
+    // How much support must an alt have on each strand before we can call it?
+    int min_consistent_per_strand = 1;
+    
     // What should our prior on being heterozygous at a site be?
     double het_prior_logprob = prob_to_logprob(0.001);
 
