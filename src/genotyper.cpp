@@ -1600,6 +1600,7 @@ void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
+    stream << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
     stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << std::endl;
@@ -1804,6 +1805,23 @@ Genotyper::locus_to_variant(VG& graph,
     variant.samples[sample_name]["DP"].push_back(depth_string);
     variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
     
+    variant.format.push_back("GQ");
+    if(locus.genotype_size() > 1) {
+        // Compute a quality from the difference between the best and second-
+        // best genotype posteriors. Really this should be:
+        
+        // P(genotype is wrong) = sum(P(genotype) over other genotypes) / sum(P(genotype) over all genotypes)
+        
+        // When best genotype is much more probable than second best, which is
+        // much more probable than all the rest, this approximation woks well.
+        variant.samples[sample_name]["GQ"].push_back(to_string(
+            logprob_to_phred(locus.genotype(1).log_posterior() - best_genotype.log_posterior())));
+    } else {
+        // This is very unlikely to be wrong. Give it a max-ish value.
+        // TODO: do somethng better. Use overall support quality?
+        variant.samples[sample_name]["GQ"].push_back("255");
+    }
+    
     // Compose the allele-specific depth
     variant.format.push_back("AD");
     for(auto& support : support_by_alt) {
@@ -1852,10 +1870,11 @@ Genotyper::locus_to_variant(VG& graph,
     variant.format.push_back("PL");
     for(auto& log_likelihood : log_likelihoods) {
         // Add all the likelihood strings, normalizing against the best
+        // TODO: the best may not actually be the chosen genotype, because we genotype on posteriors.
         variant.samples[sample_name]["PL"].push_back(to_string(logprob_to_phred(log_likelihood - best_genotype.log_likelihood())));
     }
     
-    // Set the variant position (now that we have budged it left if necessary
+    // Set the variant position (now that we have budged it left if necessary)
     variant.position = referenceIntervalStart + 1;
     
     // Return the variant, since we managed to make it
