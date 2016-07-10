@@ -1014,6 +1014,8 @@ void help_vectorize(char** argv){
          << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
          << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
          << "  -m --mem-sketch    Generate a MEM sketch of a given read based on the GCSA" << endl
+         << "  -p --mem-positions Add the positions to the MEM sketch of a given read based on the GCSA" << endl
+         << "  -H --mem-hit-max N Ignore MEMs with this many hits when extracting poisitions" << endl
          << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
          << endl;
 }
@@ -1031,6 +1033,8 @@ int main_vectorize(int argc, char** argv){
     bool output_wabbit = false;
     bool use_identity_hot = false;
     bool mem_sketch = false;
+    bool mem_positions = false;
+    bool mem_hit_max = 0;
 
     if (argc <= 2) {
         help_vectorize(argv);
@@ -1051,13 +1055,15 @@ int main_vectorize(int argc, char** argv){
             {"a-hot", no_argument, 0, 'a'},
             {"wabbit", no_argument, 0, 'w'},
             {"mem-sketch", no_argument, 0, 'm'},
+            {"mem-positions", no_argument, 0, 'p'},
+            {"mem-hit-max", required_argument, 0, 'H'},
             {"identity-hot", no_argument, 0, 'i'},
             {"aln-label", required_argument, 0, 'l'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfmx:g:l:",
+        c = getopt_long (argc, argv, "Aaihwfmpx:g:l:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -1066,35 +1072,6 @@ int main_vectorize(int argc, char** argv){
 
         switch (c)
         {
- /*           case '?':
-            case 'h':
-                help_vectorize(argv);
-                return 1;
-            case 'x':
-                xg_name = optarg;
-                break;
-            case 'a':
-                a_hot = true;
-                break;
-            case 'w':
-                output_wabbit = true;
-                break; */
-            case 'l':
-                aln_label = optarg;
-                break;/*
-            case 'i':
-                use_identity_hot = true;
-                break;
-            case 'f':
-                format = true;
-                break;
-            case 'A':
-                annotate = true;
-                format = true;
-                break;
-            default:
-                abort();
-*/
         case '?':
         case 'h':
             help_vectorize(argv);
@@ -1107,6 +1084,12 @@ int main_vectorize(int argc, char** argv){
             break;
         case 'm':
             mem_sketch = true;
+            break;
+        case 'p':
+            mem_positions = true;
+            break;
+        case 'H':
+            mem_hit_max = atoi(optarg);
             break;
         case 'a':
             a_hot = true;
@@ -1159,13 +1142,16 @@ int main_vectorize(int argc, char** argv){
             mapper.gcsa = &gcsa_index;
             mapper.lcp = &lcp_index;            
         }
+        if (mem_hit_max) {
+            mapper.hit_max = mem_hit_max;
+        }
     }
  
     Vectorizer vz(xg_index);
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, format, a_hot](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
         if (a_hot) {
@@ -1202,6 +1188,21 @@ int main_vectorize(int argc, char** argv){
             cout << " |mems";
             for (auto m : mem_to_count) {
                 cout << " " << m.first << ":" << m.second;
+            }
+            if (mem_positions) {
+                cout << " |positions";
+                for (auto& mem : mems) {
+                    mapper.get_mem_hits_if_under_max(mem);
+                    for (auto& node : mem.nodes) {
+                        cout << " " << gcsa::Node::id(node);
+                        if (gcsa::Node::rc(node)) {
+                            cout << "-";
+                        } else {
+                            cout << "+";
+                        }
+                        cout << ":" << mem.end - mem.begin;
+                    }
+                }
             }
             cout << endl;
         } else {
@@ -2320,13 +2321,16 @@ int main_msga(int argc, char** argv) {
             // only use the sequence if we have whitelisted it
             string seq = ref.getSequence(name);
             strings[name] = seq;
+            names_in_order.push_back(name);
         }
     }
 
     // give a null label to sequences passed on the command line
     // thus far there is no way to specify these (use fasta instead)
     for (auto& s : sequences) {
-        strings[sha1head(s, 8)] = s;
+        auto name = sha1head(s, 8);
+        strings[name] = s;
+        names_in_order.push_back(name);
     }
 
     // align, include, repeat
@@ -2407,10 +2411,10 @@ int main_msga(int argc, char** argv) {
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
-    for (auto& sp : strings) {
+    for (auto& name : names_in_order) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        auto& name = sp.first;
+        auto& seq = strings[name];
         //graph->serialize_to_file("msga-pre-" + name + ".vg");
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
@@ -2418,8 +2422,6 @@ int main_msga(int argc, char** argv) {
             vector<Path> paths;
             vector<Alignment> alns;
             int j = 0;
-            // TODO we should use just one seq
-            auto& seq = sp.second;
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
