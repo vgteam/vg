@@ -96,6 +96,10 @@ public:
     // Should we use mapping quality when computing P(reads | genotype)?
     bool use_mapq = false;
     
+    // Whould we do indel realignment, or should we use fast substring
+    // affinities for everything?
+    bool realign_indels = false;
+    
     // If base qualities aren't available, what is the Phred-scale qualtiy of a
     // piece of sequence being correct?
     int default_sequence_quality = 15;
@@ -103,6 +107,9 @@ public:
     // How many times must a path recur before we try aligning to it?
     // Note that the primary path counts as a recurrence.
     int min_recurrence = 2;
+    
+    // How much support must an alt have on each strand before we can call it?
+    int min_consistent_per_strand = 2;
     
     // What should our prior on being heterozygous at a site be?
     double het_prior_logprob = prob_to_logprob(0.001);
@@ -215,7 +222,7 @@ public:
      * Alignments should have had their quality values trimmed down to just the
      * part covering the superbubble.
      *
-     * Returns a log base 2 likelihood.
+     * Returns a natural log likelihood.
      */
     double get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
     
@@ -225,7 +232,7 @@ public:
      * Takes a genotype as a vector of allele numbers. It is not guaranteed that
      * allele 0 corresponds to any notion of primary reference-ness.
      *
-     * Returns a log base 2 prior probability.
+     * Returns a natural log prior probability.
      *
      * TODO: add in strand bias
      */
