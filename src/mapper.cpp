@@ -227,7 +227,6 @@ map<string, double> Mapper::alignments_mean_path_positions(const Alignment& aln)
         // Collect all the unique nodes visited by the first algnment
         ids.insert(aln.path().mapping(i).position().node_id());
     }
-    //map<string, vector<size_t> > node_positions_in_paths(int64_t id) const;
     map<string, map<int, vector<id_t> > > node_positions;
     for(auto id : ids) {
         //map<string, vector<size_t> >
@@ -651,6 +650,119 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Al
 
     // Stick the alignments together
     return make_pair(aln1, aln2);
+}
+
+// returns the SMEM clusters which are consistent with the distribution of the MEMs in the read
+// provided some tolerance +/-
+vector<vector<MaximalExactMatch*> > Mapper::positionally_consistent_mem_clusters(vector<MaximalExactMatch>& mems) {
+
+    // we'll start to store threads here
+    vector<vector<MaximalExactMatch*> > clusters;
+
+    // sort by position
+    map<pair<string, bool>, map<int, vector<MaximalExactMatch*> > > by_pos;
+
+    // run through the mems
+    // collecting their positions relative to the forward path
+    for (auto& mem : mems) {
+        size_t len = mem.begin - mem.end;
+        for (auto& node : mem.nodes) {
+            id_t id = gcsa::Node::id(node);
+            size_t offset = gcsa::Node::offset(node);
+            bool is_rev = gcsa::Node::rc(node);
+            for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
+                auto& name = ref.first;
+                for (auto pos : ref.second) {
+                    by_pos[make_pair(name,is_rev)][pos+offset].push_back(&mem);
+                }
+            }
+        }
+    }
+
+    clusters.emplace_back();
+    // when we do we add into this map
+    for (auto& b : by_pos) {
+        int last_pos = -1;
+        auto& seq_map = b.second;
+        auto& name = b.first.first;
+        bool is_rev = b.first.second;
+        map<int, vector<MaximalExactMatch*> > by_end_pos;
+        // although unlikely, it is technically possible
+        // to have multiple MEMs at the same start position
+        // (for instance, this could happen due to branching)
+        // thus we need to keep the last begins and ends
+        set<MaximalExactMatch*> in_cluster;
+        for (auto& p : seq_map) {
+            auto& pos = p.first;
+            auto& memv = p.second;
+            // debugging for now to see what's happening
+            cerr << name << ":" << pos << (is_rev?"-":"+") << " ";
+            vector<MaximalExactMatch*>& cluster = clusters.back();
+            bool has_hit = false;
+            for (auto& mem : memv) {
+                cerr << mem->sequence() << ":"
+                     << (last_pos >= 0 ? pos - last_pos : -1) << " ";
+                int end_pos = pos + mem->length();
+                // try to find a thread to extend using bound queries
+                // establish a limit using the mem length as a tolerance
+                auto x = by_end_pos.lower_bound(pos - mem->length());
+                // collect everything in range
+                // we are always walking up the chromosome strand
+                // so we can get everything from where we match up to where we are
+                while (x != by_end_pos.end()) {
+                    has_hit = true;
+                    cerr << " hit: " << x->first << " ";
+                    // let's get clumpy
+                    // is this hit consistent?
+                    cerr << end_pos - x->first << " vs ";
+                    for (auto& m : x->second) {
+                        cerr  << mem->end - m->end << " ";
+                        if (!in_cluster.count(m)) {
+                            cluster.push_back(m);
+                            in_cluster.insert(m);
+                        }
+                    }
+                    ++x;
+                }
+                if (!has_hit && !cluster.empty()) {
+                    clusters.emplace_back();
+                    in_cluster.clear();
+                }
+                clusters.back().push_back(mem);
+                in_cluster.insert(mem);
+                by_end_pos[end_pos].push_back(mem);
+            }
+            cerr << endl;
+            last_pos = pos;
+        }
+    }
+
+    auto mem_len_sum = [&](const vector<MaximalExactMatch*>& cluster) {
+        int i = 0;
+        for (auto& mem : cluster) {
+            i += mem->length();
+        }
+        return i;
+    };
+
+    // sort the threads by their coverage of the read
+    // descending sort, so that the best clusters are at the front
+    std::sort(clusters.begin(), clusters.end(),
+              [&](const vector<MaximalExactMatch*>& c1,
+                  const vector<MaximalExactMatch*>& c2) {
+                  return mem_len_sum(c1) > mem_len_sum(c2);
+              });
+
+    cerr << "clusters: " << endl;
+    for (auto& cluster : clusters) {
+        cerr << cluster.size() << " SMEMs ";
+        for (auto& mem : cluster) {
+            cerr << mem->sequence() << " ";
+        }
+        cerr << endl;
+    }
+    
+    return clusters;
 }
 
 set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
@@ -1371,46 +1483,6 @@ vector<Alignment> Mapper::align_multi_kmers(const Alignment& aln, int kmer_size,
         merged.push_back(alignments_r[i]);
     }
     
-//    // What alignments are we looking at next in out in-order merge?
-//    size_t next_f = 0;
-//    size_t next_r = 0;
-//
-//    // TODO: Apply a minimum score threshold?
-//    while(merged.size() < multimaps) {
-//        if(next_f < alignments_f.size()) {
-//            // We have an available forward alignment
-//            if(next_r < alignments_r.size()) {
-//                // We also have an available reverse alignment
-//                if(alignments_f[next_f].score() >= alignments_r[next_r].score()) {
-//                    // Take the forward alignment if it has a greater or equal score.
-//                    // TODO: this introduces a slight strand bias
-//                    merged.push_back(alignments_f[next_f]);
-//                    next_f++;
-//                } else {
-//                    // The reverse alignment is better
-//                    merged.push_back(alignments_r[next_r]);
-//                    next_r++;
-//                }
-//            } else {
-//                // Just take the forward alignments, since they are the only ones left
-//                merged.push_back(alignments_f[next_f]);
-//                next_f++;
-//            }
-//        } else if(next_r < alignments_r.size()) {
-//            // Just take the reverse alignments, since they are the only ones left
-//            merged.push_back(alignments_r[next_r]);
-//            next_r++;
-//        } else {
-//            // No alignments left, oh no!
-//            break;
-//        }
-//    }
-//
-//    // Set all but the first alignment secondary.
-//    for(size_t i = 1; i < merged.size(); i++) {
-//        merged[i].set_is_secondary(true);
-//    }
-
     // Return the merged list of good alignments. Does not bother updating the input alignment.
     return merged;
 }
@@ -1473,7 +1545,7 @@ Mapper::find_smems(const string& seq) {
         return mems;
     }
     
-    // find MEMs using GCSA+LCP array
+    // find SMEMs using GCSA+LCP array
     // algorithm sketch:
     // set up a cursor pointing to the last position in the sequence
     // set up a structure to track our MEMs, and set it == "" and full range match
@@ -1519,7 +1591,11 @@ Mapper::find_smems(const string& seq) {
                 // record the last MEM
                 match.begin = cursor+1;
                 match.range = last_range;
-                mems.push_back(match);
+                // it's not an SMEM if it starts at the same position as the last one we found
+                // as this would mean it is entirely contained in the previous match
+                if (mems.empty() || mems.back().begin > match.begin) {
+                    mems.push_back(match);
+                }
                 // set up the next MEM using the parent node range
                 // length of last MEM, which we use to update our end pointer for the next MEM
                 size_t last_mem_length = match.end - match.begin;
@@ -1753,49 +1829,6 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
     return alns;
 }
 
-//vector<Alignment> Mapper::align_mem(const Alignment& alignment, int additional_multimaps) {
-//
-//    if (debug) cerr << "aligning " << pb2json(alignment) << endl;
-//    if (!gcsa || !xindex) {
-//        cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
-//        exit(1);
-//    }
-//    
-////    if(multimaps == 0) {
-////        // Fill in real default multimap limit
-////        multimaps = max_multimaps;
-////    }
-//
-//    // use the GCSA index to determine the approximate MEMs of the read
-//
-//    // remove those mems which are shorter than our kmer_min (could use a new parameter)
-//    // the short MEMs will have *many* hits, and we don't want to use them
-//
-//    // for the moment, we can just get the positions in all the mems
-//    // but we may want to selectively use them
-//    // such as by trying to use them as seeds in order from shortest to longest
-//    vector<MaximalExactMatch> mems = find_smems(alignment.sequence());
-//    if (debug) cerr << "mems before filling " << mems_to_json(mems) << endl;
-//    for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
-//    if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
-//
-//    return align_mem_multi(alignment, mems, additional_multimaps);
-//
-//    /*
-//    // TODO
-//    if (max_multimaps > 1) {
-//        // align once per subgraph hit we get, take the best alignment
-//        // uses full-length alignment
-//        return align_mem_multi(alignment, mems);
-//    } else {
-//        // aligns only the regions of the read which aren't in the MEMs
-//        // stitching together the results using the resolve_banded_multi function
-//        // which presently only returns the optimal result
-//        return { align_mem_optimal(alignment, mems) };
-//    }
-//    */
-//}
-
 bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
     bool filled = false;
     // remove all-Ns
@@ -1814,81 +1847,10 @@ bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
     return filled;
 }
 
-
-// Well, it's not really "optimal" yet
-// but the idea here is that we can thread back through multi-mappings
-// for each exact match
-// use dynamic programming to fix up the intermediate portions
-// and then thread back through with resolve_banded_multi
-// VERY VERY EXPERIMENTAL
-// TODO: this doesn't compute mapping qualities, make sure to add that if we finish this routine
-Alignment Mapper::align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems) {
-    // run through the mems, generating a set of alignments for each
-    vector<vector<Alignment> > alns;
-    // run through the exact matches
-    // if there are gaps between them, we need to fix them up using DP
-    MaximalExactMatch* last_exact_match = nullptr;
-    for (auto& mem : mems) {
-        // get the >16mer centered on the non-matching portion
-        if (last_exact_match) {
-            // what is the gap?
-            int gap_len = mem.begin - last_exact_match->end;
-            if (gap_len > 0) {
-                // stretch the gap
-                // if in the middle of the read we get a 16-mer
-                // if on the ends, we'll extend at least 8 opposite the end
-                auto start = last_exact_match->end;
-                auto end = mem.begin;
-                int to_start = start - alignment.sequence().begin();
-                int to_end = alignment.sequence().end() - end;
-                int to_add = 16 - gap_len;
-                int trim_from_start = 0;
-                int trim_from_end = 0;
-                if (to_add > 0) {
-                    // how much can we do on the left
-                    trim_from_start = min(to_add/2, to_start);
-                    start -= trim_from_start;
-                    // how much on the right
-                    trim_from_end = min(to_add/2, to_end);
-                    end += trim_from_end;
-                }
-                // get the sequence of the gap
-                MaximalExactMatch gap(start, end, gcsa::range_type(1, 0));
-                // now we need to align to all the possible paths from the ends of the last
-                // set of alignments to the ends of the current set
-
-                Alignment gapaln; gapaln.set_sequence(gap.sequence());
-                vector<MaximalExactMatch> flanking_mems = { *last_exact_match, mem };
-                int max_additional_mem_gap_multi_mappings = 10 - max_multimaps;
-                // then trim them using the trim counts
-                auto malns = align_mem_multi(gapaln, flanking_mems, max_additional_mem_gap_multi_mappings);
-                vector<Alignment> trimmed;
-                for (auto& aln : malns) {
-                    //cerr << "aln " << pb2json(aln) << endl;
-                    trimmed.push_back(simplify(strip_from_start(strip_from_end(aln, trim_from_end), trim_from_start)));
-                    trimmed.back().set_score(0); // dunno
-                    //cerr << "trimmed " << pb2json(trimmed.back()) << endl;
-                }
-                alns.emplace_back(trimmed);
-            }
-        }
-        // add in this mem
-        vector<Alignment> maln = mem_to_alignments(mem);
-        alns.emplace_back(maln);
-        last_exact_match = &mem;
-    }
-    auto optim_alns = resolve_banded_multi(alns);
-    // merge the resulting alignments
-    Alignment merged = merge_alignments(optim_alns);
-    merged.set_quality(alignment.quality());
-    merged.set_name(alignment.name());
-    merged.set_score(0);
-    merged.set_identity(identity(merged.path()));
-    return merged;
-}
-
 vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
-    
+
+    auto x = positionally_consistent_mem_clusters(mems);
+
     if (debug) cerr << "aligning " << pb2json(alignment) << endl;
     if (!gcsa || !xindex) {
         cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
@@ -2624,65 +2586,6 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
     }
     return alns;
 
-//    // now find the best alignment
-//    int sum_score = 0;
-//    double mean_score = 0;
-//    map<int, set<Alignment*> > alignment_by_score;
-//    for (auto& ta : alignments) {
-//        Alignment* aln = &ta.second;
-//        alignment_by_score[aln->score()].insert(aln);
-//    }
-//
-//    // Collect all the good alignments
-//    // TODO: Filter down subject to a minimum score per base or something?
-//    vector<Alignment> good;
-//    for(auto it = alignment_by_score.rbegin(); it != alignment_by_score.rend(); ++it) {
-//        // Copy over all the alignments in descending score order (following the pointers into the "alignments" vector)
-//        // Iterating through a set keyed on ints backward is in descending order.
-//
-//        // This is going to let us deduplicate our alignments with this score, by storing them serialized to strings in this set.
-//        set<string> serializedAlignmentsUsed;
-//
-//        for(Alignment* pointer : (*it).second) {
-//            // We serialize the alignment to a string
-//            string serialized;
-//            pointer->SerializeToString(&serialized);
-//
-//            if(!serializedAlignmentsUsed.count(serialized)) {
-//                // This alignment hasn't been produced yet. Produce it. The
-//                // order in the alignment vector doesn't matter for things with
-//                // the same score.
-//                good.push_back(*pointer);
-//
-//                // Save it so we can avoid putting it in the vector again
-//                serializedAlignmentsUsed.insert(serialized);
-//            }
-//
-//            if(good.size() >= max_multimaps) {
-//                // Don't report too many mappings
-//                break;
-//            }
-//        }
-//
-//        if(good.size() >= max_multimaps) {
-//            // Don't report too many mappings
-//            break;
-//        }
-//    }
-//
-//    // get the best alignment
-//    if (!good.empty()) {
-//        // TODO log best alignment score?
-//    } else {
-//        good.emplace_back();
-//        Alignment& aln = good.back();
-//        aln = alignment;
-//        aln.clear_path();
-//        aln.set_score(0);
-//    }
-//
-//    // Return all the multimappings
-//    return good;
 }
 
 const int balanced_stride(int read_length, int kmer_size, int stride) {

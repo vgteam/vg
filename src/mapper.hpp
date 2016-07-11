@@ -52,6 +52,9 @@ public:
     void fill_match_count(gcsa::GCSA* gcsa) {
         match_count = gcsa->count(range);
     }
+    int length(void) const {
+        return end - begin;
+    }
 };
 
 class Mapper {
@@ -77,8 +80,6 @@ private:
                            int stride = 0,
                            int band_width = 1000);
     // alignment based on the MEM approach
-    //vector<Alignment> align_mem(const Alignment& alignment, int additional_multimaps = 0);
-    Alignment align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems);
     vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
     // base algorithm for above Update the passed-in Alignment with a highest-
     // score alignment, and return all good alignments sorted by score up to
@@ -127,6 +128,8 @@ public:
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                 vector<MaximalExactMatch>& mems2);
+
+    vector<vector<MaximalExactMatch*> > positionally_consistent_mem_clusters(vector<MaximalExactMatch>& mems);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
