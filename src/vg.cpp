@@ -6388,7 +6388,9 @@ bool VG::is_valid(bool check_nodes,
     return true;
 }
 
-void VG::to_dot(ostream& out, vector<Alignment> alignments,
+void VG::to_dot(ostream& out,
+                vector<Alignment> alignments,
+                vector<Locus> loci,
                 bool show_paths,
                 bool walk_paths,
                 bool annotate_paths,
@@ -6398,6 +6400,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
                 bool color_variants,
                 bool superbubble_ranking,
                 bool superbubble_labeling,
+                bool cactusbubble_labeling,
                 int random_seed) {
 
     // setup graphviz output
@@ -6412,10 +6415,11 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
 
     //map<id_t, vector<
     map<id_t, set<pair<string, string>>> symbols_for_node;
-    if (superbubble_labeling) {
+    if (superbubble_labeling || cactusbubble_labeling) {
         Pictographs picts(random_seed);
         Colors colors(random_seed);
-        map<pair<id_t, id_t>, vector<id_t> > sb = superbubbles(*this);
+        map<pair<id_t, id_t>, vector<id_t> > sb =
+            (cactusbubble_labeling ? cactusbubbles(*this) : superbubbles(*this));
         for (auto& bub : sb) {
             auto start_node = bub.first.first;
             auto end_node = bub.first.second;
@@ -6435,29 +6439,38 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     for (int i = 0; i < graph.node_size(); ++i) {
         Node* n = graph.mutable_node(i);
         auto node_paths = paths.of_node(n->id());
-        stringstream nlabel;
-        if (superbubble_labeling) {
-            nlabel << "<";
-            nlabel << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
+
+        stringstream inner_label;
+        if (superbubble_labeling || cactusbubble_labeling) {
+            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
             for(auto& string_and_color : symbols_for_node[n->id()]) {
                 // Put every symbol in its font tag.
-                nlabel << "<FONT COLOR=\"" << string_and_color.first << "\">" << string_and_color.second << "</FONT>";
+                inner_label << "<FONT COLOR=\"" << string_and_color.first << "\">" << string_and_color.second << "</FONT>";
             }
-            nlabel << ">";
+            inner_label << "</TD>";
         } else if (simple_mode) {
-            nlabel << n->id();
+            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            inner_label << n->id();
+            inner_label << "</TD>";
         } else {
-            nlabel << "<";
-            nlabel << "<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
-            nlabel << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">" << n->id() << ":" << n->sequence() << "</TD>";
-            nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
-            nlabel << ">";
+            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            inner_label << n->id() << ":" << n->sequence();
+            inner_label << "</TD>";
         }
+
+        stringstream nlabel;
+        nlabel << "<";
+        nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
+        nlabel << inner_label.str();
+        nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
+        nlabel << ">";
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
-        } else if (superbubble_labeling) {
-            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
+        } else if (superbubble_labeling || cactusbubble_labeling) {
+            //out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=box,penwidth=2,";
+            out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";      
         } else {
             out << "    " << n->id() << " [label=" << nlabel.str() << ",shape=none,width=0,height=0,margin=0,";
         }
@@ -6522,21 +6535,16 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         paths.for_each(lambda);
     }
 
+    id_t max_edge_id = 0;
     for (int i = 0; i < graph.edge_size(); ++i) {
         Edge* e = graph.mutable_edge(i);
+        max_edge_id = max((id_t)max_edge_id, max((id_t)e->from(), (id_t)e->to()));
         auto from_paths = paths.of_node(e->from());
         auto to_paths = paths.of_node(e->to());
         set<string> both_paths;
         std::set_intersection(from_paths.begin(), from_paths.end(),
                               to_paths.begin(), to_paths.end(),
                               std::inserter(both_paths, both_paths.begin()));
-        // are both nodes in the same path?
-        /*
-        bool in_path = !(!paths.empty()
-                        && (both_paths.empty()
-                            || !paths.are_consecutive_nodes_in_path(e->from(), e->to(),
-                                                                    *both_paths.begin())));
-                                                                    */
 
         // Grab the annotation symbols for this edge.
         auto annotations = symbols_for_edge.find(e);
@@ -6643,7 +6651,7 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
     }
 
     // add nodes for the alignments and link them to the nodes they match
-    int alnid = max_node_id()+1;
+    int alnid = max(max_node_id()+1, max_edge_id+1);
     for (auto& aln : alignments) {
         // check direction
         if (!aln.has_path()) continue; // skip pathless alignments
@@ -6723,9 +6731,41 @@ void VG::to_dot(ostream& out, vector<Alignment> alignments,
         // todo --- circular alignments
     }
 
+    int locusid = alnid;
+    {
+        Pictographs picts(random_seed);
+        Colors colors(random_seed);
+        for (auto& locus : loci) {
+            // get the paths of the alleles
+            string path_label = picts.hashed(locus.name());
+            string color = colors.hashed(locus.name());
+            for (int j = 0; j < locus.allele_size(); ++j) {
+                auto& path = locus.allele(j);
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    const Mapping& m = path.mapping(i);
+                    stringstream mapid;
+                    mapid << path_label << " " << m.position().node_id();
+                    out << "    "
+                        << locusid << " [label=\""
+                        << mapid.str() << "\",fontcolor=\"" << color << "\",fontsize=10];" << endl;
+                    if (i > 0) {
+                        out << "    "
+                            << locusid-1 << " -> "
+                            << locusid << " [dir=none,color=\"" << color << "\",constraint=false];" << endl;
+                    }
+                    out << "    "
+                        << locusid << " -> " << m.position().node_id()
+                        << " [dir=none,style=invis];" << endl;
+                    out << "    { rank = same; " << locusid << "; " << m.position().node_id() << "; };" << endl;
+                    locusid++;
+                }
+            }
+        }
+    }
+
     // include paths
     if (show_paths || walk_paths) {
-        int pathid = alnid;
+        int pathid = locusid;
         Pictographs picts(random_seed);
         Colors colors(random_seed);
         map<string, int> path_starts;

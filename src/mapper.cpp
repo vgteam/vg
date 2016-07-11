@@ -34,7 +34,6 @@ Mapper::Mapper(Index* idex,
     , min_mem_length(0)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
-    , report_consistent_pairs(false)
     , extra_pairing_multimaps(4)
     , always_rescue(false)
     , fragment_size(0)
@@ -331,7 +330,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     vector<MaximalExactMatch>* pairable_mems_ptr_2 = nullptr;
 
     // find the MEMs for the alignments
-    if (report_consistent_pairs) {
+    if (fragment_size) {
         vector<MaximalExactMatch> mems1 = find_smems(read1.sequence());
         for (auto& mem : mems1) { get_mem_hits_if_under_max(mem); }
         vector<MaximalExactMatch> mems2 = find_smems(read2.sequence());
@@ -351,6 +350,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     }
     
     //cerr << pairable_mems1.size() << " and " << pairable_mems2.size() << endl;
+    
+    bool report_consistent_pairs = (bool) fragment_size;
 
     // use MEM alignment on the MEMs matching our constraints
     vector<Alignment> alignments1 = align_multi_internal(!report_consistent_pairs, read1, kmer_size, stride, band_width,
@@ -369,6 +370,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // Must rescue 1 off of 2
         if (debug) cerr << "Rescue read 1 off of read 2" << endl;
         alignments1.clear();
+        
+        // We use this to deduplicate rescue alignments based on their
+        // serialized Prtotobuf paths. Relies on protobuf serialization being
+        // deterministic.
+        set<string> found;
+        
         for(auto base : alignments2) {
             if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
                 // Can't rescue off this
@@ -376,7 +383,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             }
             Alignment mate = read1;
             align_mate(base, mate);
-            alignments1.push_back(mate);
+            
+            string serialized;
+            mate.path().SerializeToString(&serialized);
+            if(!found.count(serialized)) {
+                // This is a novel alignment
+                alignments1.push_back(mate);
+                found.insert(serialized);
+            }
+            
             if(!always_rescue) {
                 // We only want to rescue off the best one, and they're sorted
                 break;
@@ -386,6 +401,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // Must rescue 2 off of 1
         if (debug) cerr << "Rescue read 2 off of read 1" << endl;
         alignments2.clear();
+        
+        // We use this to deduplicate rescue alignments based on their
+        // serialized Prtotobuf paths. Relies on protobuf serialization being
+        // deterministic.
+        set<string> found;
+        
         for(auto base : alignments1) {
             if(base.score() == 0 || !base.has_path() || base.path().mapping_size() == 0) {
                 // Can't rescue off this
@@ -393,19 +414,48 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             }
             Alignment mate = read2;
             align_mate(base, mate);
-            alignments2.push_back(mate);
+            
+            string serialized;
+            mate.path().SerializeToString(&serialized);
+            if(!found.count(serialized)) {
+                // This is a novel alignment
+                alignments2.push_back(mate);
+                found.insert(serialized);
+            }
+            
             if(!always_rescue) {
                 // We only want to rescue off the best one, and they're sorted
                 break;
             }
         }
     } else if(always_rescue) {
-        // Try rescuing each off all of the other
+        // Try rescuing each off all of the other.
+        // We need to be concerned about introducing duplicates.
         
         // We need temp places to hold the extra alignments we make so as to not
         // rescue off rescues.
         vector<Alignment> extra1;
         vector<Alignment> extra2;
+        
+        // We use these to deduplicate alignments based on their serialized
+        // Prtotobuf paths. Relies of protobuf serialization being
+        // deterministic.
+        set<string> found1;
+        set<string> found2;
+        
+        // Fill in the known alignments
+        for(auto existing : alignments1) {
+            // Serialize each alignment's Path and put the result in the set
+            string serialized;
+            existing.path().SerializeToString(&serialized);
+            found1.insert(serialized);
+        }
+        for(auto existing : alignments2) {
+            // Serialize each alignment's Path and put the result in the set
+            string serialized;
+            existing.path().SerializeToString(&serialized);
+            found2.insert(serialized);
+        }
         
         for(auto base : alignments1) {
             // Do 2 off of 1
@@ -415,7 +465,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             }
             Alignment mate = read2;
             align_mate(base, mate);
-            extra2.push_back(mate);
+            
+            string serialized;
+            mate.path().SerializeToString(&serialized);
+            if(!found2.count(serialized)) {
+                // This is a novel alignment
+                extra2.push_back(mate);
+                found2.insert(serialized);
+            }
         }
         
         for(auto base : alignments2) {
@@ -426,10 +483,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             }
             Alignment mate = read1;
             align_mate(base, mate);
-            extra1.push_back(mate);
+            
+            string serialized;
+            mate.path().SerializeToString(&serialized);
+            if(!found1.count(serialized)) {
+                // This is a novel alignment
+                extra1.push_back(mate);
+                found1.insert(serialized);
+            }
         }
         
-        // Copy over the new alignments
+        // Copy over the new unique alignments
         alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
         alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
     }
@@ -454,7 +518,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // TODO: do I actually want to rescue a pair with no CONSISTENT mappings? otherwise pairs might get knocked down later and
     // then I still return nothing
     
-    if (report_consistent_pairs) {
+    if (fragment_size) {
         // compare pairs by the sum of their individual scores
         struct ComparePairedAlignmentScores {
             vector<Alignment>& alns_1;
@@ -480,15 +544,18 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // ensure that there is always an additional pair to compute a mapping quality against
         int num_pairs = max_multimaps >= 2 ? max_multimaps : 2;
         
+        
         pair_queue.push(make_pair(0, 0));
         while (!pair_queue.empty() && consistent_pairs.first.size() < num_pairs) {
             // get index of remaining pair with highest combined score
             pair<int, int> aln_pair = pair_queue.top();
             pair_queue.pop();
             
+            
             if (alignments_consistent(aln_pos[&alignments1[aln_pair.first]], aln_pos[&alignments2[aln_pair.second]], fragment_size)) {
                 consistent_pairs.first.push_back(alignments1[aln_pair.first]);
                 consistent_pairs.second.push_back(alignments2[aln_pair.second]);
+                
             }
             
             // add in the two adjacent indices if we haven't already
@@ -503,6 +570,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 considered_pairs.insert(next_aln_pair_right);
             }
         }
+
 
         compute_mapping_qualities(consistent_pairs);
         

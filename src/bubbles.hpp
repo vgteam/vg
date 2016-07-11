@@ -53,13 +53,20 @@ typedef Tree<Bubble> BubbleTree;
 //    so graph should be sorted
 //  - returned cactus graph needs to be freed by stCactusGraph_destruct
 //  - returns "root" node as well as graph
-pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, id_t source_id, id_t sink_id);
+pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, pair<NodeSide, NodeSide> source_sink);
 
-// Get source and sink nodes
-pair<id_t, id_t> get_cactus_source_sink(VG& graph);
+// Get source and sink nodes, relying on node ranks of sorted graph
+pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph);
+
+// Get source and sink nodes from path endpoints
+pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph, const string& path_name, int steps = 5);
+
+// Remove all head and tail nodes that aren't a source or sink
+void remove_heads_and_tails(VG& graph, pair<NodeSide, NodeSide> source_sink);
 
 // Return the hierchical cactus decomposition
-BubbleTree cactusbubble_tree(VG& graph);
+// Input graph must be sorted!
+BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink);
 
 // By default, bubble X's contents array doesn't have all the nodes
 // in its children's contents (ie each node only stored in lowest bubble
@@ -70,8 +77,17 @@ void bubble_up_bubbles(BubbleTree& bubble_tree);
 
 // Enumerate Cactus bubbles.  Interface (and output on DAGs)
 // identical to superbubbles()
+// Note: input graph will be sorted (as done for superbubbles())
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph);
 
+// Convert back from Cactus to VG
+// (to, for example, display using vg view)
+// todo: also provide mapping info to get nodes embedded in cactus components
+VG cactus_to_vg(stCactusGraph* cactus_graph);
+
+// Convert vg into vg formatted cactus representation
+// Input graph must be sorted!
+VG cactusify(VG& graph);
 
 }
 

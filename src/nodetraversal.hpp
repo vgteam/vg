@@ -34,8 +34,22 @@ public:
         return node != other.node || backward != other.backward;
     }
 
+    // Make sure to sort by node ID and not pointer value, because people will expect that.
     inline bool operator<(const NodeTraversal& other) const {
-        return node < other.node || (node == other.node && backward < other.backward);
+        if(node == nullptr && other.node != nullptr) {
+            // We might have a null node when they don't.
+            return true;
+        }
+        if(other.node == nullptr && node != nullptr) {
+            // They might have a null node when we don't.
+            return false;
+        }
+        if(other.node == nullptr && node == nullptr) {
+            // We bith might have null nodes.
+            return backward < other.backward;
+        }
+        // Now we know none of the nodes are null. Sort by actual ID.
+        return node->id() < other.node->id() || (node == other.node && backward < other.backward);
     }
 
     // reverse complement the node traversal

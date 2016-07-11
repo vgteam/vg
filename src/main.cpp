@@ -48,6 +48,7 @@ void help_translate(char** argv) {
          << "options:" << endl
          << "    -p, --paths FILE      project the input paths into the from-graph" << endl
          << "    -a, --alns FILE       project the input alignments into the from-graph" << endl
+         << "    -l, --loci FILE       project the input locus descriptions into the from-graph" << endl
          << "    -m, --mapping JSON    print the from-mapping corresponding to the given JSON mapping" << endl
          << "    -P, --position JSON   print the from-position corresponding to the given JSON position" << endl
          << "    -o, --overlay FILE    overlay this translation on top of the one we are given" << endl;
@@ -64,6 +65,7 @@ int main_translate(int argc, char** argv) {
     string mapping_string;
     string path_file;
     string aln_file;
+    string loci_file;
     string overlay_file;
 
     int c;
@@ -76,12 +78,13 @@ int main_translate(int argc, char** argv) {
             {"mapping", required_argument, 0, 'm'},
             {"paths", required_argument, 0, 'p'},
             {"alns", required_argument, 0, 'a'},
+            {"loci", required_argument, 0, 'l'},
             {"overlay", required_argument, 0, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:m:P:a:o:",
+        c = getopt_long (argc, argv, "hp:m:P:a:o:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -104,6 +107,10 @@ int main_translate(int argc, char** argv) {
 
         case 'a':
             aln_file = optarg;
+            break;
+
+        case 'l':
+            loci_file = optarg;
             break;
 
         case 'o':
@@ -162,6 +169,15 @@ int main_translate(int argc, char** argv) {
         };
         ifstream aln_in(aln_file);
         stream::for_each(aln_in, lambda);
+        stream::write_buffered(cout, buffer, 0);
+    } else if (!loci_file.empty()) {
+        vector<Locus> buffer;
+        function<void(Locus&)> lambda = [&](Locus& locus) {
+            buffer.push_back(translator->translate(locus));
+            stream::write_buffered(cout, buffer, 100);
+        };
+        ifstream loci_in(loci_file);
+        stream::for_each(loci_in, lambda);
         stream::write_buffered(cout, buffer, 0);
     }
 
@@ -1631,14 +1647,11 @@ int main_genotype(int argc, char** argv) {
     // What length override should we use
     int64_t length_override = 0;
     
-    // Don't bother genotyping ref only superbubbles
-    bool skip_reference = true;
-
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
     
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
-    bool use_cactus;
+    bool use_cactus = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1719,14 +1732,14 @@ int main_genotype(int argc, char** argv) {
           abort ();
         }
     }
+
     if(thread_count > 0) {
         omp_set_num_threads(thread_count);
     }
-    thread_count = get_thread_count();
 
     // read the graph
     if (optind >= argc) {
-        help_call(argv);
+        help_genotype(argv);
         return 1;
     }
     if (show_progress) {
@@ -1745,41 +1758,18 @@ int main_genotype(int argc, char** argv) {
         }
         graph = new VG(in);
     }
-    
-    if(ref_path_name.empty()) {
-        // Guess the ref path name
-        if(graph->paths.size() == 1) {
-            // Autodetect the reference path name as the name of the only path
-            ref_path_name = (*(*graph).paths._paths.begin()).first;
-        } else {
-            ref_path_name = "ref";
-        }
-    }
-    
-    if(output_vcf && show_progress) {
-        cerr << "Calling against path " << ref_path_name << endl;
-    }
-    
-    if(sample_name.empty()) {
-        // Set a default sample name
-        sample_name = "SAMPLE";
-    }
 
     // setup reads index
     if (optind >= argc) {
-        help_call(argv);
+        help_genotype(argv);
         return 1;
-    }
-    
-    if(show_progress) {
-        cerr << "Loading reads..." << endl;
     }
     
     string reads_index_name = argv[optind];
     // This holds the RocksDB index that has all our reads, indexed by the nodes they visit.
     Index index;
     index.open_read_only(reads_index_name);
-    
+
     // Build the set of all the node IDs to operate on
     vector<vg::id_t> graph_ids;
     graph->for_each_node([&](Node* node) {
@@ -1787,219 +1777,51 @@ int main_genotype(int argc, char** argv) {
         graph_ids.push_back(node->id());
     });
 
-    // Load all the reads into memory
-    // TODO: support breaking up into chunks by sets of IDs or something
+    // Load all the reads matching the graph into memory
     vector<Alignment> alignments;
-    
+
+    if(show_progress) {
+        cerr << "Loading reads..." << endl;
+    }
+
     index.for_alignment_to_nodes(graph_ids, [&](const Alignment& alignment) {
         // Extract all the alignments
-        alignments.push_back(alignment);
+        
+        // Only take alignments that don't visit nodes not in the graph
+        bool contained = true;
+        for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
+            if(!graph->has_node(alignment.path().mapping(i).position().node_id())) {
+                // Throw out the read
+                contained = false;
+            }
+        }
+        
+        if(contained) {
+            // This alignment completely falls within the graph
+            alignments.push_back(alignment);
+        }
     });
-    
+        
     if(show_progress) {
         cerr << "Loaded " << alignments.size() << " alignments" << endl;
     }
     
-    // Make sure they have names. TODO: we assume that if they do have names
-    // they are already unique, and that they aren't like the names we generate.
-    for(size_t i = 0; i < alignments.size(); i++) {
-        if(alignments[i].name().empty()) {
-            // Generate a unique name
-            alignments[i].set_name("_unnamed_alignment_" + to_string(i));
-        }
-    }
-    
-    // Suck out paths
-    vector<Path> paths;
-    for(auto& alignment : alignments) {
-        // Copy over each path, naming it after its alignment
-        Path path = alignment.path();
-        path.set_name(alignment.name());
-        paths.push_back(path);
-    }
-    
-    // Run them through vg::edit() to add them to the graph. Save the translations.
-    vector<Translation> augmentation_translations = graph->edit(paths);
-    
-    if(show_progress) {
-        cerr << "Augmented graph; got " << augmentation_translations.size() << " translations" << endl;
-    }
-
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
-    
-    // Grab a reference to the (now augmented) graph
-    VG& augmented_graph = *graph;
-    
-    // Make sure that we actually have an index for traversing along paths.
-    augmented_graph.paths.rebuild_mapping_aux();
-    
-    if(!augmented_file_name.empty()) {
-        ofstream augmented_stream(augmented_file_name);
-        augmented_graph.serialize_to_ostream(augmented_stream);
-        augmented_stream.close();
-    }
-    
-    // store the reads that are embedded in the augmented graph, by their unique names
-    map<string, Alignment*> reads_by_name;
-    for(auto& alignment : alignments) {
-        reads_by_name[alignment.name()] = &alignment;
-        // Make sure to replace the alignment's path with the path it has in the augmented graph
-        list<Mapping>& mappings = augmented_graph.paths.get_path(alignment.name());
-        alignment.mutable_path()->clear_mapping();
-        for(auto& mapping : mappings) {
-            // Copy over all the transformed mappings
-            *alignment.mutable_path()->add_mapping() = mapping;
-        }
-    }
-    cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
-    
-    // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
-    
-    // Unfold/unroll, find the superbubbles, and translate back.
-    vector<Genotyper::Site> sites = use_cactus ? genotyper.find_sites_with_cactus(augmented_graph) : genotyper.find_sites(augmented_graph);
-    
-    if(show_progress) {
-        cerr << "Found " << sites.size() << " superbubbles" << endl;
-    }
-    
-    // We're going to count up all the affinities we compute
-    size_t total_affinities = 0;
-    
-    // We need a buffer for output
-    vector<vector<Locus>> buffer;
-    buffer.resize(thread_count);
-    
-    // If we're doing VCF output we need a VCF header
-    vcflib::VariantCallFile* vcf = nullptr;
-    // And a reference index tracking the primary path
-    ReferenceIndex* reference_index = nullptr;
-    if(output_vcf) {
-        // Build a reference index on our reference path
-        reference_index = new ReferenceIndex(augmented_graph, ref_path_name);
-        
-        // Start up a VCF
-        vcf = genotyper.start_vcf(cout, *reference_index, sample_name, contig_name, length_override);
-    }
-        
-    // We want to do this in paprallel, but we can't #pragma omp parallel for over a std::map
-    #pragma omp parallel shared(total_affinities)
-    {
-        #pragma omp single nowait
-        {
-            for(auto it = sites.begin(); it != sites.end(); it++) {
-                // For each site in parallel
-                
-                #pragma omp task firstprivate(it) shared(total_affinities)
-                {
-                
-                    auto& site = *it;
-                    
-                    int tid = omp_get_thread_num();
-                    
-                    // Get all the paths through the site
-                    vector<list<NodeTraversal>> paths = genotyper.get_paths_through_site(augmented_graph, site);
-                    
-                    if(skip_reference && paths.size() == 1 && paths[0].size() == 2) {
-                        // Skip boring guaranteed ref only sites where the only path is just the 2 anchoring nodes.
-                        // TODO: can't continue out of task
-                    } else if(skip_reference && paths.size() == 1 && output_vcf) {
-                        // Skip boring guaranteed ref only sites where there is just 1 path.
-                        // If it were the reference path, it'd be a noop, and if it's not the reference path, there's no way to express it as VCF.
-                        // TODO: can't continue out of task
-                    } else if(paths.empty()) {
-                        // Don't do anything for superbubbles with no routes through
-                    } else {
-                    
-                        if(show_progress) {
-                            #pragma omp critical (cerr)
-                            cerr << "Site " << site.start << " - " << site.end << " has " << paths.size() << " alleles" << endl;
-                            for(auto& path : paths) {
-                                // Announce each allele in turn
-                                #pragma omp critical (cerr)
-                                cerr << "\t" << genotyper.traversals_to_string(path) << endl;
-                            }
-                        }
-                        
-                        // Get the affinities for all the paths
-                        map<Alignment*, vector<Genotyper::Affinity>> affinities = genotyper.get_affinities_fast(augmented_graph, reads_by_name, site, paths);
-                        
-                        for(auto& alignment_and_affinities : affinities) {
-                            #pragma omp critical (total_affinities)
-                            total_affinities += alignment_and_affinities.second.size();
-                        }
-                        
-                        // Get a genotyped locus       
-                        Locus genotyped = genotyper.genotype_site(augmented_graph, site, paths, affinities);
-                        
-                        if(output_json) {
-                            // Dump in JSON
-                            #pragma omp critical (cout)
-                            cout << pb2json(genotyped) << endl;
-                        } else if(output_vcf) {
-                            // Get 0 or more variants from the superbubble
-                            vector<vcflib::Variant> variants = genotyper.locus_to_variant(*graph, site, *reference_index, *vcf, genotyped, sample_name);
-                            for(auto& variant : variants) {
-                                // Fix up all the variants
-                                if(!contig_name.empty()) {
-                                    // Override path name
-                                    variant.sequenceName = contig_name;
-                                } else {
-                                    // Keep path name
-                                    variant.sequenceName = ref_path_name;
-                                }
-                                variant.position += variant_offset;
-                                #pragma omp critical(cout)
-                                cout << variant << endl;
-                            }
-                        } else {
-                            // Write out in Protobuf
-                            buffer[tid].push_back(genotyped);
-                            stream::write_buffered(cout, buffer[tid], 100);
-                        }
-                    }
-                }
-            }
-        }
-    }           
-    
-    if(!output_json && !output_vcf) {
-        // Flush the protobuf output buffers
-        for(int i = 0; i < buffer.size(); i++) {
-            stream::write_buffered(cout, buffer[i], 0);
-        }
-    } 
+    genotyper.run(*graph,
+                  alignments,
+                  cout,
+                  ref_path_name,
+                  contig_name,
+                  sample_name,
+                  augmented_file_name,
+                  use_cactus,
+                  show_progress,
+                  output_vcf,
+                  output_json,
+                  length_override,
+                  variant_offset);
 
-
-    if(show_progress) {
-        cerr << "Computed " << total_affinities << " affinities" << endl;
-    }
-
-    
-
-    // TODO: use graph and reads to:
-    // - Augment graph
-    // - Find superbubbles or cactus branches to determine sites
-    // - Generate proposals for paths through each site (from reads?)
-    // - Compute affinities of each read for each proposed path through a site
-    // - Compute diploid genotypes for each site
-    // - Output as vcf or as native format (to be defined)
-
-    if(reference_index != nullptr) {
-        // Clean up the reference index if needed
-        delete reference_index;
-    }
-
-    if(vcf != nullptr) {
-        // Clean up the vcf file if needed
-        delete vcf;
-    }
-
-    if(graph != nullptr) {
-        // Clean up the graph
-        delete graph;
-    }
-    
     return 0;
 }
 
@@ -3272,6 +3094,8 @@ void help_mod(char** argv) {
          << endl
          << "options:" << endl
          << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
+         << "    -q, --include-loci FILE merge all alleles in loci into the graph" << endl
+         << "    -Q, --include-gt FILE   merge only the alleles in called genotypes into the graph" << endl
          << "    -Z, --translation FILE  write the translation generated by editing with -i to FILE" << endl
          << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
@@ -3318,6 +3142,7 @@ void help_mod(char** argv) {
          << "    -F, --force-path-match  sets path edits explicitly equal to the nodes they traverse" << endl
          << "    -y, --destroy-node ID   remove node with given id" << endl
          << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
+         << "    -a, --cactus            convert to cactus graph representation" << endl
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -3331,6 +3156,8 @@ int main_mod(int argc, char** argv) {
     string path_name;
     bool remove_orphans = false;
     string aln_file;
+    string loci_file;
+    bool called_genotypes_only = false;
     bool label_paths = false;
     bool compact_ids = false;
     bool prune_complex = false;
@@ -3364,6 +3191,7 @@ int main_mod(int argc, char** argv) {
     int until_normal_iter = 0;
     string translation_file;
     bool flip_doubly_reversed_edges = false;
+    bool cactus = false;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3373,6 +3201,8 @@ int main_mod(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"include-aln", required_argument, 0, 'i'},
+            {"include-loci", required_argument, 0, 'q'},
+            {"include-gt", required_argument, 0, 'Q'},
             {"compact-ids", no_argument, 0, 'c'},
             {"compact-ranks", no_argument, 0, 'C'},
             {"drop-paths", no_argument, 0, 'D'},
@@ -3410,11 +3240,12 @@ int main_mod(int argc, char** argv) {
             {"destroy-node", required_argument, 0, 'y'},
             {"translation", required_argument, 0, 'Z'},
             {"unreverse-edges", required_argument, 0, 'E'},
+            {"cactus", no_argument, 0, 'a'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:E",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Ea",
                 long_options, &option_index);
 
 
@@ -3427,6 +3258,15 @@ int main_mod(int argc, char** argv) {
 
         case 'i':
             aln_file = optarg;
+            break;
+
+        case 'q':
+            loci_file = optarg;
+            break;
+
+        case 'Q':
+            loci_file = optarg;
+            called_genotypes_only = true;
             break;
 
         case 'Z':
@@ -3541,7 +3381,6 @@ int main_mod(int argc, char** argv) {
             dagify_to = atoi(optarg);
             break;
 
-
         case 'L':
             dagify_component_length_max = atoi(optarg);
             break;
@@ -3572,6 +3411,10 @@ int main_mod(int argc, char** argv) {
 
         case 'y':
             destroy_node_id = atoi(optarg);
+            break;
+            
+        case 'a':
+            cactus = true;
             break;
 
         case 'h':
@@ -3722,6 +3565,47 @@ int main_mod(int argc, char** argv) {
         }
     }
 
+    if (!loci_file.empty()) {
+        // read in the alignments and save their paths
+        vector<Path> paths;
+        function<void(Locus&)> lambda = [&graph, &paths, &called_genotypes_only](Locus& locus) {
+            // if we are only doing called genotypes, record so we can filter alleles
+            set<int> alleles_in_genotype;
+            if (called_genotypes_only) {
+                for (int i = 0; i < locus.genotype_size(); ++i) {
+                    for (int j = 0; j < locus.genotype(i).allele_size(); ++j) {
+                        alleles_in_genotype.insert(locus.genotype(i).allele(j));
+                    }
+                }
+            }
+            for (int i = 0; i < locus.allele_size(); ++i) {
+                // skip alleles not in the genotype if using only called genotypes
+                if (!alleles_in_genotype.empty()) {
+                    if (!alleles_in_genotype.count(i)) continue;
+                }
+                Path path = simplify(locus.allele(i));
+                stringstream name;
+                name << locus.name() << ":" << i;
+                path.set_name(name.str());
+                paths.push_back(path);
+            }
+        };
+        if (loci_file == "-") {
+            stream::for_each(std::cin, lambda);
+        } else {
+            ifstream in;
+            in.open(loci_file.c_str());
+            stream::for_each(in, lambda);
+        }
+        // execute the edits and produce the translation if requested
+        auto translation = graph->edit(paths);
+        if (!translation_file.empty()) {
+            ofstream out(translation_file);
+            stream::write_buffered(out, translation, 0);
+            out.close();
+        }
+    }
+
     // and optionally compact ids
     if (compact_ids) {
         graph->sort();
@@ -3765,6 +3649,14 @@ int main_mod(int argc, char** argv) {
 
     if (destroy_node_id > 0) {
         graph->destroy_node(destroy_node_id);
+    }
+
+    if (cactus) {
+        // ensure we're sorted
+        graph->sort();
+        *graph = cactusify(*graph);
+        // no paths survive, make sure they are erased
+        graph->paths = Paths();
     }
 
     graph->serialize_to_ostream(std::cout);
@@ -3920,7 +3812,8 @@ int main_sim(int argc, char** argv) {
             // name the alignment
             string data;
             aln.SerializeToString(&data);
-            const string hash = sha1head(data, 16) + std::to_string(nonce++);
+            data += std::to_string(nonce++);
+            const string hash = sha1head(data, 16);
             aln.set_name(hash);
             // write it out as requested
             if (json_out) {
@@ -4591,25 +4484,13 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    if (superbubbles) {
-        for (auto& i : vg::superbubbles(*graph)) {
+    if (superbubbles || cactus) {
+        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::cactusbubbles(*graph);
+        for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
-            // sort output for now, to be consistent with cactus
-            b = minmax(b.first, b.second);
+            // sort output for now, to help do diffs in testing
             sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
-        }
-    }
-
-    if (cactus) {
-        for (auto& i : vg::cactusbubbles(*graph)) {
-            auto& b = i.first;
-            auto& v = i.second;
             cout << b.first << "\t" << b.second << "\t";
             for (auto& n : v) {
                 cout << n << ",";
@@ -6430,9 +6311,8 @@ void help_map(char** argv) {
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -a, --consistent-pairs     report pairs instead of individual alignments and filter to consistent pairings" << endl
+         << "    -W, --fragment-window N    report pairs instead of individual alignments and filter to consistent pairings within this fragment-window" << endl
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
-         << "    -W, --fragment-window N    use SMEM based distance estimation to allow only pairable SMEMs with this fragment length" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
          << "generic mapping parameters:" << endl
@@ -6519,7 +6399,6 @@ int main_map(int argc, char** argv) {
     int gap_open = 6;
     int gap_extend = 1;
     bool qual_adjust_alignments = false;
-    bool report_consistent_pairs = false;
     int extra_pairing_multimaps = 4;
     int method_code = 1;
     string gam_input;
@@ -6581,7 +6460,6 @@ int main_map(int argc, char** argv) {
                 {"gap-open", required_argument, 0, 'o'},
                 {"gap-extend", required_argument, 0, 'y'},
                 {"qual-adjust", no_argument, 0, '1'},
-                {"consistent-pairs", no_argument, 0, 'a'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
                 {"map-qual-method", required_argument, 0, 'v'},
                 {"compare", required_argument, 0, 'w'},
@@ -6590,7 +6468,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1au:v:w:W:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:",
                          long_options, &option_index);
 
 
@@ -6788,10 +6666,6 @@ int main_map(int argc, char** argv) {
             
         case '1':
             qual_adjust_alignments = true;
-            break;
-            
-        case 'a':
-            report_consistent_pairs = true;
             break;
         
         case 'u':
@@ -7003,7 +6877,6 @@ int main_map(int argc, char** argv) {
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
-        m->report_consistent_pairs = report_consistent_pairs;
         m->extra_pairing_multimaps = extra_pairing_multimaps;
         m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
@@ -7263,10 +7136,14 @@ void help_view(char** argv) {
          << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
+         << "    -q, --locus-in       input stream is Locus format" << endl
+         << "    -z, --locus-out      output stream Locus format" << endl
+         << "    -Q, --loci FILE      input is Locus format for use by dot output" << endl
+
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
-         << "    -B, --bubble-rank    use superbubbles to force ranking in dot output" << endl
-         << "    -Y, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
+         << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
+         << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
@@ -7313,6 +7190,7 @@ int main_view(int argc, char** argv) {
     string rdf_base_uri;
     bool input_json = false;
     string alignments;
+    string loci_file;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
     bool show_paths_in_dot = false;
@@ -7325,6 +7203,7 @@ int main_view(int argc, char** argv) {
     bool color_variants = false;
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
+    bool cactusbubble_labeling = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -7361,13 +7240,16 @@ int main_view(int argc, char** argv) {
                 {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
-                {"bubble-rank", no_argument, 0, 'B'},
-                {"bubble-label", no_argument, 0, 'Y'},
+                {"cactus-label", no_argument, 0, 'Y'},
+                {"bubble-label", no_argument, 0, 'B'},
+                {"locus-in", no_argument, 0, 'q'},
+                {"loci", no_argument, 0, 'Q'},
+                {"locus-out", no_argument, 0, 'z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBY",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYqQ:z",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -7388,11 +7270,11 @@ int main_view(int argc, char** argv) {
             simple_dot = true;
             break;
 
-        case 'B':
-            superbubble_ranking = true;
+        case 'Y':
+            cactusbubble_labeling = true;
             break;
 
-        case 'Y':
+        case 'B':
             superbubble_labeling = true;
             break;
 
@@ -7517,6 +7399,22 @@ int main_view(int argc, char** argv) {
             }
             break;
 
+        case 'q':
+            input_type = "locus";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
+            break;
+
+        case 'z':
+            output_type = "locus";
+            break;
+
+        case 'Q':
+            loci_file = optarg;
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -7544,6 +7442,13 @@ int main_view(int argc, char** argv) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
         ifstream in;
         in.open(alignments.c_str());
+        stream::for_each(in, lambda);
+    }
+    vector<Locus> loci;
+    if (!loci_file.empty()) {
+        function<void(Locus&)> lambda = [&loci](Locus& locus) { loci.push_back(locus); };
+        ifstream in;
+        in.open(loci_file.c_str());
         stream::for_each(in, lambda);
     }
 
@@ -7753,6 +7658,36 @@ int main_view(int argc, char** argv) {
             return 1;
         }
         return 0;
+    } else if (input_type == "locus") {
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Locus&)> lambda = [](Locus& l) {
+                    cout << pb2json(l) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
+            } else {
+                // todo
+                cerr << "[vg view] error: (binary) Locus can only be converted to JSON" << endl;
+                return 1;
+            }
+        } else {
+            if (output_type == "json" || output_type == "locus") {
+                JSONStreamHelper<Locus> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON Locus can only be converted to Locus or JSON" << endl;
+                return 1;
+            }
+        }
+        cout.flush();
+        return 0;
     }
 
     if(graph == nullptr) {
@@ -7773,6 +7708,7 @@ int main_view(int argc, char** argv) {
     if (output_type == "dot") {
         graph->to_dot(std::cout,
                       alns,
+                      loci,
                       show_paths_in_dot,
                       walk_paths_in_dot,
                       annotate_paths_in_dot,
@@ -7782,6 +7718,7 @@ int main_view(int argc, char** argv) {
                       color_variants,
                       superbubble_ranking,
                       superbubble_labeling,
+                      cactusbubble_labeling,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
@@ -7791,6 +7728,8 @@ int main_view(int argc, char** argv) {
         graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
+    } else if (output_type == "locus") {
+        
     } else {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
