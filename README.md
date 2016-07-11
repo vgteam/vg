@@ -26,6 +26,8 @@ Before you begin, you'll need to install some basic tools if they are not alread
 
 You can also run `make get-deps`.
 
+At present, you will need GCC version 4.9 or greater to compile vg. (Check your version with `gcc --version`.)
+
 Other libraries may be required. Please report any build difficulties.
 
 Now, obtain the repo and its submodules:
