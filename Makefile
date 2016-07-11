@@ -9,7 +9,7 @@ CPP_DIR:=cpp
 EXE:=vg
 
 CXX:=g++
-CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb
+CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb -g
 
 CWD:=$(shell pwd)
 
@@ -175,7 +175,7 @@ include/stream.hpp:
 	cp src/stream.hpp include/stream.hpp
 
 $(CPP_DIR)/vg.pb.o: $(CPP_DIR)/vg.pb.cc
-	+. ./source_me.sh && g++ -O3 -msse4.1 -fopenmp -std=c++11 -c -o cpp/vg.pb.o cpp/vg.pb.cc $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(CPP_DIR)/vg.pb.cc: $(CPP_DIR)/vg.pb.h 
 
