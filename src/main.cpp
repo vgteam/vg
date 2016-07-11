@@ -2327,8 +2327,11 @@ int main_msga(int argc, char** argv) {
 
     // give a null label to sequences passed on the command line
     // thus far there is no way to specify these (use fasta instead)
+    int nonce = 0;
     for (auto& s : sequences) {
-        auto name = sha1head(s, 8);
+        stringstream ss;
+        ss << s << ++nonce;
+        auto name = sha1head(ss.str(), 8);
         strings[name] = s;
         names_in_order.push_back(name);
     }
