@@ -354,6 +354,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool report_consistent_pairs = (bool) fragment_size;
 
     // use MEM alignment on the MEMs matching our constraints
+    // We maintain the invariant that these two vectors of alignments are sorted
+    // by score, descending, as returned from align_multi_internal.
     vector<Alignment> alignments1 = align_multi_internal(!report_consistent_pairs, read1, kmer_size, stride, band_width,
                                                          report_consistent_pairs * extra_pairing_multimaps, pairable_mems_ptr_1);
     vector<Alignment> alignments2 = align_multi_internal(!report_consistent_pairs, read2, kmer_size, stride, band_width,
@@ -497,8 +499,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
         alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
     }
+    
+    // Fix up the sorting by score, descending, in case rescues came out
+    // better than normal alignments.
+    sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
+        return a.score() > b.score();
+    });
+    sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
+        return a.score() > b.score();
+    });
 
-    // We should always have the same number now.
     if (debug) cerr << alignments1.size() << " alignments for read 1, " << alignments2.size() << " for read 2" << endl;
 
     map<Alignment*, map<string, double> > aln_pos;
@@ -511,15 +521,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
 
-    // There is a best consistent pair.
-    // Swap the best alignments first.
-    // We know we have at least one alignment on each side.
-    
-    // TODO: do I actually want to rescue a pair with no CONSISTENT mappings? otherwise pairs might get knocked down later and
-    // then I still return nothing
-    
     if (fragment_size) {
+        // Now we want to emit consistent pairs, in order of decreasing total score.
+    
         // compare pairs by the sum of their individual scores
+        // We need this functor thing to make the priority queue work.
         struct ComparePairedAlignmentScores {
             vector<Alignment>& alns_1;
             vector<Alignment>& alns_2;
@@ -534,7 +540,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         
         ComparePairedAlignmentScores compare_paired_alignment_scores = ComparePairedAlignmentScores(alignments1, alignments2);
         
-        // think about the pairs being laid out on a grid over the individual end multimaps
+        // think about the pairs being laid out on a grid over the individual end multimaps, sorted in each dimension by score
         // navigate from top left corner outward to add consistent pairs in decreasing score order
         priority_queue<pair<int, int>, vector<pair<int, int>>, ComparePairedAlignmentScores> pair_queue(compare_paired_alignment_scores);
         // keep track of which indices have been checked to avoid checking them twice when navigating from above and from the left
@@ -555,6 +561,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             if (alignments_consistent(aln_pos[&alignments1[aln_pair.first]], aln_pos[&alignments2[aln_pair.second]], fragment_size)) {
                 consistent_pairs.first.push_back(alignments1[aln_pair.first]);
                 consistent_pairs.second.push_back(alignments2[aln_pair.second]);
+                
+                if(debug) {
+                    cerr << "Found consistent pair " << aln_pair.first << ", " << aln_pair.second
+                        << " with scores " << alignments1[aln_pair.first].score()
+                        << ", " << alignments2[aln_pair.second].score() << endl;
+                }
                 
             }
             
@@ -588,16 +600,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             consistent_pairs.second[i].set_is_secondary(i > 0);
         }
         return consistent_pairs;
-    }
-    else {
-
-        // Sort all the alignments by score, descending
-        sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
-            return a.score() > b.score();
-        });
-        sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
-            return a.score() > b.score();
-        });
+    } else {
 
         // Truncate to max multimaps
         if(alignments1.size() > max_multimaps) {
