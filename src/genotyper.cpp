@@ -653,6 +653,15 @@ map<Alignment*, vector<Genotyper::Affinity>>
     // superbubble, but outside the superbubble itself.
     VG surrounding;
     for(auto id : relevant_ids) {
+        // For all the IDs in the surrounding material
+        
+        if(graph.paths.get_node_mapping(id).size() < min_recurrence) {
+            // Skip nodes in the graph that have too little support. In practice
+            // this means we'll restrict ourselves to supported, known nodes.
+            // TODO: somehow do the same for edges.
+            continue;
+        }
+    
         // Add each node and its edges to the new graph. Ignore dangling edges.
         // We'll keep edges dangling to the superbubble anchor nodes.
         surrounding.add_node(*graph.get_node(id));
@@ -691,7 +700,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
         // Get rid of dangling edges
         allele_graph.remove_orphan_edges();
         
-#ifdef debug
+#ifdef debug_verbose
         #pragma omp critical (cerr)
         cerr << "Align to " << pb2json(allele_graph.graph) << endl;
 #endif
@@ -762,11 +771,18 @@ map<Alignment*, vector<Genotyper::Affinity>>
             
 #ifdef debug
             #pragma omp critical (cerr)
+            cerr << path_seq << " vs " << aligned.sequence() << ": " << aligned.score() << endl;
+            
+#endif
+
+#ifdef debug_verbose
+            #pragma omp critical (cerr)
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
 
             // Save the identity and orientation
-            Affinity affinity(aligned.identity(), aligned_rev.score() > aligned_fwd.score());
+            // We'll normalize the affinities later to enforce the max of 1.0.
+            Affinity affinity(aligned.score(), aligned_rev.score() > aligned_fwd.score());
             
             // Get the NodeTraversals for the winning alignment through the site.
             auto read_traversal = get_traversal_of_site(graph, site, aligned.path());
@@ -824,19 +840,35 @@ map<Alignment*, vector<Genotyper::Affinity>>
         // Grab its original Alignment pointer.
         Alignment* read = reads_by_name.at(name);
         
+        // Which is the best affinity we can get while being consistent?
+        double best_consistent_affinity = 0;
+        // And which is the best affinity we can get overall?
         double best_affinity = 0;
         for(auto& affinity : to_return[read]) {
-            // Look for the max affinity found on anything already consistent
-            if(affinity.consistent && affinity.affinity > best_affinity) {
+            if(affinity.consistent && affinity.affinity > best_consistent_affinity) {
+                // Look for the max affinity found on anything already consistent
+                best_consistent_affinity = affinity.affinity;
+            }
+            
+            if(affinity.affinity > best_affinity) {
+                // And the max affinity overall, for normalizing to correct
+                // affinity range of 0 to 1.
                 best_affinity = affinity.affinity;
             }
         }
         
         for(auto& affinity : to_return[read]) {
-            if(affinity.affinity < best_affinity) {
-                // Mark all the Affinities that are worse as not actually being
-                // consistent.
+            if(affinity.affinity < best_consistent_affinity) {
+                // Mark all the Affinities that are worse than the best
+                // consistent one as not actually being consistent.
                 affinity.consistent = false;
+            }
+            
+            if(best_affinity == 0) {
+                affinity.affinity = 1.0;
+            } else {
+                // Normalize to the best affinity overall being 1.
+                affinity.affinity /= best_affinity;
             }
         }
             
