@@ -146,8 +146,8 @@ void Genotyper::run(VG& graph,
                     
                     int tid = omp_get_thread_num();
                     
-                    // Get all the paths through the site
-                    vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site);
+                    // Get all the paths through the site supported by enough reads, or by real named paths
+                    vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site, reads_by_name);
                     
                     if(paths.size() == 0) {
                         // TODO: this compensates for inside-out sites from
@@ -156,7 +156,7 @@ void Genotyper::run(VG& graph,
                         
                         // Flip the site around and try again
                         swap(site.start, site.end);
-                        vector<list<NodeTraversal>> reverse_paths = get_paths_through_site(graph, site);
+                        vector<list<NodeTraversal>> reverse_paths = get_paths_through_site(graph, site, reads_by_name);
                         if(reverse_paths.size() != 0) {
                             // We actually got some paths. Use them
                             swap(paths, reverse_paths);
@@ -239,6 +239,41 @@ void Genotyper::run(VG& graph,
                             // length can't change, or when indle realignment is
                             // off.
                             affinities = get_affinities_fast(graph, reads_by_name, site, paths);
+                        }
+                        
+                        if(show_progress) {
+                            // Sum up all the affinities by consistency flags
+                            map<string, size_t> consistency_combo_counts;
+                            for(auto& alignment_and_affinities : affinities) {
+                                // For every alignment, make a string describing which alleles it is consistent with.
+                                string consistency;
+                                for(auto& affinity : alignment_and_affinities.second) {
+                                    if(affinity.consistent) {
+                                        // Consistent alleles get marked with a 1
+                                        consistency.push_back('1');
+                                    } else {
+                                        // Inconsistent ones get marked with a 0
+                                        consistency.push_back('0');
+                                    }
+                                }
+
+#ifdef debug
+                                #pragma omp critical (cerr)
+                                cerr << consistency << ": " << alignment_and_affinities.first->sequence() << endl;
+#endif
+                                
+                                
+                                // Increment the count for that pattern
+                                consistency_combo_counts[consistency]++;
+                            }
+                        
+                            #pragma omp critical (cerr)
+                            {
+                                for(auto& combo_and_count : consistency_combo_counts) {
+                                    // Spit out all the counts for all the combos
+                                    cerr << combo_and_count.first << ": " << combo_and_count.second << endl;
+                                }
+                            }
                         }
                         
                         for(auto& alignment_and_affinities : affinities) {
@@ -456,10 +491,15 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
     return to_return;
 }
 
-vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const Site& site) {
+vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const Site& site,
+    const map<string, Alignment*>& reads_by_name) {
     // We're going to emit traversals supported by any paths in the graph.
     
-    // Put all our subpaths in here to deduplicate them by sequence they spell out. And to count occurrences.
+    // Put all our subpaths in here to deduplicate them by sequence they spell
+    // out. And to count occurrences. Note that the occurrence count will be
+    // boosted to min_recurrence if a non-read path in the graph supports a
+    // certain traversal string, so we don't end up dropping unsupported ref
+    // alleles.
     map<string, pair<list<NodeTraversal>, int>> results;
 
 #ifdef debug
@@ -476,6 +516,9 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
         for(auto& name_and_mappings : graph.paths.get_node_mapping(site.start.node)) {
             // Go through the paths that visit the start node
             
+            // Grab their names
+            auto& name = name_and_mappings.first;
+            
             if(!endmappings_by_name.count(name_and_mappings.first)) {
                 //cerr << "no endmappings match" << endl;
                 // No path by this name has any mappings to the end node. Skip
@@ -488,7 +531,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                 
 #ifdef debug
                 #pragma omp critical (cerr)
-                cerr << "Trying mapping of read " << name_and_mappings.first << endl;
+                cerr << "Trying mapping of read/path " << name_and_mappings.first << endl;
 #endif
                 
                 // How many times have we gone to the next mapping looking for a
@@ -537,10 +580,28 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                             #pragma omp critical (cerr)
                             cerr << "\tFinished; got known sequence " << allele_stream.str() << endl;
 #endif
-                            results[allele_stream.str()].second++;
+
+                            if(reads_by_name.count(name)) {
+                                // We are a read. Just increment count
+                                results[allele_stream.str()].second++;
+                            } else {
+                                // We are a named path (like "ref")
+                                if(results[allele_stream.str()].second < min_recurrence) {
+                                    // Ensure that this allele doesn't get
+                                    // eliminated, since ref or some other named
+                                    // path supports it.
+                                    results[allele_stream.str()].second = min_recurrence;
+                                } else {
+                                    results[allele_stream.str()].second++;
+                                }
+                            }
                         } else {
-                            // Add it in
-                            results[allele_stream.str()] = make_pair(path_traversed, 1);
+                            // Add it in. Give it a count of 1 if we are a read,
+                            // and a count of min_recurrence (so it doesn't get
+                            // filtered later) if we are a named non-read path
+                            // (like "ref").
+                            results[allele_stream.str()] = make_pair(path_traversed,
+                                reads_by_name.count(name) ? 1 : min_recurrence);
 #ifdef debug
                             #pragma omp critical (cerr)
                             cerr << "\tFinished; got novel sequence " << allele_stream.str() << endl;
@@ -582,8 +643,8 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
         if(count < min_recurrence) {
             // We don't have enough initial hits for this sequence to justify
             // trying to re-align the rest of the reads. Skip it. Note that the
-            // reference path counts as a single recurrence, so we might throw
-            // it out if nothing else covers it.
+            // reference path (and other named paths) will stuff in at least
+            // min_recurrence to make sure we don't throw out their alleles.
             continue;
         }
         
