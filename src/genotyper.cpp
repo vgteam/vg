@@ -1842,7 +1842,7 @@ Genotyper::locus_to_variant(VG& graph,
     }
     
     // Get the string for the reference allele
-    string refString = index.sequence.substr(referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
+    string ref_string = index.sequence.substr(referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
     
     // And make strings for all the locus's alleles
     vector<string> allele_strings;
@@ -1858,7 +1858,7 @@ Genotyper::locus_to_variant(VG& graph,
     }
     
     // See if any alleles are empty
-    bool empty_alleles = refString.empty();
+    bool empty_alleles = ref_string.empty();
     for(auto& allele : allele_strings) {
         if(allele == "") {
             empty_alleles = true;
@@ -1874,14 +1874,77 @@ Genotyper::locus_to_variant(VG& graph,
             allele = prefix + allele;
         }
         // Also prepend it to the reference string
-        refString = prefix + refString;
+        ref_string = prefix + ref_string;
         
         // Budge the variant over
         referenceIntervalStart--;
     }
     
+    // Trim fixed characters off the right
+    while(ref_string.size() > 1) {
+        // Grab the character at the end of the ref sequence
+        char fixed = ref_string.back();
+        
+        // Set this to false if not all the alt strings also have this character
+        // at the end, free to be chopped off.
+        bool all_have_character = true;
+        for(auto& allele_string : allele_strings) {
+            if(allele_string.size() <= 1 || allele_string.back() != fixed) {
+                // String is too short to trim or ends in the wrong character
+                all_have_character = false;
+                break;
+            }
+        }
+        
+        if(all_have_character) {
+            // Trim it off
+            ref_string.pop_back();
+            for(auto& allele_string : allele_strings) {
+                allele_string.pop_back();
+            }
+            
+            // Record we budged the end of the interval left.
+            referenceIntervalPastEnd--;
+        } else {
+            // Done trimming
+            break;
+        }
+    }
+    
+    // Trim fixed characters off the left
+    while(ref_string.size() > 1) {
+        // Grab the character at the start of the ref sequence
+        char fixed = ref_string.front();
+        
+        // Set this to false if not all the alt strings also have this character
+        // at the start, free to be chopped off.
+        bool all_have_character = true;
+        for(auto& allele_string : allele_strings) {
+            if(allele_string.size() <= 1 || allele_string.front() != fixed) {
+                // String is too short to trim or starts with the wrong character
+                all_have_character = false;
+                break;
+            }
+        }
+        
+        if(all_have_character) {
+            // Trim it off
+            // TODO: this is going to be O(n^2)
+            ref_string.erase(0, 1);
+            for(auto& allele_string : allele_strings) {
+                allele_string.erase(0, 1);
+            }
+            
+            // Record that we budged the reference sequence start right.
+            referenceIntervalStart++;
+        } else {
+            // Done trimming
+            break;
+        }
+    }
+    
     // Make the ref allele
-    create_ref_allele(variant, refString);
+    create_ref_allele(variant, ref_string);
     
     // Make a vector of supports by assigned VCF alt number
     vector<Support> support_by_alt;
