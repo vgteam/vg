@@ -106,7 +106,7 @@ is $(vg map -r x.reads -x x.xg -g x.gcsa -k 22 -J | jq -r ".mapping_quality" | w
 
 rm temp_paired_alignment.json temp_independent_alignment.json
 
-is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -W 300 -u 4 -v 1 -J | jq -r ".mapping_quality") $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -a -u 4 -v 2 -J | jq -r ".mapping_quality") "mapping quality approximation is equal to exact calculation in a clear cut case"
+is $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -W 300 -u 4 -v 1 -J | jq -r ".mapping_quality") $(vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -U -u 4 -v 2 -J | jq -r ".mapping_quality") "mapping quality approximation is equal to exact calculation in a clear cut case"
 
 vg map -f alignment/mismatch_full_qual.fq -x x.xg -g x.gcsa -k 22 -J -1 | jq -c '.score' > temp_scores_full_qual.txt
 vg map -f alignment/mismatch_reduced_qual.fq -x x.xg -g x.gcsa -k 22 -J -1 | jq -c '.score' > temp_scores_reduced_qual.txt

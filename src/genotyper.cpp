@@ -1,18 +1,19 @@
 #include "genotyper.hpp"
 #include "bubbles.hpp"
+#include "distributions.hpp"
 
 namespace vg {
 
 using namespace std;
 
-    // genotyper:
-    // use graph and reads to:
-    // - Augment graph
-    // - Find superbubbles or cactus branches to determine sites
-    // - Generate proposals for paths through each site (from reads?)
-    // - Compute affinities of each read for each proposed path through a site
-    // - Compute diploid genotypes for each site
-    // - Output as vcf or as native format
+// genotyper:
+// use graph and reads to:
+// - Augment graph
+// - Find superbubbles or cactus branches to determine sites
+// - Generate proposals for paths through each site (from reads?)
+// - Compute affinities of each read for each proposed path through a site
+// - Compute diploid genotypes for each site
+// - Output as vcf or as native format
 
 void Genotyper::run(VG& graph,
                     vector<Alignment>& alignments,
@@ -39,6 +40,7 @@ void Genotyper::run(VG& graph,
     }
     
     if(output_vcf && show_progress) {
+        #pragma omp critical (cerr)
         cerr << "Calling against path " << ref_path_name << endl;
     }
     
@@ -67,14 +69,13 @@ void Genotyper::run(VG& graph,
     
     // Run them through vg::edit() to add them to the graph. Save the translations.
     vector<Translation> augmentation_translations = graph.edit(paths);
-    
+    translator.load(augmentation_translations);
+
     if(show_progress) {
+        #pragma omp critical (cerr)
         cerr << "Augmented graph; got " << augmentation_translations.size() << " translations" << endl;
     }
 
-    // Set up the translator to map back
-    Translator translator(augmentation_translations);
-    
     // Make sure that we actually have an index for traversing along paths.
     graph.paths.rebuild_mapping_aux();
     
@@ -96,6 +97,7 @@ void Genotyper::run(VG& graph,
             *alignment.mutable_path()->add_mapping() = mapping;
         }
     }
+    #pragma omp critical (cerr)
     cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
     
     // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
@@ -105,6 +107,7 @@ void Genotyper::run(VG& graph,
         : find_sites_with_supbub(graph);
     
     if(show_progress) {
+        #pragma omp critical (cerr)
         cerr << "Found " << sites.size() << " superbubbles" << endl;
     }
     
@@ -174,7 +177,6 @@ void Genotyper::run(VG& graph,
                         auto start_ref_appearance = reference_index->byId.at(site.start.node->id());
                         auto end_ref_appearance = reference_index->byId.at(site.end.node->id());
                         
-                        
                         // Are the ends running with the reference (false) or against it (true)
                         auto start_rel_orientation = (site.start.backward != start_ref_appearance.second);
                         auto end_rel_orientation = (site.end.backward != end_ref_appearance.second);
@@ -220,8 +222,24 @@ void Genotyper::run(VG& graph,
                             }
                         }
                         
+                        // Compute the lengths of all the alleles
+                        set<size_t> allele_lengths;
+                        for(auto& path : paths) {
+                            allele_lengths.insert(traversals_to_string(path).size());
+                        }
+                        
                         // Get the affinities for all the paths
-                        map<Alignment*, vector<Genotyper::Affinity>> affinities = get_affinities_fast(graph, reads_by_name, site, paths);
+                        map<Alignment*, vector<Genotyper::Affinity>> affinities;
+                        
+                        if(allele_lengths.size() > 1 && realign_indels) {
+                            // This is an indel, because we can change lengths. Use the slow route to do idnel realignment.
+                            affinities = get_affinities(graph, reads_by_name, site, paths);
+                        } else {
+                            // Just use string comparison. Don't re-align when
+                            // length can't change, or when indle realignment is
+                            // off.
+                            affinities = get_affinities_fast(graph, reads_by_name, site, paths);
+                        }
                         
                         for(auto& alignment_and_affinities : affinities) {
                             #pragma omp critical (total_affinities)
@@ -230,12 +248,7 @@ void Genotyper::run(VG& graph,
                         
                         // Get a genotyped locus in the original frame
                         Locus genotyped = genotype_site(graph, site, paths, affinities);
-                        
-                        if(output_json) {
-                            // Dump in JSON
-                            #pragma omp critical (cout)
-                            cout << pb2json(genotyped) << endl;
-                        } else if(output_vcf) {
+                        if (output_vcf) {
                             // Get 0 or more variants from the superbubble
                             vector<vcflib::Variant> variants =
                                 locus_to_variant(graph, site, *reference_index, *vcf, genotyped, sample_name);
@@ -253,9 +266,28 @@ void Genotyper::run(VG& graph,
                                 cout << variant << endl;
                             }
                         } else {
-                            // Write out in Protobuf
-                            buffer[tid].push_back(genotyped);
-                            stream::write_buffered(cout, buffer[tid], 100);
+                            // project into original graph
+                            genotyped = translator.translate(genotyped);
+                            // record a consistent name based on the start and end position of the first allele
+                            stringstream name;
+                            if (genotyped.allele_size() && genotyped.allele(0).mapping_size()) {
+                                name << make_pos_t(genotyped.allele(0).mapping(0).position())
+                                     << "_"
+                                     << make_pos_t(genotyped
+                                                   .allele(0)
+                                                   .mapping(genotyped.allele(0).mapping_size()-1)
+                                                   .position());
+                            }
+                            genotyped.set_name(name.str());
+                            if (output_json) {
+                                // Dump in JSON
+                                #pragma omp critical (cout)
+                                cout << pb2json(genotyped) << endl;
+                            } else {
+                                // Write out in Protobuf
+                                buffer[tid].push_back(genotyped);
+                                stream::write_buffered(cout, buffer[tid], 100);
+                            }
                         }
                     }
                 }
@@ -272,6 +304,7 @@ void Genotyper::run(VG& graph,
 
 
     if(show_progress) {
+        #pragma omp critical (cerr)
         cerr << "Computed " << total_affinities << " affinities" << endl;
     }
 
@@ -304,6 +337,7 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
         // Special case: qualities not given. Assume something vaguely sane so
         // we can genotype without quality.
 #ifdef debug
+        #pragma omp critical (cerr)
         cerr << "No base qualities. Assuming default quality of " << default_sequence_quality << endl;
 #endif
         return default_sequence_quality;
@@ -312,11 +346,13 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
     double total = 0;
     for(size_t i = 0; i < alignment.quality().size(); i++) {
 #ifdef debug
+        #pragma omp critical (cerr)
         cerr << "Quality: " << (int)alignment.quality()[i] << endl;
 #endif
         total += alignment.quality()[i];
     }
 #ifdef debug
+    #pragma omp critical (cerr)
     cerr << "Count: " << alignment.quality().size() << endl;
 #endif
     // Make the total now actually be an average
@@ -389,7 +425,7 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
     graph.sort();
     
     // get endpoints using node ranks
-    pair<id_t, id_t> source_sink = get_cactus_source_sink(graph, ref_path_name);
+    pair<NodeSide, NodeSide> source_sink = get_cactus_source_sink(graph, ref_path_name);
 
     // todo: use deomposition instead of converting tree into flat structure
     BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
@@ -403,7 +439,7 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
             if (bubble.start != bubble_tree.root->v.start ||
                 bubble.end != bubble_tree.root->v.end) {
                 set<id_t> nodes{bubble.contents.begin(), bubble.contents.end()};
-                NodeTraversal start(graph.get_node(bubble.start.node), bubble.start.is_end);
+                NodeTraversal start(graph.get_node(bubble.start.node), !bubble.start.is_end);
                 NodeTraversal end(graph.get_node(bubble.end.node), bubble.end.is_end);
                 // Fill in a Site. Make sure to preserve original endpoint
                 // ordering, because swapping them without flipping their
@@ -427,6 +463,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
     map<string, pair<list<NodeTraversal>, int>> results;
 
 #ifdef debug
+    #pragma omp critical (cerr)
     cerr << "Looking for paths between " << site.start << " and " << site.end << endl;
 #endif
     
@@ -450,6 +487,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                 // Start at each mapping in the appropriate orientation
                 
 #ifdef debug
+                #pragma omp critical (cerr)
                 cerr << "Trying mapping of read " << name_and_mappings.first << endl;
 #endif
                 
@@ -479,11 +517,13 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                     // many steps
                     
 #ifdef debug
+                    #pragma omp critical (cerr)
                     cerr << "\tTraversing " << pb2json(*mapping) << endl;
 #endif
                     
                     // Say we visit this node along the path, in this orientation
-                    path_traversed.push_back(NodeTraversal(graph.get_node(mapping->position().node_id()), mapping->position().is_reverse() != traversal_direction));
+                    path_traversed.push_back(NodeTraversal(graph.get_node(mapping->position().node_id()),
+                                                           mapping->position().is_reverse() != traversal_direction));
                     
                     // Stick the sequence of the node (appropriately oriented) in the stream for the allele sequence
                     string seq = graph.get_node(mapping->position().node_id())->sequence();
@@ -494,6 +534,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                         if(results.count(allele_stream.str())) {
                             // It is already there! Increment the observation count.
 #ifdef debug
+                            #pragma omp critical (cerr)
                             cerr << "\tFinished; got known sequence " << allele_stream.str() << endl;
 #endif
                             results[allele_stream.str()].second++;
@@ -501,6 +542,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                             // Add it in
                             results[allele_stream.str()] = make_pair(path_traversed, 1);
 #ifdef debug
+                            #pragma omp critical (cerr)
                             cerr << "\tFinished; got novel sequence " << allele_stream.str() << endl;
 #endif
                         }
@@ -552,8 +594,11 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
     return to_return;
 }
 
-map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph, const map<string, Alignment*>& reads_by_name,
-    const Site& site, const vector<list<NodeTraversal>>& superbubble_paths) {
+map<Alignment*, vector<Genotyper::Affinity>>
+    Genotyper::get_affinities(VG& graph,
+                              const map<string, Alignment*>& reads_by_name,
+                              const Site& site,
+                              const vector<list<NodeTraversal>>& superbubble_paths) {
     
     // Grab our thread ID, which determines which aligner we get.
     int tid = omp_get_thread_num();
@@ -565,6 +610,7 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph
     set<string> relevant_read_names;
     
 #ifdef debug
+    #pragma omp critical (cerr)
     cerr << "Superbubble contains " << site.contents.size() << " nodes" << endl;
 #endif
 
@@ -599,6 +645,7 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph
     }
     
 #ifdef debug
+    #pragma omp critical (cerr)
     cerr << relevant_read_names.size() << " reads visit an additional " << relevant_ids.size() << " nodes" << endl;
 #endif
     
@@ -648,6 +695,11 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph
         #pragma omp critical (cerr)
         cerr << "Align to " << pb2json(allele_graph.graph) << endl;
 #endif
+
+        // Grab the sequence of the path we are trying the reads against, so we
+        // can check for identity across the site and not just globally for the
+        // read.
+        auto path_seq = traversals_to_string(path);
         
         for(auto& name : relevant_read_names) {
             // For every read that touched the superbubble, grab its original
@@ -684,6 +736,7 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph
             
             if(!informative) {
                 // We only touch one of the start and end nodes, and can say nothing about the superbubble. Try the next read.
+                // TODO: mark these as ambiguous/consistent with everything (but strand?)
                 continue;
             }
             
@@ -704,7 +757,7 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph
                 aligned_fwd = allele_graph.align(*read);
                 aligned_rev = allele_graph.align(reverse_complement_alignment(*read, get_node_size));
             }
-            // Pick the best alignment, and emiot in original orientation
+            // Pick the best alignment, and emit in original orientation
             Alignment aligned = (aligned_rev.score() > aligned_fwd.score()) ? reverse_complement_alignment(aligned_rev, get_node_size) : aligned_fwd;
             
 #ifdef debug
@@ -712,10 +765,81 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities(VG& graph
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
 
+            // Save the identity and orientation
+            Affinity affinity(aligned.identity(), aligned_rev.score() > aligned_fwd.score());
+            
+            // Get the NodeTraversals for the winning alignment through the site.
+            auto read_traversal = get_traversal_of_site(graph, site, aligned.path());
+            
+            if(affinity.is_reverse) {
+                // We really traversed this site backward. Flip it around.
+                read_traversal.reverse();
+                for(auto& item : read_traversal) {
+                    // Flip around every traversal as well as reversing their order.
+                    item = item.reverse();
+                }
+                
+            }
+            
+            // Decide we're consistent if the alignment's string across the site
+            // matches the string for the allele, anchored at the appropriate
+            // ends.
+            
+            // Get the string this read spells out in its best alignment to this allele
+            auto seq = traversals_to_string(read_traversal);
+            
+            // Now decide if the read's seq supports this path.
+            if(read_traversal.front() == site.start && read_traversal.back() == site.end) {
+                // Anchored at both ends.
+                // Need an exact match. Record if we have one or not.
+                affinity.consistent = (seq == path_seq);
+            } else if(read_traversal.front() == site.start) {
+                // Anchored at start only.
+                // seq needs to be a prefix of path_seq
+                auto difference = std::mismatch(seq.begin(), seq.end(), path_seq.begin());
+                // If the first difference is the past-the-end of the prefix, then it's a prefix
+                affinity.consistent = (difference.first == seq.end());
+            } else if(read_traversal.back() == site.end) {
+                // Anchored at end only.
+                // seq needs to be a suffix of path_seq
+                auto difference = std::mismatch(seq.rbegin(), seq.rend(), path_seq.rbegin());
+                // If the first difference is the past-the-rend of the suffix, then it's a suffix
+                affinity.consistent = (difference.first == seq.rend());
+            } else {
+                // This read doesn't touch either end.
+                #pragma omp critical (cerr)
+                cerr << "Warning: realigned read doesn't touch either end of its site!" << endl;
+            }
+
             // Grab the identity and save it for this read and superbubble path
-            to_return[read].push_back(Affinity(aligned.identity(), aligned_rev.score() > aligned_fwd.score()));
+            to_return[read].push_back(affinity);
             
         }
+    }
+    
+    for(auto& name : relevant_read_names) {
+        // For every read that touched the superbubble, mark it consistent only
+        // with its best-identity alleles that don't mismatch in the allele.
+        
+        // Grab its original Alignment pointer.
+        Alignment* read = reads_by_name.at(name);
+        
+        double best_affinity = 0;
+        for(auto& affinity : to_return[read]) {
+            // Look for the max affinity found on anything already consistent
+            if(affinity.consistent && affinity.affinity > best_affinity) {
+                best_affinity = affinity.affinity;
+            }
+        }
+        
+        for(auto& affinity : to_return[read]) {
+            if(affinity.affinity < best_affinity) {
+                // Mark all the Affinities that are worse as not actually being
+                // consistent.
+                affinity.consistent = false;
+            }
+        }
+            
     }
     
     // After scoring all the reads against all the versions of the superbubble,
@@ -751,11 +875,11 @@ string Genotyper::traversals_to_string(const list<NodeTraversal>& path) {
     return seq.str();
 }
 
-map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& graph, const map<string, Alignment*>& reads_by_name,
-    const Site& site, const vector<list<NodeTraversal>>& superbubble_paths) {
-    
-    // Grab our thread ID, which determines which aligner we get.
-    int tid = omp_get_thread_num();
+map<Alignment*, vector<Genotyper::Affinity> >
+Genotyper::get_affinities_fast(VG& graph,
+                               const map<string, Alignment*>& reads_by_name,
+                               const Site& site,
+                               const vector<list<NodeTraversal> >& superbubble_paths) {
     
     // We're going to build this up gradually, appending to all the vectors.
     map<Alignment*, vector<Affinity>> to_return;
@@ -764,6 +888,7 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
     set<string> relevant_read_names;
     
 #ifdef debug
+    #pragma omp critical (cerr)
     cerr << "Superbubble contains " << site.contents.size() << " nodes" << endl;
 #endif
 
@@ -809,10 +934,21 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
             base_affinity.is_reverse = true;
         }
         
+        if(read_traversal.size() == 1 && (read_traversal.front() == site.start || read_traversal.back() == site.end)) {
+            // This read only touches the head or tail of the site, and so
+            // cannot possibly be informative.
+            continue;
+        }
+        
         size_t total_supported = 0;
         
         // Get the string it spells out
         auto seq = traversals_to_string(read_traversal);
+        
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "Consistency of " << reads_by_name.at(name)->sequence() << endl;
+#endif
         
         // Now decide if the read's seq supports each path.
         for(auto& path_seq : allele_strings) {
@@ -836,8 +972,14 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
                 affinity.consistent = (difference.first == seq.rend());
             } else {
                 // This read doesn't touch either end.
+                #pragma omp critical (cerr)
                 cerr << "Warning: read doesn't touch either end of its site!" << endl;
             }
+            
+#ifdef debug
+            #pragma omp critical (cerr)
+            cerr << "\t" << path_seq << " vs observed " << (read_traversal.front() == site.start) << " " << seq << " " << (read_traversal.back() == site.end) << ": " << affinity.consistent << endl;
+#endif
             
             // Fake a weight
             affinity.affinity = (double)affinity.consistent;
@@ -849,6 +991,7 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
         
         if(total_supported == 0 && min_recurrence <= 1) {
             // This is weird. Doesn't match anything and we had no excuse to remove alleles.
+            #pragma omp critical (cerr)
             cerr << "Warning! Bubble sequence " << seq << " supports nothing!" << endl;
         }
         
@@ -861,7 +1004,6 @@ map<Alignment*, vector<Genotyper::Affinity>> Genotyper::get_affinities_fast(VG& 
     return to_return;
 }
 
-
 double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
@@ -870,8 +1012,8 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
     
     // This works out to the product over all reads that don't support either
     // alleles of 1 - ((1 - MAPQ) * (1 - P(bases called wrong)), times the
-    // product over all the reads that do support one of the alleles of P(that
-    // allele picked out of the one or two available).
+    // likelihood of the observed (censored by multi-support) read counts coming
+    // from the alleles they support, and the strands they are observed on.
     
     // TODO: handle contamination like Freebayes
     
@@ -882,10 +1024,21 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
     double all_supporting_drawn = prob_to_logprob(1);
     
 #ifdef debug
-    if(genotype.size() > 1) {
+    if(genotype.size() == 2) {
+        #pragma omp critical (cerr)
         cerr << "Calculating P(a" << genotype[0] << "/a" << genotype[1] << ")" << endl;
     }
 #endif
+
+    // We want to keep count of how many reads support each allele in each
+    // orientation. TODO: we might be sort of double-counting reads that support
+    // multiple alleles, because we'll be treating them as having independent
+    // orientations per allele, when really they're very likely to be oriented
+    // the same way.
+    
+    // Maps from int allele number (as appears in Genotype) to total reads
+    // forward and reverse giving support.
+    map<int, pair<int, int>> strand_count_by_allele_and_orientation;
     
     for(auto& read_and_consistency : alignment_consistency) {
         // For each read, work out if it supports a genotype we have or not.
@@ -896,22 +1049,37 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         
         // How many of the alleles in our genotype is it consistent with?
         int consistent_alleles = 0;
-        // TODO: We assume it's the same orientation for all the consistent alleles.
-        // We can't really fill this in if it's not consistent. How would we know the orientation if it didn't match up?
-        bool read_reverse;
+        // We only count each allele in the genotype once.
+        set<int> alleles_seen;
         for(int allele : genotype) {
-            if(consistency.at(allele).consistent) {
+            if(alleles_seen.count(allele)) {
+                // Counted up consistency with this allele already.
+                continue;
+            }
+            alleles_seen.insert(allele);
+            
+            // For each unique allele in the genotype...
+            
+            if(consistency.size() > allele && consistency.at(allele).consistent) {
                 // We're consistent with this allele
                 consistent_alleles++;
                 // And in this orientation
-                read_reverse = consistency.at(allele).is_reverse;
+                if(consistency.at(allele).is_reverse) {
+                    // Consistent with reverse
+                    strand_count_by_allele_and_orientation[allele].second++;
+                } else {
+                    // Consistent with forward
+                    strand_count_by_allele_and_orientation[allele].first++;
+                }
             }
         }
         
         auto read_qual = alignment_qual_score(read);
         
 #ifdef debug
-        cerr << "Read (qual score " << read_qual << ") consistent with " << consistent_alleles << " genotype alleles observed." << endl;
+        #pragma omp critical (cerr)
+        cerr << "Read (qual score " << read_qual << ") consistent with " << consistent_alleles
+            << " genotype alleles observed." << endl;
 #endif
         
         if(consistent_alleles == 0) {
@@ -928,7 +1096,9 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
                 // Compute P(called wrong).
                 logprob_wrong = phred_to_logprob(read_qual);
             }
+            
 #ifdef debug
+            #pragma omp critical (cerr)
             cerr << "P(wrong) = " << logprob_to_prob(logprob_wrong) << endl;
 #endif
             all_non_supporting_wrong += logprob_wrong;
@@ -936,23 +1106,152 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
             // This read is consistent with some of the alleles in the genotype,
             // so we must have drawn one of those alleles when sequencing.
             
-            // So multiply in the probability that we hit one of those alleles
-            double logprob_drawn = prob_to_logprob(((double) consistent_alleles) / genotype.size());
-            
-#ifdef debug
-            cerr << "P(drawn) = " << logprob_to_prob(logprob_drawn << endl);
-#endif
-            
-            all_supporting_drawn += logprob_drawn;
+            // We account for this in a framework where we consider the reads
+            // indistinguishable, so ignore it for now.
         }
         
     }
     
-    // TODO: somehow add in the probability of the read orientations all coming out this way for the supporting reads.
-    // TODO: do we want to do that for the reads that are wrong as well???
+    // Multiply in in the probability that the supporting reads all came from
+    // the strands they are on.
+    double strands_as_specified = prob_to_logprob(1);
+    // Each strand is equally likely
+    vector<double> probs_by_orientation = {0.5, 0.5};
+    for(auto& kv : strand_count_by_allele_and_orientation) {
+        // For the forward and reverse strand counts for all the alleles
+        auto& forward_count = kv.second.first;
+        auto& reverse_count = kv.second.second;
+        
+        // Convert to a vector to satisfy the multinomial PMF function.
+        vector<int> obs = {forward_count, reverse_count};
+
+        // Get the log probability under multinomial.
+        
+        // TODO: we're counting oriented reads supporting multiple alleles
+        // multiple times. Maybe we should look at orientation overall somehow?
+        // Or treat orientations of alleles as the thing we do our master
+        // censored multinomial likelihood over?
+        double logprob = multinomial_sampling_prob_ln(probs_by_orientation, obs);
+        
+#ifdef debug
+        cerr << "Allele "  << kv.first << " supported by " << forward_count << " forward, "
+            << reverse_count << " reverse (P=" << logprob_to_prob(logprob) << ")" << endl;
+#endif
+
+        strands_as_specified += logprob;
+        
+    }
     
+    // Multiply in probability that the reads came from alleles they support,
+    // treating reads as indistinguishable and using a multinomial/binomial
+    // model.
+    double alleles_as_specified = prob_to_logprob(1);
+    if(genotype.size() == 2 && genotype.at(0) != genotype.at(1)) {
+        // For diploid heterozygotes, we can easily handle multi-support as
+        // censorship. We know that at least the reads that only support allele
+        // 0 are from allele 0, and that at most the reads that only support
+        // allele 0 and those that support both alleles all are from allele 0.
+        // We end up summing over a normalized choose (since the success
+        // probability is known and fixed at 1/2), as described in Frey and
+        // Marrero (2008) "A surprising MLE for Interval-Censored Binomial
+        // Data". Diploid homozygotes don't need any of this logic, and keep the
+        // default probability of 1 above for the support distribution across
+        // alleles.
+        
+        // Work out how many reads support allele 0 only.
+        int first_only_reads = 0;
+        // And how many support both
+        int ambiguous_reads = 0;
+        // And how many total reads there are (# of trials).
+        int total_reads = 0;
+        
+        for(auto& read_and_consistency : alignment_consistency) {
+            auto& consistency = read_and_consistency.second;
+            
+            if(consistency.size() <= max(genotype.at(0), genotype.at(1))) {
+                // No consistency info calculated for this useless uninformative
+                // read.
+                continue;
+            }
+            
+            if(consistency.at(genotype.at(0)).consistent) {
+                // Read is consistent with first allele
+                if(consistency.at(genotype.at(1)).consistent) {
+                    // And also second, so it's ambiguous
+                    ambiguous_reads++;
+#ifdef debug
+                    cerr << "Ambiguous read: " << read_and_consistency.first.sequence() << endl;
+                    for(int i = 0; i < consistency.size(); i++) {
+                        cerr << "\t" << i << ": " << consistency[i].consistent << endl;
+                    }
+#endif
+                } else {
+                    // And only first allele
+                    first_only_reads++;
+                }
+                total_reads++;
+            } else if(consistency.at(genotype.at(1)).consistent) {
+                // It's consistent with only the second allele.
+                total_reads++;
+            }
+            // Don't count reads inconsistent with the genotype in this analysis.
+        }
+
+        // Now do the likelihood. We know each atom will be weighted by the same
+        // factor (for assigning all the reads at 50% probability) so we can
+        // pull it out of the sum.
+        double log_atom_weight = prob_to_logprob(0.5) * total_reads;
+        
+        // We calculate the probability of each atom, then sum, and then weight.
+        vector<double> unweighted_atom_logprobs;
+        
+        for(int i = first_only_reads; i <= first_only_reads + ambiguous_reads; i++) {
+            // For each possible actual number of reads from the first allele,
+            // add in the probability of that atom.
+            auto unweighted_atom_logprob = choose_ln(total_reads, i);
+            unweighted_atom_logprobs.push_back(unweighted_atom_logprob);
+
+#ifdef debug
+            #pragma omp critical (cerr)
+            cerr << "P(" << i << " from first allele) = " << logprob_to_prob(unweighted_atom_logprob)
+                << " * " << logprob_to_prob(log_atom_weight) << " = " 
+                << logprob_to_prob(unweighted_atom_logprob + log_atom_weight) << endl;
+#endif
+            
+        }
+        
+        // Weight all the atoms with the shared weight, and then multiply in (to
+        // probability of 1) the probability of observing this range of possible
+        // totals of reads from each of the two alleles.
+        alleles_as_specified = (logprob_sum(unweighted_atom_logprobs) + log_atom_weight);
+        
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "P(" << first_only_reads << " to "  << (first_only_reads + ambiguous_reads) << " from first allele) = "
+            << logprob_to_prob(logprob_sum(unweighted_atom_logprobs)) << " * " << logprob_to_prob(log_atom_weight) 
+            << " = " << logprob_to_prob(alleles_as_specified) << endl;
+#endif
+        
+    } else if(genotype.size() != 2) {
+        #pragma omp critical (cerr)
+        cerr << "Warning: not accounting for allele assignment likelihood in non-diploid genotype!" << endl;
+    }
+
     // Now we've looked at all the reads, so AND everything together
-    return all_non_supporting_wrong + all_supporting_drawn;
+    double total_logprob = all_non_supporting_wrong + all_supporting_drawn + strands_as_specified + alleles_as_specified;
+
+#ifdef debug
+    if(genotype.size() == 2) {
+        #pragma omp critical (cerr)
+        cerr << "logP(a" << genotype[0] << "/a" << genotype[1] << ") = " << all_non_supporting_wrong << " + "
+            << all_supporting_drawn << " + " << strands_as_specified << " + " << alleles_as_specified << " = "
+            << total_logprob << endl;
+    }
+#endif
+
+    return total_logprob;
+
+    
 }
 
 double Genotyper::get_genotype_log_prior(const vector<int>& genotype) {
@@ -1035,9 +1334,11 @@ string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Align
     
 }
 
-#define debug
-Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<NodeTraversal>>& superbubble_paths, const map<Alignment*, vector<Affinity>>& affinities) {
-    
+Locus Genotyper::genotype_site(VG& graph,
+                               const Site& site,
+                               const vector<list<NodeTraversal>>& superbubble_paths,
+                               const map<Alignment*, vector<Affinity>>& affinities) {
+
     // Freebayes way (improved with multi-support)
     
     // We're going to populate this locus
@@ -1049,9 +1350,10 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
     }
     
 #ifdef debug
+    #pragma omp critical (cerr)
     cerr << "Looking between " << site.start << " and " << site.end << endl;
 #endif
-    
+
     // We'll fill this in with the trimmed alignments and their consistency-with-alleles flags.
     vector<pair<Alignment, vector<Affinity>>> alignment_consistency;
     
@@ -1109,18 +1411,20 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
         if(is_forward) {
             if(is_reverse) {
                 // This is weird
+                #pragma omp critical (cerr)
                 cerr << "Warning! Read supports alleles as both forward and reverse!" << endl;
                 // Just call it forward
             }
             // This read supports an allele forward, so call it a forward read for the site
             overall_forward_reads++;
         } else if(is_reverse) {
-            // This read supports an allele reverse, so call it a forward read for the site
+            // This read supports an allele reverse, so call it a reverse read for the site
             overall_reverse_reads++;
         } else if(min_recurrence <= 1) {
             // Reads generally ought to support at least one allele, unless we
             // have weird softclips or they were for elided non-recurrent
             // alleles.
+            #pragma omp critical (cerr)
             cerr << "Warning! Read supports no alleles!" << endl;
         }
         
@@ -1130,17 +1434,22 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
     }
     
 #ifdef debug
-    for(int i = 0; i < reads_consistent_with_allele.size(); i++) {
+    for(int i = 0; i < superbubble_paths.size(); i++) {
         // Build a useful name for the allele
         stringstream allele_name;
         for(auto& traversal : superbubble_paths[i]) {
             allele_name << traversal.node->id() << ",";
         }
-        cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
-        for(auto& read_and_consistency : alignment_consistency) {
-            if(read_and_consistency.second[i].consistent && read_and_consistency.first.sequence().size() < 30) {
-                // Dump all the short consistent reads
-                cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i].affinity << endl;
+        #pragma omp critical (cerr)
+        {
+            cerr << "a" << i << "(" << allele_name.str() << "): " << reads_consistent_with_allele[i] << "/" << affinities.size() << " reads consistent" << endl;
+            for(auto& read_and_consistency : alignment_consistency) {
+                if(read_and_consistency.second.size() > i && 
+                    read_and_consistency.second[i].consistent &&
+                    read_and_consistency.first.sequence().size() < 30) {
+                    // Dump all the short consistent reads
+                    cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i].affinity << endl;
+                }
             }
         }
     }
@@ -1168,12 +1477,15 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
             double log_posterior_unnormalized = log_likelihood + log_prior;
             
 #ifdef debug
-            cerr << "P(obs | a" << allele1 << "/a" << allele2 << ") = " << logprob_to_prob(log_likelihood) <<
-                " (" << log_likelihood << ")" << endl;
-            cerr << "P(a" << allele1 << "/a" << allele2 << ") = " << logprob_to_prob(log_prior) <<
-                " (" << log_prior << ")" << endl;
-            cerr << "P(a" << allele1 << "/a" << allele2 << " | obs) * P(obs) = " <<
-                logprob_to_prob(log_posterior_unnormalized) << " (" << log_posterior_unnormalized << ")" << endl;
+            #pragma omp critical (cerr)
+            {
+                cerr << "P(obs | a" << allele1 << "/a" << allele2 << ") = " << logprob_to_prob(log_likelihood) <<
+                    " (" << log_likelihood << ")" << endl;
+                cerr << "P(a" << allele1 << "/a" << allele2 << ") = " << logprob_to_prob(log_prior) <<
+                    " (" << log_prior << ")" << endl;
+                cerr << "P(a" << allele1 << "/a" << allele2 << " | obs) * P(obs) = " <<
+                    logprob_to_prob(log_posterior_unnormalized) << " (" << log_posterior_unnormalized << ")" << endl;
+            }
 #endif
 
             // Fill in the actual Genotype object
@@ -1218,7 +1530,6 @@ Locus Genotyper::genotype_site(VG& graph, const Site& site, const vector<list<No
     // Now we've populated the genotype so return it.
     return to_return;
 }
-#undef debug
 
 /**
  * Create the reference allele for an empty vcflib Variant, since apaprently
@@ -1289,6 +1600,7 @@ void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
+    stream << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
     stream << "##FORMAT=<ID=SB,Number=4,Type=Integer,Description=\"Forward and reverse support for ref and alt alleles.\">" << std::endl;
@@ -1322,7 +1634,14 @@ vcflib::VariantCallFile* Genotyper::start_vcf(std::ostream& stream, const Refere
     return vcf;
 }
 
-vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site, const ReferenceIndex& index, vcflib::VariantCallFile& vcf, const Locus& locus, const string& sample_name) {
+vector<vcflib::Variant>
+Genotyper::locus_to_variant(VG& graph,
+                            const Site& site,
+                            const ReferenceIndex& index,
+                            vcflib::VariantCallFile& vcf,
+                            const Locus& locus,
+                            const string& sample_name) {
+
     // Make a vector to fill in
     vector<vcflib::Variant> to_return;
     
@@ -1347,6 +1666,7 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     
     if(!index.byId.count(first_id) || !index.byId.count(last_id)) {
         // We need to be anchored to the primary path to make a variant
+        #pragma omp critical (cerr)
         cerr << "Warning: Superbubble endpoints not on reference!" << endl;
         // If not return no variant
         return to_return;
@@ -1364,9 +1684,17 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     // past-the-end position right there.
     auto referenceIntervalPastEnd = index.byId.at(last_id).first;
     
-    // TODO: figure out how to handle superbubbles that come up backwards
-    // relative to the primary reference.
-    assert(referenceIntervalStart <= referenceIntervalPastEnd);
+    // Is this bubble articulated backwards relative to the refedrence?
+    bool site_is_reverse = false;
+    
+    if(referenceIntervalStart > referenceIntervalPastEnd) {
+        // Everything we know about the site is backwards relative to the reference. Flip it around frontways.
+        site_is_reverse = true;
+        swap(first_id, last_id);
+        // Recalculate reference positions
+        referenceIntervalStart = index.byId.at(first_id).first + graph.get_node(first_id)->sequence().size();
+        referenceIntervalPastEnd = index.byId.at(last_id).first;
+    }
     
     // Get the string for the reference allele
     string refString = index.sequence.substr(referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
@@ -1376,7 +1704,12 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     
     for(size_t i = 0; i < locus.allele_size(); i++) {
         // Get the string for each allele
-        allele_strings.push_back(allele_to_string(graph, locus.allele(i)));
+        string allele = allele_to_string(graph, locus.allele(i));
+        if(site_is_reverse) {
+            // Flip the alleles to match the reference orientation if necessary.
+            allele = reverse_complement(allele);
+        }
+        allele_strings.push_back(allele);
     }
     
     // See if any alleles are empty
@@ -1450,11 +1783,44 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     genotype_out.push_back(to_string(allele_to_alt[best_genotype.allele(0)]) + (best_genotype.is_phased() ? "|" : "/")  +
         to_string(allele_to_alt[best_genotype.allele(1)]));
         
+    // Make sure that the called alleles have sufficient support on each strand
+    for(size_t i = 0; i < best_genotype.allele_size(); i++) {
+        // Check each allele marked present
+        if(locus.support(best_genotype.allele(i)).forward() < min_consistent_per_strand ||
+            locus.support(best_genotype.allele(i)).reverse() < min_consistent_per_strand) {
+            // If there's not enough support for that allele in an orientation, skip the site. 
+            
+            #pragma omp critical (cerr)
+            cerr << "Warning: dropping locus from VCF due to insufficient per-strand support "
+                << locus.support(best_genotype.allele(i)).forward() << ", " 
+                << locus.support(best_genotype.allele(i)).reverse() << endl;
+                
+            return to_return;
+        }
+    }
+        
     // Put the total depth overall (not double-counting)
     string depth_string = std::to_string(locus.overall_support().forward() + locus.overall_support().reverse());
     variant.format.push_back("DP");
     variant.samples[sample_name]["DP"].push_back(depth_string);
     variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
+    
+    variant.format.push_back("GQ");
+    if(locus.genotype_size() > 1) {
+        // Compute a quality from the difference between the best and second-
+        // best genotype posteriors. Really this should be:
+        
+        // P(genotype is wrong) = sum(P(genotype) over other genotypes) / sum(P(genotype) over all genotypes)
+        
+        // When best genotype is much more probable than second best, which is
+        // much more probable than all the rest, this approximation woks well.
+        variant.samples[sample_name]["GQ"].push_back(to_string(
+            logprob_to_phred(locus.genotype(1).log_posterior() - best_genotype.log_posterior())));
+    } else {
+        // This is very unlikely to be wrong. Give it a max-ish value.
+        // TODO: do somethng better. Use overall support quality?
+        variant.samples[sample_name]["GQ"].push_back("255");
+    }
     
     // Compose the allele-specific depth
     variant.format.push_back("AD");
@@ -1462,6 +1828,16 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
         // Add the forward and reverse support together and use that for AD for the allele.
         variant.samples[sample_name]["AD"].push_back(to_string(support.forward() + support.reverse()));
     }
+    
+    // Do support for ref and alt alleles by strand
+    variant.format.push_back("SB");
+    for(auto& support : support_by_alt) {
+        // Add the forward and reverse support in sequence, for ref and all the alts.
+        // TODO: make this really only have the alt that's called.
+        variant.samples[sample_name]["SB"].push_back(to_string(site_is_reverse ? support.reverse() : support.forward()));
+        variant.samples[sample_name]["SB"].push_back(to_string(site_is_reverse ? support.forward() : support.reverse()));
+    }
+    
     
     // Work out genotype log likelihoods
     // Make a vector to shuffle them into VCF order. Fill it with inf for impossible genotypes.
@@ -1486,6 +1862,7 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
         // Store the log likelihood
         log_likelihoods.at(index) = locus.genotype(i).log_likelihood();
 #ifdef debug
+        #pragma omp critical (cerr)
         cerr << high_alt << "/" << low_alt << ": " << index << " = " << pb2json(locus.genotype(i)) << endl;
 #endif
     }
@@ -1493,10 +1870,11 @@ vector<vcflib::Variant> Genotyper::locus_to_variant(VG& graph, const Site& site,
     variant.format.push_back("PL");
     for(auto& log_likelihood : log_likelihoods) {
         // Add all the likelihood strings, normalizing against the best
+        // TODO: the best may not actually be the chosen genotype, because we genotype on posteriors.
         variant.samples[sample_name]["PL"].push_back(to_string(logprob_to_phred(log_likelihood - best_genotype.log_likelihood())));
     }
     
-    // Set the variant position (now that we have budged it left if necessary
+    // Set the variant position (now that we have budged it left if necessary)
     variant.position = referenceIntervalStart + 1;
     
     // Return the variant, since we managed to make it
@@ -1528,6 +1906,7 @@ ReferenceIndex::ReferenceIndex(vg::VG& vg, std::string refPathName) {
             byId[mapping.position().node_id()] = 
                 std::make_pair(referenceBase, mapping.position().is_reverse());
 #ifdef debug
+            #pragma omp critical (cerr)
             std::cerr << "Node " << mapping.position().node_id() << " rank " << mapping.rank()
                 << " starts at base " << referenceBase << " with "
                 << vg.get_node(mapping.position().node_id())->sequence() << std::endl;
@@ -1550,7 +1929,7 @@ ReferenceIndex::ReferenceIndex(vg::VG& vg, std::string refPathName) {
             
             // TODO: this is a hack to deal with the debruijn-brca1-k63 graph,
             // which leads with an X.
-            
+            #pragma omp critical (cerr)
             std::cerr << "Warning: dropping invalid leading character "
                 << sequence[0] << " from node " << mapping.position().node_id()
                 << std::endl;
@@ -1585,9 +1964,11 @@ ReferenceIndex::ReferenceIndex(vg::VG& vg, std::string refPathName) {
     sequence = refSeqStream.str();
     
     // Announce progress.
+    #pragma omp critical (cerr)
     std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
     
     if(sequence.size() < 100) {
+        #pragma omp critical (cerr)
         std::cerr << "Reference sequence: " << sequence << std::endl;
     }
 }

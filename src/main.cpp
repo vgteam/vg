@@ -48,6 +48,7 @@ void help_translate(char** argv) {
          << "options:" << endl
          << "    -p, --paths FILE      project the input paths into the from-graph" << endl
          << "    -a, --alns FILE       project the input alignments into the from-graph" << endl
+         << "    -l, --loci FILE       project the input locus descriptions into the from-graph" << endl
          << "    -m, --mapping JSON    print the from-mapping corresponding to the given JSON mapping" << endl
          << "    -P, --position JSON   print the from-position corresponding to the given JSON position" << endl
          << "    -o, --overlay FILE    overlay this translation on top of the one we are given" << endl;
@@ -64,6 +65,7 @@ int main_translate(int argc, char** argv) {
     string mapping_string;
     string path_file;
     string aln_file;
+    string loci_file;
     string overlay_file;
 
     int c;
@@ -76,12 +78,13 @@ int main_translate(int argc, char** argv) {
             {"mapping", required_argument, 0, 'm'},
             {"paths", required_argument, 0, 'p'},
             {"alns", required_argument, 0, 'a'},
+            {"loci", required_argument, 0, 'l'},
             {"overlay", required_argument, 0, 'o'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hp:m:P:a:o:",
+        c = getopt_long (argc, argv, "hp:m:P:a:o:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -104,6 +107,10 @@ int main_translate(int argc, char** argv) {
 
         case 'a':
             aln_file = optarg;
+            break;
+
+        case 'l':
+            loci_file = optarg;
             break;
 
         case 'o':
@@ -162,6 +169,15 @@ int main_translate(int argc, char** argv) {
         };
         ifstream aln_in(aln_file);
         stream::for_each(aln_in, lambda);
+        stream::write_buffered(cout, buffer, 0);
+    } else if (!loci_file.empty()) {
+        vector<Locus> buffer;
+        function<void(Locus&)> lambda = [&](Locus& locus) {
+            buffer.push_back(translator->translate(locus));
+            stream::write_buffered(cout, buffer, 100);
+        };
+        ifstream loci_in(loci_file);
+        stream::for_each(loci_in, lambda);
         stream::write_buffered(cout, buffer, 0);
     }
 
@@ -1617,7 +1633,9 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << std::endl
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
+         << "    -q, --use_mapq          use mapping qualities" << std::endl
          << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1648,6 +1666,11 @@ int main_genotype(int argc, char** argv) {
     // What length override should we use
     int64_t length_override = 0;
     
+    // Should we use mapping qualities?
+    bool use_mapq = false;
+    // Should we do indel realignment?
+    bool realign_indels = false;
+    
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
     
@@ -1667,14 +1690,16 @@ int main_genotype(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
+                {"use_mapq", no_argument, 0, 'q'},
                 {"cactus", no_argument, 0, 'C'},
+                {"realign_indels", no_argument, 0, 'i'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:Cpt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCipt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1713,9 +1738,17 @@ int main_genotype(int argc, char** argv) {
             // Dump augmented graph
             augmented_file_name = optarg;
             break;
+        case 'q':
+            // Use mapping qualities
+            use_mapq = true;
+            break;
         case 'C':
             // Use Cactus to find sites
             use_cactus = true;
+            break;
+        case 'i':
+            // Do indel realignment
+            realign_indels = true;
             break;
         case 'p':
             show_progress = true;
@@ -1799,7 +1832,15 @@ int main_genotype(int argc, char** argv) {
         
         if(contained) {
             // This alignment completely falls within the graph
-            alignments.push_back(alignment);
+            
+            // Correct its quality scores from phred+33, as in GAM or an index,
+            // to phred, as used within vg for math.
+            // TODO: just keep them like this all the time
+            auto alignment_copy = alignment;
+            
+            alignment_copy.set_quality(string_quality_char_to_short(alignment_copy.quality()));
+            
+            alignments.push_back(alignment_copy);
         }
     });
         
@@ -1809,6 +1850,10 @@ int main_genotype(int argc, char** argv) {
     
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
+    // Configure it
+    genotyper.use_mapq = use_mapq;
+    genotyper.realign_indels = realign_indels;
+    // TODO: move arguments below up into configuration
     genotyper.run(*graph,
                   alignments,
                   cout,
@@ -3089,6 +3134,8 @@ void help_mod(char** argv) {
          << endl
          << "options:" << endl
          << "    -i, --include-aln FILE  merge the paths implied by alignments into the graph" << endl
+         << "    -q, --include-loci FILE merge all alleles in loci into the graph" << endl
+         << "    -Q, --include-gt FILE   merge only the alleles in called genotypes into the graph" << endl
          << "    -Z, --translation FILE  write the translation generated by editing with -i to FILE" << endl
          << "    -P, --label-paths       don't edit with -i alignments, just use them for labeling the graph" << endl
          << "    -c, --compact-ids       should we sort and compact the id space? (default false)" << endl
@@ -3149,6 +3196,8 @@ int main_mod(int argc, char** argv) {
     string path_name;
     bool remove_orphans = false;
     string aln_file;
+    string loci_file;
+    bool called_genotypes_only = false;
     bool label_paths = false;
     bool compact_ids = false;
     bool prune_complex = false;
@@ -3192,6 +3241,8 @@ int main_mod(int argc, char** argv) {
         {
             {"help", no_argument, 0, 'h'},
             {"include-aln", required_argument, 0, 'i'},
+            {"include-loci", required_argument, 0, 'q'},
+            {"include-gt", required_argument, 0, 'Q'},
             {"compact-ids", no_argument, 0, 'c'},
             {"compact-ranks", no_argument, 0, 'C'},
             {"drop-paths", no_argument, 0, 'D'},
@@ -3234,7 +3285,7 @@ int main_mod(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Ea",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Ea",
                 long_options, &option_index);
 
 
@@ -3247,6 +3298,15 @@ int main_mod(int argc, char** argv) {
 
         case 'i':
             aln_file = optarg;
+            break;
+
+        case 'q':
+            loci_file = optarg;
+            break;
+
+        case 'Q':
+            loci_file = optarg;
+            called_genotypes_only = true;
             break;
 
         case 'Z':
@@ -3542,6 +3602,47 @@ int main_mod(int argc, char** argv) {
             for (auto& path : paths) {
                 graph->paths.extend(path);
             }
+        }
+    }
+
+    if (!loci_file.empty()) {
+        // read in the alignments and save their paths
+        vector<Path> paths;
+        function<void(Locus&)> lambda = [&graph, &paths, &called_genotypes_only](Locus& locus) {
+            // if we are only doing called genotypes, record so we can filter alleles
+            set<int> alleles_in_genotype;
+            if (called_genotypes_only) {
+                for (int i = 0; i < locus.genotype_size(); ++i) {
+                    for (int j = 0; j < locus.genotype(i).allele_size(); ++j) {
+                        alleles_in_genotype.insert(locus.genotype(i).allele(j));
+                    }
+                }
+            }
+            for (int i = 0; i < locus.allele_size(); ++i) {
+                // skip alleles not in the genotype if using only called genotypes
+                if (!alleles_in_genotype.empty()) {
+                    if (!alleles_in_genotype.count(i)) continue;
+                }
+                Path path = simplify(locus.allele(i));
+                stringstream name;
+                name << locus.name() << ":" << i;
+                path.set_name(name.str());
+                paths.push_back(path);
+            }
+        };
+        if (loci_file == "-") {
+            stream::for_each(std::cin, lambda);
+        } else {
+            ifstream in;
+            in.open(loci_file.c_str());
+            stream::for_each(in, lambda);
+        }
+        // execute the edits and produce the translation if requested
+        auto translation = graph->edit(paths);
+        if (!translation_file.empty()) {
+            ofstream out(translation_file);
+            stream::write_buffered(out, translation, 0);
+            out.close();
         }
     }
 
@@ -4423,27 +4524,13 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    if (superbubbles) {
-        for (auto& i : vg::superbubbles(*graph)) {
+    if (superbubbles || cactus) {
+        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::cactusbubbles(*graph);
+        for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
-            // sort output for now, to be consistent with cactus. We don't have
-            // any orientations involved here, so we're free to re-order as we
-            // wish.
-            b = minmax(b.first, b.second);
+            // sort output for now, to help do diffs in testing
             sort(v.begin(), v.end());
-            cout << b.first << "\t" << b.second << "\t";
-            for (auto& n : v) {
-                cout << n << ",";
-            }
-            cout << endl;
-        }
-    }
-
-    if (cactus) {
-        for (auto& i : vg::cactusbubbles(*graph)) {
-            auto& b = i.first;
-            auto& v = i.second;
             cout << b.first << "\t" << b.second << "\t";
             for (auto& n : v) {
                 cout << n << ",";
@@ -7089,6 +7176,10 @@ void help_view(char** argv) {
          << "    -a, --align-in       input GAM format" << endl
          << "    -A, --aln-graph GAM  add alignments from GAM to the graph" << endl
 
+         << "    -q, --locus-in       input stream is Locus format" << endl
+         << "    -z, --locus-out      output stream Locus format" << endl
+         << "    -Q, --loci FILE      input is Locus format for use by dot output" << endl
+
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
@@ -7139,6 +7230,7 @@ int main_view(int argc, char** argv) {
     string rdf_base_uri;
     bool input_json = false;
     string alignments;
+    string loci_file;
     string fastq1, fastq2;
     bool interleaved_fastq = false;
     bool show_paths_in_dot = false;
@@ -7190,11 +7282,14 @@ int main_view(int argc, char** argv) {
                 {"translation-in", no_argument, 0, 'Z'},
                 {"cactus-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
+                {"locus-in", no_argument, 0, 'q'},
+                {"loci", no_argument, 0, 'Q'},
+                {"locus-out", no_argument, 0, 'z'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBY",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYqQ:z",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -7344,6 +7439,22 @@ int main_view(int argc, char** argv) {
             }
             break;
 
+        case 'q':
+            input_type = "locus";
+            if (output_type.empty()) {
+                // Default to Locus -> JSON
+                output_type = "json";
+            }
+            break;
+
+        case 'z':
+            output_type = "locus";
+            break;
+
+        case 'Q':
+            loci_file = optarg;
+            break;
+
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -7371,6 +7482,13 @@ int main_view(int argc, char** argv) {
         function<void(Alignment&)> lambda = [&alns](Alignment& aln) { alns.push_back(aln); };
         ifstream in;
         in.open(alignments.c_str());
+        stream::for_each(in, lambda);
+    }
+    vector<Locus> loci;
+    if (!loci_file.empty()) {
+        function<void(Locus&)> lambda = [&loci](Locus& locus) { loci.push_back(locus); };
+        ifstream in;
+        in.open(loci_file.c_str());
         stream::for_each(in, lambda);
     }
 
@@ -7580,6 +7698,36 @@ int main_view(int argc, char** argv) {
             return 1;
         }
         return 0;
+    } else if (input_type == "locus") {
+        if (input_json == false) {
+            if (output_type == "json") {
+                // convert values to printable ones
+                function<void(Locus&)> lambda = [](Locus& l) {
+                    cout << pb2json(l) << "\n";
+                };
+                if (file_name == "-") {
+                    stream::for_each(std::cin, lambda);
+                } else {
+                    ifstream in;
+                    in.open(file_name.c_str());
+                    stream::for_each(in, lambda);
+                }
+            } else {
+                // todo
+                cerr << "[vg view] error: (binary) Locus can only be converted to JSON" << endl;
+                return 1;
+            }
+        } else {
+            if (output_type == "json" || output_type == "locus") {
+                JSONStreamHelper<Locus> json_helper(file_name);
+                json_helper.write(cout, output_type == "json");
+            } else {
+                cerr << "[vg view] error: JSON Locus can only be converted to Locus or JSON" << endl;
+                return 1;
+            }
+        }
+        cout.flush();
+        return 0;
     }
 
     if(graph == nullptr) {
@@ -7600,6 +7748,7 @@ int main_view(int argc, char** argv) {
     if (output_type == "dot") {
         graph->to_dot(std::cout,
                       alns,
+                      loci,
                       show_paths_in_dot,
                       walk_paths_in_dot,
                       annotate_paths_in_dot,
@@ -7619,6 +7768,8 @@ int main_view(int argc, char** argv) {
         graph->to_turtle(std::cout, rdf_base_uri, color_variants);
     } else if (output_type == "vg") {
         graph->serialize_to_ostream(cout);
+    } else if (output_type == "locus") {
+        
     } else {
         // We somehow got here with a bad output format.
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
