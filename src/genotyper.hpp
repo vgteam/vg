@@ -69,15 +69,16 @@ public:
         double affinity = 0;
         // Is the read on the forward strand (false) or reverse strand (true)
         bool is_reverse = false;
-        // What's the actual raw score (not necessarily normalized out of 1)?
-        double raw_score = 0;        
+        // What's the actual score (not necessarily normalized out of 1)?
+        // We'll probably put per-base alignment score here
+        double score = 0;        
         
         // Have a default constructor
         Affinity() = default;
         
         // Have a useful constructor
         Affinity(double affinity, bool is_reverse) : consistent(affinity == 1), 
-            affinity(affinity), is_reverse(is_reverse), raw_score(affinity) {
+            affinity(affinity), is_reverse(is_reverse), score(affinity) {
             // Nothing to do
         }
         
@@ -116,6 +117,10 @@ public:
     
     // How much support must an alt have on each strand before we can call it?
     int min_consistent_per_strand = 2;
+    
+    // When we realign reads, what's the minimum per-base score for a read in
+    // order to actually use it as supporting the thing we just aligned it to?
+    double min_score_per_base = 0.90;
     
     // What should our prior on being heterozygous at a site be?
     double het_prior_logprob = prob_to_logprob(0.001);

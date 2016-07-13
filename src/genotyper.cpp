@@ -242,30 +242,44 @@ void Genotyper::run(VG& graph,
                         }
                         
                         if(show_progress) {
-                            // Sum up all the affinities by consistency flags
+                            // Sum up all the affinity counts by consistency flags
                             map<string, size_t> consistency_combo_counts;
                             
-                            // And average raw scores by alleles they are consistent with.
+                            // And average raw scores by alleles they are
+                            // consistent with, for things consistent with just
+                            // one allele.
                             vector<double> score_totals(paths.size());
                             vector<size_t> score_counts(paths.size());
                             
                             for(auto& alignment_and_affinities : affinities) {
                                 // For every alignment, make a string describing which alleles it is consistent with.
                                 string consistency;
+                                
+                                // How many alleles are we consstent with?
+                                size_t consistent_allele_count = 0;
+                                // And which one is it, if it's only one?
+                                int chosen = -1;
+                                
                                 for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
                                     auto& affinity = alignment_and_affinities.second.at(i);
                                     if(affinity.consistent) {
                                         // Consistent alleles get marked with a 1
                                         consistency.push_back('1');
                                         
-                                        // Add in the raw score for the average
-                                        score_totals.at(i) += affinity.raw_score;
-                                        score_counts.at(i)++;
+                                        // Say we're consistent with an allele
+                                        chosen = i;
+                                        consistent_allele_count++;
                                         
                                     } else {
                                         // Inconsistent ones get marked with a 0
                                         consistency.push_back('0');
                                     }
+                                }
+                                
+                                if(consistent_allele_count == 1) {
+                                    // Add in the non-normalized score for the average
+                                    score_totals.at(chosen) += alignment_and_affinities.second.at(chosen).score;
+                                    score_counts.at(chosen)++;
                                 }
 
 #ifdef debug
@@ -286,11 +300,15 @@ void Genotyper::run(VG& graph,
                                     cerr << "\t" << combo_and_count.first << ": " << combo_and_count.second << endl;
                                 }
                                 
-                                cerr << "Average scores by allele:" << endl;
+                                cerr << "Average scores for unique support:" << endl;
                                 for(size_t i = 0; i < score_totals.size(); i++) {
-                                    // Spit out average scores of supportign reads for each allele.
-                                    cerr << traversals_to_string(paths.at(i)) << ": "
-                                        << score_totals.at(i) / score_counts.at(i) << endl;
+                                    // Spit out average scores of uniquely supporting reads for each allele that has them.
+                                    if(score_counts.at(i) > 0) {
+                                        cerr << "\t" << traversals_to_string(paths.at(i)) << ": "
+                                            << score_totals.at(i) / score_counts.at(i) << endl;
+                                    } else {
+                                        cerr << "\t" << traversals_to_string(paths.at(i)) << ": --" << endl;
+                                    }
                                 }
                                 
                             }
@@ -861,9 +879,12 @@ map<Alignment*, vector<Genotyper::Affinity>>
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
 
-            // Save the identity and orientation
+            // Compute the score per base
+            double score_per_base = (double)aligned.score() / aligned.sequence().size();
+            
+            // Save the score (normed per read base) and orientation
             // We'll normalize the affinities later to enforce the max of 1.0.
-            Affinity affinity(aligned.score(), aligned_rev.score() > aligned_fwd.score());
+            Affinity affinity(score_per_base, aligned_rev.score() > aligned_fwd.score());
             
             // Get the NodeTraversals for the winning alignment through the site.
             auto read_traversal = get_traversal_of_site(graph, site, aligned.path());
@@ -903,9 +924,17 @@ map<Alignment*, vector<Genotyper::Affinity>>
                 // If the first difference is the past-the-rend of the suffix, then it's a suffix
                 affinity.consistent = (difference.first == seq.rend());
             } else {
-                // This read doesn't touch either end.
+                // This read doesn't touch either end. Just assume it's
+                // consistent and let scoring work it out.
                 #pragma omp critical (cerr)
                 cerr << "Warning: realigned read doesn't touch either end of its site!" << endl;
+                affinity.consistent = true;
+            }
+            
+            if(score_per_base < min_score_per_base) {
+                // Say we can't really be consistent with this if we have such a
+                // terrible score.
+                affinity.consistent = false;
             }
 
             // Grab the identity and save it for this read and superbubble path
@@ -916,7 +945,10 @@ map<Alignment*, vector<Genotyper::Affinity>>
     
     for(auto& name : relevant_read_names) {
         // For every read that touched the superbubble, mark it consistent only
-        // with its best-identity alleles that don't mismatch in the allele.
+        // with its best-score alleles that don't mismatch in the allele.
+        
+        // So basically make everything that isn't normalized affinity 1.0
+        // inconsistent if it wasn't already.
         
         // Grab its original Alignment pointer.
         Alignment* read = reads_by_name.at(name);
