@@ -69,12 +69,15 @@ public:
         double affinity = 0;
         // Is the read on the forward strand (false) or reverse strand (true)
         bool is_reverse = false;
+        // What's the actual raw score (not necessarily normalized out of 1)?
+        double raw_score = 0;        
         
         // Have a default constructor
         Affinity() = default;
         
         // Have a useful constructor
-        Affinity(double affinity, bool is_reverse) : consistent(affinity == 1), affinity(affinity), is_reverse(is_reverse) {
+        Affinity(double affinity, bool is_reverse) : consistent(affinity == 1), 
+            affinity(affinity), is_reverse(is_reverse), raw_score(affinity) {
             // Nothing to do
         }
         

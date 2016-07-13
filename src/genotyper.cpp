@@ -244,13 +244,24 @@ void Genotyper::run(VG& graph,
                         if(show_progress) {
                             // Sum up all the affinities by consistency flags
                             map<string, size_t> consistency_combo_counts;
+                            
+                            // And average raw scores by alleles they are consistent with.
+                            vector<double> score_totals(paths.size());
+                            vector<size_t> score_counts(paths.size());
+                            
                             for(auto& alignment_and_affinities : affinities) {
                                 // For every alignment, make a string describing which alleles it is consistent with.
                                 string consistency;
-                                for(auto& affinity : alignment_and_affinities.second) {
+                                for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
+                                    auto& affinity = alignment_and_affinities.second.at(i);
                                     if(affinity.consistent) {
                                         // Consistent alleles get marked with a 1
                                         consistency.push_back('1');
+                                        
+                                        // Add in the raw score for the average
+                                        score_totals.at(i) += affinity.raw_score;
+                                        score_counts.at(i)++;
+                                        
                                     } else {
                                         // Inconsistent ones get marked with a 0
                                         consistency.push_back('0');
@@ -269,10 +280,19 @@ void Genotyper::run(VG& graph,
                         
                             #pragma omp critical (cerr)
                             {
+                                cerr << "Support patterns:" << endl;
                                 for(auto& combo_and_count : consistency_combo_counts) {
                                     // Spit out all the counts for all the combos
-                                    cerr << combo_and_count.first << ": " << combo_and_count.second << endl;
+                                    cerr << "\t" << combo_and_count.first << ": " << combo_and_count.second << endl;
                                 }
+                                
+                                cerr << "Average scores by allele:" << endl;
+                                for(size_t i = 0; i < score_totals.size(); i++) {
+                                    // Spit out average scores of supportign reads for each allele.
+                                    cerr << traversals_to_string(paths.at(i)) << ": "
+                                        << score_totals.at(i) / score_counts.at(i) << endl;
+                                }
+                                
                             }
                         }
                         
