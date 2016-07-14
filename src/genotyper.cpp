@@ -380,6 +380,11 @@ void Genotyper::run(VG& graph,
         #pragma omp critical (cerr)
         cerr << "Computed " << total_affinities << " affinities" << endl;
     }
+    
+    if(output_vcf) {
+        delete vcf;
+        delete reference_index;
+    }
 
 }
 

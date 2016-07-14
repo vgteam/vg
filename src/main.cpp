@@ -1826,6 +1826,8 @@ int main_genotype(int argc, char** argv) {
                   output_json,
                   length_override,
                   variant_offset);
+                  
+    delete graph;
 
     return 0;
 }
