@@ -69,12 +69,16 @@ public:
         double affinity = 0;
         // Is the read on the forward strand (false) or reverse strand (true)
         bool is_reverse = false;
+        // What's the actual score (not necessarily normalized out of 1)?
+        // We'll probably put per-base alignment score here
+        double score = 0;        
         
         // Have a default constructor
         Affinity() = default;
         
         // Have a useful constructor
-        Affinity(double affinity, bool is_reverse) : consistent(affinity == 1), affinity(affinity), is_reverse(is_reverse) {
+        Affinity(double affinity, bool is_reverse) : consistent(affinity == 1), 
+            affinity(affinity), is_reverse(is_reverse), score(affinity) {
             // Nothing to do
         }
         
@@ -113,6 +117,10 @@ public:
     
     // How much support must an alt have on each strand before we can call it?
     int min_consistent_per_strand = 2;
+    
+    // When we realign reads, what's the minimum per-base score for a read in
+    // order to actually use it as supporting the thing we just aligned it to?
+    double min_score_per_base = 0.90;
     
     // What should our prior on being heterozygous at a site be?
     double het_prior_logprob = prob_to_logprob(0.001);
@@ -177,9 +185,13 @@ public:
     
     /**
      * For the given site, emit all subpaths with unique sequences that run from
-     * start to end, out of the paths in the graph.
+     * start to end, out of the paths in the graph. Uses the map of reads by
+     * name to determine if a path is a read or a real named path. Paths through
+     * the site supported only by reads are subject to a min recurrence count,
+     * while those supported by actual embedded named paths are not.
      */
-    vector<list<NodeTraversal>> get_paths_through_site(VG& graph, const Site& site);
+    vector<list<NodeTraversal>> get_paths_through_site(VG& graph, const Site& site,
+        const map<string, Alignment*>& reads_by_name);
     
     /**
      * Get all the quality values in the alignment between the start and end nodes

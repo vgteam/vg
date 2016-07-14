@@ -146,8 +146,8 @@ void Genotyper::run(VG& graph,
                     
                     int tid = omp_get_thread_num();
                     
-                    // Get all the paths through the site
-                    vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site);
+                    // Get all the paths through the site supported by enough reads, or by real named paths
+                    vector<list<NodeTraversal>> paths = get_paths_through_site(graph, site, reads_by_name);
                     
                     if(paths.size() == 0) {
                         // TODO: this compensates for inside-out sites from
@@ -156,7 +156,7 @@ void Genotyper::run(VG& graph,
                         
                         // Flip the site around and try again
                         swap(site.start, site.end);
-                        vector<list<NodeTraversal>> reverse_paths = get_paths_through_site(graph, site);
+                        vector<list<NodeTraversal>> reverse_paths = get_paths_through_site(graph, site, reads_by_name);
                         if(reverse_paths.size() != 0) {
                             // We actually got some paths. Use them
                             swap(paths, reverse_paths);
@@ -241,6 +241,79 @@ void Genotyper::run(VG& graph,
                             affinities = get_affinities_fast(graph, reads_by_name, site, paths);
                         }
                         
+                        if(show_progress) {
+                            // Sum up all the affinity counts by consistency flags
+                            map<string, size_t> consistency_combo_counts;
+                            
+                            // And average raw scores by alleles they are
+                            // consistent with, for things consistent with just
+                            // one allele.
+                            vector<double> score_totals(paths.size());
+                            vector<size_t> score_counts(paths.size());
+                            
+                            for(auto& alignment_and_affinities : affinities) {
+                                // For every alignment, make a string describing which alleles it is consistent with.
+                                string consistency;
+                                
+                                // How many alleles are we consstent with?
+                                size_t consistent_allele_count = 0;
+                                // And which one is it, if it's only one?
+                                int chosen = -1;
+                                
+                                for(size_t i = 0; i < alignment_and_affinities.second.size(); i++) {
+                                    auto& affinity = alignment_and_affinities.second.at(i);
+                                    if(affinity.consistent) {
+                                        // Consistent alleles get marked with a 1
+                                        consistency.push_back('1');
+                                        
+                                        // Say we're consistent with an allele
+                                        chosen = i;
+                                        consistent_allele_count++;
+                                        
+                                    } else {
+                                        // Inconsistent ones get marked with a 0
+                                        consistency.push_back('0');
+                                    }
+                                }
+                                
+                                if(consistent_allele_count == 1) {
+                                    // Add in the non-normalized score for the average
+                                    score_totals.at(chosen) += alignment_and_affinities.second.at(chosen).score;
+                                    score_counts.at(chosen)++;
+                                }
+
+#ifdef debug
+                                #pragma omp critical (cerr)
+                                cerr << consistency << ": " << alignment_and_affinities.first->sequence() << endl;
+#endif
+                                
+                                
+                                // Increment the count for that pattern
+                                consistency_combo_counts[consistency]++;
+                            }
+                        
+                            #pragma omp critical (cerr)
+                            {
+                                cerr << "Support patterns:" << endl;
+                                for(auto& combo_and_count : consistency_combo_counts) {
+                                    // Spit out all the counts for all the combos
+                                    cerr << "\t" << combo_and_count.first << ": " << combo_and_count.second << endl;
+                                }
+                                
+                                cerr << "Average scores for unique support:" << endl;
+                                for(size_t i = 0; i < score_totals.size(); i++) {
+                                    // Spit out average scores of uniquely supporting reads for each allele that has them.
+                                    if(score_counts.at(i) > 0) {
+                                        cerr << "\t" << traversals_to_string(paths.at(i)) << ": "
+                                            << score_totals.at(i) / score_counts.at(i) << endl;
+                                    } else {
+                                        cerr << "\t" << traversals_to_string(paths.at(i)) << ": --" << endl;
+                                    }
+                                }
+                                
+                            }
+                        }
+                        
                         for(auto& alignment_and_affinities : affinities) {
                             #pragma omp critical (total_affinities)
                             total_affinities += alignment_and_affinities.second.size();
@@ -306,6 +379,11 @@ void Genotyper::run(VG& graph,
     if(show_progress) {
         #pragma omp critical (cerr)
         cerr << "Computed " << total_affinities << " affinities" << endl;
+    }
+    
+    if(output_vcf) {
+        delete vcf;
+        delete reference_index;
     }
 
 }
@@ -456,10 +534,15 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
     return to_return;
 }
 
-vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const Site& site) {
+vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const Site& site,
+    const map<string, Alignment*>& reads_by_name) {
     // We're going to emit traversals supported by any paths in the graph.
     
-    // Put all our subpaths in here to deduplicate them by sequence they spell out. And to count occurrences.
+    // Put all our subpaths in here to deduplicate them by sequence they spell
+    // out. And to count occurrences. Note that the occurrence count will be
+    // boosted to min_recurrence if a non-read path in the graph supports a
+    // certain traversal string, so we don't end up dropping unsupported ref
+    // alleles.
     map<string, pair<list<NodeTraversal>, int>> results;
 
 #ifdef debug
@@ -476,6 +559,9 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
         for(auto& name_and_mappings : graph.paths.get_node_mapping(site.start.node)) {
             // Go through the paths that visit the start node
             
+            // Grab their names
+            auto& name = name_and_mappings.first;
+            
             if(!endmappings_by_name.count(name_and_mappings.first)) {
                 //cerr << "no endmappings match" << endl;
                 // No path by this name has any mappings to the end node. Skip
@@ -488,7 +574,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                 
 #ifdef debug
                 #pragma omp critical (cerr)
-                cerr << "Trying mapping of read " << name_and_mappings.first << endl;
+                cerr << "Trying mapping of read/path " << name_and_mappings.first << endl;
 #endif
                 
                 // How many times have we gone to the next mapping looking for a
@@ -537,10 +623,28 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                             #pragma omp critical (cerr)
                             cerr << "\tFinished; got known sequence " << allele_stream.str() << endl;
 #endif
-                            results[allele_stream.str()].second++;
+
+                            if(reads_by_name.count(name)) {
+                                // We are a read. Just increment count
+                                results[allele_stream.str()].second++;
+                            } else {
+                                // We are a named path (like "ref")
+                                if(results[allele_stream.str()].second < min_recurrence) {
+                                    // Ensure that this allele doesn't get
+                                    // eliminated, since ref or some other named
+                                    // path supports it.
+                                    results[allele_stream.str()].second = min_recurrence;
+                                } else {
+                                    results[allele_stream.str()].second++;
+                                }
+                            }
                         } else {
-                            // Add it in
-                            results[allele_stream.str()] = make_pair(path_traversed, 1);
+                            // Add it in. Give it a count of 1 if we are a read,
+                            // and a count of min_recurrence (so it doesn't get
+                            // filtered later) if we are a named non-read path
+                            // (like "ref").
+                            results[allele_stream.str()] = make_pair(path_traversed,
+                                reads_by_name.count(name) ? 1 : min_recurrence);
 #ifdef debug
                             #pragma omp critical (cerr)
                             cerr << "\tFinished; got novel sequence " << allele_stream.str() << endl;
@@ -582,8 +686,8 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
         if(count < min_recurrence) {
             // We don't have enough initial hits for this sequence to justify
             // trying to re-align the rest of the reads. Skip it. Note that the
-            // reference path counts as a single recurrence, so we might throw
-            // it out if nothing else covers it.
+            // reference path (and other named paths) will stuff in at least
+            // min_recurrence to make sure we don't throw out their alleles.
             continue;
         }
         
@@ -780,9 +884,12 @@ map<Alignment*, vector<Genotyper::Affinity>>
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
 
-            // Save the identity and orientation
+            // Compute the score per base
+            double score_per_base = (double)aligned.score() / aligned.sequence().size();
+            
+            // Save the score (normed per read base) and orientation
             // We'll normalize the affinities later to enforce the max of 1.0.
-            Affinity affinity(aligned.score(), aligned_rev.score() > aligned_fwd.score());
+            Affinity affinity(score_per_base, aligned_rev.score() > aligned_fwd.score());
             
             // Get the NodeTraversals for the winning alignment through the site.
             auto read_traversal = get_traversal_of_site(graph, site, aligned.path());
@@ -822,9 +929,17 @@ map<Alignment*, vector<Genotyper::Affinity>>
                 // If the first difference is the past-the-rend of the suffix, then it's a suffix
                 affinity.consistent = (difference.first == seq.rend());
             } else {
-                // This read doesn't touch either end.
+                // This read doesn't touch either end. Just assume it's
+                // consistent and let scoring work it out.
                 #pragma omp critical (cerr)
                 cerr << "Warning: realigned read doesn't touch either end of its site!" << endl;
+                affinity.consistent = true;
+            }
+            
+            if(score_per_base < min_score_per_base) {
+                // Say we can't really be consistent with this if we have such a
+                // terrible score.
+                affinity.consistent = false;
             }
 
             // Grab the identity and save it for this read and superbubble path
@@ -835,7 +950,10 @@ map<Alignment*, vector<Genotyper::Affinity>>
     
     for(auto& name : relevant_read_names) {
         // For every read that touched the superbubble, mark it consistent only
-        // with its best-identity alleles that don't mismatch in the allele.
+        // with its best-score alleles that don't mismatch in the allele.
+        
+        // So basically make everything that isn't normalized affinity 1.0
+        // inconsistent if it wasn't already.
         
         // Grab its original Alignment pointer.
         Alignment* read = reads_by_name.at(name);
@@ -1729,7 +1847,7 @@ Genotyper::locus_to_variant(VG& graph,
     }
     
     // Get the string for the reference allele
-    string refString = index.sequence.substr(referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
+    string ref_string = index.sequence.substr(referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
     
     // And make strings for all the locus's alleles
     vector<string> allele_strings;
@@ -1745,7 +1863,7 @@ Genotyper::locus_to_variant(VG& graph,
     }
     
     // See if any alleles are empty
-    bool empty_alleles = refString.empty();
+    bool empty_alleles = ref_string.empty();
     for(auto& allele : allele_strings) {
         if(allele == "") {
             empty_alleles = true;
@@ -1761,14 +1879,77 @@ Genotyper::locus_to_variant(VG& graph,
             allele = prefix + allele;
         }
         // Also prepend it to the reference string
-        refString = prefix + refString;
+        ref_string = prefix + ref_string;
         
         // Budge the variant over
         referenceIntervalStart--;
     }
     
+    // Trim fixed characters off the right
+    while(ref_string.size() > 1) {
+        // Grab the character at the end of the ref sequence
+        char fixed = ref_string.back();
+        
+        // Set this to false if not all the alt strings also have this character
+        // at the end, free to be chopped off.
+        bool all_have_character = true;
+        for(auto& allele_string : allele_strings) {
+            if(allele_string.size() <= 1 || allele_string.back() != fixed) {
+                // String is too short to trim or ends in the wrong character
+                all_have_character = false;
+                break;
+            }
+        }
+        
+        if(all_have_character) {
+            // Trim it off
+            ref_string.pop_back();
+            for(auto& allele_string : allele_strings) {
+                allele_string.pop_back();
+            }
+            
+            // Record we budged the end of the interval left.
+            referenceIntervalPastEnd--;
+        } else {
+            // Done trimming
+            break;
+        }
+    }
+    
+    // Trim fixed characters off the left
+    while(ref_string.size() > 1) {
+        // Grab the character at the start of the ref sequence
+        char fixed = ref_string.front();
+        
+        // Set this to false if not all the alt strings also have this character
+        // at the start, free to be chopped off.
+        bool all_have_character = true;
+        for(auto& allele_string : allele_strings) {
+            if(allele_string.size() <= 1 || allele_string.front() != fixed) {
+                // String is too short to trim or starts with the wrong character
+                all_have_character = false;
+                break;
+            }
+        }
+        
+        if(all_have_character) {
+            // Trim it off
+            // TODO: this is going to be O(n^2)
+            ref_string.erase(0, 1);
+            for(auto& allele_string : allele_strings) {
+                allele_string.erase(0, 1);
+            }
+            
+            // Record that we budged the reference sequence start right.
+            referenceIntervalStart++;
+        } else {
+            // Done trimming
+            break;
+        }
+    }
+    
     // Make the ref allele
-    create_ref_allele(variant, refString);
+    create_ref_allele(variant, ref_string);
     
     // Make a vector of supports by assigned VCF alt number
     vector<Support> support_by_alt;
@@ -1804,7 +1985,10 @@ Genotyper::locus_to_variant(VG& graph,
     
     // Get the best genotype
     assert(locus.genotype_size() > 0);
-    Genotype best_genotype = locus.genotype(0);
+    const Genotype& best_genotype = locus.genotype(0);
+    // And its support
+    assert(locus.support_size() > 0);
+    const Support& best_support = locus.support(0);
     // TODO: right now we only handle diploids
     assert(best_genotype.allele_size() == 2);
     
@@ -1849,9 +2033,16 @@ Genotyper::locus_to_variant(VG& graph,
         variant.samples[sample_name]["GQ"].push_back(to_string(
             logprob_to_phred(locus.genotype(1).log_posterior() - best_genotype.log_posterior())));
     } else {
-        // This is very unlikely to be wrong. Give it a max-ish value.
-        // TODO: do somethng better. Use overall support quality?
-        variant.samples[sample_name]["GQ"].push_back("255");
+        // This is very unlikely to be wrong. It can only be wrong if all the
+        // reads in support of ref missed the haplotype on which an alt is.
+        // TODO: this isn't exactly right; we should somehow account here for
+        // reads we threw out for being on non-recurrent alleles...
+        int total_reads = best_support.forward() + best_support.reverse();
+        // Compute the likelihood that we missed everything, multiply it by a
+        // prior of 5% for just being completely wrong, and treat that as the
+        // posterior for the second best genotype.
+        double all_missed_logprob = prob_to_logprob(0.5) * total_reads + prob_to_logprob(0.05);
+        variant.samples[sample_name]["GQ"].push_back(to_string(logprob_to_phred(all_missed_logprob - best_genotype.log_posterior())));
     }
     
     // Compose the allele-specific depth

@@ -1799,15 +1799,7 @@ int main_genotype(int argc, char** argv) {
         
         if(contained) {
             // This alignment completely falls within the graph
-            
-            // Correct its quality scores from phred+33, as in GAM or an index,
-            // to phred, as used within vg for math.
-            // TODO: just keep them like this all the time
-            auto alignment_copy = alignment;
-            
-            alignment_copy.set_quality(string_quality_char_to_short(alignment_copy.quality()));
-            
-            alignments.push_back(alignment_copy);
+            alignments.push_back(alignment);
         }
     });
         
@@ -1834,6 +1826,8 @@ int main_genotype(int argc, char** argv) {
                   output_json,
                   length_override,
                   variant_offset);
+                  
+    delete graph;
 
     return 0;
 }
@@ -7515,7 +7509,6 @@ int main_view(int argc, char** argv) {
             if (output_type == "json") {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
-                    alignment_quality_short_to_char(a);
                     if(std::isnan(a.identity())) {
                         // Fix up NAN identities that can't be serialized in
                         // JSON. We shouldn't generate these any more, and they
