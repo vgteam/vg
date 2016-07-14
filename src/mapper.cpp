@@ -725,6 +725,7 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
     }
 
     // TODO remove clusters that are fully contained in others
+    // can we do this efficiently without a suffix tree?
 
     auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
         int i = 0;
@@ -763,6 +764,11 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
         if (multimaps++ > total_multimaps) { break; }
         alns.emplace_back(mems_to_alignment(aln, cluster));
         cerr << pb2json(alns.back()) << endl;
+        // now fix it up!
+        // for each non-aligned portion
+        // get the graph starting and the beginning and end of the gap
+        // and try to align it
+        // force-matching the traceback
     }
     
     return alns;

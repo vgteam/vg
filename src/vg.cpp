@@ -7299,7 +7299,8 @@ Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
                     size_t max_query_graph_ratio,
-                    bool print_score_matrices) {
+                    bool print_score_matrices,
+                    bool force_end_match) {
     
     auto aln = alignment;
     
@@ -7346,10 +7347,10 @@ Alignment VG::align(const Alignment& alignment,
     dag.sort();
 
     if (aligner && !qual_adj_aligner) {
-        aligner->align(aln, dag.graph, print_score_matrices);
+        aligner->align(aln, dag.graph, print_score_matrices, force_end_match);
     }
     else if (qual_adj_aligner && !aligner) {
-        qual_adj_aligner->align(aln, dag.graph, print_score_matrices);
+        qual_adj_aligner->align(aln, dag.graph, print_score_matrices, force_end_match);
     }
     else {
         cerr << "error:[VG] cannot both adjust and not adjust alignment for base quality" << endl;
@@ -7389,48 +7390,54 @@ Alignment VG::align(const Alignment& alignment,
 Alignment VG::align(const Alignment& alignment,
                     Aligner& aligner,
                     size_t max_query_graph_ratio,
-                    bool print_score_matrices) {
-    return align(alignment, &aligner, nullptr, max_query_graph_ratio, print_score_matrices);
+                    bool print_score_matrices,
+                    bool force_end_match) {
+    return align(alignment, &aligner, nullptr, max_query_graph_ratio, print_score_matrices, force_end_match);
 }
 
 Alignment VG::align(const string& sequence,
                     Aligner& aligner,
                     size_t max_query_graph_ratio,
-                    bool print_score_matrices) {
+                    bool print_score_matrices,
+                    bool force_end_match) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment, aligner, max_query_graph_ratio, print_score_matrices);
+    return align(alignment, aligner, max_query_graph_ratio, print_score_matrices, force_end_match);
 }
     
 Alignment VG::align(const Alignment& alignment,
                     size_t max_query_graph_ratio,
-                    bool print_score_matrices) {
+                    bool print_score_matrices,
+                    bool force_end_match) {
     Aligner default_aligner = Aligner();
-    return align(alignment, default_aligner, max_query_graph_ratio, print_score_matrices);
+    return align(alignment, default_aligner, max_query_graph_ratio, print_score_matrices, force_end_match);
 }
 
 Alignment VG::align(const string& sequence,
                     size_t max_query_graph_ratio,
-                    bool print_score_matrices) {
+                    bool print_score_matrices,
+                    bool force_end_match) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align(alignment, max_query_graph_ratio, print_score_matrices);
+    return align(alignment, max_query_graph_ratio, print_score_matrices, force_end_match);
 }
 
 Alignment VG::align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner& qual_adj_aligner,
                                   size_t max_query_graph_ratio,
-                                  bool print_score_matrices) {
-    return align(alignment, nullptr, &qual_adj_aligner, max_query_graph_ratio, print_score_matrices);
+                                  bool print_score_matrices,
+                                  bool force_end_match) {
+    return align(alignment, nullptr, &qual_adj_aligner, max_query_graph_ratio, print_score_matrices, force_end_match);
 }
     
 Alignment VG::align_qual_adjusted(const string& sequence,
                                   QualAdjAligner& qual_adj_aligner,
                                   size_t max_query_graph_ratio,
-                                  bool print_score_matrices) {
+                                  bool print_score_matrices,
+                                  bool force_end_match) {
     Alignment alignment;
     alignment.set_sequence(sequence);
-    return align_qual_adjusted(alignment, qual_adj_aligner, max_query_graph_ratio, print_score_matrices);
+    return align_qual_adjusted(alignment, qual_adj_aligner, max_query_graph_ratio, print_score_matrices, force_end_match);
 }
 
 const string VG::hash(void) {

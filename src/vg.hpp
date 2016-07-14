@@ -693,29 +693,35 @@ public:
     Alignment align(const string& sequence,
                     Aligner& aligner,
                     size_t max_query_graph_ratio = 0,
-                    bool print_score_matrices = false);
+                    bool print_score_matrices = false,
+                    bool force_end_match = false);
     Alignment align(const Alignment& alignment,
                     Aligner& aligner,
                     size_t max_query_graph_ratio = 0,
-                    bool print_score_matrices = false);
+                    bool print_score_matrices = false,
+                    bool force_end_match = false);
     
     // align with default Aligner
     Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
-                    bool print_score_matrices = false);
+                    bool print_score_matrices = false,
+                    bool force_end_match = false);
     Alignment align(const string& sequence,
                     size_t max_query_graph_ratio = 0,
-                    bool print_score_matrices = false);
+                    bool print_score_matrices = false,
+                    bool force_end_match = false);
     
     // align with base quality adjusted scores
     Alignment align_qual_adjusted(const Alignment& alignment,
                                   QualAdjAligner& qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
-                                  bool print_score_matrices = false);
+                                  bool print_score_matrices = false,
+                                  bool force_end_match = false);
     Alignment align_qual_adjusted(const string& sequence,
                                   QualAdjAligner& qual_adj_aligner,
                                   size_t max_query_graph_ratio = 0,
-                                  bool print_score_matrices = false);
+                                  bool print_score_matrices = false,
+                                  bool force_end_match = false);
     
     
 
@@ -969,7 +975,8 @@ private:
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
                     size_t max_query_graph_ratio,
-                    bool print_score_matrices);
+                    bool print_score_matrices,
+                    bool force_end_match);
 
 
 public:

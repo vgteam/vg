@@ -55,7 +55,7 @@ namespace vg {
         ~Aligner(void);
         
         // store optimal alignment against a graph in the Alignment object
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false, bool force_end_match = false);
         
         // must be called before querying mapping_quality
         void init_mapping_quality(double gc_content);
@@ -93,7 +93,7 @@ namespace vg {
 
         ~QualAdjAligner(void);
 
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false, bool force_end_match = false);
         void init_mapping_quality(double gc_content);
 
         uint8_t max_qual_score;
