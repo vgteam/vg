@@ -1980,7 +1980,10 @@ Genotyper::locus_to_variant(VG& graph,
     
     // Get the best genotype
     assert(locus.genotype_size() > 0);
-    Genotype best_genotype = locus.genotype(0);
+    const Genotype& best_genotype = locus.genotype(0);
+    // And its support
+    assert(locus.support_size() > 0);
+    const Support& best_support = locus.support(0);
     // TODO: right now we only handle diploids
     assert(best_genotype.allele_size() == 2);
     
@@ -2025,9 +2028,16 @@ Genotyper::locus_to_variant(VG& graph,
         variant.samples[sample_name]["GQ"].push_back(to_string(
             logprob_to_phred(locus.genotype(1).log_posterior() - best_genotype.log_posterior())));
     } else {
-        // This is very unlikely to be wrong. Give it a max-ish value.
-        // TODO: do somethng better. Use overall support quality?
-        variant.samples[sample_name]["GQ"].push_back("255");
+        // This is very unlikely to be wrong. It can only be wrong if all the
+        // reads in support of ref missed the haplotype on which an alt is.
+        // TODO: this isn't exactly right; we should somehow account here for
+        // reads we threw out for being on non-recurrent alleles...
+        int total_reads = best_support.forward() + best_support.reverse();
+        // Compute the likelihood that we missed everything, multiply it by a
+        // prior of 5% for just being completely wrong, and treat that as the
+        // posterior for the second best genotype.
+        double all_missed_logprob = prob_to_logprob(0.5) * total_reads + prob_to_logprob(0.05);
+        variant.samples[sample_name]["GQ"].push_back(to_string(logprob_to_phred(all_missed_logprob - best_genotype.log_posterior())));
     }
     
     // Compose the allele-specific depth
