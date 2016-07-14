@@ -104,8 +104,11 @@ public:
     // piece of sequence being correct?
     int default_sequence_quality = 15;
     
-    // How many times must a path recur before we try aligning to it?
-    // Note that the primary path counts as a recurrence.
+    // How many times must a path recur before we try aligning to it? Also, how
+    // many times must a node in the graph be visited before we use it in indel
+    // realignment for nearby indels? Note that the primary path counts as a
+    // recurrence. TODO: novel inserts can't recur, and novel deletions can't be
+    // filtered in this way.
     int min_recurrence = 2;
     
     // How much support must an alt have on each strand before we can call it?
