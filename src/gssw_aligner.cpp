@@ -41,7 +41,6 @@ Aligner::Aligner(int32_t _match,
 gssw_graph* Aligner::create_gssw_graph(Graph& g) {
     
     gssw_graph* graph = gssw_graph_create(g.node_size());
-    map<int64_t, gssw_node*> nodes;
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
@@ -92,7 +91,7 @@ gssw_graph* Aligner::create_gssw_graph(Graph& g) {
 
 }
 
-void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices, bool force_end_match) {
+void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices, vg::id_t force_end_match) {
     
     gssw_graph* graph = create_gssw_graph(g);
     const string& sequence = alignment.sequence();
@@ -103,7 +102,8 @@ void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices, b
                     gap_open, gap_extension, 15, 2);
 
     if (force_end_match) {
-        gssw_node* n = graph->max_node;
+        gssw_node* n = nodes[force_end_match];
+        graph->max_node = n;
         n->alignment->ref_end1 = n->len-1;
         n->alignment->read_end1 = alignment.sequence().size()-1;
     }
@@ -510,7 +510,7 @@ QualAdjAligner::~QualAdjAligner(void) {
     free(adjusted_score_matrix);
 }
 
-void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matrices, bool force_end_match) {
+void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matrices, vg::id_t force_end_match) {
     
     gssw_graph* graph = create_gssw_graph(g);
     
@@ -526,7 +526,8 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
                              scaled_gap_open, scaled_gap_extension, 15, 2);
 
     if (force_end_match) {
-        gssw_node* n = graph->max_node;
+        gssw_node* n = nodes[force_end_match];
+        graph->max_node = n;
         n->alignment->ref_end1 = n->len-1;
         n->alignment->read_end1 = alignment.sequence().size()-1;
     }

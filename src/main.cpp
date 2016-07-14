@@ -6117,7 +6117,7 @@ void help_align(char** argv) {
          << "    -M, --mismatch N      use this mismatch penalty (default: 4)" << endl
          << "    -g, --gap-open N      use this gap open penalty (default: 6)" << endl
          << "    -e, --gap-extend N    use this gap extension penalty (default: 1)" << endl
-         << "    -F, --force-end-match force the traceback to start at a perfect match between ref and read (GSSW only)" << endl
+         << "    -F, --force-end-match N  force the traceback to start at a perfect match between ref and read on node N" << endl
          << "    -D, --debug           print out score matrices and other debugging info" << endl
          << "options:" << endl
          << "    -s, --sequence STR    align a string to the graph in graph.vg using partial order alignment" << endl
@@ -6143,7 +6143,7 @@ int main_align(int argc, char** argv) {
     int gap_open = 6;
     int gap_extend = 1;
     string ref_seq;
-    bool force_end_match = false;
+    vg::id_t force_end_match_node = 0;
     bool debug = false;
 
     int c;
@@ -6161,13 +6161,13 @@ int main_align(int argc, char** argv) {
             {"gap-open", required_argument, 0, 'g'},
             {"gap-extend", required_argument, 0, 'e'},
             {"reference", required_argument, 0, 'r'},
-            {"force-end-match", no_argument, 0, 'F'},
+            {"force-end-match", required_argument, 0, 'F'},
             {"debug", no_argument, 0, 'D'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6209,7 +6209,7 @@ int main_align(int argc, char** argv) {
             break;
 
         case 'F':
-            force_end_match = true;
+            force_end_match_node = atoi(optarg);
             break;
 
         case 'D':
@@ -6247,7 +6247,7 @@ int main_align(int argc, char** argv) {
         alignment = ssw.align(seq, ref_seq);
     } else {
         Aligner aligner = Aligner(match, mismatch, gap_open, gap_extend);
-        alignment = graph->align(seq, aligner, 0, debug, force_end_match);
+        alignment = graph->align(seq, aligner, 0, debug, force_end_match_node);
     }
 
     if (!seq_name.empty()) {
