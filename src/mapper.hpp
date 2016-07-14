@@ -55,7 +55,12 @@ public:
     int length(void) const {
         return end - begin;
     }
+
+    friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+    friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+
 };
+
 
 class Mapper {
 
@@ -129,7 +134,11 @@ public:
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                 vector<MaximalExactMatch>& mems2);
 
-    vector<vector<MaximalExactMatch*> > positionally_consistent_mem_clusters(vector<MaximalExactMatch>& mems);
+    // takes the input alignment (with seq, etc) so we have reference to the base sequence
+    // for reconstruction the alignments from the SMEMs
+    vector<Alignment> mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
+    Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
+    Alignment mem_to_alignment(MaximalExactMatch& mem);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);

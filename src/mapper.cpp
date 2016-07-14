@@ -654,13 +654,15 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Al
 
 // returns the SMEM clusters which are consistent with the distribution of the MEMs in the read
 // provided some tolerance +/-
-vector<vector<MaximalExactMatch*> > Mapper::positionally_consistent_mem_clusters(vector<MaximalExactMatch>& mems) {
+// uses the exact matches to generate as much of each alignment as possible
+// then local dynamic programming to fill in the gaps
+vector<Alignment>
+Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps) {
 
-    // we'll start to store threads here
-    vector<vector<MaximalExactMatch*> > clusters;
-
-    // sort by position
-    map<pair<string, bool>, map<int, vector<MaximalExactMatch*> > > by_pos;
+    int total_multimaps = max_multimaps + additional_multimaps;
+    
+    // sort by position, make the SMEM node list only contain the matched position
+    map<pair<string, bool>, map<int, vector<pair<MaximalExactMatch*, gcsa::node_type> > > > by_start_pos;
 
     // run through the mems
     // collecting their positions relative to the forward path
@@ -673,74 +675,61 @@ vector<vector<MaximalExactMatch*> > Mapper::positionally_consistent_mem_clusters
             for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
                 auto& name = ref.first;
                 for (auto pos : ref.second) {
-                    by_pos[make_pair(name,is_rev)][pos+offset].push_back(&mem);
+                    auto chrom = make_pair(name, is_rev);
+                    by_start_pos[chrom][pos+offset].push_back(make_pair(&mem, node));
                 }
             }
         }
     }
 
-    clusters.emplace_back();
-    // when we do we add into this map
-    for (auto& b : by_pos) {
-        int last_pos = -1;
+    // we cluster up the SMEMs here, then convert the clusters to partial alignments
+    vector<vector<MaximalExactMatch> > clusters;
+    for (auto& b : by_start_pos) {
         auto& seq_map = b.second;
-        auto& name = b.first.first;
-        bool is_rev = b.first.second;
-        map<int, vector<MaximalExactMatch*> > by_end_pos;
-        // although unlikely, it is technically possible
-        // to have multiple MEMs at the same start position
-        // (for instance, this could happen due to branching)
-        // thus we need to keep the last begins and ends
-        set<MaximalExactMatch*> in_cluster;
         for (auto& p : seq_map) {
             auto& pos = p.first;
-            auto& memv = p.second;
-            // debugging for now to see what's happening
-            cerr << name << ":" << pos << (is_rev?"-":"+") << " ";
-            vector<MaximalExactMatch*>& cluster = clusters.back();
-            bool has_hit = false;
-            for (auto& mem : memv) {
-                cerr << mem->sequence() << ":"
-                     << (last_pos >= 0 ? pos - last_pos : -1) << " ";
-                int end_pos = pos + mem->length();
-                // try to find a thread to extend using bound queries
-                // establish a limit using the mem length as a tolerance
-                auto x = by_end_pos.lower_bound(pos - mem->length());
-                // collect everything in range
-                // we are always walking up the chromosome strand
-                // so we can get everything from where we match up to where we are
-                while (x != by_end_pos.end()) {
-                    has_hit = true;
-                    cerr << " hit: " << x->first << " ";
-                    // let's get clumpy
-                    // is this hit consistent?
-                    cerr << end_pos - x->first << " vs ";
-                    for (auto& m : x->second) {
-                        cerr  << mem->end - m->end << " ";
-                        if (!in_cluster.count(m)) {
-                            cluster.push_back(m);
-                            in_cluster.insert(m);
-                        }
+            cerr << "starting from pos " << pos << (b.first.second?"-":"+") << endl;
+            clusters.emplace_back();
+            auto& cluster = clusters.back();
+            set<MaximalExactMatch*> in_cluster;
+            auto x = seq_map.find(pos);
+            // extend until we hit the end of the chrom or exceed 3x the length of the alignment
+            while (x != seq_map.end() && x->first - pos < aln.sequence().size()*3) {
+                // greedy heuristic: use the longest SMEM at the position
+                MaximalExactMatch* mem = nullptr;
+                gcsa::node_type node;
+                for (auto& m : x->second) {
+                    auto& nmem = m.first;
+                    if (mem == nullptr
+                        || nmem->length() > mem->length()) {
+                        mem = nmem;
+                        node = m.second;
                     }
-                    ++x;
                 }
-                if (!has_hit && !cluster.empty()) {
-                    clusters.emplace_back();
-                    in_cluster.clear();
+                assert(mem != nullptr);
+                cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
+                if (!cluster.empty() && cluster.back().end > mem->begin
+                    || in_cluster.count(mem)) {
+                    ++x; // step to the next position
+                } else {
+                    auto new_mem = *mem;
+                    new_mem.nodes.clear();
+                    new_mem.nodes.push_back(node);
+                    cluster.push_back(new_mem);
+                    in_cluster.insert(mem);
+                    // get the thing at least one past the end of this MEM
+                    x = seq_map.upper_bound(x->first+mem->length());
                 }
-                clusters.back().push_back(mem);
-                in_cluster.insert(mem);
-                by_end_pos[end_pos].push_back(mem);
             }
-            cerr << endl;
-            last_pos = pos;
         }
     }
 
-    auto mem_len_sum = [&](const vector<MaximalExactMatch*>& cluster) {
+    // TODO remove clusters that are fully contained in others
+
+    auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
         int i = 0;
         for (auto& mem : cluster) {
-            i += mem->length();
+            i += mem.length();
         }
         return i;
     };
@@ -748,8 +737,8 @@ vector<vector<MaximalExactMatch*> > Mapper::positionally_consistent_mem_clusters
     // sort the threads by their coverage of the read
     // descending sort, so that the best clusters are at the front
     std::sort(clusters.begin(), clusters.end(),
-              [&](const vector<MaximalExactMatch*>& c1,
-                  const vector<MaximalExactMatch*>& c2) {
+              [&](const vector<MaximalExactMatch>& c1,
+                  const vector<MaximalExactMatch>& c2) {
                   return mem_len_sum(c1) > mem_len_sum(c2);
               });
 
@@ -757,12 +746,26 @@ vector<vector<MaximalExactMatch*> > Mapper::positionally_consistent_mem_clusters
     for (auto& cluster : clusters) {
         cerr << cluster.size() << " SMEMs ";
         for (auto& mem : cluster) {
-            cerr << mem->sequence() << " ";
+            cerr << mem.sequence() << " ";
         }
         cerr << endl;
     }
+
+    // by our construction of the local SMEM copies, each has only one match
+    // which is where we've used it for clustering
+
+    vector<Alignment> alns;
+    // for up to our required number of multimaps
+    // make the perfect-match alignment for the SMEM cluster
+    // then fix it up with DP on the little bits between the alignments
+    int multimaps = 0;
+    for (auto& cluster : clusters) {
+        if (multimaps++ > total_multimaps) { break; }
+        alns.emplace_back(mems_to_alignment(aln, cluster));
+        cerr << pb2json(alns.back()) << endl;
+    }
     
-    return clusters;
+    return alns;
 }
 
 set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
@@ -1591,11 +1594,7 @@ Mapper::find_smems(const string& seq) {
                 // record the last MEM
                 match.begin = cursor+1;
                 match.range = last_range;
-                // it's not an SMEM if it starts at the same position as the last one we found
-                // as this would mean it is entirely contained in the previous match
-                if (mems.empty() || mems.back().begin > match.begin) {
-                    mems.push_back(match);
-                }
+                mems.push_back(match);
                 // set up the next MEM using the parent node range
                 // length of last MEM, which we use to update our end pointer for the next MEM
                 size_t last_mem_length = match.end - match.begin;
@@ -1616,17 +1615,36 @@ Mapper::find_smems(const string& seq) {
     }
     // if we have a non-empty MEM at the end, record it
     if (match.end - match.begin > 0) mems.push_back(match);
-    // remove zero-length entries;
-    // these are associated with single-base MEMs that tend to
+
+    // find the SMEMs from the mostly-SMEM and some MEM list we've built
+    // FIXME: un-hack this (it shouldn't be needed!)
+    // the algorithm sometimes generates MEMs contained in SMEMs
+    // with the pattern that they have the same beginning position
+    map<string::const_iterator, string::const_iterator> smems_begin;
+    for (auto& mem : mems) {
+        auto x = smems_begin.find(mem.begin);
+        if (x == smems_begin.end()) {
+            smems_begin[mem.begin] = mem.end;
+        } else {
+            if (x->second < mem.end) {
+                x->second = mem.end;
+            }
+        }
+    }
+    // remove zero-length entries and MEMs that aren't SMEMs
+    // the zero-length ones are associated with single-base MEMs that tend to
     // match the entire index (typically Ns)
     // minor TODO: fix the above algorithm so they aren't introduced at all
     mems.erase(std::remove_if(mems.begin(), mems.end(),
-                              [](MaximalExactMatch m) { return m.end-m.begin == 0; }),
+                              [&smems_begin](const MaximalExactMatch& m) {
+                                  return m.end-m.begin == 0
+                                      || smems_begin[m.begin] != m.end;
+                              }),
                mems.end());
     // return the matches in natural order
     std::reverse(mems.begin(), mems.end());
     // verify the matches (super costly at scale)
-    //if (debug) { check_mems(mems); }
+    if (debug) { check_mems(mems); }
     return mems;
 }
 
@@ -1768,42 +1786,50 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
     Mapping* mapping = path.add_mapping();
     *mapping->mutable_position() = make_position(pos);
     // get the first node we match
-    
+    int total = 0;
     size_t match_len = 0;
     //cerr << "seq is " << seq << endl;
-    for (size_t i = 0; i < seq.size()-1; ++i) {
+    for (size_t i = 0; i < seq.size(); ++i) {
+        //cerr << " on " << ++total << endl;
         char c = seq[i];
         //cerr << pos_char(pos) << " == " << c << endl;
         auto nexts = next_pos_chars(pos);
         assert(nexts.size());
+        //cerr << "on position " << pos << endl;
         if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
             pos_t npos = nexts.begin()->first;
-            //cerr << pos_char(npos) << " vs " << seq[i+1] << " i+1= " << i+1 << endl;
-            assert(pos_char(npos) == seq[i+1]); // we must match
+            if (i+1 < seq.size()) {
+                //cerr << pos_char(npos) << " vs " << seq[i+1] << " i+1= " << i+1 << endl;
+                assert(pos_char(npos) == seq[i+1]); // we must match
+            }
             ++match_len;
             ++get_offset(pos);
-        } else { //if (nexts.size() > 1 || id(nexts.begin()->first) != id(pos)) {
+        } else {
             // we must be going into another node
             // emit the mapping for this node
+            //cerr << "we are going into a new node" << endl;
+            ++match_len;
             Edit* edit = mapping->add_edit();
             edit->set_from_length(match_len);
             edit->set_to_length(match_len);
-            // find the next node that matches our MEM
-            char n = seq[i+1];
-            bool found_next = false;
-            for (auto& p : nexts) {
-                //cerr << "next : " << p.first << " " << p.second << endl;
-                if (p.second == n) {
-                    pos = p.first;
-                    found_next = true;
-                    break;
-                }
-            }
-            assert(found_next);
-            // set up a new mapping
             match_len = 0;
-            mapping = path.add_mapping();
-            *mapping->mutable_position() = make_position(pos);
+            // find the next node that matches our MEM
+            if (i+1 < seq.size()) {
+                char n = seq[i+1];
+                bool found_next = false;
+                for (auto& p : nexts) {
+                    //cerr << "next : " << p.first << " " << p.second << endl;
+                    if (p.second == n) {
+                        pos = p.first;
+                        found_next = true;
+                        break;
+                    }
+                }
+                assert(found_next);
+                // set up a new mapping
+                mapping = path.add_mapping();
+                *mapping->mutable_position() = make_position(pos);
+            }
         }
     }
     // add the last edit
@@ -1813,6 +1839,12 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         edit->set_to_length(match_len);
     }
     aln.set_score(aln.sequence().size()*(aligner->match));
+    assert(alignment_to_length(aln) == alignment_from_length(aln));
+    if (alignment_to_length(aln) != seq.size()) {
+        cerr << alignment_to_length(aln) << " is not " << seq.size() << endl;
+        cerr << pb2json(aln) << endl;
+        assert(false);
+    }
     return aln;
 }
 
@@ -1827,6 +1859,65 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
         alns.emplace_back(walk_match(seq, pos));
     }
     return alns;
+}
+
+// make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
+// use the base alignment sequence (which the SMEMs relate to) to fill in the gaps
+Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems) {
+    // base case--- empty alignment
+    if (mems.empty()) {
+        Alignment aln; return aln;
+    }
+    vector<Alignment> alns;
+    // get reference to the start and end of the sequences
+    string::const_iterator seq_begin = aln.sequence().begin();
+    string::const_iterator seq_end = aln.sequence().end();
+    // we use this to track where we need to add sequence
+    string::const_iterator last_end = seq_begin;
+    for (int i = 0; i < mems.size(); ++i) {
+        auto& mem = mems.at(i);
+        //cerr << "looking at " << mem.sequence() << endl;
+        // handle unaligned portion between here and the last SMEM or start of read
+        if (mem.begin > last_end) {
+            alns.emplace_back();
+            alns.back().set_sequence(aln.sequence().substr(last_end - seq_begin, mem.begin - last_end));
+        }
+        Alignment aln = mem_to_alignment(mem);
+        // find and trim overlap with previous
+        if (i > 0) {
+            auto& prev = mems.at(i-1);
+            // overlap is
+            int overlap = prev.end - mem.begin;
+            //cerr << "overlap be " << overlap << endl;
+            if (overlap > 0) {
+                //cerr << "removing " << overlap << endl;
+                //cerr << pb2json(aln) << endl;
+                aln = strip_from_start(aln, overlap);
+            }
+        }
+        alns.push_back(aln);
+        last_end = mem.end;
+    }
+    // handle unaligned portion at end of read
+    alns.emplace_back();
+    int start = last_end - seq_begin;
+    int length = seq_end - (seq_begin + start);
+    alns.back().set_sequence(aln.sequence().substr(start, length));
+
+    return merge_alignments(alns);
+}
+
+// convert one mem into an alignment; validates that only one node is given
+Alignment Mapper::mem_to_alignment(MaximalExactMatch& mem) {
+    const string seq = mem.sequence();
+    if (mem.nodes.size() > 1) {
+        cerr << "[vg::Mapper] warning: generating first alignment from MEM with multiple recorded hits" << endl;
+    }
+    auto& node = mem.nodes.front();
+    pos_t pos = make_pos_t(gcsa::Node::id(node),
+                           gcsa::Node::rc(node),
+                           gcsa::Node::offset(node));
+    return walk_match(seq, pos);
 }
 
 bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
@@ -1849,7 +1940,8 @@ bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
 
 vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
 
-    auto x = positionally_consistent_mem_clusters(mems);
+    cerr << "aligning " << pb2json(alignment) << endl;
+    auto x = mems_to_alignments(alignment, mems, additional_multimaps);
 
     if (debug) cerr << "aligning " << pb2json(alignment) << endl;
     if (!gcsa || !xindex) {
@@ -2606,6 +2698,14 @@ const vector<string> balanced_kmers(const string& seq, const int kmer_size, cons
         }
     }
     return kmers;
+}
+
+bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+    return m1.begin == m2.begin && m1.end == m2.end;
+}
+
+bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2) {
+    return m1.begin < m2.begin && m1.end < m2.end;
 }
 
 }
