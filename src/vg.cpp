@@ -2116,6 +2116,12 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
 
+        if(!alternates.count(var.ref)) {
+            // Ref is missing, as can happen with flat construction.
+            // Stick the ref in, because we need to have ref.
+            alternates[var.ref].push_back(vcflib::VariantAllele(var.ref, var.ref, var.position));
+        }
+
         // This holds a map from alt index (0 for ref) to the phase sets
         // visiting it as a bool vector. No bit vector means no visits.
         map<int, vector<bool>> alt_usages;

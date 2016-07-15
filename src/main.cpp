@@ -3177,6 +3177,7 @@ void help_mod(char** argv) {
          << "    -y, --destroy-node ID   remove node with given id" << endl
          << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
          << "    -a, --cactus            convert to cactus graph representation" << endl
+         << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl 
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -3226,6 +3227,7 @@ int main_mod(int argc, char** argv) {
     string translation_file;
     bool flip_doubly_reversed_edges = false;
     bool cactus = false;
+    string vcf_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3275,11 +3277,12 @@ int main_mod(int argc, char** argv) {
             {"translation", required_argument, 0, 'Z'},
             {"unreverse-edges", required_argument, 0, 'E'},
             {"cactus", no_argument, 0, 'a'},
+            {"sample-vcf", required_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Ea",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Ev:a",
                 long_options, &option_index);
 
 
@@ -3450,6 +3453,10 @@ int main_mod(int argc, char** argv) {
         case 'a':
             cactus = true;
             break;
+            
+        case 'v':
+            vcf_filename = optarg;
+            break;
 
         case 'h':
         case '?':
@@ -3470,6 +3477,133 @@ int main_mod(int argc, char** argv) {
         ifstream in;
         in.open(file_name.c_str());
         graph = new VG(in);
+    }
+
+    if (!vcf_filename.empty()) {
+        // We need to throw out the parts of the graph that are on alt paths,
+        // but not on alt paths for alts used by the first sample in the VCF.
+        
+        // This is matched against the entire path name string to detect alt
+        // paths.
+        regex is_alt("_alt_.+_[0-9]+");
+
+        // This holds the VCF file we read the variants from. It needs to be the
+        // same one used to construct the graph.
+        vcflib::VariantCallFile variant_file;
+        variant_file.open(vcf_filename);
+        if (!variant_file.is_open()) {
+            cerr << "error:[vg mod] could not open" << vcf_filename << endl;
+            return 1;
+        }
+        
+        // Now go through and prune down the varaints.
+
+        // How many phases are there?
+        size_t num_samples = variant_file.sampleNames.size();
+        // TODO: we can only handle single-sample VCFs
+        assert(num_samples == 1);
+
+        // This will hold the IDs of all nodes visited by alt paths that aren't used.
+        set<vg::id_t> alt_path_ids;
+
+        graph->paths.for_each_name([&](const string& alt_path_name) {
+            // For every path name in the graph
+            
+            if(regex_match(alt_path_name, is_alt)) {
+                // If it's an alt path
+                
+                for(auto& mapping : graph->paths.get_path(alt_path_name)) {
+                    // Mark all nodes that are part of it as on alt paths
+                    alt_path_ids.insert(mapping.position().node_id());
+                }
+            
+            }
+        });
+        
+        // We also have a function to handle each variant as it comes in.
+        auto handle_variant = [&](vcflib::Variant& variant) {
+            // So we have a variant
+
+            if(variant.alleles.size() < 2) {
+                // Skip non-variable variants.
+                return;
+            }
+
+            // Grab its id, or make one by hashing stuff if it doesn't
+            // have an ID.
+            string var_name = get_or_make_variant_id(variant);
+
+            if(!graph->paths.has_path("_alt_" + var_name + "_0")) {
+                // There isn't a reference alt path for this variant. Someone messed up.
+                cerr << variant << endl;
+                throw runtime_error("Reference alt for " + var_name + " not in graph!");
+            }
+
+            // For now always work on sample 0. TODO: let the user specify a
+            // name and find it.
+            int sample_number = 0;
+
+            // What sample is it?
+            string& sample_name = variant_file.sampleNames[sample_number];
+
+            // Parse it out and see if it's phased.
+            string genotype = variant.getGenotype(sample_name);
+
+            // Tokenize into allele numbers
+            // The token iterator can't hold the regex
+            regex allele_separator("[|/]");
+            for (sregex_token_iterator it(genotype.begin(), genotype.end(), allele_separator, -1);
+                it != sregex_token_iterator(); ++it) {
+                // For every token separated by / or |
+                if(it->str() == ".") {
+                    // Unknown; skip it
+                    continue;
+                }
+                
+                // Parse the allele number
+                int allele_number = stoi(it->str());
+                
+                // Make the name for its alt path
+                string alt_path_name = "_alt_" + var_name + "_" + to_string(allele_number);
+                
+                for(auto& mapping : graph->paths.get_path(alt_path_name)) {
+                    // Un-mark all nodes that are on this alt path, since it is used by the sample.
+                    alt_path_ids.erase(mapping.position().node_id());
+                }
+            }
+
+        };
+
+
+        // Allocate a place to store actual variants
+        vcflib::Variant var(variant_file);
+
+        while (variant_file.is_open() && variant_file.getNextVariant(var)) {
+            // this ... maybe we should remove it as for when we have calls against N
+            bool isDNA = allATGC(var.ref);
+            for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+                if (!allATGC(*a)) isDNA = false;
+            }
+            // only work with DNA sequences
+            if (!isDNA) {
+                continue;
+            }
+
+            var.position -= 1; // convert to 0-based
+
+            // Handle the variant
+            handle_variant(var);
+        }
+        
+        // Now delete all the paths (since they may have been invalidated).
+        graph->paths.clear();
+        
+        for(auto& node_id : alt_path_ids) {
+            // And delete all the nodes that were used by alt paths that weren't
+            // in the genotype of the first sample.
+            graph->destroy_node(node_id);
+        }
+        
     }
 
     if (bluntify) {
@@ -5619,12 +5753,10 @@ int main_index(int argc, char** argv) {
         if(!vcf_name.empty()) {
             // There's a VCF we should load haplotype info from
 
-            if (!vcf_name.empty()) {
-                variant_file.open(vcf_name);
-                if (!variant_file.is_open()) {
-                    cerr << "error:[vg index] could not open" << vcf_name << endl;
-                    return 1;
-                }
+            variant_file.open(vcf_name);
+            if (!variant_file.is_open()) {
+                cerr << "error:[vg index] could not open" << vcf_name << endl;
+                return 1;
             }
 
         }
