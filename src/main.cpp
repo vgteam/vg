@@ -5241,7 +5241,11 @@ int main_find(int argc, char** argv) {
             }
         } else {
             // let's use the GCSA index
-            // first open it
+            
+            // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+            gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+            
+            // Open it
             ifstream in_gcsa(gcsa_in.c_str());
             gcsa::GCSA gcsa_index;
             gcsa_index.load(in_gcsa);
@@ -5937,6 +5941,9 @@ int main_index(int argc, char** argv) {
 
     if(!gcsa_name.empty()) {
         // We need to make a gcsa index.
+
+        // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+        gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
         // Load up the graphs
         vector<string> tmpfiles;
@@ -6783,6 +6790,9 @@ int main_map(int argc, char** argv) {
     if (db_name.empty() && !file_name.empty()) {
         db_name = file_name + ".index";
     }
+
+    // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
     // Load up our indexes.
     xg::XG* xindex = nullptr;
