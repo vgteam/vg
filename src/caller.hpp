@@ -287,7 +287,7 @@ public:
 
     // log function that tries to avoid 0s
     static double safe_log(double v) {
-        return v == 0. ? Log_zero : ::log(v);
+        return v == 0. ? Log_zero : ::log10(v);
     }
 
     // call missing

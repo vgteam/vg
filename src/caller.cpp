@@ -618,7 +618,9 @@ pair<double, int> Caller::base_log_likelihood(const BasePileup& bp,
                 // we pretend second base is in another pileup
                 log_prob = 0.;
             } else {
-                log_prob = safe_log(base == val ? 1 - perr : perr);
+                // X 0.2 reflect probability of hitting correct base by change in event of an error
+                // 1 / |A+C+G+T+Delete|
+                log_prob = safe_log(base == val ? (1. - perr) + perr * 0.2 : perr * 0.2);
                 depth += 1;
                 if (!second.empty() && base != first) {
                     // we pretend anything not first or second base is split
