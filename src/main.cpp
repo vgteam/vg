@@ -31,6 +31,7 @@
 #include "genotyper.hpp"
 #include "bubbles.hpp"
 #include "translator.hpp"
+#include "distributions.hpp"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -4471,7 +4472,8 @@ void help_stats(char** argv) {
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -n, --node ID         consider node with the given id" << endl
          << "    -d, --to-head         show distance to head for each provided node" << endl
-         << "    -t, --to-tail         show distance to head for each provided node" << endl;
+         << "    -t, --to-tail         show distance to head for each provided node" << endl
+         << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -4495,6 +4497,9 @@ int main_stats(int argc, char** argv) {
     bool superbubbles = false;
     bool cactus = false;
     set<vg::id_t> ids;
+    // What alignments GAM file should we read and compute stats on with the
+    // graph?
+    string alignments_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4516,11 +4521,12 @@ int main_stats(int argc, char** argv) {
             {"node", required_argument, 0, 'n'},
             {"superbubbles", no_argument, 0, 'b'},
             {"cactusbubbles", no_argument, 0, 'C'},
+            {"alignments", required_argument, 0, 'a'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbC",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4583,6 +4589,10 @@ int main_stats(int argc, char** argv) {
 
         case 'C':
             cactus = true;
+            break;
+            
+        case 'a':
+            alignments_filename = optarg;
             break;
 
         case 'h':
@@ -4706,6 +4716,207 @@ int main_stats(int argc, char** argv) {
             cout << id << " to tail:\t"
                 << graph->distance_to_tail(NodeTraversal(graph->get_node(id), false)) << endl;
         }
+    }
+    
+    if (!alignments_filename.empty()) {
+        // Read in the given GAM
+        ifstream alignment_stream(alignments_filename);
+        
+        // We need some allele parsing functions
+        
+        // This one decided if a path is really an allele path
+        auto path_name_is_allele = [](const string path_name) -> bool {
+            string prefix = "_alt_";
+            // It needs to start with "_alt_" and have another separating
+            // underscore between site name and allele number
+            return(prefix.size() < path_name.size() &&
+                count(path_name.begin(), path_name.end(), '_') >= 3 && 
+                equal(prefix.begin(), prefix.end(), path_name.begin()));
+        };
+        
+        // This one gets the site name from an allele path name
+        auto path_name_to_site = [](const string& path_name) -> string {
+            auto last_underscore = path_name.rfind('_');
+            assert(last_underscore != string::npos);
+            return path_name.substr(0, last_underscore);
+        };
+        
+        // This one gets the allele name from an allele path name
+        auto path_name_to_allele = [](const string& path_name) -> string {
+            auto last_underscore = path_name.rfind('_');
+            assert(last_underscore != string::npos);
+            return path_name.substr(last_underscore + 1);
+        };
+        
+        // Before we go over the reads, we need to make a map that tells us what
+        // nodes are unique to what allele paths. Stores site and allele parts
+        // separately.
+        map<vg::id_t, pair<string, string>> allele_path_for_node;
+        
+        // This is what we really care about: for each pair of allele paths in
+        // the graph, we need to find out whether the coverage imbalance between
+        // them among primary alignments is statistically significant. For this,
+        // we need to track how many reads overlap the distinct parts of allele
+        // paths.
+        
+        // This is going to be indexed by site
+        // ("_alt_f6d951572f9c664d5d388375aa8b018492224533") and then by allele
+        // ("0"). A read only counts if it visits a node that's on one allele
+        // and not any others in that site.
+        
+        // We need to pre-populate it with 0s so we know which sites actually
+        // have 2 alleles and which only have 1 in the graph.
+        map<string, map<string, size_t>> reads_on_allele;
+        
+        graph->for_each_node_parallel([&](Node* node) {
+            // For every node
+            
+            // We want an allele path on it
+            string allele_path;
+            for(auto& name_and_mappings : graph->paths.get_node_mapping(node)) {
+                // For each path on it
+                if(path_name_is_allele(name_and_mappings.first)) {
+                    // If it's an allele path
+                    if(allele_path.empty()) {
+                        // It's the first. Take it.
+                        allele_path = name_and_mappings.first;
+                    } else {
+                        // It's a subsequent one. This node is not uniquely part
+                        // of any allele path.
+                        return;
+                    }
+                }
+            }
+            
+            if(!allele_path.empty()) {
+                // We found an allele path for this node
+                
+                // Get its site and allele so we can count it as a biallelic
+                // site. Note that sites where an allele has no unique nodes
+                // (pure indels, for example) can't be handled and will be
+                // ignored.
+                auto site = path_name_to_site(allele_path);
+                auto allele = path_name_to_allele(allele_path);
+                
+                
+                #pragma omp critical (allele_path_for_node)
+                allele_path_for_node[node->id()] = make_pair(site, allele);
+                
+                #pragma omp critical (reads_on_allele)
+                reads_on_allele[site][allele] = 0;
+            }
+        });
+        
+        
+        // These are the other stats we will compute.
+        size_t total_alignments = 0;
+        size_t total_aligned = 0;
+        size_t total_primary = 0;
+        size_t total_secondary = 0;
+        
+        // This is what we care about (significantly allele-biased hets)
+        size_t total_hets = 0;
+        size_t significantly_biased_hets = 0;
+        
+        
+        function<void(Alignment&)> lambda = [&](Alignment& aln) {
+            int tid = omp_get_thread_num();
+            
+            // We ought to be able to do many stats on the alignments.
+            
+            // Now do all the non-mapping stats
+            #pragma omp critical (total_alignments)
+            total_alignments++;
+            if(aln.is_secondary()) {
+                #pragma omp critical (total_secondary)
+                total_secondary++;
+            } else {
+                #pragma omp critical (total_primary)
+                total_primary++;
+                if(aln.score() > 0) {
+                    // We only count aligned primary reads in "total aligned";
+                    // the primary can't be unaligned if the secondary is
+                    // aligned.
+                    #pragma omp critical (total_aligned)
+                    total_aligned++;
+                }
+                
+                // Which sites and alleles does this read support. TODO: if we hit
+                // unique nodes from multiple alleles of the same site, we should...
+                // do something. Discard the read? Not just count it on both sides
+                // like we do now.
+                set<pair<string, string>> alleles_supported;
+                
+                for(size_t i = 0; i < aln.path().mapping_size(); i++) {
+                    // For every mapping, see if it visits a node unique to an
+                    // allele path.
+                    vg::id_t node_id = aln.path().mapping(i).position().node_id();
+                    if(allele_path_for_node.count(node_id)) {
+                        // We hit a unique node for this allele. Add it to the set,
+                        // in case we hit another unique node for it later in the
+                        // read.
+                        alleles_supported.insert(allele_path_for_node.at(node_id));
+                    }
+                }
+                
+                for(auto& site_and_allele : alleles_supported) {
+                    // This read is informative for an allele of a site.
+                    // Up the reads on that allele of that site.
+                    #pragma omp critical (reads_on_allele)
+                    reads_on_allele[site_and_allele.first][site_and_allele.second]++;
+                }
+            }
+            
+        };
+        
+        // Actually go through all the reads and count stuff up.
+        stream::for_each_parallel(alignment_stream, lambda);
+        
+        // Calculate stats about the reads per allele data
+        for(auto& site_and_alleles : reads_on_allele) {
+            // For every site
+            if(site_and_alleles.second.size() == 2) {
+                // If it actually has 2 alleles with unique nodes in the
+                // graph (so we can use the binomial)
+                
+                // We'll fill this with the counts for the two present alleles.
+                vector<size_t> counts;
+                
+                for(auto& allele_and_count : site_and_alleles.second) {
+                    // Collect all the counts
+                    counts.push_back(allele_and_count.second);
+                }
+                
+                if(counts[0] > counts[1]) {
+                    // We have a 50% underlying probability so we can just put
+                    // the rarer allele first.
+                    swap(counts[0], counts[1]);
+                }
+                
+                // What's the log prob for the smaller tail?
+                auto tail_logprob = binomial_cmf_ln(prob_to_logprob(0.5),  counts[1] + counts[0], counts[0]);
+                
+                // Double it to get the two-tailed test
+                tail_logprob += prob_to_logprob(2);
+                
+                cerr << "Site " << site_and_alleles.first << " has " << counts[0]
+                    << " and " << counts[1] << " p=" << logprob_to_prob(tail_logprob) << endl;
+                
+                if(tail_logprob < prob_to_logprob(0.05)) {
+                    significantly_biased_hets++;
+                }
+                total_hets++;
+                
+            }
+        }
+        
+        cout << "Total alignments: " << total_alignments << endl;
+        cout << "Total primary: " << total_primary << endl;
+        cout << "Total secondary: " << total_secondary << endl;
+        cout << "Total aligned: " << total_aligned << endl;
+        cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets << endl;
+        
+        
     }
 
     delete graph;
