@@ -274,6 +274,9 @@ $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(LIB_DIR)/l
 $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
+$(OBJ_DIR)/homogenizer.o: $(SRC_DIR)/homogenizer.cpp $(SRC_DIR)/homogenizer.hpp $(OBJ_DIR)/filter.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/vg.o
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
 ###################################
 ## VG unit test compilation begins here
 ####################################
