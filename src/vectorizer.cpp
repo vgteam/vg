@@ -76,6 +76,9 @@ vector<int> Vectorizer::alignment_to_a_hot(Alignment a){
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i++){
         Mapping mapping = path.mapping(i);
+        if(! mapping.has_position()){
+            continue;
+        }
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
         int64_t key = my_xg->node_rank_as_entity(node_id);
@@ -126,6 +129,9 @@ vector<double> Vectorizer::alignment_to_identity_hot(Alignment a){
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i ++){
         Mapping mapping = path.mapping(i);
+        if(! mapping.has_position()){
+            continue;
+        }
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
         int64_t key = my_xg->node_rank_as_entity(node_id);
@@ -174,6 +180,10 @@ bit_vector Vectorizer::alignment_to_onehot(Alignment a){
     Path path = a.path();
     for (int i = 0; i < path.mapping_size(); i++){
         Mapping mapping = path.mapping(i);
+        if(! mapping.has_position()){
+            continue;
+        }
+
         Position pos = mapping.position();
         int64_t node_id = pos.node_id();
         int64_t key = my_xg->node_rank_as_entity(node_id);

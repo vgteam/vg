@@ -138,6 +138,7 @@ public:
     // Get nodes and backward flags following edges that attach to this node's end
     vector<pair<id_t, bool>>& edges_end(Node* node);
     vector<pair<id_t, bool>>& edges_end(id_t id);
+    
     // properties of the graph
     size_t size(void); // number of nodes
     size_t length(void);
@@ -377,7 +378,6 @@ public:
     // them to the given map by node ID of sets of bases in the node that will need
     // to become the starts of new nodes.
     void find_breakpoints(const Path& path, map<id_t, set<pos_t>>& breakpoints);
-
     // Take a map from node ID to a set of offsets at which new nodes should
     // start (which may include 0 and 1-past-the-end, which should be ignored),
     // break the specified nodes at those positions. Returns a map from old node
@@ -387,7 +387,6 @@ public:
     map<pos_t, Node*> ensure_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
     // flips the breakpoints onto the forward strand
-
    // Given a path on nodes that may or may not exist, and a map from node ID
     map<id_t, set<pos_t>> forwardize_breakpoints(const map<id_t, set<pos_t>>& breakpoints);
 
@@ -494,7 +493,6 @@ public:
     // where it has the minimal ID) and add it into the given VG.
     void nonoverlapping_node_context_without_paths(Node* node, VG& g);
     void expand_context(VG& g, size_t steps, bool add_paths = true);
-
     // destroy the node at the given pointer. This pointer must point to a Node owned by the graph.
     void destroy_node(Node* node);
     // destroy the node with the given ID.
@@ -569,6 +567,40 @@ public:
     // note: uses ssw aligner, so will only work on small paths
     double path_identity(const Path& path1, const Path& path2);
     string trav_sequence(const NodeTraversal& trav);
+
+    SB_Input vg_to_sb_input();
+    vector<pair<id_t, id_t> > get_superbubbles(SB_Input sbi);
+    vector<pair<id_t, id_t> > get_superbubbles();
+
+    //map<pair<id_t, id_t>, vector<id_t> > superbubbles(void);
+
+    // Takes in a pathname and the nucleotide position
+    // (e.g. from a vcf) and returns the node id which
+    // contains that position.
+    id_t get_node_at_nucleotide(string pathname, int nuc);
+
+    // Takes in a VCF file
+    // and returns a map [node] = vcflib::variant
+    // Unfortunately this is specific to a given graph
+    // and VCF.
+    //
+    // It will need to throw warnings if the node or variant
+    // is not in the graph.
+    //
+    // This is useful for VCF masking:
+    // if map.find(node) then mask variant
+    //
+    // It's also useful for calling known variants
+    // for m in alignment.mappings:
+    //    node = m.Pos.nodeID
+    //    if node in node_to_vcf:
+    //        return (alignment supports variant)
+    //
+    // It would be nice if this also supported edges (e.g.
+    // for inversions/transversions/breakpoints?)
+    // map<edge_id, variant> or map<pair<NodeID, NodeID>, variant>
+    map<id_t, vcflib::Variant> get_node_id_to_variant(vcflib::VariantCallFile vfile);
+
 
     // edges
     // If the given edge cannot be created, returns null.

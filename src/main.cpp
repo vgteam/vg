@@ -213,8 +213,8 @@ void help_filter(char** argv) {
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl;
-         
-         
+
+
 }
 
 int main_filter(int argc, char** argv) {
@@ -320,7 +320,7 @@ int main_filter(int argc, char** argv) {
             abort ();
         }
     }
-    
+
     // name helper for output
     function<string(int)> chunk_name = [&outbase](int num) -> string {
         stringstream ss;
@@ -629,7 +629,7 @@ int main_filter(int argc, char** argv) {
             flush_buffer();
         }
     }
-    
+
     if (verbose) {
         size_t tot_reads = pri_read_count + sec_read_count;
         size_t tot_filtered = pri_filtered_count + sec_filtered_count;
@@ -1013,6 +1013,7 @@ void help_vectorize(char** argv){
          << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
          << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
          << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
+         << "  -M --wabbit-mapping <FILE> output the mappings used for vowpal wabbit classes (default: print to stderr)" << endl
          << "  -m --mem-sketch    Generate a MEM sketch of a given read based on the GCSA" << endl
          << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
          << endl;
@@ -1021,8 +1022,10 @@ void help_vectorize(char** argv){
 int main_vectorize(int argc, char** argv){
 
     string xg_name;
+    string read_file = "";
     string aln_label = "";
     string gcsa_name;
+    string wabbit_mapping_file = "";
     bool format = false;
     bool show_header = false;
     bool map_alns = false;
@@ -1050,14 +1053,16 @@ int main_vectorize(int argc, char** argv){
             {"format", no_argument, 0, 'f'},
             {"a-hot", no_argument, 0, 'a'},
             {"wabbit", no_argument, 0, 'w'},
+            {"wabbit-mapping", required_argument, 0, 'M'},
             {"mem-sketch", no_argument, 0, 'm'},
             {"identity-hot", no_argument, 0, 'i'},
             {"aln-label", required_argument, 0, 'l'},
+            {"reads", required_argument, 0, 'r'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfmx:g:l:",
+        c = getopt_long (argc, argv, "AaihwM:fmx:g:l:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -1081,7 +1086,12 @@ int main_vectorize(int argc, char** argv){
                 break; */
             case 'l':
                 aln_label = optarg;
-                break;/*
+                break;
+            case 'r':
+                read_file = optarg;
+                break;
+                /*
+
             case 'i':
                 use_identity_hot = true;
                 break;
@@ -1124,6 +1134,9 @@ int main_vectorize(int argc, char** argv){
             annotate = true;
             format = true;
             break;
+        case 'M':
+            wabbit_mapping_file = optarg;
+            break;
         default:
             abort();
         }
@@ -1157,10 +1170,10 @@ int main_vectorize(int argc, char** argv){
             return 1;
         } else {
             mapper.gcsa = &gcsa_index;
-            mapper.lcp = &lcp_index;            
+            mapper.lcp = &lcp_index;
         }
     }
- 
+
     Vectorizer vz(xg_index);
     string alignment_file = argv[optind];
 
@@ -1190,7 +1203,7 @@ int main_vectorize(int argc, char** argv){
             else {
                 cout << vz.format(v) << endl;
             }
-        
+
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
@@ -1206,7 +1219,9 @@ int main_vectorize(int argc, char** argv){
             cout << endl;
         } else {
             bit_vector v = vz.alignment_to_onehot(a);
-            if (format) {
+            if (output_wabbit){
+                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
+            } else if (format) {
                 cout << a.name() << "\t" << vz.format(v) << endl;
             } else{
                 cout << v << endl;
@@ -1221,6 +1236,24 @@ int main_vectorize(int argc, char** argv){
         in.open(alignment_file);
         if (in.good()){
             stream::for_each(in, lambda);
+        }
+    }
+    
+    string mapping_str = vz.output_wabbit_map();
+    if (output_wabbit){
+        if (!wabbit_mapping_file.empty()){
+            ofstream ofi;
+            ofi.open(wabbit_mapping_file);
+            if (!ofi.good()){
+                cerr << "Error with outputting wabbit mapping file. Make sure the filename is a valid string" << endl;
+                return 1;
+            }
+            ofi << mapping_str;
+            ofi.close();
+        }
+        else{
+        
+            cerr << mapping_str;
         }
     }
 
@@ -1371,7 +1404,7 @@ void help_call(char** argv) {
          << "    -b, --max_strand_bias N limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. (default=" << Caller::Default_max_strand_bias << ")" << endl
          << "    -l, --leave_uncalled    leave un-called graph regions in output, producing augmented graph" << endl
          << "    -c, --calls TSV         write extra call information in TSV (must use with -l)" << endl
-         << "    -a, --link-alts         add all possible edges between adjacent alts" << endl       
+         << "    -a, --link-alts         add all possible edges between adjacent alts" << endl
          << "    -j, --json              output in JSON" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -1467,7 +1500,7 @@ int main_call(int argc, char** argv) {
             break;
         case 'a':
             bridge_alts = true;
-            break;            
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -1903,7 +1936,7 @@ int main_pileup(int argc, char** argv) {
             break;
         case 'd':
             max_depth = atoi(optarg);
-            break;            
+            break;
         case 'p':
             show_progress = true;
             break;
@@ -1912,7 +1945,7 @@ int main_pileup(int argc, char** argv) {
             break;
         case 'v':
             verbose = true;
-            break;            
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -3442,7 +3475,7 @@ int main_mod(int argc, char** argv) {
     if (bluntify) {
         graph->bluntify();
     }
-    
+
     if (!path_name.empty()) {
         graph->keep_path(path_name);
     }
@@ -4852,7 +4885,7 @@ int main_find(int argc, char** argv) {
 
         case 'L':
             use_length = true;
-            break;            
+            break;
 
         case 'n':
             node_ids.push_back(atoi(optarg));
@@ -6624,7 +6657,7 @@ int main_map(int argc, char** argv) {
         case 'P':
             min_score = atof(optarg);
             break;
-                
+
         case 'U':
             always_rescue = true;
             break;
@@ -6668,7 +6701,7 @@ int main_map(int argc, char** argv) {
         case '1':
             qual_adjust_alignments = true;
             break;
-        
+            
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
                 break;
@@ -7735,21 +7768,27 @@ int main_view(int argc, char** argv) {
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
     }
-
-    cout.flush();
-    delete graph;
-
-    return 0;
 }
+
+    void help_sv(char** argv){
+        cerr << "usage: " << argv[0] << " sv [options] <aln.gam>" << endl
+            << "options: " << endl
+            << " -g --graph <graph>.vg " << endl
+            << " -m --mask <vcf>.vcf" << endl
+            << endl;
+    }
 
 void help_deconstruct(char** argv){
     cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
          << "options: " << endl
-         << " -s, --superbubbles  Print the superbubbles of the graph and exit." << endl
+         << " -x --xg-name  <XG>.xg an XG index from which to extract distance information." << endl
+         << " -s --superbubbles  Print the superbubbles of the graph and exit." << endl
          << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
-         << " -u -- unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
+         << " -d --dagify             DAGify the graph before enumeratign superbubbles" << endl
+         << " -u --unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
          << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
          << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
+         << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
          << endl;
 }
 
@@ -7765,8 +7804,9 @@ int main_deconstruct(int argc, char** argv){
     bool dagify = false;
     int unroll_steps = 0;
     int compact_steps = 0;
+    bool invert = false;
     string mask_file = "";
-    string xg_name = "";
+    string xg_name;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -7780,47 +7820,55 @@ int main_deconstruct(int argc, char** argv){
                 {"mask", required_argument, 0, 'm'},
                 {"dagify", no_argument, 0, 'd'},
                 {"superbubbles", no_argument, 0, 's'},
+                {"invert", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
 
             };
-        int option_index = 0;
-        c = getopt_long (argc, argv, "ho:u:c:m:sx:",
-                         long_options, &option_index);
 
-        // Detect the end of the options.
-        if (c == -1)
-            break;
-        switch (c)
-        {
-        case 's':
-            print_sbs = true;
-            break;
-        case 'x':
-            xg_name = optarg;
-            break;
-        case 'o':
-            outfile = optarg;
-            break;
-        case 'u':
-            unroll_steps = atoi(optarg);
-            break;
-        case 'c':
-            compact_steps = atoi(optarg);
-            break;
-        case 'm':
-            mask_file = optarg;
-            break;
-        case 'd':
-            dagify = true;
-            break;
-        case '?':
-        case 'h':
-            help_deconstruct(argv);
-            return 1;
-        default:
-            abort();
+            int option_index = 0;
+            c = getopt_long (argc, argv, "dho:u:c:vm:sx:",
+                    long_options, &option_index);
+
+            // Detect the end of the options.
+            if (c == -1)
+                break;
+
+            switch (c)
+            {
+                case 's':
+                    print_sbs = true;
+                    break;
+                case 'x':
+                    xg_name = optarg;
+                    break;
+                case 'o':
+                    outfile = optarg;
+                    break;
+                case 'u':
+                    unroll_steps = atoi(optarg);
+                    break;
+                case 'c':
+                    compact_steps = atoi(optarg);
+                    break;
+                case 'm':
+                    mask_file = optarg;
+                    break;
+                case 'd':
+                    dagify = true;
+                    break;
+                case 'v':
+                    invert = true;
+                    break;
+                case '?':
+                case 'h':
+                    help_deconstruct(argv);
+                    return 1;
+                default:
+                    help_deconstruct(argv);
+                    abort();
+            }
+
         }
-    }
 
     VG* graph;
     string file_name = argv[optind];
@@ -7831,25 +7879,37 @@ int main_deconstruct(int argc, char** argv){
         in.open(file_name.c_str());
         graph = new VG(in);
     }
-        
+
     Deconstructor decon = Deconstructor(graph);
-                
-    if (unroll_steps > 0){
-        cerr << "Unrolling " << unroll_steps << " steps..." << endl;
-        decon.unroll_my_vg(unroll_steps);
-        cerr << "Done." << endl;
+    if (!xg_name.empty()){
+        ifstream xg_stream(xg_name);                                                                                                                                             
+        if(!xg_stream) {                                                                                                                                                         
+            cerr << "Unable to open xg index: " << xg_name << endl;                                                                                                              
+            exit(1);                                                                                                                                                             
+        }
+
+        xg::XG* xindex = new  xg::XG(xg_stream);
+        decon.set_xg(xindex);
     }
 
-    if (dagify){
-        int dagify_steps = 1;
-        cerr << "DAGifying..." << endl;
-        decon.dagify_my_vg(dagify_steps);
-        cerr << "Done." << endl;
-    }
+		if (unroll_steps > 0){
+			cerr << "Unrolling " << unroll_steps << " steps..." << endl;
+            decon.unroll_my_vg(unroll_steps);
+			cerr << "Done." << endl;
+		}
+
+        if (dagify){
+            int dagify_steps = 3;
+            cerr << "DAGifying..." << endl;
+            decon.dagify_my_vg(dagify_steps);
+            cerr << "Done." << endl;
+        }
+
+    
 
     // At this point, we can detect the superbubbles
 
-    vector<SuperBubble> sbs = decon.get_all_superbubbles();
+    map<pair<vg::id_t, vg::id_t>, vector<vg::id_t> > sbs = decon.get_all_superbubbles();
 
 
     if (compact_steps > 0){
@@ -7859,15 +7919,16 @@ int main_deconstruct(int argc, char** argv){
     }
     if (print_sbs){
         for (auto s: sbs){
-            cout << s.start_node << "\t";
-            //for (auto i : s.nodes){
-            //    cout << i << ",";
-            //}
-            cout << "\t" << s.end_node << endl;
+            cout << s.first.first << "\t";
+            cout << "\t" << s.first.second << endl;
         }
     }
     else{
-        decon.sb2vcf(outfile);
+        if (xg_name.empty()){
+            cerr << "An xg index must be provided for full deconstruction." << endl;
+            exit(1);
+        }
+        decon.sb2vcf( outfile);
     }
     /* Find superbubbles */
 
@@ -8012,7 +8073,7 @@ int main_construct(int argc, char** argv) {
     if (!vcf_file_name.empty()) {
         // Make sure the file exists. Otherwise Tabix++ may exit with a non-
         // helpful message.
-        
+
         // We can't invoke stat woithout a place for it to write. But all we
         // really want is its return value.
         struct stat temp;
@@ -8025,7 +8086,7 @@ int main_construct(int argc, char** argv) {
             cerr << "error:[vg construct] could not open" << vcf_file_name << endl;
             return 1;
         }
-    }            
+    }
 
     if(load_phasing_paths && ref_paths_file.empty()) {
         cerr << "error:[vg construct] cannot save phasing paths without a paths file name" << endl;

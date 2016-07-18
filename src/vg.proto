@@ -17,10 +17,12 @@ message Graph {
 // *Nodes* store sequence data and also links to other nodes.
 // The graph is doubly-linked via IDs in prev/next fields in the Node objects.
 //
+// PROPOSED ADDITION: optional string annotation = 4; // Allows a way to store annotations (such as those from VCF)
 message Node {
     string sequence = 1;   // sequence
     string name = 2;  // a name provides an identifier
     int64 id = 3;     // ids are critical, and unique within a graph
+    string annotation = 4;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
@@ -31,6 +33,7 @@ message Edge {
     bool from_start = 3; // if the edge leaves from the 5' (start) of a node
     bool to_end = 4; // if the edge goes to the 3' (end) of a node
     int32 overlap = 5; // length of overlap
+    string annotation = 6;
 }
 
 // *Edits* describe how to generate a new string from elements
