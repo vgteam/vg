@@ -21,7 +21,7 @@ namespace vg {
 
     void Deconstructor::init(){
     }
-    
+
     void Deconstructor::set_xg(xg::XG* xindex){
         my_xg = xindex;
     }
@@ -50,10 +50,10 @@ namespace vg {
      */
     bool Deconstructor::contains_nested(pair<int64_t, int64_t> start_and_end){
         /*for (auto i: my_sbs){
-            if (i.first > start_and_end.first & i.second < start_and_end.second ){
-                return true;
-            }
-        }*/
+          if (i.first > start_and_end.first & i.second < start_and_end.second ){
+          return true;
+          }
+          }*/
         return false;
     }
 
@@ -133,7 +133,7 @@ namespace vg {
                     sb.level_to_nodes = level_to_nodes;
                     break;
                 }
-                
+
             }
             level++;
         }
@@ -159,9 +159,9 @@ namespace vg {
         // Fill out a vcflib Variant
         // Check if it is masked by an input vcf
         // if not, print it to stdout
-        
-        
-        
+
+
+
         map<id_t, vcflib::Variant> node_to_var;
         vcflib::VariantCallFile mask;
         if (!mask_file.empty()){
@@ -169,7 +169,7 @@ namespace vg {
         }
         for (auto s : my_sbs){
             vcflib::Variant var;
-        
+
             // Make subgraphs out of the superbubble:
             // Operating on a pair<id_t, id_t>, vector<id_t>
             // then enumerate k_paths through the SuperBubbles
@@ -195,7 +195,7 @@ namespace vg {
             std::function<void(size_t, Path&)> extract_path = [&paths](size_t x_size, Path& path){
                 paths.push_back(path);
             };
-            
+
             t_graph.for_each_kpath(10000, false, 100, no_op, no_op, extract_path);
 
             std::function<std::vector<Path>(vector<Path>)> uniquify = [](vector<Path> v){
@@ -311,116 +311,7 @@ namespace vg {
         my_sbs = superbubbles(*my_vg);
         return my_sbs;
 
-        /*
-        pair<id_t, id_t> endpoints;
-        //map<id_t, pair<id_t, bool> > node_translation;
-        //uint32_t dag_len = 1;
-        //my_vg->dagify(dag_len, node_translation);
-
-        vector<SuperBubble> ret;
-        unordered_map<id_t, SuperBubble> entrance_to_SB;
-        unordered_map<id_t, SuperBubble> exit_to_SB;
-
-        vector<pair<id_t, id_t> > supbubs = get_superbubbles(*my_vg);
-        for (auto pp : supbubs){
-            SuperBubble bub;
-            bub.start_node = pp.first;
-            bub.end_node = pp.second;
-
-            entrance_to_SB[bub.start_node] = bub;
-            exit_to_SB[bub.end_node] = bub;
-
-            //ret.push_back(bub);
-        }
-        map<int, vector<id_t> > level_to_node;
-        int level = 0;
-        vector<id_t> rto;
-
-
-        function<bool(id_t)> is_exit_node = [&exit_to_SB](id_t id){
-            try{
-                exit_to_SB.at(id);
-                return true;
-            }
-            catch (const std::out_of_range& oor){
-                return false;
-            }
-        };
-
-        function<bool(id_t)> is_entrance_node = [&entrance_to_SB](id_t id){
-            try{
-                entrance_to_SB.at(id);
-                return true;
-            }
-            catch (const std::out_of_range& oor){
-                return false;
-            }
-        };
-
-        function<void(Node*)> on_node_end = [&rto](Node* node){
-            //cerr << "is_end: " << node->id() << endl;
-            rto.push_back(node->id());
-         };
-         function<void(Node*)> on_node_start = [&ret](Node* node){
-            //cerr << "is_start: " << node->id() << endl;
-            
-         };
-         my_vg->dfs(on_node_start, on_node_end);
-        
-         /**
-          * Go through nodes in topo order
-          * If they are entrance/exits, switch to concat mode
-          * concat middle nodes to superbubble
-          * if node is exit, switch off concat mode
-          * Need to maintain a pointer to SBs in map
-          * Then, do a linear pass over map, create the set of pointers
-          * and return
-          *
-          *for (int i = 0; i < rto.size(); i++){
-            if (is_entrance_node(rto[i])){
-                ret.push_back(current);
-                in_bub = false;
-            }
-            else if (in_bub){
-                current.level_to_nodes[0].push_back(rto[i]);
-            }
-
-            if (is_exit_node(rto[i])){
-                in_bub = true;
-                current = exit_to_SB[rto[i]];
-            }
-
-            
-        }
-          
-        bool in_bub = false;
-        SuperBubble current;
-        for (int i = rto.size() - 1; i > 0; i--){
-            if (is_exit_node(rto[i])){
-                ret.push_back(current);
-                in_bub = false;
-            }
-            else if (in_bub){
-                current.level_to_nodes[0].push_back(rto[i]);
-            }
-
-            if (is_entrance_node(rto[i])){
-                in_bub = true;
-                current = entrance_to_SB[rto[i]];
-            }
-
-            
-        }
-
-        reverse_topo_order = rto;
-        
-
-        return ret;*/
     }
-
-/*    map<id_t, int> cache_path_distances(){
-
-    } */
 
 
     vector<int64_t> Deconstructor::nt_to_ids(deque<NodeTraversal>& nt){
