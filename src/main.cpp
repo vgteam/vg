@@ -3595,12 +3595,19 @@ int main_mod(int argc, char** argv) {
             handle_variant(var);
         }
         
-        // Now delete all the paths (since they may have been invalidated).
-        graph->paths.clear();
         
         for(auto& node_id : alt_path_ids) {
             // And delete all the nodes that were used by alt paths that weren't
             // in the genotype of the first sample.
+            
+            for(auto& path_name : graph->paths.of_node(node_id)) {
+                // For every path that touches the node we're destroying,
+                // destroy the path. We can't leave it because it won't be the
+                // same path without this node.
+                graph->paths.remove_path(path_name);
+            }
+            
+            // Actually get rid of the node once its paths are gone.
             graph->destroy_node(node_id);
         }
         
