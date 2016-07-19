@@ -30,15 +30,17 @@ void Homogenizer::homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_ind
     Mapper* mapper;
     mapper= new Mapper(xindex, gcsa_index, lcp_index);
 
-    vector<vector<MaximalExactMatch> > matches;
+    map<vg::id_t, vector<MaximalExactMatch> > matches;
     for (int i = 0; i < keeps.size(); i++){
         Node* n = graph->get_node(keeps[i]);
         vector<MaximalExactMatch> m = mapper->find_smems(n->sequence());
         for (auto y : m){
             cerr << y.sequence() << endl;
         }
-        matches.push_back(m);
+        matches[keeps[i]] = m;
     }
+
+
 
 
 
