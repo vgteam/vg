@@ -1154,6 +1154,9 @@ int main_vectorize(int argc, char** argv){
         exit(1);
     }
 
+    // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+
     gcsa::GCSA gcsa_index;
     gcsa::LCPArray lcp_index;
     if (!gcsa_name.empty()) {
@@ -2430,6 +2433,10 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
         if (debug) cerr << "building GCSA2 index" << endl;
+        
+        // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+        if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        
         if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
