@@ -123,7 +123,7 @@ rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
 # Note the math (and subsetting) only works out on a flat alleles graph
 vg construct -r small/x.fa -a -f -v small/x.vcf.gz >x.vg
 vg mod -v small/x.vcf.gz x.vg >x.sample.vg
-hom_sites=$(zcat small/x.vcf.gz | grep -v "^#" | grep "1|1" | wc -l)
+hom_sites=$(gunzip -c small/x.vcf.gz | grep -v "^#" | grep "1|1" | wc -l)
 aug_nodes=$(vg stats x.vg -N)
 sample_nodes=$(vg stats x.sample.vg -N)
 is ${sample_nodes} $((aug_nodes - hom_sites)) "subsetting a flat-alleles graph to a sample graph works"
