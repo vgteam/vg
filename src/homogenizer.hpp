@@ -7,6 +7,8 @@
 #include "vg.pb.h"
 #include "types.hpp"
 
+#ifndef HOMOGENIZE_HPP
+#define HOMOGENIZE_HPP
 using namespace vg;
 using namespace std;
 
@@ -35,3 +37,4 @@ namespace vg{
 
     };
 }
+#endif

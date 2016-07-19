@@ -33,7 +33,7 @@
 #include "translator.hpp"
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
-
+#include "homogenize_main.cpp"
 
 
 using namespace std;
@@ -8999,6 +8999,7 @@ void vg_help(char** argv) {
          << "  -- kmers         enumerate kmers of the graph" << endl
          << "  -- sim           simulate reads from the graph" << endl
          << "  -- mod           filter, transform, and edit the graph" << endl
+         << "  -- homogenize    homogenize long variants in the graph to improve genotyping" << endl
          << "  -- surject       map alignments onto specific paths" << endl
          << "  -- msga          multiple sequence graph alignment" << endl
          << "  -- pileup        build a pileup from a set of alignments" << endl
@@ -9082,7 +9083,11 @@ int main(int argc, char *argv[])
         return main_version(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
-    }else {
+    }  else if (command == "homogenize"){
+        return main_homogenize(argc, argv);
+    }
+    
+    else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
         return 1;
