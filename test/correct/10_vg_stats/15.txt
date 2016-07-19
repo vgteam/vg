@@ -1,0 +1,5 @@
+Total alignments: 100
+Total primary: 100
+Total secondary: 0
+Total aligned: 100
+Significantly biased heterozygous sites: 1/75 (1.33333%)

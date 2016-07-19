@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 27
+plan tests 28
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
@@ -35,6 +35,8 @@ is $(vg map -s $seq -B 30 -x x.xg -g x.gcsa | vg surject -d x.idx -s - | wc -l) 
 
 scores=$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -J -M 2 | jq -r '.score' | tr '\n' ',')
 is "${scores}" $(printf ${scores} | tr ',' '\n' | sort -nr | tr '\n' ',')  "multiple alignments are returned in descending score order"
+
+is "$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -J -M 2 | jq -c 'select(.is_secondary | not)' | wc -l)" "1" "only a single primary alignment is returned"
 
 rm -f x.vg x.xg x.gcsa x.gcsa.lcp
 rm -rf x.vg.index
