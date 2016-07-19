@@ -7,7 +7,7 @@ PATH=../bin:$PATH # for vg
 
 export LC_ALL="C" # force a consistent sort order 
 
-plan tests 37
+plan tests 38
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^P | wc -l) \
     $(vg construct -r small/x.fa -v small/x.vcf.gz | vg mod -k x - | vg view - | grep ^S | wc -l) \
@@ -119,3 +119,13 @@ vg sim -s 420 -l 30 -x 2snp.xg -n 30 -a >2snp.sim
 vg map -V flat.vg -k 8 -G 2snp.sim >2snp.gam
 is $(vg mod -i 2snp.gam flat.vg | vg view - | grep ^S | cut -f 3 | sort | md5sum | cut -f -1 -d\ ) d47169ce8fb4251904d1d2238a44555c "editing the graph with many SNP-containing alignments does not introduce duplicate identical nodes"
 rm -f flat.vg 2snp.vg 2snp.xg 2snp.sim 2snp.gam
+
+# Note the math (and subsetting) only works out on a flat alleles graph
+vg construct -r small/x.fa -a -f -v small/x.vcf.gz >x.vg
+vg mod -v small/x.vcf.gz x.vg >x.sample.vg
+hom_sites=$(zcat small/x.vcf.gz | grep -v "^#" | grep "1|1" | wc -l)
+aug_nodes=$(vg stats x.vg -N)
+sample_nodes=$(vg stats x.sample.vg -N)
+is ${sample_nodes} $((aug_nodes - hom_sites)) "subsetting a flat-alleles graph to a sample graph works"
+rm -f x.vg x.sample.vg 
+
