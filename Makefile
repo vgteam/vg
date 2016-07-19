@@ -40,7 +40,7 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
-UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o
+UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -267,6 +267,9 @@ $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(L
 ####################################
 
 $(UNITTEST_OBJ_DIR)/driver.o: $(UNITTEST_SRC_DIR)/driver.cpp $(UNITTEST_SRC_DIR)/driver.hpp $(UNITTEST_SRC_DIR)/catch.hpp
+	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+	 
+$(UNITTEST_OBJ_DIR)/distributions.o: $(UNITTEST_SRC_DIR)/distributions.cpp $(UNITTEST_SRC_DIR)/catch.hpp $(SRC_DIR)/distributions.hpp
 	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 ###################################
