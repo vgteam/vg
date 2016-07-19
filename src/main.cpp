@@ -4899,8 +4899,10 @@ int main_stats(int argc, char** argv) {
                 // Double it to get the two-tailed test
                 tail_logprob += prob_to_logprob(2);
                 
+#ifdef debug
                 cerr << "Site " << site_and_alleles.first << " has " << counts[0]
                     << " and " << counts[1] << " p=" << logprob_to_prob(tail_logprob) << endl;
+#endif
                 
                 if(tail_logprob < prob_to_logprob(0.05)) {
                     significantly_biased_hets++;
@@ -4914,7 +4916,11 @@ int main_stats(int argc, char** argv) {
         cout << "Total primary: " << total_primary << endl;
         cout << "Total secondary: " << total_secondary << endl;
         cout << "Total aligned: " << total_aligned << endl;
-        cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets << endl;
+        cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
+        if(total_hets > 0) {
+            cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
+        }
+        cout << endl;
         
         
     }

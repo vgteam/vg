@@ -114,8 +114,6 @@ real_t binomial_cmf_ln(ProbIn success_logprob, size_t trials, size_t successes) 
         case_logprobs.push_back(choose_ln(trials, considered_successes) +
             success_logprob * considered_successes +
             logprob_invert(success_logprob) * (trials - considered_successes));
-            
-        cerr << considered_successes << "/" << trials << ": " << case_logprobs.back() << endl;
     }
     
     // Sum up all those per-case probabilities
