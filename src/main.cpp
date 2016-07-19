@@ -32,6 +32,7 @@
 #include "bubbles.hpp"
 #include "translator.hpp"
 #include "distributions.hpp"
+#include "unittest/driver.hpp"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -8522,6 +8523,14 @@ int main_version(int argc, char** argv){
     return 0;
 }
 
+// No help_test is necessary because the unit testing library takes care of
+// complaining about missing options.
+
+int main_test(int argc, char** argv){
+    // Forward arguments along to the main unit test driver
+    return vg::unittest::run_unit_tests(argc, argv);
+}
+
 void vg_help(char** argv) {
     cerr << "vg: variation graph tool, version " << VG_GIT_VERSION << endl
          << endl
@@ -8554,6 +8563,7 @@ void vg_help(char** argv) {
          << "  -- circularize   circularize a path within a graph." << endl
          << "  -- translate     project alignments and paths through a graph translation" << endl
          << "  -- validate      validate the semantics of a graph" << endl
+         << "  -- test          run unit tests" << endl
          << "  -- version       version information" << endl;
 }
 
@@ -8624,6 +8634,8 @@ int main(int argc, char *argv[])
         return main_translate(argc, argv);
     }  else if (command == "version") {
         return main_version(argc, argv);
+    } else if (command == "test") {
+        return main_test(argc, argv);
     }else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

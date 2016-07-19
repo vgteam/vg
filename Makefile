@@ -1,7 +1,9 @@
 DEP_DIR:=./deps
 SRC_DIR:=src
+UNITTEST_SRC_DIR:=$(SRC_DIR)/unittest
 BIN_DIR:=bin
 OBJ_DIR:=obj
+UNITTEST_OBJ_DIR:=$(OBJ_DIR)/unittest
 LIB_DIR:=lib
 INC_DIR:=include
 CPP_DIR:=cpp
@@ -14,7 +16,7 @@ CXXFLAGS:=-O3 -msse4.1 -fopenmp -std=c++11 -ggdb
 CWD:=$(shell pwd)
 
 
-LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
+LD_INCLUDE_FLAGS:=-I$(CWD)/$(INC_DIR) -I. -I$(CWD)/$(SRC_DIR) -I$(CWD)/$(UNITTEST_SRC_DIR) -I$(CWD)/$(CPP_DIR) -I$(CWD)/$(INC_DIR)/dynamic -I$(CWD)/$(INC_DIR)/sonLib
 LD_LIB_FLAGS:= -ggdb -L$(CWD)/$(LIB_DIR) -lvcflib -lgssw -lssw -lprotobuf -lhts -lpthread -ljansson -lncurses -lrocksdb -lsnappy -lz -lbz2 -lgcsa2 -lxg -ldivsufsort -ldivsufsort64 -lvcfh -lgfakluge -lraptor2 -lsupbub -lsdsl -lpinchesandcacti -l3edgeconnected  -lsonlib
 
 ifeq ($(shell uname -s),Darwin)
@@ -34,7 +36,11 @@ endif
 
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
+# These are put into libvg.
 OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o
+
+# These aren't put into libvg. But they do go into the main vg binary to power its self-test.
+UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o
 
 RAPTOR_DIR:=deps/raptor
 PROTOBUF_DIR:=deps/protobuf
@@ -56,8 +62,8 @@ STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 .PHONY: clean get-deps test set-path static .pre-build
 
-$(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o
-	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+$(BIN_DIR)/vg: $(LIB_DIR)/libvg.a $(OBJ_DIR)/main.o $(UNITTEST_OBJ)
+	. ./source_me.sh && $(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(UNITTEST_OBJ) -lvg $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 static: $(OBJ_DIR)/main.o $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $(BIN_DIR)/vg $(OBJ_DIR)/main.o $(OBJ) $(STATIC_FLAGS) $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
@@ -256,10 +262,22 @@ $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(LIB_DIR)/l
 $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
+###################################
+## VG unit test compilation begins here
+####################################
+
+$(UNITTEST_OBJ_DIR)/driver.o: $(UNITTEST_SRC_DIR)/driver.cpp $(UNITTEST_SRC_DIR)/driver.hpp $(UNITTEST_SRC_DIR)/catch.hpp
+	 +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
+###################################
+## VG source code compilation ends here
+####################################
+
 .pre-build:
 	if [ ! -d $(BIN_DIR) ]; then mkdir -p $(BIN_DIR); fi
 	if [ ! -d $(LIB_DIR) ]; then mkdir -p $(LIB_DIR); fi
 	if [ ! -d $(OBJ_DIR) ]; then mkdir -p $(OBJ_DIR); fi
+	if [ ! -d $(UNITTEST_OBJ_DIR) ]; then mkdir -p $(UNITTEST_OBJ_DIR); fi
 	if [ ! -d $(INC_DIR) ]; then mkdir -p $(INC_DIR); fi
 	if [ ! -d $(CPP_DIR) ]; then mkdir -p $(CPP_DIR); fi
 
@@ -269,12 +287,14 @@ $(OBJ_DIR)/translator.o: $(SRC_DIR)/translator.cpp $(SRC_DIR)/translator.hpp $(L
 # for rebuilding just vg
 clean-vg:
 	$(RM) -r $(BIN_DIR)/vg
+	$(RM) -r $(UNITTEST_OBJ_DIR)/*
 	$(RM) -r $(OBJ_DIR)/*
 	$(RM) -r $(CPP_DIR)/*
 
 clean:
 	$(RM) -r $(BIN_DIR)
 	$(RM) -r $(LIB_DIR)
+	$(RM) -r $(UNITTEST_OBJ_DIR)
 	$(RM) -r $(OBJ_DIR)
 	$(RM) -r $(INC_DIR)
 	$(RM) -r $(CPP_DIR)
