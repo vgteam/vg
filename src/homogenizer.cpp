@@ -1,5 +1,6 @@
 #include "homogenizer.hpp"
 
+using namespace std;
 using namespace vg;
 
 void Homogenizer::homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index){
@@ -10,25 +11,40 @@ void Homogenizer::homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_ind
     // Remove tiny softclips
     int sc_threshold = 10;
     vector<id_t> remove_me;
+    vector<id_t> keeps;
     for (auto t : tips){
         if ((graph->get_node(t))->sequence().length() < sc_threshold){
             remove_me.push_back(t);
         }
+        else if (!graph->paths.has_node_mapping(t)){
+            remove_me.push_back(t);
+        }
+        else{
+            keeps.push_back(t);
+        }   
     }
     cut_tips(remove_me, graph);
 
     /* Generate edges/nodes to add to graph */
     //vector<MaximalExactMatch> find_smems(const string& seq);
-    //Mapper* mapper;
-    //mapper= new Mapper(xindex, gcsa_index, lcp_index);
+    Mapper* mapper;
+    mapper= new Mapper(xindex, gcsa_index, lcp_index);
 
-    //mapper->find_smems(s);
+    vector<vector<MaximalExactMatch> > matches;
+    for (int i = 0; i < keeps.size(); i++){
+        Node* n = graph->get_node(keeps[i]);
+        vector<MaximalExactMatch> m = mapper->find_smems(n->sequence());
+        for (auto y : m){
+            cerr << y.sequence() << endl;
+        }
+        matches.push_back(m);
+    }
 
 
 
 }
 
-void cut_tips(vector<vg::id_t> tip_ids, vg::VG* graph){
+void Homogenizer::cut_tips(vector<vg::id_t> tip_ids, vg::VG* graph){
     for (auto i : tip_ids){
         graph->destroy_node(i);
     }

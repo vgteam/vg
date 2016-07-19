@@ -8,6 +8,9 @@
 #include "xg.hpp"
 #include "vg.pb.h"
 
+#ifndef FILTER_HPP
+#define FILTER_HPP
+
 /**
  * Provides a way to filter Edits contained
  * within Alignments. This can be used to clean out
@@ -92,3 +95,5 @@ class Filter{
         double min_avg_qual = 0.0;
         };
 }
+
+#endif
