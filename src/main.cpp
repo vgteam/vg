@@ -32,6 +32,7 @@
 #include "bubbles.hpp"
 #include "translator.hpp"
 #include "distributions.hpp"
+#include "unittest/driver.hpp"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -1152,6 +1153,9 @@ int main_vectorize(int argc, char** argv){
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     }
+
+    // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
     gcsa::GCSA gcsa_index;
     gcsa::LCPArray lcp_index;
@@ -2429,6 +2433,10 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
         if (debug) cerr << "building GCSA2 index" << endl;
+        
+        // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+        if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        
         if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
@@ -8522,6 +8530,14 @@ int main_version(int argc, char** argv){
     return 0;
 }
 
+// No help_test is necessary because the unit testing library takes care of
+// complaining about missing options.
+
+int main_test(int argc, char** argv){
+    // Forward arguments along to the main unit test driver
+    return vg::unittest::run_unit_tests(argc, argv);
+}
+
 void vg_help(char** argv) {
     cerr << "vg: variation graph tool, version " << VG_GIT_VERSION << endl
          << endl
@@ -8554,6 +8570,7 @@ void vg_help(char** argv) {
          << "  -- circularize   circularize a path within a graph." << endl
          << "  -- translate     project alignments and paths through a graph translation" << endl
          << "  -- validate      validate the semantics of a graph" << endl
+         << "  -- test          run unit tests" << endl
          << "  -- version       version information" << endl;
 }
 
@@ -8624,6 +8641,8 @@ int main(int argc, char *argv[])
         return main_translate(argc, argv);
     }  else if (command == "version") {
         return main_version(argc, argv);
+    } else if (command == "test") {
+        return main_test(argc, argv);
     }else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
