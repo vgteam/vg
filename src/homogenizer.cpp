@@ -7,6 +7,25 @@ void Homogenizer::homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_ind
     vector<id_t> tips = find_tips(graph);
 
     // TODO filter by whether a read is on the ref path
+    // i.e.:
+    // 1. Copy the graph
+    // VG* o_graph = new VG(*graph)
+    // 2. Cache the reference path(s)
+    // (Not sure how to grab these, so for now just grab the first path in the graph)
+    // map<string, list<Mapping> > cached_paths;
+    // set<string> kept_paths;
+    // for (auto x : o_graph.paths()){
+    //  cached_paths[x.first] = x.second;
+    //  kept_paths.insert(x.first);
+    //  break;
+    // }
+    //
+    // Paths p = graph->_paths;
+    //
+    // 3. Remove all paths in the graph
+    // o_graph.keep_paths(kept_paths);
+    //
+
 
     // Remove tiny softclips
     int sc_threshold = 10;
@@ -41,7 +60,21 @@ void Homogenizer::homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_ind
     }
 
 
+    // TODO: need to remove the tips sequences first.
+    for (auto x : matches){
+        Alignment clip_aln;
+        clip_aln = mapper->align((graph->get_node(x.first))->sequence());
+        Edge * e = graph->create_edge(x.first, clip_aln.path().mapping(0).position().node_id(), false, false);
+        graph->add_edge(*e);
+    }
 
+    // Remap the paths (reads) that pass through our current set of tips, and
+    // see if the overall score of the graph improves.
+    //
+    //map<id_t, map<string, set<Mapping*>>> node_mapping;
+    //
+
+    //delete o_graph TODO
 
 
 }
