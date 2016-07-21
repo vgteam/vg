@@ -33,6 +33,8 @@ namespace vg{
             void cut_tips(vg::VG* graph);
             /* Remove specific nodes and their edges from the graph */
             void cut_tips(vector<id_t> tip_ids, vg::VG* graph);
+
+            void cut_nonref_tips(vg::VG* graph);
             
 
     };
