@@ -23,7 +23,7 @@ class Pileups {
 public:
     
     Pileups(VG* graph, int min_quality = 0, int max_mismatches = 1, int window_size = 0,
-            int max_depth = 1000) :
+            int max_depth = 1000, bool use_mapq = false) :
         _graph(graph),
         _min_quality(min_quality),
         _max_mismatches(max_mismatches),
@@ -31,7 +31,8 @@ public:
         _max_depth(max_depth),
         _min_quality_count(0),
         _max_mismatch_count(0),
-        _bases_count(0)
+        _bases_count(0),
+        _use_mapq(use_mapq)
 {}
     
     // copy constructor
@@ -48,6 +49,7 @@ public:
             _min_quality_count = other._min_quality_count;
             _max_mismatch_count = other._max_mismatch_count;
             _bases_count = other._bases_count;
+            _use_mapq = other._use_mapq;
         }
     }
 
@@ -63,6 +65,7 @@ public:
         _min_quality_count = other._min_quality_count;
         _max_mismatch_count = other._max_mismatch_count;
         _bases_count = other._bases_count;
+        _use_mapq = other._use_mapq;
     }
 
     // copy assignment operator
@@ -84,6 +87,7 @@ public:
         _min_quality_count = other._min_quality_count;
         _max_mismatch_count = other._max_mismatch_count;
         _bases_count = other._bases_count;
+        _use_mapq = other._use_mapq;
         return *this;
     }
 
@@ -110,6 +114,8 @@ public:
     int _window_size;
     // prevent giant protobufs
     int _max_depth;
+    // toggle whether we incorporate Alignment.mapping_quality
+    bool _use_mapq;
     // Keep count of bases filtered by quality
     mutable uint64_t _min_quality_count;
     // keep count of bases filtered by mismatches
@@ -172,6 +178,7 @@ public:
     void compute_from_edit(NodePileup& pileup, int64_t& node_offset, int64_t& read_offset,
                            const Node& node, const Alignment& alignment,
                            const Mapping& mapping, const Edit& edit,
+                           const Edit* next_edit,
                            const vector<int>& mismatch_counts,
                            pair<const Mapping*, int64_t>& last_match,
                            pair<const Mapping*, int64_t>& last_del,
@@ -201,6 +208,21 @@ public:
     
     // merge p2 into p1 and return 1. p2 is lef an empty husk
     EdgePileup& merge_edge_pileups(EdgePileup& p1, EdgePileup& p2);
+
+    // create combine map quality (optionally) with base quality
+    char combined_quality(char base_quality, int map_quality) const {
+        if (!_use_mapq) {
+            return base_quality;
+        } else {
+            // assume independence: P[Correct] = P[Correct Base] * P[Correct Map]
+            // --> P[Error] = 1 - (1 - P[Base Error]) * (1 - P[Map Error])
+            // (using same code as gentoyper:)
+            double p_err = logprob_invert(logprob_invert(phred_to_logprob((int)base_quality)) +
+                                          logprob_invert(phred_to_logprob(map_quality)));
+            int qual = logprob_to_phred(p_err);
+            return (char)min(qual, (int)numeric_limits<char>::max());
+        }
+    }        
 
     // get ith BasePileup record
     static BasePileup* get_base_pileup(NodePileup& np, int64_t offset) {

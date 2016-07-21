@@ -214,9 +214,8 @@ void help_filter(char** argv) {
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
-         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl;
-
-
+         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
+         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -239,6 +238,7 @@ int main_filter(int argc, char** argv) {
     string outbase;
     int context_size = 0;
     bool verbose = false;
+    double min_mapq = 0.;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -258,11 +258,12 @@ int main_filter(int argc, char** argv) {
                 {"output-basename",  required_argument, 0, 'B'},
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
+                {"min-mapq", required_argument, 0, 'q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:v",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -306,6 +307,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'c':
             context_size = atoi(optarg);
+            break;
+        case 'q':
+            min_mapq = atof(optarg);
             break;
         case 'v':
             verbose = true;
@@ -502,6 +506,8 @@ int main_filter(int argc, char** argv) {
     size_t min_pri_delta_count = 0;
     size_t max_sec_overhang_count = 0;
     size_t max_pri_overhang_count = 0;
+    size_t min_sec_mapq_count = 0;
+    size_t min_pri_mapq_count = 0;
 
     // for deltas, we keep track of last primary
     Alignment prev;
@@ -569,6 +575,10 @@ int main_filter(int argc, char** argv) {
                 ++max_sec_overhang_count;
                 keep = false;
             }
+            if (aln.mapping_quality() < min_mapq) {
+                ++min_sec_mapq_count;
+                keep = false;
+            }
             if (!keep) {
                 ++sec_filtered_count;
             }
@@ -611,6 +621,10 @@ int main_filter(int argc, char** argv) {
             }
             if (overhang > max_overhang) {
                 ++max_pri_overhang_count;
+                keep_prev = false;
+            }
+            if (aln.mapping_quality() < min_mapq) {
+                ++min_pri_mapq_count;
                 keep_prev = false;
             }
             if (!keep_prev) {
@@ -1880,6 +1894,7 @@ void help_pileup(char** argv) {
          << "    -m, --max-mismatches N  ignore bases with > N mismatches within window centered on read (default=1)" << endl
          << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
          << "    -d, --max-depth N       maximum depth pileup to create (further maps ignored) (default=1000)" << endl
+         << "    -a, --use-mapq          combine mapping qualities with base qualities" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -v, --verbose           print stats on bases filtered" << endl;
@@ -1900,6 +1915,7 @@ int main_pileup(int argc, char** argv) {
     int window_size = 0;
     int max_depth = 1000; // used to prevent protobuf messages getting to big
     bool verbose = false;
+    bool use_mapq = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1911,14 +1927,15 @@ int main_pileup(int argc, char** argv) {
                 {"max-mismatches", required_argument, 0, 'm'},
                 {"window-size", required_argument, 0, 'w'},
                 {"progress", required_argument, 0, 'p'},
-                {"max-depth", max_depth, 0, 'd'},
+                {"max-depth", required_argument, 0, 'd'},
+                {"use-mapq", no_argument, 0, 'a'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "jq:m:w:pd:t:v",
+        c = getopt_long (argc, argv, "jq:m:w:pd:at:v",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1941,6 +1958,9 @@ int main_pileup(int argc, char** argv) {
             break;
         case 'd':
             max_depth = atoi(optarg);
+            break;
+        case 'a':
+            use_mapq = true;
             break;
         case 'p':
             show_progress = true;
@@ -2005,7 +2025,7 @@ int main_pileup(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing pileups" << endl;
     }
-    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth));
+    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth, use_mapq));
     function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
         int tid = omp_get_thread_num();
         pileups[tid].compute_from_alignment(aln);

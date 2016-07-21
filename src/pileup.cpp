@@ -184,10 +184,12 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             in_read_offsets[i] = read_offset;
             for (int j = 0; j < mapping.edit_size(); ++j) {
                 const Edit& edit = mapping.edit(j);
+                const Edit* next_edit = j + 1 < mapping.edit_size() ? &mapping.edit(j + 1) : NULL;
                 // process all pileups in edit.
                 // update the offsets as we go
                 compute_from_edit(*pileup, node_offset, read_offset, *node,
-                                  alignment, mapping, edit, mismatch_counts, last_match, last_del, open_del);
+                                  alignment, mapping, edit, next_edit, mismatch_counts,
+                                  last_match, last_del, open_del);
             }
             out_read_offsets[i] = read_offset - 1;
 
@@ -222,12 +224,15 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             if (!alignment.quality().empty()) {
                 char from_qual = alignment.quality()[out_read_offsets[rank1_idx]];
                 char to_qual = alignment.quality()[in_read_offsets[rank2_idx]];
-                edge_qual = min(from_qual, to_qual);
+                edge_qual = combined_quality(min(from_qual, to_qual), alignment.mapping_quality());
             }
             if (edge_qual >= _min_quality) {
                 EdgePileup* edge_pileup = get_create_edge_pileup(pair<NodeSide, NodeSide>(s1, s2));
                 if (edge_pileup->num_reads() < _max_depth) {
-                  edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
+                    edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
+                    if (!m1.position().is_reverse()) {
+                      edge_pileup->set_num_forward_reads(edge_pileup->num_forward_reads() + 1);
+                  }
                   if (!alignment.quality().empty()) {
                     *edge_pileup->mutable_qualities() += edge_qual;
                   }
@@ -246,6 +251,7 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                                 int64_t& read_offset,
                                 const Node& node, const Alignment& alignment,
                                 const Mapping& mapping, const Edit& edit,
+                                const Edit* next_edit,
                                 const vector<int>& mismatch_counts,
                                 pair<const Mapping*, int64_t>& last_match,
                                 pair<const Mapping*, int64_t>& last_del,
@@ -310,7 +316,8 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                         *dp_base_pileup->mutable_bases() += del_seq;
                         if (!alignment.quality().empty()) {
                             // we only use quality of one endpoint here.  should average
-                            *dp_base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                            *dp_base_pileup->mutable_qualities() += combined_quality(alignment.quality()[read_offset],
+                                                                                     alignment.mapping_quality());
                         }
                         dp_base_pileup->set_num_bases(dp_base_pileup->num_bases() + 1);
                     }
@@ -334,7 +341,10 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
             // position (on forward node coordinates). this means an insertion before
             // offset 0 is invalid! 
             int64_t insert_offset =  map_reverse ? node_offset : node_offset - 1;
-            if (insert_offset >= 0) {        
+            if (insert_offset >= 0 &&
+                // make sure we have a match before and after the insert to take it seriously
+                next_edit != NULL && last_match.first != NULL &&
+                next_edit->from_length() == next_edit->to_length()) {        
                 BasePileup* base_pileup = get_create_base_pileup(pileup, insert_offset);
                 if (base_pileup->num_bases() < _max_depth) {
                     // reference_base if empty
@@ -346,7 +356,8 @@ void Pileups::compute_from_edit(NodePileup& pileup, int64_t& node_offset,
                     // add insertion string to bases field
                     base_pileup->mutable_bases()->append(seq);
                     if (!alignment.quality().empty()) {
-                        *base_pileup->mutable_qualities() += alignment.quality()[read_offset];
+                        *base_pileup->mutable_qualities() += combined_quality(alignment.quality()[read_offset],
+                                                                              alignment.mapping_quality());
                     }
                     // pileup size increases by 1
                     base_pileup->set_num_bases(base_pileup->num_bases() + 1);
@@ -494,7 +505,7 @@ bool Pileups::pass_filter(const Alignment& alignment, int64_t read_offset,
     // in this case entire block fails if single base fails
     for (int64_t cur_offset = read_offset; cur_offset < read_offset + length; ++cur_offset) {
         if (!alignment.quality().empty()) {
-            if (alignment.quality()[cur_offset] < _min_quality) {
+            if (combined_quality(alignment.quality()[cur_offset], alignment.mapping_quality()) < _min_quality) {
                 min_quality_fail = true;
                 break;
             }
@@ -586,12 +597,16 @@ EdgePileup& Pileups::merge_edge_pileups(EdgePileup& p1, EdgePileup& p2) {
     assert(p1.edge().to_end() == p2.edge().to_end());
     int merge_size = min(p2.num_reads(), _max_depth - p1.num_reads());
     p1.set_num_reads(p1.num_reads() + merge_size);
+    int forward_merge_size = p2.num_forward_reads() *
+        ((double)merge_size / (double)p2.num_reads()); 
+    p1.set_num_forward_reads(p1.num_forward_reads() + forward_merge_size);
     if (merge_size == p2.num_reads()) {
         p1.mutable_qualities()->append(p2.qualities());
     } else if (!p2.qualities().empty()) {
         p1.mutable_qualities()->append(p2.qualities().substr(0, merge_size));
     }
     p2.set_num_reads(0);
+    p2.set_num_forward_reads(0);
     p2.clear_qualities();
     return p1;
 }
