@@ -117,23 +117,47 @@ int main_homogenize(int argc, char** argv){
     gcsa::LCPArray* gcsa_lcp = nullptr;
     xg::XG* xg_index = nullptr;
 
+
+    // TODO filter by whether a read is on the ref path
+    // i.e.:
+    // 1. Copy the graph
+    VG* o_graph = new VG(*graph);
+    cerr << "GRAPH COPIED" << endl;
+    // 2. Cache the reference path(s)
+    // (Not sure how to grab these, so for now just grab the first path in the graph)
+    map<string, list<Mapping> > cached_paths;
+    set<string> kept_paths;
+    set<string> removed_paths;
+    int i = 0;
+    for (auto x : o_graph->paths._paths){
+        cached_paths[x.first] = x.second;
+        if (i == 0){
+            kept_paths.insert(x.first);
+        }
+        else{
+            removed_paths.insert(x.first);
+        }
+        i++;
+    }
+    //
+    Paths p = graph->paths;
+    //
+    // 3. Remove all paths in the graph, except the reference
+    (o_graph->paths).remove_paths(removed_paths);
+    //
+    //
+    //graph = o_graph;
+    delete graph;
+
     if (xg_name.empty() && gcsa_name.empty()){
         build_in_memory = true;
     }
 
     if (build_in_memory) {
-        VG* graph;
-        if (file_name == "-") {
-            graph = new VG(std::cin);
-        } else {
-            ifstream in;
-            in.open(file_name.c_str());
-            graph = new VG(in);
-        }
-        xg_index = new xg::XG(graph->graph);
+        xg_index = new xg::XG(o_graph->graph);
         assert(kmer_size);
         int doubling_steps = 2;
-        graph->build_gcsa_lcp(gcsa_index, gcsa_lcp, kmer_size, in_mem_path_only, false, 2);
+        o_graph->build_gcsa_lcp(gcsa_index, gcsa_lcp, kmer_size, in_mem_path_only, false, 2);
         //delete graph;
     } else {
         // We try opening the file, and then see if it worked
@@ -170,11 +194,11 @@ int main_homogenize(int argc, char** argv){
 
     Homogenizer hh;
 
-    hh.homogenize(graph, xg_index, gcsa_index, gcsa_lcp);
+    hh.homogenize(o_graph, xg_index, gcsa_index, gcsa_lcp);
 
     /* stream out graph */
 
-    graph->serialize_to_ostream(std::cout);
-    delete graph;
+    o_graph->serialize_to_ostream(std::cout);
+    delete o_graph;
 
 }
