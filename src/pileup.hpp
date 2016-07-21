@@ -204,11 +204,11 @@ public:
 
     // get ith BasePileup record
     static BasePileup* get_base_pileup(NodePileup& np, int64_t offset) {
-        assert(offset < np.base_pileup_size());
+        assert(offset < np.base_pileup_size() && offset >= 0);
         return np.mutable_base_pileup(offset);
     }
     static const BasePileup* get_base_pileup(const NodePileup& np, int64_t offset) {
-        assert(offset < np.base_pileup_size());
+        assert(offset < np.base_pileup_size() && offset >= 0);
         return &np.base_pileup(offset);
     }
 

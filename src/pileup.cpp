@@ -179,6 +179,8 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
             if (mapping.position().is_reverse()) {
                 node_offset = node->sequence().length() - 1 - node_offset;
             }
+            // If we mismatch alignments and graphs, we can get into trouble.
+            assert(node_offset >= 0);
             in_read_offsets[i] = read_offset;
             for (int j = 0; j < mapping.edit_size(); ++j) {
                 const Edit& edit = mapping.edit(j);
