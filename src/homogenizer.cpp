@@ -9,8 +9,8 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
     // TODO filter by whether a read is on the ref path
     // i.e.:
     // 1. Copy the graph
-//    VG* o_graph = new VG(*graph);
-//    cerr << "GRAPH COPIED" << endl;
+    //    VG* o_graph = new VG(*graph);
+    //    cerr << "GRAPH COPIED" << endl;
     // 2. Cache the reference path(s)
     // (Not sure how to grab these, so for now just grab the first path in the graph)
     map<string, list<Mapping> > cached_paths;
@@ -29,24 +29,24 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
 
 
     // Remove tiny softclips
-    int sc_threshold = 10;
-    vector<id_t> remove_me;
-    vector<id_t> keeps;
-    for (auto t : tips){
-        if ((o_graph->get_node(t))->sequence().length() < sc_threshold){
-            remove_me.push_back(t);
-        }
-        else if (!o_graph->paths.has_node_mapping(t)){
-            remove_me.push_back(t);
-        }
-        else{
-            keeps.push_back(t);
-        }   
+    /*    int sc_threshold = 10;
+          vector<id_t> remove_me;
+          vector<id_t> keeps;
+          for (auto t : tips){
+          if ((o_graph->get_node(t))->sequence().length() < sc_threshold){
+          remove_me.push_back(t);
+          }
+          else if (!o_graph->paths.has_node_mapping(t)){
+          remove_me.push_back(t);
+          }
+          else{
+    //if (o_graph->paths.has_node_mapping(t) && (o_graph->get_node(t))->sequence().length() < sc_threshold){
+    keeps.push_back(t);
+    }
+    //}   
     }
     cut_tips(remove_me, o_graph);
-
-    cerr << "TIPS REMOVED, AND PATHS CLEARED" << endl;
-    exit(1);
+    */
 
     /* Generate edges/nodes to add to graph */
     //vector<MaximalExactMatch> find_smems(const string& seq);
@@ -56,28 +56,32 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
     map<vg::id_t, vector<MaximalExactMatch> > matches;
     map<vg::id_t, string> ref_node_to_clip;
     vector<string> seqs;
-    for (int i = 0; i < keeps.size(); i++){
-        Node* n = o_graph->get_node(keeps[i]);
+    for (int i = 0; i < tips.size(); i++){
+        Node* n = o_graph->get_node(tips[i]);
+        if (n->sequence().length() < 4){
+            continue;
+        }
         vector<MaximalExactMatch> m = mapper->find_smems(n->sequence());
-        matches[keeps[i]] = m;
-        // map<id_t, map<string, set<Mapping*>>> node_mapping;
-        // Get paths of tip
-        map<string, set<Mapping*>> paths_of_tip = (o_graph->paths).get_node_mapping(keeps[i]);
-        // Find the closest reference node to the tip
-        vg::id_t ref_node = -1;
-        for (auto m : paths_of_tip){
-            for (auto n : m.second){
-                vg::id_t n_id = n->position().node_id();
-                if ((o_graph->paths).has_node_mapping(n_id)){
-                    ref_node = n_id;
+        if (m.size() >= 1){
+            matches[tips[i]] = m;
+            // map<id_t, map<string, set<Mapping*>>> node_mapping;
+            // Get paths of tip
+            map<string, set<Mapping*>> paths_of_tip = (o_graph->paths).get_node_mapping(tips[i]);
+            // Find the closest reference node to the tip
+            vg::id_t ref_node = -1;
+            for (auto m : paths_of_tip){
+                for (auto n : m.second){
+                    vg::id_t n_id = n->position().node_id();
+                    if ((o_graph->paths).has_node_mapping(n_id)){
+                        ref_node = n_id;
+                    }
                 }
             }
-        }
-        if (ref_node != -1){
-            ref_node_to_clip[ref_node] = (o_graph->get_node(keeps[i]))->sequence();
+            if (ref_node != -1){
+                ref_node_to_clip[ref_node] = (o_graph->get_node(tips[i]))->sequence();
+            }
         }
     }
-
 
     // TODO: need to remove the tips sequences first.
     for (auto x : ref_node_to_clip){
@@ -92,9 +96,6 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
     //
     //map<id_t, map<string, set<Mapping*>>> node_mapping;
     //
-
-    delete o_graph;
-
 
 }
 
@@ -118,7 +119,7 @@ vector<vg::id_t> Homogenizer::find_tips(vg::VG* graph){
     vector<vg::id_t> ret;
     std::function<void(Node*)> is_tip = [graph, &ret](Node* n){
         if (graph->start_degree(n) == 0 | graph->end_degree(n) == 0){
-            #pragma omp critical
+#pragma omp critical
             ret.push_back(n->id());
         }
     };
