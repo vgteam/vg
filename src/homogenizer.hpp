@@ -26,6 +26,10 @@ namespace vg{
         private:
             /* Find tips (nodes with an indegree/outdegree of 0 in the graph */
             vector<vg::id_t> find_tips(vg::VG* graph);
+
+            /* Find non-ref tips */
+            vector<vg::id_t> find_non_ref_tips(vg::VG* graph);
+
             /* remap a set of Alignments to the graph */
             int remap(vector<Alignment> reads, vg::VG graph);
             /* Remove all tips from the graph.

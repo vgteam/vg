@@ -122,6 +122,20 @@ void Homogenizer::cut_nonref_tips(vg::VG* graph){
 
 }
 
+vector<vg::id_t> Homogenizer::find_non_ref_tips(vg::VG* graph){
+    vector<vg::id_t> ret;
+    std::function<void(Node*)> is_tip = [graph, &ret](Node* n){
+    if ((graph->start_degree(n) == 0 | graph->end_degree(n) == 0) &&
+            !(graph->paths.has_node_mapping(n))){
+            #pragma omp critical
+            ret.push_back(n->id());
+        }
+    };
+    graph->for_each_node_parallel(is_tip);
+    return ret;
+
+}
+
 vector<vg::id_t> Homogenizer::find_tips(vg::VG* graph){
     vector<vg::id_t> ret;
     std::function<void(Node*)> is_tip = [graph, &ret](Node* n){
