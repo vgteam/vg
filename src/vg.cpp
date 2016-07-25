@@ -2102,6 +2102,10 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
 
 
 
+#ifdef debug
+    cerr << "Processing " << records.size() << " vcf records..." << endl;
+#endif
+
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
 
@@ -2149,6 +2153,10 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     continue;
                 }
 
+                if(genotype.substr(0, bar_pos) == "." || genotype.substr(bar_pos + 1) == ".") {
+                    // This site is uncalled
+                    continue;
+                }
 
                 // Parse out the two alt indexes.
                 // TODO: complain if there are more.

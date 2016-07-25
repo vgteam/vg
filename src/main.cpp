@@ -3584,13 +3584,17 @@ int main_mod(int argc, char** argv) {
             for (sregex_token_iterator it(genotype.begin(), genotype.end(), allele_separator, -1);
                 it != sregex_token_iterator(); ++it) {
                 // For every token separated by / or |
+                int allele_number;
                 if(it->str() == ".") {
-                    // Unknown; skip it
-                    continue;
+                    // Unknown; pretend it's ref for the purposes of making a
+                    // sample graph.
+                    allele_number = 0;
+                } else {
+                    // Parse the allele number
+                    allele_number = stoi(it->str());
                 }
                 
-                // Parse the allele number
-                int allele_number = stoi(it->str());
+                
                 
                 // Make the name for its alt path
                 string alt_path_name = "_alt_" + var_name + "_" + to_string(allele_number);
@@ -3634,6 +3638,9 @@ int main_mod(int argc, char** argv) {
                 // destroy the path. We can't leave it because it won't be the
                 // same path without this node.
                 graph->paths.remove_path(path_name);
+#ifdef debug
+                cerr << "Node " << node_id << " was on path " << path_name << endl;
+#endif
             }
             
             // Actually get rid of the node once its paths are gone.
@@ -4501,7 +4508,8 @@ void help_stats(char** argv) {
          << "    -n, --node ID         consider node with the given id" << endl
          << "    -d, --to-head         show distance to head for each provided node" << endl
          << "    -t, --to-tail         show distance to head for each provided node" << endl
-         << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl;
+         << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl
+         << "    -v, --verbose         output longer reports" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -4524,6 +4532,7 @@ int main_stats(int argc, char** argv) {
     bool edge_count = false;
     bool superbubbles = false;
     bool cactus = false;
+    bool verbose = false;
     set<vg::id_t> ids;
     // What alignments GAM file should we read and compute stats on with the
     // graph?
@@ -4550,11 +4559,12 @@ int main_stats(int argc, char** argv) {
             {"superbubbles", no_argument, 0, 'b'},
             {"cactusbubbles", no_argument, 0, 'C'},
             {"alignments", required_argument, 0, 'a'},
+            {"verbose", no_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4621,6 +4631,10 @@ int main_stats(int argc, char** argv) {
             
         case 'a':
             alignments_filename = optarg;
+            break;
+            
+        case 'v':
+            verbose = true;
             break;
 
         case 'h':
@@ -4836,16 +4850,34 @@ int main_stats(int argc, char** argv) {
         });
         
         
-        // These are the other stats we will compute.
+        // These are the general stats we will compute.
         size_t total_alignments = 0;
         size_t total_aligned = 0;
         size_t total_primary = 0;
         size_t total_secondary = 0;
         
-        // This is what we care about (significantly allele-biased hets)
+        // These are for counting significantly allele-biased hets
         size_t total_hets = 0;
         size_t significantly_biased_hets = 0;
         
+        // These are for tracking which nodes are covered and which are not
+        map<vg::id_t, size_t> node_visit_counts;
+        
+        // And for counting indels
+        // Inserted bases also counts softclips
+        size_t total_insertions = 0;
+        size_t total_inserted_bases = 0;
+        size_t total_deletions = 0;
+        size_t total_deleted_bases = 0;
+        // And substitutions
+        size_t total_substitutions = 0;
+        size_t total_substituted_bases = 0;
+        
+        // In verbose mode we want to report details of insertions, deletions,
+        // and substitutions.
+        vector<pair<vg::id_t, Edit>> insertions;
+        vector<pair<vg::id_t, Edit>> deletions;
+        vector<pair<vg::id_t, Edit>> substitutions;
         
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             int tid = omp_get_thread_num();
@@ -4876,14 +4908,62 @@ int main_stats(int argc, char** argv) {
                 set<pair<string, string>> alleles_supported;
                 
                 for(size_t i = 0; i < aln.path().mapping_size(); i++) {
-                    // For every mapping, see if it visits a node unique to an
-                    // allele path.
-                    vg::id_t node_id = aln.path().mapping(i).position().node_id();
+                    // For every mapping...
+                    auto& mapping = aln.path().mapping(i);
+                    vg::id_t node_id = mapping.position().node_id();
+                    
                     if(allele_path_for_node.count(node_id)) {
                         // We hit a unique node for this allele. Add it to the set,
                         // in case we hit another unique node for it later in the
                         // read.
                         alleles_supported.insert(allele_path_for_node.at(node_id));
+                    }
+                    
+                    // Record that there was a visit to this node.
+                    #pragma omp critical (node_visit_counts)
+                    node_visit_counts[node_id]++;
+                    
+                    for(size_t j = 0; j < mapping.edit_size(); j++) {
+                        // Go through edits and look for indels.
+                        auto& edit = mapping.edit(j);
+                        
+                        if(edit.to_length() > edit.from_length()) {
+                            // Record this insertion
+                            #pragma omp critical (total_inserted_bases)
+                            total_inserted_bases += edit.to_length() - edit.from_length();
+                            #pragma omp critical (total_insertions)
+                            total_insertions++;
+                            if(verbose) {
+                                // Record the actual insertion
+                                #pragma omp critical (insertions)
+                                insertions.push_back(make_pair(node_id, edit));
+                            }
+                            
+                        } else if(edit.from_length() > edit.to_length()) {
+                            // Record this deletion
+                            #pragma omp critical (total_deleted_bases)
+                            total_deleted_bases += edit.from_length() - edit.to_length();
+                            #pragma omp critical (total_deletions)
+                            total_deletions++;
+                            if(verbose) {
+                                // Record the actual deletion
+                                #pragma omp critical (deletions)
+                                deletions.push_back(make_pair(node_id, edit));
+                            }
+                        } else if(!edit.sequence().empty()) {
+                            // Record this substitution
+                            // TODO: a substitution might also occur as part of a deletion/insertion above!
+                            #pragma omp critical (total_substituted_bases)
+                            total_substituted_bases += edit.from_length();
+                            #pragma omp critical (total_substitutions)
+                            total_substitutions++;
+                            if(verbose) {
+                                // Record the actual substitution
+                                #pragma omp critical (substitutions)
+                                substitutions.push_back(make_pair(node_id, edit));
+                            }
+                        }
+                        
                     }
                 }
                 
@@ -4940,10 +5020,57 @@ int main_stats(int argc, char** argv) {
             }
         }
         
+        // Go through all the nodes again and sum up unvisited nodes
+        size_t unvisited_nodes = 0;
+        // If we're in verbose mode, collect IDs too.
+        set<vg::id_t> unvisited_ids;
+        graph->for_each_node_parallel([&](Node* node) {
+            // For every node
+            if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
+                // If we never visited it with a read, count it.
+                #pragma omp critical (unvisited_nodes)
+                unvisited_nodes++;
+                if(verbose) {
+                    #pragma omp critical (unvisited_ids)
+                    unvisited_ids.insert(node->id());
+                }
+            }
+        });
+        
         cout << "Total alignments: " << total_alignments << endl;
         cout << "Total primary: " << total_primary << endl;
         cout << "Total secondary: " << total_secondary << endl;
         cout << "Total aligned: " << total_aligned << endl;
+        
+        cout << "Insertions: " << total_inserted_bases << " bp in " << total_insertions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : insertions) {
+                cerr << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        cout << "Deletions: " << total_deleted_bases << " bp in " << total_deletions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : deletions) {
+                cerr << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.to_length()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        cout << "Substitutions: " << total_substituted_bases << " bp in " << total_substitutions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : substitutions) {
+                cerr << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        
+        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count() << endl;
+        if(verbose) {
+            for(auto& id : unvisited_ids) {
+                cerr << "\t" << id << endl;
+            }
+        }       
+        
         cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
         if(total_hets > 0) {
             cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
