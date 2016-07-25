@@ -125,12 +125,10 @@ int main_homogenize(int argc, char** argv){
     cerr << "GRAPH COPIED" << endl;
     // 2. Cache the reference path(s)
     // (Not sure how to grab these, so for now just grab the first path in the graph)
-    map<string, list<Mapping> > cached_paths;
     set<string> kept_paths;
     set<string> removed_paths;
     int i = 0;
     for (auto x : o_graph->paths._paths){
-        cached_paths[x.first] = x.second;
         if (i == 0){
             kept_paths.insert(x.first);
         }
@@ -144,9 +142,10 @@ int main_homogenize(int argc, char** argv){
     //
     // 3. Remove all paths in the graph, except the reference
     (o_graph->paths).remove_paths(removed_paths);
+    for ( auto x : (o_graph->paths)._paths){
+        cerr << x.first << endl;
+    }
     //
-    //
-    //graph = o_graph;
     delete graph;
 
     if (xg_name.empty() && gcsa_name.empty()){
@@ -194,7 +193,7 @@ int main_homogenize(int argc, char** argv){
 
     Homogenizer hh;
 
-    hh.homogenize(o_graph, xg_index, gcsa_index, gcsa_lcp);
+    hh.homogenize(o_graph, xg_index, gcsa_index, gcsa_lcp, p);
 
     /* stream out graph */
 
