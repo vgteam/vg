@@ -5045,21 +5045,21 @@ int main_stats(int argc, char** argv) {
         cout << "Insertions: " << total_inserted_bases << " bp in " << total_insertions << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : insertions) {
-                cerr << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
                     << " on " << id_and_edit.first << endl;
             }
         }
         cout << "Deletions: " << total_deleted_bases << " bp in " << total_deletions << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : deletions) {
-                cerr << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.to_length()
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.to_length()
                     << " on " << id_and_edit.first << endl;
             }
         }
         cout << "Substitutions: " << total_substituted_bases << " bp in " << total_substitutions << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : substitutions) {
-                cerr << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
                     << " on " << id_and_edit.first << endl;
             }
         }
@@ -5067,7 +5067,7 @@ int main_stats(int argc, char** argv) {
         cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count() << endl;
         if(verbose) {
             for(auto& id : unvisited_ids) {
-                cerr << "\t" << id << endl;
+                cout << "\t" << id << endl;
             }
         }       
         
