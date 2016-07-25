@@ -3,49 +3,21 @@
 using namespace std;
 using namespace vg;
 
-void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index){
+void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths){
     vector<id_t> tips = find_tips(o_graph);
 
-    // TODO filter by whether a read is on the ref path
-    // i.e.:
-    // 1. Copy the graph
-    //    VG* o_graph = new VG(*graph);
-    //    cerr << "GRAPH COPIED" << endl;
+    /* TODO filter by whether a read is on the ref path
     // 2. Cache the reference path(s)
     // (Not sure how to grab these, so for now just grab the first path in the graph)
     map<string, list<Mapping> > cached_paths;
     set<string> kept_paths;
-    for (auto x : o_graph->paths._paths){
-        cached_paths[x.first] = x.second;
-        kept_paths.insert(x.first);
-        break;
-    }
-    //
+    */
+    string ref_path = o_graph->paths.all_path_names()[0];
+    /*
     Paths p = o_graph->paths;
     //
     // 3. Remove all paths in the graph, except the reference
     (o_graph->paths).keep_paths(kept_paths);
-    //
-
-
-    // Remove tiny softclips
-    /*    int sc_threshold = 10;
-          vector<id_t> remove_me;
-          vector<id_t> keeps;
-          for (auto t : tips){
-          if ((o_graph->get_node(t))->sequence().length() < sc_threshold){
-          remove_me.push_back(t);
-          }
-          else if (!o_graph->paths.has_node_mapping(t)){
-          remove_me.push_back(t);
-          }
-          else{
-    //if (o_graph->paths.has_node_mapping(t) && (o_graph->get_node(t))->sequence().length() < sc_threshold){
-    keeps.push_back(t);
-    }
-    //}   
-    }
-    cut_tips(remove_me, o_graph);
     */
 
     /* Generate edges/nodes to add to graph */
@@ -58,38 +30,73 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
     vector<string> seqs;
     for (int i = 0; i < tips.size(); i++){
         Node* n = o_graph->get_node(tips[i]);
-        if (n->sequence().length() < 4){
+        if (n->sequence().length() < 4 || (o_graph->paths).has_node_mapping(n->id())){
             continue;
         }
         vector<MaximalExactMatch> m = mapper->find_smems(n->sequence());
-        if (m.size() >= 1){
+        // Why >1? Because we need to match the node AND somewhere else in the graph.
+        if (m.size() > 1){
+            cerr << "POTENTIAL NEW EDGE" << endl;
             matches[tips[i]] = m;
             // map<id_t, map<string, set<Mapping*>>> node_mapping;
             // Get paths of tip
-            map<string, set<Mapping*>> paths_of_tip = (o_graph->paths).get_node_mapping(tips[i]);
+            set<string> paths_of_tip = cached_paths.of_node(tips[i]);
             // Find the closest reference node to the tip
             vg::id_t ref_node = -1;
+
             for (auto m : paths_of_tip){
-                for (auto n : m.second){
-                    vg::id_t n_id = n->position().node_id();
-                    if ((o_graph->paths).has_node_mapping(n_id)){
-                        ref_node = n_id;
+                cerr << m << endl;
+                Path path_of_tip = cached_paths.path(m);
+                if (m == ref_path){
+                    continue;     
+                }
+                else{
+                    bool on_ref = false;
+                    for (int j = 0; j < path_of_tip.mapping_size(); j++){
+                        Mapping nearby_mapping = path_of_tip.mapping(j);
+                        Position pos = nearby_mapping.position();
+                        vg::id_t n_id = pos.node_id();
+                        if (o_graph->paths.has_node_mapping(n_id)){
+                            ref_node = n_id;
+                            on_ref = true;
+                        }
+                        else if (on_ref == false && n_id != tips[i]){
+                            ref_node = n_id;
+                        }
+                        else{
+                            continue;
+                        }
+
                     }
                 }
             }
             if (ref_node != -1){
-                ref_node_to_clip[ref_node] = (o_graph->get_node(tips[i]))->sequence();
+                ref_node_to_clip[ref_node] = n->sequence();
             }
         }
     }
 
-    // TODO: need to remove the tips sequences first.
+    cerr << ref_node_to_clip.size() << " candidate edges generated. Modifying graph" << endl;
+
+    //need to remove the tips sequences first.
+    //cut_tips(tips, o_graph);
     for (auto x : ref_node_to_clip){
         Alignment clip_aln;
+        cerr << x.second.size() << endl;
         clip_aln = mapper->align(x.second);
-        Edge * e = o_graph->create_edge(x.first, clip_aln.path().mapping(0).position().node_id(), false, false);
-        o_graph->add_edge(*e);
+        cerr << clip_aln.DebugString();
+        Path new_aln_p = clip_aln.path();
+        for (int i = 0; i < new_aln_p.mapping_size(); i++){
+            Edge * e = o_graph->create_edge(x.first, new_aln_p.mapping(i).position().node_id(), false, false);
+            o_graph->add_edge(*e);
+            cerr << "Edge made from " << x.first << " to " << new_aln_p.mapping(i).position().node_id() << endl;
+        }
     }
+
+    vector<vg::id_t> after_tips = find_tips(o_graph);
+    cut_tips(after_tips, o_graph);
+
+    //o_graph->unchop();
 
     // Remap the paths (reads) that pass through our current set of tips, and
     // see if the overall score of the graph improves.

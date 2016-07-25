@@ -22,7 +22,7 @@ namespace vg{
              * are remapped, and the process is repeated until the
              * graph becomes stable.
              */
-            void homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index);
+            void homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths p);
         private:
             /* Find tips (nodes with an indegree/outdegree of 0 in the graph */
             vector<vg::id_t> find_tips(vg::VG* graph);
