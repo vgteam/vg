@@ -4813,6 +4813,12 @@ int main_stats(int argc, char** argv) {
         graph->for_each_node_parallel([&](Node* node) {
             // For every node
             
+            if(!graph->paths.has_node_mapping(node)) {
+                // No paths to go over. If we try and get them we'll be
+                // modifying the paths in parallel, which will explode.
+                return;
+            }
+            
             // We want an allele path on it
             string allele_path;
             for(auto& name_and_mappings : graph->paths.get_node_mapping(node)) {
