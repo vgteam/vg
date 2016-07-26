@@ -7705,6 +7705,7 @@ void help_view(char** argv) {
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
          << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
+         << "    -m, --skip-missing   skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
@@ -7765,6 +7766,7 @@ int main_view(int argc, char** argv) {
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
     bool cactusbubble_labeling = false;
+    bool skip_missing_nodes = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -7803,6 +7805,7 @@ int main_view(int argc, char** argv) {
                 {"translation-in", no_argument, 0, 'Z'},
                 {"cactus-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
+                {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
@@ -7810,7 +7813,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYqQ:z",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:z",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -7837,6 +7840,10 @@ int main_view(int argc, char** argv) {
 
         case 'B':
             superbubble_labeling = true;
+            break;
+
+        case 'm':
+            skip_missing_nodes = true;
             break;
 
         case 'Z':
@@ -8279,6 +8286,7 @@ int main_view(int argc, char** argv) {
                       superbubble_ranking,
                       superbubble_labeling,
                       cactusbubble_labeling,
+                      skip_missing_nodes,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
