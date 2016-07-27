@@ -467,8 +467,11 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
         alignment_pairs.first[max_idx].set_mapping_quality((int32_t) mapping_quality);
         alignment_pairs.second[max_idx].set_mapping_quality((int32_t) mapping_quality);
     }
-
 }
+
+//int32_t Aligner::score_mem(MaximalExactMatch& mem) {
+//    return match * mem.match_count;
+//}
 
 QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _mismatch,
@@ -537,3 +540,22 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
     gssw_graph_mapping_destroy(gm);
     gssw_graph_destroy(graph);
 }
+
+//int32_t QualAdjAligner::score_mem(MaximalExactMatch& mem, string& base_quality) {
+//    int32_t score = 0;
+//    string& sequence = mem.sequence();
+//    char* sequence_chars = sequence.c_str();
+//    char* base_quals = base_quality.c_str();
+//    for (int i = 0; i < sequence.length(); i++) {
+//        // index 5 x 5 score matrices (ACGTN)
+//        // always have match so that row and column index are same and can combine algebraically
+//        score += adjusted_score_matrix[25 * base_quals[i] + 6 * nt_table[sequence_chars[i]]];
+//    }
+//    return score;
+//}
+
+
+
+
+
+

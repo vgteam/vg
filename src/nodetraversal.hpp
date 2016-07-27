@@ -3,6 +3,8 @@
 
 #include "vg.pb.h"
 
+
+
 namespace vg {
 
 using namespace std;
@@ -56,7 +58,6 @@ public:
     inline NodeTraversal reverse(void) const {
         return NodeTraversal(node, !backward);
     }
-
 };
 
 inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
@@ -64,5 +65,6 @@ inline ostream& operator<<(ostream& out, const NodeTraversal& nodetraversal) {
 }
 
 }
+
 
 #endif

@@ -70,6 +70,8 @@ namespace vg {
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                             bool fast_approximation);
         
+        //int32_t score_mem(MaximalExactMatch& mem);
+        
         // members
         int8_t* nt_table;
         int8_t* score_matrix;
@@ -100,6 +102,9 @@ namespace vg {
         int8_t scaled_gap_open;
         int8_t scaled_gap_extension;
         int8_t* adjusted_score_matrix;
+        
+        
+        //int32_t score_mem(MaximalExactMatch& mem, string& base_quality);
         
     private:
         void init_quality_adjusted_scores(int8_t _max_scaled_score,

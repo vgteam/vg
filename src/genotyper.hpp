@@ -274,6 +274,57 @@ public:
      */
     vcflib::VariantCallFile* start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& sample_name, const string& contig_name, size_t contig_size);
 
+    /*
+     *
+     *
+     *
+     * Experimental alternative genotyper
+     *
+     *
+     *
+     *
+     */
+    
+    // hash function for node traversals
+    struct hash_node_traversal {
+        size_t operator()(const NodeTraversal& node_traversal) const {
+            return (size_t) 1099511628211ull * ((uintptr_t) node_traversal.node + node_traversal.backward * 16777619ull) + 14695981039346656037ull;
+        }
+    };
+    // hash function for oriented edges (as pairs of node traversals)
+    struct hash_oriented_edge {
+        size_t operator()(const pair<const NodeTraversal, const NodeTraversal>& edge) const {
+            hash_node_traversal hsh;
+            return hsh(edge.first) ^ (hsh(edge.second) << 1);
+        }
+    };
+    
+    // hash function for ambiguous sets of alleles that alleles can match (implemented as sorted arrays of indices)
+    struct hash_ambiguous_allele_set {
+        size_t operator()(const vector<size_t>& ambiguous_set) const {
+            size_t hash_value = 0;
+            for (size_t i = 0; i < ambiguous_set.size(); i++) {
+                hash_value += 1099511628211ull * ambiguous_set[i] + 14695981039346656037ull;
+            }
+            return hash_value;
+        }
+    };
+    
+    void edge_allele_labels(const VG& graph,
+                            const Site& site,
+                            const vector<list<NodeTraversal>>& superbubble_paths,
+                            unordered_map<pair<NodeTraversal, NodeTraversal>,
+                                          unordered_set<size_t>,
+                                          hash_oriented_edge>* out_edge_allele_sets);
+    void allele_ambiguity_log_probs(const VG& graph,
+                                    const Site& site,
+                                    const vector<list<NodeTraversal>>& superbubble_paths,
+                                    const unordered_map<pair<NodeTraversal, NodeTraversal>,
+                                                        unordered_set<size_t>,
+                                                        hash_oriented_edge>& edge_allele_sets,
+                                    vector<unordered_map<vector<size_t>,
+                                                         double,
+                                                         hash_ambiguous_allele_set>>* out_allele_ambiguity_probs);
 };
 
 
