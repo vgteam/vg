@@ -23,6 +23,7 @@ Mapper::Mapper(Index* idex,
     , max_multimaps(1)
     , max_attempts(0)
     , softclip_threshold(0)
+    , max_softclip_iterations(10)
     , prefer_forward(false)
     , greedy_accept(false)
     , accept_identity(0.75)
@@ -2106,7 +2107,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
     int64_t idf = path->mutable_mapping(0)->position().node_id();
     int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
     int max_target_length = aln.sequence().size() * max_target_factor;
-    while (itr++ < 3
+    while (itr++ < max_softclip_iterations
            && (sc_start > softclip_threshold
                || sc_end > softclip_threshold)) {
         if (debug) {
