@@ -705,6 +705,21 @@ public:
     void topological_sort(deque<NodeTraversal>& l);
     void swap_nodes(Node* a, Node* b);
 
+    //sorts graph using max-flow algorithm	
+    void max_flow(const string& ref_name);
+    void max_flow_sort(deque<NodeTraversal>& sorted_nodes, const string& ref_name);
+    bool bfs(int* rGraph, id_t s, id_t t, vector<id_t>& parent, id_t graph_size);
+    void dfs(int* rGraph, id_t s, vector<bool>& visited, id_t graph_size);
+    void find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
+                            set<id_t> nodes, list<id_t> ref_path,
+                            hash_map<id_t, vector <Edge*>> edges_out_nodes,
+                            hash_map<id_t, vector <Edge*>> edges_in_nodes,
+                            hash_map<Edge*, int> edge_weight);
+    void mark_dfs_in(hash_map<id_t, vector <Edge*>> graph_matrix, id_t s, set<id_t>& sorted_nodes, vector<bool>& visited);
+    void mark_dfs_out(hash_map<id_t, vector <Edge*>> graph_matrix, id_t s, set<id_t>& sorted_nodes, vector<bool>& visited);
+    vector<pair<id_t,id_t>> min_cut(int* graph, id_t s, id_t t, id_t graph_size, hash_map<id_t, vector < Edge*>>& edges_out_nodes, hash_map<id_t, vector < Edge*>>& edges_in_nodes);
+    
+
     // Use a topological sort to order and orient the nodes, and then flip some
     // nodes around so that they are oriented the way they are in the sort.
     // Populates nodes_flipped with the ids of the nodes that have had their
