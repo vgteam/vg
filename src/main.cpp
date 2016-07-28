@@ -5028,6 +5028,8 @@ int main_stats(int argc, char** argv) {
         
         // Go through all the nodes again and sum up unvisited nodes
         size_t unvisited_nodes = 0;
+        // And unvisited base count
+        size_t unvisited_node_bases = 0;
         // If we're in verbose mode, collect IDs too.
         set<vg::id_t> unvisited_ids;
         graph->for_each_node_parallel([&](Node* node) {
@@ -5036,6 +5038,8 @@ int main_stats(int argc, char** argv) {
                 // If we never visited it with a read, count it.
                 #pragma omp critical (unvisited_nodes)
                 unvisited_nodes++;
+                #pragma omp critical (unvisited_node_bases)
+                unvisited_node_bases += node->sequence().size();
                 if(verbose) {
                     #pragma omp critical (unvisited_ids)
                     unvisited_ids.insert(node->id());
@@ -5070,7 +5074,8 @@ int main_stats(int argc, char** argv) {
             }
         }
         
-        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count() << endl;
+        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count()
+            << " (" << unvisited_node_bases << " bp)" << endl;
         if(verbose) {
             for(auto& id : unvisited_ids) {
                 cout << "\t" << id << endl;
