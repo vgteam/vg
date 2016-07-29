@@ -1746,9 +1746,9 @@ int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
 void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample_name, const std::string& contig_name, size_t contig_size) {
     stream << "##fileformat=VCFv4.2" << std::endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << std::endl;
-    stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << std::endl;
-    stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
+    stream << "##INFO=<ID=XSBB,Number=1,Type=Integer,Description=\"Superbubble Bases\">" << std::endl;
+    stream << "##INFO=<ID=XSBN,Number=1,Type=Integer,Description=\"Superbubble Nodes\">" << std::endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
     stream << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
@@ -2020,6 +2020,16 @@ Genotyper::locus_to_variant(VG& graph,
     variant.format.push_back("DP");
     variant.samples[sample_name]["DP"].push_back(depth_string);
     variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
+    
+    // Also the site statistics
+    // Superbubble bases
+    size_t superbubble_bases = 0;
+    for(auto& node_id : site.contents) {
+        superbubble_bases += graph.get_node(node_id)->sequence().size();
+    }
+    variant.info["XSBB"].push_back(to_string(superbubble_bases));
+    // Superbubble nodes
+    variant.info["XSBN"].push_back(to_string(site.contents.size()));
     
     variant.format.push_back("GQ");
     if(locus.genotype_size() > 1) {
