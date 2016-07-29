@@ -10,9 +10,11 @@
 #define banded_global_aligner_hpp
 
 #include <stdio.h>
+#include <ctype.h>
 #include <iostream>
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
 #include <sstream>
 #include <algorithm>
 #include "vg.pb.h"
@@ -25,7 +27,7 @@ namespace vg {
     class BandedAlignmentMatrix {
     private:
         
-        enum matrix {Match, InsertCol, InsertRow};
+        enum matrix_t {Match, InsertCol, InsertRow};
         
         // these indicate the diagonals in this matrix that the band passes through
         // the bottom index is inclusive
@@ -46,9 +48,12 @@ namespace vg {
         int8_t* insert_col;
         int8_t* insert_row;
         
-        void traceback_internal(stringstream& strm, int64_t start_row, int64_t start_col, matrix start_mat,
+        void traceback_internal(stringstream& strm, int64_t start_row, int64_t start_col, matrix_t start_mat,
                                 bool in_lead_gap, int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
                                 int8_t gap_extend);
+        
+        void print_matrix(matrix_t which_mat);
+        void print_band(matrix_t which_mat);
         
     public:
         BandedAlignmentMatrix(string& read, Node* node, int64_t top_diag, int64_t bottom_diag,
@@ -64,6 +69,10 @@ namespace vg {
         
         // TODO: coordinate with Erik about traceback semantics
         void traceback(stringstream& strm, int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend);
+        
+        // debugging functions
+        void print_full_matrices();
+        void print_rectangularized_bands();
     };
     
     class BandedGlobalAlignmentGraph {
@@ -78,20 +87,19 @@ namespace vg {
         string traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend);
         
     private:
-        int64_t band_width;
-        vector<BandedAlignmentMatrix> banded_matrices;
+        vector<BandedAlignmentMatrix*> banded_matrices;
+        
+        unordered_map<int64_t, int64_t> node_id_to_idx;
         vector<Node*> topological_order;
         unordered_set<Node*> source_nodes;
         unordered_set<Node*> sink_nodes;
         
         // construction functions
+        void graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& out_edge_list);
         void topological_sort(Graph& g, vector<vector<int64_t>>& node_edges_out, vector<Node*>& out_topological_order);
-        void graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& edge_list);
         void find_banded_paths(string& read, vector<vector<int64_t>>& node_edges_in, int64_t band_width,
-                               vector<Node*>& topological_order, vector<bool>& node_masked,
-                               vector<pair<int64_t, int64_t>>& band_ends);
-        void shortest_seq_paths(vector<Node*>& topological_order, vector<vector<int64_t>>& node_edges_out,
-                                vector<int64_t>& seq_lens_out);
+                               vector<bool>& node_masked, vector<pair<int64_t, int64_t>>& band_ends);
+        void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, vector<int64_t>& seq_lens_out);
     };
 }
 
