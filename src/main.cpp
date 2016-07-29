@@ -1654,6 +1654,7 @@ void help_genotype(char** argv) {
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
          << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -S, --subset-graph      only use the part of the graph with any read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -1695,6 +1696,8 @@ int main_genotype(int argc, char** argv) {
     
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
     bool use_cactus = false;
+    // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
+    bool subset_graph = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1711,6 +1714,7 @@ int main_genotype(int argc, char** argv) {
                 {"augmented", required_argument, 0, 'a'},
                 {"use_mapq", no_argument, 0, 'q'},
                 {"cactus", no_argument, 0, 'C'},
+                {"subset-graph", no_argument, 0, 'S'},
                 {"realign_indels", no_argument, 0, 'i'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
@@ -1718,7 +1722,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCipt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSipt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1764,6 +1768,10 @@ int main_genotype(int argc, char** argv) {
         case 'C':
             // Use Cactus to find sites
             use_cactus = true;
+            break;
+        case 'S':
+            // Find sites on the graph subset with any read support
+            subset_graph = true;
             break;
         case 'i':
             // Do indel realignment
@@ -1873,6 +1881,7 @@ int main_genotype(int argc, char** argv) {
                   sample_name,
                   augmented_file_name,
                   use_cactus,
+                  subset_graph,
                   show_progress,
                   output_vcf,
                   output_json,

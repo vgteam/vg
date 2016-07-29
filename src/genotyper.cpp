@@ -23,6 +23,7 @@ void Genotyper::run(VG& graph,
                     string sample_name,
                     string augmented_file_name,
                     bool use_cactus,
+                    bool subset_graph,
                     bool show_progress,
                     bool output_vcf,
                     bool output_json,
@@ -100,11 +101,65 @@ void Genotyper::run(VG& graph,
     #pragma omp critical (cerr)
     cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
     
-    // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
+
+    // We need to decide if we want to work on the full graph or just on the subgraph that has any support.
     
-    // Unfold/unroll, find the superbubbles, and translate back.
-    vector<Genotyper::Site> sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
-        : find_sites_with_supbub(graph);
+    // Find all the sites in either the main graph or the subset
+    vector<Genotyper::Site> sites;
+    
+    if(subset_graph) {
+        VG subset(graph);
+
+        graph.for_each_node_parallel([&](Node* original_node) {
+            // Go through all the nodes in the original graph looking for ones that have no support
+            bool supported = false;
+            
+            if(graph.paths.has_node_mapping(original_node)) {
+                // It has some paths, so it might have support                
+                for(auto& name_and_mapping : graph.paths.get_node_mapping(original_node)) {
+                    // For all the paths, we are supported if one is a read.
+                    if(reads_by_name.count(name_and_mapping.first)) {
+                        supported = true;
+                        break;
+                    }
+                }
+            }
+            
+            if(!supported) {
+                // If there's no support for the node in the original graph, throw it out of the subset
+                #pragma omp critical (subset)
+                subset.destroy_node(original_node->id());
+            }
+        });
+        
+        if(show_progress) {
+            #pragma omp critical (cerr)
+            cerr << "Looking at subset of " << subset.size() << " nodes" << endl;
+        }
+        
+        // Unfold/unroll, find the superbubbles, and translate back.
+        sites = use_cactus ? find_sites_with_cactus(subset, ref_path_name)
+            : find_sites_with_supbub(subset);
+            
+        for(auto& site : sites) {
+            // Translate all the NodeTraversals back to node pointers in the
+            // non-subset graph
+            site.start.node = graph.get_node(site.start.node->id());
+            site.end.node = graph.get_node(site.end.node->id());
+        }
+        
+    } else {
+        // Don't need to mess around with creating a subset.
+    
+        if(show_progress) {
+            #pragma omp critical (cerr)
+            cerr << "Looking at graph of " << graph.size() << " nodes" << endl;
+        }
+    
+        // Unfold/unroll, find the superbubbles, and translate back.
+        sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
+            : find_sites_with_supbub(graph);
+    }
     
     if(show_progress) {
         #pragma omp critical (cerr)
