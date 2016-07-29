@@ -108,29 +108,36 @@ void Genotyper::run(VG& graph,
     vector<Genotyper::Site> sites;
     
     if(subset_graph) {
-        VG subset(graph);
+        // We'll collect the supported subset of the original graph
+        set<Node*> supported_nodes;
+        set<Edge*> supported_edges;
 
-        graph.for_each_node_parallel([&](Node* original_node) {
-            // Go through all the nodes in the original graph looking for ones that have no support
-            bool supported = false;
-            
-            if(graph.paths.has_node_mapping(original_node)) {
-                // It has some paths, so it might have support                
-                for(auto& name_and_mapping : graph.paths.get_node_mapping(original_node)) {
-                    // For all the paths, we are supported if one is a read.
-                    if(reads_by_name.count(name_and_mapping.first)) {
-                        supported = true;
-                        break;
-                    }
+        for(auto& name_and_read : reads_by_name) {
+            // Go through all the paths followed by reads
+            auto& path = name_and_read.second->path();
+            for(size_t i = 0; i < path.mapping_size(); i++) {
+                // Look at all the nodes we visit along this read
+                id_t node_id = path.mapping(i).position().node_id();
+                // Make sure they are all supported
+                supported_nodes.insert(graph.get_node(node_id));
+                
+                if(i > 0) {
+                    // We also need the edge from the last mapping to this one.
+                    // Make the two sides we connected moving from the last mapping to this one.
+                    NodeSide last(path.mapping(i - 1).position().node_id(), !path.mapping(i - 1).position().is_reverse());
+                    NodeSide here(node_id, path.mapping(i - 1).position().is_reverse());
+                    
+                    // We know the graph will have the edge
+                    supported_edges.insert(graph.get_edge(last, here));
                 }
-            }
             
-            if(!supported) {
-                // If there's no support for the node in the original graph, throw it out of the subset
-                #pragma omp critical (subset)
-                subset.destroy_node(original_node->id());
             }
-        });
+        }
+        
+        // Make the subset graph of only supported nodes and edges (which will
+        // internally contain copies of all of them).
+        VG subset(supported_nodes, supported_edges);
+
         
         if(show_progress) {
             #pragma omp critical (cerr)
