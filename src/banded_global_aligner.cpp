@@ -61,11 +61,6 @@ BandedAlignmentMatrix::~BandedAlignmentMatrix() {
 }
 
 bool BandedAlignmentMatrix::is_masked() {
-#ifdef debug_graph_processing
-
-    cerr << "[BandedAlignmentMatrix::is_masked] band matrix object has top diag " << top_diag << ", bottom diag " << bottom_diag << ", node at " << node << ", cumulative sequence length " << cumulative_seq_len << ", and " << num_seeds << " seeds" << endl;
-#endif
-
     // node will only be nullptr if masked
     return node == nullptr;
 }
@@ -102,8 +97,8 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
      *       5XX6
      *
      * this way the dimensions are band_height x seq_len instead of read_len x seq_len
-     * also note that the internal structure of each column is preserved and each row is
-     * a diagonal in the original matrix
+     * also note that the internal structure of each column is preserved and each row
+     * in the rectangularized band corresponds to a diagonal in the original matrix
      *
      * the initial row and column can be reached via an implied row or column insertion
      * that is not represented in the matrix (this requires a number of edge cases)
@@ -212,19 +207,13 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
             match[idx] = min_inf;
             insert_col[idx] = min_inf;
         }
-#ifdef debug_fill_matrix
-        cerr << "[BandedAlignmentMatrix::fill_matrix]: finished initializing first column" << endl;
-#endif
+        
         // the band size selection algorithm should guarantee that the band extension of each seed
         // is present in the current matrix, but not that every cell in the current matrix has a
         // predecessor from every seed
         
         // iterate through each seed and carry forward its subset of the current band
         for (int64_t seed_num = 0; seed_num < num_seeds; seed_num++) {
-            
-#ifdef debug_fill_matrix
-            cerr << "[BandedAlignmentMatrix::fill_matrix]: selecting next node to do POA from" << endl;
-#endif
             
             BandedAlignmentMatrix* seed = seeds[seed_num];
             
@@ -264,10 +253,13 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
                                                                    seed->insert_col[diag_idx]), match[idx]);
             }
             
-            left_idx = (seed_next_top_diag_iter - seed_next_top_diag + 2) * seed_node_seq_len - 1;
-            insert_col[idx] = max<int8_t>(max<int8_t>(max<int8_t>(seed->match[left_idx] - gap_open,
-                                                                  seed->insert_row[left_idx] - gap_open),
-                                                      seed->insert_col[left_idx] - gap_extend), insert_col[idx]);
+            if (seed_next_top_diag_iter != seed_next_bottom_diag_iter) {
+                left_idx = (seed_next_top_diag_iter - seed_next_top_diag + 2) * seed_node_seq_len - 1;
+                insert_col[idx] = max<int8_t>(max<int8_t>(max<int8_t>(seed->match[left_idx] - gap_open,
+                                                                      seed->insert_row[left_idx] - gap_open),
+                                                          seed->insert_col[left_idx] - gap_extend), insert_col[idx]);
+            }
+            
             
             for (int64_t diag = seed_next_top_diag_iter + 1; diag < seed_next_bottom_diag_iter; diag++) {
                 idx = (diag - top_diag) * ncols;
@@ -279,6 +271,7 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
                 // extend a match
                 diag_idx = (diag - seed_next_top_diag) * seed_node_seq_len + seed_node_seq_len - 1;
                 match_score = score_mat[5 * nt_table[node_seq[0]] + nt_table[read[diag]]];
+                
 #ifdef debug_fill_matrix
                 cerr << "[BandedAlignmentMatrix::fill_matrix]: extending match from rectangular coord (" << diag - seed_next_top_diag << ", " << seed_node_seq_len - 1 << ")" << " with match score " << (int) match_score << ", scores are " << (int) seed->match[diag_idx] << " (M), " << (int) seed->insert_row[diag_idx] << " (Ir), and " << (int) seed->insert_col[diag_idx] << " (Ic), current score is " << (int) match[idx] << endl;
 #endif
@@ -286,9 +279,6 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
                 match[idx] = max<int8_t>(match_score + max<int8_t>(max<int8_t>(seed->match[diag_idx],
                                                                                seed->insert_row[diag_idx]),
                                                                    seed->insert_col[diag_idx]), match[idx]);
-#ifdef debug_fill_matrix
-                cerr << "[BandedAlignmentMatrix::fill_matrix]: score is now " << (int) match[idx] << endl;
-#endif
                 
                 
                 // extend a column gap
@@ -306,42 +296,38 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
 #endif
             }
             
+            // don't handle final row edge case if we actually got it with the first row edge case
+            if (seed_next_bottom_diag_iter != seed_next_top_diag_iter) {
 #ifdef debug_fill_matrix
-            cerr << "[BandedAlignmentMatrix::fill_matrix]: edge case for final cell in column" << endl;
-            cerr << "[BandedAlignmentMatrix::fill_matrix]: extending a match and column gap into matrix coord (" << seed_next_bottom_diag_iter << ", 0)" << ", rectangular coord coord (" << seed_next_bottom_diag_iter - top_diag << ", 0)" << endl;
+                cerr << "[BandedAlignmentMatrix::fill_matrix]: edge case for final cell in column" << endl;
+                cerr << "[BandedAlignmentMatrix::fill_matrix]: extending a match and column gap into matrix coord (" << seed_next_bottom_diag_iter << ", 0)" << ", rectangular coord coord (" << seed_next_bottom_diag_iter - top_diag << ", 0)" << endl;
 #endif
-            
-            // may only be able to extend a match on last iteration
-            idx = (seed_next_bottom_diag_iter - top_diag) * ncols;
-            diag_idx = (seed_next_bottom_diag_iter - seed_next_top_diag) * seed_node_seq_len + seed_node_seq_len - 1;
-            match_score = score_mat[5 * nt_table[node_seq[0]] + nt_table[read[seed_next_bottom_diag_iter]]];
-            
+                
+                // may only be able to extend a match on last iteration
+                idx = (seed_next_bottom_diag_iter - top_diag) * ncols;
+                diag_idx = (seed_next_bottom_diag_iter - seed_next_top_diag) * seed_node_seq_len + seed_node_seq_len - 1;
+                match_score = score_mat[5 * nt_table[node_seq[0]] + nt_table[read[seed_next_bottom_diag_iter]]];
+                
 #ifdef debug_fill_matrix
-            cerr << "[BandedAlignmentMatrix::fill_matrix]: extending match from rectangular coord (" << seed_next_bottom_diag_iter - seed_next_top_diag << ", " << seed_node_seq_len - 1 << ")" << " with match score " << (int) match_score << ", scores are " << (int) seed->match[diag_idx] << " (M), " << (int) seed->insert_row[diag_idx] << " (Ir), and " << (int) seed->insert_col[diag_idx] << " (Ic), current score is " << (int) match[idx] << endl;
+                cerr << "[BandedAlignmentMatrix::fill_matrix]: extending match from rectangular coord (" << seed_next_bottom_diag_iter - seed_next_top_diag << ", " << seed_node_seq_len - 1 << ")" << " with match score " << (int) match_score << ", scores are " << (int) seed->match[diag_idx] << " (M), " << (int) seed->insert_row[diag_idx] << " (Ir), and " << (int) seed->insert_col[diag_idx] << " (Ic), current score is " << (int) match[idx] << endl;
 #endif
-            match[idx] = max<int8_t>(match_score + max<int8_t>(max<int8_t>(seed->match[diag_idx],
-                                                                           seed->insert_row[diag_idx]),
-                                                               seed->insert_col[diag_idx]), match[idx]);
-            
+                match[idx] = max<int8_t>(match_score + max<int8_t>(max<int8_t>(seed->match[diag_idx],
+                                                                               seed->insert_row[diag_idx]),
+                                                                   seed->insert_col[diag_idx]), match[idx]);
+
+                
+                // can only extend column gap if the bottom of the matrix was hit in the last seed
+                if (beyond_bottom_of_matrix) {
 #ifdef debug_fill_matrix
-            cerr << "[BandedAlignmentMatrix::fill_matrix]: score is now " << (int) match[idx] << endl;
+                    cerr << "[BandedAlignmentMatrix::fill_matrix]: can also extend a column gap since already reached edge of matrix" << endl;
 #endif
-            
-            // can only extend column gap if the bottom of the matrix was hit in the last seed
-            if (beyond_bottom_of_matrix) {
-#ifdef debug_fill_matrix
-                cerr << "[BandedAlignmentMatrix::fill_matrix]: can also extend a column gap since already reached edge of matrix" << endl;
-#endif
-                left_idx = (seed_next_bottom_diag_iter - seed_next_top_diag + 2) * seed_node_seq_len - 1;
-                insert_col[idx] = max<int8_t>(max<int8_t>(max<int8_t>(seed->match[left_idx] - gap_open,
-                                                                      seed->insert_row[left_idx] - gap_open),
-                                                          seed->insert_col[left_idx] - gap_extend), insert_col[idx]);
+                    left_idx = (seed_next_bottom_diag_iter - seed_next_top_diag + 2) * seed_node_seq_len - 1;
+                    insert_col[idx] = max<int8_t>(max<int8_t>(max<int8_t>(seed->match[left_idx] - gap_open,
+                                                                          seed->insert_row[left_idx] - gap_open),
+                                                              seed->insert_col[left_idx] - gap_extend), insert_col[idx]);
+                }
             }
-#ifdef debug_fill_matrix
-            else {
-                cerr << "[BandedAlignmentMatrix::fill_matrix]: cannot extend a column gap because not yet at edge of matrix" << endl;
-            }
-#endif
+
         }
 #ifdef debug_fill_matrix
         cerr << "[BandedAlignmentMatrix::fill_matrix]: filling out initial column of insert row matrix" << endl;
@@ -382,6 +368,7 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
             insert_row[idx] = -2 * gap_open - (cumulative_seq_len + j) * gap_extend;
             // match after implied gap along top edge
             match[idx] = match_score - gap_open - (cumulative_seq_len + j - 1) * gap_extend;
+            
 #ifdef debug_fill_matrix
             cerr << "[BandedAlignmentMatrix::fill_matrix]: on upper edge of matrix at rectangle coords (" << iter_start << ", " << j << "), match score of node char " << j << " (" << node_seq[j] << ") and read char " << iter_start + top_diag + j << " (" << read[iter_start + top_diag + j] << ") is " << (int) match_score << ", leading gap length is " << cumulative_seq_len + j << " for total match matrix score of " << (int) match[idx] << endl;
 #endif
@@ -392,12 +379,19 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
             insert_row[idx] = min_inf;
             // cells should be present to do normal diagonal iteration
             match[idx] = match_score + max(max(match[diag_idx], insert_row[diag_idx]), insert_col[diag_idx]);
+
         }
         
-        // normal iteration along row
-        int64_t left_idx = (iter_start + 1) * ncols + (j - 1);
-        insert_col[idx] = max(max(match[left_idx] - gap_open, insert_row[left_idx] - gap_open),
-                              insert_col[left_idx] - gap_extend);
+        // normal iteration along row unless band height is 1
+        if (iter_start < iter_stop - 1) {
+            int64_t left_idx = (iter_start + 1) * ncols + (j - 1);
+            insert_col[idx] = max(max(match[left_idx] - gap_open, insert_row[left_idx] - gap_open),
+                                  insert_col[left_idx] - gap_extend);
+        }
+        else {
+            insert_col[idx] = min_inf;
+        }
+        
         
         for (int64_t i = iter_start + 1; i < iter_stop - 1; i++) {
             // indices of the current and previous cells in the rectangularized band
@@ -464,10 +458,6 @@ int8_t BandedAlignmentMatrix::final_score() {
     int64_t ncols = node->sequence().length();
     int64_t final_row = bottom_diag + ncols > read_seq_len ? read_seq_len - top_diag - ncols : bottom_diag - top_diag;
     int64_t final_idx = final_row * ncols + (ncols - 1);
-    
-#ifdef debug_traceback
-    cerr << "[BandedAlignmentMatrix::final_score]: returning final score from rectangular coordinates (" << final_row << ", " << ncols - 1 << ") is " << (int) max(max(match[final_idx], insert_row[final_idx]), insert_col[final_idx]) << endl;
-#endif
     
     return max(max(match[final_idx], insert_row[final_idx]), insert_col[final_idx]);
 }
