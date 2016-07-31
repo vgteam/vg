@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "vg.hpp"
+#include "translator.hpp"
 #include "filter.hpp"
 #include "mapper.hpp"
 #include "bubbles.hpp"
@@ -22,8 +23,10 @@ namespace vg{
              * are remapped, and the process is repeated until the
              * graph becomes stable.
              */
-            void homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths p);
+            void homogenize(vg::VG* graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths p, int kmer_size);
         private:
+
+            Translator translator;
             /* Find tips (nodes with an indegree/outdegree of 0 in the graph */
             vector<vg::id_t> find_tips(vg::VG* graph);
 

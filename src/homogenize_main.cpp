@@ -193,7 +193,7 @@ int main_homogenize(int argc, char** argv){
 
     Homogenizer hh;
 
-    hh.homogenize(o_graph, xg_index, gcsa_index, gcsa_lcp, p);
+    hh.homogenize(o_graph, xg_index, gcsa_index, gcsa_lcp, p, kmer_size);
 
     /* stream out graph */
 

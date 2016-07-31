@@ -3,8 +3,11 @@
 using namespace std;
 using namespace vg;
 
-void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths){
-    vector<id_t> tips = find_tips(o_graph);
+void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths, int kmer_size){
+
+    bool in_mem_path_only = true;
+
+    vector<id_t> tips = find_non_ref_tips(o_graph);
 
     /* TODO filter by whether a read is on the ref path
     // 2. Cache the reference path(s)
@@ -13,6 +16,8 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
     set<string> kept_paths;
     */
     string ref_path = o_graph->paths.all_path_names()[0];
+
+    //o_graph->unchop();
     /*
     Paths p = o_graph->paths;
     //
@@ -80,21 +85,44 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
 
     //need to remove the tips sequences first.
     //cut_tips(tips, o_graph);
+
+    vector<Path> new_p_vec;
     for (auto x : ref_node_to_clip){
         Alignment clip_aln;
-        cerr << x.second.size() << endl;
+        cerr << "Length of softclip: " << x.second.size() << endl;
         clip_aln = mapper->align(x.second);
+        if (clip_aln.score() < 30){
+            continue;
+        }
         cerr << clip_aln.DebugString();
         Path new_aln_p = clip_aln.path();
-        for (int i = 0; i < new_aln_p.mapping_size(); i++){
-            Edge * e = o_graph->create_edge(x.first, new_aln_p.mapping(i).position().node_id(), false, false);
-            o_graph->add_edge(*e);
-            cerr << "Edge made from " << x.first << " to " << new_aln_p.mapping(i).position().node_id() << endl;
-        }
+        new_p_vec.clear();
+        new_p_vec.push_back(new_aln_p);
+        //for (int i = 0; i < new_aln_p.mapping_size(); i++){
+        vector<Translation> tras = o_graph->edit(new_p_vec);
+        translator.load(tras);
+        o_graph->paths.rebuild_mapping_aux();
+        //    Edge * e = o_graph->create_edge(x.first, new_aln_p.mapping(i).position().node_id(), false, false);
+         //   o_graph->add_edge(*e);
+         //   cerr << "Edge made from " << x.first << " to " << new_aln_p.mapping(i).position().node_id() << endl;
+        //}
+        
+        /** Reindex graph and reset mapper **/
+        delete xindex;
+        xindex = new xg::XG(o_graph->graph);
+        delete gcsa_index;
+        delete lcp_index;
+        o_graph->build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, in_mem_path_only, false, 2);
+        delete mapper;
+        mapper = new Mapper(xindex, gcsa_index, lcp_index);
+
+
     }
 
     vector<vg::id_t> after_tips = find_tips(o_graph);
     cut_tips(after_tips, o_graph);
+
+
 
     //o_graph->unchop();
 

@@ -63,10 +63,17 @@ int main_srpe(int argc, char** argv){
 
     }
 
+    vector<Alignment> buffer;
+    static const int buffer_size = 1000; // we let this be off by 1
+    function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
+            return buffer[i];
+    };
+
+
     SRPE srpe;
     vector<Alignment> alns;
-    vector<Position> positions;
-    std::function<void(Alignment&)> lambda = [&srpe, &alns, &positions](Alignment& aln){
+    vector<string> positions;
+    std::function<void(Alignment&)> lambda = [&srpe, &alns, &positions, &buffer](Alignment& aln){
         
         //srpe.apply(aln, alns);
         srpe.apply(aln, positions);
@@ -83,13 +90,7 @@ int main_srpe(int argc, char** argv){
 
     };
 
-    vector<Alignment> buffer;
-        static const int buffer_size = 1000; // we let this be off by 1
-        function<Alignment&(uint64_t)> write_buffer = [&buffer](uint64_t i) -> Alignment& {
-            return buffer[i];
-    };
-
-
+    
     /*
      * now that we've been through every read, check for erroneous depth signals
      */
