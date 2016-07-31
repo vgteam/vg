@@ -2,11 +2,22 @@
 
 using namespace std;
 namespace vg{
+
+    string SRPE::bucket(Position p){
+        int offset = p.offset();
+        bucket pos = offset  - (offset % my_bucket_size);
+        vg::id_t node_id = p.node_id();
+        stringstream sst;
+        sst << node_id << "_" << offset;
+        return sst.str();
+        
+    }
     void SRPE::apply(Alignment& aln, vector<Alignment>& suspect){
 
     }
 
-    void SRPE::apply(Alignment& aln, vector<Position>& suspect){
+    void SRPE::apply(Alignment& aln, vector<string>& suspect){
+        
 
     }
 
@@ -19,6 +30,13 @@ namespace vg{
     }
 
     void SRPE::call(void){
+
+    }
+
+    string SRPE::pos_to_string(Positoon& p){
+        string stream sst;
+        sst << p.node_id() << "_" << p.offset();
+        return sst.str();
 
     }
 
