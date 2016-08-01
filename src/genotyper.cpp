@@ -144,8 +144,14 @@ void Genotyper::run(VG& graph,
             cerr << "Looking at subset of " << subset.size() << " nodes" << endl;
         }
         
-        // Unfold/unroll, find the superbubbles, and translate back.
-        sites = use_cactus ? find_sites_with_cactus(subset, ref_path_name)
+        // Unfold/unroll, find the superbubbles, and translate back. Note that
+        // we can only use Cactus with the ref path if it survived the
+        // subsetting.
+        sites = use_cactus ? (
+            subset.paths.has_path(ref_path_name) ?
+                find_sites_with_cactus(subset, ref_path_name)
+                : find_sites_with_cactus(subset)
+            )
             : find_sites_with_supbub(subset);
             
         for(auto& site : sites) {
@@ -565,7 +571,9 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
     graph.sort();
     
     // get endpoints using node ranks
-    pair<NodeSide, NodeSide> source_sink = get_cactus_source_sink(graph, ref_path_name);
+    pair<NodeSide, NodeSide> source_sink = ref_path_name.empty() ?
+        get_cactus_source_sink(graph)
+        : get_cactus_source_sink(graph, ref_path_name);
 
     // todo: use deomposition instead of converting tree into flat structure
     BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);

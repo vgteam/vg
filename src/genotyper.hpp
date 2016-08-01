@@ -169,8 +169,11 @@ public:
      * Same as find_sites but use Cactus instead of Superbubbles.
      * This is more general and doesn't require DAGifcation etc., but we keep
      * both versions around for now for debugging and comparison
+     *
+     * If ref_path_name is the empty string, it is not used. Otherwise, it must
+     * be the name of a path present in the graph.
      */
-    vector<Site> find_sites_with_cactus(VG& graph, const string& ref_path_name);
+    vector<Site> find_sites_with_cactus(VG& graph, const string& ref_path_name = "");
     
     /**
      * Given a path (which may run either direction through a site, or not touch
