@@ -1654,7 +1654,7 @@ void help_genotype(char** argv) {
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
          << "    -C, --cactus            use cactus for site finding" << std::endl
-         << "    -S, --subset-graph      only use the part of the graph with any read support" << std::endl
+         << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;

@@ -50,14 +50,31 @@ void Genotyper::run(VG& graph,
         sample_name = "SAMPLE";
     }
 
-    // Make sure they have names. TODO: we assume that if they do have names
-    // they are already unique, and that they aren't like the names we generate.
+    // Make sure they have unique names.
+    set<string> names_seen;
+    // We warn about duplicate names, but only once.
+    bool duplicate_names_warned = false;
     for(size_t i = 0; i < alignments.size(); i++) {
         if(alignments[i].name().empty()) {
-            // Generate a unique name
+            // Generate a name
             alignments[i].set_name("_unnamed_alignment_" + to_string(i));
         }
+        if(names_seen.count(alignments[i].name())) {
+            // This name is duplicated
+            if(!duplicate_names_warned) {
+                // Warn, but only once
+                cerr << "Warning: duplicate alignment names present! Example: " << alignments[i].name() << endl;
+                duplicate_names_warned = true;
+            }
+        
+            // Generate a new name
+            // TODO: we assume this is unique
+            alignments[i].set_name("_renamed_alignment_" + to_string(i));
+            assert(!names_seen.count(alignments[i].name()));
+        }
+        names_seen.insert(alignments[i].name());
     }
+    names_seen.clear();
     
     // Suck out paths
     vector<Path> paths;
@@ -131,6 +148,38 @@ void Genotyper::run(VG& graph,
                     supported_edges.insert(graph.get_edge(last, here));
                 }
             
+            }
+        }
+        
+        // We also want to support all nodes and edges used by the reference path.
+        // TODO: once Cactus can root without hints, we can discard this
+        if(graph.paths.has_path(ref_path_name)) {
+            // We actually have a reference path, so get it for traversing.
+            list<Mapping>& ref_mappings = graph.paths.get_path(ref_path_name);
+            // We need to remember the previous mapping for finding edges
+            list<Mapping>::iterator last_mapping = ref_mappings.end();
+            for(list<Mapping>::iterator mapping = ref_mappings.begin(); mapping != ref_mappings.end(); ++mapping) {
+                // For each mapping along the reference path
+                
+                // What node is it on?
+                id_t node_id = mapping->position().node_id();
+                // Make sure it is supported
+                supported_nodes.insert(graph.get_node(node_id));
+                
+                if(last_mapping != ref_mappings.end()) {
+                    // We're coming from another mapping and need to support the edge
+                    
+                    NodeSide last(last_mapping->position().node_id(), !last_mapping->position().is_reverse());
+                    NodeSide here(node_id, mapping->position().is_reverse());
+                    
+                    // We know the graph will have the edge
+                    supported_edges.insert(graph.get_edge(last, here));                    
+                    
+                }
+                
+                // Save the iterator so we can get the next edge
+                last_mapping = mapping;
+                
             }
         }
         
