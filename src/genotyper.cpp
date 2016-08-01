@@ -186,6 +186,11 @@ void Genotyper::run(VG& graph,
         // Make the subset graph of only supported nodes and edges (which will
         // internally contain copies of all of them).
         VG subset(supported_nodes, supported_edges);
+        
+        if(graph.paths.has_path(ref_path_name)) {
+            // Copy over the reference path
+            subset.paths.extend(graph.paths.path(ref_path_name));
+        }
 
         
         if(show_progress) {
