@@ -210,10 +210,12 @@ public:
  * a fixed prior for hets.
  */
 class FixedGenotypePriorCalculator : public GenotypePriorCalculator {
-    double homozygous_prior;
-    double heterozygous_prior;
-
 public:
+    // These parameters are configurable, but have defaults.
+    double homozygous_prior_ln = prob_to_logprob(0.999);
+    double heterozygous_prior_ln = prob_to_logprob(0.001);
+
+
     virtual ~FixedGenotypePriorCalculator() = default;
     virtual double calculate_log_prior(const Genotype& genotype);
 };

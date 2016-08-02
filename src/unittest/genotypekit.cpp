@@ -33,6 +33,25 @@ TEST_CASE( "fixed priors can be assigned to genotypes", "[genotype]" ) {
         REQUIRE(calculator->calculate_log_prior(het) < calculator->calculate_log_prior(hom_alt));
     }
     
+    SECTION("haploid genotypes should have nonzero prior") {
+        Genotype haploid;
+        haploid.add_allele(5);
+        REQUIRE(calculator->calculate_log_prior(haploid) > prob_to_logprob(0));
+    }
+    
+    SECTION("zero-ploid genotypes should have nonzero prior") {
+        Genotype empty;
+        REQUIRE(calculator->calculate_log_prior(empty) > prob_to_logprob(0));
+    }
+    
+    SECTION("polyploid genotypes should have nonzero prior") {
+        Genotype polyploid;
+        for(int i = 0; i < 100; i++) {
+            polyploid.add_allele(i);
+        }
+        REQUIRE(calculator->calculate_log_prior(polyploid) > prob_to_logprob(0));
+    }
+    
     delete calculator;
 }
 
