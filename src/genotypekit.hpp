@@ -206,6 +206,33 @@ public:
 // And now the implementations
 
 /**
+ * This site finder finds sites with Cactus.
+ */
+class CactusSiteFinder : public SiteFinder {
+
+    // Holds the vg graph we are looking for sites in.
+    VG& graph;
+
+    // Use this path name as a rooting hint, if present.
+    string hint_path_name;
+
+public:
+    /**
+     * Make a new CactusSiteFinder to find sites in the given graph.
+     */
+    CactusSiteFinder(VG& graph, const string& hint_path_name);    
+    
+    virtual ~CactusSiteFinder() = default;
+    
+    /**
+     * Find all the sites in parallel with Cactus, make the site tree, and call
+     * the given function on all the top-level sites.
+     */
+    virtual void for_each_site_parallel(const function<void(const NestedSite&)>& lambda);
+
+};
+
+/**
  * This genotype prior calculator has a fixed prior for homozygous genotypes and
  * a fixed prior for hets.
  */

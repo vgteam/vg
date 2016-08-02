@@ -5,6 +5,14 @@ namespace vg {
 using namespace std;
 
 
+CactusSiteFinder::CactusSiteFinder(VG& graph, const string& hint_path_name): graph(graph), hint_path_name(hint_path_name) {
+    // Nothing to do!
+}
+
+void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSite&)>& lambda) {
+    
+}
+
 double FixedGenotypePriorCalculator::calculate_log_prior(const Genotype& genotype) {
     // Are all the alleles the same?
     bool all_same = true;
