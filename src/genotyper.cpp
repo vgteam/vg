@@ -23,6 +23,7 @@ void Genotyper::run(VG& graph,
                     string sample_name,
                     string augmented_file_name,
                     bool use_cactus,
+                    bool subset_graph,
                     bool show_progress,
                     bool output_vcf,
                     bool output_json,
@@ -49,14 +50,31 @@ void Genotyper::run(VG& graph,
         sample_name = "SAMPLE";
     }
 
-    // Make sure they have names. TODO: we assume that if they do have names
-    // they are already unique, and that they aren't like the names we generate.
+    // Make sure they have unique names.
+    set<string> names_seen;
+    // We warn about duplicate names, but only once.
+    bool duplicate_names_warned = false;
     for(size_t i = 0; i < alignments.size(); i++) {
         if(alignments[i].name().empty()) {
-            // Generate a unique name
+            // Generate a name
             alignments[i].set_name("_unnamed_alignment_" + to_string(i));
         }
+        if(names_seen.count(alignments[i].name())) {
+            // This name is duplicated
+            if(!duplicate_names_warned) {
+                // Warn, but only once
+                cerr << "Warning: duplicate alignment names present! Example: " << alignments[i].name() << endl;
+                duplicate_names_warned = true;
+            }
+        
+            // Generate a new name
+            // TODO: we assume this is unique
+            alignments[i].set_name("_renamed_alignment_" + to_string(i));
+            assert(!names_seen.count(alignments[i].name()));
+        }
+        names_seen.insert(alignments[i].name());
     }
+    names_seen.clear();
     
     // Suck out paths
     vector<Path> paths;
@@ -100,11 +118,115 @@ void Genotyper::run(VG& graph,
     #pragma omp critical (cerr)
     cerr << "Converted " << alignments.size() << " alignments to embedded paths" << endl;
     
-    // Note that in os_x, iostream ends up pulling in headers that define a ::id_t type.
+
+    // We need to decide if we want to work on the full graph or just on the subgraph that has any support.
     
-    // Unfold/unroll, find the superbubbles, and translate back.
-    vector<Genotyper::Site> sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
-        : find_sites_with_supbub(graph);
+    // Find all the sites in either the main graph or the subset
+    vector<Genotyper::Site> sites;
+    
+    if(subset_graph) {
+        // We'll collect the supported subset of the original graph
+        set<Node*> supported_nodes;
+        set<Edge*> supported_edges;
+
+        for(auto& name_and_read : reads_by_name) {
+            // Go through all the paths followed by reads
+            auto& path = name_and_read.second->path();
+            for(size_t i = 0; i < path.mapping_size(); i++) {
+                // Look at all the nodes we visit along this read
+                id_t node_id = path.mapping(i).position().node_id();
+                // Make sure they are all supported
+                supported_nodes.insert(graph.get_node(node_id));
+                
+                if(i > 0) {
+                    // We also need the edge from the last mapping to this one.
+                    // Make the two sides we connected moving from the last mapping to this one.
+                    NodeSide last(path.mapping(i - 1).position().node_id(), !path.mapping(i - 1).position().is_reverse());
+                    NodeSide here(node_id, path.mapping(i - 1).position().is_reverse());
+                    
+                    // We know the graph will have the edge
+                    supported_edges.insert(graph.get_edge(last, here));
+                }
+            
+            }
+        }
+        
+        // We also want to support all nodes and edges used by the reference path.
+        // TODO: once Cactus can root without hints, we can discard this
+        if(graph.paths.has_path(ref_path_name)) {
+            // We actually have a reference path, so get it for traversing.
+            list<Mapping>& ref_mappings = graph.paths.get_path(ref_path_name);
+            // We need to remember the previous mapping for finding edges
+            list<Mapping>::iterator last_mapping = ref_mappings.end();
+            for(list<Mapping>::iterator mapping = ref_mappings.begin(); mapping != ref_mappings.end(); ++mapping) {
+                // For each mapping along the reference path
+                
+                // What node is it on?
+                id_t node_id = mapping->position().node_id();
+                // Make sure it is supported
+                supported_nodes.insert(graph.get_node(node_id));
+                
+                if(last_mapping != ref_mappings.end()) {
+                    // We're coming from another mapping and need to support the edge
+                    
+                    NodeSide last(last_mapping->position().node_id(), !last_mapping->position().is_reverse());
+                    NodeSide here(node_id, mapping->position().is_reverse());
+                    
+                    // We know the graph will have the edge
+                    supported_edges.insert(graph.get_edge(last, here));                    
+                    
+                }
+                
+                // Save the iterator so we can get the next edge
+                last_mapping = mapping;
+                
+            }
+        }
+        
+        // Make the subset graph of only supported nodes and edges (which will
+        // internally contain copies of all of them).
+        VG subset(supported_nodes, supported_edges);
+        
+        if(graph.paths.has_path(ref_path_name)) {
+            // Copy over the reference path
+            subset.paths.extend(graph.paths.path(ref_path_name));
+        }
+
+        
+        if(show_progress) {
+            #pragma omp critical (cerr)
+            cerr << "Looking at subset of " << subset.size() << " nodes" << endl;
+        }
+        
+        // Unfold/unroll, find the superbubbles, and translate back. Note that
+        // we can only use Cactus with the ref path if it survived the
+        // subsetting.
+        sites = use_cactus ? (
+            subset.paths.has_path(ref_path_name) ?
+                find_sites_with_cactus(subset, ref_path_name)
+                : find_sites_with_cactus(subset)
+            )
+            : find_sites_with_supbub(subset);
+            
+        for(auto& site : sites) {
+            // Translate all the NodeTraversals back to node pointers in the
+            // non-subset graph
+            site.start.node = graph.get_node(site.start.node->id());
+            site.end.node = graph.get_node(site.end.node->id());
+        }
+        
+    } else {
+        // Don't need to mess around with creating a subset.
+    
+        if(show_progress) {
+            #pragma omp critical (cerr)
+            cerr << "Looking at graph of " << graph.size() << " nodes" << endl;
+        }
+    
+        // Unfold/unroll, find the superbubbles, and translate back.
+        sites = use_cactus ? find_sites_with_cactus(graph, ref_path_name)
+            : find_sites_with_supbub(graph);
+    }
     
     if(show_progress) {
         #pragma omp critical (cerr)
@@ -503,7 +625,9 @@ vector<Genotyper::Site> Genotyper::find_sites_with_cactus(VG& graph, const strin
     graph.sort();
     
     // get endpoints using node ranks
-    pair<NodeSide, NodeSide> source_sink = get_cactus_source_sink(graph, ref_path_name);
+    pair<NodeSide, NodeSide> source_sink = ref_path_name.empty() ?
+        get_cactus_source_sink(graph)
+        : get_cactus_source_sink(graph, ref_path_name);
 
     // todo: use deomposition instead of converting tree into flat structure
     BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
@@ -1746,9 +1870,9 @@ int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
 void Genotyper::write_vcf_header(std::ostream& stream, const std::string& sample_name, const std::string& contig_name, size_t contig_size) {
     stream << "##fileformat=VCFv4.2" << std::endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << std::endl;
-    stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << std::endl;
-    stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
+    stream << "##INFO=<ID=XSBB,Number=1,Type=Integer,Description=\"Superbubble Bases\">" << std::endl;
+    stream << "##INFO=<ID=XSBN,Number=1,Type=Integer,Description=\"Superbubble Nodes\">" << std::endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
     stream << "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">" << std::endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
@@ -2020,6 +2144,16 @@ Genotyper::locus_to_variant(VG& graph,
     variant.format.push_back("DP");
     variant.samples[sample_name]["DP"].push_back(depth_string);
     variant.info["DP"].push_back(depth_string); // We only have one sample, so variant depth = sample depth
+    
+    // Also the site statistics
+    // Superbubble bases
+    size_t superbubble_bases = 0;
+    for(auto& node_id : site.contents) {
+        superbubble_bases += graph.get_node(node_id)->sequence().size();
+    }
+    variant.info["XSBB"].push_back(to_string(superbubble_bases));
+    // Superbubble nodes
+    variant.info["XSBN"].push_back(to_string(site.contents.size()));
     
     variant.format.push_back("GQ");
     if(locus.genotype_size() > 1) {

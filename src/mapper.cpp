@@ -23,6 +23,7 @@ Mapper::Mapper(Index* idex,
     , max_multimaps(1)
     , max_attempts(0)
     , softclip_threshold(0)
+    , max_softclip_iterations(10)
     , prefer_forward(false)
     , greedy_accept(false)
     , accept_identity(0.75)
@@ -781,7 +782,9 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     list<Alignment> alignments;
     // force used bandwidth to be divisible by 4
     // round up so we have > band_width
-    //cerr << "trying band width " << band_width << endl;
+    if (debug) {
+        cerr << "trying band width " << band_width << endl;
+    }
     if (band_width % 4) {
         band_width -= band_width % 4; band_width += 4;
     }
@@ -798,7 +801,9 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     if (segment_size % 4) {
         segment_size -= segment_size % 4; segment_size += 4;
     }
-    //cerr << "Segment size be " << segment_size << endl;
+    if (debug) {
+        cerr << "Segment size be " << segment_size << "/" << read.sequence().size() << endl;
+    }
     // and overlap them too
     size_t to_align = div * 2 - 1; // number of alignments we'll do
     vector<pair<size_t, size_t>> to_strip; to_strip.resize(to_align);
@@ -915,6 +920,11 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             if (!above_threshold) {
                 aln = bands[i]; // unmapped
             }
+            
+            if (debug) {
+                cerr << "Unstripped alignment: " << pb2json(aln) << endl;
+            }
+            
             // strip overlaps
             //cerr << "checking before strip" << endl;
             //check_alignment(aln);
@@ -2097,11 +2107,12 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
     int64_t idf = path->mutable_mapping(0)->position().node_id();
     int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
     int max_target_length = aln.sequence().size() * max_target_factor;
-    while (itr++ < 3
+    while (itr++ < max_softclip_iterations
            && (sc_start > softclip_threshold
                || sc_end > softclip_threshold)) {
         if (debug) {
-            cerr << "softclip before " << sc_start << " " << sc_end << endl;
+            cerr << "Softclip before expansion: " << sc_start << " " << sc_end
+                << " (" << aln.score() << " points)" << endl;
         }
         double avg_node_size = graph.length() / (double)graph.size();
         if (debug) cerr << "average node size " << avg_node_size << endl;
@@ -2113,6 +2124,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
                                    max(context_depth, (int)(sc_start/avg_node_size)),
                                    false);
             graph.extend(flank);
+            if (debug) cerr << "Expand start by " << max(context_depth, (int)(sc_start/avg_node_size)) << endl;
         }
         if (sc_end) {
             Graph flank;
@@ -2121,6 +2133,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
                                    max(context_depth, (int)(sc_end/avg_node_size)),
                                    false);
             graph.extend(flank);
+            if (debug) cerr << "Expand end by " << max(context_depth, (int)(sc_start/avg_node_size)) << endl;
         }
         graph.remove_orphan_edges();
         aln.clear_path();
@@ -2134,7 +2147,10 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
 
         sc_start = softclip_start(aln);
         sc_end = softclip_end(aln);
-        if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
+        if (debug) {
+            cerr << "Softclip after expansion: " << sc_start << " " << sc_end
+                << " (" << aln.score() << " points)" << endl;
+        }
         // we are not improving, so increasing the window is unlikely to help
         if (last_score == aln.score()) break;
         // update tracking of path end

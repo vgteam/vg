@@ -214,9 +214,8 @@ void help_filter(char** argv) {
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
-         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl;
-
-
+         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
+         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -239,6 +238,7 @@ int main_filter(int argc, char** argv) {
     string outbase;
     int context_size = 0;
     bool verbose = false;
+    double min_mapq = 0.;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -258,11 +258,12 @@ int main_filter(int argc, char** argv) {
                 {"output-basename",  required_argument, 0, 'B'},
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
+                {"min-mapq", required_argument, 0, 'q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:v",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -306,6 +307,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'c':
             context_size = atoi(optarg);
+            break;
+        case 'q':
+            min_mapq = atof(optarg);
             break;
         case 'v':
             verbose = true;
@@ -502,6 +506,8 @@ int main_filter(int argc, char** argv) {
     size_t min_pri_delta_count = 0;
     size_t max_sec_overhang_count = 0;
     size_t max_pri_overhang_count = 0;
+    size_t min_sec_mapq_count = 0;
+    size_t min_pri_mapq_count = 0;
 
     // for deltas, we keep track of last primary
     Alignment prev;
@@ -569,6 +575,10 @@ int main_filter(int argc, char** argv) {
                 ++max_sec_overhang_count;
                 keep = false;
             }
+            if (aln.mapping_quality() < min_mapq) {
+                ++min_sec_mapq_count;
+                keep = false;
+            }
             if (!keep) {
                 ++sec_filtered_count;
             }
@@ -611,6 +621,10 @@ int main_filter(int argc, char** argv) {
             }
             if (overhang > max_overhang) {
                 ++max_pri_overhang_count;
+                keep_prev = false;
+            }
+            if (aln.mapping_quality() < min_mapq) {
+                ++min_pri_mapq_count;
                 keep_prev = false;
             }
             if (!keep_prev) {
@@ -1640,6 +1654,7 @@ void help_genotype(char** argv) {
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
          << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -1681,6 +1696,8 @@ int main_genotype(int argc, char** argv) {
     
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
     bool use_cactus = false;
+    // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
+    bool subset_graph = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1697,6 +1714,7 @@ int main_genotype(int argc, char** argv) {
                 {"augmented", required_argument, 0, 'a'},
                 {"use_mapq", no_argument, 0, 'q'},
                 {"cactus", no_argument, 0, 'C'},
+                {"subset-graph", no_argument, 0, 'S'},
                 {"realign_indels", no_argument, 0, 'i'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
@@ -1704,7 +1722,7 @@ int main_genotype(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCipt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSipt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1750,6 +1768,10 @@ int main_genotype(int argc, char** argv) {
         case 'C':
             // Use Cactus to find sites
             use_cactus = true;
+            break;
+        case 'S':
+            // Find sites on the graph subset with any read support
+            subset_graph = true;
             break;
         case 'i':
             // Do indel realignment
@@ -1859,6 +1881,7 @@ int main_genotype(int argc, char** argv) {
                   sample_name,
                   augmented_file_name,
                   use_cactus,
+                  subset_graph,
                   show_progress,
                   output_vcf,
                   output_json,
@@ -1880,6 +1903,7 @@ void help_pileup(char** argv) {
          << "    -m, --max-mismatches N  ignore bases with > N mismatches within window centered on read (default=1)" << endl
          << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
          << "    -d, --max-depth N       maximum depth pileup to create (further maps ignored) (default=1000)" << endl
+         << "    -a, --use-mapq          combine mapping qualities with base qualities" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -v, --verbose           print stats on bases filtered" << endl;
@@ -1900,6 +1924,7 @@ int main_pileup(int argc, char** argv) {
     int window_size = 0;
     int max_depth = 1000; // used to prevent protobuf messages getting to big
     bool verbose = false;
+    bool use_mapq = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1911,14 +1936,15 @@ int main_pileup(int argc, char** argv) {
                 {"max-mismatches", required_argument, 0, 'm'},
                 {"window-size", required_argument, 0, 'w'},
                 {"progress", required_argument, 0, 'p'},
-                {"max-depth", max_depth, 0, 'd'},
+                {"max-depth", required_argument, 0, 'd'},
+                {"use-mapq", no_argument, 0, 'a'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "jq:m:w:pd:t:v",
+        c = getopt_long (argc, argv, "jq:m:w:pd:at:v",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1941,6 +1967,9 @@ int main_pileup(int argc, char** argv) {
             break;
         case 'd':
             max_depth = atoi(optarg);
+            break;
+        case 'a':
+            use_mapq = true;
             break;
         case 'p':
             show_progress = true;
@@ -2005,7 +2034,7 @@ int main_pileup(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing pileups" << endl;
     }
-    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth));
+    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth, use_mapq));
     function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
         int tid = omp_get_thread_num();
         pileups[tid].compute_from_alignment(aln);
@@ -3564,13 +3593,17 @@ int main_mod(int argc, char** argv) {
             for (sregex_token_iterator it(genotype.begin(), genotype.end(), allele_separator, -1);
                 it != sregex_token_iterator(); ++it) {
                 // For every token separated by / or |
+                int allele_number;
                 if(it->str() == ".") {
-                    // Unknown; skip it
-                    continue;
+                    // Unknown; pretend it's ref for the purposes of making a
+                    // sample graph.
+                    allele_number = 0;
+                } else {
+                    // Parse the allele number
+                    allele_number = stoi(it->str());
                 }
                 
-                // Parse the allele number
-                int allele_number = stoi(it->str());
+                
                 
                 // Make the name for its alt path
                 string alt_path_name = "_alt_" + var_name + "_" + to_string(allele_number);
@@ -3614,6 +3647,9 @@ int main_mod(int argc, char** argv) {
                 // destroy the path. We can't leave it because it won't be the
                 // same path without this node.
                 graph->paths.remove_path(path_name);
+#ifdef debug
+                cerr << "Node " << node_id << " was on path " << path_name << endl;
+#endif
             }
             
             // Actually get rid of the node once its paths are gone.
@@ -4481,7 +4517,8 @@ void help_stats(char** argv) {
          << "    -n, --node ID         consider node with the given id" << endl
          << "    -d, --to-head         show distance to head for each provided node" << endl
          << "    -t, --to-tail         show distance to head for each provided node" << endl
-         << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl;
+         << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl
+         << "    -v, --verbose         output longer reports" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -4504,6 +4541,7 @@ int main_stats(int argc, char** argv) {
     bool edge_count = false;
     bool superbubbles = false;
     bool cactus = false;
+    bool verbose = false;
     set<vg::id_t> ids;
     // What alignments GAM file should we read and compute stats on with the
     // graph?
@@ -4530,11 +4568,12 @@ int main_stats(int argc, char** argv) {
             {"superbubbles", no_argument, 0, 'b'},
             {"cactusbubbles", no_argument, 0, 'C'},
             {"alignments", required_argument, 0, 'a'},
+            {"verbose", no_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4601,6 +4640,10 @@ int main_stats(int argc, char** argv) {
             
         case 'a':
             alignments_filename = optarg;
+            break;
+            
+        case 'v':
+            verbose = true;
             break;
 
         case 'h':
@@ -4779,6 +4822,12 @@ int main_stats(int argc, char** argv) {
         graph->for_each_node_parallel([&](Node* node) {
             // For every node
             
+            if(!graph->paths.has_node_mapping(node)) {
+                // No paths to go over. If we try and get them we'll be
+                // modifying the paths in parallel, which will explode.
+                return;
+            }
+            
             // We want an allele path on it
             string allele_path;
             for(auto& name_and_mappings : graph->paths.get_node_mapping(node)) {
@@ -4816,16 +4865,34 @@ int main_stats(int argc, char** argv) {
         });
         
         
-        // These are the other stats we will compute.
+        // These are the general stats we will compute.
         size_t total_alignments = 0;
         size_t total_aligned = 0;
         size_t total_primary = 0;
         size_t total_secondary = 0;
         
-        // This is what we care about (significantly allele-biased hets)
+        // These are for counting significantly allele-biased hets
         size_t total_hets = 0;
         size_t significantly_biased_hets = 0;
         
+        // These are for tracking which nodes are covered and which are not
+        map<vg::id_t, size_t> node_visit_counts;
+        
+        // And for counting indels
+        // Inserted bases also counts softclips
+        size_t total_insertions = 0;
+        size_t total_inserted_bases = 0;
+        size_t total_deletions = 0;
+        size_t total_deleted_bases = 0;
+        // And substitutions
+        size_t total_substitutions = 0;
+        size_t total_substituted_bases = 0;
+        
+        // In verbose mode we want to report details of insertions, deletions,
+        // and substitutions.
+        vector<pair<vg::id_t, Edit>> insertions;
+        vector<pair<vg::id_t, Edit>> deletions;
+        vector<pair<vg::id_t, Edit>> substitutions;
         
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             int tid = omp_get_thread_num();
@@ -4856,14 +4923,62 @@ int main_stats(int argc, char** argv) {
                 set<pair<string, string>> alleles_supported;
                 
                 for(size_t i = 0; i < aln.path().mapping_size(); i++) {
-                    // For every mapping, see if it visits a node unique to an
-                    // allele path.
-                    vg::id_t node_id = aln.path().mapping(i).position().node_id();
+                    // For every mapping...
+                    auto& mapping = aln.path().mapping(i);
+                    vg::id_t node_id = mapping.position().node_id();
+                    
                     if(allele_path_for_node.count(node_id)) {
                         // We hit a unique node for this allele. Add it to the set,
                         // in case we hit another unique node for it later in the
                         // read.
                         alleles_supported.insert(allele_path_for_node.at(node_id));
+                    }
+                    
+                    // Record that there was a visit to this node.
+                    #pragma omp critical (node_visit_counts)
+                    node_visit_counts[node_id]++;
+                    
+                    for(size_t j = 0; j < mapping.edit_size(); j++) {
+                        // Go through edits and look for indels.
+                        auto& edit = mapping.edit(j);
+                        
+                        if(edit.to_length() > edit.from_length()) {
+                            // Record this insertion
+                            #pragma omp critical (total_inserted_bases)
+                            total_inserted_bases += edit.to_length() - edit.from_length();
+                            #pragma omp critical (total_insertions)
+                            total_insertions++;
+                            if(verbose) {
+                                // Record the actual insertion
+                                #pragma omp critical (insertions)
+                                insertions.push_back(make_pair(node_id, edit));
+                            }
+                            
+                        } else if(edit.from_length() > edit.to_length()) {
+                            // Record this deletion
+                            #pragma omp critical (total_deleted_bases)
+                            total_deleted_bases += edit.from_length() - edit.to_length();
+                            #pragma omp critical (total_deletions)
+                            total_deletions++;
+                            if(verbose) {
+                                // Record the actual deletion
+                                #pragma omp critical (deletions)
+                                deletions.push_back(make_pair(node_id, edit));
+                            }
+                        } else if(!edit.sequence().empty()) {
+                            // Record this substitution
+                            // TODO: a substitution might also occur as part of a deletion/insertion above!
+                            #pragma omp critical (total_substituted_bases)
+                            total_substituted_bases += edit.from_length();
+                            #pragma omp critical (total_substitutions)
+                            total_substitutions++;
+                            if(verbose) {
+                                // Record the actual substitution
+                                #pragma omp critical (substitutions)
+                                substitutions.push_back(make_pair(node_id, edit));
+                            }
+                        }
+                        
                     }
                 }
                 
@@ -4920,10 +5035,62 @@ int main_stats(int argc, char** argv) {
             }
         }
         
+        // Go through all the nodes again and sum up unvisited nodes
+        size_t unvisited_nodes = 0;
+        // And unvisited base count
+        size_t unvisited_node_bases = 0;
+        // If we're in verbose mode, collect IDs too.
+        set<vg::id_t> unvisited_ids;
+        graph->for_each_node_parallel([&](Node* node) {
+            // For every node
+            if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
+                // If we never visited it with a read, count it.
+                #pragma omp critical (unvisited_nodes)
+                unvisited_nodes++;
+                #pragma omp critical (unvisited_node_bases)
+                unvisited_node_bases += node->sequence().size();
+                if(verbose) {
+                    #pragma omp critical (unvisited_ids)
+                    unvisited_ids.insert(node->id());
+                }
+            }
+        });
+        
         cout << "Total alignments: " << total_alignments << endl;
         cout << "Total primary: " << total_primary << endl;
         cout << "Total secondary: " << total_secondary << endl;
         cout << "Total aligned: " << total_aligned << endl;
+        
+        cout << "Insertions: " << total_inserted_bases << " bp in " << total_insertions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : insertions) {
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        cout << "Deletions: " << total_deleted_bases << " bp in " << total_deletions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : deletions) {
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.to_length()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        cout << "Substitutions: " << total_substituted_bases << " bp in " << total_substitutions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : substitutions) {
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        
+        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count()
+            << " (" << unvisited_node_bases << " bp)" << endl;
+        if(verbose) {
+            for(auto& id : unvisited_ids) {
+                cout << "\t" << id << endl;
+            }
+        }       
+        
         cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
         if(total_hets > 0) {
             cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
@@ -7552,6 +7719,7 @@ void help_view(char** argv) {
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
          << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
+         << "    -m, --skip-missing   skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
@@ -7612,6 +7780,7 @@ int main_view(int argc, char** argv) {
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
     bool cactusbubble_labeling = false;
+    bool skip_missing_nodes = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -7650,6 +7819,7 @@ int main_view(int argc, char** argv) {
                 {"translation-in", no_argument, 0, 'Z'},
                 {"cactus-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
+                {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
@@ -7657,7 +7827,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYqQ:z",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:z",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -7684,6 +7854,10 @@ int main_view(int argc, char** argv) {
 
         case 'B':
             superbubble_labeling = true;
+            break;
+
+        case 'm':
+            skip_missing_nodes = true;
             break;
 
         case 'Z':
@@ -8126,6 +8300,7 @@ int main_view(int argc, char** argv) {
                       superbubble_ranking,
                       superbubble_labeling,
                       cactusbubble_labeling,
+                      skip_missing_nodes,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
