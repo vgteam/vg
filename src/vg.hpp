@@ -712,12 +712,14 @@ public:
     void dfs(int* rGraph, id_t s, vector<bool>& visited, id_t graph_size);
     void find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
                             set<id_t> nodes, list<id_t> ref_path,
-                            hash_map<id_t, vector <Edge*>> edges_out_nodes,
-                            hash_map<id_t, vector <Edge*>> edges_in_nodes,
+                            EdgeMapping edges_out_nodes,
+                            EdgeMapping edges_in_nodes,
                             hash_map<Edge*, int> edge_weight);
-    void mark_dfs_in(hash_map<id_t, vector <Edge*>> graph_matrix, id_t s, set<id_t>& sorted_nodes, vector<bool>& visited);
-    void mark_dfs_out(hash_map<id_t, vector <Edge*>> graph_matrix, id_t s, set<id_t>& sorted_nodes, vector<bool>& visited);
-    vector<pair<id_t,id_t>> min_cut(int* graph, id_t s, id_t t, id_t graph_size, hash_map<id_t, vector < Edge*>>& edges_out_nodes, hash_map<id_t, vector < Edge*>>& edges_in_nodes);
+    void mark_dfs(EdgeMapping graph_matrix, id_t s, set<id_t>& sorted_nodes, 
+                vector<bool>& visited, bool reverse);
+    vector<pair<id_t,id_t>> min_cut(int* graph, id_t s, id_t t, id_t graph_size,
+                EdgeMapping& edges_out_nodes, EdgeMapping& edges_in_nodes);
+    void remove_edge(EdgeMapping& nodes_to_edges, id_t node, id_t to, bool reverse);
     
 
     // Use a topological sort to order and orient the nodes, and then flip some
