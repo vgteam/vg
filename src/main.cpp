@@ -1413,27 +1413,28 @@ void help_call(char** argv) {
          << "Output variant calls in VCF format given a graph and pileup" << endl
          << endl
          << "options:" << endl
-         << "    -d, --min_depth INT        minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
-         << "    -e, --max_depth INT        maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
-         << "    -s, --min_support INT      minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
-         << "    -f, --min_frac FLOAT       minimum percentage of reads required to support snp(default=" << Caller::Default_min_frac <<")" << endl
-         << "    -q, --default_read_qual N  phred quality score to use if none found in the pileup (default="
-         << (int)Caller::Default_default_quality << ")" << endl
-         << "    -b, --max_strand_bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. (default=" << Caller::Default_max_strand_bias << ")" << endl
+         << "    -d, --min_depth INT        minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
+         << "    -e, --max_depth INT        maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
+         << "    -s, --min_support INT      minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
+         << "    -f, --min_frac FLOAT       minimum percentage of reads required to support snp[" << Caller::Default_min_frac <<"]" << endl
+         << "    -q, --default_read_qual N  phred quality score to use if none found in the pileup ["
+         << (int)Caller::Default_default_quality << "]" << endl
+         << "    -b, --max_strand_bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
          << "    -c, --calls FIle           write extra call information in TSV [deprecated, debugging only]" << endl
          << "    -a, --link-alts            add all possible edges between adjacent alts" << endl
          << "    -A, --aug-graph FILE       write out the agumented graph in vg format" << endl
          << "    -r, --ref PATH             use the given path name as the reference path" << endl
          << "    -c, --contig NAME          use the given name as the VCF contig name" << endl
-         << "    -S, --sample NAME          name the sample in the VCF with the given name" << endl
-         << "    -o, --offset INT           offset variant positions by this amount in VCF" << endl
+         << "    -S, --sample NAME          name the sample in the VCF with the given name [SAMPLE]" << endl
+         << "    -o, --offset INT           offset variant positions by this amount in VCF [0]" << endl
          << "    -l, --length INT           override total sequence length in VCF" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
-         << "    -D, --depth INT            maximum depth for path search (default 10 nodes)" << endl
-         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call" << endl
-         << "    -b, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous" << endl
-         << "    -n, --min_count INT        min total supporting read count to call a variant" << endl
-         << "    -B, --bin_size  INT        bin size used for counting coverage" << endl
+         << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
+         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
+         << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
+         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [6]" << endl
+         << "    -n, --min_count INT        min total supporting read count to call a variant [5]" << endl
+         << "    -B, --bin_size  INT        bin size used for counting coverage [1000]" << endl
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
@@ -1474,19 +1475,18 @@ int main_call(int argc, char** argv) {
     // What should the total sequence length reported in the VCF header be?
     int64_t lengthOverride = -1;
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    // Default to 0 because vg call is still applying depth thresholding
-    double minFractionForCall = 0;
+    double minFractionForCall = 0.2;
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
     // heterozygous if even one read supports each allele.
-    double maxHetBias = 20;
+    double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 20;
+    double maxRefBias = 6;
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall = 2;
+    size_t minTotalSupportForCall = 10;
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
@@ -1530,7 +1530,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:lc:ajpr:t:r:c:S:o:D:l:PF:H:n:B:C:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:lc:ajpr:t:r:c:S:o:D:l:PF:H:R:n:B:C:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1605,6 +1605,11 @@ int main_call(int argc, char** argv) {
             // Set max factor between reads on one alt and reads on the other
             // alt for calling a het.
             maxHetBias = std::stod(optarg);
+            break;
+        case 'R':
+            // Set max factor between reads on ref and reads on the other
+            // alt for calling a homo ref.
+            maxRefBias = std::stod(optarg);
             break;
         case 'n':
             // How many reads need to touch an allele before we are willing to

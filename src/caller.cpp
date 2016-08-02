@@ -11,14 +11,17 @@ namespace vg {
 const double Caller::Log_zero = (double)-1e100;
 
 // these values pretty arbitrary at this point
+// note, they conly control what makes the augmented graph
+// (so we keep fairly loose).  the final vcf calls are governed
+// by the (former) glenn2vcf options (passed to call2vcf())
 const double Caller::Default_het_prior = 0.001; // from MAQ
-const int Caller::Default_min_depth = 10;
+const int Caller::Default_min_depth = 2;
 const int Caller::Default_max_depth = 200;
-const int Caller::Default_min_support = 1;
-const double Caller::Default_min_frac = 0.25;
+const int Caller::Default_min_support = 2;
+const double Caller::Default_min_frac = 0.1;
 const double Caller::Default_min_log_likelihood = -5000.0;
 const char Caller::Default_default_quality = 30;
-const double Caller::Default_max_strand_bias = 0.5;
+const double Caller::Default_max_strand_bias = 1;
 
 Caller::Caller(VG* graph,
                double het_prior,
