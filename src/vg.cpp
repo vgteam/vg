@@ -10238,19 +10238,21 @@ void VG::max_flow(const string& ref_name) {
     // Topologically sort, which orders and orients all the nodes.
     deque<NodeTraversal> sorted_nodes;
     max_flow_sort(sorted_nodes, ref_name);
-    deque<NodeTraversal>::iterator n = sorted_nodes.begin();
+    deque<NodeTraversal>::reverse_iterator n = sorted_nodes.rbegin();
     int i = 0;
-    for ( ; i < graph.node_size() && n != sorted_nodes.end();
+    for ( ; i < graph.node_size() && n != sorted_nodes.rend();
           ++i, ++n) {
         // Put the nodes in the order we got
+        cerr << (*n).node->id() << " ";
         swap_nodes(graph.mutable_node(i), (*n).node);
     }
+    cerr << endl;      
 }
 
 void VG::max_flow_sort(deque<NodeTraversal>& sorted_nodes, const string& ref_name) {
         
-    typedef hash_map<id_t, vector < Edge*>> EdgeMapping;
-    typedef map<string, set < Mapping*>> NodeMapping;
+//    typedef hash_map<id_t, vector < Edge*>> EdgeMapping;
+//    typedef map<string, set < Mapping*>> NodeMapping;
     hash_map<Edge*, int> edge_weight;
 
     int ref_weight = 5;
@@ -10317,19 +10319,14 @@ void VG::max_flow_sort(deque<NodeTraversal>& sorted_nodes, const string& ref_nam
     
     find_in_out_web(sorted_nodes, backbone, nodes, reference, edges_out_nodes, 
                     edges_in_nodes, edge_weight);
-    
-    cerr << "sorted nodes" << endl;
-    for (auto node : sorted_nodes) {
-        cerr << node.node->id()  << " ";
-    }
-    cerr << endl;           
+         
 }
 
 void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
                             set<id_t> nodes, 
                             list<id_t> ref_path,
-                            hash_map<id_t, vector < Edge*>> edges_out_nodes,
-                            hash_map<id_t, vector < Edge*>> edges_in_nodes,
+                            EdgeMapping edges_out_nodes,
+                            EdgeMapping edges_in_nodes,
                             hash_map<Edge*, int> edge_weight) {
      
     //for efficiency if size of the backbone == size of the nodes
@@ -10353,12 +10350,8 @@ void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
     
      //for simple test implementation we represent the graph as a matrix
     unique_ptr<int[]> graph_matrix(new int[graph_size * graph_size]); 
-    for (id_t i = 0; i < graph_size; i++) {
-        for (id_t j = 0; j < graph_size; j++) {
-            graph_matrix[i * graph_size + j] = 0;
-        }
-    }
-    
+    memset(graph_matrix.get(), 0, graph_size * graph_size * sizeof(int));
+ 
     set<Edge*> out_joins;
     set<Edge*> in_joins;
     
@@ -10385,8 +10378,6 @@ void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
         }
     }
 
-    cerr << "max outgoing flow " << max_weight << endl;
-    
     //set weight for source edges
     for (auto const &edge : out_joins) {
         graph_matrix[source * graph_size + edge->from()] = max_weight + 1;
@@ -10398,62 +10389,27 @@ void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
         graph_matrix[edge->from() * graph_size + sink] = edge_weight[edge];;
     }
 
-//        cerr << "Edge weight" << endl;
-//        for (id_t i = 0; i < sink + 1; i++) {
-//            for (int j = 0; j < sink + 1; j++) {
-//                cerr << graph_matrix[i * graph_size + j] << " ";
-//            }
-//            cerr << endl;
-//        }
-
-//        cerr << "Out joins" << endl;
-//        for (auto const &edge : out_joins) {
-//            cerr << "from " << edge->from() << " to " << edge->to() << endl;
-//        }
-//        cerr << "In joins" << endl;
-//        for (auto const &edge : in_joins) {
-//            cerr << "from " << edge->from() << " to " << edge->to() << endl;
-//        }
-
+    //find min-cut edges
     vector<pair<id_t,id_t>> cut = min_cut(graph_matrix.get(), source, 
                                                     sink, graph_size, edges_out_nodes, edges_in_nodes);
     //remove min cut edges
     for(auto const &edge : cut) {
-            id_t to = edge.second;
-            if (to == sink) {
-                for (auto const &in_join : in_joins) {
-                    if (in_join->from() == edge.first) {
-                        to = in_join->to();
-                    }
-                }
-            }
-            if (edges_out_nodes.count(edge.first)) {
-                auto& out_edges = edges_out_nodes[edge.first];
-                auto it = begin(out_edges);
-                while (it != end(out_edges)) {
-                    if ((*it)->to() == to) {
-                        out_edges.erase(it);
-                    } else {
-                        ++it;
-                    }
-                }
-            }
-            if (edges_in_nodes.count(to)) {
-                auto& in_edges = edges_in_nodes[to];
-                auto it = begin(in_edges);
-                while (it != end(in_edges)) {
-                    if ((*it)->from() == edge.first) {
-                        in_edges.erase(it);
-                    } else {
-                        ++it;
-                    }
+        id_t to = edge.second;
+        if (to == sink) {
+            for (auto const &in_join : in_joins) {
+                if (in_join->from() == edge.first) {
+                    to = in_join->to();
                 }
             }
         }
             
+        remove_edge(edges_out_nodes, edge.first, to, false);
+        remove_edge(edges_in_nodes, to, edge.first, true);
+    }
+            
     vector<bool> visited(graph_size, false);
     for (auto &current_id: ref_path) {
-        cerr << current_id << endl; 
+//        cerr << current_id << endl; 
         NodeTraversal node = NodeTraversal(graph.mutable_node(current_id - 1), false);
             
         //out growth
@@ -10461,7 +10417,7 @@ void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
             for (auto &edge : edges_out_nodes[current_id]) {
                 if (nodes.count(edge->to()) && !backbone.count(edge->to())) {
                     //out going edge
-                    cerr << "out web " << edge->from() << " " << edge->to() << endl;      
+//                    cerr << "out web " << edge->from() << " " << edge->to() << endl;      
                     id_t start_node = edge->to();
                     set<id_t> new_backbone;
                     list<id_t> new_ref_path;
@@ -10485,7 +10441,7 @@ void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
                         start_node = next_edge->to();  
                     }  
                     set<id_t> out_web;
-                    mark_dfs_out(edges_out_nodes, edge->to(), out_web, visited);
+                    mark_dfs(edges_out_nodes, edge->to(), out_web, visited, false);
                     new_ref_path.reverse();
                     find_in_out_web(sorted_nodes, new_backbone, out_web, new_ref_path, edges_out_nodes, edges_in_nodes, edge_weight);
                 }
@@ -10498,7 +10454,7 @@ void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
             for (auto &edge : edges_in_nodes[current_id]) {
                 if (nodes.count(edge->from()) && !backbone.count(edge->from())) {
                     //in going edge
-                    cerr << "in web " << edge->from() << " " << edge->to() << endl;                
+//                    cerr << "in web " << edge->from() << " " << edge->to() << endl;                
          
                     id_t start_node = edge->from();
                     set<id_t> new_backbone;
@@ -10522,7 +10478,7 @@ void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
                         }
                     }  
                     set<id_t> in_web;
-                    mark_dfs_in(edges_in_nodes, edge->from(), in_web, visited);
+                    mark_dfs(edges_in_nodes, edge->from(), in_web, visited, true);
                     find_in_out_web(sorted_nodes, new_backbone, in_web, new_ref_path, edges_out_nodes, edges_in_nodes, edge_weight);
                 }
             }
@@ -10530,36 +10486,39 @@ void VG::find_in_out_web(deque<NodeTraversal>& sorted_nodes, set<id_t> backbone,
     }
 }
 
-void VG::mark_dfs_out(hash_map<id_t, vector < Edge*>> edges_out_nodes, id_t s,
-            set<id_t>& sorted_nodes, vector<bool>& visited) {
+void VG::remove_edge(EdgeMapping& nodes_to_edges, id_t node, id_t to, bool reverse) {
+    if (nodes_to_edges.count(node)) {
+        auto& edges = nodes_to_edges[node];
+        auto it = begin(edges);
+        while (it != end(edges)) {
+            id_t next = reverse ? (*it)->from() : (*it)->to();
+            if (next == to) {
+                edges.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+}
+
+/*
+    Adds the nodes in dfs discovery order to sorted_nodes
+ */
+void VG::mark_dfs(EdgeMapping edges_to_nodes, id_t s,
+            set<id_t>& sorted_nodes, vector<bool>& visited, bool reverse) {
     visited[s] = true;
-    cerr << "node " << s << endl;
     sorted_nodes.insert(s);
-    if (edges_out_nodes.count(s)) {
-        for (auto edge: edges_out_nodes[s]) {
-            if (!visited[edge->to()]) {
-                mark_dfs_out(edges_out_nodes, edge->to(), sorted_nodes, visited);
+    if (edges_to_nodes.count(s)) {
+        for (auto const &edge: edges_to_nodes[s]) {
+            id_t next_node = reverse ? edge->from() : edge->to(); 
+            if (!visited[next_node]) {
+                mark_dfs(edges_to_nodes, next_node, sorted_nodes, visited, reverse);
             }
         }
     }
 
 }
     
-void VG::mark_dfs_in(hash_map<id_t, vector < Edge*>> edges_in_nodes, id_t s,
-            set<id_t>& sorted_nodes, vector<bool>& visited) {
-    visited[s] = true;
-    cerr << "node " << s << endl;
-    sorted_nodes.insert(s);
-    if (edges_in_nodes.count(s)) {
-        for (auto edge: edges_in_nodes[s]) {
-            if (!visited[edge->from()]) {
-                mark_dfs_in(edges_in_nodes, edge->from(), sorted_nodes, visited);
-            }
-        }
-    }
-
-}
-
 /* Returns true if there is a path from source 's' to sink 't' in
    residual graph. Also fills parent[] to store the path */
 bool VG::bfs(int* rGraph, id_t s, id_t t, vector<id_t>& parent, id_t graph_size) {
@@ -10606,8 +10565,8 @@ void VG::dfs(int* rGraph, id_t s, vector<bool>& visited, id_t graph_size) {
 // Returns the minimum s-t cut
 
 vector<pair<id_t,id_t>> VG::min_cut(int* graph, id_t s, id_t t, id_t graph_size, 
-                hash_map<id_t, vector < Edge*>>& edges_out_nodes,
-                hash_map<id_t, vector < Edge*>>& edges_in_nodes) {
+                EdgeMapping& edges_out_nodes,
+                EdgeMapping& edges_in_nodes) {
     id_t u, v;
 
     // Create a residual graph and fill the residual graph with
@@ -10616,11 +10575,7 @@ vector<pair<id_t,id_t>> VG::min_cut(int* graph, id_t s, id_t t, id_t graph_size,
     // rGraph[i][j] indicates residual capacity of edge i-j
    
     unique_ptr<int[]> rGraph(new int[graph_size * graph_size]); 
-    for (id_t i = 0; i < graph_size; i++) {
-        for (id_t j = 0; j < graph_size; j++) {
-            rGraph[i * graph_size + j] = 0;
-        }
-    }
+    memset(rGraph.get(), 0, graph_size * graph_size * sizeof(int));
     
     for (u = 0; u < graph_size; u++)
         for (v = 0; v < graph_size; v++)
@@ -10642,7 +10597,7 @@ vector<pair<id_t,id_t>> VG::min_cut(int* graph, id_t s, id_t t, id_t graph_size,
 
         // update residual capacities of the edges and reverse edges
         // along the path
-        for (v = t; v != s; v = parent[v]) {v
+        for (v = t; v != s; v = parent[v]) {
             u = parent[v];
             rGraph[u * graph_size + v] -= path_flow;
             rGraph[v * graph_size + u] += path_flow;
@@ -10661,7 +10616,7 @@ vector<pair<id_t,id_t>> VG::min_cut(int* graph, id_t s, id_t t, id_t graph_size,
     for (id_t i = 0; i < graph_size; i++) {
         for (id_t j = 0; j < graph_size; j++) {
             if (visited[i] && !visited[j] && graph[i * graph_size + j]) {
-                cout << i << " - " << j << endl;
+//                cout << i << " - " << j << endl;
                     //remove min cut edges
                 min_cut.push_back(pair<id_t, id_t>(i, j));
                 rGraph[i * graph_size + j] = 0;
