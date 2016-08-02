@@ -2,6 +2,10 @@
 #define VG_TYPES_H
 
 #include <tuple>
+#include <map>
+#include <string>
+#include <set>
+#include <vector>
 
 namespace vg {
 
