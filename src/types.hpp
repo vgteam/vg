@@ -6,6 +6,7 @@
 #include <string>
 #include <set>
 #include <vector>
+#include "vg.pb.h"
 
 namespace vg {
 
