@@ -101,6 +101,43 @@ struct ReferenceIndex {
     std::string sequence;
 };
 
+/**
+ * We need to suppress overlapping variants, but interval trees are hard to
+ * write. This accomplishes the collision check with a massive bit vector.
+ */
+struct IntervalBitfield {
+    // Mark every position that's used in a variant
+    std::vector<bool> used;
+    
+    /**
+     * Make a new IntervalBitfield covering a region of the specified length.
+     */
+    inline IntervalBitfield(size_t length) : used(length) {
+        // Nothing to do
+    }
+    
+    /**
+     * Scan for a collision (O(n) in interval length)
+     */
+    inline bool collides(size_t start, size_t pastEnd) {
+        for(size_t i = start; i < pastEnd; i++) {
+            if(used[i]) {
+                return true;
+            }
+        }
+        return(false);
+    }
+    
+    /**
+     * Take up an interval.
+     */
+    inline void add(size_t start, size_t pastEnd) {
+        for(size_t i = start; i < pastEnd; i++) {
+            used[i] = true;
+        }
+    }
+};
+
 // We represent support as a pair, but we define math for it.
 // We use doubles because we may need fractional math.
 typedef std::pair<double, double> Support;
@@ -1000,7 +1037,10 @@ int call2vcf(
     size_t refBinSize,
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
-    size_t expCoverage) {
+    size_t expCoverage,
+    // Should we drop variants that would overlap old ones? TODO: we really need
+    // a proper system for accounting for usage of graph material.
+    bool suppress_overlaps) {
     
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
@@ -1145,9 +1185,15 @@ int call2vcf(
     // Then go through it from the graph's point of view: first over alt nodes
     // backending into the reference (creating things occupying ranges to which
     // we can attribute copy number) and then over reference nodes.
-    
+
     // We need to track the bases lost.
     size_t basesLost = 0;
+    
+    // We also need to track reference regions taken up by other variants. Holds
+    // a map from start position to past_end position. Guaranteed not to have
+    // overlaps if used.
+    // Only make it nonzero size if we're going to use it.
+    IntervalBitfield occupied_regions(suppress_overlaps ? index.sequence.size() : 0);
     
     // TODO: look at every deletion edge and spit out variants for them.
     // Complain and maybe remember if they don't connect two primary path nodes.
@@ -1547,12 +1593,24 @@ int call2vcf(
 #endif
 
             if(can_write_alleles(variant)) {
-                // Output the created VCF variant.
-                std::cout << variant << std::endl;
+                if(!suppress_overlaps || !occupied_regions.collides(referenceIntervalStart, referenceIntervalPastEnd)) {
+                    // Variant doesn't intersect with something we care about
+                    
+                    // Output the created VCF variant.
+                    std::cout << variant << std::endl;
+                    
+                    // Output the pileup line, which will be nonempty if we have pileups
+                    std::cout << get_pileup_line(nodePileups, refCrossreferences, altCrossreferences);
                 
-                // Output the pileup line, which will be nonempty if we have pileups
-                std::cout << get_pileup_line(nodePileups, refCrossreferences, altCrossreferences);
-            
+                    if(suppress_overlaps) {
+                        // Mark region as occupied
+                        occupied_regions.add(referenceIntervalStart, referenceIntervalPastEnd);
+                    }
+                
+                } else {
+                    std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                    basesLost += altAllele.size();
+                }
             } else {
                 std::cerr << "Variant is too large" << std::endl;
                 // TODO: account for the 1 base we added extra if it was a pure
@@ -1838,14 +1896,26 @@ int call2vcf(
 #endif
 
         if(can_write_alleles(variant)) {
-            // Output the created VCF variant.
-            std::cout << variant << std::endl;
+            if(!suppress_overlaps || !occupied_regions.collides(referenceIntervalStart, referenceIntervalPastEnd)) {
+                // Variant doesn't intersect with something we care about
+                
+                // Output the created VCF variant.
+                std::cout << variant << std::endl;
+                
+                // Output the pileup line, which will be nonempty if we have pileups
+                // We only have ref crossreferences here. TODO: make the ref and alt
+                // labels make sense for deletions/re-design the way labeling works.
+                std::cout << get_pileup_line(nodePileups, crossreferences, std::set<std::pair<int64_t, size_t>>());
             
-            // Output the pileup line, which will be nonempty if we have pileups
-            // We only have ref crossreferences here. TODO: make the ref and alt
-            // labels make sense for deletions/re-design the way labeling works.
-            std::cout << get_pileup_line(nodePileups, crossreferences, std::set<std::pair<int64_t, size_t>>());
+                if(suppress_overlaps) {
+                    // Mark region as occupied
+                    occupied_regions.add(referenceIntervalStart, referenceIntervalPastEnd);
+                }
             
+            } else {
+                std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                basesLost += altAllele.size();
+            }
         } else {
             std::cerr << "Variant is too large" << std::endl;
             // TODO: Drop the anchoring base that doesn't really belong to the

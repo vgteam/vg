@@ -1435,6 +1435,7 @@ void help_call(char** argv) {
          << "    -n, --min_count INT        min total supporting read count to call a variant [5]" << endl
          << "    -B, --bin_size  INT        bin size used for counting coverage [1000]" << endl
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
+         << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
          << "    -t, --threads N            number of threads to use" << endl;
@@ -1493,6 +1494,9 @@ int main_call(int argc, char** argv) {
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
     size_t expCoverage = 0;
+    // Should we drop variants that would overlap old ones? TODO: we really need
+    // a proper system for accounting for usage of graph material.
+    bool suppress_overlaps = false;
     bool show_progress = false;
     int thread_count = 1;
 
@@ -1524,12 +1528,13 @@ int main_call(int argc, char** argv) {
                 {"min_count", required_argument, 0, 'n'},
                 {"bin_size", required_argument, 0, 'B'},
                 {"avg_coverage", required_argument, 0, 'C'},
+                {"no_overlap", no_argument, 0, 'O'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:n:B:C:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:n:B:C:Oh",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1617,6 +1622,10 @@ int main_call(int argc, char** argv) {
             // Override expected coverage
             expCoverage = std::stoll(optarg);
             break;
+        case 'O':
+            // Suppress variants that overlap others
+            suppress_overlaps = true;
+            break;            
         case 'p':
             show_progress = true;
             break;
@@ -1747,7 +1756,8 @@ int main_call(int argc, char** argv) {
                         maxRefBias,
                         minTotalSupportForCall,
                         refBinSize,
-                        expCoverage);
+                        expCoverage,
+                        suppress_overlaps);
     
     return 0;
 }

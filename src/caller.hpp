@@ -361,7 +361,10 @@ int call2vcf(
     size_t refBinSize,
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
-    size_t expCoverage);
+    size_t expCoverage,
+    // Should we drop variants that would overlap old ones? TODO: we really need
+    // a proper system for accounting for usage of graph material.
+    bool suppress_overlaps);
 }
 
 #endif
