@@ -950,7 +950,7 @@ void parse_tsv(const std::string& tsvFile,
         }
         
     }
-    std::cerr << "Loaded " << lineNumber << " lines from " << tsvFile << endl;
+    std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
 }
 
 // this was main() in glenn2vcf

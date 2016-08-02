@@ -1420,7 +1420,6 @@ void help_call(char** argv) {
          << "    -q, --default_read_qual N  phred quality score to use if none found in the pileup ["
          << (int)Caller::Default_default_quality << "]" << endl
          << "    -b, --max_strand_bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
-         << "    -c, --calls FIle           write extra call information in TSV [deprecated, debugging only]" << endl
          << "    -a, --link-alts            add all possible edges between adjacent alts" << endl
          << "    -A, --aug-graph FILE       write out the agumented graph in vg format" << endl
          << "    -r, --ref PATH             use the given path name as the reference path" << endl
@@ -1510,18 +1509,18 @@ int main_call(int argc, char** argv) {
                 {"max_strand_bias", required_argument, 0, 'b'},
                 {"aug_graph", required_argument, 0, 'A'},
                 {"link-alts", no_argument, 0, 'a'},
-                {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {"ref", required_argument, 0, 'r'},
                 {"contig", required_argument, 0, 'c'},
-                {"sample", required_argument, 0, 's'},
+                {"sample", required_argument, 0, 'S'},
                 {"offset", required_argument, 0, 'o'},
                 {"depth", required_argument, 0, 'D'},
                 {"length", required_argument, 0, 'l'},
                 {"pileup", no_argument, 0, 'P'},
-                {"min_fraction", required_argument, 0, 'F'},
+                {"min_cov_frac", required_argument, 0, 'F'},
                 {"max_het_bias", required_argument, 0, 'H'},
+                {"max_ref_bias", required_argument, 0, 'R'},
                 {"min_count", required_argument, 0, 'n'},
                 {"bin_size", required_argument, 0, 'B'},
                 {"avg_coverage", required_argument, 0, 'C'},
@@ -1530,7 +1529,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:lc:ajpr:t:r:c:S:o:D:l:PF:H:R:n:B:C:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:n:B:C:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1559,12 +1558,6 @@ int main_call(int argc, char** argv) {
             break;
         case 'A':
             aug_file = optarg;
-            break;
-        case 'p':
-            show_progress = true;
-            break;
-        case 't':
-            thread_count = atoi(optarg);
             break;
         case 'a':
             bridge_alts = true;
@@ -1623,6 +1616,12 @@ int main_call(int argc, char** argv) {
         case 'C':
             // Override expected coverage
             expCoverage = std::stoll(optarg);
+            break;
+        case 'p':
+            show_progress = true;
+            break;
+        case 't':
+            thread_count = atoi(optarg);
             break;
         case 'h':
         case '?':
