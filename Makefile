@@ -237,13 +237,11 @@ $(OBJ_DIR)/pileup.o: $(SRC_DIR)/pileup.cpp $(SRC_DIR)/pileup.hpp $(CPP_DIR)/vg.p
 $(OBJ_DIR)/caller.o: $(SRC_DIR)/caller.cpp $(SRC_DIR)/caller.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(SRC_DIR)/pileup.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $(OBJ_DIR)/caller.o $(SRC_DIR)/caller.cpp $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/genotyper.o: $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/genotyper.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/utility.hpp
-
-$(OBJ_DIR)/genotyper.o: $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/genotyper.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/bubbles.hpp
-	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $(OBJ_DIR)/genotyper.o $(SRC_DIR)/genotyper.cpp $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
-
 $(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+
+$(OBJ_DIR)/genotyper.o: $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/genotyper.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(INC_DIR)/stream.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/utility.hpp
+	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $(OBJ_DIR)/genotyper.o $(SRC_DIR)/genotyper.cpp $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/position.o: $(SRC_DIR)/position.cpp $(SRC_DIR)/position.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
