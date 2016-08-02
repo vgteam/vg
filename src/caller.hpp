@@ -313,8 +313,55 @@ public:
 };
 
 ostream& operator<<(ostream& os, const Caller::NodeOffSide& no);
+}
 
-
+namespace glenn2vcf {
+// old glenn2vcf interface
+// todo: integrate more smoothly into caller class
+int call2vcf(
+    // Augmented graph
+    vg::VG& vg,
+    // "glennfile" as string (relic from old pipeline)
+    const string& glennfile,
+    // Option variables
+    // What's the name of the reference path in the graph?
+    string refPathName,
+    // What name should we give the contig in the VCF file?
+    string contigName,
+    // What name should we use for the sample in the VCF file?
+    string sampleName,
+    // How far should we offset positions of variants?
+    int64_t variantOffset,
+    // How many nodes should we be willing to look at on our path back to the
+    // primary path? Keep in mind we need to look at all valid paths (and all
+    // combinations thereof) until we find a valid pair.
+    int64_t maxDepth,
+    // What should the total sequence length reported in the VCF header be?
+    int64_t lengthOverride,
+    // Should we load a pileup and print out pileup info as comments after
+    // variants?
+    string pileupFilename,
+    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
+    // Default to 0 because vg call is still applying depth thresholding
+    double minFractionForCall,
+    // What fraction of the reads supporting an alt are we willing to discount?
+    // At 2, if twice the reads support one allele as the other, we'll call
+    // homozygous instead of heterozygous. At infinity, every call will be
+    // heterozygous if even one read supports each allele.
+    double maxHetBias,
+    // Like above, but applied to ref / alt ratio (instead of alt / ref)
+    double maxRefBias,
+    // What's the minimum integer number of reads that must support a call? We
+    // don't necessarily want to call a SNP as het because we have a single
+    // supporting read, even if there are only 10 reads on the site.
+    size_t minTotalSupportForCall,
+    // Bin size used for counting coverage along the reference path.  The
+    // bin coverage is used for computing the probability of an allele
+    // of a certain depth
+    size_t refBinSize,
+    // On some graphs, we can't get the coverage because it's split over
+    // parallel paths.  Allow overriding here
+    size_t expCoverage);
 }
 
 #endif
