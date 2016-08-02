@@ -243,10 +243,10 @@ $(OBJ_DIR)/genotyper.o: $(SRC_DIR)/genotyper.cpp $(SRC_DIR)/genotyper.hpp $(CPP_
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $(OBJ_DIR)/genotyper.o $(SRC_DIR)/genotyper.cpp $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/call2vcf.o: $(SRC_DIR)/call2vcf.cpp $(SRC_DIR)/caller.hpp $(LIB_DIR)/libprotobuf.a $(CPP_DIR)/vg.pb.h
-	+. ./source_me.sh && +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/position.o: $(SRC_DIR)/position.cpp $(SRC_DIR)/position.hpp $(CPP_DIR)/vg.pb.h $(SRC_DIR)/vg.hpp $(SRC_DIR)/json2pb.h $(LIB_DIR)/libprotobuf.a
-	+. ./source_me.sh && +$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 ## TODO vcflib build loses variant.h
 $(OBJ_DIR)/deconstructor.o: $(SRC_DIR)/deconstructor.cpp $(SRC_DIR)/deconstructor.hpp $(LIB_DIR)/libvcflib.a $(LIB_DIR)/librocksdb.a $(INC_DIR)/gcsa.h $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libxg.a $(LIB_DIR)/libvcfh.a $(SRC_DIR)/bubbles.hpp
