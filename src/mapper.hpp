@@ -139,6 +139,8 @@ public:
     vector<Alignment> mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
     Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
     Alignment mem_to_alignment(MaximalExactMatch& mem);
+    // fix up a SMEM-threaded exact match alignment by locally aligning small pieces against gaps in alignment
+    Alignment patch_alignment(const Alignment& aln);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);

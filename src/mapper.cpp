@@ -762,8 +762,9 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (multimaps++ > total_multimaps) { break; }
-        alns.emplace_back(mems_to_alignment(aln, cluster));
-        cerr << pb2json(alns.back()) << endl;
+        alns.emplace_back(simplify(mems_to_alignment(aln, cluster)));
+        cerr << "before " << pb2json(alns.back()) << endl;
+        cerr << "patched " << pb2json(patch_alignment(alns.back())) << endl;
         // now fix it up!
         // for each non-aligned portion
         // get the graph starting and the beginning and end of the gap
@@ -1800,7 +1801,6 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         char c = seq[i];
         //cerr << pos_char(pos) << " == " << c << endl;
         auto nexts = next_pos_chars(pos);
-        assert(nexts.size());
         //cerr << "on position " << pos << endl;
         if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
             pos_t npos = nexts.begin()->first;
@@ -1844,7 +1844,6 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         edit->set_from_length(match_len);
         edit->set_to_length(match_len);
     }
-    aln.set_score(aln.sequence().size()*(aligner->match));
     assert(alignment_to_length(aln) == alignment_from_length(aln));
     if (alignment_to_length(aln) != seq.size()) {
         cerr << alignment_to_length(aln) << " is not " << seq.size() << endl;
@@ -1865,6 +1864,297 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
         alns.emplace_back(walk_match(seq, pos));
     }
     return alns;
+}
+
+Alignment Mapper::patch_alignment(const Alignment& aln) {
+    Alignment patched;
+    int score = 0;
+    // walk along the alignment and find the portions that are unaligned
+    int read_pos = 0;
+    auto& path = aln.path();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        cerr << "looking at mapping " << pb2json(mapping) << endl;
+        pos_t ref_pos = make_pos_t(mapping.position());
+        Mapping* new_mapping = patched.mutable_path()->add_mapping();
+        *new_mapping->mutable_position() = mapping.position();
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            cerr << "looking at edit " << pb2json(edit) << endl;
+            if (edit_is_match(edit)) {
+                // matches behave as expected
+                score += edit.from_length()*aligner->match;
+                *new_mapping->add_edit() = edit;
+            } else if (edit_is_deletion(edit)) {
+                // we can't do anything for deletions-- anyway they shouldn't get here if we call this
+                // in the SMEM threading alignment
+                score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
+                *new_mapping->add_edit() = edit;
+            } else if (edit_is_insertion(edit)) {
+                // bits to patch in are recorded like insertions
+                // pick up the graph from the start to end where we have an unaligned bit
+                // but bail out if we get a lot of graph
+                bool go_forward = !is_rev(ref_pos);
+                bool go_backward = is_rev(ref_pos);
+                id_t id1 = id(ref_pos);
+                id_t id2 = 0;
+                bool soft_clip_to_left = false;
+                bool soft_clip_to_right = false;
+                // this is a soft clip
+                if (i == 0 && j == 0) {
+                    cerr << "first soft clip" << endl;
+                    // todo we should flip the orientation of the soft clip flag around if we are reversed
+                    // ...
+                    //soft_clip_on_start = true;
+                    if (mapping.position().is_reverse()) {
+                        soft_clip_to_right = true;
+                    } else {
+                        soft_clip_to_left = true;
+                    }
+                    go_forward = is_rev(ref_pos);
+                    go_backward = !is_rev(ref_pos);
+                } else if (i+1 < path.mapping().size()) {
+                    id2 = path.mapping(i+1).position().node_id();
+                    cerr << "we're up so look for id: " << id2 << endl;
+                } else {
+                    cerr << "last soft clip" << endl;
+                    if (mapping.position().is_reverse()) {
+                        soft_clip_to_left = true;
+                    } else {
+                        soft_clip_to_right = true;
+                    }
+                    go_forward = !is_rev(ref_pos);
+                    go_backward = is_rev(ref_pos);
+                }
+                cerr << "working from " << ref_pos << endl;
+                // only go backward if we are at the first edit (e.g. soft clip)
+                // otherwise we go forward
+
+                // design: (todo)
+                // find the cut positions (on the forward strand)
+                // if they are on the same node, use the multi-cut interface
+                // if they are on separate, cut each node
+                // todo... update the multi-cut interface to produce a translation
+                // or alternatively, write the translation here for prototyping
+                // generate the translation for the rest of the graph
+                // delete any head or tail bits that we shouldn't be able to align to
+                // instantiate a translator object (make sure it can handle the deleted bits?)
+                // translate the alignment
+
+                int min_distance = (!(id1&&id2) ? (edit.to_length() * 5): // awkward constants
+                                    max((int)(edit.to_length() * 3),
+                                        (int)(xindex->node_length(id2) +
+                                              xindex->node_length(id2) +
+                                              xindex->min_approx_path_distance({}, id1, id2))));
+
+                VG graph;
+                xindex->get_id_range(id1, id1, graph.graph);
+                xindex->expand_context(graph.graph,
+                                       min_distance,
+                                       false, // don't use steps (use length)
+                                       false, // don't add paths
+                                       go_forward,
+                                       go_backward,
+                                       id2);  // our target node
+                graph.rebuild_indexes();
+                graph.sort();
+                cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                // now trim the graph to fit by cutting the head/tail node(s)
+                // trim head
+                pos_t first_cut = ref_pos;
+                pos_t second_cut = ref_pos;
+
+                if (j+1 < mapping.edit_size()) {
+                    //pos_t ref_pos = make_pos_t(mapping.position());
+                    get_offset(second_cut) += edit.from_length();
+                } else if (i+1 < path.mapping_size()) {
+                    // we have to look at the next mapping
+                    second_cut = make_pos_t(path.mapping(i+1).position());
+                } else {
+                    // end of alignment
+                    // nothing to do
+                }
+
+                cerr << "first_cut before " << first_cut << endl;
+                cerr << "second_cut before " << second_cut << endl;
+
+                bool has_target = false;
+                // TODO continue if the graph doesn't have both cut points
+                if (!graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
+                    // treat the bit as unalignable
+                    // has_target = false
+
+                } else {
+
+                    bool align_rc = false;
+                    if (is_rev(first_cut) && is_rev(second_cut)) {
+                        pos_t tmp_cut = first_cut;
+                        first_cut = reverse(second_cut, graph.get_node(id(second_cut))->sequence().size());
+                        second_cut = reverse(tmp_cut, graph.get_node(id(tmp_cut))->sequence().size());
+                        align_rc = true;
+                    } else if (is_rev(first_cut)
+                               || is_rev(second_cut)) {
+                        cerr << "mismatched cut orientations!" << endl;
+                        exit(1);
+                    }
+
+                    cerr << "first_cut after " << first_cut << endl;
+                    cerr << "second_cut after " << second_cut << endl;
+
+                    // we have to remember how much we've trimmed from the first node
+                    // so that we can translate it after the fact
+                    id_t trimmed_node = 0;
+                    int trimmed_length = 0;
+                    vector<Node*> target_nodes;
+
+                    if (id(first_cut) == id(second_cut)) {
+                        if (offset(first_cut) == offset(second_cut)) {
+                            if (offset(first_cut)) {
+                                Node* left; Node* right;
+                                Node* node = graph.get_node(id(first_cut));
+                                graph.divide_node(node, offset(first_cut), left, right);
+                                // check soft clip status, which will change what part we keep
+                                if (soft_clip_to_left) {
+                                    // keep the part that's relevant to the soft clip resolution
+                                    graph.destroy_node(right);
+                                    graph.swap_node_id(left, id(first_cut));
+                                    trimmed_node = id(first_cut);
+                                } else {
+                                    // remove the unused part
+                                    graph.destroy_node(left);
+                                    graph.swap_node_id(right, id(first_cut));
+                                    trimmed_node = id(first_cut);
+                                }
+                                trimmed_length = offset(first_cut);
+                                target_nodes.push_back(graph.get_node(id(first_cut)));
+                            } else {
+                                // erase everything before this node
+                                // do so by removing edges
+                                // later we will decide which subgraphs to keep
+                                //graph.destroy_node(id(first_cut));
+                                NodeSide begin = NodeSide(id(first_cut));
+                                for (auto& side : graph.sides_to(begin)) {
+                                    graph.destroy_edge(side, begin);
+                                }
+                                // check soft clip status, which will change what part we keep
+                                target_nodes.push_back(graph.get_node(id(first_cut)));
+                            }
+                        } else {
+                            vector<int> positions = { (int)offset(first_cut), (int)offset(second_cut) };
+                            vector<Node*> parts;
+                            Node* node = graph.get_node(id(first_cut));
+                            graph.divide_node(node, positions, parts);
+                            // now remove the end parts
+                            graph.destroy_node(parts.front());
+                            graph.destroy_node(parts.back());
+                            graph.swap_node_id(parts.at(1), id(first_cut));
+                            target_nodes.push_back(graph.get_node(id(first_cut)));
+                            trimmed_node = id(first_cut);
+                            trimmed_length = offset(first_cut);
+                        }
+                    } else { // different nodes to trim
+                        if (offset(first_cut)) {
+                            Node* left; Node* right;
+                            Node* node = graph.get_node(id(first_cut));
+                            graph.divide_node(node, offset(first_cut), left, right);
+                            // remove the unused part
+                            graph.destroy_node(left);
+                            graph.swap_node_id(right, id(first_cut));
+                            target_nodes.push_back(graph.get_node(id(first_cut)));
+                            trimmed_node = id(first_cut);
+                            trimmed_length = offset(first_cut);
+                        } else {
+                            // destroy everything ahead of the node??
+                            NodeSide begin = NodeSide(id(first_cut));
+                            for (auto& side : graph.sides_to(begin)) {
+                                graph.destroy_edge(side, begin);
+                            }
+                            target_nodes.push_back(graph.get_node(id(first_cut)));
+                        }
+
+                        if (offset(second_cut)) {
+                            Node* left; Node* right;
+                            Node* node = graph.get_node(id(second_cut));
+                            graph.divide_node(node, offset(second_cut), left, right);
+                            // remove the unused part
+                            graph.destroy_node(right);
+                            graph.swap_node_id(left, id(second_cut));
+                            target_nodes.push_back(graph.get_node(id(second_cut)));
+                        } else {
+                            // destroy the node
+                            graph.destroy_node(id(second_cut));
+                            // we don't record this node as a target as we've destroyed it
+                        }
+                    }
+                    graph.remove_null_nodes_forwarding_edges();
+                    graph.remove_orphan_edges();
+                    cerr << "trimmed graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    list<VG> subgraphs;
+                    graph.disjoint_subgraphs(subgraphs);
+                    cerr << "with " << subgraphs.size() << " subgraphs" << endl;
+                    // find the subgraph with both of our cut positions
+                    VG* target = nullptr;
+                    for (auto& g : subgraphs) {
+                        // does it have our target nodes?
+                        bool is_target = true;
+                        for (auto& n : target_nodes) {
+                            if (!g.has_node(*n)) {
+                                is_target = false;
+                                break;
+                            }
+                        }
+                        if (is_target) {
+                            target = &g;
+                            break;
+                        }
+                    }
+                    if (target != nullptr) {
+                        graph = *target;
+                        has_target = true;
+                        cerr << "found target! " << pb2json(target->graph) << endl;
+                    } else {
+                        // has_target = false
+                        cerr << "could not find target !!!!!" << endl;
+                    }
+                }
+                if (!has_target) {
+                    score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
+                    *new_mapping->add_edit() = edit;
+                } else {
+                    // we've set the graph to the trimmed target
+                    cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    //time to try an alignment
+                    // if we are walking a reversed path, take the reverse complement
+                    // todo:
+                    //  issue a warning if we contain an inversion and work from the orientation with the longer length
+                    string seq = mapping.position().is_reverse() ? reverse_complement(edit.sequence()) : edit.sequence();
+                    //then do the alignment
+                    Alignment patch = graph.align(seq);
+                    // append the chunk to patched
+                    cerr << "aligned" << endl;
+                    cerr << pb2json(patched) << endl;
+                    cerr << " yo " << endl;
+                    if (patched.score() == 0) {
+                        score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
+                        *new_mapping->add_edit() = edit;
+                    } else {
+                        extend_alignment(patched, patch, true);
+                        score += patch.score();
+                    }
+                    cerr << "extended " << pb2json(patched) << endl;
+                }
+            }
+            // update our offsets
+            cerr << "hi" << endl;
+            get_offset(ref_pos) += edit.from_length();
+            read_pos += edit.to_length();
+        }
+        cerr << "done!" << endl;
+    }
+    // finally, fix up the alignment score
+    patched.set_score(score);
+    cerr << "patched be " << pb2json(patched) << endl;
+    return patched;
 }
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit
@@ -1909,7 +2199,7 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMat
     int start = last_end - seq_begin;
     int length = seq_end - (seq_begin + start);
     alns.back().set_sequence(aln.sequence().substr(start, length));
-
+    // TODO XXXXXX quality 
     return merge_alignments(alns);
 }
 
