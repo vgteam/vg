@@ -92,9 +92,11 @@ public:
     virtual ~SiteFinder() = default;
     
     /**
-     * Run a function on all root-level NestedSites in parallel.
+     * Run a function on all root-level NestedSites in parallel. Site trees are
+     * passed by value so they have a clear place to live during parallel
+     * operations.
      */
-    virtual void for_each_site_parallel(const function<void(const NestedSite&)>& lambda) = 0;
+    virtual void for_each_site_parallel(const function<void(NestedSite)>& lambda) = 0;
 };
 
 /**
@@ -228,7 +230,7 @@ public:
      * Find all the sites in parallel with Cactus, make the site tree, and call
      * the given function on all the top-level sites.
      */
-    virtual void for_each_site_parallel(const function<void(const NestedSite&)>& lambda);
+    virtual void for_each_site_parallel(const function<void(NestedSite)>& lambda);
 
 };
 
