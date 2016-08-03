@@ -127,6 +127,20 @@ public:
 
     // Provides a mechanism to translate back to the original graph
     Translator translator;
+    
+    
+    // We need some data structures to track statistics about sites and their
+    // traversals. These data structures are only valid during the run method.
+    // After that the site pointers they use may be left dangling.
+    
+    // This maps from length in the reference to number of sites of that length.
+    map<size_t, size_t> site_reference_length_histogram;
+    
+    // Which reads traverse all the way through each site?
+    map<const Site*, set<string>> site_traversals;
+    
+    // What sites exist, for statistical purposes?
+    set<const Site*> all_sites;
 
     // Process and write output
     void run(VG& graph,
@@ -277,6 +291,34 @@ public:
      * Start VCF output to a stream. Returns a VCFlib VariantCallFile that needs to be deleted.
      */
     vcflib::VariantCallFile* start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& sample_name, const string& contig_name, size_t contig_size);
+    
+    /**
+     * Utility function for getting the reference bounds (start and past-end) of
+     * a site with relation to a given reference index. Computes bounds of the
+     * variable region, not including the fixed start and end node lengths. Also
+     * returns whether the reference path goes through the site forwards (false)
+     * or backwards (true).
+     */
+    pair<pair<int64_t, int64_t>, bool> get_site_reference_bounds(const Site& site, const ReferenceIndex& index);
+    
+    /**
+     * Tell the statistics tracking code that a site exists. We can do things
+     * like count up the site length in the reference and so on. Called only
+     * once per site, but may be called on multiple threads simultaneously.
+     */
+    void report_site(const Site& site, const ReferenceIndex* index = nullptr);
+    
+    /**
+     * Tell the statistics tracking code that a read traverses a site
+     * completely. May be called multiple times for a given read and site, and
+     * may be called in parallel.
+     */
+    void report_site_traversal(const Site& site, const string& read_name);
+    
+    /**
+     * Print site statistics to the given stream.
+     */
+    void print_statistics(ostream& out);
 
 };
 

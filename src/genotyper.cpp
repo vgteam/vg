@@ -266,6 +266,9 @@ void Genotyper::run(VG& graph,
                 
                     auto& site = *it;
                     
+                    // Report the site to our statistics code
+                    report_site(site, reference_index);
+                    
                     int tid = omp_get_thread_num();
                     
                     // Get all the paths through the site supported by enough reads, or by real named paths
@@ -503,11 +506,53 @@ void Genotyper::run(VG& graph,
         cerr << "Computed " << total_affinities << " affinities" << endl;
     }
     
+    // Dump statistics before the sites go away, so the pointers won't be dangling
+    print_statistics(cerr);
+    
     if(output_vcf) {
         delete vcf;
         delete reference_index;
     }
 
+}
+
+pair<pair<int64_t, int64_t>, bool> Genotyper::get_site_reference_bounds(const Site& site, const ReferenceIndex& index) {
+    // Grab the start and end node IDs.
+    auto first_id = site.start.node->id();
+    auto last_id = site.end.node->id();
+    
+    if(!index.byId.count(first_id) || !index.byId.count(last_id)) {
+        // Site isn;t actually on the reference path so return a sentinel.
+        return make_pair(make_pair(-1, -1), false);
+    }
+    
+    // The position we have stored for this start node is the first
+    // position along the reference at which it occurs. Our bubble
+    // goes forward in the reference, so we must come out of the
+    // opposite end of the node from the one we have stored.
+    auto referenceIntervalStart = index.byId.at(first_id).first + site.start.node->sequence().size();
+    
+    // The position we have stored for the end node is the first
+    // position it occurs in the reference, and we know we go into
+    // it in a reference-concordant direction, so we must have our
+    // past-the-end position right there.
+    auto referenceIntervalPastEnd = index.byId.at(last_id).first;
+    
+    // Is this bubble articulated backwards relative to the reference?
+    bool site_is_reverse = false;
+    
+    if(referenceIntervalStart > referenceIntervalPastEnd) {
+        // Everything we know about the site is backwards relative to the reference. Flip it around frontways.
+        site_is_reverse = true;
+        swap(first_id, last_id);
+        // Recalculate reference positions Use the end node, which we've now
+        // made first_id, to get the length offset to the start of the actual
+        // internal variable bit.
+        referenceIntervalStart = index.byId.at(first_id).first + site.end.node->sequence().size();
+        referenceIntervalPastEnd = index.byId.at(last_id).first;
+    }
+    
+    return make_pair(make_pair(referenceIntervalStart, referenceIntervalPastEnd), site_is_reverse);
 }
 
 /**
@@ -773,6 +818,14 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
                             #pragma omp critical (cerr)
                             cerr << "\tFinished; got novel sequence " << allele_stream.str() << endl;
 #endif
+                        }
+                        
+                        if(reads_by_name.count(name)) {
+                            // We want to log stats on reads that read all the
+                            // way through sites. But since we may be called
+                            // multiple times we need to send the unique read
+                            // name too.
+                            report_site_traversal(site, name);
                         }
                         
                         // Then try the next embedded path
@@ -1946,28 +1999,19 @@ Genotyper::locus_to_variant(VG& graph,
         return to_return;
     }
     
-    // The position we have stored for this start node is the first
-    // position along the reference at which it occurs. Our bubble
-    // goes forward in the reference, so we must come out of the
-    // opposite end of the node from the one we have stored.
-    auto referenceIntervalStart = index.byId.at(first_id).first + graph.get_node(first_id)->sequence().size();
+    // Compute the reference region occupied by the site, accounting for
+    // orientation.
+    auto bounds = get_site_reference_bounds(site, index);
     
-    // The position we have stored for the end node is the first
-    // position it occurs in the reference, and we know we go into
-    // it in a reference-concordant direction, so we must have our
-    // past-the-end position right there.
-    auto referenceIntervalPastEnd = index.byId.at(last_id).first;
+    // Where does this bubble start and end in the reference?
+    auto referenceIntervalStart = bounds.first.first;
+    auto referenceIntervalPastEnd = bounds.first.second;
     
-    // Is this bubble articulated backwards relative to the refedrence?
-    bool site_is_reverse = false;
-    
-    if(referenceIntervalStart > referenceIntervalPastEnd) {
-        // Everything we know about the site is backwards relative to the reference. Flip it around frontways.
-        site_is_reverse = true;
+    // Is this bubble articulated backwards relative to the reference?
+    bool site_is_reverse = bounds.second;
+    if(site_is_reverse) {
+        // Make sure our first and last IDs are actually accurate.
         swap(first_id, last_id);
-        // Recalculate reference positions
-        referenceIntervalStart = index.byId.at(first_id).first + graph.get_node(first_id)->sequence().size();
-        referenceIntervalPastEnd = index.byId.at(last_id).first;
     }
     
     // Get the string for the reference allele
@@ -2330,7 +2374,70 @@ ReferenceIndex::ReferenceIndex(vg::VG& vg, std::string refPathName) {
     }
 }
 
+void Genotyper::report_site(const Site& site, const ReferenceIndex* index) {
+    // Remember that we have the site
+    #pragma omp critical (all_sites)
+    all_sites.insert(&site);
+    
+    if(index != nullptr) {
+        // We have an index of the reference.
+    
+        // Figure out its reference length and log it.
+        auto bounds = get_site_reference_bounds(site, *index);
+        
+        if(bounds.first.first == -1) {
+            // It's not really on that path
+            return;
+        }
+        
+        int64_t length = bounds.first.second - bounds.first.first;
+        
+        #pragma omp critical (site_reference_length_histogram)
+        site_reference_length_histogram[length]++;
+        
+    }
+    
+}
 
+void Genotyper::report_site_traversal(const Site& site, const string& name) {
+    // Mark this read as traversing this site
+    #pragma omp critical (site_traversals)
+    site_traversals[&site].insert(name);
+}
+
+void Genotyper::print_statistics(ostream& out) {
+    // Dump our stats to the given ostream.
+    
+    out << "Statistics:" << endl;
+    out << "Number of Sites: " << all_sites.size() << endl;
+    
+    // How many sites were actually traversed by reads?
+    size_t sites_traversed = 0;
+    for(const Site* site : all_sites) {
+        // For every site
+        if(site_traversals.count(site) && site_traversals.at(site).size() > 0) {
+            // If it has a set of read names and the set is nonempty, it was traversed
+            sites_traversed++;
+        }
+    }
+    out << "Sites traversed by reads: " << sites_traversed << endl;
+    
+    // How many sites are on the reference? Only those that have defined lengths
+    size_t sites_on_reference = 0;
+    for(auto& length_and_count : site_reference_length_histogram) {
+        sites_on_reference += length_and_count.second;
+    }
+    out << "Sites on reference: " << sites_on_reference << endl;
+    
+    // What's the length distribution?
+    out << "Site length distribution: " << endl;
+    for(auto& length_and_count : site_reference_length_histogram) {
+        // Dump length and count as a TSV bit.
+        out << length_and_count.first << "\t" << length_and_count.second << endl;
+    }
+    
+}
+    
 }
 
 
