@@ -824,8 +824,8 @@ void parse_tsv(const std::string& tsvFile,
                std::map<vg::Edge*, double>& edgeLikelihood,
                std::set<vg::Edge*>& deletionEdges,
                std::map<vg::Node*, std::pair<int64_t, size_t>>& nodeSources,
-               std::set<vg::Node*> knownNodes,
-               std::set<vg::Edge*> knownEdges) {
+               std::set<vg::Node*>& knownNodes,
+               std::set<vg::Edge*>& knownEdges) {
     
     // Open up the TSV-file
     std::stringstream tsvStream(tsvFile);
