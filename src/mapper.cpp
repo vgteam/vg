@@ -1874,13 +1874,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     auto& path = aln.path();
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
-        cerr << "looking at mapping " << pb2json(mapping) << endl;
+        //cerr << "looking at mapping " << pb2json(mapping) << endl;
         pos_t ref_pos = make_pos_t(mapping.position());
         Mapping* new_mapping = patched.mutable_path()->add_mapping();
         *new_mapping->mutable_position() = mapping.position();
         for (int j = 0; j < mapping.edit_size(); ++j) {
             auto& edit = mapping.edit(j);
-            cerr << "looking at edit " << pb2json(edit) << endl;
+            //cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
                 // matches behave as expected
                 score += edit.from_length()*aligner->match;
@@ -1902,7 +1902,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 bool soft_clip_to_right = false;
                 // this is a soft clip
                 if (i == 0 && j == 0) {
-                    cerr << "first soft clip" << endl;
+                    //cerr << "first soft clip" << endl;
                     // todo we should flip the orientation of the soft clip flag around if we are reversed
                     // ...
                     //soft_clip_on_start = true;
@@ -1915,9 +1915,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     go_backward = !is_rev(ref_pos);
                 } else if (i+1 < path.mapping().size()) {
                     id2 = path.mapping(i+1).position().node_id();
-                    cerr << "we're up so look for id: " << id2 << endl;
+                    //cerr << "we're up so look for id: " << id2 << endl;
                 } else {
-                    cerr << "last soft clip" << endl;
+                    //cerr << "last soft clip" << endl;
                     if (mapping.position().is_reverse()) {
                         soft_clip_to_left = true;
                     } else {
@@ -1926,7 +1926,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     go_forward = !is_rev(ref_pos);
                     go_backward = is_rev(ref_pos);
                 }
-                cerr << "working from " << ref_pos << endl;
+                //cerr << "working from " << ref_pos << endl;
                 // only go backward if we are at the first edit (e.g. soft clip)
                 // otherwise we go forward
 
@@ -1958,7 +1958,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                        id2);  // our target node
                 graph.rebuild_indexes();
                 graph.sort();
-                cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                 // now trim the graph to fit by cutting the head/tail node(s)
                 // trim head
                 pos_t first_cut = ref_pos;
@@ -1975,10 +1975,16 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // nothing to do
                 }
 
-                cerr << "first_cut before " << first_cut << endl;
-                cerr << "second_cut before " << second_cut << endl;
+                //cerr << "first_cut before " << first_cut << endl;
+                //cerr << "second_cut before " << second_cut << endl;
 
+                // if we get a target graph
                 bool has_target = false;
+                // we have to remember how much we've trimmed from the first node
+                // so that we can translate it after the fact
+                id_t trimmed_node = 0;
+                int trimmed_length = 0;
+
                 // TODO continue if the graph doesn't have both cut points
                 if (!graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
                     // treat the bit as unalignable
@@ -1998,13 +2004,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         exit(1);
                     }
 
-                    cerr << "first_cut after " << first_cut << endl;
-                    cerr << "second_cut after " << second_cut << endl;
+                    //cerr << "first_cut after " << first_cut << endl;
+                    //cerr << "second_cut after " << second_cut << endl;
 
-                    // we have to remember how much we've trimmed from the first node
-                    // so that we can translate it after the fact
-                    id_t trimmed_node = 0;
-                    int trimmed_length = 0;
                     vector<Node*> target_nodes;
 
                     if (id(first_cut) == id(second_cut)) {
@@ -2088,10 +2090,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
                     graph.remove_null_nodes_forwarding_edges();
                     graph.remove_orphan_edges();
-                    cerr << "trimmed graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    //cerr << "trimmed graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                     list<VG> subgraphs;
                     graph.disjoint_subgraphs(subgraphs);
-                    cerr << "with " << subgraphs.size() << " subgraphs" << endl;
+                    //cerr << "with " << subgraphs.size() << " subgraphs" << endl;
                     // find the subgraph with both of our cut positions
                     VG* target = nullptr;
                     for (auto& g : subgraphs) {
@@ -2111,10 +2113,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     if (target != nullptr) {
                         graph = *target;
                         has_target = true;
-                        cerr << "found target! " << pb2json(target->graph) << endl;
+                        //cerr << "found target! " << pb2json(target->graph) << endl;
                     } else {
                         // has_target = false
-                        cerr << "could not find target !!!!!" << endl;
+                        //cerr << "could not find target !!!!!" << endl;
                     }
                 }
                 if (!has_target) {
@@ -2122,7 +2124,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     *new_mapping->add_edit() = edit;
                 } else {
                     // we've set the graph to the trimmed target
-                    cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    //cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                     //time to try an alignment
                     // if we are walking a reversed path, take the reverse complement
                     // todo:
@@ -2130,10 +2132,27 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     string seq = mapping.position().is_reverse() ? reverse_complement(edit.sequence()) : edit.sequence();
                     //then do the alignment
                     Alignment patch = graph.align(seq);
+                    // apply the cut node translation
+                    //trimmed_node, trimmed_length
+                    // but does it matter which orientation we are on?
+                    // no because trimmed_length handles this
+                    for (int k = 0; k < patch.path().mapping_size(); ++k) {
+                        auto* mapping = patch.mutable_path()->mutable_mapping(k);
+                        // convert the position if we're mapped to the translated node
+                        if (mapping->position().node_id() == trimmed_node) {
+                            //cerr << "should adjust " << pb2json(*mapping) << endl;
+                            mapping->mutable_position()->set_offset(
+                                mapping->position().offset() + trimmed_length);
+                            //cerr << "adjusted " << pb2json(*mapping) << endl;
+                        }
+                    }
+                    
                     // append the chunk to patched
+                    /*
                     cerr << "aligned" << endl;
                     cerr << pb2json(patched) << endl;
                     cerr << " yo " << endl;
+                    */
                     if (patched.score() == 0) {
                         score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
                         *new_mapping->add_edit() = edit;
@@ -2141,19 +2160,17 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         extend_alignment(patched, patch, true);
                         score += patch.score();
                     }
-                    cerr << "extended " << pb2json(patched) << endl;
+                    //cerr << "extended " << pb2json(patched) << endl;
                 }
             }
             // update our offsets
-            cerr << "hi" << endl;
             get_offset(ref_pos) += edit.from_length();
             read_pos += edit.to_length();
         }
-        cerr << "done!" << endl;
     }
     // finally, fix up the alignment score
     patched.set_score(score);
-    cerr << "patched be " << pb2json(patched) << endl;
+    //cerr << "patched be " << pb2json(patched) << endl;
     return patched;
 }
 
