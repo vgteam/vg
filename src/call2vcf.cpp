@@ -1582,7 +1582,7 @@ int call2vcf(
                     log10(poissonp(total(altReadSupportAverage), 0.5 * total(baselineSupport)));
                 genLikelihood += refMinLikelihood.second + altMinLikelihood.second;
             }
-            variant.quality = -10. * log10(1. - exp10(genLikelihood));
+            variant.quality = -10. * log10(1. - pow(10, genLikelihood));
             
             
 #ifdef debug
@@ -1886,7 +1886,7 @@ int call2vcf(
                     log10(poissonp(total(altReadSupportTotal), 0.5 * total(baselineSupport)));
                 genLikelihood += refMinLikelihood.second + altMinLikelihood;
             }
-            variant.quality = -10. * log10(1. - exp10(genLikelihood));
+            variant.quality = -10. * log10(1. - pow(10, genLikelihood));
         
 #ifdef debug
         std::cerr << "Found variant " << refAllele << " -> " << altAllele
