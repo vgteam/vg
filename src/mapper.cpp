@@ -688,7 +688,7 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
         auto& seq_map = b.second;
         for (auto& p : seq_map) {
             auto& pos = p.first;
-            cerr << "starting from pos " << pos << (b.first.second?"-":"+") << endl;
+            //cerr << "starting from pos " << pos << (b.first.second?"-":"+") << endl;
             clusters.emplace_back();
             auto& cluster = clusters.back();
             set<MaximalExactMatch*> in_cluster;
@@ -707,7 +707,7 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
                     }
                 }
                 assert(mem != nullptr);
-                cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
+                //cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
                 if (!cluster.empty() && cluster.back().end > mem->begin
                     || in_cluster.count(mem)) {
                     ++x; // step to the next position
@@ -743,13 +743,15 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
                   return mem_len_sum(c1) > mem_len_sum(c2);
               });
 
-    cerr << "clusters: " << endl;
-    for (auto& cluster : clusters) {
-        cerr << cluster.size() << " SMEMs ";
-        for (auto& mem : cluster) {
-            cerr << mem.sequence() << " ";
+    if (debug) {
+        cerr << "clusters: " << endl;
+        for (auto& cluster : clusters) {
+            cerr << cluster.size() << " SMEMs ";
+            for (auto& mem : cluster) {
+                cerr << mem.sequence() << " ";
+            }
+            cerr << endl;
         }
-        cerr << endl;
     }
 
     // by our construction of the local SMEM copies, each has only one match
@@ -762,9 +764,10 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (multimaps++ > total_multimaps) { break; }
-        alns.emplace_back(simplify(mems_to_alignment(aln, cluster)));
-        cerr << "before " << pb2json(alns.back()) << endl;
-        cerr << "patched " << pb2json(patch_alignment(alns.back())) << endl;
+        alns.emplace_back(simplify(patch_alignment(mems_to_alignment(aln, cluster))));
+        alns.back().set_name(aln.name());
+        //cerr << "before " << pb2json(alns.back()) << endl;
+        //cerr << "patched " << pb2json(patch_alignment(alns.back())) << endl;
         // now fix it up!
         // for each non-aligned portion
         // get the graph starting and the beginning and end of the gap
@@ -1983,7 +1986,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // we have to remember how much we've trimmed from the first node
                 // so that we can translate it after the fact
                 id_t trimmed_node = 0;
-                int trimmed_length = 0;
+                int trimmed_length_fwd = 0;
+                int trimmed_length_rev = 0;
 
                 // TODO continue if the graph doesn't have both cut points
                 if (!graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
@@ -2021,13 +2025,16 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                     graph.destroy_node(right);
                                     graph.swap_node_id(left, id(first_cut));
                                     trimmed_node = id(first_cut);
+                                    trimmed_length_fwd = 0;
+                                    trimmed_length_rev = offset(first_cut);
                                 } else {
                                     // remove the unused part
                                     graph.destroy_node(left);
                                     graph.swap_node_id(right, id(first_cut));
                                     trimmed_node = id(first_cut);
+                                    trimmed_length_fwd = offset(first_cut);
+                                    trimmed_length_rev = 0;
                                 }
-                                trimmed_length = offset(first_cut);
                                 target_nodes.push_back(graph.get_node(id(first_cut)));
                             } else {
                                 // erase everything before this node
@@ -2045,6 +2052,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             vector<int> positions = { (int)offset(first_cut), (int)offset(second_cut) };
                             vector<Node*> parts;
                             Node* node = graph.get_node(id(first_cut));
+                            size_t orig_len = node->sequence().size();
                             graph.divide_node(node, positions, parts);
                             // now remove the end parts
                             graph.destroy_node(parts.front());
@@ -2052,7 +2060,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             graph.swap_node_id(parts.at(1), id(first_cut));
                             target_nodes.push_back(graph.get_node(id(first_cut)));
                             trimmed_node = id(first_cut);
-                            trimmed_length = offset(first_cut);
+                            trimmed_length_fwd = offset(first_cut);
+                            trimmed_length_rev = (orig_len - offset(second_cut));
                         }
                     } else { // different nodes to trim
                         if (offset(first_cut)) {
@@ -2064,7 +2073,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             graph.swap_node_id(right, id(first_cut));
                             target_nodes.push_back(graph.get_node(id(first_cut)));
                             trimmed_node = id(first_cut);
-                            trimmed_length = offset(first_cut);
+                            trimmed_length_fwd = offset(first_cut);
+                            trimmed_length_rev = 0;
                         } else {
                             // destroy everything ahead of the node??
                             NodeSide begin = NodeSide(id(first_cut));
@@ -2142,7 +2152,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         if (mapping->position().node_id() == trimmed_node) {
                             //cerr << "should adjust " << pb2json(*mapping) << endl;
                             mapping->mutable_position()->set_offset(
-                                mapping->position().offset() + trimmed_length);
+                                mapping->position().offset() +
+                                ( mapping->position().is_reverse() ? trimmed_length_rev : trimmed_length_fwd ));
                             //cerr << "adjusted " << pb2json(*mapping) << endl;
                         }
                     }
@@ -2251,17 +2262,18 @@ bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
     return filled;
 }
 
-vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
-
-    cerr << "aligning " << pb2json(alignment) << endl;
-    auto x = mems_to_alignments(alignment, mems, additional_multimaps);
+vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps, bool mem_threading) {
 
     if (debug) cerr << "aligning " << pb2json(alignment) << endl;
     if (!gcsa || !xindex) {
         cerr << "error:[vg::Mapper] a GCSA2/xg index pair is required for MEM mapping" << endl;
         exit(1);
     }
-    
+
+    if (mem_threading) {
+        return mems_to_alignments(alignment, mems, additional_multimaps);
+    } // implict else
+
     struct StrandCounts {
         uint32_t forward;
         uint32_t reverse;

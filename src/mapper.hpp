@@ -85,7 +85,7 @@ private:
                            int stride = 0,
                            int band_width = 1000);
     // alignment based on the MEM approach
-    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
+    vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps = 0, bool mem_threading = true);
     // base algorithm for above Update the passed-in Alignment with a highest-
     // score alignment, and return all good alignments sorted by score up to
     // max_multimaps. If the read does not map, the returned vector will be
