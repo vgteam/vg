@@ -142,10 +142,18 @@ void Genotyper::run(VG& graph,
                     // We also need the edge from the last mapping to this one.
                     // Make the two sides we connected moving from the last mapping to this one.
                     NodeSide last(path.mapping(i - 1).position().node_id(), !path.mapping(i - 1).position().is_reverse());
-                    NodeSide here(node_id, path.mapping(i - 1).position().is_reverse());
+                    NodeSide here(node_id, path.mapping(i).position().is_reverse());
+                    
+                    Edge* edge = graph.get_edge(last, here);
+                    
+                    if(edge == nullptr) {
+                        cerr << "Error! Edge " << last << " to " << here 
+                            << " from path " << name_and_read.first << " is missing!" << endl;
+                        exit(1);
+                    }
                     
                     // We know the graph will have the edge
-                    supported_edges.insert(graph.get_edge(last, here));
+                    supported_edges.insert(edge);
                 }
             
             }
@@ -172,8 +180,16 @@ void Genotyper::run(VG& graph,
                     NodeSide last(last_mapping->position().node_id(), !last_mapping->position().is_reverse());
                     NodeSide here(node_id, mapping->position().is_reverse());
                     
+                    Edge* edge = graph.get_edge(last, here);
+                    
+                    if(edge == nullptr) {
+                        cerr << "Error! Edge " << last << " to " << here
+                            << " from path " << ref_path_name << " is missing!" << endl;
+                        exit(1);
+                    }
+                    
                     // We know the graph will have the edge
-                    supported_edges.insert(graph.get_edge(last, here));                    
+                    supported_edges.insert(edge);                    
                     
                 }
                 
@@ -185,7 +201,9 @@ void Genotyper::run(VG& graph,
         
         // Make the subset graph of only supported nodes and edges (which will
         // internally contain copies of all of them).
-        VG subset(supported_nodes, supported_edges);
+        VG subset;
+        subset.add_nodes(supported_nodes);
+        subset.add_edges(supported_edges);
         
         if(graph.paths.has_path(ref_path_name)) {
             // Copy over the reference path
