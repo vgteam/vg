@@ -2393,6 +2393,11 @@ ReferenceIndex::ReferenceIndex(vg::VG& vg, std::string refPathName) {
 }
 
 void Genotyper::report_site(const Site& site, const ReferenceIndex* index) {
+    if(site.contents.size() == 2) {
+        // Skip degenerate sites
+        return;
+    }
+
     // Remember that we have the site
     #pragma omp critical (all_sites)
     all_sites.insert(&site);
@@ -2418,6 +2423,11 @@ void Genotyper::report_site(const Site& site, const ReferenceIndex* index) {
 }
 
 void Genotyper::report_site_traversal(const Site& site, const string& name) {
+    if(site.contents.size() == 2) {
+        // Skip degenerate sites
+        return;
+    }
+
     // Mark this read as traversing this site
     #pragma omp critical (site_traversals)
     site_traversals[&site].insert(name);
@@ -2427,7 +2437,7 @@ void Genotyper::print_statistics(ostream& out) {
     // Dump our stats to the given ostream.
     
     out << "Statistics:" << endl;
-    out << "Number of Sites: " << all_sites.size() << endl;
+    out << "Number of Non-Degenerate Sites: " << all_sites.size() << endl;
     
     // How many sites were actually traversed by reads?
     size_t sites_traversed = 0;
