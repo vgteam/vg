@@ -146,26 +146,24 @@ vg surject -p x -b -d x.vg.index aln.gam >aln.bam
 ```
 ### Variant Calling
 
-The following example shows how to construct a VCF file from a read alignment and graph.  This has been tested on 50X short read sequencing for relatively small pilot regions.  Note: VCF export requires  [glenn2vcf](https://github.com/adamnovak/glenn2vcf) and [vt](http://varianttools.sourceforge.net/Association/HomePage)
+The following example shows how to construct a VCF file from a read alignment and graph.  This has been tested on 50X short read sequencing for relatively small pilot regions.   
 
 ```sh
 # filter secondary and ambiguous read mappings out of the gam
-vg filter graph.vg alignment.gam -r 0.90 -d 0.05 -e 0.05 -afu -s 10000 -o 10 > filtered.gam
+vg filter graph.vg alignment.gam -r 0.90 -afu -s 2 -o 0 > filtered.gam
 
 # create pileup for every graph position and edge in the graph
 vg pileup graph.vg filtered.gam -w 40 -m 10 -q 10 > graph.pileup
 
-# create "augmented graph" (original graph plus new newly called stuff)
-# and tsv file containing some annotations on this graph needed for vcf export
-vg call graph.vg graph.pileup -r 0.0001 -b 0.4 -f 0.25 -d 8 -l -c augmented.tsv -j > augmented.vg
+# create "augmented graph" (original graph plus new newly called stuff) and project to calls in vcf format
+vg call graph.vg graph.pileup > calls.vcf
 
-# export to vcf. note: -s -s -r -o parameters will have to be changed to fit your data
-glenn2vcf augmented.vg augmented.tsv -c chr13 -s NA12878 -r ref -o 32314860 > calls.vcf
-
-# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases:
-vt decompose calls.vcf | vt decompose_blocksub -a - | vt normalize -r FASTA_FILE - | uniq > calls.clean.vcf
+# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases (Note: requires [vt](http://varianttools.sourceforge.net/Association/HomePage)):
+vt decompose_blocksub -a calls.vcf | vt normalize -r FASTA_FILE - > calls.clean.vcf
 
 ```
+
+To produce a VCF file for a whole chromosome, the graph must be cut up along the reference genome and called in chunks.  `scripts/chunked_call` wraps this functionality to produce chromosome-sized VCFs in a single command line (from a GAM file and XG index)
 
 ### Command line interface
 

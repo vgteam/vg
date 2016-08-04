@@ -31,16 +31,14 @@ def parse_args(args):
     parser.add_argument("--overlap", type=int, default=2000,
                         help="amount of overlap between chunks")
     parser.add_argument("--filter_opts", type=str,
-                        default="-r 0.9 -d 0.05 -e 0.05 -afu -s 1000 -o 10",
+                        default="-r 0.9 -afu -s 2 -o 0 -q 15",
                         help="options to pass to vg filter. wrap in \"\"")
     parser.add_argument("--pileup_opts", type=str,
-                        default="-w 40 -m 10 -q 10",
+                        default="-w 40 -m 10 -q 10 -a",
                         help="options to pass to vg pileup. wrap in \"\"")
     parser.add_argument("--call_opts", type=str,
-                        default="-r 0.0001 -b 0.4 -f 0.25 -d 10",
+                        default="",
                         help="options to pass to vg call. wrap in \"\"")
-    parser.add_argument("--glenn2vcf_opts", type=str,
-                        default="--depth 10 --max_het_bias 3 --min_count 1 --min_fraction 0.2")
     parser.add_argument("--threads", type=int, default=20,
                         help="number of threads to use in vg call and vg pileup")
     parser.add_argument("--overwrite", action="store_true",
@@ -50,10 +48,10 @@ def parse_args(args):
         
     return parser.parse_args(args)
 
-def merge_glenn2vcf_opts(contig, offset, length, glenn2vcf_opts, sample_name):
-    """ combine input glenn2vcf options with generated options, by adding user offset
+def merge_call_opts(contig, offset, length, call_opts, sample_name):
+    """ combine input vg call  options with generated options, by adding user offset
     and overriding contigs, sample and sequence lenght"""
-    user_opts = glenn2vcf_opts.split()
+    user_opts = call_opts.split()
     user_offset, user_contig, user_sample, user_length  = None, None, None, None
     for i, uo in enumerate(user_opts):
         if uo in ["-o", "--offset"]:
@@ -61,7 +59,7 @@ def merge_glenn2vcf_opts(contig, offset, length, glenn2vcf_opts, sample_name):
             user_opts[i + 1] = str(user_offset + offset)
         elif uo in ["-c", "--contig"]:
             user_contig = user_opts[i + 1]
-        elif uo in ["-s", "--sample"]:
+        elif uo in ["-S", "--sample"]:
             user_sample = user_opts[i + 1]
             user_opts[i + 1] = sample_name
         elif uo in ["-l", "--length"]:
@@ -72,7 +70,7 @@ def merge_glenn2vcf_opts(contig, offset, length, glenn2vcf_opts, sample_name):
     if user_contig is None:
         opts += " -c {}".format(contig)
     if user_sample is None:
-        opts += " -s {}".format(sample_name)
+        opts += " -S {}".format(sample_name)
     if user_length is None:
         opts += " -l {}".format(length)
     return opts
@@ -209,7 +207,7 @@ def sort_vcf(vcf_path, sorted_vcf_path):
         vcf_path, sorted_vcf_path))
     
 def call_chunk(xg_path, path_name, out_dir, chunks, chunk_i, path_size, overlap,
-               pileup_opts, call_options, glenn2vcf_opts, sample_name, threads,
+               pileup_opts, call_options, sample_name, threads,
                overwrite):
     """ create VCF from a given chunk """
     # make the graph chunk
@@ -233,20 +231,15 @@ def call_chunk(xg_path, path_name, out_dir, chunks, chunk_i, path_size, overlap,
             vg_path, gam_path, threads, pileup_opts, pu_path))
 
     # do the calling.
-    tsv_path = chunk_base_name(path_name, out_dir, chunk_i, "_call.tsv")
-    ag_path = chunk_base_name(path_name, out_dir, chunk_i, "_call.vg")
-    if overwrite or not os.path.isfile(tsv_path) or not os.path.isfile(ag_path):
-        run("vg call {} {} -t {} {} -l -c {} > {}".format(
-            vg_path, pu_path, threads, call_options, tsv_path, ag_path))
-
-    # do the vcf export.
     vcf_path = chunk_base_name(path_name, out_dir, chunk_i, ".vcf")
     if overwrite or not os.path.isfile(vcf_path + ".gz"):
         offset = xg_path_node_offset(xg_path, chunk[0], chunk[1])
-        g2vcf_opts = merge_glenn2vcf_opts(chunk[0], offset, path_size,
-                                          glenn2vcf_opts, sample_name)
-        run("glenn2vcf {} {} {} > {}".format(
-            ag_path, tsv_path, g2vcf_opts, vcf_path + ".us"))
+        merged_call_opts = merge_call_opts(chunk[0], offset, path_size,
+                                           call_options, sample_name)
+        with open(vcf_path + ".call_log", "w") as vgcall_stderr:
+            run("vg call {} {} -t {} {} > {}".format(
+                vg_path, pu_path, threads, merged_call_opts, vcf_path + ".us"),
+                proc_stderr=vgcall_stderr)
         sort_vcf(vcf_path + ".us", vcf_path)
         run("rm {}".format(vcf_path + ".us"))
         run("bgzip {}".format(vcf_path))
@@ -257,10 +250,10 @@ def call_chunk(xg_path, path_name, out_dir, chunks, chunk_i, path_size, overlap,
     right_clip = 0 if chunk_i == len(chunks) - 1 else overlap / 2
     clip_path = chunk_base_name(path_name, out_dir, chunk_i, "_clip.vcf")
     if overwrite or not os.path.isfile(clip_path):
-        g2vcf_toks = g2vcf_opts.split()
+        call_toks = call_options.split()
         offset = 0
-        if "-o" in g2vcf_toks:
-            offset = int(g2vcf_toks[g2vcf_toks.index("-o") + 1])
+        if "-o" in call_toks:
+            offset = int(call_toks[call_toks.index("-o") + 1])
         run("bcftools view -r {}:{}-{} {} > {}".format(
             path_name, offset + chunk[1] + left_clip + 1,
             offset + chunk[2] - right_clip, vcf_path + ".gz", clip_path))
@@ -314,7 +307,6 @@ def main(args):
                    options.out_dir, chunks, chunk_i,
                    options.path_size, options.overlap,
                    options.pileup_opts, options.call_opts,
-                   options.glenn2vcf_opts,
                    options.sample_name, options.threads,
                    options.overwrite)
     
