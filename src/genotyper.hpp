@@ -159,17 +159,19 @@ public:
              int variant_offset = 0);
     
     /**
-     * Given an Alignment, compute a phred score for the quality of the
-     * alignment's bases overall which is supposed to be interpretable as the
-     * probability that the call of the sequence is wrong (to the degree that it
-     * would no longer support the alleles it appears to support).
+     * Given an Alignment and a Site, compute a phred score for the quality of
+     * the alignment's bases within the site overall (not counting the start and
+     * end nodes), which is supposed to be interpretable as the probability that
+     * the call of the sequence is wrong (to the degree that it would no longer
+     * support the alleles it appears to support).
      *
      * In practice we're just going to average the quality scores for all the
-     * bases.
+     * bases interior to the site (i.e. not counting the start and end nodes).
      *
-     * If the alignment doesn't have base qualities, returns 0.
+     * If the alignment doesn't have base qualities, or no qualities are
+     * available for bases internal to the site, returns a default value.
      */
-    int alignment_qual_score(const Alignment& alignment);
+    int alignment_qual_score(VG& graph, const Site& site, const Alignment& alignment);
 
     /**
      * Unfold and dagify a graph, find the superbubbles, and then convert them
@@ -212,14 +214,18 @@ public:
         const map<string, Alignment*>& reads_by_name);
     
     /**
-     * Get all the quality values in the alignment between the start and end nodes
-     * of a site. Handles alignments that enter the site from the end, and
+     * Get all the quality values in the alignment between the start and end
+     * nodes of a site. Handles alignments that enter the site from the end, and
      * alignments that never make it through the site.
      *
      * If we run out of qualities, or qualities aren't present, returns no
      * qualities.
      *
-     * If an alignment goes through the site multipe times, we get all the qualities from when it is in the site.
+     * If an alignment goes through the site multipe times, we get all the
+     * qualities from when it is in the site.
+     *
+     * Does not return qualities on the start and end nodes. May return an empty
+     * string.
      */
     string get_qualities_in_site(VG& graph, const Site& site, const Alignment& alignment);
     
@@ -257,7 +263,7 @@ public:
      *
      * Returns a natural log likelihood.
      */
-    double get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
+    double get_genotype_log_likelihood(VG& graph, const Site& site, const vector<int>& genotype, const vector<pair<Alignment*, vector<Affinity>>>& alignment_consistency);
     
     /**
      * Compute the prior probability of the given genotype.

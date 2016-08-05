@@ -595,7 +595,7 @@ string allele_to_string(VG& graph, const Path& allele) {
     return stream.str();
 }
 
-int Genotyper::alignment_qual_score(const Alignment& alignment) {
+int Genotyper::alignment_qual_score(VG& graph, const Site& site, const Alignment& alignment) {
     if(alignment.quality().empty()) {
         // Special case: qualities not given. Assume something vaguely sane so
         // we can genotype without quality.
@@ -606,20 +606,35 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
         return default_sequence_quality;
     }
     
-    double total = 0;
-    for(size_t i = 0; i < alignment.quality().size(); i++) {
+    // Go through all the qualities in the site
+    // TODO: can we do this in place?
+    string relevant_qualities = get_qualities_in_site(graph, site, alignment);
+    
+    if(relevant_qualities.empty()) {
+        // No qualities available internal to the site for this read. Must be a
+        // pure-deletion allele.
 #ifdef debug
         #pragma omp critical (cerr)
-        cerr << "Quality: " << (int)alignment.quality()[i] << endl;
+        cerr << "No internal qualities. Assuming default quality of " << default_sequence_quality << endl;
 #endif
-        total += alignment.quality()[i];
+        // TODO: look at bases on either side of the deletion.
+        return default_sequence_quality;
+    }
+    
+    double total = 0;
+    for(auto& quality : relevant_qualities) {
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "Quality: " << (int)quality << endl;
+#endif
+        total += quality;
     }
 #ifdef debug
     #pragma omp critical (cerr)
-    cerr << "Count: " << alignment.quality().size() << endl;
+    cerr << "Count: " << relevant_qualities.size() << endl;
 #endif
     // Make the total now actually be an average
-    total /= alignment.quality().size();
+    total /= relevant_qualities.size();
     return round(total);
 }
 
@@ -1349,7 +1364,7 @@ Genotyper::get_affinities_fast(VG& graph,
     return to_return;
 }
 
-double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency) {
+double Genotyper::get_genotype_log_likelihood(VG& graph, const Site& site, const vector<int>& genotype, const vector<pair<Alignment*, vector<Affinity>>>& alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
     // miscalled) * P(all reads that do support alleles from the genotype ended
@@ -1389,7 +1404,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         // For each read, work out if it supports a genotype we have or not.
         
         // Split out the alignment from its consistency flags
-        auto& read = read_and_consistency.first;
+        auto& read = *read_and_consistency.first;
         auto& consistency = read_and_consistency.second;
         
         // How many of the alleles in our genotype is it consistent with?
@@ -1419,7 +1434,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
             }
         }
         
-        auto read_qual = alignment_qual_score(read);
+        auto read_qual = alignment_qual_score(graph, site, read);
         
 #ifdef debug
         #pragma omp critical (cerr)
@@ -1525,7 +1540,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
                     // And also second, so it's ambiguous
                     ambiguous_reads++;
 #ifdef debug
-                    cerr << "Ambiguous read: " << read_and_consistency.first.sequence() << endl;
+                    cerr << "Ambiguous read: " << read_and_consistency.first->sequence() << endl;
                     for(int i = 0; i < consistency.size(); i++) {
                         cerr << "\t" << i << ": " << consistency[i].consistent << endl;
                     }
@@ -1651,7 +1666,10 @@ string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Align
             // For every edit
             auto& edit = mapping.edit(j);
         
-            if(in_site) {
+            if(in_site && mapping.position().node_id() != site.start.node->id()
+                && mapping.position().node_id() != site.end.node->id()) {
+                // We're in the site but not on the start or end nodes.
+                // TODO: qualities for a deletion/insertion?
                 for(size_t k = 0; k < edit.to_length(); k++) {
                     // Take each quality value from the edit and add it to our collection to return
                     if(quality_pos >= alignment.quality().size()) {
@@ -1699,8 +1717,8 @@ Locus Genotyper::genotype_site(VG& graph,
     cerr << "Looking between " << site.start << " and " << site.end << endl;
 #endif
 
-    // We'll fill this in with the trimmed alignments and their consistency-with-alleles flags.
-    vector<pair<Alignment, vector<Affinity>>> alignment_consistency;
+    // We'll fill this in with the alignments for this site and their consistency-with-alleles flags.
+    vector<pair<Alignment*, vector<Affinity>>> alignment_consistency;
     
     // We fill this in with totals of reads supporting alleles
     vector<int> reads_consistent_with_allele(superbubble_paths.size(), 0);
@@ -1717,16 +1735,10 @@ Locus Genotyper::genotype_site(VG& graph,
     
     for(auto& alignment_and_affinities : affinities) {
         // We need to clip down to just the important quality values        
-        Alignment trimmed = *alignment_and_affinities.first;
-        
-        // Trim down qualities to just those in the superbubble
-        auto trimmed_qualities = get_qualities_in_site(graph, site, trimmed);
-        
-        // Stick them back in the now bogus-ified Alignment object.
-        trimmed.set_quality(trimmed_qualities);
+        Alignment& alignment = *alignment_and_affinities.first;
         
         // Hide all the affinities where we can pull them later
-        debug_affinities[trimmed.name()] = alignment_and_affinities.second;
+        debug_affinities[alignment.name()] = alignment_and_affinities.second;
         
         // Affinities already know whether they are consistent with an allele. Don't second-guess them.
         // Fine even with alignment; no read we embedded should ever have non-perfect identity.
@@ -1773,8 +1785,8 @@ Locus Genotyper::genotype_site(VG& graph,
             cerr << "Warning! Read supports no alleles!" << endl;
         }
         
-        // Save the trimmed alignment and its affinities, which we use to get GLs.
-        alignment_consistency.emplace_back(std::move(trimmed), alignment_and_affinities.second);
+        // Save the alignment and its affinities, which we use to get GLs.
+        alignment_consistency.push_back(alignment_and_affinities);
         
     }
     
@@ -1791,9 +1803,9 @@ Locus Genotyper::genotype_site(VG& graph,
             for(auto& read_and_consistency : alignment_consistency) {
                 if(read_and_consistency.second.size() > i && 
                     read_and_consistency.second[i].consistent &&
-                    read_and_consistency.first.sequence().size() < 30) {
+                    read_and_consistency.first->sequence().size() < 30) {
                     // Dump all the short consistent reads
-                    cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i].affinity << endl;
+                    cerr << "\t" << read_and_consistency.first->sequence() << " " << debug_affinities[read_and_consistency.first->name()][i].affinity << endl;
                 }
             }
         }
@@ -1813,7 +1825,7 @@ Locus Genotyper::genotype_site(VG& graph,
             vector<int> genotype_vector = {allele1, allele2};
             
             // Compute the log probability of the data given the genotype
-            double log_likelihood = get_genotype_log_likelihood(genotype_vector, alignment_consistency);
+            double log_likelihood = get_genotype_log_likelihood(graph, site, genotype_vector, alignment_consistency);
             
             // Compute the prior
             double log_prior = get_genotype_log_prior(genotype_vector);
