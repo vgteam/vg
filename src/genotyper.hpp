@@ -71,7 +71,10 @@ public:
         bool is_reverse = false;
         // What's the actual score (not necessarily normalized out of 1)?
         // We'll probably put per-base alignment score here
-        double score = 0;        
+        double score = 0;    
+        
+        // What's the unnormalized log likelihood of the read given the allele?
+        double likelihood_ln = 0;    
         
         // Have a default constructor
         Affinity() = default;
@@ -141,6 +144,10 @@ public:
     
     // What sites exist, for statistical purposes?
     set<const Site*> all_sites;
+    
+    // We need to have aligners in our genotyper, for realigning around indels.
+    Aligner normal_aligner;
+    QualAdjAligner quality_aligner;
 
     // Process and write output
     void run(VG& graph,

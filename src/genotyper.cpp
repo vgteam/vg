@@ -30,6 +30,11 @@ void Genotyper::run(VG& graph,
                     int length_override,
                     int variant_offset) {
 
+    // TODO: this maybe should be in a constructor? Or the base Aligner's
+    // constructor?
+    // Set up the mapping quality on our aligner.
+    normal_aligner.init_mapping_quality(default_gc_content);
+    
     if(ref_path_name.empty()) {
         // Guess the ref path name
         if(graph.paths.size() == 1) {
@@ -1094,12 +1099,23 @@ map<Alignment*, vector<Genotyper::Affinity>>
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
 
-            // Compute the score per base
+            // Compute the score per base. TODO: is this at all comparable
+            // between quality-adjusted and non-quality-adjusted reads?
             double score_per_base = (double)aligned.score() / aligned.sequence().size();
             
             // Save the score (normed per read base) and orientation
             // We'll normalize the affinities later to enforce the max of 1.0.
             Affinity affinity(score_per_base, aligned_rev.score() > aligned_fwd.score());
+            
+            // Compute the unnormalized likelihood of the read given the allele graph.
+            if(read->sequence().size() == read->quality().size()) {
+                // Use the quality-adjusted default scoring system
+                affinity.likelihood_ln = quality_aligner.score_to_unnormalized_likelihood_ln(aligned.score());
+            } else {
+                // We will have aligned without quality adjustment, so interpret
+                // score in terms of the normal scoring parameters.
+                affinity.likelihood_ln = normal_aligner.score_to_unnormalized_likelihood_ln(aligned.score());
+            }
             
             // Get the NodeTraversals for the winning alignment through the site.
             auto read_traversal = get_traversal_of_site(graph, site, aligned.path());
