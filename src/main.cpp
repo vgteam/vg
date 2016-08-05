@@ -8440,6 +8440,9 @@ int main_view(int argc, char** argv) {
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
     }
+    
+    // We made it to the end and nothing broke.
+    return 0;
 }
 
     void help_sv(char** argv){
