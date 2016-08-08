@@ -63,9 +63,17 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
                 assert(converted_children.count(child_node));
                 to_fill.children.emplace_back(std::move(converted_children[child_node]));
                 converted_children.erase(child_node);
+                
+                // Fill in child borders with the NodeTraversals leading into the children.
+                to_fill.child_border_index[to_fill.children.back().start] = to_fill.children.size() - 1;
+                to_fill.child_border_index[to_fill.children.back().end.reverse()] = to_fill.children.size() - 1;
+                
             }
             
-            // TODO: edges and child by start/end indexes
+            
+            
+            
+            // TODO: edges
             
         } 
     });
