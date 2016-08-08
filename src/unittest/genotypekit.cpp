@@ -15,6 +15,18 @@ namespace Catch {
             return "&<null node>";
         }
     }
+    
+    // Make it so we can see edge pointers
+    std::string toString(vg::Edge* const& value) {
+        if(value != nullptr) {
+            auto sides = vg::NodeSide::pair_from_edge(value);
+            std::stringstream stream;
+            stream << "&<Edge " << sides.first << " -> " << sides.second << ">";
+            return stream.str();
+        } else {
+            return "&<null edge>";
+        }
+    }
 
     
     // And so that we can see sets of things
@@ -125,10 +137,12 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
             
             SECTION("and should contain exactly edges 1->6, 1->2, and 5->6") {
                 auto& edges = sites[0].edges;
-                REQUIRE(edges.count(graph.get_edge(NodeSide(1, true), NodeSide(6))) == 1);
-                REQUIRE(edges.count(graph.get_edge(NodeSide(1, true), NodeSide(2))) == 1);
-                REQUIRE(edges.count(graph.get_edge(NodeSide(5, true), NodeSide(6))) == 1);
-                REQUIRE(edges.size() == 3);
+                set<Edge*> correct{
+                    graph.get_edge(NodeSide(1, true), NodeSide(6)),
+                    graph.get_edge(NodeSide(1, true), NodeSide(2)),
+                    graph.get_edge(NodeSide(5, true), NodeSide(6))
+                };
+                REQUIRE(edges == correct);
             }
             
             SECTION("and should contain one child") {

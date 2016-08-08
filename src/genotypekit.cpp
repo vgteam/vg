@@ -70,10 +70,66 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
                 
             }
             
+            // Now do all the edges
             
+            for(Node* internal_node : to_fill.nodes) {
+                // Collect edges on internal nodes
+                if(internal_node == to_fill.start.node || internal_node == to_fill.end.node) {
+                    // Look only at internal nodes (not start or end of site)
+                    continue;
+                }
+                
+                // Since these aren't the start or end nodes of either this site
+                // or any child site, all the edges on them must be part of this
+                // site.
+                auto node_edges = graph.edges_of(internal_node);
+                // Dump them all in
+                to_fill.edges.insert(node_edges.begin(), node_edges.end());
+            }
+
+            for(auto& child : to_fill.children) {
+                // Now do edges between sites linked by just an edge. For each child site...
+                
+                // Get the outer side of the start traversal
+                NodeSide start_outer_side = NodeSide(child.start.node->id(), child.start.backward);
+                
+                // Get the connected sides
+                auto start_connected_sides = graph.sides_of(start_outer_side);
+                
+                for(auto& connected_side : start_connected_sides) {
+                    // Pull in all the edges between the outer side of the
+                    // contained site and everything else. They must be within
+                    // this parent site.
+                    to_fill.edges.insert(graph.get_edge(start_outer_side, connected_side));
+                }
+                
+                // Repeat for the end of the child site
+                
+                // The outer side of the end of the site is a right side if the
+                // child side doesn't end with a backwards node.
+                NodeSide end_outer_side = NodeSide(child.end.node->id(), !child.end.backward);
+                auto end_connected_sides = graph.sides_of(end_outer_side);
+                for(auto& connected_side : end_connected_sides) {
+                    to_fill.edges.insert(graph.get_edge(end_outer_side, connected_side));
+                }
+                
+            }
             
+            // Finally do edges on the inside sides of this site's start and
+            // end. Those are the only ones not yet covered.
+            NodeSide start_inner_side = NodeSide(to_fill.start.node->id(), !to_fill.start.backward);
+            for(auto& connected_side : graph.sides_of(start_inner_side)) {
+                // Wire up the inner side of the start node to all its connected sides
+                to_fill.edges.insert(graph.get_edge(start_inner_side, connected_side));
+            }
             
-            // TODO: edges
+            NodeSide end_inner_side = NodeSide(to_fill.end.node->id(), to_fill.end.backward);
+            for(auto& connected_side : graph.sides_of(end_inner_side)) {
+                // Wire up the inner side of the end node to all its connected sides
+                to_fill.edges.insert(graph.get_edge(end_inner_side, connected_side));
+            }
+            
+            // Now we're done with all the edges.
             
         } 
     });
