@@ -26,7 +26,7 @@
 #include "filter.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
-#include "vg_git_version.hpp"
+#include "version.hpp"
 #include "IntervalTree.h"
 #include "genotyper.hpp"
 #include "bubbles.hpp"
@@ -34,10 +34,7 @@
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
 
-// Make sure the version macro is a thing
-#ifndef VG_GIT_VERSION
-    #define VG_GIT_VERSION "missing"
-#endif
+
 
 using namespace std;
 using namespace google::protobuf;
@@ -8837,7 +8834,7 @@ int main_version(int argc, char** argv){
         return 1;
     }
 
-    cout << VG_GIT_VERSION << endl;
+    cout << VG_VERSION_STRING << endl;
     return 0;
 }
 
@@ -8850,7 +8847,7 @@ int main_test(int argc, char** argv){
 }
 
 void vg_help(char** argv) {
-    cerr << "vg: variation graph tool, version " << VG_GIT_VERSION << endl
+    cerr << "vg: variation graph tool, version " << VG_VERSION_STRING << endl
          << endl
          << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
