@@ -57,15 +57,15 @@ struct SiteTraversal {
 struct NestedSite {
     // Each NestedSite contains all its child sites.
     vector<NestedSite> children;
-    // And an index from start or end node pointer to the child that owns that
-    // node (as an index in the above vector).
-    map<Node*, size_t> child_border_node_index;
+    // And an index from node traversal to the child that you read into
+    // following that traversal (as an index in the above vector).
+    map<NodeTraversal, size_t> child_border_index;
     
     // It also contains pointers to the nodes in it but not in its children.
     set<Node*> nodes;
     // And to the edges in it but not in its children. Edges attaching to nodes
     // not in the node set are attaching to start or end nodes of children,
-    // which can be mapped to and from children using child_border_node_index
+    // which can be mapped to and from children using child_border_index
     // above.
     set<Edge*> edges;
     

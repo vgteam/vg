@@ -142,6 +142,13 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
                     REQUIRE(child.end.node->id() == 5);
                     REQUIRE(child.end.backward == false);
                 }
+                
+                SECTION("the child's ends should be properly registered in the parent") {
+                    REQUIRE(sites[0].child_border_index.count(child.start));
+                    REQUIRE(sites[0].child_border_index.at(child.start) == 0);
+                    REQUIRE(sites[0].child_border_index.count(child.end.reverse()));
+                    REQUIRE(sites[0].child_border_index.at(child.end.reverse()) == 0);
+                }
             }
             
         }
