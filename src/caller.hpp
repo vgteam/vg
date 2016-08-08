@@ -364,7 +364,9 @@ int call2vcf(
     size_t expCoverage,
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps);
+    bool suppress_overlaps,
+    // Should we use average support instead minimum support for our calculations?
+    bool useAverageSupport);
 }
 
 #endif

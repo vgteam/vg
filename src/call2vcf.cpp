@@ -1040,7 +1040,9 @@ int call2vcf(
     size_t expCoverage,
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
-    bool suppress_overlaps) {
+    bool suppress_overlaps,
+    // Should we use average support instead minimum support for our calculations?
+    bool useAverageSupport) {
     
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
@@ -1273,12 +1275,14 @@ int call2vcf(
             // And we want to know how much read support in total ther alt has
             // (support * node length)
             Support altReadSupportTotal = std::make_pair(0.0, 0.0);
+            Support altReadSupportMin = std::make_pair(std::numeric_limits<double>::max(),
+                                                       std::numeric_limits<double>::max());
 
             // And we keep track of the ref and alt nodes with the lowest likelihoods
             // (for insertion, we use the bypass edge for the ref likelihood)
             std::pair<vg::Node*, double> altMinLikelihood(nullptr, LOG_ZERO);
             std::pair<vg::Node*, double> refMinLikelihood(nullptr, LOG_ZERO);
-            
+
             for(int64_t i = 1; i < path.size() - 1; i++) {
                 // For all but the first and last nodes, grab their sequences in
                 // the correct orientation.
@@ -1303,11 +1307,22 @@ int call2vcf(
                 
                 // Record involvement
                 altInvolvedNodes.insert(path[i].node);
-                
+
+                Support nodeSupport;
                 if(nodeReadSupport.count(path[i].node)) {
-                    // We have read support for this node. Add it in to the total support for the alt.
-                    altReadSupportTotal += path[i].node->sequence().size() * nodeReadSupport.at(path[i].node);
+                    // We have read support for this node. 
+                    nodeSupport = nodeReadSupport.at(path[i].node);
                 }
+                vg::Edge* pathEdge = vg.get_edge(make_pair(vg::NodeSide(path[i-1].node->id(), !path[i-1].backward),
+                                                           vg::NodeSide(path[i].node->id(), path[i].backward)));
+                if (edgeReadSupport.count(pathEdge)) {
+                    // We have read support for edge into node, take minimum between it and the node.
+                    nodeSupport = min(nodeSupport, edgeReadSupport[pathEdge]);
+                }
+                
+                //Add support in to the total support for the alt.
+                altReadSupportTotal += path[i].node->sequence().size() * nodeSupport;
+                altReadSupportMin = min(altReadSupportMin, nodeSupport);
 
                 // Update minimum likelihood in the alt path
                 if(nodeLikelihood.count(path[i].node)) {
@@ -1338,6 +1353,9 @@ int call2vcf(
 
             // Holds total primary path base readings observed (read support * node length).
             Support refReadSupportTotal = std::make_pair(0.0, 0.0);
+            Support refReadSupportMin = std::make_pair(std::numeric_limits<double>::max(),
+                                                       std::numeric_limits<double>::max());
+            
             // And total bases of material we looked at on the primary path and
             // not this alt
             size_t refBases = 0;
@@ -1386,6 +1404,7 @@ int call2vcf(
                 
                 // Count the bases we see not deleted
                 refReadSupportTotal += refNode->sequence().size() * nodeReadSupport.at(refNode);
+                refReadSupportMin = min(refReadSupportMin, nodeReadSupport.at(refNode));
 
                 // Update minimum likelihood in the ref path
                 if(nodeLikelihood.count(refNode)) {
@@ -1430,6 +1449,7 @@ int call2vcf(
                     // the whole ref allele.
                     refReadSupportTotal = edgeReadSupport.count(bypass) ? edgeReadSupport.at(bypass) : std::make_pair(0.0, 0.0); 
                     refReadSupportAverage = refReadSupportTotal;
+                    refReadSupportMin = refReadSupportTotal;
 
                     // set minimum likelihood in the ref path using the edge
                     if(edgeLikelihood.count(bypass)) {
@@ -1437,7 +1457,6 @@ int call2vcf(
                         assert(refMinLikelihood.first == nullptr);
                         refMinLikelihood = make_pair(nullptr, likelihood);
                     }
-                    
                 }
             }
             // Otherwise if there's no edge or no support for that edge, the ref support should stay 0.
@@ -1507,17 +1526,26 @@ int call2vcf(
             // Say we're going to spit out the genotype for this sample.        
             variant.format.push_back("GT");
             auto& genotype = variant.samples[sampleName]["GT"];
-            
+
+            // find which bin we're in
+            int bin = referenceIntervalStart / refBinSize;
+            if (bin == binnedSupport.size()) {
+                --bin;
+            }
+            const Support& baselineSupport = binnedSupport[bin];
+
+            Support refSupport = useAverageSupport ? refReadSupportAverage : refReadSupportMin;
+            Support altSupport = useAverageSupport ? altSupport : altReadSupportMin;
             
             // We're going to make some really bad calls at low depth. We can
             // pull them out with a depth filter, but for now just elide them.
-            if(total(refReadSupportAverage + altReadSupportAverage) >= total(primaryPathAverageSupport) * minFractionForCall) {
-                if(total(refReadSupportAverage) > maxRefBias * total(altReadSupportAverage) &&
+            if(total(refSupport + altSupport) >= total(baselineSupport) * minFractionForCall) {
+                if(total(refSupport) > maxRefBias * total(altSupport) &&
                     total(refReadSupportTotal) >= minTotalSupportForCall) {
                     // Biased enough towards ref, and ref has enough total reads.
                     // Say it's hom ref
                     genotype.push_back("0/0");
-                } else if(total(altReadSupportAverage) > maxHetBias * total(refReadSupportAverage)
+                } else if(total(altSupport) > maxHetBias * total(refSupport)
                     && total(altReadSupportTotal) >= minTotalSupportForCall) {
                     // Say it's hom alt
                     genotype.push_back(std::to_string(altNumber) + "/" + std::to_string(altNumber));
@@ -1537,26 +1565,26 @@ int call2vcf(
             // TODO: use legit thresholds here.
             
             // Add depth for the variant and the samples
-            std::string depthString = std::to_string((int64_t)round(total(refReadSupportAverage + altReadSupportAverage)));
+            std::string depthString = std::to_string((int64_t)round(total(refSupport + altSupport)));
             variant.format.push_back("DP");
             variant.samples[sampleName]["DP"].push_back(depthString);
             variant.info["DP"].push_back(depthString); // We only have one sample, so variant depth = sample depth
             
             // Also allelic depths
             variant.format.push_back("AD");
-            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(refReadSupportAverage))));
-            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(altReadSupportAverage))));
+            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(refSupport))));
+            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(altSupport))));
             
             // Also strand biases
             variant.format.push_back("SB");
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refReadSupportAverage.first)));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refReadSupportAverage.second)));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altReadSupportAverage.first)));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altReadSupportAverage.second)));
+            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refSupport.first)));
+            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refSupport.second)));
+            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altSupport.first)));
+            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altSupport.second)));
 
             // And total alt allele depth
             variant.format.push_back("XAAD");
-            variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(altReadSupportAverage))));
+            variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(altSupport))));
 
             // Also allelic likelihoods (from minimum values found on their paths)
             variant.format.push_back("AL");
@@ -1565,21 +1593,16 @@ int call2vcf(
 
             // Quick quality: combine likelihood and depth, using poisson for latter
             // todo: revize which depth (cur: avg) / likelihood (cur: min) pair to use
-            int bin = referenceIntervalStart / refBinSize;
-            if (bin == binnedSupport.size()) {
-                --bin;
-            }
-            const Support& baselineSupport = binnedSupport[bin];
             double genLikelihood;
             if (genotype.back() == "0/0") {
-                genLikelihood = log10(poissonp(total(refReadSupportAverage), total(baselineSupport)));
+                genLikelihood = log10(poissonp(total(refSupport), total(baselineSupport)));
                 genLikelihood += refMinLikelihood.second;
             } else if (genotype.back() == "1/1") {
-                genLikelihood = log10(poissonp(total(altReadSupportAverage), total(baselineSupport)));
+                genLikelihood = log10(poissonp(total(altSupport), total(baselineSupport)));
                 genLikelihood += altMinLikelihood.second;
             } else {
-                genLikelihood = log10(poissonp(total(refReadSupportAverage), 0.5 * total(baselineSupport))) +
-                    log10(poissonp(total(altReadSupportAverage), 0.5 * total(baselineSupport)));
+                genLikelihood = log10(poissonp(total(refSupport), 0.5 * total(baselineSupport))) +
+                    log10(poissonp(total(altSupport), 0.5 * total(baselineSupport)));
                 genLikelihood += refMinLikelihood.second + altMinLikelihood.second;
             }
             variant.quality = -10. * log10(1. - pow(10, genLikelihood));
@@ -1705,6 +1728,8 @@ int call2vcf(
         // Guess the copy number of the deletion.
         // Holds total base copies (node length * read support) observed as not deleted.
         Support refReadSupportTotal = std::make_pair(0.0, 0.0);
+        Support refReadSupportMin = std::make_pair(std::numeric_limits<double>::max(),
+                                                   std::numeric_limits<double>::max());
         std::pair<vg::Node*, double> refMinLikelihood(NULL, LOG_ZERO);
         
         int64_t deletedNodeStart = fromBase + 1;
@@ -1721,6 +1746,7 @@ int call2vcf(
             
             // Count the read observations we see not deleted
             refReadSupportTotal += deletedNode->sequence().size() * nodeReadSupport.at(deletedNode);
+            refReadSupportMin = min(refReadSupportMin, nodeReadSupport.at(deletedNode));
 
             // Update minimum node likelihood
             double likelihood = nodeLikelihood.at(deletedNode);
@@ -1746,18 +1772,34 @@ int call2vcf(
         double altMinLikelihood = edgeLikelihood.count(deletion) ? edgeLikelihood[deletion] : LOG_ZERO;
         // No sense averaging the deletion edge read support because there are no bases.
         
-        
         // What copy number do we call for the deletion?
         int64_t copyNumberCall = 2;
-        
+
+        // Now we know fromBase is the last non-deleted base and toBase is the
+        // first non-deleted base. We'll make an alt replacing the first non-
+        // deleted base plus the deletion with just the first non-deleted base.
+        // Rename everything to the same names we were using before.
+        size_t referenceIntervalStart = fromBase;
+        size_t referenceIntervalPastEnd = toBase;
+ 
+        // find which bin we're in
+        int bin = referenceIntervalStart / refBinSize;
+        if (bin == binnedSupport.size()) {
+            --bin;
+        }
+        const Support& baselineSupport = binnedSupport[bin];
+
+        Support refSupport = useAverageSupport ? refReadSupportAverage : refReadSupportMin;
+        // altSupport comes from single edge, so will always just be altReadSupportTotal
+
         // We're going to make some really bad calls at low depth. We can
         // pull them out with a depth filter, but for now just elide them.
-        if(total(refReadSupportAverage + altReadSupportTotal) >= total(primaryPathAverageSupport) * minFractionForCall) {
-            if(total(refReadSupportAverage) > maxRefBias * total(altReadSupportTotal) &&
+        if(total(refSupport + altReadSupportTotal) >= total(baselineSupport) * minFractionForCall) {
+            if(total(refSupport) > maxRefBias * total(altReadSupportTotal) &&
                 total(refReadSupportTotal) >= minTotalSupportForCall) {
                 // Say it's hom ref
                 copyNumberCall = 0;
-            } else if(total(altReadSupportTotal) > maxHetBias * total(refReadSupportAverage) &&
+            } else if(total(altReadSupportTotal) > maxHetBias * total(refSupport) &&
                 total(altReadSupportTotal) >= minTotalSupportForCall) {
                 // Say it's hom alt
                 copyNumberCall = 2;
@@ -1782,14 +1824,7 @@ int call2vcf(
             // Actually don't call a deletion
             continue;
         }
-        
-        // Now we know fromBase is the last non-deleted base and toBase is the
-        // first non-deleted base. We'll make an alt replacing the first non-
-        // deleted base plus the deletion with just the first non-deleted base.
-        // Rename everything to the same names we were using before.
-        size_t referenceIntervalStart = fromBase;
-        size_t referenceIntervalPastEnd = toBase;
-        
+               
         // Make the variant and emit it.
         std::string refAllele = index.sequence.substr(
             referenceIntervalStart, referenceIntervalPastEnd - referenceIntervalStart);
@@ -1841,20 +1876,20 @@ int call2vcf(
         }
         
         // Add depth for the variant and the samples
-            std::string depthString = std::to_string((int64_t)round(total(refReadSupportAverage + altReadSupportTotal)));
+            std::string depthString = std::to_string((int64_t)round(total(refSupport + altReadSupportTotal)));
             variant.format.push_back("DP");
             variant.samples[sampleName]["DP"].push_back(depthString);
             variant.info["DP"].push_back(depthString); // We only have one sample, so variant depth = sample depth
             
             // Also allelic depths
             variant.format.push_back("AD");
-            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(refReadSupportAverage))));
+            variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(refSupport))));
             variant.samples[sampleName]["AD"].push_back(std::to_string((int64_t)round(total(altReadSupportTotal))));
             
             // Also strand biases
             variant.format.push_back("SB");
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refReadSupportAverage.first)));
-            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refReadSupportAverage.second)));
+            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refSupport.first)));
+            variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(refSupport.second)));
             variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altReadSupportTotal.first)));
             variant.samples[sampleName]["SB"].push_back(std::to_string((int64_t)round(altReadSupportTotal.second)));
             
@@ -1869,20 +1904,15 @@ int call2vcf(
 
             // Quick quality: combine likelihood and depth, using poisson for latter
             // todo: revize which depth (cur: avg) / likelihood (cur: min) pair to use
-            int bin = referenceIntervalStart / refBinSize;
-            if (bin == binnedSupport.size()) {
-                --bin;
-            }
-            const Support& baselineSupport = binnedSupport[bin];
             double genLikelihood;
             if (genotype.back() == "0/0") {
-                genLikelihood = log10(poissonp(total(refReadSupportAverage), total(baselineSupport)));
+                genLikelihood = log10(poissonp(total(refSupport), total(baselineSupport)));
                 genLikelihood += refMinLikelihood.second;
             } else if (genotype.back() == "1/1") {
                 genLikelihood = log10(poissonp(total(altReadSupportTotal), total(baselineSupport)));
                 genLikelihood += altMinLikelihood;
             } else {
-                genLikelihood = log10(poissonp(total(refReadSupportAverage), 0.5 * total(baselineSupport))) +
+                genLikelihood = log10(poissonp(total(refSupport), 0.5 * total(baselineSupport))) +
                     log10(poissonp(total(altReadSupportTotal), 0.5 * total(baselineSupport)));
                 genLikelihood += refMinLikelihood.second + altMinLikelihood;
             }
