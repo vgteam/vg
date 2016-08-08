@@ -5,6 +5,41 @@
 #include "catch.hpp"
 #include "genotypekit.hpp"
 
+namespace Catch {
+
+    // Make it so we can see node pointers
+    std::string toString(vg::Node* const& value) {
+        if(value != nullptr) {
+            return "&<Node " + std::to_string(value->id()) + ">";
+        } else {
+            return "&<null node>";
+        }
+    }
+
+    
+    // And so that we can see sets of things
+    template<typename Item> struct StringMaker<std::set<Item>> {
+        static std::string convert(std::set<Item> const& value) {
+            std::stringstream stream;
+            stream << "{";
+            
+            
+            for(auto i = value.begin(); i != value.end(); ++i) {
+                if(i != value.begin()) {
+                    // We need the separator
+                    stream << ", ";
+                }
+                
+                stream << toString(*i);
+            }
+            
+            stream << "}";
+            return stream.str();
+        }
+    };
+    
+}
+
 namespace vg {
 namespace unittest {
 
@@ -84,9 +119,8 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
             
             SECTION("and should contain exactly nodes 1 and 6") {
                 auto& nodes = sites[0].nodes;
-                REQUIRE(nodes.count(graph.get_node(1)) == 1);
-                REQUIRE(nodes.count(graph.get_node(6)) == 1);
-                REQUIRE(nodes.size() == 2);
+                set<Node*> correct{graph.get_node(1), graph.get_node(6)};
+                REQUIRE(nodes == correct);
             }
             
             SECTION("and should contain exactly edges 1->6, 1->2, and 5->6") {
@@ -103,9 +137,9 @@ TEST_CASE("sites can be found with Cactus", "[genotype]") {
                 auto& child = sites[0].children[0];
                 
                 SECTION("that child should be 2 fwd to 5 fwd") {
-                    REQUIRE(child.start.node->id() == 1);
+                    REQUIRE(child.start.node->id() == 2);
                     REQUIRE(child.start.backward == false);
-                    REQUIRE(child.end.node->id() == 6);
+                    REQUIRE(child.end.node->id() == 5);
                     REQUIRE(child.end.backward == false);
                 }
             }
