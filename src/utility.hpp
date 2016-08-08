@@ -195,7 +195,7 @@ struct TreeNode {
     }
     void for_each_postorder(function<void(TreeNode<T>*)> lambda) {
         for (auto c : children) {
-            c->for_each_preorder(lambda);
+            c->for_each_postorder(lambda);
         }
         lambda(this);
     }
