@@ -935,14 +935,16 @@ map<Alignment*, vector<Genotyper::Affinity>>
 
     for(auto id : site.contents) {
         // For every node in the superbubble, what paths visit it?
-        auto& mappings_by_name = graph.paths.get_node_mapping(id);
-        for(auto& name_and_mappings : mappings_by_name) {
-            // For each path visiting the node
-            if(reads_by_name.count(name_and_mappings.first)) {
-                // This path is a read, so add the name to the set if it's not
-                // there already
-                relevant_read_names.insert(name_and_mappings.first);
-            }    
+        if(graph.paths.has_node_mapping(id)) {
+            auto& mappings_by_name = graph.paths.get_node_mapping(id);
+            for(auto& name_and_mappings : mappings_by_name) {
+                // For each path visiting the node
+                if(reads_by_name.count(name_and_mappings.first)) {
+                    // This path is a read, so add the name to the set if it's not
+                    // there already
+                    relevant_read_names.insert(name_and_mappings.first);
+                }    
+            }
         }
     }
     
@@ -974,7 +976,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
     for(auto id : relevant_ids) {
         // For all the IDs in the surrounding material
         
-        if(graph.paths.get_node_mapping(id).size() < min_recurrence) {
+        if(!graph.paths.has_node_mapping(id) || graph.paths.get_node_mapping(id).size() < min_recurrence) {
             // Skip nodes in the graph that have too little support. In practice
             // this means we'll restrict ourselves to supported, known nodes.
             // TODO: somehow do the same for edges.
@@ -1277,14 +1279,16 @@ Genotyper::get_affinities_fast(VG& graph,
     
     for(auto id : site.contents) {
         // For every node in the superbubble, what paths visit it?
-        auto& mappings_by_name = graph.paths.get_node_mapping(id);
-        for(auto& name_and_mappings : mappings_by_name) {
-            // For each path visiting the node
-            if(reads_by_name.count(name_and_mappings.first)) {
-                // This path is a read, so add the name to the set if it's not
-                // there already
-                relevant_read_names.insert(name_and_mappings.first);
-            }    
+        if(graph.paths.has_node_mapping(id)) {
+            auto& mappings_by_name = graph.paths.get_node_mapping(id);
+            for(auto& name_and_mappings : mappings_by_name) {
+                // For each path visiting the node
+                if(reads_by_name.count(name_and_mappings.first)) {
+                    // This path is a read, so add the name to the set if it's not
+                    // there already
+                    relevant_read_names.insert(name_and_mappings.first);
+                }    
+            }
         }
     }
     
