@@ -28,6 +28,10 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
     // Get the bubble tree in Cactus format
     BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
 
+    // Temporary workaround for duplicate node problem in tree
+    bubble_up_bubbles(bubble_tree);
+    bubble_down_bubbles(bubble_tree);
+
     // Convert to NestedSites
     
     // We use this to hold the NestedSites that are children until their parents
