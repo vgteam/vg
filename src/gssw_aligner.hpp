@@ -10,15 +10,15 @@
 #include "Fasta.h"
 #include "path.hpp"
 
-static const int8_t default_match = 1;
-static const int8_t default_mismatch = 4;
-static const int8_t default_gap_open = 6;
-static const int8_t default_gap_extension = 1;
-static const int8_t default_max_scaled_score = 32;
-static const uint8_t default_max_qual_score = 255;
-static const double default_gc_content = 0.5;
-
 namespace vg {
+
+    static const int8_t default_match = 1;
+    static const int8_t default_mismatch = 4;
+    static const int8_t default_gap_open = 6;
+    static const int8_t default_gap_extension = 1;
+    static const int8_t default_max_scaled_score = 32;
+    static const uint8_t default_max_qual_score = 255;
+    static const double default_gc_content = 0.5;
 
     class Aligner {
     protected:
@@ -69,6 +69,10 @@ namespace vg {
         // same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                             bool fast_approximation);
+                                            
+        // Convert a score to an unnormalized log likelihood for the sequence.
+        // Requires log_base to have been set.
+        double score_to_unnormalized_likelihood_ln(double score);
         
         // members
         int8_t* nt_table;

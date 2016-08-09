@@ -26,7 +26,7 @@
 #include "filter.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
-#include "vg_git_version.hpp"
+#include "version.hpp"
 #include "IntervalTree.h"
 #include "genotyper.hpp"
 #include "bubbles.hpp"
@@ -34,10 +34,7 @@
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
 
-// Make sure the version macro is a thing
-#ifndef VG_GIT_VERSION
-    #define VG_GIT_VERSION "missing"
-#endif
+
 
 using namespace std;
 using namespace google::protobuf;
@@ -1779,6 +1776,8 @@ void help_genotype(char** argv) {
          << "    -C, --cactus            use cactus for site finding" << std::endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
+         << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
+         << "    -P, --min_per_strand    min consistent reads per strand for an allele" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1821,6 +1820,10 @@ int main_genotype(int argc, char** argv) {
     bool use_cactus = false;
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
     bool subset_graph = false;
+    // What should the heterozygous genotype prior be? (1/this)
+    double het_prior_denominator = 10.0;
+    // At least how many reads must be consistent per strand for a call?
+    size_t min_consistent_per_strand = 2;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1839,13 +1842,15 @@ int main_genotype(int argc, char** argv) {
                 {"cactus", no_argument, 0, 'C'},
                 {"subset-graph", no_argument, 0, 'S'},
                 {"realign_indels", no_argument, 0, 'i'},
+                {"het_prior_denom", required_argument, 0, 'd'},
+                {"min_per_strand", required_argument, 0, 'P'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSipt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1899,6 +1904,14 @@ int main_genotype(int argc, char** argv) {
         case 'i':
             // Do indel realignment
             realign_indels = true;
+            break;
+        case 'd':
+            // Set heterozygous genotype prior denominator
+            het_prior_denominator = std::stod(optarg);
+            break;
+        case 'P':
+            // Set min consistent reads per strand required to keep an allele
+            min_consistent_per_strand = std::stoll(optarg);
             break;
         case 'p':
             show_progress = true;
@@ -1995,6 +2008,9 @@ int main_genotype(int argc, char** argv) {
     // Configure it
     genotyper.use_mapq = use_mapq;
     genotyper.realign_indels = realign_indels;
+    assert(het_prior_denominator > 0);
+    genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
+    genotyper.min_consistent_per_strand = min_consistent_per_strand;
     // TODO: move arguments below up into configuration
     genotyper.run(*graph,
                   alignments,
@@ -8827,7 +8843,7 @@ int main_version(int argc, char** argv){
         return 1;
     }
 
-    cout << VG_GIT_VERSION << endl;
+    cout << VG_VERSION_STRING << endl;
     return 0;
 }
 
@@ -8840,7 +8856,7 @@ int main_test(int argc, char** argv){
 }
 
 void vg_help(char** argv) {
-    cerr << "vg: variation graph tool, version " << VG_GIT_VERSION << endl
+    cerr << "vg: variation graph tool, version " << VG_VERSION_STRING << endl
          << endl
          << "usage: " << argv[0] << " <command> [options]" << endl
          << endl

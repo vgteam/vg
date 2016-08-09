@@ -71,7 +71,10 @@ public:
         bool is_reverse = false;
         // What's the actual score (not necessarily normalized out of 1)?
         // We'll probably put per-base alignment score here
-        double score = 0;        
+        double score = 0;    
+        
+        // What's the unnormalized log likelihood of the read given the allele?
+        double likelihood_ln = 0;    
         
         // Have a default constructor
         Affinity() = default;
@@ -123,10 +126,28 @@ public:
     double min_score_per_base = 0.90;
     
     // What should our prior on being heterozygous at a site be?
-    double het_prior_logprob = prob_to_logprob(0.001);
+    double het_prior_logprob = prob_to_logprob(0.1);
 
     // Provides a mechanism to translate back to the original graph
     Translator translator;
+    
+    
+    // We need some data structures to track statistics about sites and their
+    // traversals. These data structures are only valid during the run method.
+    // After that the site pointers they use may be left dangling.
+    
+    // This maps from length in the reference to number of sites of that length.
+    map<size_t, size_t> site_reference_length_histogram;
+    
+    // Which reads traverse all the way through each site?
+    map<const Site*, set<string>> site_traversals;
+    
+    // What sites exist, for statistical purposes?
+    set<const Site*> all_sites;
+    
+    // We need to have aligners in our genotyper, for realigning around indels.
+    Aligner normal_aligner;
+    QualAdjAligner quality_aligner;
 
     // Process and write output
     void run(VG& graph,
@@ -145,17 +166,19 @@ public:
              int variant_offset = 0);
     
     /**
-     * Given an Alignment, compute a phred score for the quality of the
-     * alignment's bases overall which is supposed to be interpretable as the
-     * probability that the call of the sequence is wrong (to the degree that it
-     * would no longer support the alleles it appears to support).
+     * Given an Alignment and a Site, compute a phred score for the quality of
+     * the alignment's bases within the site overall (not counting the start and
+     * end nodes), which is supposed to be interpretable as the probability that
+     * the call of the sequence is wrong (to the degree that it would no longer
+     * support the alleles it appears to support).
      *
      * In practice we're just going to average the quality scores for all the
-     * bases.
+     * bases interior to the site (i.e. not counting the start and end nodes).
      *
-     * If the alignment doesn't have base qualities, returns 0.
+     * If the alignment doesn't have base qualities, or no qualities are
+     * available for bases internal to the site, returns a default value.
      */
-    int alignment_qual_score(const Alignment& alignment);
+    int alignment_qual_score(VG& graph, const Site& site, const Alignment& alignment);
 
     /**
      * Unfold and dagify a graph, find the superbubbles, and then convert them
@@ -198,14 +221,18 @@ public:
         const map<string, Alignment*>& reads_by_name);
     
     /**
-     * Get all the quality values in the alignment between the start and end nodes
-     * of a site. Handles alignments that enter the site from the end, and
+     * Get all the quality values in the alignment between the start and end
+     * nodes of a site. Handles alignments that enter the site from the end, and
      * alignments that never make it through the site.
      *
      * If we run out of qualities, or qualities aren't present, returns no
      * qualities.
      *
-     * If an alignment goes through the site multipe times, we get all the qualities from when it is in the site.
+     * If an alignment goes through the site multipe times, we get all the
+     * qualities from when it is in the site.
+     *
+     * Does not return qualities on the start and end nodes. May return an empty
+     * string.
      */
     string get_qualities_in_site(VG& graph, const Site& site, const Alignment& alignment);
     
@@ -243,7 +270,7 @@ public:
      *
      * Returns a natural log likelihood.
      */
-    double get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
+    double get_genotype_log_likelihood(VG& graph, const Site& site, const vector<int>& genotype, const vector<pair<Alignment*, vector<Affinity>>>& alignment_consistency);
     
     /**
      * Compute the prior probability of the given genotype.
@@ -277,6 +304,34 @@ public:
      * Start VCF output to a stream. Returns a VCFlib VariantCallFile that needs to be deleted.
      */
     vcflib::VariantCallFile* start_vcf(std::ostream& stream, const ReferenceIndex& index, const string& sample_name, const string& contig_name, size_t contig_size);
+    
+    /**
+     * Utility function for getting the reference bounds (start and past-end) of
+     * a site with relation to a given reference index. Computes bounds of the
+     * variable region, not including the fixed start and end node lengths. Also
+     * returns whether the reference path goes through the site forwards (false)
+     * or backwards (true).
+     */
+    pair<pair<int64_t, int64_t>, bool> get_site_reference_bounds(const Site& site, const ReferenceIndex& index);
+    
+    /**
+     * Tell the statistics tracking code that a site exists. We can do things
+     * like count up the site length in the reference and so on. Called only
+     * once per site, but may be called on multiple threads simultaneously.
+     */
+    void report_site(const Site& site, const ReferenceIndex* index = nullptr);
+    
+    /**
+     * Tell the statistics tracking code that a read traverses a site
+     * completely. May be called multiple times for a given read and site, and
+     * may be called in parallel.
+     */
+    void report_site_traversal(const Site& site, const string& read_name);
+    
+    /**
+     * Print site statistics to the given stream.
+     */
+    void print_statistics(ostream& out);
 
 };
 

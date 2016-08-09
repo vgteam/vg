@@ -75,6 +75,11 @@ BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink);
 // Note: contents wont be in any particular order after
 void bubble_up_bubbles(BubbleTree& bubble_tree);
 
+// Revert the results of bubble_up_bubbles by subtracting
+// child nodesets from parent's.  (also a temp workaround
+// to fix up tree returned by cactusbubble_tree)
+void bubble_down_bubbles(BubbleTree& bubble_tree);
+
 // Enumerate Cactus bubbles.  Interface (and output on DAGs)
 // identical to superbubbles()
 // Note: input graph will be sorted (as done for superbubbles())
