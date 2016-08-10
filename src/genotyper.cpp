@@ -976,7 +976,9 @@ map<Alignment*, vector<Genotyper::Affinity>>
     for(auto id : relevant_ids) {
         // For all the IDs in the surrounding material
         
-        if(!graph.paths.has_node_mapping(id) || graph.paths.get_node_mapping(id).size() < min_recurrence) {
+        if(min_recurrence != 0 && 
+            (!graph.paths.has_node_mapping(id) || 
+            graph.paths.get_node_mapping(id).size() < min_recurrence)) {
             // Skip nodes in the graph that have too little support. In practice
             // this means we'll restrict ourselves to supported, known nodes.
             // TODO: somehow do the same for edges.
