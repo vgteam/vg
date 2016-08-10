@@ -215,7 +215,8 @@ void help_filter(char** argv) {
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
-         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl;
+         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
+         << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -239,6 +240,7 @@ int main_filter(int argc, char** argv) {
     int context_size = 0;
     bool verbose = false;
     double min_mapq = 0.;
+    int repeat_size = 0;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -259,11 +261,12 @@ int main_filter(int argc, char** argv) {
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
+                {"repeat-ends", required_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -314,6 +317,9 @@ int main_filter(int argc, char** argv) {
         case 'v':
             verbose = true;
             break;
+        case 'E':
+            repeat_size = atoi(optarg);
+            break;            
 
         case 'h':
         case '?':
@@ -508,6 +514,8 @@ int main_filter(int argc, char** argv) {
     size_t max_pri_overhang_count = 0;
     size_t min_sec_mapq_count = 0;
     size_t min_pri_mapq_count = 0;
+    size_t repeat_sec_count = 0;
+    size_t repeat_pri_count = 0;
 
     // for deltas, we keep track of last primary
     Alignment prev;
@@ -515,6 +523,33 @@ int main_filter(int argc, char** argv) {
     bool keep_prev = true;
     double prev_score;
 
+    // quick and dirty filter to see if removing reads that can slip around
+    // and still map perfectly helps vg call.  returns true if at either
+    // end of read sequence, at least k bases are repetitive, checking repeats
+    // of up to size 2k
+    function<bool(Alignment&, int k)> has_repeat = [](Alignment& aln, int k) {
+        if (k == 0) {
+            return false;
+        }
+        const string& s = aln.sequence();
+        for (int i = 1; i <= 2 * k; ++i) {
+            int covered = 0;
+            bool ffound = true;
+            bool bfound = true;
+            for (int j = 1; (ffound || bfound) && (j + 1) * i < s.length(); ++j) {
+                ffound = ffound && s.substr(0, i) == s.substr(j * i, i);
+                bfound = bfound && s.substr(s.length() - i, i) == s.substr(s.length() - i - j * i, i);
+                if (ffound || bfound) {
+                    covered += i;
+                }
+            }
+            if (covered >= k) {
+                return true;
+            }
+        }
+        return false;
+    };
+        
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
@@ -567,16 +602,20 @@ int main_filter(int argc, char** argv) {
                 ++min_sec_count;
                 keep = false;
             }
-            if (delta < min_sec_delta) {
+            if ((keep || verbose) && delta < min_sec_delta) {
                 ++min_sec_delta_count;
                 keep = false;
             }
-            if (overhang > max_overhang) {
+            if ((keep || verbose) && overhang > max_overhang) {
                 ++max_sec_overhang_count;
                 keep = false;
             }
-            if (aln.mapping_quality() < min_mapq) {
+            if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
                 ++min_sec_mapq_count;
+                keep = false;
+            }
+            if ((keep || verbose) && has_repeat(aln, repeat_size)) {
+                ++repeat_sec_count;
                 keep = false;
             }
             if (!keep) {
@@ -619,12 +658,16 @@ int main_filter(int argc, char** argv) {
                 ++min_pri_count;
                 keep_prev = false;
             }
-            if (overhang > max_overhang) {
+            if ((keep_prev || verbose) && overhang > max_overhang) {
                 ++max_pri_overhang_count;
                 keep_prev = false;
             }
-            if (aln.mapping_quality() < min_mapq) {
+            if ((keep_prev || verbose) && aln.mapping_quality() < min_mapq) {
                 ++min_pri_mapq_count;
+                keep_prev = false;
+            }
+            if ((keep_prev || verbose) && has_repeat(aln, repeat_size)) {
+                ++repeat_pri_count;
                 keep_prev = false;
             }
             if (!keep_prev) {
@@ -659,6 +702,9 @@ int main_filter(int argc, char** argv) {
              << "Min Delta Filter (secondary):      " << min_sec_delta_count << endl
              << "Max Overhang Filter (primary):     " << max_pri_overhang_count << endl
              << "Max Overhang Filter (secondary):   " << max_sec_overhang_count << endl
+             << "Repeat Ends Filter (primary):     " << repeat_pri_count << endl
+             << "Repeat Ends Filter (secondary):   " << repeat_sec_count << endl
+
              << endl;
     }
 
