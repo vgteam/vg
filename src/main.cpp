@@ -212,7 +212,8 @@ void help_filter(char** argv) {
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
-         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl;
+         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
+         << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -236,6 +237,7 @@ int main_filter(int argc, char** argv) {
     int context_size = 0;
     bool verbose = false;
     double min_mapq = 0.;
+    int repeat_size = 0;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -256,11 +258,12 @@ int main_filter(int argc, char** argv) {
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
+                {"repeat-ends", required_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -311,6 +314,9 @@ int main_filter(int argc, char** argv) {
         case 'v':
             verbose = true;
             break;
+        case 'E':
+            repeat_size = atoi(optarg);
+            break;            
 
         case 'h':
         case '?':
@@ -505,6 +511,8 @@ int main_filter(int argc, char** argv) {
     size_t max_pri_overhang_count = 0;
     size_t min_sec_mapq_count = 0;
     size_t min_pri_mapq_count = 0;
+    size_t repeat_sec_count = 0;
+    size_t repeat_pri_count = 0;
 
     // for deltas, we keep track of last primary
     Alignment prev;
@@ -512,6 +520,33 @@ int main_filter(int argc, char** argv) {
     bool keep_prev = true;
     double prev_score;
 
+    // quick and dirty filter to see if removing reads that can slip around
+    // and still map perfectly helps vg call.  returns true if at either
+    // end of read sequence, at least k bases are repetitive, checking repeats
+    // of up to size 2k
+    function<bool(Alignment&, int k)> has_repeat = [](Alignment& aln, int k) {
+        if (k == 0) {
+            return false;
+        }
+        const string& s = aln.sequence();
+        for (int i = 1; i <= 2 * k; ++i) {
+            int covered = 0;
+            bool ffound = true;
+            bool bfound = true;
+            for (int j = 1; (ffound || bfound) && (j + 1) * i < s.length(); ++j) {
+                ffound = ffound && s.substr(0, i) == s.substr(j * i, i);
+                bfound = bfound && s.substr(s.length() - i, i) == s.substr(s.length() - i - j * i, i);
+                if (ffound || bfound) {
+                    covered += i;
+                }
+            }
+            if (covered >= k) {
+                return true;
+            }
+        }
+        return false;
+    };
+        
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
@@ -564,16 +599,20 @@ int main_filter(int argc, char** argv) {
                 ++min_sec_count;
                 keep = false;
             }
-            if (delta < min_sec_delta) {
+            if ((keep || verbose) && delta < min_sec_delta) {
                 ++min_sec_delta_count;
                 keep = false;
             }
-            if (overhang > max_overhang) {
+            if ((keep || verbose) && overhang > max_overhang) {
                 ++max_sec_overhang_count;
                 keep = false;
             }
-            if (aln.mapping_quality() < min_mapq) {
+            if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
                 ++min_sec_mapq_count;
+                keep = false;
+            }
+            if ((keep || verbose) && has_repeat(aln, repeat_size)) {
+                ++repeat_sec_count;
                 keep = false;
             }
             if (!keep) {
@@ -616,12 +655,16 @@ int main_filter(int argc, char** argv) {
                 ++min_pri_count;
                 keep_prev = false;
             }
-            if (overhang > max_overhang) {
+            if ((keep_prev || verbose) && overhang > max_overhang) {
                 ++max_pri_overhang_count;
                 keep_prev = false;
             }
-            if (aln.mapping_quality() < min_mapq) {
+            if ((keep_prev || verbose) && aln.mapping_quality() < min_mapq) {
                 ++min_pri_mapq_count;
+                keep_prev = false;
+            }
+            if ((keep_prev || verbose) && has_repeat(aln, repeat_size)) {
+                ++repeat_pri_count;
                 keep_prev = false;
             }
             if (!keep_prev) {
@@ -656,6 +699,9 @@ int main_filter(int argc, char** argv) {
              << "Min Delta Filter (secondary):      " << min_sec_delta_count << endl
              << "Max Overhang Filter (primary):     " << max_pri_overhang_count << endl
              << "Max Overhang Filter (secondary):   " << max_sec_overhang_count << endl
+             << "Repeat Ends Filter (primary):     " << repeat_pri_count << endl
+             << "Repeat Ends Filter (secondary):   " << repeat_sec_count << endl
+
              << endl;
     }
 
@@ -1433,6 +1479,7 @@ void help_call(char** argv) {
          << "    -B, --bin_size  INT        bin size used for counting coverage [1000]" << endl
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
+         << "    -u, --use_avg_support      use average instead of minimum support" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
          << "    -t, --threads N            number of threads to use" << endl;
@@ -1494,6 +1541,9 @@ int main_call(int argc, char** argv) {
     // Should we drop variants that would overlap old ones? TODO: we really need
     // a proper system for accounting for usage of graph material.
     bool suppress_overlaps = false;
+    // Should we use average support instead minimum support for our calculations?
+    bool useAverageSupport = false;
+
     bool show_progress = false;
     int thread_count = 1;
 
@@ -1526,12 +1576,13 @@ int main_call(int argc, char** argv) {
                 {"bin_size", required_argument, 0, 'B'},
                 {"avg_coverage", required_argument, 0, 'C'},
                 {"no_overlap", no_argument, 0, 'O'},
+                {"use_avg_support", no_argument, 0, 'u'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:n:B:C:Oh",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:n:B:C:Ouh",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1622,6 +1673,10 @@ int main_call(int argc, char** argv) {
         case 'O':
             // Suppress variants that overlap others
             suppress_overlaps = true;
+            break;
+        case 'u':
+            // Average (isntead of min) support
+            useAverageSupport = true;
             break;            
         case 'p':
             show_progress = true;
@@ -1736,6 +1791,7 @@ int main_call(int argc, char** argv) {
     if (show_progress) {
         cerr << "Calling variants" << endl;
     }
+
     // project the augmented graph to a reference path
     // in order to create a VCF of calls.  this
     // was once a separate tool called glenn2vcf
@@ -1754,7 +1810,8 @@ int main_call(int argc, char** argv) {
                         minTotalSupportForCall,
                         refBinSize,
                         expCoverage,
-                        suppress_overlaps);
+                        suppress_overlaps,
+                        useAverageSupport);
     
     return 0;
 }
