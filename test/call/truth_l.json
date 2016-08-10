@@ -1,151 +1,92 @@
 {
   "node": [
     {
-      "id": 16,
-      "sequence": "C"
+      "sequence": "C",
+      "id": 16
     },
     {
-      "id": 17,
-      "sequence": "TTG"
+      "sequence": "T",
+      "id": 17
     },
     {
-      "id": 18,
-      "sequence": "G"
+      "sequence": "T",
+      "id": 18
     },
     {
-      "id": 19,
-      "sequence": "A"
+      "sequence": "G",
+      "id": 19
     },
     {
-      "id": 20,
-      "sequence": "AAATTTTCTGGAGTTCTAT"
+      "sequence": "G",
+      "id": 20
     },
     {
-      "id": 1,
-      "sequence": "CAAATAAG"
+      "sequence": "A",
+      "id": 21
     },
     {
-      "id": 2,
-      "sequence": "G"
+      "sequence": "A",
+      "id": 22
     },
     {
-      "id": 3,
-      "sequence": "A"
+      "sequence": "A",
+      "id": 23
     },
     {
-      "id": 5,
-      "sequence": "T"
+      "sequence": "AT",
+      "id": 24
     },
     {
-      "id": 10,
-      "sequence": "T"
+      "sequence": "TTT",
+      "id": 25
     },
     {
-      "id": 11,
-      "sequence": "A"
+      "sequence": "CTGGAGTTCTAT",
+      "id": 26
     },
     {
-      "id": 12,
-      "sequence": "ATAT"
+      "sequence": "CAAATAAG",
+      "id": 1
     },
     {
-      "id": 13,
-      "sequence": "T"
+      "sequence": "G",
+      "id": 2
     },
     {
-      "id": 14,
-      "sequence": "A"
+      "sequence": "A",
+      "id": 3
     },
     {
-      "id": 15,
-      "sequence": "CCAACTCTCTG"
-    }
-  ],
-  "edge": [
-    {
-      "from": 16,
-      "to": 17
+      "sequence": "T",
+      "id": 5
     },
     {
-      "from": 17,
-      "to": 18
+      "sequence": "T",
+      "id": 10
     },
     {
-      "from": 17,
-      "to": 19
+      "sequence": "A",
+      "id": 11
     },
     {
-      "from": 18,
-      "to": 20
+      "sequence": "ATAT",
+      "id": 12
     },
     {
-      "from": 19,
-      "to": 20
+      "sequence": "T",
+      "id": 13
     },
     {
-      "from": 1,
-      "to": 2
+      "sequence": "A",
+      "id": 14
     },
     {
-      "from": 1,
-      "to": 3
-    },
-    {
-      "from": 2,
-      "to": 16
-    },
-    {
-      "from": 2,
-      "to": 5
-    },
-    {
-      "from": 3,
-      "to": 16
-    },
-    {
-      "from": 3,
-      "to": 5
-    },
-    {
-      "from": 5,
-      "to": 17
-    },
-    {
-      "from": 20,
-      "to": 10
-    },
-    {
-      "from": 10,
-      "to": 12
-    },
-    {
-      "from": 20,
-      "to": 11
-    },
-    {
-      "from": 11,
-      "to": 12
-    },
-    {
-      "from": 12,
-      "to": 13
-    },
-    {
-      "from": 12,
-      "to": 14
-    },
-    {
-      "from": 13,
-      "to": 15
-    },
-    {
-      "from": 14,
-      "to": 15
+      "sequence": "CCAACTCTCTG",
+      "id": 15
     }
   ],
   "path": [
     {
-      "name": "x",
       "mapping": [
         {
           "position": {
@@ -189,8 +130,8 @@
           },
           "edit": [
             {
-              "from_length": 3,
-              "to_length": 3
+              "from_length": 1,
+              "to_length": 1
             }
           ],
           "rank": 4
@@ -209,19 +150,19 @@
         },
         {
           "position": {
-            "node_id": 20
+            "node_id": 19
           },
           "edit": [
             {
-              "from_length": 19,
-              "to_length": 19
+              "from_length": 1,
+              "to_length": 1
             }
           ],
           "rank": 6
         },
         {
           "position": {
-            "node_id": 10
+            "node_id": 20
           },
           "edit": [
             {
@@ -233,19 +174,19 @@
         },
         {
           "position": {
-            "node_id": 12
+            "node_id": 22
           },
           "edit": [
             {
-              "from_length": 4,
-              "to_length": 4
+              "from_length": 1,
+              "to_length": 1
             }
           ],
           "rank": 8
         },
         {
           "position": {
-            "node_id": 13
+            "node_id": 23
           },
           "edit": [
             {
@@ -257,6 +198,78 @@
         },
         {
           "position": {
+            "node_id": 24
+          },
+          "edit": [
+            {
+              "from_length": 2,
+              "to_length": 2
+            }
+          ],
+          "rank": 10
+        },
+        {
+          "position": {
+            "node_id": 25
+          },
+          "edit": [
+            {
+              "from_length": 3,
+              "to_length": 3
+            }
+          ],
+          "rank": 11
+        },
+        {
+          "position": {
+            "node_id": 26
+          },
+          "edit": [
+            {
+              "from_length": 12,
+              "to_length": 12
+            }
+          ],
+          "rank": 12
+        },
+        {
+          "position": {
+            "node_id": 10
+          },
+          "edit": [
+            {
+              "from_length": 1,
+              "to_length": 1
+            }
+          ],
+          "rank": 13
+        },
+        {
+          "position": {
+            "node_id": 12
+          },
+          "edit": [
+            {
+              "from_length": 4,
+              "to_length": 4
+            }
+          ],
+          "rank": 14
+        },
+        {
+          "position": {
+            "node_id": 13
+          },
+          "edit": [
+            {
+              "from_length": 1,
+              "to_length": 1
+            }
+          ],
+          "rank": 15
+        },
+        {
+          "position": {
             "node_id": 15
           },
           "edit": [
@@ -265,9 +278,116 @@
               "to_length": 11
             }
           ],
-          "rank": 10
+          "rank": 16
         }
-      ]
+      ],
+      "name": "x"
+    }
+  ],
+  "edge": [
+    {
+      "from": 16,
+      "to": 17
+    },
+    {
+      "from": 17,
+      "to": 18
+    },
+    {
+      "from": 18,
+      "to": 19
+    },
+    {
+      "from": 19,
+      "to": 20
+    },
+    {
+      "from": 19,
+      "to": 21
+    },
+    {
+      "from": 20,
+      "to": 22
+    },
+    {
+      "from": 21,
+      "to": 22
+    },
+    {
+      "from": 22,
+      "to": 23
+    },
+    {
+      "from": 23,
+      "to": 24
+    },
+    {
+      "from": 24,
+      "to": 25
+    },
+    {
+      "from": 25,
+      "to": 26
+    },
+    {
+      "from": 1,
+      "to": 2
+    },
+    {
+      "from": 1,
+      "to": 3
+    },
+    {
+      "from": 2,
+      "to": 16
+    },
+    {
+      "from": 2,
+      "to": 5
+    },
+    {
+      "from": 3,
+      "to": 16
+    },
+    {
+      "from": 3,
+      "to": 5
+    },
+    {
+      "from": 5,
+      "to": 17
+    },
+    {
+      "from": 26,
+      "to": 10
+    },
+    {
+      "from": 10,
+      "to": 12
+    },
+    {
+      "from": 26,
+      "to": 11
+    },
+    {
+      "from": 11,
+      "to": 12
+    },
+    {
+      "from": 12,
+      "to": 13
+    },
+    {
+      "from": 12,
+      "to": 14
+    },
+    {
+      "from": 13,
+      "to": 15
+    },
+    {
+      "from": 14,
+      "to": 15
     }
   ]
 }
