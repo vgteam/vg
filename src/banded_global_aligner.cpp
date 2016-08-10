@@ -11,8 +11,8 @@
 //#define debug_objects
 //#define debug_graph_processing
 //#define debug_fill_matrix
-//#define debug_print_matrices
 //#define debug_traceback
+//#define debug_print_matrices
 
 using namespace vg;
 
@@ -51,13 +51,17 @@ BandedAlignmentMatrix::BandedAlignmentMatrix() : top_diag(0), bottom_diag(0), no
 
 BandedAlignmentMatrix::~BandedAlignmentMatrix() {
 #ifdef debug_objects
-    cerr << "[BandedAlignmentMatrix::~BandedAlignmentMatrix] destructing matrix for node " << node->id() << endl;;
+    if (node != nullptr) {
+        cerr << "[BandedAlignmentMatrix::~BandedAlignmentMatrix] destructing matrix for node " << node->id() << endl;
+    }
+    else {
+        cerr << "[BandedAlignmentMatrix::~BandedAlignmentMatrix] destructing null matrix" << endl;
+    }
 #endif
     free(match);
     free(insert_row);
     free(insert_col);
     free(seeds);
-    // note: BandedAlignmentMatrix doesn't own read sequence, don't free it
 }
 
 bool BandedAlignmentMatrix::is_masked() {
@@ -341,9 +345,6 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
             insert_row[idx] = max(max(match[up_idx] - gap_open, insert_row[up_idx] - gap_extend),
                                   insert_col[up_idx] - gap_open);
         }
-#ifdef debug_fill_matrix
-        cerr << "[BandedAlignmentMatrix::fill_matrix]: completed first column of insert row matrix" << endl;
-#endif
     }
     
 #ifdef debug_fill_matrix
@@ -383,7 +384,7 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table,
         }
         
         // normal iteration along row unless band height is 1
-        if (iter_start < iter_stop - 1) {
+        if (band_height != 1) {
             int64_t left_idx = (iter_start + 1) * ncols + (j - 1);
             insert_col[idx] = max(max(match[left_idx] - gap_open, insert_row[left_idx] - gap_open),
                                   insert_col[left_idx] - gap_extend);
@@ -1032,9 +1033,8 @@ void BandedAlignmentMatrix::print_band(matrix_t which_mat) {
 }
 
 BandedGlobalAlignmentGraph::BandedGlobalAlignmentGraph(string& read, Graph& g,
-                                                       int64_t band_width) {
-    // TODO: coordinate with Erik to make sure that the last and first character of the MEMs
-    // are included in the cut up sub-graph [ Ed: .... wait, is that right? ]
+                                                       int64_t band_padding,
+                                                       bool permissive_banding) {
     
 #ifdef debug_objects
     cerr << "[BandedGlobalAlignmentGraph]: mapping node ids to array indices" << endl;
@@ -1086,7 +1086,7 @@ BandedGlobalAlignmentGraph::BandedGlobalAlignmentGraph(string& read, Graph& g,
     // global alignment within the band
     vector<bool> node_masked;
     vector<pair<int64_t, int64_t>> band_ends;
-    find_banded_paths(read, node_edges_in, band_width, node_masked, band_ends);
+    find_banded_paths(read, permissive_banding, node_edges_in, node_edges_out, band_padding, node_masked, band_ends);
     
 #ifdef debug_objects
     cerr << "[BandedGlobalAlignmentGraph]: identifying shortest paths" << endl;
@@ -1133,9 +1133,6 @@ BandedGlobalAlignmentGraph::BandedGlobalAlignmentGraph(string& read, Graph& g,
             else {
                 seeds = (BandedAlignmentMatrix**) malloc(sizeof(BandedAlignmentMatrix**) * edges_in.size());
                 for (int64_t j = 0; j < edges_in.size(); j++) {
-#ifdef debug_objects
-                    cerr << "[BandedGlobalAlignmentGraph]: adding seed at index " << edges_in[j] << ", is seed masked? " << (node_masked[edges_in[j]] ? "yes" : "no") << ", where is it located? " << banded_matrices[edges_in[j]] << endl;
-#endif
                     // add sentinel for masked nodes
                     seeds[j] = node_masked[edges_in[j]] ? nullptr : banded_matrices[edges_in[j]];
                 }
@@ -1143,8 +1140,8 @@ BandedGlobalAlignmentGraph::BandedGlobalAlignmentGraph(string& read, Graph& g,
             
             banded_matrices[i] = new BandedAlignmentMatrix(read,
                                                            node,
-                                                           band_ends[i].first - node_seq_len, // shift from last to first column
-                                                           band_ends[i].second - node_seq_len,
+                                                           band_ends[i].first,
+                                                           band_ends[i].second,
                                                            seeds,
                                                            edges_in.size(),
                                                            shortest_seqs[i]);
@@ -1227,60 +1224,73 @@ void BandedGlobalAlignmentGraph::topological_sort(Graph& g, vector<vector<int64_
     }
 }
 
-// fills vectors with whether nodes are masked by the band width, and the band ends of each node
-void BandedGlobalAlignmentGraph::find_banded_paths(string& read, vector<vector<int64_t>>& node_edges_in,
-                                                   int64_t band_width, vector<bool>& node_masked,
-                                                   vector<pair<int64_t, int64_t>>& band_ends) {
-    
+void BandedGlobalAlignmentGraph::path_lengths_to_sinks(string& read, vector<vector<int64_t>>& node_edges_in,
+                                                       vector<int64_t>& shortest_path_to_sink,
+                                                       vector<int64_t>& longest_path_to_sink) {
 #ifdef debug_graph_processing
-    cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: finding longest and shortest paths to sink node" << endl;
+    cerr << "[BandedGlobalAlignmentGraph::path_lengths_to_sinks]: finding longest and shortest paths to sink node" << endl;
 #endif
     
     // find the longest path from the right side of each matrix to the end of the graph
-    vector<int64_t> longest_path_to_end = vector<int64_t>(topological_order.size());
-    vector<int64_t> shortest_path_to_end = vector<int64_t>(topological_order.size());
+    longest_path_to_sink = vector<int64_t>(topological_order.size());
+    shortest_path_to_sink = vector<int64_t>(topological_order.size());
+    
     // set initial values -- 0 default value is sufficient for longest path
-    for (int64_t& initial_path_length :  shortest_path_to_end) {
+    for (int64_t& initial_path_length :  shortest_path_to_sink) {
         initial_path_length = numeric_limits<int64_t>::max();
     }
-    
     // set base case (longest path already set to 0)
-    auto iter = topological_order.rbegin();
-    shortest_path_to_end[node_id_to_idx.at((*iter)->id())] = 0;
+    for (Node* node : sink_nodes) {
+        shortest_path_to_sink[node_id_to_idx.at(node->id())] = 0;
+    }
     
     // iterate in reverse order
-    for ( ; iter != topological_order.rend(); iter++) {
+    for (auto iter = topological_order.rbegin(); iter != topological_order.rend(); iter++) {
         Node* node = *iter;
         int64_t node_seq_len = node->sequence().length();
         int64_t node_idx = node_id_to_idx.at(node->id());
         // compute longest path through this node to right side of incoming matrices
-        int64_t longest_path_length = longest_path_to_end[node_idx] + node_seq_len;
-        int64_t shortest_path_length = shortest_path_to_end[node_idx] + node_seq_len;
+        int64_t longest_path_length = longest_path_to_sink[node_idx] + node_seq_len;
+        int64_t shortest_path_length = shortest_path_to_sink[node_idx] + node_seq_len;
         
 #ifdef debug_graph_processing
-        cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: processing node " << node->id() << " at index " << node_idx << " with distance to sink " << longest_path_to_end[node_idx] << " and sequence " << node->sequence() << " for total path length of " << longest_path_length << endl;
+        cerr << "[BandedGlobalAlignmentGraph::path_lengths_to_sinks]: processing node " << node->id() << " at index " << node_idx << " with distance to sink " << longest_path_to_sink[node_idx] << " and sequence " << node->sequence() << " for total path length of " << longest_path_length << endl;
 #endif
         
         for (int64_t node_in_idx : node_edges_in[node_idx] ) {
-            if (longest_path_to_end[node_in_idx] < longest_path_length) {
+            if (longest_path_to_sink[node_in_idx] < longest_path_length) {
                 
 #ifdef debug_graph_processing
-                cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: path through " << node->id() << " of length " << longest_path_length << " to node at index " << node_in_idx << " is longer than current longest path " << longest_path_to_end[node_in_idx] << ", updating it now" << endl;
+                cerr << "[BandedGlobalAlignmentGraph::path_lengths_to_sinks]: path through " << node->id() << " of length " << longest_path_length << " to node at index " << node_in_idx << " is longer than current longest path " << longest_path_to_sink[node_in_idx] << ", updating it now" << endl;
 #endif
                 
-                longest_path_to_end[node_in_idx] = longest_path_length;
+                longest_path_to_sink[node_in_idx] = longest_path_length;
             }
             
-            if (shortest_path_to_end[node_in_idx] > shortest_path_length) {
+            if (shortest_path_to_sink[node_in_idx] > shortest_path_length) {
                 
 #ifdef debug_graph_processing
-                cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: path through " << node->id() << " of length " << shortest_path_length << " to node at index " << node_in_idx << " is shorter than current shortest path " << shortest_path_to_end[node_in_idx] << ", updating it now" << endl;
+                cerr << "[BandedGlobalAlignmentGraph::path_lengths_to_sinks]: path through " << node->id() << " of length " << shortest_path_length << " to node at index " << node_in_idx << " is shorter than current shortest path " << shortest_path_to_sink[node_in_idx] << ", updating it now" << endl;
 #endif
                 
-                shortest_path_to_end[node_in_idx] = shortest_path_length;
+                shortest_path_to_sink[node_in_idx] = shortest_path_length;
             }
         }
     }
+}
+
+
+// fills vectors with whether nodes are masked by the band width, and the band ends of each node
+void BandedGlobalAlignmentGraph::find_banded_paths(string& read, bool permissive_banding,
+                                                   vector<vector<int64_t>>& node_edges_in,
+                                                   vector<vector<int64_t>>& node_edges_out,
+                                                   int64_t band_padding, vector<bool>& node_masked,
+                                                   vector<pair<int64_t, int64_t>>& band_ends) {
+    
+    // find the longest and shortest path from each node to any sink
+    vector<int64_t> shortest_path_to_sink;
+    vector<int64_t> longest_path_to_sink;
+    path_lengths_to_sinks(read, node_edges_in, shortest_path_to_sink, longest_path_to_sink);
     
     // keeps track of which nodes cannot reach the bottom corner within the band
     node_masked = vector<bool>(topological_order.size());
@@ -1294,71 +1304,86 @@ void BandedGlobalAlignmentGraph::find_banded_paths(string& read, vector<vector<i
         band_ends[i].second = numeric_limits<int64_t>::min();
     }
     
-    int64_t read_len = read.length();
     
-    // initial value: band ends after traversing first node
-    Node* init_node = topological_order[0];
-    int64_t init_node_idx = node_id_to_idx.at(init_node->id());
-    int64_t init_node_seq_len = init_node->sequence().length();
-    band_ends[init_node_idx].first = init_node_seq_len - band_width;
-    band_ends[init_node_idx].second = init_node_seq_len + band_width;
-    
+    if (permissive_banding) {
+        // initialize with wide enough bands that every source can hit every connected sink
+        for (Node* init_node : source_nodes) {
+            int64_t init_node_idx = node_id_to_idx.at(init_node->id());
+            int64_t init_node_seq_len = init_node->sequence().length();
+            band_ends[init_node_idx].first = min(-band_padding,
+                                                 (int64_t) read.length() - (init_node_seq_len + longest_path_to_sink[init_node_idx]) - band_padding);
+            band_ends[init_node_idx].second = max(band_padding,
+                                                  (int64_t) read.length() - (init_node_seq_len + shortest_path_to_sink[init_node_idx]) + band_padding);
 #ifdef debug_graph_processing
-    cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: initializing band path end at node " << init_node->id() << " at index " << init_node_idx << " to top " << band_ends[init_node_idx].first << ", and bottom " << band_ends[init_node_idx].second << endl;
+            cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: initializing band path end at node " << init_node->id() << " at index " << init_node_idx << " to top " << band_ends[init_node_idx].first << ", and bottom " << band_ends[init_node_idx].second << " from shortest and longest paths of length " << shortest_path_to_sink[init_node_idx] << " and " << longest_path_to_sink[init_node_idx] << " compared to read length " << read.length() << " with padding " << band_padding << endl;
 #endif
+        }
+        
+    }
+    else {
+        // initialize with band ends beginning with source nodes
+        for (Node* init_node : source_nodes) {
+            int64_t init_node_idx = node_id_to_idx.at(init_node->id());
+            int64_t init_node_seq_len = init_node->sequence().length();
+            band_ends[init_node_idx].first = -band_padding;
+            band_ends[init_node_idx].second = band_padding;
+#ifdef debug_graph_processing
+            cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: initializing band path end at node " << init_node->id() << " at index " << init_node_idx << " to top " << band_ends[init_node_idx].first << ", and bottom " << band_ends[init_node_idx].second << endl;
+#endif
+        }
+    }
+    
     
     // iterate through the rest of the nodes in topological order
-    for (int64_t i = 1; i < topological_order.size(); i++) {
+    for (int64_t i = 0; i < topological_order.size(); i++) {
         Node* node = topological_order[i];
         int64_t node_idx = node_id_to_idx.at(node->id());
         int64_t node_seq_len = node->sequence().length();
-        vector<int64_t>& edges_in = node_edges_in[node_idx];
+        vector<int64_t>& edges_out = node_edges_out[node_idx];
+        
+        int64_t extended_band_top = band_ends[node_idx].first + node_seq_len;
+        int64_t extended_band_bottom = band_ends[node_idx].second + node_seq_len;
         
 #ifdef debug_graph_processing
-        cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: extending bands to node " << node->id() << " at index " << node_idx << " with sequence " << node->sequence() << " of length " << node_seq_len << endl;
+        cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: following edges out of node " << node->id() << " at index " << node_idx << " with sequence " << node->sequence() << ", band of " << band_ends[node_idx].first << ", " << band_ends[node_idx].second << " extending to " << extended_band_top << ", " << extended_band_bottom << endl;
 #endif
-        // check if each edge in requires extending the bands
-        for (int64_t j = 0; j < edges_in.size(); j++) {
-            int64_t node_in_idx = edges_in[j];
-#ifdef debug_graph_processing
-            cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: extending from node at index " << node_in_idx << " with top " << band_ends[node_in_idx].first << ", and bottom " << band_ends[node_in_idx].second << endl;
-#endif
-            if (node_masked[node_in_idx]) {
-#ifdef debug_graph_processing
-                cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: node is masked, skipping" << endl;
-#endif
-                // node is too distant from band to connect in global alignment, skip it
-                continue;
-            }
+        // can alignments from this node reach the bottom right corner within the band?
+        if (extended_band_top + shortest_path_to_sink[node_idx] > (int64_t) read.length()
+            || extended_band_bottom + longest_path_to_sink[node_idx] < (int64_t) read.length()) {
             
-            int64_t extended_band_top = band_ends[node_in_idx].first + node_seq_len;
-            if (extended_band_top < band_ends[node_idx].first) {
-#ifdef debug_graph_processing
-                cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: extended band top of " << extended_band_top << " is above (in reverse y coordinates) current value " << band_ends[node_idx].first << ", updating now" << endl;
-#endif
-                band_ends[node_idx].first = extended_band_top;
-            }
+            node_masked[node_idx] = true;
             
-            // does extending alignments from these nodes require a wider band here?
-            int64_t extended_band_bottom = band_ends[node_in_idx].second + node_seq_len;
-            if (extended_band_bottom > band_ends[node_idx].second) {
 #ifdef debug_graph_processing
-                cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: extended band bottom of " << extended_band_bottom << " is below (in reverse y coordinates) current value " << band_ends[node_idx].second << ", updating now" << endl;
+            cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: cannot complete alignment to read of length " << read.length() << " along shortest path " << shortest_path_to_sink[node_idx] << " or longest path " << longest_path_to_sink[node_idx] << ", which reach range " << extended_band_top + shortest_path_to_sink[node_idx] << ", " << extended_band_bottom + longest_path_to_sink[node_idx] << endl;
 #endif
-                band_ends[node_idx].second = extended_band_bottom;
-            }
+            continue;
         }
         
-        // can alignments from this node reach the bottom right corner within the band?
-        if (band_ends[node_idx].first + shortest_path_to_end[node_idx] > read_len
-            || band_ends[node_idx].second + longest_path_to_end[node_idx] < read_len) {
+        // check if each edge out requires expanding the bands
+        for (int64_t j = 0; j < edges_out.size(); j++) {
+            int64_t node_out_idx = edges_out[j];
+            
 #ifdef debug_graph_processing
-            cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: widest final band interval of node " << node->id() << " at index " << node_idx << " of (" << band_ends[node_idx].first + shortest_path_to_end[node_idx] << ", " << band_ends[node_idx].second + longest_path_to_end[node_idx] << ") does not include read length " << read_len << ", masking this node" << endl;
+            cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: extending band to node at index " << node_out_idx << endl;
 #endif
-            node_masked[node_idx] = true;
+            
+            if (extended_band_top < band_ends[node_out_idx].first) {
+#ifdef debug_graph_processing
+                cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: updating top band limit from  " << band_ends[node_out_idx].first << " to " << extended_band_top << endl;
+#endif
+                band_ends[node_out_idx].first = extended_band_top;
+            }
+            
+            if (extended_band_bottom > band_ends[node_out_idx].second) {
+#ifdef debug_graph_processing
+                cerr << "[BandedGlobalAlignmentGraph::find_banded_paths]: updating bottom band limit from  " << band_ends[node_out_idx].second << " to " << extended_band_bottom << endl;
+#endif
+                band_ends[node_out_idx].second = extended_band_bottom;
+            }
         }
     }
 }
+
 
 // returns the shortest sequence from any source node to each node
 void BandedGlobalAlignmentGraph::shortest_seq_paths(vector<vector<int64_t>>& node_edges_out,
@@ -1381,13 +1406,6 @@ void BandedGlobalAlignmentGraph::shortest_seq_paths(vector<vector<int64_t>>& nod
 }
 
 void BandedGlobalAlignmentGraph::align(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend) {
-    
-#ifdef debug_fill_matrix
-    cerr << "[BandedGlobalAlignmentGraph::align] beginning align subroutine on " << banded_matrices.size() << " nodes" << endl;
-    for (int i = 0; i < banded_matrices.size(); i++) {
-        cerr << "[BandedGlobalAlignmentGraph::align] alignment node at index " << i << " is " << (banded_matrices[i]->is_masked() ? "" : "not ") << "masked" << endl;
-    }
-#endif
     
     // fill each nodes matrix in topological order
     //for (Node* node : topological_order) {
@@ -1448,10 +1466,3 @@ string BandedGlobalAlignmentGraph::traceback(int8_t* score_mat, int8_t* nt_table
     return traceback_string;
     
 }
-
-
-
-
-
-
-

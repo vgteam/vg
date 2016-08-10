@@ -73,12 +73,28 @@ namespace vg {
         // debugging functions
         void print_full_matrices();
         void print_rectangularized_bands();
+        
+        friend class BandedAlignmentBuilder;
+    };
+    
+    class BandedAlignmentBuilder {
+    private:
+        Alignment& alignment;
+        const char* read;
+        
+        matrix_t matrix_state;
+        Node* node;
+        int64_t edit_length;
+        int64_t edit_end;
+        
+    public:
+        void update_state()
     };
     
     class BandedGlobalAlignmentGraph {
     public:
         
-        BandedGlobalAlignmentGraph(string& read, Graph& g, int64_t band_width);
+        BandedGlobalAlignmentGraph(string& read, Graph& g, int64_t band_padding, bool permissive_banding = false);
         ~BandedGlobalAlignmentGraph();
         
         // perform dynamic programming through the band
@@ -97,8 +113,13 @@ namespace vg {
         // construction functions
         void graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& out_edge_list);
         void topological_sort(Graph& g, vector<vector<int64_t>>& node_edges_out, vector<Node*>& out_topological_order);
-        void find_banded_paths(string& read, vector<vector<int64_t>>& node_edges_in, int64_t band_width,
+        void path_lengths_to_sinks(string& read, vector<vector<int64_t>>& node_edges_in,
+                                   vector<int64_t>& shortest_path_to_sink, vector<int64_t>& longest_path_to_sink);
+        void find_banded_paths(string& read, bool permissive_banding, vector<vector<int64_t>>& node_edges_in,
+                               vector<vector<int64_t>>& node_edges_out, int64_t band_padding,
                                vector<bool>& node_masked, vector<pair<int64_t, int64_t>>& band_ends);
+//        void find_banded_paths_permissive(string& read, vector<vector<int64_t>>& node_edges_in,
+//                                          int64_t band_padding, vector<pair<int64_t, int64_t>>& band_ends);
         void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, vector<int64_t>& seq_lens_out);
     };
 }
