@@ -1795,10 +1795,6 @@ int main_call(int argc, char** argv) {
         cerr << "Calling variants" << endl;
     }
 
-    //debug
-    ofstream glennfile("glenn.tsv");
-    glennfile << text_file_stream.str() << endl;
-    
     // project the augmented graph to a reference path
     // in order to create a VCF of calls.  this
     // was once a separate tool called glenn2vcf
