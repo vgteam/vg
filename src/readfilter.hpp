@@ -80,6 +80,12 @@ private:
      */
     bool has_repeat(Alignment& aln, int k);
     
+    /**
+     * Trim only the end of the given alignment, leaving the start alone. Two
+     * calls of this implement trim_ambiguous_ends above.
+     */
+    bool trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k);
+    
 };
 }
 

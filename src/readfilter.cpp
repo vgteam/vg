@@ -10,6 +10,94 @@ using namespace std;
 
 bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
     assert(index != nullptr);
+
+    // Define a way to get node length, for flipping alignments
+    function<int64_t(id_t)> get_node_length = [&index](id_t node) {
+        return index->node_length(node);
+    };
+
+    // TODO: we're going to flip the alignment twice! This is a waste of time!
+    // Define some kind of oriented view or something, or just two duplicated
+    // trimming functions, so we can just trim once without flipping.
+
+    // Trim the end
+    bool end_changed = trim_ambiguous_end(index, alignment, k);
+    // Flip and trim the start
+    Alignment flipped = reverse_complement_alignment(alignment, get_node_length);
+    
+    if(trim_ambiguous_end(index, flipped, k)) {
+        // The start needed trimming
+        
+        // Flip the trimmed flipped alignment back
+        alignment = reverse_complement_alignment(flipped, get_node_length);
+        // We definitely changed something
+        return true;
+    }
+    
+    // We maybe changed something
+    return end_changed;
+    
+}
+
+bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) {
+    // What mapping in the alignment is the leftmost one starting in the last k
+    // bases? Start out with it set to the past-the-end value.
+    size_t trim_start_mapping = alignment.path().mapping_size();
+    
+    // How many real non-softclip bases have we seen reading in from the end of
+    // the read?
+    size_t real_base_count = 0;
+    // How many softclip bases have we seen in from the end of the read?
+    size_t softclip_base_count = 0;
+    for(size_t i = alignment.path().mapping_size() - 1; i != -1; i--) {
+        // Scan in from the end of the read.
+        
+        auto* mapping = alignment.mutable_path()->mutable_mapping(i);
+        
+        if(mapping->edit_size() == 0) {
+            // Fix up no-edit mappings to perfect matches.
+            // TODO: is there a utility function we should use instead?
+            
+            // The match length is the node length minus any offset.
+            size_t match_length = index->node_length(mapping->position().node_id()) - mapping->position().offset();
+            
+            // Make and add the edit
+            auto* edit = mapping->add_edit();
+            edit->set_from_length(match_length);
+            edit->set_to_length(match_length);
+            
+        }
+        
+        for(int j = mapping->edit_size() - 1; j != -1; j--) {
+            // Visit every edit in the mapping
+            auto& edit = mapping->edit(j);
+            
+            
+            if(real_base_count == 0 && edit.from_length() == 0) {
+                // This is a trailing insert. Put it as a softclip
+                softclip_base_count += edit.to_length();
+            } else {
+                // This is some other kind of thing. Record it as real bases.
+                real_base_count += edit.to_length();
+            }
+        }
+        
+        if(real_base_count <= k) {
+            // This mapping starts fewer than k non-softclipped alignment
+            // bases from the end of the read.
+            trim_start_mapping = i;
+        } else {
+            // This mapping starts more than k in from the end. So the
+            // previous one, if we had one, must be the right one.
+            break;
+        }
+    }
+    
+    if(trim_start_mapping == alignment.path().mapping_size()) {
+        // No mapping was found that starts within the last k non-softclipped
+        // bases. So there's nothing to do.
+        return false;
+    }
     
     // Look at the end of the read and find the first Mapping starting within k
     // bases of the end of the aligned region (accounting for softclips). If

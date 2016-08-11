@@ -199,6 +199,41 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         
         
     }
+    
+    SECTION("A read with no edits in its mappings is interpreted as having perfect matches") {
+        // Build the read
+        const string read_json = R"(
+        
+        {
+            "sequence": "TAGTAGAGATAAAA",
+            "quality": "QkxBQkxBMDAwMDBMT0w=",
+            "path": {
+                "mapping": [
+                    {"position": {"node_id": 4, "offset": 3}},
+                    {"position": {"node_id": 6}},
+                    {"position": {"node_id": 7}},
+                    {"position": {"node_id": 8, "is_reverse": true}}
+                ]
+            }
+        }
+        
+        )";
+        
+        // Fluff it up into a real read
+        Alignment ambiguous;
+        json2pb(ambiguous, read_json.c_str(), read_json.size());
+        
+        // It has to say it trimmed it
+        REQUIRE(filter.trim_ambiguous_ends(&index, ambiguous, 10) == true);
+        // And it has to trim it to the right thing
+        REQUIRE(ambiguous.sequence() == "AGATA");
+        REQUIRE(ambiguous.quality() == "00000");
+        REQUIRE(ambiguous.path().mapping_size() == 1);
+        REQUIRE(ambiguous.path().mapping(0).position().node_id() == 7);
+        REQUIRE(ambiguous.path().mapping(0).position().is_reverse() == false);
+        // Ignore the edits; they may get normalized or not.
+        
+    }
 
 }
 
