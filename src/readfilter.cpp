@@ -54,7 +54,7 @@ bool ReadFilter::has_repeat(Alignment& aln, int k) {
     return false;
 }
 
-int ReadFilter::filter(istream* alignment_stream) {
+int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
 
     // name helper for output
     function<string(int)> chunk_name = [this](int num) -> string {
@@ -83,20 +83,6 @@ int ReadFilter::filter(istream* alignment_stream) {
         }
     }
 
-    // If the user gave us an XG index, we probably ought to load it up.
-    // TODO: make sure if we add any other error exits from this function we
-    // remember to delete this!
-    xg::XG* xindex = nullptr;
-    if (!xg_name.empty()) {
-        // read the xg index
-        ifstream xg_stream(xg_name);
-        if(!xg_stream) {
-            cerr << "Unable to open xg index: " << xg_name << endl;
-            return 1;
-        }
-        xindex = new xg::XG(xg_stream);
-    }
-    
     if(defray_length > 0 && xindex == nullptr) {
         cerr << "xg index required for end de-fraying" << endl;
         return 1;

@@ -230,6 +230,9 @@ int main_filter(int argc, char** argv) {
     // multiple defaults all over the place.
     ReadFilter filter;
 
+    // What XG index, if any, should we load to support the other options?
+    string xg_name;
+
     int c;
     optind = 2; // force optind past command positional arguments
     while (true) {
@@ -289,7 +292,7 @@ int main_filter(int argc, char** argv) {
             filter.max_overhang = atoi(optarg);
             break;
         case 'x':
-            filter.xg_name = optarg;
+            xg_name = optarg;
             break;
         case 'R':
             filter.regions_file = optarg;
@@ -330,6 +333,21 @@ int main_filter(int argc, char** argv) {
         help_filter(argv);
         return 1;
     }
+    
+    // If the user gave us an XG index, we probably ought to load it up.
+    // TODO: make sure if we add any other error exits from this function we
+    // remember to delete this!
+    xg::XG* xindex = nullptr;
+    if (!xg_name.empty()) {
+        // read the xg index
+        ifstream xg_stream(xg_name);
+        if(!xg_stream) {
+            cerr << "Unable to open xg index: " << xg_name << endl;
+            return 1;
+        }
+        xindex = new xg::XG(xg_stream);
+    }
+    
     string alignments_file_name = argv[optind++];
     istream* alignment_stream = NULL;
     ifstream in;
@@ -339,12 +357,23 @@ int main_filter(int argc, char** argv) {
         in.open(alignments_file_name);
         if (!in) {
             cerr << "error: input file " << alignments_file_name << " not found." << endl;
-            exit(1);
+            
+            if(xindex != nullptr) {
+                delete xindex;
+            }
+            return 1;
+            
         }
         alignment_stream = &in;
     }
 
-    return filter.filter(alignment_stream);
+    auto to_return = filter.filter(alignment_stream, xindex);
+    
+    if(xindex != nullptr) {
+        delete xindex;
+    }
+    
+    return to_return;
 }
 
 void help_validate(char** argv) {

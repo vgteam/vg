@@ -40,7 +40,6 @@ public:
     
     // Extra filename things we need for chunking. TODO: refactor that somehow
     // to maybe be a different class?
-    string xg_name;
     string regions_file;
     string outbase;
     
@@ -49,9 +48,12 @@ public:
      * standard output or in the appropriate file. Returns 0 on success, exit
      * code to use on error.
      *
+     * If an XG index is required, use the specified one. If one is required and
+     * not provided, the function will complain and return nonzero.
+     *
      * TODO: Refactor to be less CLI-aware and more modular-y.
      */
-    int filter(istream* alignment_stream);
+    int filter(istream* alignment_stream, xg::XG* xindex = nullptr);
     
 private:
 
