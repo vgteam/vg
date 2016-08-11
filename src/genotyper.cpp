@@ -1159,10 +1159,11 @@ map<Alignment*, vector<Genotyper::Affinity>>
                 // If the first difference is the past-the-rend of the suffix, then it's a suffix
                 affinity.consistent = (difference.first == seq.rend());
             } else {
-                // This read doesn't touch either end. Just assume it's
-                // consistent and let scoring work it out.
+                // This read doesn't touch either end. This might happen if the
+                // site is very large. Just assume it's consistent and let
+                // scoring work it out.
                 #pragma omp critical (cerr)
-                cerr << "Warning: realigned read doesn't touch either end of its site!" << endl;
+                cerr << "Warning: realigned read " << aligned.sequence() << " doesn't touch either end of its site!" << endl;
                 affinity.consistent = true;
             }
             
