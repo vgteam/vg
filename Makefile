@@ -37,7 +37,7 @@ endif
 STATIC_FLAGS=-static -static-libstdc++ -static-libgcc
 
 # These are put into libvg.
-OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o
+OBJ:=$(OBJ_DIR)/gssw_aligner.o $(OBJ_DIR)/vg.o cpp/vg.pb.o $(OBJ_DIR)/index.o $(OBJ_DIR)/mapper.o $(OBJ_DIR)/region.o $(OBJ_DIR)/progress_bar.o $(OBJ_DIR)/vg_set.o $(OBJ_DIR)/utility.o $(OBJ_DIR)/path.o $(OBJ_DIR)/alignment.o $(OBJ_DIR)/edit.o $(OBJ_DIR)/sha1.o $(OBJ_DIR)/json2pb.o $(OBJ_DIR)/entropy.o $(OBJ_DIR)/pileup.o $(OBJ_DIR)/caller.o $(OBJ_DIR)/call2vcf.o $(OBJ_DIR)/genotyper.o $(OBJ_DIR)/genotypekit.o $(OBJ_DIR)/position.o $(OBJ_DIR)/deconstructor.o $(OBJ_DIR)/vectorizer.o $(OBJ_DIR)/sampler.o $(OBJ_DIR)/filter.o $(OBJ_DIR)/readfilter.o $(OBJ_DIR)/ssw_aligner.o $(OBJ_DIR)/bubbles.o $(OBJ_DIR)/translator.o $(OBJ_DIR)/version.o
 
 # These aren't put into libvg. But they do go into the main vg binary to power its self-test.
 UNITTEST_OBJ:=$(UNITTEST_OBJ_DIR)/driver.o $(UNITTEST_OBJ_DIR)/distributions.o $(UNITTEST_OBJ_DIR)/genotypekit.o
@@ -204,7 +204,7 @@ $(OBJ_DIR)/vg_set.o: $(SRC_DIR)/vg_set.cpp $(SRC_DIR)/vg_set.hpp $(SRC_DIR)/vg.h
 $(OBJ_DIR)/mapper.o: $(SRC_DIR)/mapper.cpp $(SRC_DIR)/mapper.hpp $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libxg.a
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
-$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(LIB_DIR)/libvcflib.a $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/librocksdb.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libxg.a $(INC_DIR)/gcsa.h $(LIB_DIR)/libhts.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/progress_bar.o $(INC_DIR)/lru_cache.h $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libpinchesandcacti.a $(LIB_DIR)/libsonlib.a $(INC_DIR)/globalDefs.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/distributions.hpp
+$(OBJ_DIR)/main.o: $(SRC_DIR)/main.cpp $(LIB_DIR)/libvcflib.a $(OBJ_DIR)/Fasta.o $(LIB_DIR)/libgssw.a $(INC_DIR)/stream.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map $(LIB_DIR)/librocksdb.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libxg.a $(INC_DIR)/gcsa.h $(LIB_DIR)/libhts.a $(INC_DIR)/sha1.hpp $(OBJ_DIR)/progress_bar.o $(INC_DIR)/lru_cache.h $(LIB_DIR)/libvcfh.a $(LIB_DIR)/libgfakluge.a $(LIB_DIR)/libsdsl.a $(LIB_DIR)/libpinchesandcacti.a $(LIB_DIR)/libsonlib.a $(INC_DIR)/globalDefs.hpp $(SRC_DIR)/bubbles.hpp $(SRC_DIR)/genotyper.hpp $(SRC_DIR)/distributions.hpp $(SRC_DIR)/readfilter.hpp
 	+. ./source_me.sh && $(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/region.o: $(SRC_DIR)/region.cpp $(SRC_DIR)/region.hpp $(LIB_DIR)/libprotobuf.a $(INC_DIR)/sparsehash/sparse_hash_map
@@ -263,6 +263,9 @@ $(OBJ_DIR)/sampler.o: $(SRC_DIR)/sampler.cpp $(SRC_DIR)/sampler.hpp $(LIB_DIR)/l
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/filter.o: $(SRC_DIR)/filter.cpp $(SRC_DIR)/filter.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h
+	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
+	
+$(OBJ_DIR)/readfilter.o: $(SRC_DIR)/readfilter.cpp $(SRC_DIR)/readfilter.hpp $(SRC_DIR)/vg.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) $(LD_LIB_FLAGS)
 
 $(OBJ_DIR)/bubbles.o: $(SRC_DIR)/bubbles.cpp $(SRC_DIR)/bubbles.hpp $(LIB_DIR)/libprotobuf.a $(LIB_DIR)/libxg.a $(CPP_DIR)/vg.pb.h $(LIB_DIR)/libpinchesandcacti.a $(LIB_DIR)/libsonlib.a
