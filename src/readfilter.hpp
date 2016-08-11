@@ -55,16 +55,6 @@ public:
      */
     int filter(istream* alignment_stream, xg::XG* xindex = nullptr);
     
-private:
-
-    /**
-     * quick and dirty filter to see if removing reads that can slip around
-     * and still map perfectly helps vg call.  returns true if at either
-     * end of read sequence, at least k bases are repetitive, checking repeats
-     * of up to size 2k
-     */
-    bool has_repeat(Alignment& aln, int k);
-    
     /**
      * Look at either end of the given alignment, up to k bases in from the end.
      * See if that tail of the alignment is mapped such that another embedding
@@ -79,7 +69,17 @@ private:
      * MUST NOT be called with a null index.
      */
     bool trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k);
+    
+private:
 
+    /**
+     * quick and dirty filter to see if removing reads that can slip around
+     * and still map perfectly helps vg call.  returns true if at either
+     * end of read sequence, at least k bases are repetitive, checking repeats
+     * of up to size 2k
+     */
+    bool has_repeat(Alignment& aln, int k);
+    
 };
 }
 
