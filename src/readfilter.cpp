@@ -10,6 +10,7 @@ using namespace std;
 
 bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
     assert(index != nullptr);
+    assert(k < alignment.sequence().size());
 
     // Define a way to get node length, for flipping alignments
     function<int64_t(id_t)> get_node_length = [&index](id_t node) {
@@ -43,6 +44,8 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // What mapping in the alignment is the leftmost one starting in the last k
     // bases? Start out with it set to the past-the-end value.
     size_t trim_start_mapping = alignment.path().mapping_size();
+    // Where in the read sequence does it start?
+    size_t trim_start_index = alignment.sequence().size();
     
     // How many real non-softclip bases have we seen reading in from the end of
     // the read?
@@ -86,6 +89,8 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             // This mapping starts fewer than k non-softclipped alignment
             // bases from the end of the read.
             trim_start_mapping = i;
+            // Remember where in the string it actually starts.
+            trim_start_index = alignment.sequence().size() - real_base_count - softclip_base_count;
         } else {
             // This mapping starts more than k in from the end. So the
             // previous one, if we had one, must be the right one.
@@ -99,6 +104,55 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         return false;
     }
     
+    if(trim_start_mapping == 0) {
+        // The very first mapping starts within the last k non-softclipped
+        // bases. There's no previous unambiguous place we can go to anchor, so
+        // we can't do the fancy search.
+        return false;
+    }
+    
+    if(real_base_count == 0) {
+        // We have an anchoring mapping, but all the mappings we could trim are
+        // softclips, so it's just an empty mapping. Don't do anything about it.
+        return false;
+    }
+    
+    // Which is the last assumed-non-ambiguous mapping from which we can anchor
+    // our search?
+    size_t root_mapping = trim_start_mapping - 1;
+    
+    // What's the sequence after that node that we are looking for? We need the
+    // sequence for the mappings from the leftmost we might drop rightwards
+    // until we get into softclips.
+    string target_sequence = alignment.sequence().substr(trim_start_index,
+        alignment.sequence().size() - trim_start_index - softclip_base_count);
+        
+    cerr << "Need to look for " << target_sequence << " right of mapping " << root_mapping << endl;
+    
+    // We're not going to recurse hundreds of nodes deep, so we can use the real
+    // stack and a real recursive function.
+    
+    // Do the DFS into the given node, after already having matched the given
+    // number of bases of the target sequence. See if you can match any more
+    // bases of the target sequence.
+    
+    // Return the total number of leaves in all subtrees that match the full
+    // target sequence, and the shortest nonzero length of target sequence
+    // matched within multiple subtrees under the specified node.
+    auto do_dfs = [&](id_t node_id, bool is_reverse, size_t matched) -> pair<size_t, size_t> {
+        // TODO: implement!
+        return make_pair(0, 0);
+    };
+    
+    // TODO: call do_dfs(node, orientation, 0) on all the nodes right from the
+    // root node. Do one final round of aggregation, and then we will know how
+    // much of the target sequence we are allowed to keep and how much we need
+    // to lose.
+    
+    
+    
+    // OVERALL STRATEGY
+    
     // Look at the end of the read and find the first Mapping starting within k
     // bases of the end of the aligned region (accounting for softclips). If
     // there's none, it's not ambiguous.
@@ -107,11 +161,18 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     
     // Go one Mapping left of that mapping. If you can't, it's not ambiguous.
     
-    // Do a depth-first search right from there, and count the number of times
-    // you reach an end node and see the sequence you are looking for.
+    // Do a depth-first search right from there. Every time you finish a
+    // subtree, if more than one of the children of the subtree root contain
+    // ways to spell out the end sequence, then you will need to clip back to
+    // that subtree root or higher, so record the depth in bases to the end of
+    // the subtree root.
     
-    // If that number is 2 or more, clip off any softclip and then trim back to
-    // the root mapping you started your search from.
+    // Eventually all such subtrees will have an intersection with the subtree
+    // that the actually aligned path lives in, so you will be able to guagantee
+    // that the winning highest node is somewhere on the path actually taken.
+    
+    // Clip off any softclip and then trim back to that winning node rooting the
+    // highest ambiguous subtree.
     
     // Repeat for the alignment in the other orientation (probably using a flip-
     // around function). (TODO: avoid flipping around all alignments in place?)
