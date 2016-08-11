@@ -9087,7 +9087,9 @@ int main(int argc, char *argv[])
         return main_homogenize(argc, argv);
     }
     
-    else {
+    } else if (command == "test") {
+        return main_test(argc, argv);
+    } else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);
         return 1;
