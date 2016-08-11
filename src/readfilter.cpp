@@ -8,6 +8,29 @@ namespace vg {
 
 using namespace std;
 
+bool ReadFilter::has_repeat(Alignment& aln, int k) {
+    if (k == 0) {
+        return false;
+    }
+    const string& s = aln.sequence();
+    for (int i = 1; i <= 2 * k; ++i) {
+        int covered = 0;
+        bool ffound = true;
+        bool bfound = true;
+        for (int j = 1; (ffound || bfound) && (j + 1) * i < s.length(); ++j) {
+            ffound = ffound && s.substr(0, i) == s.substr(j * i, i);
+            bfound = bfound && s.substr(s.length() - i, i) == s.substr(s.length() - i - j * i, i);
+            if (ffound || bfound) {
+                covered += i;
+            }
+        }
+        if (covered >= k) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int ReadFilter::filter(istream* alignment_stream) {
 
     // name helper for output
@@ -185,28 +208,7 @@ int ReadFilter::filter(istream* alignment_stream) {
     // and still map perfectly helps vg call.  returns true if at either
     // end of read sequence, at least k bases are repetitive, checking repeats
     // of up to size 2k
-    function<bool(Alignment&, int k)> has_repeat = [](Alignment& aln, int k) {
-        if (k == 0) {
-            return false;
-        }
-        const string& s = aln.sequence();
-        for (int i = 1; i <= 2 * k; ++i) {
-            int covered = 0;
-            bool ffound = true;
-            bool bfound = true;
-            for (int j = 1; (ffound || bfound) && (j + 1) * i < s.length(); ++j) {
-                ffound = ffound && s.substr(0, i) == s.substr(j * i, i);
-                bfound = bfound && s.substr(s.length() - i, i) == s.substr(s.length() - i - j * i, i);
-                if (ffound || bfound) {
-                    covered += i;
-                }
-            }
-            if (covered >= k) {
-                return true;
-            }
-        }
-        return false;
-    };
+    
         
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream

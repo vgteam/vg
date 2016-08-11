@@ -49,6 +49,16 @@ public:
      * TODO: Refactor to be less CLI-aware and more modular-y.
      */
     int filter(istream* alignment_stream);
+    
+private:
+
+    /**
+     * quick and dirty filter to see if removing reads that can slip around
+     * and still map perfectly helps vg call.  returns true if at either
+     * end of read sequence, at least k bases are repetitive, checking repeats
+     * of up to size 2k
+     */
+    bool has_repeat(Alignment& aln, int k);
 
 };
 }
