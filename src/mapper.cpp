@@ -1997,7 +1997,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                               xindex->min_approx_path_distance({}, id1, id2))));
 
                 VG graph;
-                xindex->get_id_range(id1, id2, graph.graph);
+                //xindex->get_id_range(id1, id2, graph.graph);
+                xindex->get_id_range(id1, id1, graph.graph);
                 xindex->expand_context(graph.graph,
                                        min_distance,
                                        false, // don't use steps (use length)
