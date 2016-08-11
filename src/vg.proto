@@ -17,10 +17,12 @@ message Graph {
 // *Nodes* store sequence data and also links to other nodes.
 // The graph is doubly-linked via IDs in prev/next fields in the Node objects.
 //
+// PROPOSED ADDITION: optional string annotation = 4; // Allows a way to store annotations (such as those from VCF)
 message Node {
     string sequence = 1;   // sequence
     string name = 2;  // a name provides an identifier
     int64 id = 3;     // ids are critical, and unique within a graph
+    string annotation = 4;
 }
 
 // *Edges* describe linkages between nodes. They are directed: from=prev, to=next.
@@ -31,6 +33,7 @@ message Edge {
     bool from_start = 3; // if the edge leaves from the 5' (start) of a node
     bool to_end = 4; // if the edge goes to the 3' (end) of a node
     int32 overlap = 5; // length of overlap
+    string annotation = 6;
 }
 
 // *Edits* describe how to generate a new string from elements
@@ -146,8 +149,9 @@ message NodePileup {
 // Keep pileup-like record for reads that span edges
 message EdgePileup {
     Edge edge = 1;
- 	int32 num_reads = 2;
-	bytes qualities = 3;
+ 	 int32 num_reads = 2;	// total reads mapped
+	 int32 num_forward_reads = 3; // number of reads mapped on forward strand
+	 bytes qualities = 4;
 }
 
 // Bundle up Node and Edge pileups
@@ -178,9 +182,9 @@ message Genotype {
     repeated int32 allele = 1;
     bool is_phased = 2;
     double likelihood = 3;
-    double log_likelihood = 4; // Likelihood logged base 2
-    double log_prior = 5; // Prior logged base 2
-    double log_posterior = 6; // Posterior logged base 2 (unnormalized)
+    double log_likelihood = 4; // Likelihood natural logged
+    double log_prior = 5; // Prior natural logged
+    double log_posterior = 6; // Posterior natural logged (unnormalized)
 }
 
 // Aggregates information about the reads supporting an allele

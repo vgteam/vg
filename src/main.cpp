@@ -31,6 +31,8 @@
 #include "genotyper.hpp"
 #include "bubbles.hpp"
 #include "translator.hpp"
+#include "distributions.hpp"
+#include "unittest/driver.hpp"
 
 // Make sure the version macro is a thing
 #ifndef VG_GIT_VERSION
@@ -212,9 +214,8 @@ void help_filter(char** argv) {
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
-         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl;
-         
-         
+         << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
+         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -237,6 +238,7 @@ int main_filter(int argc, char** argv) {
     string outbase;
     int context_size = 0;
     bool verbose = false;
+    double min_mapq = 0.;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -256,11 +258,12 @@ int main_filter(int argc, char** argv) {
                 {"output-basename",  required_argument, 0, 'B'},
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
+                {"min-mapq", required_argument, 0, 'q'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:v",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -305,6 +308,9 @@ int main_filter(int argc, char** argv) {
         case 'c':
             context_size = atoi(optarg);
             break;
+        case 'q':
+            min_mapq = atof(optarg);
+            break;
         case 'v':
             verbose = true;
             break;
@@ -320,7 +326,7 @@ int main_filter(int argc, char** argv) {
             abort ();
         }
     }
-    
+
     // name helper for output
     function<string(int)> chunk_name = [&outbase](int num) -> string {
         stringstream ss;
@@ -500,6 +506,8 @@ int main_filter(int argc, char** argv) {
     size_t min_pri_delta_count = 0;
     size_t max_sec_overhang_count = 0;
     size_t max_pri_overhang_count = 0;
+    size_t min_sec_mapq_count = 0;
+    size_t min_pri_mapq_count = 0;
 
     // for deltas, we keep track of last primary
     Alignment prev;
@@ -567,6 +575,10 @@ int main_filter(int argc, char** argv) {
                 ++max_sec_overhang_count;
                 keep = false;
             }
+            if (aln.mapping_quality() < min_mapq) {
+                ++min_sec_mapq_count;
+                keep = false;
+            }
             if (!keep) {
                 ++sec_filtered_count;
             }
@@ -611,6 +623,10 @@ int main_filter(int argc, char** argv) {
                 ++max_pri_overhang_count;
                 keep_prev = false;
             }
+            if (aln.mapping_quality() < min_mapq) {
+                ++min_pri_mapq_count;
+                keep_prev = false;
+            }
             if (!keep_prev) {
                 ++pri_filtered_count;
             }
@@ -629,7 +645,7 @@ int main_filter(int argc, char** argv) {
             flush_buffer();
         }
     }
-    
+
     if (verbose) {
         size_t tot_reads = pri_read_count + sec_read_count;
         size_t tot_filtered = pri_filtered_count + sec_filtered_count;
@@ -1013,6 +1029,7 @@ void help_vectorize(char** argv){
          << "  -A --annotate      Create a header with each node/edge's name and a column with alignment names." << endl
          << "  -a --a-hot         Instead of a 1-hot, output a vector of {0|1|2} for covered, reference, or alt." << endl
          << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
+         << "  -M --wabbit-mapping <FILE> output the mappings used for vowpal wabbit classes (default: print to stderr)" << endl
          << "  -m --mem-sketch    Generate a MEM sketch of a given read based on the GCSA" << endl
          << "  -p --mem-positions Add the positions to the MEM sketch of a given read based on the GCSA" << endl
          << "  -H --mem-hit-max N Ignore MEMs with this many hits when extracting poisitions" << endl
@@ -1023,8 +1040,10 @@ void help_vectorize(char** argv){
 int main_vectorize(int argc, char** argv){
 
     string xg_name;
+    string read_file = "";
     string aln_label = "";
     string gcsa_name;
+    string wabbit_mapping_file = "";
     bool format = false;
     bool show_header = false;
     bool map_alns = false;
@@ -1054,16 +1073,18 @@ int main_vectorize(int argc, char** argv){
             {"format", no_argument, 0, 'f'},
             {"a-hot", no_argument, 0, 'a'},
             {"wabbit", no_argument, 0, 'w'},
+            {"wabbit-mapping", required_argument, 0, 'M'},
             {"mem-sketch", no_argument, 0, 'm'},
             {"mem-positions", no_argument, 0, 'p'},
             {"mem-hit-max", required_argument, 0, 'H'},
             {"identity-hot", no_argument, 0, 'i'},
             {"aln-label", required_argument, 0, 'l'},
+            {"reads", required_argument, 0, 'r'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "Aaihwfmpx:g:l:H:",
+        c = getopt_long (argc, argv, "AaihwM:fmpx:g:l:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -1072,6 +1093,42 @@ int main_vectorize(int argc, char** argv){
 
         switch (c)
         {
+
+ /*           case '?':
+            case 'h':
+                help_vectorize(argv);
+                return 1;
+            case 'x':
+                xg_name = optarg;
+                break;
+            case 'a':
+                a_hot = true;
+                break;
+            case 'w':
+                output_wabbit = true;
+                break; */
+            case 'l':
+                aln_label = optarg;
+                break;
+            case 'r':
+                read_file = optarg;
+                break;
+                /*
+
+            case 'i':
+                use_identity_hot = true;
+                break;
+            case 'f':
+                format = true;
+                break;
+            case 'A':
+                annotate = true;
+                format = true;
+                break;
+            default:
+                abort();
+*/
+
         case '?':
         case 'h':
             help_vectorize(argv);
@@ -1107,6 +1164,9 @@ int main_vectorize(int argc, char** argv){
             annotate = true;
             format = true;
             break;
+        case 'M':
+            wabbit_mapping_file = optarg;
+            break;
         default:
             abort();
         }
@@ -1121,6 +1181,9 @@ int main_vectorize(int argc, char** argv){
         cerr << "No XG index given. An XG index must be provided." << endl;
         exit(1);
     }
+
+    // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
     gcsa::GCSA gcsa_index;
     gcsa::LCPArray lcp_index;
@@ -1140,13 +1203,13 @@ int main_vectorize(int argc, char** argv){
             return 1;
         } else {
             mapper.gcsa = &gcsa_index;
-            mapper.lcp = &lcp_index;            
+            mapper.lcp = &lcp_index;
         }
         if (mem_hit_max) {
             mapper.hit_max = mem_hit_max;
         }
     }
- 
+
     Vectorizer vz(xg_index);
     string alignment_file = argv[optind];
 
@@ -1176,7 +1239,7 @@ int main_vectorize(int argc, char** argv){
             else {
                 cout << vz.format(v) << endl;
             }
-        
+
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
@@ -1207,7 +1270,9 @@ int main_vectorize(int argc, char** argv){
             cout << endl;
         } else {
             bit_vector v = vz.alignment_to_onehot(a);
-            if (format) {
+            if (output_wabbit){
+                cout << vz.wabbitize(aln_label == "" ? a.name() : aln_label, v) << endl;
+            } else if (format) {
                 cout << a.name() << "\t" << vz.format(v) << endl;
             } else{
                 cout << v << endl;
@@ -1222,6 +1287,24 @@ int main_vectorize(int argc, char** argv){
         in.open(alignment_file);
         if (in.good()){
             stream::for_each(in, lambda);
+        }
+    }
+    
+    string mapping_str = vz.output_wabbit_map();
+    if (output_wabbit){
+        if (!wabbit_mapping_file.empty()){
+            ofstream ofi;
+            ofi.open(wabbit_mapping_file);
+            if (!ofi.good()){
+                cerr << "Error with outputting wabbit mapping file. Make sure the filename is a valid string" << endl;
+                return 1;
+            }
+            ofi << mapping_str;
+            ofi.close();
+        }
+        else{
+        
+            cerr << mapping_str;
         }
     }
 
@@ -1372,7 +1455,7 @@ void help_call(char** argv) {
          << "    -b, --max_strand_bias N limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. (default=" << Caller::Default_max_strand_bias << ")" << endl
          << "    -l, --leave_uncalled    leave un-called graph regions in output, producing augmented graph" << endl
          << "    -c, --calls TSV         write extra call information in TSV (must use with -l)" << endl
-         << "    -a, --link-alts         add all possible edges between adjacent alts" << endl       
+         << "    -a, --link-alts         add all possible edges between adjacent alts" << endl
          << "    -j, --json              output in JSON" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
@@ -1468,7 +1551,7 @@ int main_call(int argc, char** argv) {
             break;
         case 'a':
             bridge_alts = true;
-            break;            
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -1601,7 +1684,10 @@ void help_genotype(char** argv) {
          << "    -o, --offset INT        offset variant positions by this amount" << std::endl
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
+         << "    -q, --use_mapq          use mapping qualities" << std::endl
          << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
+         << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1632,11 +1718,18 @@ int main_genotype(int argc, char** argv) {
     // What length override should we use
     int64_t length_override = 0;
     
+    // Should we use mapping qualities?
+    bool use_mapq = false;
+    // Should we do indel realignment?
+    bool realign_indels = false;
+    
     // Should we dump the augmented graph to a file?
     string augmented_file_name;
     
     // Should we do superbubbles/sites with Cactus (true) or supbub (false)
     bool use_cactus = false;
+    // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
+    bool subset_graph = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1651,14 +1744,17 @@ int main_genotype(int argc, char** argv) {
                 {"offset", required_argument, 0, 'o'},
                 {"length", required_argument, 0, 'l'},
                 {"augmented", required_argument, 0, 'a'},
+                {"use_mapq", no_argument, 0, 'q'},
                 {"cactus", no_argument, 0, 'C'},
+                {"subset-graph", no_argument, 0, 'S'},
+                {"realign_indels", no_argument, 0, 'i'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:Cpt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSipt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1697,9 +1793,21 @@ int main_genotype(int argc, char** argv) {
             // Dump augmented graph
             augmented_file_name = optarg;
             break;
+        case 'q':
+            // Use mapping qualities
+            use_mapq = true;
+            break;
         case 'C':
             // Use Cactus to find sites
             use_cactus = true;
+            break;
+        case 'S':
+            // Find sites on the graph subset with any read support
+            subset_graph = true;
+            break;
+        case 'i':
+            // Do indel realignment
+            realign_indels = true;
             break;
         case 'p':
             show_progress = true;
@@ -1793,6 +1901,10 @@ int main_genotype(int argc, char** argv) {
     
     // Make a Genotyper to do the genotyping
     Genotyper genotyper;
+    // Configure it
+    genotyper.use_mapq = use_mapq;
+    genotyper.realign_indels = realign_indels;
+    // TODO: move arguments below up into configuration
     genotyper.run(*graph,
                   alignments,
                   cout,
@@ -1801,11 +1913,14 @@ int main_genotype(int argc, char** argv) {
                   sample_name,
                   augmented_file_name,
                   use_cactus,
+                  subset_graph,
                   show_progress,
                   output_vcf,
                   output_json,
                   length_override,
                   variant_offset);
+                  
+    delete graph;
 
     return 0;
 }
@@ -1820,6 +1935,7 @@ void help_pileup(char** argv) {
          << "    -m, --max-mismatches N  ignore bases with > N mismatches within window centered on read (default=1)" << endl
          << "    -w, --window-size N     size of window to apply -m option (default=0)" << endl
          << "    -d, --max-depth N       maximum depth pileup to create (further maps ignored) (default=1000)" << endl
+         << "    -a, --use-mapq          combine mapping qualities with base qualities" << endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl
          << "    -v, --verbose           print stats on bases filtered" << endl;
@@ -1840,6 +1956,7 @@ int main_pileup(int argc, char** argv) {
     int window_size = 0;
     int max_depth = 1000; // used to prevent protobuf messages getting to big
     bool verbose = false;
+    bool use_mapq = false;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1851,14 +1968,15 @@ int main_pileup(int argc, char** argv) {
                 {"max-mismatches", required_argument, 0, 'm'},
                 {"window-size", required_argument, 0, 'w'},
                 {"progress", required_argument, 0, 'p'},
-                {"max-depth", max_depth, 0, 'd'},
+                {"max-depth", required_argument, 0, 'd'},
+                {"use-mapq", no_argument, 0, 'a'},
                 {"threads", required_argument, 0, 't'},
                 {"verbose", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "jq:m:w:pd:t:v",
+        c = getopt_long (argc, argv, "jq:m:w:pd:at:v",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1881,7 +1999,10 @@ int main_pileup(int argc, char** argv) {
             break;
         case 'd':
             max_depth = atoi(optarg);
-            break;            
+            break;
+        case 'a':
+            use_mapq = true;
+            break;
         case 'p':
             show_progress = true;
             break;
@@ -1890,7 +2011,7 @@ int main_pileup(int argc, char** argv) {
             break;
         case 'v':
             verbose = true;
-            break;            
+            break;
         case 'h':
         case '?':
             /* getopt_long already printed an error message. */
@@ -1945,7 +2066,7 @@ int main_pileup(int argc, char** argv) {
     if (show_progress) {
         cerr << "Computing pileups" << endl;
     }
-    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth));
+    vector<Pileups> pileups(thread_count, Pileups(graph, min_quality, max_mismatches, window_size, max_depth, use_mapq));
     function<void(Alignment&)> lambda = [&pileups, &graph](Alignment& aln) {
         int tid = omp_get_thread_num();
         pileups[tid].compute_from_alignment(aln);
@@ -2383,6 +2504,10 @@ int main_msga(int argc, char** argv) {
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
         if (debug) cerr << "building GCSA2 index" << endl;
+        
+        // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+        if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        
         if (edge_max) {
             VG gcsa_graph = *graph; // copy the graph
             // remove complex components
@@ -3130,6 +3255,7 @@ void help_mod(char** argv) {
          << "    -y, --destroy-node ID   remove node with given id" << endl
          << "    -B, --bluntify          bluntify the graph, making nodes for duplicated sequences in overlaps" << endl
          << "    -a, --cactus            convert to cactus graph representation" << endl
+         << "    -v, --sample-vcf FILE   for a graph with allele paths, compute the sample graph from the given VCF" << endl 
          << "    -t, --threads N         for tasks that can be done in parallel, use this many threads" << endl;
 }
 
@@ -3179,6 +3305,7 @@ int main_mod(int argc, char** argv) {
     string translation_file;
     bool flip_doubly_reversed_edges = false;
     bool cactus = false;
+    string vcf_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -3228,11 +3355,12 @@ int main_mod(int argc, char** argv) {
             {"translation", required_argument, 0, 'Z'},
             {"unreverse-edges", required_argument, 0, 'E'},
             {"cactus", no_argument, 0, 'a'},
+            {"sample-vcf", required_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Ea",
+        c = getopt_long (argc, argv, "hk:oi:q:Q:cpl:e:mt:SX:KPsunzNf:CDFr:g:x:RTU:Bbd:Ow:L:y:Z:Eav:",
                 long_options, &option_index);
 
 
@@ -3403,6 +3531,10 @@ int main_mod(int argc, char** argv) {
         case 'a':
             cactus = true;
             break;
+            
+        case 'v':
+            vcf_filename = optarg;
+            break;
 
         case 'h':
         case '?':
@@ -3425,10 +3557,151 @@ int main_mod(int argc, char** argv) {
         graph = new VG(in);
     }
 
+    if (!vcf_filename.empty()) {
+        // We need to throw out the parts of the graph that are on alt paths,
+        // but not on alt paths for alts used by the first sample in the VCF.
+        
+        // This is matched against the entire path name string to detect alt
+        // paths.
+        regex is_alt("_alt_.+_[0-9]+");
+
+        // This holds the VCF file we read the variants from. It needs to be the
+        // same one used to construct the graph.
+        vcflib::VariantCallFile variant_file;
+        variant_file.open(vcf_filename);
+        if (!variant_file.is_open()) {
+            cerr << "error:[vg mod] could not open" << vcf_filename << endl;
+            return 1;
+        }
+        
+        // Now go through and prune down the varaints.
+
+        // How many phases are there?
+        size_t num_samples = variant_file.sampleNames.size();
+        // TODO: we can only handle single-sample VCFs
+        assert(num_samples == 1);
+
+        // This will hold the IDs of all nodes visited by alt paths that aren't used.
+        set<vg::id_t> alt_path_ids;
+
+        graph->paths.for_each_name([&](const string& alt_path_name) {
+            // For every path name in the graph
+            
+            if(regex_match(alt_path_name, is_alt)) {
+                // If it's an alt path
+                
+                for(auto& mapping : graph->paths.get_path(alt_path_name)) {
+                    // Mark all nodes that are part of it as on alt paths
+                    alt_path_ids.insert(mapping.position().node_id());
+                }
+            
+            }
+        });
+        
+        // We also have a function to handle each variant as it comes in.
+        auto handle_variant = [&](vcflib::Variant& variant) {
+            // So we have a variant
+
+            if(variant.alleles.size() < 2) {
+                // Skip non-variable variants.
+                return;
+            }
+
+            // Grab its id, or make one by hashing stuff if it doesn't
+            // have an ID.
+            string var_name = get_or_make_variant_id(variant);
+
+            if(!graph->paths.has_path("_alt_" + var_name + "_0")) {
+                // There isn't a reference alt path for this variant. Someone messed up.
+                cerr << variant << endl;
+                throw runtime_error("Reference alt for " + var_name + " not in graph!");
+            }
+
+            // For now always work on sample 0. TODO: let the user specify a
+            // name and find it.
+            int sample_number = 0;
+
+            // What sample is it?
+            string& sample_name = variant_file.sampleNames[sample_number];
+
+            // Parse it out and see if it's phased.
+            string genotype = variant.getGenotype(sample_name);
+
+            // Tokenize into allele numbers
+            // The token iterator can't hold the regex
+            regex allele_separator("[|/]");
+            for (sregex_token_iterator it(genotype.begin(), genotype.end(), allele_separator, -1);
+                it != sregex_token_iterator(); ++it) {
+                // For every token separated by / or |
+                int allele_number;
+                if(it->str() == ".") {
+                    // Unknown; pretend it's ref for the purposes of making a
+                    // sample graph.
+                    allele_number = 0;
+                } else {
+                    // Parse the allele number
+                    allele_number = stoi(it->str());
+                }
+                
+                
+                
+                // Make the name for its alt path
+                string alt_path_name = "_alt_" + var_name + "_" + to_string(allele_number);
+                
+                for(auto& mapping : graph->paths.get_path(alt_path_name)) {
+                    // Un-mark all nodes that are on this alt path, since it is used by the sample.
+                    alt_path_ids.erase(mapping.position().node_id());
+                }
+            }
+
+        };
+
+
+        // Allocate a place to store actual variants
+        vcflib::Variant var(variant_file);
+
+        while (variant_file.is_open() && variant_file.getNextVariant(var)) {
+            // this ... maybe we should remove it as for when we have calls against N
+            bool isDNA = allATGC(var.ref);
+            for (vector<string>::iterator a = var.alt.begin(); a != var.alt.end(); ++a) {
+                if (!allATGC(*a)) isDNA = false;
+            }
+            // only work with DNA sequences
+            if (!isDNA) {
+                continue;
+            }
+
+            var.position -= 1; // convert to 0-based
+
+            // Handle the variant
+            handle_variant(var);
+        }
+        
+        
+        for(auto& node_id : alt_path_ids) {
+            // And delete all the nodes that were used by alt paths that weren't
+            // in the genotype of the first sample.
+            
+            for(auto& path_name : graph->paths.of_node(node_id)) {
+                // For every path that touches the node we're destroying,
+                // destroy the path. We can't leave it because it won't be the
+                // same path without this node.
+                graph->paths.remove_path(path_name);
+#ifdef debug
+                cerr << "Node " << node_id << " was on path " << path_name << endl;
+#endif
+            }
+            
+            // Actually get rid of the node once its paths are gone.
+            graph->destroy_node(node_id);
+        }
+        
+    }
+
     if (bluntify) {
         graph->bluntify();
     }
-    
+
     if (!path_name.empty()) {
         graph->keep_path(path_name);
     }
@@ -4283,7 +4556,9 @@ void help_stats(char** argv) {
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -n, --node ID         consider node with the given id" << endl
          << "    -d, --to-head         show distance to head for each provided node" << endl
-         << "    -t, --to-tail         show distance to head for each provided node" << endl;
+         << "    -t, --to-tail         show distance to head for each provided node" << endl
+         << "    -a, --alignments FILE compute stats for reads aligned to the graph" << endl
+         << "    -v, --verbose         output longer reports" << endl;
 }
 
 int main_stats(int argc, char** argv) {
@@ -4306,7 +4581,11 @@ int main_stats(int argc, char** argv) {
     bool edge_count = false;
     bool superbubbles = false;
     bool cactus = false;
+    bool verbose = false;
     set<vg::id_t> ids;
+    // What alignments GAM file should we read and compute stats on with the
+    // graph?
+    string alignments_filename;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -4328,11 +4607,13 @@ int main_stats(int argc, char** argv) {
             {"node", required_argument, 0, 'n'},
             {"superbubbles", no_argument, 0, 'b'},
             {"cactusbubbles", no_argument, 0, 'C'},
+            {"alignments", required_argument, 0, 'a'},
+            {"verbose", no_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbC",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:v",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4395,6 +4676,14 @@ int main_stats(int argc, char** argv) {
 
         case 'C':
             cactus = true;
+            break;
+            
+        case 'a':
+            alignments_filename = optarg;
+            break;
+            
+        case 'v':
+            verbose = true;
             break;
 
         case 'h':
@@ -4518,6 +4807,337 @@ int main_stats(int argc, char** argv) {
             cout << id << " to tail:\t"
                 << graph->distance_to_tail(NodeTraversal(graph->get_node(id), false)) << endl;
         }
+    }
+    
+    if (!alignments_filename.empty()) {
+        // Read in the given GAM
+        ifstream alignment_stream(alignments_filename);
+        
+        // We need some allele parsing functions
+        
+        // This one decided if a path is really an allele path
+        auto path_name_is_allele = [](const string path_name) -> bool {
+            string prefix = "_alt_";
+            // It needs to start with "_alt_" and have another separating
+            // underscore between site name and allele number
+            return(prefix.size() < path_name.size() &&
+                count(path_name.begin(), path_name.end(), '_') >= 3 && 
+                equal(prefix.begin(), prefix.end(), path_name.begin()));
+        };
+        
+        // This one gets the site name from an allele path name
+        auto path_name_to_site = [](const string& path_name) -> string {
+            auto last_underscore = path_name.rfind('_');
+            assert(last_underscore != string::npos);
+            return path_name.substr(0, last_underscore);
+        };
+        
+        // This one gets the allele name from an allele path name
+        auto path_name_to_allele = [](const string& path_name) -> string {
+            auto last_underscore = path_name.rfind('_');
+            assert(last_underscore != string::npos);
+            return path_name.substr(last_underscore + 1);
+        };
+        
+        // Before we go over the reads, we need to make a map that tells us what
+        // nodes are unique to what allele paths. Stores site and allele parts
+        // separately.
+        map<vg::id_t, pair<string, string>> allele_path_for_node;
+        
+        // This is what we really care about: for each pair of allele paths in
+        // the graph, we need to find out whether the coverage imbalance between
+        // them among primary alignments is statistically significant. For this,
+        // we need to track how many reads overlap the distinct parts of allele
+        // paths.
+        
+        // This is going to be indexed by site
+        // ("_alt_f6d951572f9c664d5d388375aa8b018492224533") and then by allele
+        // ("0"). A read only counts if it visits a node that's on one allele
+        // and not any others in that site.
+        
+        // We need to pre-populate it with 0s so we know which sites actually
+        // have 2 alleles and which only have 1 in the graph.
+        map<string, map<string, size_t>> reads_on_allele;
+        
+        graph->for_each_node_parallel([&](Node* node) {
+            // For every node
+            
+            if(!graph->paths.has_node_mapping(node)) {
+                // No paths to go over. If we try and get them we'll be
+                // modifying the paths in parallel, which will explode.
+                return;
+            }
+            
+            // We want an allele path on it
+            string allele_path;
+            for(auto& name_and_mappings : graph->paths.get_node_mapping(node)) {
+                // For each path on it
+                if(path_name_is_allele(name_and_mappings.first)) {
+                    // If it's an allele path
+                    if(allele_path.empty()) {
+                        // It's the first. Take it.
+                        allele_path = name_and_mappings.first;
+                    } else {
+                        // It's a subsequent one. This node is not uniquely part
+                        // of any allele path.
+                        return;
+                    }
+                }
+            }
+            
+            if(!allele_path.empty()) {
+                // We found an allele path for this node
+                
+                // Get its site and allele so we can count it as a biallelic
+                // site. Note that sites where an allele has no unique nodes
+                // (pure indels, for example) can't be handled and will be
+                // ignored.
+                auto site = path_name_to_site(allele_path);
+                auto allele = path_name_to_allele(allele_path);
+                
+                
+                #pragma omp critical (allele_path_for_node)
+                allele_path_for_node[node->id()] = make_pair(site, allele);
+                
+                #pragma omp critical (reads_on_allele)
+                reads_on_allele[site][allele] = 0;
+            }
+        });
+        
+        
+        // These are the general stats we will compute.
+        size_t total_alignments = 0;
+        size_t total_aligned = 0;
+        size_t total_primary = 0;
+        size_t total_secondary = 0;
+        
+        // These are for counting significantly allele-biased hets
+        size_t total_hets = 0;
+        size_t significantly_biased_hets = 0;
+        
+        // These are for tracking which nodes are covered and which are not
+        map<vg::id_t, size_t> node_visit_counts;
+        
+        // And for counting indels
+        // Inserted bases also counts softclips
+        size_t total_insertions = 0;
+        size_t total_inserted_bases = 0;
+        size_t total_deletions = 0;
+        size_t total_deleted_bases = 0;
+        // And substitutions
+        size_t total_substitutions = 0;
+        size_t total_substituted_bases = 0;
+        
+        // In verbose mode we want to report details of insertions, deletions,
+        // and substitutions.
+        vector<pair<vg::id_t, Edit>> insertions;
+        vector<pair<vg::id_t, Edit>> deletions;
+        vector<pair<vg::id_t, Edit>> substitutions;
+        
+        function<void(Alignment&)> lambda = [&](Alignment& aln) {
+            int tid = omp_get_thread_num();
+            
+            // We ought to be able to do many stats on the alignments.
+            
+            // Now do all the non-mapping stats
+            #pragma omp critical (total_alignments)
+            total_alignments++;
+            if(aln.is_secondary()) {
+                #pragma omp critical (total_secondary)
+                total_secondary++;
+            } else {
+                #pragma omp critical (total_primary)
+                total_primary++;
+                if(aln.score() > 0) {
+                    // We only count aligned primary reads in "total aligned";
+                    // the primary can't be unaligned if the secondary is
+                    // aligned.
+                    #pragma omp critical (total_aligned)
+                    total_aligned++;
+                }
+                
+                // Which sites and alleles does this read support. TODO: if we hit
+                // unique nodes from multiple alleles of the same site, we should...
+                // do something. Discard the read? Not just count it on both sides
+                // like we do now.
+                set<pair<string, string>> alleles_supported;
+                
+                for(size_t i = 0; i < aln.path().mapping_size(); i++) {
+                    // For every mapping...
+                    auto& mapping = aln.path().mapping(i);
+                    vg::id_t node_id = mapping.position().node_id();
+                    
+                    if(allele_path_for_node.count(node_id)) {
+                        // We hit a unique node for this allele. Add it to the set,
+                        // in case we hit another unique node for it later in the
+                        // read.
+                        alleles_supported.insert(allele_path_for_node.at(node_id));
+                    }
+                    
+                    // Record that there was a visit to this node.
+                    #pragma omp critical (node_visit_counts)
+                    node_visit_counts[node_id]++;
+                    
+                    for(size_t j = 0; j < mapping.edit_size(); j++) {
+                        // Go through edits and look for indels.
+                        auto& edit = mapping.edit(j);
+                        
+                        if(edit.to_length() > edit.from_length()) {
+                            // Record this insertion
+                            #pragma omp critical (total_inserted_bases)
+                            total_inserted_bases += edit.to_length() - edit.from_length();
+                            #pragma omp critical (total_insertions)
+                            total_insertions++;
+                            if(verbose) {
+                                // Record the actual insertion
+                                #pragma omp critical (insertions)
+                                insertions.push_back(make_pair(node_id, edit));
+                            }
+                            
+                        } else if(edit.from_length() > edit.to_length()) {
+                            // Record this deletion
+                            #pragma omp critical (total_deleted_bases)
+                            total_deleted_bases += edit.from_length() - edit.to_length();
+                            #pragma omp critical (total_deletions)
+                            total_deletions++;
+                            if(verbose) {
+                                // Record the actual deletion
+                                #pragma omp critical (deletions)
+                                deletions.push_back(make_pair(node_id, edit));
+                            }
+                        } else if(!edit.sequence().empty()) {
+                            // Record this substitution
+                            // TODO: a substitution might also occur as part of a deletion/insertion above!
+                            #pragma omp critical (total_substituted_bases)
+                            total_substituted_bases += edit.from_length();
+                            #pragma omp critical (total_substitutions)
+                            total_substitutions++;
+                            if(verbose) {
+                                // Record the actual substitution
+                                #pragma omp critical (substitutions)
+                                substitutions.push_back(make_pair(node_id, edit));
+                            }
+                        }
+                        
+                    }
+                }
+                
+                for(auto& site_and_allele : alleles_supported) {
+                    // This read is informative for an allele of a site.
+                    // Up the reads on that allele of that site.
+                    #pragma omp critical (reads_on_allele)
+                    reads_on_allele[site_and_allele.first][site_and_allele.second]++;
+                }
+            }
+            
+        };
+        
+        // Actually go through all the reads and count stuff up.
+        stream::for_each_parallel(alignment_stream, lambda);
+        
+        // Calculate stats about the reads per allele data
+        for(auto& site_and_alleles : reads_on_allele) {
+            // For every site
+            if(site_and_alleles.second.size() == 2) {
+                // If it actually has 2 alleles with unique nodes in the
+                // graph (so we can use the binomial)
+                
+                // We'll fill this with the counts for the two present alleles.
+                vector<size_t> counts;
+                
+                for(auto& allele_and_count : site_and_alleles.second) {
+                    // Collect all the counts
+                    counts.push_back(allele_and_count.second);
+                }
+                
+                if(counts[0] > counts[1]) {
+                    // We have a 50% underlying probability so we can just put
+                    // the rarer allele first.
+                    swap(counts[0], counts[1]);
+                }
+                
+                // What's the log prob for the smaller tail?
+                auto tail_logprob = binomial_cmf_ln(prob_to_logprob(0.5),  counts[1] + counts[0], counts[0]);
+                
+                // Double it to get the two-tailed test
+                tail_logprob += prob_to_logprob(2);
+                
+#ifdef debug
+                cerr << "Site " << site_and_alleles.first << " has " << counts[0]
+                    << " and " << counts[1] << " p=" << logprob_to_prob(tail_logprob) << endl;
+#endif
+                
+                if(tail_logprob < prob_to_logprob(0.05)) {
+                    significantly_biased_hets++;
+                }
+                total_hets++;
+                
+            }
+        }
+        
+        // Go through all the nodes again and sum up unvisited nodes
+        size_t unvisited_nodes = 0;
+        // And unvisited base count
+        size_t unvisited_node_bases = 0;
+        // If we're in verbose mode, collect IDs too.
+        set<vg::id_t> unvisited_ids;
+        graph->for_each_node_parallel([&](Node* node) {
+            // For every node
+            if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
+                // If we never visited it with a read, count it.
+                #pragma omp critical (unvisited_nodes)
+                unvisited_nodes++;
+                #pragma omp critical (unvisited_node_bases)
+                unvisited_node_bases += node->sequence().size();
+                if(verbose) {
+                    #pragma omp critical (unvisited_ids)
+                    unvisited_ids.insert(node->id());
+                }
+            }
+        });
+        
+        cout << "Total alignments: " << total_alignments << endl;
+        cout << "Total primary: " << total_primary << endl;
+        cout << "Total secondary: " << total_secondary << endl;
+        cout << "Total aligned: " << total_aligned << endl;
+        
+        cout << "Insertions: " << total_inserted_bases << " bp in " << total_insertions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : insertions) {
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        cout << "Deletions: " << total_deleted_bases << " bp in " << total_deletions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : deletions) {
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.to_length()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        cout << "Substitutions: " << total_substituted_bases << " bp in " << total_substitutions << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : substitutions) {
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        
+        cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count()
+            << " (" << unvisited_node_bases << " bp)" << endl;
+        if(verbose) {
+            for(auto& id : unvisited_ids) {
+                cout << "\t" << id << endl;
+            }
+        }       
+        
+        cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
+        if(total_hets > 0) {
+            cout << " (" << (double)significantly_biased_hets / total_hets * 100 << "%)";
+        }
+        cout << endl;
+        
+        
     }
 
     delete graph;
@@ -4838,7 +5458,7 @@ int main_find(int argc, char** argv) {
 
         case 'L':
             use_length = true;
-            break;            
+            break;
 
         case 'n':
             node_ids.push_back(atoi(optarg));
@@ -5194,7 +5814,11 @@ int main_find(int argc, char** argv) {
             }
         } else {
             // let's use the GCSA index
-            // first open it
+            
+            // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+            gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+            
+            // Open it
             ifstream in_gcsa(gcsa_in.c_str());
             gcsa::GCSA gcsa_index;
             gcsa_index.load(in_gcsa);
@@ -5568,12 +6192,10 @@ int main_index(int argc, char** argv) {
         if(!vcf_name.empty()) {
             // There's a VCF we should load haplotype info from
 
-            if (!vcf_name.empty()) {
-                variant_file.open(vcf_name);
-                if (!variant_file.is_open()) {
-                    cerr << "error:[vg index] could not open" << vcf_name << endl;
-                    return 1;
-                }
+            variant_file.open(vcf_name);
+            if (!variant_file.is_open()) {
+                cerr << "error:[vg index] could not open" << vcf_name << endl;
+                return 1;
             }
 
         }
@@ -5890,6 +6512,9 @@ int main_index(int argc, char** argv) {
 
     if(!gcsa_name.empty()) {
         // We need to make a gcsa index.
+
+        // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+        gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
         // Load up the graphs
         vector<string> tmpfiles;
@@ -6610,7 +7235,7 @@ int main_map(int argc, char** argv) {
         case 'P':
             min_score = atof(optarg);
             break;
-                
+
         case 'U':
             always_rescue = true;
             break;
@@ -6654,7 +7279,7 @@ int main_map(int argc, char** argv) {
         case '1':
             qual_adjust_alignments = true;
             break;
-        
+            
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
                 break;
@@ -6736,6 +7361,9 @@ int main_map(int argc, char** argv) {
     if (db_name.empty() && !file_name.empty()) {
         db_name = file_name + ".index";
     }
+
+    // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
+    gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
     // Load up our indexes.
     xg::XG* xindex = nullptr;
@@ -7131,6 +7759,7 @@ void help_view(char** argv) {
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
          << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
+         << "    -m, --skip-missing   skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
          << "    -w, --walk-paths     add labeled edges to represent paths in dot output" << endl
@@ -7191,6 +7820,7 @@ int main_view(int argc, char** argv) {
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
     bool cactusbubble_labeling = false;
+    bool skip_missing_nodes = false;
 
     int c;
     optind = 2; // force optind past "view" argument
@@ -7229,6 +7859,7 @@ int main_view(int argc, char** argv) {
                 {"translation-in", no_argument, 0, 'Z'},
                 {"cactus-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
+                {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
                 {"loci", no_argument, 0, 'Q'},
                 {"locus-out", no_argument, 0, 'z'},
@@ -7236,7 +7867,7 @@ int main_view(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYqQ:z",
+        c = getopt_long (argc, argv, "dgFjJhvVpaGbifA:s:wnlLIMcTtr:SCZBYmqQ:z",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -7263,6 +7894,10 @@ int main_view(int argc, char** argv) {
 
         case 'B':
             superbubble_labeling = true;
+            break;
+
+        case 'm':
+            skip_missing_nodes = true;
             break;
 
         case 'Z':
@@ -7495,7 +8130,6 @@ int main_view(int argc, char** argv) {
             if (output_type == "json") {
                 // convert values to printable ones
                 function<void(Alignment&)> lambda = [](Alignment& a) {
-                    alignment_quality_short_to_char(a);
                     if(std::isnan(a.identity())) {
                         // Fix up NAN identities that can't be serialized in
                         // JSON. We shouldn't generate these any more, and they
@@ -7706,6 +8340,7 @@ int main_view(int argc, char** argv) {
                       superbubble_ranking,
                       superbubble_labeling,
                       cactusbubble_labeling,
+                      skip_missing_nodes,
                       seed_val);
     } else if (output_type == "json") {
         cout << pb2json(graph->graph) << endl;
@@ -7722,21 +8357,27 @@ int main_view(int argc, char** argv) {
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
     }
-
-    cout.flush();
-    delete graph;
-
-    return 0;
 }
+
+    void help_sv(char** argv){
+        cerr << "usage: " << argv[0] << " sv [options] <aln.gam>" << endl
+            << "options: " << endl
+            << " -g --graph <graph>.vg " << endl
+            << " -m --mask <vcf>.vcf" << endl
+            << endl;
+    }
 
 void help_deconstruct(char** argv){
     cerr << "usage: " << argv[0] << " deconstruct [options] <my_graph>.vg" << endl
          << "options: " << endl
-         << " -s, --superbubbles  Print the superbubbles of the graph and exit." << endl
+         << " -x --xg-name  <XG>.xg an XG index from which to extract distance information." << endl
+         << " -s --superbubbles  Print the superbubbles of the graph and exit." << endl
          << " -o --output <FILE>      Save output to <FILE> rather than STDOUT." << endl
-         << " -u -- unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
+         << " -d --dagify             DAGify the graph before enumeratign superbubbles" << endl
+         << " -u --unroll <STEPS>    Unroll the graph <STEPS> steps before calling variation." << endl
          << " -c --compact <ROUNDS>   Perform <ROUNDS> rounds of superbubble compaction on the graph." << endl
          << " -m --mask <vcf>.vcf    Look for variants not in <vcf> in the graph" << endl
+         << " -i --invert           Invert the mask (i.e. find only variants present in <vcf>.vcf. Requires -m. " << endl
          << endl;
 }
 
@@ -7752,8 +8393,9 @@ int main_deconstruct(int argc, char** argv){
     bool dagify = false;
     int unroll_steps = 0;
     int compact_steps = 0;
+    bool invert = false;
     string mask_file = "";
-    string xg_name = "";
+    string xg_name;
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -7767,47 +8409,55 @@ int main_deconstruct(int argc, char** argv){
                 {"mask", required_argument, 0, 'm'},
                 {"dagify", no_argument, 0, 'd'},
                 {"superbubbles", no_argument, 0, 's'},
+                {"invert", no_argument, 0, 'v'},
                 {0, 0, 0, 0}
 
             };
-        int option_index = 0;
-        c = getopt_long (argc, argv, "ho:u:c:m:sx:",
-                         long_options, &option_index);
 
-        // Detect the end of the options.
-        if (c == -1)
-            break;
-        switch (c)
-        {
-        case 's':
-            print_sbs = true;
-            break;
-        case 'x':
-            xg_name = optarg;
-            break;
-        case 'o':
-            outfile = optarg;
-            break;
-        case 'u':
-            unroll_steps = atoi(optarg);
-            break;
-        case 'c':
-            compact_steps = atoi(optarg);
-            break;
-        case 'm':
-            mask_file = optarg;
-            break;
-        case 'd':
-            dagify = true;
-            break;
-        case '?':
-        case 'h':
-            help_deconstruct(argv);
-            return 1;
-        default:
-            abort();
+            int option_index = 0;
+            c = getopt_long (argc, argv, "dho:u:c:vm:sx:",
+                    long_options, &option_index);
+
+            // Detect the end of the options.
+            if (c == -1)
+                break;
+
+            switch (c)
+            {
+                case 's':
+                    print_sbs = true;
+                    break;
+                case 'x':
+                    xg_name = optarg;
+                    break;
+                case 'o':
+                    outfile = optarg;
+                    break;
+                case 'u':
+                    unroll_steps = atoi(optarg);
+                    break;
+                case 'c':
+                    compact_steps = atoi(optarg);
+                    break;
+                case 'm':
+                    mask_file = optarg;
+                    break;
+                case 'd':
+                    dagify = true;
+                    break;
+                case 'v':
+                    invert = true;
+                    break;
+                case '?':
+                case 'h':
+                    help_deconstruct(argv);
+                    return 1;
+                default:
+                    help_deconstruct(argv);
+                    abort();
+            }
+
         }
-    }
 
     VG* graph;
     string file_name = argv[optind];
@@ -7818,25 +8468,37 @@ int main_deconstruct(int argc, char** argv){
         in.open(file_name.c_str());
         graph = new VG(in);
     }
-        
+
     Deconstructor decon = Deconstructor(graph);
-                
-    if (unroll_steps > 0){
-        cerr << "Unrolling " << unroll_steps << " steps..." << endl;
-        decon.unroll_my_vg(unroll_steps);
-        cerr << "Done." << endl;
+    if (!xg_name.empty()){
+        ifstream xg_stream(xg_name);                                                                                                                                             
+        if(!xg_stream) {                                                                                                                                                         
+            cerr << "Unable to open xg index: " << xg_name << endl;                                                                                                              
+            exit(1);                                                                                                                                                             
+        }
+
+        xg::XG* xindex = new  xg::XG(xg_stream);
+        decon.set_xg(xindex);
     }
 
-    if (dagify){
-        int dagify_steps = 1;
-        cerr << "DAGifying..." << endl;
-        decon.dagify_my_vg(dagify_steps);
-        cerr << "Done." << endl;
-    }
+		if (unroll_steps > 0){
+			cerr << "Unrolling " << unroll_steps << " steps..." << endl;
+            decon.unroll_my_vg(unroll_steps);
+			cerr << "Done." << endl;
+		}
+
+        if (dagify){
+            int dagify_steps = 3;
+            cerr << "DAGifying..." << endl;
+            decon.dagify_my_vg(dagify_steps);
+            cerr << "Done." << endl;
+        }
+
+    
 
     // At this point, we can detect the superbubbles
 
-    vector<SuperBubble> sbs = decon.get_all_superbubbles();
+    map<pair<vg::id_t, vg::id_t>, vector<vg::id_t> > sbs = decon.get_all_superbubbles();
 
 
     if (compact_steps > 0){
@@ -7846,15 +8508,16 @@ int main_deconstruct(int argc, char** argv){
     }
     if (print_sbs){
         for (auto s: sbs){
-            cout << s.start_node << "\t";
-            //for (auto i : s.nodes){
-            //    cout << i << ",";
-            //}
-            cout << "\t" << s.end_node << endl;
+            cout << s.first.first << "\t";
+            cout << "\t" << s.first.second << endl;
         }
     }
     else{
-        decon.sb2vcf(outfile);
+        if (xg_name.empty()){
+            cerr << "An xg index must be provided for full deconstruction." << endl;
+            exit(1);
+        }
+        decon.sb2vcf( outfile);
     }
     /* Find superbubbles */
 
@@ -7999,7 +8662,7 @@ int main_construct(int argc, char** argv) {
     if (!vcf_file_name.empty()) {
         // Make sure the file exists. Otherwise Tabix++ may exit with a non-
         // helpful message.
-        
+
         // We can't invoke stat woithout a place for it to write. But all we
         // really want is its return value.
         struct stat temp;
@@ -8012,7 +8675,7 @@ int main_construct(int argc, char** argv) {
             cerr << "error:[vg construct] could not open" << vcf_file_name << endl;
             return 1;
         }
-    }            
+    }
 
     if(load_phasing_paths && ref_paths_file.empty()) {
         cerr << "error:[vg construct] cannot save phasing paths without a paths file name" << endl;
@@ -8082,6 +8745,14 @@ int main_version(int argc, char** argv){
     return 0;
 }
 
+// No help_test is necessary because the unit testing library takes care of
+// complaining about missing options.
+
+int main_test(int argc, char** argv){
+    // Forward arguments along to the main unit test driver
+    return vg::unittest::run_unit_tests(argc, argv);
+}
+
 void vg_help(char** argv) {
     cerr << "vg: variation graph tool, version " << VG_GIT_VERSION << endl
          << endl
@@ -8114,6 +8785,7 @@ void vg_help(char** argv) {
          << "  -- circularize   circularize a path within a graph." << endl
          << "  -- translate     project alignments and paths through a graph translation" << endl
          << "  -- validate      validate the semantics of a graph" << endl
+         << "  -- test          run unit tests" << endl
          << "  -- version       version information" << endl;
 }
 
@@ -8184,6 +8856,8 @@ int main(int argc, char *argv[])
         return main_translate(argc, argv);
     }  else if (command == "version") {
         return main_version(argc, argv);
+    } else if (command == "test") {
+        return main_test(argc, argv);
     }else {
         cerr << "error:[vg] command " << command << " not found" << endl;
         vg_help(argv);

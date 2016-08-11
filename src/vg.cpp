@@ -167,6 +167,112 @@ VG::VG(set<Node*>& nodes, set<Edge*>& edges) {
     sort();
 }
 
+
+SB_Input VG::vg_to_sb_input(){
+	//cout << this->edge_count() << endl;
+  SB_Input sbi;
+  sbi.num_vertices = this->edge_count();
+	function<void(Edge*)> lambda = [&sbi](Edge* e){
+		//cout << e->from() << " " << e->to() << endl;
+    pair<id_t, id_t> dat = make_pair(e->from(), e->to() );
+    sbi.edges.push_back(dat);
+	};
+	this->for_each_edge(lambda);
+  return sbi;
+}
+
+    id_t VG::get_node_at_nucleotide(string pathname, int nuc){
+        Path p = paths.path(pathname);
+        
+        int nt_start = 0;
+        int nt_end = 0;
+        for (int i = 0; i < p.mapping_size(); i++){
+            Mapping m = p.mapping(i);
+            Position pos = m.position();
+            id_t n_id = pos.node_id();
+            Node* node = get_node(n_id);
+            nt_end += node->sequence().length();
+            if (nuc < nt_end && nuc >= nt_start){
+                return n_id;
+            }
+            nt_start += node->sequence().length();
+            if (nt_start > nuc && nt_end > nuc){
+                throw std::out_of_range("Nucleotide position not found in path.");
+            }
+        }
+
+    }
+ 
+ map<id_t, vcflib::Variant> VG::get_node_id_to_variant(vcflib::VariantCallFile vfile){
+    map<id_t, vcflib::Variant> ret;
+    vcflib::Variant var;
+
+    while(vfile.getNextVariant(var)){
+        long nuc = var.position;
+        id_t node_id = get_node_at_nucleotide(var.sequenceName, nuc);
+        ret[node_id] = var;
+    }
+
+    return ret;
+ }
+
+
+
+vector<pair<id_t, id_t> > VG::get_superbubbles(SB_Input sbi){
+    vector<pair<id_t, id_t> > ret;
+    supbub::Graph sbg (sbi.num_vertices);
+    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
+    supbub::DetectSuperBubble dsb;
+    dsb.find(sbg, superBubblesList);
+    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
+    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
+        ret.push_back(make_pair((*it).entrance, (*it).exit));
+    }
+    return ret;
+}
+vector<pair<id_t, id_t> > VG::get_superbubbles(void){
+    vector<pair<id_t, id_t> > ret;
+    supbub::Graph sbg (this->edge_count());
+    //load up the sbgraph with edges
+    function<void(Edge*)> lambda = [&sbg](Edge* e){
+            //cout << e->from() << " " << e->to() << endl;
+        sbg.addEdge(e->from(), e->to());
+    };
+
+    this->for_each_edge(lambda);
+
+    supbub::DetectSuperBubble::SUPERBUBBLE_LIST superBubblesList{};
+
+    supbub::DetectSuperBubble dsb;
+    dsb.find(sbg, superBubblesList);
+    supbub::DetectSuperBubble::SUPERBUBBLE_LIST::iterator it;
+    for (it = superBubblesList.begin(); it != superBubblesList.end(); ++it) {
+        ret.push_back(make_pair((*it).entrance, (*it).exit));
+    }
+    return ret;
+}
+// check for conflict (duplicate nodes and edges) occurs within add_* functions
+/*
+map<pair<id_t, id_t>, vector<id_t> > VG::superbubbles(void) {
+    map<pair<id_t, id_t>, vector<id_t> > bubbles;
+    // ensure we're sorted
+    sort();
+    // if we have a DAG, then we can find all the nodes in each superbubble
+    // in constant time as they lie in the range between the entry and exit node
+    auto supbubs = get_superbubbles();
+    //     hash_map<Node*, int> node_index;
+    for (auto& bub : supbubs) {
+        auto start = node_index[get_node(bub.first)];
+        auto end = node_index[get_node(bub.second)];
+        // get the nodes in the range
+        auto& b = bubbles[bub];
+        for (int i = start; i <= end; ++i) {
+            b.push_back(graph.node(i).id());
+        }
+    }
+    return bubbles;
+}
+*/
 void VG::add_nodes(const set<Node*>& nodes) {
     for (auto node : nodes) {
         add_node(*node);
@@ -1996,6 +2102,10 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
 
 
 
+#ifdef debug
+    cerr << "Processing " << records.size() << " vcf records..." << endl;
+#endif
+
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
 
@@ -2009,6 +2119,12 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
         map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
+
+        if(!alternates.count(var.ref)) {
+            // Ref is missing, as can happen with flat construction.
+            // Stick the ref in, because we need to have ref.
+            alternates[var.ref].push_back(vcflib::VariantAllele(var.ref, var.ref, var.position));
+        }
 
         // This holds a map from alt index (0 for ref) to the phase sets
         // visiting it as a bool vector. No bit vector means no visits.
@@ -2037,6 +2153,10 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     continue;
                 }
 
+                if(genotype.substr(0, bar_pos) == "." || genotype.substr(bar_pos + 1) == ".") {
+                    // This site is uncalled
+                    continue;
+                }
 
                 // Parse out the two alt indexes.
                 // TODO: complain if there are more.
@@ -6401,6 +6521,7 @@ void VG::to_dot(ostream& out,
                 bool superbubble_ranking,
                 bool superbubble_labeling,
                 bool cactusbubble_labeling,
+                bool skip_missing_nodes,
                 int random_seed) {
 
     // setup graphviz output
@@ -6486,7 +6607,7 @@ void VG::to_dot(ostream& out,
             }
         }
         if (color_variants && node_paths.size() == 0){
-            out << "color=red,";
+           out << "color=red,";
         }
         out << "];" << endl;
     }
@@ -6668,6 +6789,13 @@ void VG::to_dot(ostream& out,
         alnid++;
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
             const Mapping& m = aln.path().mapping(i);
+            
+            if(!has_node(m.position().node_id()) && skip_missing_nodes) {
+                // We don't have the node this is aligned to. We probably are
+                // looking at a subset graph, and the user asked us to skip it.
+                continue;
+            }
+            
             //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
             //string cigar_string(vector<pair<int, char> >& cigar);
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);

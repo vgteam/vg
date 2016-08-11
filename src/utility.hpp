@@ -36,13 +36,13 @@ string cigar_string(vector<pair<int, char> >& cigar);
 string mapping_string(const string& source, const Mapping& mapping);
 double median(std::vector<int> &v);
 
-// Convert a probability to a base-2 log probability.
+// Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
-    return log2(prob);
+    return log(prob);
 }
-// Convert a base-2 log probability to a probability
+// Convert natural log probability to a probability
 inline double logprob_to_prob(double logprob) {
-    return pow(2, logprob);
+    return exp(logprob);
 }
 // Add two probabilities (expressed as logprobs) together and return the result
 // as a logprob.
@@ -56,7 +56,6 @@ inline double logprob_invert(double logprob) {
     return prob_to_logprob(1.0 - logprob_to_prob(logprob));
 }
 
-
 // Convert integer Phred quality score to probability of wrongness.
 inline double phred_to_prob(int phred) {
     return pow(10, -((double)phred) / 10);
@@ -67,14 +66,14 @@ inline int prob_to_phred(double prob) {
     return round(-10.0 * log10(prob));
 }
 
-// Convert a Phred quality score directly to a base-2 log probability of wrongness.
+// Convert a Phred quality score directly to a natural log probability of wrongness.
 inline double phred_to_logprob(int phred) {
-    return (-((double)phred) / 10) / log10(2.0);
+    return (-((double)phred) / 10) / log10(exp(1.0));
 }
 
-// Convert a base-2 log probability of wrongness directly to a Phred quality score.
+// Convert a natural log probability of wrongness directly to a Phred quality score.
 inline int logprob_to_phred(double logprob ) {
-    return round(-10.0 * logprob * log10(2.0));
+    return round(-10.0 * logprob * log10(exp(1.0)));
 }
 
 template<typename T, typename V>
@@ -108,6 +107,72 @@ vector<T> vpmax(const std::vector<std::vector<T>>& vv) {
         c = pmax(c, *v);
     }
     return c;
+}
+
+/**
+ * Compute the sum of the values in a collection. Values must be default-
+ * constructable (like numbers are).
+ */
+template<typename Collection>
+typename Collection::value_type sum(const Collection& collection) {
+    
+    // Set up an alias
+    using Item = typename Collection::value_type;
+    
+    // Make a new zero-valued item to hold the sum
+    auto total = Item();
+    for(auto& to_sum : collection) {
+        total += to_sum;
+    }
+    
+    return total;
+    
+}
+
+/**
+ * Compute the sum of the values in a collection, where the values are log
+ * probabilities and the result is the log of the total probability. Items must
+ * be convertible to/from doubles for math.
+ */
+template<typename Collection>
+typename Collection::value_type logprob_sum(const Collection& collection) {
+    
+    // Set up an alias
+    using Item = typename Collection::value_type;
+    
+    // Pull out the minimum value
+    auto min_iterator = min_element(begin(collection), end(collection));
+    
+    if(min_iterator == end(collection)) {
+        // Nothing there, p = 0
+        return Item(prob_to_logprob(0));
+    }
+    
+    auto check_iterator = begin(collection);
+    ++check_iterator;
+    if(check_iterator == end(collection)) {
+        // We only have a single element anyway. We don't want to subtract it
+        // out because we'll get 0s.
+        return *min_iterator;
+    }
+    
+    // Pull this much out of every logprob.
+    Item pulled_out = *min_iterator;
+    
+    if(logprob_to_prob(pulled_out) == 0) {
+        // Can't divide by 0!
+        // TODO: fix this in selection
+        pulled_out = prob_to_logprob(1);
+    }
+    
+    Item total(0);
+    for(auto& to_add : collection) {
+        // Sum up all the scaled probabilities.
+        total += logprob_to_prob(to_add - pulled_out);
+    }
+    
+    // Re-log and re-scale
+    return pulled_out + prob_to_logprob(total);
 }
 
 string tmpfilename(const string& base);

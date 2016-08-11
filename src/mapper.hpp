@@ -199,6 +199,7 @@ public:
     map<pos_t, char> next_pos_chars(pos_t pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
     Alignment walk_match(const string& seq, pos_t pos);
+    vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);
     // convert the set of hits of a MEM into a set of alignments
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
     // Use the GCSA index to look up the sequence
@@ -240,6 +241,7 @@ public:
     int max_multimaps;
     // soft clip resolution
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
+    int max_softclip_iterations; // Extend no more than this many times (while softclips are getting shorter)
     float min_identity; // require that alignment identity is at least this much to accept alignment
     // paired-end consistency enforcement
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings

@@ -1,5 +1,5 @@
 {
-  "sequence": "TAAGTACGAAG",
+  "sequence": "TAAGTACGAAGA",
   "path": {
     "mapping": [
       {
@@ -82,7 +82,11 @@
           {
             "to_length": 1,
             "sequence": "G"
-          }
+          },
+			 {
+				"to_length": 1,
+				"from_length": 1
+			 }
         ],
         "rank": 6
       }

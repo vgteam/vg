@@ -23,6 +23,7 @@ Mapper::Mapper(Index* idex,
     , max_multimaps(1)
     , max_attempts(0)
     , softclip_threshold(0)
+    , max_softclip_iterations(10)
     , prefer_forward(false)
     , greedy_accept(false)
     , accept_identity(0.75)
@@ -353,6 +354,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     bool report_consistent_pairs = (bool) fragment_size;
 
     // use MEM alignment on the MEMs matching our constraints
+    // We maintain the invariant that these two vectors of alignments are sorted
+    // by score, descending, as returned from align_multi_internal.
     vector<Alignment> alignments1 = align_multi_internal(!report_consistent_pairs, read1, kmer_size, stride, band_width,
                                                          report_consistent_pairs * extra_pairing_multimaps, pairable_mems_ptr_1);
     vector<Alignment> alignments2 = align_multi_internal(!report_consistent_pairs, read2, kmer_size, stride, band_width,
@@ -496,8 +499,16 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         alignments1.insert(alignments1.end(), extra1.begin(), extra1.end());
         alignments2.insert(alignments2.end(), extra2.begin(), extra2.end());
     }
+    
+    // Fix up the sorting by score, descending, in case rescues came out
+    // better than normal alignments.
+    sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
+        return a.score() > b.score();
+    });
+    sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
+        return a.score() > b.score();
+    });
 
-    // We should always have the same number now.
     if (debug) cerr << alignments1.size() << " alignments for read 1, " << alignments2.size() << " for read 2" << endl;
 
     map<Alignment*, map<string, double> > aln_pos;
@@ -510,15 +521,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
 
-    // There is a best consistent pair.
-    // Swap the best alignments first.
-    // We know we have at least one alignment on each side.
-    
-    // TODO: do I actually want to rescue a pair with no CONSISTENT mappings? otherwise pairs might get knocked down later and
-    // then I still return nothing
-    
     if (fragment_size) {
+        // Now we want to emit consistent pairs, in order of decreasing total score.
+    
         // compare pairs by the sum of their individual scores
+        // We need this functor thing to make the priority queue work.
         struct ComparePairedAlignmentScores {
             vector<Alignment>& alns_1;
             vector<Alignment>& alns_2;
@@ -533,7 +540,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         
         ComparePairedAlignmentScores compare_paired_alignment_scores = ComparePairedAlignmentScores(alignments1, alignments2);
         
-        // think about the pairs being laid out on a grid over the individual end multimaps
+        // think about the pairs being laid out on a grid over the individual end multimaps, sorted in each dimension by score
         // navigate from top left corner outward to add consistent pairs in decreasing score order
         priority_queue<pair<int, int>, vector<pair<int, int>>, ComparePairedAlignmentScores> pair_queue(compare_paired_alignment_scores);
         // keep track of which indices have been checked to avoid checking them twice when navigating from above and from the left
@@ -554,6 +561,12 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             if (alignments_consistent(aln_pos[&alignments1[aln_pair.first]], aln_pos[&alignments2[aln_pair.second]], fragment_size)) {
                 consistent_pairs.first.push_back(alignments1[aln_pair.first]);
                 consistent_pairs.second.push_back(alignments2[aln_pair.second]);
+                
+                if(debug) {
+                    cerr << "Found consistent pair " << aln_pair.first << ", " << aln_pair.second
+                        << " with scores " << alignments1[aln_pair.first].score()
+                        << ", " << alignments2[aln_pair.second].score() << endl;
+                }
                 
             }
             
@@ -587,16 +600,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             consistent_pairs.second[i].set_is_secondary(i > 0);
         }
         return consistent_pairs;
-    }
-    else {
-
-        // Sort all the alignments by score, descending
-        sort(alignments1.begin(), alignments1.end(), [](const Alignment& a, const Alignment& b) {
-            return a.score() > b.score();
-        });
-        sort(alignments2.begin(), alignments2.end(), [](const Alignment& a, const Alignment& b) {
-            return a.score() > b.score();
-        });
+    } else {
 
         // Truncate to max multimaps
         if(alignments1.size() > max_multimaps) {
@@ -903,7 +907,9 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     list<Alignment> alignments;
     // force used bandwidth to be divisible by 4
     // round up so we have > band_width
-    //cerr << "trying band width " << band_width << endl;
+    if (debug) {
+        cerr << "trying band width " << band_width << endl;
+    }
     if (band_width % 4) {
         band_width -= band_width % 4; band_width += 4;
     }
@@ -920,7 +926,9 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     if (segment_size % 4) {
         segment_size -= segment_size % 4; segment_size += 4;
     }
-    //cerr << "Segment size be " << segment_size << endl;
+    if (debug) {
+        cerr << "Segment size be " << segment_size << "/" << read.sequence().size() << endl;
+    }
     // and overlap them too
     size_t to_align = div * 2 - 1; // number of alignments we'll do
     vector<pair<size_t, size_t>> to_strip; to_strip.resize(to_align);
@@ -1037,6 +1045,11 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             if (!above_threshold) {
                 aln = bands[i]; // unmapped
             }
+            
+            if (debug) {
+                cerr << "Unstripped alignment: " << pb2json(aln) << endl;
+            }
+            
             // strip overlaps
             //cerr << "checking before strip" << endl;
             //check_alignment(aln);
@@ -1787,66 +1800,12 @@ map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
 }
 
 Alignment Mapper::walk_match(const string& seq, pos_t pos) {
-    // go to the position in the xg index
-    // and step in the direction given
-    // until we exhaust our sequence
-    // or hit another node
-    Alignment aln; aln.set_sequence(seq);
-    Path& path = *aln.mutable_path();
-    Mapping* mapping = path.add_mapping();
-    *mapping->mutable_position() = make_position(pos);
-    // get the first node we match
-    int total = 0;
-    size_t match_len = 0;
-    //cerr << "seq is " << seq << endl;
-    for (size_t i = 0; i < seq.size(); ++i) {
-        //cerr << " on " << ++total << endl;
-        char c = seq[i];
-        //cerr << pos_char(pos) << " == " << c << endl;
-        auto nexts = next_pos_chars(pos);
-        //cerr << "on position " << pos << endl;
-        if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
-            pos_t npos = nexts.begin()->first;
-            if (i+1 < seq.size()) {
-                //cerr << pos_char(npos) << " vs " << seq[i+1] << " i+1= " << i+1 << endl;
-                assert(pos_char(npos) == seq[i+1]); // we must match
-            }
-            ++match_len;
-            ++get_offset(pos);
-        } else {
-            // we must be going into another node
-            // emit the mapping for this node
-            //cerr << "we are going into a new node" << endl;
-            ++match_len;
-            Edit* edit = mapping->add_edit();
-            edit->set_from_length(match_len);
-            edit->set_to_length(match_len);
-            match_len = 0;
-            // find the next node that matches our MEM
-            if (i+1 < seq.size()) {
-                char n = seq[i+1];
-                bool found_next = false;
-                for (auto& p : nexts) {
-                    //cerr << "next : " << p.first << " " << p.second << endl;
-                    if (p.second == n) {
-                        pos = p.first;
-                        found_next = true;
-                        break;
-                    }
-                }
-                assert(found_next);
-                // set up a new mapping
-                mapping = path.add_mapping();
-                *mapping->mutable_position() = make_position(pos);
-            }
-        }
-    }
-    // add the last edit
-    if (match_len) {
-        Edit* edit = mapping->add_edit();
-        edit->set_from_length(match_len);
-        edit->set_to_length(match_len);
-    }
+    //cerr << "in walk match with " << seq << " " << seq.size() << " " << pos << endl;
+    Alignment aln;
+    auto alns = walk_match(aln, seq, pos);
+    assert(alns.size());
+    aln = alns.front(); // take the first one we found
+    aln.set_sequence(seq);
     assert(alignment_to_length(aln) == alignment_from_length(aln));
     if (alignment_to_length(aln) != seq.size()) {
         cerr << alignment_to_length(aln) << " is not " << seq.size() << endl;
@@ -1854,6 +1813,93 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
         assert(false);
     }
     return aln;
+}
+
+vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, pos_t pos) {
+    // go to the position in the xg index
+    // and step in the direction given
+    // until we exhaust our sequence
+    // or hit another node
+    vector<Alignment> alns;
+    Alignment aln = base;
+    Path& path = *aln.mutable_path();
+    Mapping* mapping = path.add_mapping();
+    *mapping->mutable_position() = make_position(pos);
+    // get the first node we match
+    int total = 0;
+    size_t match_len = 0;
+    for (size_t i = 0; i < seq.size(); ++i) {
+        char c = seq[i];
+        char n = seq[i+1];
+        auto nexts = next_pos_chars(pos);
+        // we can have a match on the current node
+        if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
+            pos_t npos = nexts.begin()->first;
+            // check that the next position would match
+            if (i+1 < seq.size()) {
+                // we can't step, so we break
+                if (pos_char(npos) != n) {
+                    return alns;
+                }
+            }
+            // otherwise we step our counters
+            ++match_len;
+            ++get_offset(pos);
+        } else { // or we go into the next node
+            // we must be going into another node
+            // emit the mapping for this node
+            //cerr << "we are going into a new node" << endl;
+            // finish the last node
+            {
+                // we must have matched / we already checked
+                ++match_len;
+                Edit* edit = mapping->add_edit();
+                edit->set_from_length(match_len);
+                edit->set_to_length(match_len);
+                // reset our counter
+                match_len = 0;
+            }
+            // find the next node that matches our MEM
+            bool got_match = false;
+            if (i+1 < seq.size()) {
+                //cerr << nexts.size() << endl;
+                for (auto& p : nexts) {
+                    //cerr << "next : " << p.first << " " << p.second << " (looking for " << n << ")" << endl;
+                    if (p.second == n) {
+                        if (!got_match) {
+                            pos = p.first;
+                            got_match = true;
+                        } else {
+                            auto v = walk_match(aln, seq.substr(i+1), p.first);
+                            if (v.size()) {
+                                alns.reserve(alns.size() + distance(v.begin(), v.end()));
+                                alns.insert(alns.end(), v.begin(), v.end());
+                            }
+                        }
+                    }
+                }
+                if (!got_match) {
+                    // this matching ends here
+                    // and we haven't finished matching
+                    // thus this path doesn't contain the match
+                    return alns;
+                }
+
+                // set up a new mapping
+                mapping = path.add_mapping();
+                *mapping->mutable_position() = make_position(pos);
+            } else {
+                //cerr << "done!" << endl;
+            }
+        }
+    }
+    if (match_len) {
+        Edit* edit = mapping->add_edit();
+        edit->set_from_length(match_len);
+        edit->set_to_length(match_len);
+    }
+    alns.push_back(aln);
+    return alns;
 }
 
 // convert one mem into a set of alignments, one for each exact match
@@ -1951,7 +1997,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                               xindex->min_approx_path_distance({}, id1, id2))));
 
                 VG graph;
-                xindex->get_id_range(id1, id1, graph.graph);
+                xindex->get_id_range(id1, id2, graph.graph);
                 xindex->expand_context(graph.graph,
                                        min_distance,
                                        false, // don't use steps (use length)
@@ -2473,11 +2519,12 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
     int64_t idf = path->mutable_mapping(0)->position().node_id();
     int64_t idl = path->mutable_mapping(path->mapping_size()-1)->position().node_id();
     int max_target_length = aln.sequence().size() * max_target_factor;
-    while (itr++ < 3
+    while (itr++ < max_softclip_iterations
            && (sc_start > softclip_threshold
                || sc_end > softclip_threshold)) {
         if (debug) {
-            cerr << "softclip before " << sc_start << " " << sc_end << endl;
+            cerr << "Softclip before expansion: " << sc_start << " " << sc_end
+                << " (" << aln.score() << " points)" << endl;
         }
         double avg_node_size = graph.length() / (double)graph.size();
         if (debug) cerr << "average node size " << avg_node_size << endl;
@@ -2489,6 +2536,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
                                    max(context_depth, (int)(sc_start/avg_node_size)),
                                    false);
             graph.extend(flank);
+            if (debug) cerr << "Expand start by " << max(context_depth, (int)(sc_start/avg_node_size)) << endl;
         }
         if (sc_end) {
             Graph flank;
@@ -2497,6 +2545,7 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
                                    max(context_depth, (int)(sc_end/avg_node_size)),
                                    false);
             graph.extend(flank);
+            if (debug) cerr << "Expand end by " << max(context_depth, (int)(sc_start/avg_node_size)) << endl;
         }
         graph.remove_orphan_edges();
         aln.clear_path();
@@ -2510,7 +2559,10 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
 
         sc_start = softclip_start(aln);
         sc_end = softclip_end(aln);
-        if (debug) cerr << "softclip after " << sc_start << " " << sc_end << endl;
+        if (debug) {
+            cerr << "Softclip after expansion: " << sc_start << " " << sc_end
+                << " (" << aln.score() << " points)" << endl;
+        }
         // we are not improving, so increasing the window is unlikely to help
         if (last_score == aln.score()) break;
         // update tracking of path end

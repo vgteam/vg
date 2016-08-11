@@ -69,12 +69,16 @@ public:
         double affinity = 0;
         // Is the read on the forward strand (false) or reverse strand (true)
         bool is_reverse = false;
+        // What's the actual score (not necessarily normalized out of 1)?
+        // We'll probably put per-base alignment score here
+        double score = 0;        
         
         // Have a default constructor
         Affinity() = default;
         
         // Have a useful constructor
-        Affinity(double affinity, bool is_reverse) : consistent(affinity == 1), affinity(affinity), is_reverse(is_reverse) {
+        Affinity(double affinity, bool is_reverse) : consistent(affinity == 1), 
+            affinity(affinity), is_reverse(is_reverse), score(affinity) {
             // Nothing to do
         }
         
@@ -96,13 +100,27 @@ public:
     // Should we use mapping quality when computing P(reads | genotype)?
     bool use_mapq = false;
     
+    // Whould we do indel realignment, or should we use fast substring
+    // affinities for everything?
+    bool realign_indels = false;
+    
     // If base qualities aren't available, what is the Phred-scale qualtiy of a
     // piece of sequence being correct?
     int default_sequence_quality = 15;
     
-    // How many times must a path recur before we try aligning to it?
-    // Note that the primary path counts as a recurrence.
+    // How many times must a path recur before we try aligning to it? Also, how
+    // many times must a node in the graph be visited before we use it in indel
+    // realignment for nearby indels? Note that the primary path counts as a
+    // recurrence. TODO: novel inserts can't recur, and novel deletions can't be
+    // filtered in this way.
     int min_recurrence = 2;
+    
+    // How much support must an alt have on each strand before we can call it?
+    int min_consistent_per_strand = 2;
+    
+    // When we realign reads, what's the minimum per-base score for a read in
+    // order to actually use it as supporting the thing we just aligned it to?
+    double min_score_per_base = 0.90;
     
     // What should our prior on being heterozygous at a site be?
     double het_prior_logprob = prob_to_logprob(0.001);
@@ -119,6 +137,7 @@ public:
              string sample_name = "",
              string augmented_file_name = "",
              bool use_cactus = false,
+             bool subset_graph = false,
              bool show_progress = false,
              bool output_vcf = false,
              bool output_json = false,
@@ -150,8 +169,11 @@ public:
      * Same as find_sites but use Cactus instead of Superbubbles.
      * This is more general and doesn't require DAGifcation etc., but we keep
      * both versions around for now for debugging and comparison
+     *
+     * If ref_path_name is the empty string, it is not used. Otherwise, it must
+     * be the name of a path present in the graph.
      */
-    vector<Site> find_sites_with_cactus(VG& graph, const string& ref_path_name);
+    vector<Site> find_sites_with_cactus(VG& graph, const string& ref_path_name = "");
     
     /**
      * Given a path (which may run either direction through a site, or not touch
@@ -167,9 +189,13 @@ public:
     
     /**
      * For the given site, emit all subpaths with unique sequences that run from
-     * start to end, out of the paths in the graph.
+     * start to end, out of the paths in the graph. Uses the map of reads by
+     * name to determine if a path is a read or a real named path. Paths through
+     * the site supported only by reads are subject to a min recurrence count,
+     * while those supported by actual embedded named paths are not.
      */
-    vector<list<NodeTraversal>> get_paths_through_site(VG& graph, const Site& site);
+    vector<list<NodeTraversal>> get_paths_through_site(VG& graph, const Site& site,
+        const map<string, Alignment*>& reads_by_name);
     
     /**
      * Get all the quality values in the alignment between the start and end nodes
@@ -215,7 +241,7 @@ public:
      * Alignments should have had their quality values trimmed down to just the
      * part covering the superbubble.
      *
-     * Returns a log base 2 likelihood.
+     * Returns a natural log likelihood.
      */
     double get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency);
     
@@ -225,7 +251,7 @@ public:
      * Takes a genotype as a vector of allele numbers. It is not guaranteed that
      * allele 0 corresponds to any notion of primary reference-ness.
      *
-     * Returns a log base 2 prior probability.
+     * Returns a natural log prior probability.
      *
      * TODO: add in strand bias
      */
