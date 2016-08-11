@@ -226,6 +226,7 @@ public:
     int max_multimaps;
     // soft clip resolution
     int softclip_threshold; // if more than this many bp are clipped, try extension algorithm
+    int max_softclip_iterations; // Extend no more than this many times (while softclips are getting shorter)
     float min_identity; // require that alignment identity is at least this much to accept alignment
     // paired-end consistency enforcement
     int extra_pairing_multimaps; // Extra mappings considered for finding consistent paired-end mappings

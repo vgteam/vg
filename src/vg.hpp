@@ -686,6 +686,7 @@ public:
                 bool superbubble_ranking = false,
                 bool superbubble_labeling = false,
                 bool cactusbubble_labeling = false,
+                bool skip_missing_nodes = false,
                 int random_seed = 0);
 
 

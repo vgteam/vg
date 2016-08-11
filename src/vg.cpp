@@ -2102,6 +2102,10 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
 
 
 
+#ifdef debug
+    cerr << "Processing " << records.size() << " vcf records..." << endl;
+#endif
+
     for (int i = 0; i < records.size(); ++i) {
         vcflib::Variant& var = records.at(i);
 
@@ -2115,6 +2119,12 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
         // This holds a map from alt or ref allele sequence to a series of VariantAlleles describing an alignment.
         map<string, vector<vcflib::VariantAllele> > alternates
             = (flat_input_vcf ? var.flatAlternates() : var.parsedAlternates());
+
+        if(!alternates.count(var.ref)) {
+            // Ref is missing, as can happen with flat construction.
+            // Stick the ref in, because we need to have ref.
+            alternates[var.ref].push_back(vcflib::VariantAllele(var.ref, var.ref, var.position));
+        }
 
         // This holds a map from alt index (0 for ref) to the phase sets
         // visiting it as a bool vector. No bit vector means no visits.
@@ -2143,6 +2153,10 @@ void VG::vcf_records_to_alleles(vector<vcflib::Variant>& records,
                     continue;
                 }
 
+                if(genotype.substr(0, bar_pos) == "." || genotype.substr(bar_pos + 1) == ".") {
+                    // This site is uncalled
+                    continue;
+                }
 
                 // Parse out the two alt indexes.
                 // TODO: complain if there are more.
@@ -6507,6 +6521,7 @@ void VG::to_dot(ostream& out,
                 bool superbubble_ranking,
                 bool superbubble_labeling,
                 bool cactusbubble_labeling,
+                bool skip_missing_nodes,
                 int random_seed) {
 
     // setup graphviz output
@@ -6774,6 +6789,13 @@ void VG::to_dot(ostream& out,
         alnid++;
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
             const Mapping& m = aln.path().mapping(i);
+            
+            if(!has_node(m.position().node_id()) && skip_missing_nodes) {
+                // We don't have the node this is aligned to. We probably are
+                // looking at a subset graph, and the user asked us to skip it.
+                continue;
+            }
+            
             //void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
             //string cigar_string(vector<pair<int, char> >& cigar);
             //mapid << alnid << ":" << m.position().node_id() << ":" << cigar_string(cigar);

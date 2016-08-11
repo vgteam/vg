@@ -470,6 +470,14 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
 
 }
 
+double Aligner::score_to_unnormalized_likelihood_ln(double score) {
+    // Log base needs to be set, or this can't work. It's set by default in
+    // QualAdjAligner but needs to be set up manually in the normal Aligner.
+    assert(log_base != 0);
+    // Likelihood is proportional to e^(lambda * score), so ln is just the exponent.
+    return log_base * score; 
+}
+
 QualAdjAligner::QualAdjAligner(int8_t _match,
                                int8_t _mismatch,
                                int8_t _gap_open,

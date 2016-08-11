@@ -77,7 +77,8 @@ inline real_t choose_ln(int n, int k) {
 
 /**
  * Get the probability for sampling the counts in obs from a set of categories
- * weighted by the probabilities in probs. Works for both double and real_t probabilities.
+ * weighted by the probabilities in probs. Works for both double and real_t
+ * probabilities. Also works for binomials.
  */
 template <typename ProbIn>
 real_t multinomial_sampling_prob_ln(const vector<ProbIn>& probs, const vector<int>& obs) {
@@ -93,6 +94,32 @@ real_t multinomial_sampling_prob_ln(const vector<ProbIn>& probs, const vector<in
     // Use the collection sum defined in utility.hpp
     return factorial_ln(sum(obs)) - sum(factorials) + sum(probsPowObs);
 }
+
+/**
+ * Compute the probability of having the given number of successes or fewer in
+ * the given number of trials, with the given success probability. Returns the
+ * resulting log probability.
+ */
+template <typename ProbIn>
+real_t binomial_cmf_ln(ProbIn success_logprob, size_t trials, size_t successes) {
+    // Compute log probabilities for all cases
+    vector<real_t> case_logprobs;
+    
+    if(successes > trials) {
+        return prob_to_logprob(0);
+    }
+    
+    for(size_t considered_successes = 0; considered_successes <= successes; considered_successes++) {
+        // For every number of successes up to this one, add in the probability.
+        case_logprobs.push_back(choose_ln(trials, considered_successes) +
+            success_logprob * considered_successes +
+            logprob_invert(success_logprob) * (trials - considered_successes));
+    }
+    
+    // Sum up all those per-case probabilities
+    return logprob_sum(case_logprobs);
+}
+
 
 
 }
