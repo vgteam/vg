@@ -213,7 +213,8 @@ void help_filter(char** argv) {
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
-         << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl;
+         << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
+         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -249,11 +250,12 @@ int main_filter(int argc, char** argv) {
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
+                {"defray-ends", required_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:D:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -306,7 +308,10 @@ int main_filter(int argc, char** argv) {
             break;
         case 'E':
             filter.repeat_size = atoi(optarg);
-            break;            
+            break;
+        case 'D':
+            filter.defray_length = atoi(optarg);
+            break;          
 
         case 'h':
         case '?':

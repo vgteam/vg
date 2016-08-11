@@ -34,6 +34,9 @@ public:
     bool verbose = false;
     double min_mapq = 0.;
     int repeat_size = 0;
+    // How far in from the end should we look for ambiguous end alignment to
+    // clip off?
+    int defray_length = 0;
     
     // Extra filename things we need for chunking. TODO: refactor that somehow
     // to maybe be a different class?
@@ -59,6 +62,21 @@ private:
      * of up to size 2k
      */
     bool has_repeat(Alignment& aln, int k);
+    
+    /**
+     * Look at either end of the given alignment, up to k bases in from the end.
+     * See if that tail of the alignment is mapped such that another embedding
+     * in the given graph can produce the same sequence as the sequence along
+     * the embedding that the read actually has, and if so trim back the read.
+     *
+     * In the case of softclips, the aligned portion of the read is considered,
+     * and if trimmign is required, the softclips are hard-clipped off.
+     *
+     * Returns true if the read had to be modified, and false otherwise.
+     *
+     * MUST NOT be called with a null index.
+     */
+    bool trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k);
 
 };
 }

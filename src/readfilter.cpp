@@ -8,6 +8,29 @@ namespace vg {
 
 using namespace std;
 
+bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
+    assert(index != nullptr);
+    
+    // Look at the end of the read and find the first Mapping starting within k
+    // bases of the end of the aligned region (accounting for softclips). If
+    // there's none, it's not ambiguous.
+    
+    // Collect the sequence for that mapping to the end, not counting softclips.
+    
+    // Go one Mapping left of that mapping. If you can't, it's not ambiguous.
+    
+    // Do a depth-first search right from there, and count the number of times
+    // you reach an end node and see the sequence you are looking for.
+    
+    // If that number is 2 or more, clip off any softclip and then trim back to
+    // the root mapping you started your search from.
+    
+    // Repeat for the alignment in the other orientation (probably using a flip-
+    // around function). (TODO: avoid flipping around all alignments in place?)
+    
+    return false;
+}
+
 bool ReadFilter::has_repeat(Alignment& aln, int k) {
     if (k == 0) {
         return false;
@@ -52,7 +75,7 @@ int ReadFilter::filter(istream* alignment_stream) {
     if (!regions_file.empty()) {
         if (outbase.empty()) {
             cerr << "-B option required with -R" << endl;
-            exit(1);
+            return 1;
         }
         parse_bed_regions(regions_file, regions);
         if (regions.empty()) {
@@ -60,34 +83,44 @@ int ReadFilter::filter(istream* alignment_stream) {
         }
     }
 
-    // empty region, do everything
-    if (regions.empty()) {
-        // we handle empty intervals as special case when looking up, otherwise,
-        // need to insert giant interval here.
-        chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
-    }
-
-    // otherwise, need to extract regions with xg
-    else {
-        if (xg_name.empty()) {
-            cerr << "xg index required for -R option" << endl;
-            exit(1);
-        }
+    // If the user gave us an XG index, we probably ought to load it up.
+    // TODO: make sure if we add any other error exits from this function we
+    // remember to delete this!
+    xg::XG* xindex = nullptr;
+    if (!xg_name.empty()) {
         // read the xg index
         ifstream xg_stream(xg_name);
         if(!xg_stream) {
             cerr << "Unable to open xg index: " << xg_name << endl;
-            exit(1);
+            return 1;
         }
-        xg::XG xindex(xg_stream);
-
+        xindex = new xg::XG(xg_stream);
+    }
+    
+    if(defray_length > 0 && xindex == nullptr) {
+        cerr << "xg index required for end de-fraying" << endl;
+        return 1;
+    }
+    
+    if (regions.empty()) {
+        // empty region, do everything
+        // we handle empty intervals as special case when looking up, otherwise,
+        // need to insert giant interval here.
+        chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
+    } else {
+        // otherwise, need to extract regions with xg
+        if (xindex == nullptr) {
+            cerr << "xg index required for -R option" << endl;
+            return 1;
+        }
+    
         // fill in the map using xg index
         // relies entirely on the assumption that are path chunks
         // are perfectly spanned by an id range
         for (int i = 0; i < regions.size(); ++i) {
             Graph graph;
-            int rank = xindex.path_rank(regions[i].seq);
-            int path_size = rank == 0 ? 0 : xindex.path_length(regions[i].seq);
+            int rank = xindex->path_rank(regions[i].seq);
+            int path_size = rank == 0 ? 0 : xindex->path_length(regions[i].seq);
 
             if (regions[i].start >= path_size) {
                 cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
@@ -97,9 +130,9 @@ int ReadFilter::filter(istream* alignment_stream) {
                 regions[i].end = min(path_size - 1, regions[i].end);
                 // do path node query
                 // convert to 0-based coordinates as this seems to be what xg wants
-                xindex.get_path_range(regions[i].seq, regions[i].start - 1, regions[i].end - 1, graph);
+                xindex->get_path_range(regions[i].seq, regions[i].start - 1, regions[i].end - 1, graph);
                 if (context_size > 0) {
-                    xindex.expand_context(graph, context_size);
+                    xindex->expand_context(graph, context_size);
                 }
             }
             // find node range of graph, without bothering to build vg indices..
@@ -197,6 +230,8 @@ int ReadFilter::filter(istream* alignment_stream) {
     size_t min_pri_mapq_count = 0;
     size_t repeat_sec_count = 0;
     size_t repeat_pri_count = 0;
+    size_t defray_sec_count = 0;
+    size_t defray_pri_count = 0;
 
     // for deltas, we keep track of last primary
     Alignment prev;
@@ -278,6 +313,10 @@ int ReadFilter::filter(istream* alignment_stream) {
                 ++repeat_sec_count;
                 keep = false;
             }
+            if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
+                ++defray_sec_count;
+                // We keep these, because the alignments get modified.
+            }
             if (!keep) {
                 ++sec_filtered_count;
             }
@@ -312,7 +351,6 @@ int ReadFilter::filter(istream* alignment_stream) {
 
             prev_primary = true;
             prev_score = score;
-            prev = aln;
             keep_prev = true;
             if (score < min_primary) {
                 ++min_pri_count;
@@ -330,9 +368,15 @@ int ReadFilter::filter(istream* alignment_stream) {
                 ++repeat_pri_count;
                 keep_prev = false;
             }
+            if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
+                ++defray_pri_count;
+                // We keep these, because the alignments get modified.
+            }
             if (!keep_prev) {
                 ++pri_filtered_count;
             }
+            // Copy after any modification
+            prev = aln;
         }
     };
     stream::for_each(*alignment_stream, lambda);
@@ -366,6 +410,11 @@ int ReadFilter::filter(istream* alignment_stream) {
              << "Repeat Ends Filter (secondary):   " << repeat_sec_count << endl
 
              << endl;
+    }
+    
+    if (xindex != nullptr) {
+        // Clean up any XG index we loaded.
+        delete xindex;
     }
 
     return 0;
