@@ -1306,27 +1306,34 @@ Mapping reverse_complement_mapping(const Mapping& m,
     if(m.has_position() && m.position().node_id() != 0) {
         Position* p = reversed.mutable_position();
         
-        // We can't work on old-style implicit perfect match mappings. We need
-        // to have new-style explicit-perfect-match mappings. Empty mappings are
-        // also nonsense.
-        assert(m.edit_size() > 0);
+        if(m.edit_size() == 0) {
+            // This is an old-style perfect match mapping with no edits.
+            // We can't deal with a nonzeor offset; that's weird.
+            assert(p->offset() == 0);
+            
+            // All we need to do is flip the flag.
+             p->set_is_reverse(!p->is_reverse());
+        } else {
+            // We have edits; we may not be a full-length perfect match.
         
-        // How many node bases are used by the mapping?
-        size_t used_bases = mapping_from_length(m);
-        // How many are taken up by the offset on the other strand?
-        size_t unused_bases_after = p->offset();
-        // The remainder ought to be taken up by the offset on this strand.
-        size_t unused_bases_before = node_length(p->node_id()) - used_bases - unused_bases_after;
-        
-#ifdef debug
-        cerr << "Node " << p->node_id() << " breakdown: " << unused_bases_before << ", "
-            << used_bases << ", " << unused_bases_after << endl;
-#endif
-        
-        // Adopt the new offset
-        p->set_offset(unused_bases_before);
-        // Toggle the reversed-ness flag
-        p->set_is_reverse(!p->is_reverse());
+            // How many node bases are used by the mapping?
+            size_t used_bases = mapping_from_length(m);
+            // How many are taken up by the offset on the other strand?
+            size_t unused_bases_after = p->offset();
+            // The remainder ought to be taken up by the offset on this strand.
+            size_t unused_bases_before = node_length(p->node_id()) - used_bases - unused_bases_after;
+            
+    #ifdef debug
+            cerr << "Node " << p->node_id() << " breakdown: " << unused_bases_before << ", "
+                << used_bases << ", " << unused_bases_after << endl;
+    #endif
+            
+            // Adopt the new offset
+            p->set_offset(unused_bases_before);
+            // Toggle the reversed-ness flag
+            p->set_is_reverse(!p->is_reverse());
+            
+        }
     }
 
     // Clear out all the edits. TODO: we wasted time copying them
