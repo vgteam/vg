@@ -137,10 +137,29 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // bases of the target sequence.
     
     // Return the total number of leaves in all subtrees that match the full
-    // target sequence, and the shortest nonzero length of target sequence
-    // matched within multiple subtrees under the specified node.
+    // target sequence, and the depth in bases of the shallowest point at which
+    // multiple subtrees with full lenght matches are unified.
     auto do_dfs = [&](id_t node_id, bool is_reverse, size_t matched) -> pair<size_t, size_t> {
-        // TODO: implement!
+        // Grab the node sequence and match more of the target sequence. If we
+        // finish the target sequence, return one match and unification at full
+        // length (i.e. nothing can be discarded). If we mismatch, return 0
+        // matches and unification at full length.
+    
+        // If we get through the whole node sequence without mismatching or
+        // running out of target sequence, keep going.
+    
+        // Get all the places we can go to off of the right side of this
+        // oriented node.
+        
+        // Recurse on all of them and collect the results.
+        
+        // Sum up the total leaf matches, which will be our leaf match count.
+        
+        // If multiple children have nonzero leaf match counts, report
+        // unification at the end of this node. Otherwise, report unification at
+        // the min unification depth of any subtree (and there will only be one
+        // that isn't at full length).
+        
         return make_pair(0, 0);
     };
     
