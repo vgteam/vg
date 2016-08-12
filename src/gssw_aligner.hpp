@@ -9,12 +9,13 @@
 #include "Variant.h"
 #include "Fasta.h"
 #include "path.hpp"
+#include "banded_global_aligner.hpp"
 
 static const int8_t default_match = 1;
 static const int8_t default_mismatch = 4;
 static const int8_t default_gap_open = 6;
 static const int8_t default_gap_extension = 1;
-static const int8_t default_max_scaled_score = 32;
+static const int8_t default_max_scaled_score = 6;
 static const uint8_t default_max_qual_score = 255;
 static const double default_gc_content = 0.5;
 
@@ -57,6 +58,11 @@ namespace vg {
         // store optimal alignment against a graph in the Alignment object
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         
+        // store optimal alignment against a graph in the Alignment object
+        // permissive banding auto
+        void align_global_banded(Alignment& alignment, Graph& g,
+                                 int32_t band_padding = 0, bool permissive_banding = true);
+        
         // must be called before querying mapping_quality
         void init_mapping_quality(double gc_content);
         bool is_mapping_quality_initialized();
@@ -96,6 +102,8 @@ namespace vg {
         ~QualAdjAligner(void);
 
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align_global_banded(Alignment& alignment, Graph& g,
+                                 int32_t band_padding = 0, bool permissive_banding = true);
         void init_mapping_quality(double gc_content);
 
         uint8_t max_qual_score;

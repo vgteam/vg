@@ -7,6 +7,7 @@
 //
 
 #include "banded_global_aligner.hpp"
+#include "json2pb.h"
 
 //#define debug_objects
 //#define debug_graph_processing
@@ -15,8 +16,6 @@
 //#define debug_print_matrices
 
 using namespace vg;
-
-
 
 BandedAlignmentBuilder::BandedAlignmentBuilder(Alignment& alignment) :
                                                alignment(alignment),
@@ -162,6 +161,10 @@ void BandedAlignmentBuilder::finalize_alignment() {
     }
     
     node_mappings.clear();
+    
+#ifdef debug_traceback
+    cerr << "[BandedAlignmentBuilder::finalize_alignment] alignment: " << pb2json(alignment) << endl;
+#endif
 }
 
 BandedAlignmentMatrix::BandedAlignmentMatrix(Alignment& alignment, Node* node,
@@ -280,10 +283,15 @@ void BandedAlignmentMatrix::fill_matrix(int8_t* score_mat, int8_t* nt_table, int
         // match of first nucleotides
         if (qual_adjusted) {
             match[idx] = score_mat[25 * base_quality[0] + 5 * nt_table[node_seq[0]] + nt_table[read[0]]];
+#ifdef debug_fill_matrix
+            cerr << "[BandedAlignmentMatrix::fill_matrix]: set quality adjusted initial match cell to " << (int) match[idx] << " from node char " << node_seq[0] << ", read char " << read[0] << ", base qual " << (int) base_quality[0] << " for adjusted matrix index " << 25 * base_quality[0] + 5 * nt_table[node_seq[0]] + nt_table[read[0]] << " and score " << (int) score_mat[25 * base_quality[0] + 5 * nt_table[node_seq[0]] + nt_table[read[0]]] << endl;
+#endif
         }
         else {
             match[idx] = score_mat[5 * nt_table[node_seq[0]] + nt_table[read[0]]];
         }
+        
+
         
         // only way to end an alignment in a gap here is to row and column gap
         insert_col[idx] = -2 * gap_open;
@@ -1071,6 +1079,7 @@ void BandedAlignmentMatrix::traceback_internal(BandedAlignmentBuilder& builder, 
             }
             
             // add any lead row gaps necessary
+            curr_mat = InsertRow;
             while (top_diag + i > 0) {
 #ifdef debug_traceback
                 cerr << "[BandedAlignmentMatrix::traceback_internal] initial row gaps are present, adding read char " << top_diag + i - 1 << ": " << (char) tolower(read[top_diag + i - 1]) << " (lowercase of " << read[top_diag + i - 1]     << ")" << endl;

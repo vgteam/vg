@@ -18,7 +18,6 @@
 #include <list>
 #include "vg.pb.h"
 
-#endif /* banded_global_aligner_hpp */
 
 using namespace std;
 
@@ -84,7 +83,7 @@ namespace vg {
         BandedAlignmentMatrix(Alignment& alignment, Node* node, int64_t top_diag, int64_t bottom_diag,
                               BandedAlignmentMatrix** seeds, int64_t num_seeds, int64_t cumulative_seq_len);
         ~BandedAlignmentMatrix();
-                
+        
         void fill_matrix(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted);
         
         int8_t final_score();
@@ -145,4 +144,5 @@ namespace vg {
     };
 }
 
+#endif /* banded_global_aligner_hpp */
 

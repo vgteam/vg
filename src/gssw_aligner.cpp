@@ -123,6 +123,19 @@ void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
 
 }
 
+void Aligner::align_global_banded(Alignment& alignment, Graph& g,
+                                  int32_t band_padding, bool permissive_banding) {
+    
+    
+    BandedGlobalAlignmentGraph band_graph = BandedGlobalAlignmentGraph(alignment,
+                                                                       g,
+                                                                       band_padding,
+                                                                       permissive_banding,
+                                                                       false);
+    
+    band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+}
+
 void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                                         gssw_graph_mapping* gm,
                                         Alignment& alignment,
@@ -539,6 +552,19 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
 
     gssw_graph_mapping_destroy(gm);
     gssw_graph_destroy(graph);
+}
+
+void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
+                                  int32_t band_padding, bool permissive_banding) {
+    
+    
+    BandedGlobalAlignmentGraph band_graph = BandedGlobalAlignmentGraph(alignment,
+                                                                       g,
+                                                                       band_padding,
+                                                                       permissive_banding,
+                                                                       true);
+    
+    band_graph.align(adjusted_score_matrix, nt_table, gap_open, gap_extension);
 }
 
 //int32_t QualAdjAligner::score_mem(MaximalExactMatch& mem, string& base_quality) {
