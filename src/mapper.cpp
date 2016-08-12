@@ -1753,56 +1753,6 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
     return s.str();
 }
 
-// these MEM walking functions are all rather inefficient
-// for instance, we are getting the node each time; not good
-// but my goal is to get them working before optimizing and this is clearer
-
-// get the character at the given position in the graph
-/*
-char Mapper::pos_char(pos_t pos) {
-    // use a node cache?
-    return xindex->pos_char(id(pos), is_rev(pos), offset(pos));
-}
-
-map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
-    map<pos_t, char> nexts;
-    Node node = xindex->node(id(pos));
-    // if we are still in the node, return the next position and character
-    if (offset(pos) < node.sequence().size()-1) {
-        ++get_offset(pos);
-        nexts[pos] = pos_char(pos);
-    } else {
-        // look at the next positions we could reach
-        if (!is_rev(pos)) {
-            // we are on the forward strand, the next things from this node come off the end
-            for (auto& edge : xindex->edges_on_end(id(pos))) {
-                if (edge.from() == id(pos)) {
-                    pos_t p = make_pos_t(edge.to(), edge.to_end(), 0);
-                    nexts[p] = pos_char(p);
-                } else if (edge.from_start() && edge.to_end() && edge.to() == id(pos)) {
-                    // doubly inverted, should be normalized to forward but we handle here for safety
-                    pos_t p = make_pos_t(edge.from(), false, 0);
-                    nexts[p] = pos_char(p);
-                }
-            }
-        } else {
-            // we are on the reverse strand, the next things from this node come off the start
-            for (auto& edge : xindex->edges_on_start(id(pos))) {
-                if (edge.to() == id(pos)) {
-                    pos_t p = make_pos_t(edge.from(), !edge.from_start(), 0);
-                    nexts[p] = pos_char(p);
-                } else if (edge.from_start() && edge.to_end() && edge.from() == id(pos)) {
-                    // doubly inverted, should be normalized to forward but we handle here for safety
-                    pos_t p = make_pos_t(edge.to(), true, 0);
-                    nexts[p] = pos_char(p);
-                }
-            }
-        }
-    }
-    return nexts;
-}
-*/
-
 char Mapper::pos_char(pos_t pos) {
     return xg_cached_pos_char(pos, xindex, node_cache);
 }
