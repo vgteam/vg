@@ -9,8 +9,6 @@ namespace vg {
 using namespace std;
 
 bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
-    cerr << "===============" << endl;
-
     assert(index != nullptr);
 
     // Define a way to get node length, for flipping alignments
@@ -145,8 +143,6 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
                 from_length += mapping.edit(j).from_length();
             }
             
-            cerr << pb2json(mapping) << endl;
-            
             // Non-leading mappings can't have offsets.
             assert(mapping.position().offset() == 0);
             
@@ -156,7 +152,10 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     }
     string target_sequence = target_sequence_stream.str();
         
+#ifdef debug
+    #pragma omp critical(cerr)
     cerr << "Need to look for " << target_sequence << " right of mapping " << root_mapping << endl;
+#endif
     
     // We're not going to recurse hundreds of nodes deep, so we can use the real
     // stack and a real recursive function.
@@ -177,8 +176,12 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             node_sequence = reverse_complement(node_sequence);
         }
         
+        
+#ifdef debug
+        #pragma omp critical(cerr)
         cerr << "Node " << node_id <<  " " << (is_reverse ? "rev" : "fwd") << ": "
             << node_sequence << " at offset " << matched << " in " << target_sequence << endl;
+#endif
         
         // Now count up the new matches between this node and the target sequence.
         size_t new_matches;
@@ -197,7 +200,10 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             // We found a tail end of a complete match of the target sequence
             // on this node.
             
+#ifdef debug
+            #pragma omp critical(cerr)
             cerr << "Node " << node_id << " is a matching leaf" << endl;
+#endif
             
             // Return one match and unification at full length (i.e. nothing can
             // be discarded).
@@ -209,7 +215,10 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             // finish the target sequence; there's a mismatch between the node
             // and the target sequence.
             
+#ifdef debug
+            #pragma omp critical(cerr)
             cerr << "Node " << node_id << " has a mismatch" << endl;
+#endif
             
             // If we mismatch, return 0 matches and unification at full length.
             return make_pair(0, target_sequence.size());
@@ -218,13 +227,19 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         // If we get through the whole node sequence without mismatching or
         // running out of target sequence, keep going.
         
+#ifdef debug
+        #pragma omp critical(cerr)
         cerr << "Node " << node_id << " has " << new_matches << " internal new matches" << endl;
+#endif
     
         // Get all the edges we can take off of the right side of this oriented
         // node.
         auto edges = is_reverse ? index->edges_on_start(node_id) : index->edges_on_end(node_id);
         
+#ifdef debug
+        #pragma omp critical(cerr)
         cerr << "Recurse into " << edges.size() << " children" << endl;
+#endif
         
         // We're going to call all the children and collect the results, and
         // then aggregate them. It might be slightly faster to aggregate while
@@ -276,7 +291,10 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     auto result = do_dfs(alignment.path().mapping(root_mapping).position().node_id(),
         alignment.path().mapping(root_mapping).position().is_reverse(), 0);
     
+#ifdef debug
+    #pragma omp critical(cerr)
     cerr << "Found " << result.first << " matching leaves with closest unification at " << result.second << endl;
+#endif
     
     // We keep this much of the target sequence.
     size_t target_sequence_to_keep = result.second;
