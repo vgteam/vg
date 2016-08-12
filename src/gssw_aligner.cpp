@@ -572,7 +572,7 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
                                                                        permissive_banding,
                                                                        true);
     
-    band_graph.align(adjusted_score_matrix, nt_table, gap_open, gap_extension);
+    band_graph.align(adjusted_score_matrix, nt_table, scaled_gap_open, scaled_gap_extension);
 }
 
 //int32_t QualAdjAligner::score_mem(MaximalExactMatch& mem, string& base_quality) {
