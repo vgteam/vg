@@ -549,8 +549,8 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
                                                              sequence.size(),
                                                              nt_table,
                                                              adjusted_score_matrix,
-                                                             gap_open,
-                                                             gap_extension);
+                                                             scaled_gap_open,
+                                                             scaled_gap_extension);
 
     gssw_mapping_to_alignment(graph, gm, alignment, print_score_matrices);
 
