@@ -9,6 +9,8 @@ namespace vg {
 using namespace std;
 
 bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
+    cerr << "===============" << endl;
+
     assert(index != nullptr);
 
     // Define a way to get node length, for flipping alignments
@@ -33,11 +35,7 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
     bool end_changed = trim_ambiguous_end(index, alignment, k);
     // Flip and trim the start
     
-    cerr << "Forward: " << pb2json(alignment) << endl;
-    
     Alignment flipped = reverse_complement_alignment(alignment, get_node_length);
-    
-    cerr << "Reverse: " << pb2json(flipped) << endl;
     
     if(trim_ambiguous_end(index, flipped, k)) {
         // The start needed trimming
@@ -55,7 +53,8 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
 
 bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) {
     // What mapping in the alignment is the leftmost one starting in the last k
-    // bases? Start out with it set to the past-the-end value.
+    // bases? (Except when that would be the first mapping, we use the second.)
+    // Start out with it set to the past-the-end value.
     size_t trim_start_mapping = alignment.path().mapping_size();
     
     // How many real non-softclip bases have we seen reading in from the end of
@@ -63,7 +62,7 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     size_t real_base_count = 0;
     // How many softclip bases have we seen in from the end of the read?
     size_t softclip_base_count = 0;
-    for(size_t i = alignment.path().mapping_size() - 1; i != -1; i--) {
+    for(size_t i = alignment.path().mapping_size() - 1; i != -1 && i != 0; i--) {
         // Scan in from the end of the read.
         
         auto* mapping = alignment.mutable_path()->mutable_mapping(i);
@@ -99,17 +98,6 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     if(trim_start_mapping == alignment.path().mapping_size()) {
         // No mapping was found that starts within the last k non-softclipped
         // bases. So there's nothing to do.
-        return false;
-    }
-    
-    if(trim_start_mapping == 0) {
-        // The very first mapping starts within the last k non-softclipped
-        // bases. There's no previous unambiguous place we can go to anchor, so
-        // we can't do the fancy search.
-        
-        // TODO: we might be able to anchor at the last place within the k
-        // bases, but we also might have just one alignment.
-        cerr << "Warning: no anchoring alignment found! k=" << k << " may be too large!" << endl;
         return false;
     }
     
@@ -189,6 +177,9 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             node_sequence = reverse_complement(node_sequence);
         }
         
+        cerr << "Node " << node_id <<  " " << (is_reverse ? "rev" : "fwd") << ": "
+            << node_sequence << " at offset " << matched << " in " << target_sequence << endl;
+        
         // Now count up the new matches between this node and the target sequence.
         size_t new_matches;
         for(
@@ -206,15 +197,19 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             // We found a tail end of a complete match of the target sequence
             // on this node.
             
+            cerr << "Node " << node_id << " is a matching leaf" << endl;
+            
             // Return one match and unification at full length (i.e. nothing can
             // be discarded).
             return make_pair(1, target_sequence.size());
         }
         
-        if(matched < node_sequence.size()) {
+        if(new_matches < node_sequence.size()) {
             // We didn't make it all the way through this node, nor did we
             // finish the target sequence; there's a mismatch between the node
             // and the target sequence.
+            
+            cerr << "Node " << node_id << " has a mismatch" << endl;
             
             // If we mismatch, return 0 matches and unification at full length.
             return make_pair(0, target_sequence.size());
@@ -222,10 +217,14 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         
         // If we get through the whole node sequence without mismatching or
         // running out of target sequence, keep going.
+        
+        cerr << "Node " << node_id << " has " << new_matches << " internal new matches" << endl;
     
         // Get all the edges we can take off of the right side of this oriented
         // node.
         auto edges = is_reverse ? index->edges_on_start(node_id) : index->edges_on_end(node_id);
+        
+        cerr << "Recurse into " << edges.size() << " children" << endl;
         
         // We're going to call all the children and collect the results, and
         // then aggregate them. It might be slightly faster to aggregate while

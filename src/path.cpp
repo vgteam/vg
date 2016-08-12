@@ -1318,9 +1318,15 @@ Mapping reverse_complement_mapping(const Mapping& m,
         // The remainder ought to be taken up by the offset on this strand.
         size_t unused_bases_before = node_length(p->node_id()) - used_bases - unused_bases_after;
         
-        cerr << "Node " << p->node_id() << " breakdown: " << unused_bases_before << ", " << used_bases << ", " << unused_bases_after << endl;
+#ifdef debug
+        cerr << "Node " << p->node_id() << " breakdown: " << unused_bases_before << ", "
+            << used_bases << ", " << unused_bases_after << endl;
+#endif
         
+        // Adopt the new offset
         p->set_offset(unused_bases_before);
+        // Toggle the reversed-ness flag
+        p->set_is_reverse(!p->is_reverse());
     }
 
     // Clear out all the edits. TODO: we wasted time copying them
