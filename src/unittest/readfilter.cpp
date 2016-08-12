@@ -234,6 +234,45 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         // Ignore the edits; they may get normalized or not.
         
     }
+    
+    SECTION("A read with differences from the reference should be trimmed to the unambiguous part") {
+        // Build the read
+        const string read_json = R"(
+        
+        {
+            "sequence": "GATTACCAG",
+            "quality": "MTIzNDU2Nzg5",
+            "path": {
+                "mapping": [
+                    {"position": {"node_id": 1}, "edit": [{"from_length": 6, "to_length": 6}]},
+                    {"position": {"node_id": 2}, "edit": [{"from_length": 1, "to_length": 1, "sequence": "C"}]},
+                    {"position": {"node_id": 3}, "edit": [
+                        {"from_length": 1, "to_length": 1}, 
+                        {"from_length": 1, "to_length": 1, "sequence": "G"}
+                    ]}
+                ]
+            }
+        }
+        
+        )";
+        
+        // Fluff it up into a real read
+        Alignment ambiguous;
+        json2pb(ambiguous, read_json.c_str(), read_json.size());
+        
+        // It has to say it trimmed it
+        REQUIRE(filter.trim_ambiguous_ends(&index, ambiguous, 10) == true);
+        // And it has to trim it to the right thing
+        REQUIRE(ambiguous.sequence() == "GATTAC");
+        REQUIRE(ambiguous.quality() == "123456");
+        REQUIRE(ambiguous.path().mapping_size() == 1);
+        REQUIRE(ambiguous.path().mapping(0).position().node_id() == 1);
+        REQUIRE(ambiguous.path().mapping(0).edit_size() == 1);
+        REQUIRE(ambiguous.path().mapping(0).edit(0).from_length() == 6);
+        REQUIRE(ambiguous.path().mapping(0).edit(0).to_length() == 6);
+        
+        
+    }
 
 }
 

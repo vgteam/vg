@@ -44,8 +44,6 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // What mapping in the alignment is the leftmost one starting in the last k
     // bases? Start out with it set to the past-the-end value.
     size_t trim_start_mapping = alignment.path().mapping_size();
-    // Where in the read sequence does it start?
-    size_t trim_start_index = alignment.sequence().size();
     
     // How many real non-softclip bases have we seen reading in from the end of
     // the read?
@@ -89,8 +87,6 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
             // This mapping starts fewer than k non-softclipped alignment
             // bases from the end of the read.
             trim_start_mapping = i;
-            // Remember where in the string it actually starts.
-            trim_start_index = alignment.sequence().size() - real_base_count - softclip_base_count;
         } else {
             // This mapping starts more than k in from the end. So the
             // previous one, if we had one, must be the right one.
@@ -113,7 +109,8 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     
     if(real_base_count == 0) {
         // We have an anchoring mapping, but all the mappings we could trim are
-        // softclips, so it's just an empty mapping. Don't do anything about it.
+        // softclips, so there's no point. TODO: will we ever get softclips
+        // placed as the only thing on a node?
         return false;
     }
     
@@ -121,11 +118,34 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // our search?
     size_t root_mapping = trim_start_mapping - 1;
     
-    // What's the sequence after that node that we are looking for? We need the
-    // sequence for the mappings from the leftmost we might drop rightwards
-    // until we get into softclips.
-    string target_sequence = alignment.sequence().substr(trim_start_index,
-        alignment.sequence().size() - trim_start_index - softclip_base_count);
+    // What's the sequence, including that node, that we are looking for? We
+    // need the sequence that the read is aligned *to*, rather than the sequence
+    // in the read, because it's possible that there are substitutions, indels,
+    // softclips, and so on, but the alignment is still ambiguous if there are
+    // multiple ways to place those same edits in the graph.
+    stringstream target_sequence_stream;
+    for(size_t i = root_mapping; i < alignment.path().mapping_size(); i++) {
+        // Collect the appropriately oriented from sequence from each mapping
+        auto& mapping = alignment.path.mapping(i);
+        string sequence = index->node_sequence(mapping.position().node_id());
+        if(mapping.position().is_reverse()) {
+            // Have it in the right orientation
+            sequence = reverse_complement(sequence);
+        }
+        
+        // Sum up the from length across edits, which is the length we actually
+        // use of the node. We still have to handle a lack of edits because we
+        // might be on the root mapping, which the edit-populating loop didn't
+        // touch.
+        size_t from_length = (mapping.edit_size() == 0) ? sequence.size() - mapping.position().offset() : 0;
+        for(size_t j = 0; j < mapping.edit_size(); j++) {
+            from_length += mapping.edit(j).from_length();
+        }
+        
+        // Put in the sequence that the mapping visits
+        target_sequence_stream << sequence.substr(mapping.position().offset(), from_length);
+    }
+    target_sequence = target_sequence_stream.str();
         
     cerr << "Need to look for " << target_sequence << " right of mapping " << root_mapping << endl;
     
@@ -140,28 +160,96 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // target sequence, and the depth in bases of the shallowest point at which
     // multiple subtrees with full lenght matches are unified.
     auto do_dfs = [&](id_t node_id, bool is_reverse, size_t matched) -> pair<size_t, size_t> {
-        // Grab the node sequence and match more of the target sequence. If we
-        // finish the target sequence, return one match and unification at full
-        // length (i.e. nothing can be discarded). If we mismatch, return 0
-        // matches and unification at full length.
-    
+        // Grab the node sequence and match more of the target sequence.
+        string node_sequence = index->node_sequence(node_id);
+        if(is_reverse) {
+            node_sequence = reverse_complement(node_sequence);
+        }
+        
+        // Now count up the new matches between this node and the target sequence.
+        size_t new_matches;
+        for(
+            // Start with no matches
+            new_matches = 0;
+            // Keep going as long as we're inside both strings and haven't had a mismatch
+            new_matches < node_sequence.size() && 
+            matched + new_matches < target_sequence.size() && 
+            node_sequence[new_matches] == target_sequence[matched + new_matches];
+            // Count up all the matches we find
+            new_matches++
+        );
+
+        if(matched + new_matches == target_sequence.size()) {
+            // We found a tail end of a complete match of the target sequence
+            // on this node.
+            
+            // Return one match and unification at full length (i.e. nothing can
+            // be discarded).
+            return make_pair(1, target_sequence.size());
+        }
+        
+        if(matched < node_sequence.size()) {
+            // We didn't make it all the way through this node, nor did we
+            // finish the target sequence; there's a mismatch between the node
+            // and the target sequence.
+            
+            // If we mismatch, return 0 matches and unification at full length.
+            return make_pair(0, target_sequence.size());
+        }        
+        
         // If we get through the whole node sequence without mismatching or
         // running out of target sequence, keep going.
     
-        // Get all the places we can go to off of the right side of this
-        // oriented node.
+        // Get all the edges we can take off of the right side of this oriented
+        // node.
+        auto edges = is_reverse ? index->edges_on_start(node_id) : index->edges_on_end(node_id);
         
-        // Recurse on all of them and collect the results.
+        // We're going to call all the children and collect the results, and
+        // then aggregate them. It might be slightly faster to aggregate while
+        // calling, but that might be less clear.
+        vector<pair<size_t, size_t>> child_results;
+        
+        for(auto& edge : edges) {
+            if(edge.from() == node_id && edge.from_start() == is_reverse) {
+                // The end we are leaving matches this edge's from, so we can
+                // just go to its to end and recurse on it.
+                child_results.push_back(do_dfs(edge.to(), edge.to_end(), matched + node_sequence.size()));
+            } else if(edge.to() == node_id && edge.to_end() == !is_reverse) {
+                // The end we are leaving matches this edge's to, so we can just
+                // recurse on its from end.
+                child_results.push_back(do_dfs(edge.from(), !edge.from_start(), matched + node_sequence.size()));
+            } else {
+                // XG is feeding us nonsense up with which we should not put.
+                throw runtime_error("Edge " + pb2json(edge) + " does not attach to " +
+                    to_string(node_id) + (is_reverse ? " start" : " end"));
+            }
+        }
         
         // Sum up the total leaf matches, which will be our leaf match count.
+        size_t total_leaf_matches = 0;
+        // If we don't find multiple children with leaf matches, report
+        // unification at the min unification depth of any subtree (and there
+        // will only be one that isn't at full length).
+        size_t children_with_leaf_matches = 0;
+        size_t unification_depth = target_sequence.size();
         
-        // If multiple children have nonzero leaf match counts, report
-        // unification at the end of this node. Otherwise, report unification at
-        // the min unification depth of any subtree (and there will only be one
-        // that isn't at full length).
+        for(auto& result : child_results) {
+            total_leaf_matches += result.first;
+            if(result.first > 0) {
+                children_with_leaf_matches++;
+            }
+            unification_depth = min(unification_depth, result.second);
+        }
+        if(children_with_leaf_matches > 1) {
+            // If multiple children have nonzero leaf match counts, report
+            // unification at the end of this node.
+            unification_depth = matched + node_sequence.size();
+        }
         
-        return make_pair(0, 0);
+        return make_pair(total_leaf_matches, unification_depth);
     };
+    
+    auto result = do_dfs(alignment.path().mapping(root_mapping).position().node_id(), alignment.path().mapping(root_mapping).position().is_reverse(), 0);
     
     // TODO: call do_dfs(node, orientation, 0) on all the nodes right from the
     // root node. Do one final round of aggregation, and then we will know how
