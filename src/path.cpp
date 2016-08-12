@@ -1306,6 +1306,11 @@ Mapping reverse_complement_mapping(const Mapping& m,
     if(m.has_position() && m.position().node_id() != 0) {
         Position* p = reversed.mutable_position();
         
+        // We can't work on old-style implicit perfect match mappings. We need
+        // to have new-style explicit-perfect-match mappings. Empty mappings are
+        // also nonsense.
+        assert(m.edit_size() > 0);
+        
         // How many node bases are used by the mapping?
         size_t used_bases = mapping_from_length(m);
         // How many are taken up by the offset on the other strand?

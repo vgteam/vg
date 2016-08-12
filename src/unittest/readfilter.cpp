@@ -200,7 +200,7 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         
     }
     
-    SECTION("A read with no edits in its mappings is interpreted as having perfect matches") {
+    SECTION("A read with no edits in its mappings is rejected") {
         // Build the read
         const string read_json = R"(
         
@@ -223,15 +223,9 @@ TEST_CASE("reads with ambiguous ends can be trimmed", "[filter]") {
         Alignment ambiguous;
         json2pb(ambiguous, read_json.c_str(), read_json.size());
         
-        // It has to say it trimmed it
-        REQUIRE(filter.trim_ambiguous_ends(&index, ambiguous, 10) == true);
-        // And it has to trim it to the right thing
-        REQUIRE(ambiguous.sequence() == "AGATA");
-        REQUIRE(ambiguous.quality() == "00000");
-        REQUIRE(ambiguous.path().mapping_size() == 1);
-        REQUIRE(ambiguous.path().mapping(0).position().node_id() == 7);
-        REQUIRE(ambiguous.path().mapping(0).position().is_reverse() == false);
-        // Ignore the edits; they may get normalized or not.
+        // It has to explode instead of trimming it. Mappings are always
+        // required to be specified now.
+        REQUIRE_THROWS(filter.trim_ambiguous_ends(&index, ambiguous, 10));
         
     }
     

@@ -16,6 +16,15 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
         return index->node_length(node);
     };
 
+    // Because we need to flip the alignment, make sure it is new-style and
+    // doesn't have any Mappings with no Edits.
+    for(size_t i = 0; i < alignment.path().mapping_size(); i++) {
+        if(alignment.path().mapping(i).edit_size() == 0) {
+            // Complain!
+            throw runtime_error("Found mapping wit no edits in " + pb2json(alignment));
+        }
+    }
+
     // TODO: we're going to flip the alignment twice! This is a waste of time!
     // Define some kind of oriented view or something, or just two duplicated
     // trimming functions, so we can just trim once without flipping.
@@ -59,19 +68,8 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         
         auto* mapping = alignment.mutable_path()->mutable_mapping(i);
         
-        if(mapping->edit_size() == 0) {
-            // Fix up no-edit mappings to perfect matches.
-            // TODO: is there a utility function we should use instead?
-            
-            // The match length is the node length minus any offset.
-            size_t match_length = index->node_length(mapping->position().node_id()) - mapping->position().offset();
-            
-            // Make and add the edit
-            auto* edit = mapping->add_edit();
-            edit->set_from_length(match_length);
-            edit->set_to_length(match_length);
-            
-        }
+        // We should always have edits in our mappings.
+        assert(mapping->edit_size() > 0);
         
         for(int j = mapping->edit_size() - 1; j != -1; j--) {
             // Visit every edit in the mapping
