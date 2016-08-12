@@ -726,11 +726,6 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << endl;
     }
     
-    if (xindex != nullptr) {
-        // Clean up any XG index we loaded.
-        delete xindex;
-    }
-
     return 0;
 
 }
