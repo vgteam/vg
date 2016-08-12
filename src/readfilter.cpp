@@ -10,7 +10,6 @@ using namespace std;
 
 bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k) {
     assert(index != nullptr);
-    assert(k < alignment.sequence().size());
 
     // Define a way to get node length, for flipping alignments
     function<int64_t(id_t)> get_node_length = [&index](id_t node) {
@@ -104,6 +103,10 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         // The very first mapping starts within the last k non-softclipped
         // bases. There's no previous unambiguous place we can go to anchor, so
         // we can't do the fancy search.
+        
+        // TODO: we might be able to anchor at the last place within the k
+        // bases, but we also might have just one alignment.
+        cerr << "Warning: no anchoring alignment found! k=" << k << " may be too large!" << endl;
         return false;
     }
     
@@ -118,34 +121,49 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // our search?
     size_t root_mapping = trim_start_mapping - 1;
     
-    // What's the sequence, including that node, that we are looking for? We
-    // need the sequence that the read is aligned *to*, rather than the sequence
-    // in the read, because it's possible that there are substitutions, indels,
-    // softclips, and so on, but the alignment is still ambiguous if there are
-    // multiple ways to place those same edits in the graph.
+    // What's the sequence, including that root node, that we are looking for?
+    // We need the sequence of the nodes, rather than the read's sequence,
+    // because you can still be ambiguous even if you have a SNP on top of the
+    // ambiguous thing.
+    
+    // We need to ignore all the offsets and from_lengths, except for the from
+    // length on the last node to let us know if we end early. It's sort of
+    // nonsense to have offsets and non-full from_lengths on internal mappings,
+    // and everything is easiest if we use the full length sequence of the root
+    // node.
     stringstream target_sequence_stream;
     for(size_t i = root_mapping; i < alignment.path().mapping_size(); i++) {
         // Collect the appropriately oriented from sequence from each mapping
-        auto& mapping = alignment.path.mapping(i);
+        auto& mapping = alignment.path().mapping(i);
         string sequence = index->node_sequence(mapping.position().node_id());
         if(mapping.position().is_reverse()) {
             // Have it in the right orientation
             sequence = reverse_complement(sequence);
         }
         
-        // Sum up the from length across edits, which is the length we actually
-        // use of the node. We still have to handle a lack of edits because we
-        // might be on the root mapping, which the edit-populating loop didn't
-        // touch.
-        size_t from_length = (mapping.edit_size() == 0) ? sequence.size() - mapping.position().offset() : 0;
-        for(size_t j = 0; j < mapping.edit_size(); j++) {
-            from_length += mapping.edit(j).from_length();
+        if(i == root_mapping) {
+            // Use the full length of the node and ignore any offset
+            target_sequence_stream << sequence;
+        } else {
+            // Assume the offset is 0 and use the total from_length of all the
+            // edits (in case we're the last node and ending early). We made
+            // sure all non-root nodes had edits earlier.
+            
+            size_t from_length = 0;
+            for(size_t j = 0; j < mapping.edit_size(); j++) {
+                from_length += mapping.edit(j).from_length();
+            }
+            
+            cerr << pb2json(mapping) << endl;
+            
+            // Non-leading mappings can't have offsets.
+            assert(mapping.position().offset() == 0);
+            
+            // Put in the sequence that the mapping visits
+            target_sequence_stream << sequence.substr(0, from_length);
         }
-        
-        // Put in the sequence that the mapping visits
-        target_sequence_stream << sequence.substr(mapping.position().offset(), from_length);
     }
-    target_sequence = target_sequence_stream.str();
+    string target_sequence = target_sequence_stream.str();
         
     cerr << "Need to look for " << target_sequence << " right of mapping " << root_mapping << endl;
     
@@ -159,7 +177,9 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
     // Return the total number of leaves in all subtrees that match the full
     // target sequence, and the depth in bases of the shallowest point at which
     // multiple subtrees with full lenght matches are unified.
-    auto do_dfs = [&](id_t node_id, bool is_reverse, size_t matched) -> pair<size_t, size_t> {
+    function<pair<size_t, size_t>(id_t, bool, size_t)> do_dfs = 
+        [&](id_t node_id, bool is_reverse, size_t matched) -> pair<size_t, size_t> {
+        
         // Grab the node sequence and match more of the target sequence.
         string node_sequence = index->node_sequence(node_id);
         if(is_reverse) {
@@ -249,42 +269,74 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
         return make_pair(total_leaf_matches, unification_depth);
     };
     
-    auto result = do_dfs(alignment.path().mapping(root_mapping).position().node_id(), alignment.path().mapping(root_mapping).position().is_reverse(), 0);
+    // Search from the root mapping's node looking right in its orientation in
+    // the mapping
+    auto result = do_dfs(alignment.path().mapping(root_mapping).position().node_id(),
+        alignment.path().mapping(root_mapping).position().is_reverse(), 0);
     
-    // TODO: call do_dfs(node, orientation, 0) on all the nodes right from the
-    // root node. Do one final round of aggregation, and then we will know how
-    // much of the target sequence we are allowed to keep and how much we need
-    // to lose.
+    cerr << "Found " << result.first << " matching leaves with closest unification at " << result.second << endl;
     
+    // We keep this much of the target sequence.
+    size_t target_sequence_to_keep = result.second;
     
+    if(target_sequence_to_keep == target_sequence.size()) {
+        // Nothing to trim!
+        return false;
+    }
     
-    // OVERALL STRATEGY
+    // Figure out how many mappings we need to keep from the root in order to
+    // get that much sequence; we know it is either full length or at a mapping
+    // boundary. We handle the root special because it's always full length and
+    // we have to cut after its end.
+    size_t kept_sequence_accounted_for = index->node_length(alignment.path().mapping(root_mapping).position().node_id());
+    size_t first_mapping_to_drop;
+    for(first_mapping_to_drop = root_mapping + 1;
+        first_mapping_to_drop < alignment.path().mapping_size();
+        first_mapping_to_drop++) {
+        // Consider starting dropping at each mapping after the root.
+        if(kept_sequence_accounted_for == target_sequence_to_keep) {
+            // OK this mapping really is the first one to drop.
+            break;
+        } else {
+            // Keep going. Account for the sequence from this mapping.
+            auto& mapping = alignment.path().mapping(first_mapping_to_drop);
+            
+            // We know it's not the root mapping, and it can't be the non-full-
+            // length end mapping (because we would have kept the full length
+            // target sequence and not had to cut). So assume full node is used.
+            kept_sequence_accounted_for += index->node_length(mapping.position().node_id());
+        }
+    }
     
-    // Look at the end of the read and find the first Mapping starting within k
-    // bases of the end of the aligned region (accounting for softclips). If
-    // there's none, it's not ambiguous.
+    // OK we know the first mapping to drop. We need to work out the to_size,
+    // including all softclips, from there to the end, so we know how much to
+    // trim off of the sequence and quality.
+    size_t to_length = 0;
+    for(size_t i = first_mapping_to_drop; i < alignment.path().mapping_size(); i++) {
+        // Go through all the mappings
+        auto& mapping = alignment.path().mapping(i);
+        for(size_t j = 0; j < mapping.edit_size(); j++) {
+            // Add up the to_length of all the edits
+            to_length += mapping.edit(j).to_length();
+        }
+    }
     
-    // Collect the sequence for that mapping to the end, not counting softclips.
+    // Trim sequence
+    alignment.set_sequence(alignment.sequence().substr(0, alignment.sequence().size() - to_length));
     
-    // Go one Mapping left of that mapping. If you can't, it's not ambiguous.
+    // Trim quality
+    if(!alignment.quality().empty()) {
+        // If we have a quality, it always ought to have been the same length as the sequence.
+        assert(alignment.quality().size() > to_length);
+        alignment.set_quality(alignment.quality().substr(0, alignment.quality().size() - to_length));
+    }
     
-    // Do a depth-first search right from there. Every time you finish a
-    // subtree, if more than one of the children of the subtree root contain
-    // ways to spell out the end sequence, then you will need to clip back to
-    // that subtree root or higher, so record the depth in bases to the end of
-    // the subtree root.
+    // Now we can discard the extra mappings
+    size_t to_delete = alignment.path().mapping_size() - first_mapping_to_drop;
+    alignment.mutable_path()->mutable_mapping()->DeleteSubrange(first_mapping_to_drop, to_delete);
     
-    // Eventually all such subtrees will have an intersection with the subtree
-    // that the actually aligned path lives in, so you will be able to guagantee
-    // that the winning highest node is somewhere on the path actually taken.
-    
-    // Clip off any softclip and then trim back to that winning node rooting the
-    // highest ambiguous subtree.
-    
-    // Repeat for the alignment in the other orientation (probably using a flip-
-    // around function). (TODO: avoid flipping around all alignments in place?)
-    
-    return false;
+    // Now the alignment is fixed!
+    return true;
 }
 
 bool ReadFilter::has_repeat(Alignment& aln, int k) {
