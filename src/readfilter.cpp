@@ -23,7 +23,12 @@ bool ReadFilter::trim_ambiguous_ends(xg::XG* index, Alignment& alignment, int k)
     // Trim the end
     bool end_changed = trim_ambiguous_end(index, alignment, k);
     // Flip and trim the start
+    
+    cerr << "Forward: " << pb2json(alignment) << endl;
+    
     Alignment flipped = reverse_complement_alignment(alignment, get_node_length);
+    
+    cerr << "Reverse: " << pb2json(flipped) << endl;
     
     if(trim_ambiguous_end(index, flipped, k)) {
         // The start needed trimming

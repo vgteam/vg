@@ -1300,16 +1300,22 @@ Mapping reverse_complement_mapping(const Mapping& m,
     // Make a new reversed mapping
     Mapping reversed = m;
 
-    // switching around to the reverse strand requires us to find the end of the mapping
-    // on the forward and convert to the reverse --- or vice versa
+    // switching around to the reverse strand requires us to change offsets
+    // that are nonzero to count the unused bases on the other side of the block
+    // of used bases.
     if(m.has_position() && m.position().node_id() != 0) {
-        Position p = m.position();
-        // set to the end of the mapping
-        p.set_offset(p.offset() + mapping_from_length(m));
-        // then flip the position onto the other side
-        *reversed.mutable_position()
-            = make_position(reverse(make_pos_t(p),
-                                    node_length(m.position().node_id())));
+        Position* p = reversed.mutable_position();
+        
+        // How many node bases are used by the mapping?
+        size_t used_bases = mapping_from_length(m);
+        // How many are taken up by the offset on the other strand?
+        size_t unused_bases_after = p->offset();
+        // The remainder ought to be taken up by the offset on this strand.
+        size_t unused_bases_before = node_length(p->node_id()) - used_bases - unused_bases_after;
+        
+        cerr << "Node " << p->node_id() << " breakdown: " << unused_bases_before << ", " << used_bases << ", " << unused_bases_after << endl;
+        
+        p->set_offset(unused_bases_before);
     }
 
     // Clear out all the edits. TODO: we wasted time copying them
