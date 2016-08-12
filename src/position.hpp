@@ -3,6 +3,9 @@
 
 #include "vg.pb.h"
 #include "types.hpp"
+#include "xg.hpp"
+#include "lru_cache.h"
+#include "utility.hpp"
 #include <iostream>
 
 namespace vg {
@@ -23,6 +26,11 @@ pos_t make_pos_t(const Position& pos);
 pos_t make_pos_t(id_t id, bool is_rev, off_t off);
 Position make_position(const pos_t& pos);
 Position make_position(id_t id, bool is_rev, off_t off);
+
+// xg/position traversal helpers with caching
+// used by the Sampler and by the Mapper
+char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 
 }
 

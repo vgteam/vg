@@ -12,6 +12,8 @@
 #include "lcp.h"
 #include "alignment.hpp"
 #include "path.hpp"
+#include "position.hpp"
+#include "lru_cache.h"
 #include "json2pb.h"
 #include "entropy.hpp"
 #include "gssw_aligner.hpp"
@@ -113,6 +115,9 @@ public:
     gcsa::LCPArray* lcp;
     // GSSW aligner
     QualAdjAligner* aligner;
+
+    // match walking support to prevent repeated calls to the xg index for the same node
+    LRUCache<id_t, Node> node_cache;
     
     double estimate_gc_content();
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);

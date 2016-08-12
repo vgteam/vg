@@ -41,6 +41,7 @@ Mapper::Mapper(Index* idex,
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
     , aligner(nullptr)
+    , node_cache(100)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
 }
@@ -1757,7 +1758,9 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
 // but my goal is to get them working before optimizing and this is clearer
 
 // get the character at the given position in the graph
+/*
 char Mapper::pos_char(pos_t pos) {
+    // use a node cache?
     return xindex->pos_char(id(pos), is_rev(pos), offset(pos));
 }
 
@@ -1797,6 +1800,15 @@ map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
         }
     }
     return nexts;
+}
+*/
+
+char Mapper::pos_char(pos_t pos) {
+    return xg_cached_pos_char(pos, xindex, node_cache);
+}
+
+map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
+    return xg_cached_next_pos_chars(pos, xindex, node_cache);
 }
 
 Alignment Mapper::walk_match(const string& seq, pos_t pos) {
@@ -1997,7 +2009,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                               xindex->min_approx_path_distance({}, id1, id2))));
 
                 VG graph;
-                //xindex->get_id_range(id1, id2, graph.graph);
                 xindex->get_id_range(id1, id1, graph.graph);
                 xindex->expand_context(graph.graph,
                                        min_distance,

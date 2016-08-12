@@ -220,57 +220,12 @@ Alignment Sampler::alignment_with_error(size_t length,
     return aln;
 }
 
-
 char Sampler::pos_char(pos_t pos) {
-    return xgidx->pos_char(id(pos), is_rev(pos), offset(pos));
+    return xg_cached_pos_char(pos, xgidx, node_cache);
 }
 
 map<pos_t, char> Sampler::next_pos_chars(pos_t pos) {
-    map<pos_t, char> nexts;
-    
-    // See if the node is cached (did we just visit it?)
-    pair<Node, bool> cached = node_cache.retrieve(id(pos));
-    
-    if(!cached.second) {
-        // If it's not in the cache, put it in
-        cached.first = xgidx->node(id(pos));
-        node_cache.put(id(pos), cached.first);
-    }
-    
-    Node& node = cached.first;
-    // if we are still in the node, return the next position and character
-    if (offset(pos) < node.sequence().size()-1) {
-        ++get_offset(pos);
-        nexts[pos] = pos_char(pos);
-    } else {
-        // look at the next positions we could reach
-        if (!is_rev(pos)) {
-            // we are on the forward strand, the next things from this node come off the end
-            for (auto& edge : xgidx->edges_on_end(id(pos))) {
-                if (edge.from() == id(pos)) {
-                    pos_t p = make_pos_t(edge.to(), edge.to_end(), 0);
-                    nexts[p] = pos_char(p);
-                } else if (edge.from_start() && edge.to_end() && edge.to() == id(pos)) {
-                    // doubly inverted, should be normalized to forward but we handle here for safety
-                    pos_t p = make_pos_t(edge.from(), false, 0);
-                    nexts[p] = pos_char(p);
-                }
-            }
-        } else {
-            // we are on the reverse strand, the next things from this node come off the start
-            for (auto& edge : xgidx->edges_on_start(id(pos))) {
-                if (edge.to() == id(pos)) {
-                    pos_t p = make_pos_t(edge.from(), !edge.from_start(), 0);
-                    nexts[p] = pos_char(p);
-                } else if (edge.from_start() && edge.to_end() && edge.from() == id(pos)) {
-                    // doubly inverted, should be normalized to forward but we handle here for safety
-                    pos_t p = make_pos_t(edge.to(), true, 0);
-                    nexts[p] = pos_char(p);
-                }
-            }
-        }
-    }
-    return nexts;
+    return xg_cached_next_pos_chars(pos, xgidx, node_cache);
 }
 
 }
