@@ -1308,11 +1308,22 @@ Mapping reverse_complement_mapping(const Mapping& m,
         
         if(m.edit_size() == 0) {
             // This is an old-style perfect match mapping with no edits.
-            // We can't deal with a nonzeor offset; that's weird.
-            assert(p->offset() == 0);
             
-            // All we need to do is flip the flag.
-             p->set_is_reverse(!p->is_reverse());
+            // The offset becomes unused bases after the mapping
+            size_t unused_bases_after = p->offset();
+            size_t used_bases = node_length(p->node_id()) - unused_bases_after;
+            
+            // There are now no unused bases before
+            p->set_offset(0);
+            // And we are on the other strand
+            p->set_is_reverse(!p->is_reverse());
+            
+            // But we have to have a mapping in there in order to actually
+            // specify that we're ending at the not-at-the-end position where we
+            // used to start.
+            Edit* edit = reversed.add_edit();
+            edit->set_from_length(used_bases);
+            edit->set_to_length(used_bases);
         } else {
             // We have edits; we may not be a full-length perfect match.
         
