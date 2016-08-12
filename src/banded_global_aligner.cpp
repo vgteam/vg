@@ -39,6 +39,9 @@ void BandedAlignmentBuilder::update_state(matrix_t matrix, Node* node,
     cerr << "[BandedAlignmentBuilder::update_state] beginning state update for read index " << read_idx << ", node seq index " << node_idx << endl;
 #endif
     if (node != current_node) {
+#ifdef debug_traceback
+        cerr << "[BandedAlignmentBuilder::update_state] at new node" << endl;
+#endif
         // conclude current mapping and proceed to next node
         finish_current_node();
         current_node = node;
@@ -50,6 +53,9 @@ void BandedAlignmentBuilder::update_state(matrix_t matrix, Node* node,
         edit_read_end_idx = read_idx;
     }
     else if (matrix != matrix_state) {
+#ifdef debug_traceback
+        cerr << "[BandedAlignmentBuilder::update_state] transitioning into a new matrix" << endl;
+#endif
         // transitioned into another matrix, finish current edit and begin new one
         finish_current_edit();
         matrix_state = matrix;
@@ -61,6 +67,9 @@ void BandedAlignmentBuilder::update_state(matrix_t matrix, Node* node,
     }
     else if (matrix == Match &&
              (alignment.sequence()[read_idx] == current_node->sequence()[node_idx]) != matching) {
+#ifdef debug_traceback
+        cerr << "[BandedAlignmentBuilder::update_state] switching between match and mismatch" << endl;
+#endif
         // switch from match to mismatch state or vice versa
         finish_current_edit();
         matching = !matching;

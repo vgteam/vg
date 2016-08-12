@@ -1354,11 +1354,13 @@ namespace vg {
                                                                                            true);
             
             
-            banded_aligner_full.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.gap_open,
-                                      aligner.gap_extension);
+            banded_aligner_full.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.scaled_gap_open,
+                                      aligner.scaled_gap_extension);
             
-            banded_aligner_reduced.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.gap_open,
-                                         aligner.gap_extension);
+            banded_aligner_reduced.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.scaled_gap_open,
+                                         aligner.scaled_gap_extension);
+            
+            
             
             const Path& path_full = aln_full.path();
             const Path& path_reduced = aln_reduced.path();
