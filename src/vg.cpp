@@ -1025,6 +1025,8 @@ void VG::expand_context(VG& g, size_t steps, bool add_paths) {
             to_visit.insert(e->to()); });
     // and expand
     for (size_t i = 0; i < steps; ++i) {
+        // break if we have completed the (sub)graph accessible from our starting graph
+        if (to_visit.empty()) break;
         set<id_t> to_visit_next;
         for (auto id : to_visit) {
             // build out the graph
@@ -1033,11 +1035,15 @@ void VG::expand_context(VG& g, size_t steps, bool add_paths) {
                 g.create_node(get_node(id)->sequence(), id);
             }
             for (auto& e : edges_of(get_node(id))) {
-                g.add_edge(*e);
-                if (e->from() == id) {
-                    to_visit_next.insert(e->to());
-                } else {
-                    to_visit_next.insert(e->from());
+                bool has_from = g.has_node(e->from());
+                bool has_to = g.has_node(e->to());
+                if (!has_from || !has_to) {
+                    g.add_edge(*e);
+                    if (e->from() == id) {
+                        to_visit_next.insert(e->to());
+                    } else {
+                        to_visit_next.insert(e->from());
+                    }
                 }
             }
         }
