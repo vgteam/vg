@@ -75,16 +75,28 @@ ostream& operator<<(ostream& out, const pos_t& pos) {
 }
 
 char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+    //cerr << "Looking for position " << pos << endl;
     pair<Node, bool> cached = node_cache.retrieve(id(pos));
     if(!cached.second) {
+        //cerr << "Not in the cache" << endl;
         // If it's not in the cache, put it in
         cached.first = xgidx->node(id(pos));
         node_cache.put(id(pos), cached.first);
     }
     Node& node = cached.first;
     if (is_rev(pos)) {
-        return reverse_complement(node.sequence()[offset(reverse(pos, node.sequence().size()))]);
+        /*
+        cerr << "reversed... " << endl;
+        cerr << "rev pos " << offset(reverse(pos, node.sequence().size())) << endl;
+        cerr << "seq is " << node.sequence() << " and got " <<
+            reverse_complement(node.sequence()[offset(reverse(pos, node.sequence().size()))-1]) << endl;
+        */
+        return reverse_complement(node.sequence()[offset(reverse(pos, node.sequence().size()))-1]);
     } else {
+        /*
+        cerr << "forward... " << endl;
+        cerr << "seq is " << node.sequence() << " and got " << node.sequence().at(offset(pos)) << endl;
+        */
         return node.sequence().at(offset(pos));
     }
 }

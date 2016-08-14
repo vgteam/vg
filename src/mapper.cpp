@@ -1778,6 +1778,7 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
 }
 
 vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, pos_t pos) {
+    //cerr << "in walk_match " << seq << " from " << pos << " with base " << pb2json(base) << endl;
     // go to the position in the xg index
     // and step in the direction given
     // until we exhaust our sequence
@@ -1792,7 +1793,7 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
     size_t match_len = 0;
     for (size_t i = 0; i < seq.size(); ++i) {
         char c = seq[i];
-        char n = seq[i+1];
+        //cerr << "on " << c << endl;
         auto nexts = next_pos_chars(pos);
         // we can have a match on the current node
         if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
@@ -1800,7 +1801,9 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
             // check that the next position would match
             if (i+1 < seq.size()) {
                 // we can't step, so we break
-                if (pos_char(npos) != n) {
+                //cerr << "Checking if " << pos_char(npos) << " != " << seq[i+1] << endl;
+                if (pos_char(npos) != seq[i+1]) {
+                    //cerr << "done" << endl;
                     return alns;
                 }
             }
@@ -1826,8 +1829,8 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
             if (i+1 < seq.size()) {
                 //cerr << nexts.size() << endl;
                 for (auto& p : nexts) {
-                    //cerr << "next : " << p.first << " " << p.second << " (looking for " << n << ")" << endl;
-                    if (p.second == n) {
+                    //cerr << "next : " << p.first << " " << p.second << " (looking for " << seq[i+1] << ")" << endl;
+                    if (p.second == seq[i+1]) {
                         if (!got_match) {
                             pos = p.first;
                             got_match = true;
