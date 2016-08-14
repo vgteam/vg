@@ -33,6 +33,7 @@ Mapper::Mapper(Index* idex,
     , alignment_threads(1)
     , max_mem_length(0)
     , min_mem_length(0)
+    , mem_threading(false)
     , max_target_factor(128)
     , max_query_graph_ratio(128)
     , extra_pairing_multimaps(4)
@@ -2112,8 +2113,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     graph.remove_null_nodes_forwarding_edges();
                     graph.remove_orphan_edges();
                     //cerr << "trimmed graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-                    list<VG> subgraphs;
-                    graph.disjoint_subgraphs(subgraphs);
+                    //list<VG> subgraphs;
+                    //graph.disjoint_subgraphs(subgraphs);
                     //cerr << "with " << subgraphs.size() << " subgraphs" << endl;
                     // find the subgraph with both of our cut positions
                     VG* target = nullptr;
@@ -2273,7 +2274,7 @@ bool Mapper::get_mem_hits_if_under_max(MaximalExactMatch& mem) {
     return filled;
 }
 
-vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps, bool mem_threading) {
+vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
 
     if (debug) cerr << "aligning " << pb2json(alignment) << endl;
     if (!gcsa || !xindex) {

@@ -6946,6 +6946,7 @@ void help_map(char** argv) {
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "    -2, --mem-threading      use the MEM-threading alingment algorithm" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -7003,6 +7004,7 @@ int main_map(int argc, char** argv) {
     bool build_in_memory = false;
     int max_mem_length = 0;
     int min_mem_length = 0;
+    bool mem_threading = false;
     int max_target_factor = 100;
     bool in_mem_path_only = false;
     int buffer_size = 100;
@@ -7065,6 +7067,7 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
+                {"mem-threading", no_argument, 0, '2'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
                 {"match", required_argument, 0, 'q'},
@@ -7080,7 +7083,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:2",
                          long_options, &option_index);
 
 
@@ -7252,6 +7255,10 @@ int main_map(int argc, char** argv) {
             max_mem_length = atoi(optarg);
             break;
 
+        case '2':
+            mem_threading = true;
+            break;
+
         case 'H':
             max_target_factor = atoi(optarg);
             break;
@@ -7282,7 +7289,7 @@ int main_map(int argc, char** argv) {
             
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
-                break;
+            break;
                 
         case 'v':
             method_code = atoi(optarg);
@@ -7489,6 +7496,7 @@ int main_map(int argc, char** argv) {
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
+        m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
