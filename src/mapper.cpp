@@ -1906,6 +1906,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
                 *new_mapping->add_edit() = edit;
             } else if (edit_is_insertion(edit)) {
+                //cerr << "looking at " << edit.sequence() << endl;
                 // bits to patch in are recorded like insertions
                 // pick up the graph from the start to end where we have an unaligned bit
                 // but bail out if we get a lot of graph
@@ -1994,7 +1995,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 //cerr << "second_cut before " << second_cut << endl;
 
                 // if we get a target graph
-                bool has_target = false;
+                bool has_target = true;
                 // we have to remember how much we've trimmed from the first node
                 // so that we can translate it after the fact
                 id_t trimmed_node = 0;
@@ -2005,7 +2006,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 if (!graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
                     // treat the bit as unalignable
                     // has_target = false
-
+                    //if (debug) cerr << "graph does not contain both cut points!" << endl;
                 } else {
 
                     bool align_rc = false;
@@ -2113,35 +2114,40 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     graph.remove_null_nodes_forwarding_edges();
                     graph.remove_orphan_edges();
                     //cerr << "trimmed graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-                    //list<VG> subgraphs;
-                    //graph.disjoint_subgraphs(subgraphs);
                     //cerr << "with " << subgraphs.size() << " subgraphs" << endl;
                     // find the subgraph with both of our cut positions
-                    VG* target = nullptr;
-                    for (auto& g : subgraphs) {
-                        // does it have our target nodes?
-                        bool is_target = true;
-                        for (auto& n : target_nodes) {
-                            if (!g.has_node(*n)) {
-                                is_target = false;
+                    // this can be done by going to the first cut position
+                    // expanding context until we complete the subgraph it's on
+                    // and then checking if the second cut position is on this graph
+
+                    assert(target_nodes.size());
+                    vector<Node*> valid_target_nodes;
+                    // find a valid target node
+                    for (auto& n : target_nodes) {
+                        if (graph.has_node(*n)) {
+                            valid_target_nodes.push_back(n);
+                        }
+                    }
+                    // if we find one, use it to build out a subgraph
+                    if (!valid_target_nodes.empty()) {
+                        VG target;
+                        target.add_node(*valid_target_nodes.front());
+                        graph.expand_context(target, 1e6, false);
+                        // then check if all of the targets are in this subgraph
+                        for (auto& n : valid_target_nodes) {
+                            if (!target.has_node(*n)) {
+                                has_target = false;
                                 break;
                             }
                         }
-                        if (is_target) {
-                            target = &g;
-                            break;
-                        }
-                    }
-                    if (target != nullptr) {
-                        graph = *target;
-                        has_target = true;
-                        //cerr << "found target! " << pb2json(target->graph) << endl;
+                        // if so, use the target as our graph
+                        if (has_target) graph = target;
                     } else {
-                        // has_target = false
-                        //cerr << "could not find target !!!!!" << endl;
+                        has_target = false;
                     }
                 }
-                if (!has_target) {
+                if (!has_target || graph.empty()) {
+                    if (debug) cerr << "no target for alignment of " << edit.sequence() << endl;
                     score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
                     *new_mapping->add_edit() = edit;
                 } else {
