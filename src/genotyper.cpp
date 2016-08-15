@@ -1,4 +1,3 @@
-#include <cstdint>
 #include "genotyper.hpp"
 #include "bubbles.hpp"
 #include "distributions.hpp"
@@ -913,178 +912,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
     
     return to_return;
 }
-
-template<typename T> inline void set_intersection(const unordered_set<T>& set_1, const unordered_set<T>& set_2,
-                                                  unordered_set<T>* out_intersection ) {
-    bool set_1_smaller = set_1.size() < set_2.size();
-    const unordered_set<T>& smaller_set = set_1_smaller ? set_1 : set_2;
-    const unordered_set<T>& larger_set = set_1_smaller ? set_2 : set_1;
-    
-    *out_intersection = unordered_set<T>();
-    unordered_set<T>& intersection = *out_intersection;
-    for (T item : smaller_set) {
-        if (larger_set.count(item)) {
-            intersection.insert(item);
-        }
-    }
-}
-
-
-// TODO properly handle cycles inside superbubble by including multiplicity of an edge in a path
-void Genotyper::edge_allele_labels(const VG& graph,
-                                   const Site& site,
-                                   const vector<list<NodeTraversal>>& superbubble_paths,
-                                   unordered_map<pair<NodeTraversal, NodeTraversal>,
-                                                 unordered_set<size_t>,
-                                                 hash_oriented_edge>* out_edge_allele_sets)
-{
-    // edges are indicated by the pair of node ids they connect and what orientation
-    // they start and end in (true indicates forward)
-    *out_edge_allele_sets = unordered_map<pair<NodeTraversal, NodeTraversal>, unordered_set<size_t>, hash_oriented_edge>();
-    unordered_map<pair<NodeTraversal, NodeTraversal>, unordered_set<size_t>, hash_oriented_edge>& edge_allele_sets = *out_edge_allele_sets;
-    
-    for (size_t i = 0; i < superbubble_paths.size(); i++) {
-        list<NodeTraversal> path = superbubble_paths[i];
-        // start at second node so we can look at edge leading into it
-        auto iter = path.begin();
-        iter++;
-        // can stop before last node because only interested in case where allele is ambiguous
-        auto last_node = path.end();
-        last_node--;
-        for (; iter != last_node; iter++) {
-
-            auto prev_iter = iter;
-            prev_iter--;
-            
-            NodeTraversal node = *iter;
-            NodeTraversal prev_node = *prev_iter;
-            
-            pair<NodeTraversal, NodeTraversal> edge = make_pair(prev_node, node);
-            
-            if (!edge_allele_sets.count(edge)) {
-                edge_allele_sets.emplace(edge, unordered_set<size_t>());
-            }
-            
-            // label the edge with this allele (indicated by its position in the vector)
-            edge_allele_sets.at(edge).insert(i);
-        }
-        
-    }
-}
-    
-// find the log conditional probability of each ambiguous allele set given each true allele
-void Genotyper::allele_ambiguity_log_probs(const VG& graph,
-                                           const Site& site,
-                                           const vector<list<NodeTraversal>>& superbubble_paths,
-                                           const unordered_map<pair<NodeTraversal, NodeTraversal>,
-                                                         unordered_set<size_t>,
-                                                         hash_oriented_edge>& edge_allele_sets,
-                                           vector<unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>>* out_allele_ambiguity_probs)
-    {
-    *out_allele_ambiguity_probs = vector<unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>>();
-    vector<unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>>& ambiguous_allele_probs = *out_allele_ambiguity_probs;
-    ambiguous_allele_probs.reserve(superbubble_paths.size());
-    
-    for (size_t i = 0; i < superbubble_paths.size(); i++) {
-        ambiguous_allele_probs[i] = unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>();
-        unordered_map<vector<size_t>, double, hash_ambiguous_allele_set>& allele_probs = ambiguous_allele_probs[i];
-        list<NodeTraversal> path = superbubble_paths[i];
-        
-        // consider both prefixes and suffixes that partially cross the superbubble
-        for (bool forward : {true, false}) {
-            // the set of alleles that this prefix of the current allele is consistent with
-            unordered_set<size_t> prefix_allele_set;
-            
-            // find the first and last node to iterate through in this orientation
-            // stop one node before last node because only interested in case where allele is ambiguous
-            list<NodeTraversal>::iterator iter;
-            list<NodeTraversal>::iterator final;
-            if (forward) {
-                // extend prefix forward through the superbubble
-                iter = path.begin();
-                final = path.end();
-                final--;
-            }
-            else {
-                // extend suffix backward through the superbubble
-                iter = path.end();
-                iter--;
-                final = path.begin();
-            }
-            // iterate forwards or backwards along edges of path
-            while (true) {
-                // get the two nodes of the edge in the order they were entered into the allele label map
-                NodeTraversal node;
-                NodeTraversal next_node;
-                auto next_iter = iter;
-                if (forward) {
-                    next_iter++;
-                    node = *iter;
-                    next_node = *next_iter;
-                }
-                else {
-                    next_iter--;
-                    node = *next_iter;
-                    next_node = *iter;
-                }
-                if (next_iter == final) {
-                    break;
-                }
-                
-                pair<NodeTraversal, NodeTraversal> edge = make_pair(node, next_node);
-                const unordered_set<size_t>& edge_allele_set = edge_allele_sets.at(edge);
-                
-                if (prefix_allele_set.empty()) {
-                    // first edge in path, consistent with all alleles edge is labeled with
-                    prefix_allele_set = edge_allele_set;
-                }
-                else {
-                    // take set intersection of prefix alleles and the edge's allele labels
-                    unordered_set<size_t> new_prefix_allele_set;
-                    set_intersection<size_t>(prefix_allele_set, edge_allele_set, &new_prefix_allele_set);
-                    prefix_allele_set = new_prefix_allele_set;
-                }
-                
-                // convert unordered set into a sorted vector for consistent hash-key behavior
-                vector<size_t> allele_set_key;
-                allele_set_key.reserve(prefix_allele_set.size());
-                for (size_t allele : prefix_allele_set) {
-                    allele_set_key.emplace_back(allele);
-                }
-                sort(allele_set_key.begin(), allele_set_key.end());
-                
-                // add the length of the sequence to the probability of that allele set (will normalize later)
-                if (allele_probs.count(allele_set_key)) {
-                    allele_probs.at(allele_set_key) += node.node->sequence().length();
-                }
-                else {
-                    allele_probs.at(allele_set_key) = node.node->sequence().length();
-                }
-                
-                // iterate forward or backward through bubble
-                if (forward) {
-                    iter++;
-                }
-                else {
-                    iter--;
-                }
-            }
-        }
-        
-        // normalize lengths to probabilities (must sum to 1)
-        size_t total_ambiguous_length = 0;
-        for (auto& allele_length : allele_probs) {
-            total_ambiguous_length += allele_length.second;
-        }
-        for (auto& allele_length : allele_probs) {
-            allele_length.second = log(allele_length.second / total_ambiguous_length);
-        }
-    }
-}
-
-
-
-    
+   
 map<Alignment*, vector<Genotyper::Affinity>>
     Genotyper::get_affinities(VG& graph,
                               const map<string, Alignment*>& reads_by_name,
@@ -1121,7 +949,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
     }
     
     // What IDs are visited by these reads?
-    unordered_set<id_t> relevant_ids;
+    set<id_t> relevant_ids;
     
     for(auto& name : relevant_read_names) {
         // Get the mappings for each read
