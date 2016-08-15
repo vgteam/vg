@@ -1882,6 +1882,7 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
 }
 
 Alignment Mapper::patch_alignment(const Alignment& aln) {
+    //cerr << "patching " << pb2json(aln) << endl;
     Alignment patched;
     int score = 0;
     // walk along the alignment and find the portions that are unaligned
@@ -1922,25 +1923,29 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // todo we should flip the orientation of the soft clip flag around if we are reversed
                     // ...
                     //soft_clip_on_start = true;
-                    if (mapping.position().is_reverse()) {
+                    if (is_rev(ref_pos)) {
                         soft_clip_to_right = true;
+                        go_forward = true;
+                        go_backward = false;
                     } else {
                         soft_clip_to_left = true;
+                        go_forward = false;
+                        go_backward = true;
                     }
-                    go_forward = is_rev(ref_pos);
-                    go_backward = !is_rev(ref_pos);
                 } else if (i+1 < path.mapping().size()) {
                     id2 = path.mapping(i+1).position().node_id();
                     //cerr << "we're up so look for id: " << id2 << endl;
                 } else {
                     //cerr << "last soft clip" << endl;
-                    if (mapping.position().is_reverse()) {
+                    if (is_rev(ref_pos)) {
                         soft_clip_to_left = true;
+                        go_forward = false;
+                        go_backward = true;
                     } else {
                         soft_clip_to_right = true;
+                        go_forward = true;
+                        go_backward = false;
                     }
-                    go_forward = !is_rev(ref_pos);
-                    go_backward = is_rev(ref_pos);
                 }
                 //cerr << "working from " << ref_pos << endl;
                 // only go backward if we are at the first edit (e.g. soft clip)
@@ -1957,12 +1962,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // instantiate a translator object (make sure it can handle the deleted bits?)
                 // translate the alignment
 
-                int min_distance = (!(id1&&id2) ? (edit.to_length() * 5): // awkward constants
+                int min_distance = (!(id1&&id2) ? (edit.to_length() * 3) : // awkward constants
                                     max((int)(edit.to_length() * 3),
                                         (int)(xindex->node_length(id2) +
                                               xindex->node_length(id2) +
                                               xindex->min_approx_path_distance({}, id1, id2))));
 
+                //cerr << "going at least " << min_distance << endl;
                 VG graph;
                 xindex->get_id_range(id1, id1, graph.graph);
                 xindex->expand_context(graph.graph,
@@ -1975,6 +1981,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 graph.rebuild_indexes();
                 graph.sort();
                 //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                //cerr << "got graph " << graph.size() << endl;
                 // now trim the graph to fit by cutting the head/tail node(s)
                 // trim head
                 pos_t first_cut = ref_pos;
@@ -2157,9 +2164,15 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // if we are walking a reversed path, take the reverse complement
                     // todo:
                     //  issue a warning if we contain an inversion and work from the orientation with the longer length
-                    string seq = mapping.position().is_reverse() ? reverse_complement(edit.sequence()) : edit.sequence();
                     //then do the alignment
-                    Alignment patch = graph.align(seq);
+                    Alignment patch;
+                    if (mapping.position().is_reverse()) {
+                        patch = reverse_complement_alignment(graph.align(reverse_complement(edit.sequence())),
+                                                             (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
+                    } else {
+                        patch = graph.align(edit.sequence());
+                    }
+                    //cerr << "patch: " << pb2json(patch) << endl;
                     // apply the cut node translation
                     //trimmed_node, trimmed_length
                     // but does it matter which orientation we are on?
@@ -2182,10 +2195,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     cerr << pb2json(patched) << endl;
                     cerr << " yo " << endl;
                     */
-                    if (patched.score() == 0) {
+                    patch.clear_sequence();
+                    if (min_identity && patch.identity() < min_identity
+                        || patch.score() == 0) {
+                        //cerr << "doing that other thing" << endl;
                         score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
                         *new_mapping->add_edit() = edit;
                     } else {
+                        //cerr << "extending alignment" << endl;
                         extend_alignment(patched, patch, true);
                         score += patch.score();
                     }
@@ -2198,8 +2215,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
         }
     }
     // finally, fix up the alignment score
+    patched.set_sequence(aln.sequence());
+    patched.set_identity(identity(patched.path()));
     patched.set_score(score);
     //cerr << "patched be " << pb2json(patched) << endl;
+    // and re-get the identity??
     return patched;
 }
 
@@ -2289,7 +2309,10 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     }
 
     if (mem_threading) {
-        return mems_to_alignments(alignment, mems, additional_multimaps);
+        auto x = mems_to_alignments(alignment, mems, additional_multimaps);
+        int i = 0;
+        //for (auto& y : x) cerr << "aln " << ++i << " --- " << pb2json(y) << endl;
+        return x;
     } // implict else
 
     struct StrandCounts {
