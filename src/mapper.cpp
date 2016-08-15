@@ -769,7 +769,7 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
     // then fix it up with DP on the little bits between the alignments
     int multimaps = 0;
     for (auto& cluster : clusters) {
-        if (multimaps++ > total_multimaps) { break; }
+        if (++multimaps > total_multimaps) { break; }
         alns.emplace_back(simplify(patch_alignment(mems_to_alignment(aln, cluster))));
         alns.back().set_name(aln.name());
         //cerr << "before " << pb2json(alns.back()) << endl;
@@ -2309,10 +2309,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     }
 
     if (mem_threading) {
-        auto x = mems_to_alignments(alignment, mems, additional_multimaps);
-        int i = 0;
-        //for (auto& y : x) cerr << "aln " << ++i << " --- " << pb2json(y) << endl;
-        return x;
+        return mems_to_alignments(alignment, mems, additional_multimaps);
     } // implict else
 
     struct StrandCounts {
