@@ -67,7 +67,8 @@ namespace vg {
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         
         // store optimal alignment against a graph in the Alignment object
-        // permissive banding auto
+        // permissive banding auto detects the width of band needed so that paths can travel
+        // through every node in the graph
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
         
@@ -88,7 +89,7 @@ namespace vg {
         // Requires log_base to have been set.
         double score_to_unnormalized_likelihood_ln(double score);
         
-        //int32_t score_mem(MaximalExactMatch& mem);
+        int32_t score_exact_match(const string& sequence);
         
         // members
         int8_t* nt_table;
@@ -124,7 +125,7 @@ namespace vg {
         int8_t* adjusted_score_matrix;
         
         
-        //int32_t score_mem(MaximalExactMatch& mem, string& base_quality);
+        int32_t score_exact_match(const string& sequence, const string& base_quality);
         
     private:
         void init_quality_adjusted_scores(int8_t _max_scaled_score,

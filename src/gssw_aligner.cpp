@@ -482,9 +482,9 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
     }
 }
 
-//int32_t Aligner::score_mem(MaximalExactMatch& mem) {
-//    return match * mem.match_count;
-//}
+int32_t Aligner::score_exact_match(const string& sequence) {
+    return match * sequence.length();
+}
 
 double Aligner::score_to_unnormalized_likelihood_ln(double score) {
     // Log base needs to be set, or this can't work. It's set by default in
@@ -575,18 +575,15 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
     band_graph.align(adjusted_score_matrix, nt_table, scaled_gap_open, scaled_gap_extension);
 }
 
-//int32_t QualAdjAligner::score_mem(MaximalExactMatch& mem, string& base_quality) {
-//    int32_t score = 0;
-//    string& sequence = mem.sequence();
-//    char* sequence_chars = sequence.c_str();
-//    char* base_quals = base_quality.c_str();
-//    for (int i = 0; i < sequence.length(); i++) {
-//        // index 5 x 5 score matrices (ACGTN)
-//        // always have match so that row and column index are same and can combine algebraically
-//        score += adjusted_score_matrix[25 * base_quals[i] + 6 * nt_table[sequence_chars[i]]];
-//    }
-//    return score;
-//}
+int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) {
+    int32_t score = 0;
+    for (int i = 0; i < sequence.length(); i++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += adjusted_score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];
+    }
+    return score;
+}
 
 
 
