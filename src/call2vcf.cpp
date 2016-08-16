@@ -13,8 +13,11 @@
 #include "vg.hpp"
 #include "index.hpp"
 #include "Variant.h"
+#include "genotypekit.hpp"
 
 namespace glenn2vcf {
+
+using namespace vg;
 
 // TODO:
 //  - Decide if we need to have sibling alts detect (somehow) and coordinate with each other
@@ -1199,8 +1202,144 @@ int call2vcf(
     // Only make it nonzero size if we're going to use it.
     IntervalBitfield occupied_regions(suppress_overlaps ? index.sequence.size() : 0);
     
-    // TODO: look at every deletion edge and spit out variants for them.
-    // Complain and maybe remember if they don't connect two primary path nodes.
+    // Find all the top-level sites
+    vector<NestedSite> sites;
+    
+    CactusSiteFinder finder(vg, refPathName);
+    finder.for_each_site_parallel([&](NestedSite site) {
+        if(!index.byId.count(site.start.node->id()) || !index.byId.count(site.start.node->id())) {
+            // Skip top-level sites that aren't on the reference path at both ends.
+            return;
+        }
+    
+        // Stick all the sites in this vector.
+        #pragma omp critical (sites)
+        sites.emplace_back(std::move(site));
+    });
+    
+    // Bubble up nested site nodes
+    std::function<void(NestedSite&, std::set<Node*>&)> bubble_up = [&](NestedSite& child, std::set<Node*>& root_contents) {
+        for(auto& next_child : child.children) {
+            // Recurse on all the children
+            bubble_up(next_child, root_contents);
+        }
+        
+        for(Node* content : child.nodes) {
+            // Dump all the node pointers into the root site.
+            root_contents.insert(content);
+        }
+        
+    };
+    
+    for(auto& site : sites) {
+        // Actually bubble up for all the sites
+        for(auto& child : site.children) {
+            bubble_up(child, site.nodes);
+        }
+        
+        // Make sure start and end are front-ways relative to the ref path.
+        if(index.byId.at(site.start.node->id()).first > index.byId.at(site.end.node->id()).first) {
+            // The site's end happens before its start
+            site.start = flip(site.start);
+            site.end = flip(site.end);
+            std::swap(site.start, site.end);
+        }
+    }
+    
+    for(auto& site : sites) {
+        // For every site, we're going to make a variant
+        
+        // Trace the ref path through the site
+        std::vector<NodeTraversal> ref_path_for_site;
+        
+        int64_t ref_node_start = index.byId.at(site.start.node->id()).first;
+        while(ref_node_start <= index.byId.at(site.end.node->id()).first) {
+        
+            // Find the reference node starting here or later.
+            auto found = index.byStart.lower_bound(ref_node_start);
+            if(found == index.byStart.end()) {
+                throw runtime_error("No ref node found when tracing through site!");
+            }
+            if((*found).first > index.byId.at(site.end.node->id()).first) {
+                // The next reference node we can find is out of the space
+                // being replaced. We're done.
+                break;
+            }
+            
+            // Next iteration look where this node ends.
+            ref_node_start = (*found).first + (*found).second.node->sequence().size();
+            
+            // Add the traversal to the ref path through the site
+            ref_path_for_site.push_back((*found).second);
+        }
+        
+        // Make sure we didn't screw it up
+        
+        for(auto& item : ref_path_for_site) {
+            std::cerr << "\t" << item << std::endl;
+        }
+        std::cerr << site.start << ", " << site.end << std::endl;
+        
+        assert(ref_path_for_site.front() == site.start);
+        assert(ref_path_for_site.back() == site.end);
+        
+        // We need to know all the full-length traversals we're going to
+        // consider. We want them in a set so we can find only unique ones.
+        std::set<std::vector<NodeTraversal>> site_traversals;
+        
+        for(Node* node : site.nodes) {
+            // Find the bubble for each node
+            // TODO: use edge support
+            std::vector<NodeTraversal> path = find_bubble(vg, node, index, nodeReadSupport, maxDepth);
+            
+            if(path.empty()) {
+                // We couldn't find a path back to the primary path. Discard
+                // this material.
+                basesLost += node->sequence().size();
+                // TODO: what if it's already in another bubble/the node is deleted?
+                break;
+            }
+            
+            // Splice the ref path through the site and the bubble's path
+            // through the site together.
+            vector<NodeTraversal> extended_path;
+            
+            size_t ref_path_index = 0;
+            size_t bubble_path_index = 0;
+            
+            while(ref_path_for_site.at(ref_path_index) != path.at(bubble_path_index)) {
+                // Collect NodeTraversals from the ref path until we hit the one
+                // at which the bubble path starts.
+                extended_path.push_back(ref_path_for_site[ref_path_index++]);
+            }
+            while(bubble_path_index < path.size()) {
+                // Then take the whole bubble path
+                extended_path.push_back(path[bubble_path_index++]);
+            }
+            while(ref_path_for_site.at(ref_path_index) != path.back()) {
+                // Then skip ahead to the matching point in the ref path
+                ref_path_index++;
+            }
+            // Skip the matching NodeTraversal
+            ref_path_index++;
+            while(ref_path_index < ref_path_for_site.size()) {
+                // Then take the entier rest of the ref path
+                extended_path.push_back(ref_path_for_site[ref_path_index++]);
+            }
+            
+            // Now add it to the set
+            site_traversals.insert(extended_path);
+            
+        }
+        
+        // TODO: something about deletion edges? Add paths for the edges...
+        
+        // Now look at all the paths for the site and pick the top 2.
+        
+        // Emit a genotype based on that
+        
+    
+    }
     
     vg.for_each_node([&](vg::Node* node) {
         // Look at every node in the graph and spit out variants for the ones
