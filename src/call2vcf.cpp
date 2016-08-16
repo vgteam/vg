@@ -267,7 +267,7 @@ void create_ref_allele(vcflib::Variant& variant, const std::string& allele) {
  *
  * If that allele already exists in the variant, does not add it again.
  *
- * Retuerns the allele number (0, 1, 2, etc.) corresponding to the given allele
+ * Returns the allele number (0, 1, 2, etc.) corresponding to the given allele
  * string in the given variant. 
  */
 int add_alt_allele(vcflib::Variant& variant, const std::string& allele) {
@@ -967,19 +967,19 @@ void parse_tsv(const std::string& tsvFile,
             Support readSupport;
             int other_support;
             double likelihood;
-            if((tokens >> readSupport.first) && (tokens >> readSupport.second) &&
-               (tokens >> other_support) && (tokens >> likelihood)) {
-                // For nodes with the number there, actually process the read support
+            tokens >> readSupport.first;
+            tokens >> readSupport.second;
+            tokens >> other_support;
+            tokens >> likelihood;
             
 #ifdef debug
-                std::cerr << "Line " << std::to_string(lineNumber) << ": Edge " << edgeDescription
-                    << " has read support " << readSupport.first << "," << readSupport.second << endl;
+            std::cerr << "Line " << std::to_string(lineNumber) << ": Edge " << edgeDescription
+                << " has read support " << readSupport.first << "," << readSupport.second << endl;
 #endif
                 
-                // Save it
-                edgeReadSupport[edgePointer] = readSupport;
-                edgeLikelihood[edgePointer] = likelihood;
-            }
+            // Save it
+            edgeReadSupport[edgePointer] = readSupport;
+            edgeLikelihood[edgePointer] = likelihood;
         
         } else {
             // This is not a real kind of line
@@ -1027,6 +1027,8 @@ int call2vcf(
     double maxHetBias,
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
     double maxRefBias,
+    // How much should we multiply the bias limits for indels?
+    double indelBiasMultiple,
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
@@ -1318,6 +1320,8 @@ int call2vcf(
                 if (edgeReadSupport.count(pathEdge)) {
                     // We have read support for edge into node, take minimum between it and the node.
                     nodeSupport = min(nodeSupport, edgeReadSupport[pathEdge]);
+                } else {
+                    throw runtime_error("No support on edge!");
                 }
                 
                 //Add support in to the total support for the alt.
@@ -1537,15 +1541,18 @@ int call2vcf(
             Support refSupport = useAverageSupport ? refReadSupportAverage : refReadSupportMin;
             Support altSupport = useAverageSupport ? altSupport : altReadSupportMin;
             
+            // We need to decide what to scale the bias limits by. We scale them up if this is an indel.
+            double biasMultiple = (altAllele.size() == refAllele.size()) ? 1.0 : indelBiasMultiple;
+            
             // We're going to make some really bad calls at low depth. We can
             // pull them out with a depth filter, but for now just elide them.
             if(total(refSupport + altSupport) >= total(baselineSupport) * minFractionForCall) {
-                if(total(refSupport) > maxRefBias * total(altSupport) &&
+                if(total(refSupport) > maxRefBias * biasMultiple * total(altSupport) &&
                     total(refReadSupportTotal) >= minTotalSupportForCall) {
                     // Biased enough towards ref, and ref has enough total reads.
                     // Say it's hom ref
                     genotype.push_back("0/0");
-                } else if(total(altSupport) > maxHetBias * total(refSupport)
+                } else if(total(altSupport) > maxHetBias * biasMultiple * total(refSupport)
                     && total(altReadSupportTotal) >= minTotalSupportForCall) {
                     // Say it's hom alt
                     genotype.push_back(std::to_string(altNumber) + "/" + std::to_string(altNumber));
@@ -1792,14 +1799,16 @@ int call2vcf(
         Support refSupport = useAverageSupport ? refReadSupportAverage : refReadSupportMin;
         // altSupport comes from single edge, so will always just be altReadSupportTotal
 
+        // These are always indels, so no need to decide on a variable bias multiple
+
         // We're going to make some really bad calls at low depth. We can
         // pull them out with a depth filter, but for now just elide them.
         if(total(refSupport + altReadSupportTotal) >= total(baselineSupport) * minFractionForCall) {
-            if(total(refSupport) > maxRefBias * total(altReadSupportTotal) &&
+            if(total(refSupport) > maxRefBias * indelBiasMultiple * total(altReadSupportTotal) &&
                 total(refReadSupportTotal) >= minTotalSupportForCall) {
                 // Say it's hom ref
                 copyNumberCall = 0;
-            } else if(total(altReadSupportTotal) > maxHetBias * total(refSupport) &&
+            } else if(total(altReadSupportTotal) > maxHetBias * indelBiasMultiple * total(refSupport) &&
                 total(altReadSupportTotal) >= minTotalSupportForCall) {
                 // Say it's hom alt
                 copyNumberCall = 2;

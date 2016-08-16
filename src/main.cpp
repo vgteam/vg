@@ -1143,6 +1143,7 @@ void help_call(char** argv) {
          << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
          << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [6]" << endl
+         << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [2]" << endl
          << "    -n, --min_count INT        min total supporting read count to call a variant [5]" << endl
          << "    -B, --bin_size  INT        bin size used for counting coverage [1000]" << endl
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
@@ -1195,6 +1196,8 @@ int main_call(int argc, char** argv) {
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
     double maxRefBias = 6;
+    // How many times more bias do we allow for indels?
+    double indelBiasMultiple = 2;
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
@@ -1240,6 +1243,7 @@ int main_call(int argc, char** argv) {
                 {"min_cov_frac", required_argument, 0, 'F'},
                 {"max_het_bias", required_argument, 0, 'H'},
                 {"max_ref_bias", required_argument, 0, 'R'},
+                {"bias_mult", required_argument, 0, 'M'},
                 {"min_count", required_argument, 0, 'n'},
                 {"bin_size", required_argument, 0, 'B'},
                 {"avg_coverage", required_argument, 0, 'C'},
@@ -1250,7 +1254,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:n:B:C:Ouh",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:Ouh",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1324,6 +1328,10 @@ int main_call(int argc, char** argv) {
             // Set max factor between reads on ref and reads on the other
             // alt for calling a homo ref.
             maxRefBias = std::stod(optarg);
+            break;
+        case 'M':
+            // Set multiplier for bias limits for indels
+            indelBiasMultiple = std::stod(optarg);
             break;
         case 'n':
             // How many reads need to touch an allele before we are willing to
@@ -1475,6 +1483,7 @@ int main_call(int argc, char** argv) {
                         minFractionForCall,
                         maxHetBias,
                         maxRefBias,
+                        indelBiasMultiple,
                         minTotalSupportForCall,
                         refBinSize,
                         expCoverage,

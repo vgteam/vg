@@ -377,6 +377,8 @@ int call2vcf(
     double maxHetBias,
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
     double maxRefBias,
+    // How much should we multiply the bias limits for indels?
+    double indelBiasMultiple,
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
