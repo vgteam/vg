@@ -7438,83 +7438,86 @@ Alignment VG::align(const Alignment& alignment,
                     uint16_t origin_score) {
     
     auto aln = alignment;
-    
+
     for(auto& character : *(aln.mutable_sequence())) {
         // Make sure everything is upper-case for alignment.
         character = toupper(character);
     }
 
-    map<id_t, pair<id_t, bool> > unfold_trans;
-    map<id_t, pair<id_t, bool> > dagify_trans;
-    size_t max_length = alignment.sequence().size();
-    size_t component_length_max = 100*max_length; // hard coded to be 100x
-
-    // give up if we've exceeded our maximum alignable graph size
-    /*
-    if (max_query_graph_ratio && length() > max_query_graph_ratio * max_length) {
-        return aln;
-    }
-    */
-
-    // dagify the graph by unfolding inversions and then applying dagify forward unroll
-    VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length, component_length_max);
-    // give up if we've exceeded our maximum alignable graph size
-    /*
-    if (max_query_graph_ratio && dag.length() > max_query_graph_ratio * max_length) {
-        return aln;
-    }
-    */
-    
-    dag.for_each_node_parallel([](Node* node) {
-         for(auto& character : *(node->mutable_sequence())) {
-            // Make sure everything is upper-case for alignment.
-            character = toupper(character);
+    auto do_align = [&](Graph& g) {
+        if (aligner && !qual_adj_aligner) {
+            aligner->align(aln, g, print_score_matrices);
         }
-    });
-
-    // overlay the translations
-    auto trans = overlay_node_translations(dagify_trans, unfold_trans);
-
-    // Join to a common root, so alignment covers the entire graph
-    // Put the nodes in sort order within the graph
-    // and break any remaining cycles
-    //Node* root = dag.join_heads(); // XXX remove this; but test
-    dag.sort();
-
-    if (aligner && !qual_adj_aligner) {
-        aligner->align(aln, dag.graph, print_score_matrices);
-    }
-    else if (qual_adj_aligner && !aligner) {
-        qual_adj_aligner->align(aln, dag.graph, print_score_matrices);
-    }
-    else {
-        cerr << "error:[VG] cannot both adjust and not adjust alignment for base quality" << endl;
-    }
-    
-    /*
-    auto check_aln = [&](VG& graph, const Alignment& a) {
-        cerr << "checking alignment" << endl;
-        if (a.has_path()) {
-            auto seq = graph.path_string(a.path());
-            //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
-            if (seq != a.sequence()) {
-                cerr << "alignment does not match graph " << endl
-                     << pb2json(a) << endl
-                     << "expect:\t" << a.sequence() << endl
-                     << "got:\t" << seq << endl;
-                write_alignment_to_file(a, "fail.gam");
-                graph.serialize_to_file("fail.vg");
-                assert(false);
-            }
+        else if (qual_adj_aligner && !aligner) {
+            qual_adj_aligner->align(aln, g, print_score_matrices);
+        }
+        else {
+            cerr << "error:[VG] cannot both adjust and not adjust alignment for base quality" << endl;
         }
     };
-    */
-    //check_aln(dag, aln);
-    translate_nodes(aln, trans, [&](id_t node_id) {
-            // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
-            return get_node(node_id)->sequence().size();
-        });
-    //check_aln(*this, aln);
+
+    if (is_acyclic() && !has_inverting_edges()) {
+
+        // graph is a non-inverting DAG, so we just need to sort
+        sort();
+        // run the alignment
+        do_align(this->graph);
+
+    } else {
+
+        map<id_t, pair<id_t, bool> > unfold_trans;
+        map<id_t, pair<id_t, bool> > dagify_trans;
+        size_t max_length = alignment.sequence().size();
+        size_t component_length_max = 100*max_length; // hard coded to be 100x
+
+        // dagify the graph by unfolding inversions and then applying dagify forward unroll
+        VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length, component_length_max);
+
+        // give up if we've exceeded our maximum alignable graph size
+        dag.for_each_node_parallel([](Node* node) {
+                for(auto& character : *(node->mutable_sequence())) {
+                    // Make sure everything is upper-case for alignment.
+                    character = toupper(character);
+                }
+            });
+
+        // overlay the translations
+        auto trans = overlay_node_translations(dagify_trans, unfold_trans);
+
+        // Join to a common root, so alignment covers the entire graph
+        // Put the nodes in sort order within the graph
+        // and break any remaining cycles
+        dag.sort();
+
+        // run the alignment
+        do_align(dag.graph);
+    
+        /*
+          auto check_aln = [&](VG& graph, const Alignment& a) {
+          cerr << "checking alignment" << endl;
+          if (a.has_path()) {
+          auto seq = graph.path_string(a.path());
+          //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
+          if (seq != a.sequence()) {
+          cerr << "alignment does not match graph " << endl
+          << pb2json(a) << endl
+          << "expect:\t" << a.sequence() << endl
+          << "got:\t" << seq << endl;
+          write_alignment_to_file(a, "fail.gam");
+          graph.serialize_to_file("fail.vg");
+          assert(false);
+          }
+          }
+          };
+        */
+        //check_aln(dag, aln);
+        translate_nodes(aln, trans, [&](id_t node_id) {
+                // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
+                return get_node(node_id)->sequence().size();
+            });
+        //check_aln(*this, aln);
+
+    }
 
     // Copy back the not-case-corrected sequence
     aln.set_sequence(alignment.sequence());
