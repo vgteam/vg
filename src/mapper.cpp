@@ -1979,7 +1979,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                        go_backward,
                                        id2);  // our target node
                 graph.rebuild_indexes();
-                graph.sort();
                 //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                 //cerr << "got graph " << graph.size() << endl;
                 // now trim the graph to fit by cutting the head/tail node(s)
