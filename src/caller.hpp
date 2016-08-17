@@ -394,7 +394,9 @@ int call2vcf(
     // a proper system for accounting for usage of graph material.
     bool suppress_overlaps,
     // Should we use average support instead minimum support for our calculations?
-    bool useAverageSupport);
+    bool useAverageSupport,
+    // Should we use the site finder and multiallelic support?
+    bool multiallelic_support);
 }
 
 #endif

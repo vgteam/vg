@@ -1149,6 +1149,7 @@ void help_call(char** argv) {
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
          << "    -u, --use_avg_support      use average instead of minimum support" << endl
+         << "    -m, --multiallelic         support multiallelic sites" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
          << "    -t, --threads N            number of threads to use" << endl;
@@ -1214,6 +1215,9 @@ int main_call(int argc, char** argv) {
     bool suppress_overlaps = false;
     // Should we use average support instead minimum support for our calculations?
     bool useAverageSupport = false;
+    // Should we go by sites and thus support multiallelic sites (true), or use
+    // the old single-branch-bubble method (false)?
+    bool multiallelic_support = false;
 
     bool show_progress = false;
     int thread_count = 1;
@@ -1249,12 +1253,13 @@ int main_call(int argc, char** argv) {
                 {"avg_coverage", required_argument, 0, 'C'},
                 {"no_overlap", no_argument, 0, 'O'},
                 {"use_avg_support", no_argument, 0, 'u'},
+                {"multiallelic", no_argument, 0, 'm'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:Ouh",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:Oumh",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1353,7 +1358,11 @@ int main_call(int argc, char** argv) {
         case 'u':
             // Average (isntead of min) support
             useAverageSupport = true;
-            break;            
+            break;
+        case 'm':
+            // Allow for multiallelic sites by using a different algorithm
+            multiallelic_support = true;
+            break;                    
         case 'p':
             show_progress = true;
             break;
@@ -1488,7 +1497,8 @@ int main_call(int argc, char** argv) {
                         refBinSize,
                         expCoverage,
                         suppress_overlaps,
-                        useAverageSupport);
+                        useAverageSupport,
+                        multiallelic_support);
     
     return 0;
 }
