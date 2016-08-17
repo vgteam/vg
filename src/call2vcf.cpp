@@ -208,6 +208,14 @@ double strand_bias(const Support& support) {
 }
 
 /**
+ * Get the minimum support of a pair of supports, by taking the min in each
+ * orientation.
+ */
+Support support_min(const Support& a, const Support& b) {
+    return std::make_pair(std::min(a.first, b.first), std::min(a.second, b.second));
+}
+
+/**
  * Make a letter into a full string because apparently that's too fancy for the
  * standard library.
  */
@@ -1290,7 +1298,7 @@ int call2vcf(
         
         // We need to know all the full-length traversals we're going to
         // consider. We want them in a set so we can find only unique ones.
-        std::set<std::vector<NodeTraversal>> site_traversals;
+        std::set<std::vector<NodeTraversal>> site_traversal_set;
         
         // We have this function to extand a partial traversal into a full
         // traversal and add it as a path. The path must already be rooted on
@@ -1324,7 +1332,7 @@ int call2vcf(
             }
             
             // Now add it to the set
-            site_traversals.insert(extended_path);
+            site_traversal_set.insert(extended_path);
         
         };
         
@@ -1379,6 +1387,133 @@ int call2vcf(
                 extend_into_allele(path);
                 
             }
+        }
+        
+        // Throw the ref allele out of the set
+        if(site_traversal_set.count(ref_path_for_site)) {
+            site_traversal_set.erase(ref_path_for_site);
+        }
+        
+        // Make it the first in the ordered alleles
+        std::vector<std::vector<NodeTraversal>> ordered_paths {ref_path_for_site};
+        // Then add all the rest
+        std::copy(site_traversal_set.begin(), site_traversal_set.end(), std::back_inserter(ordered_paths));
+        
+        // Collect sequences for all the paths
+        std::vector<std::string> sequences;
+        // Calculate average and min support for all the alts.
+        std::vector<Support> min_supports;
+        std::vector<Support> average_supports;
+        // And the min likelihood along each path
+        std::vector<double> min_likelihoods;
+        // Is the path as a whole known or novel?
+        std::vector<bool> is_known;
+        for(auto& path : ordered_paths) {
+            // Go through all the paths
+            
+            // We use this to construct the allele sequence
+            std::stringstream sequence_stream;
+            
+            // And this to compose the allele's name in terms of node IDs
+            std::stringstream id_stream;
+            
+            // What's the total support for this path?
+            Support total_support = std::make_pair(0.0, 0.0);
+            
+            // And the min
+            Support min_support = std::make_pair(INFINITY, INFINITY);
+            
+            // Also, what's the min likelihood
+            double min_likelihood = INFINITY;
+            
+            // How many bases are known (for XREF determination)?
+            size_t known_bases;
+            
+            // Set this if the path is known (either mostly known bases or a
+            // single known edge).
+            bool path_is_known = false;
+            
+            for(int64_t i = 1; i < path.size() - 1; i++) {
+                // For all but the first and last nodes (which are anchors),
+                // grab their sequences in the correct orientation.
+                
+                std::string added_sequence = path[i].node->sequence();
+            
+                if(path[i].backward) {
+                    // If the node is traversed backward, we need to flip its sequence.
+                    added_sequence = reverse_complement(added_sequence);
+                }
+                
+                // Stick the sequence
+                sequence_stream << added_sequence;
+                
+                // Record ID
+                id_stream << std::to_string(path[i].node->id());
+                if(i != path.size() - 2) {
+                    // Add a separator (-2 since the last thing is path is an
+                    // anchoring reference node)
+                    id_stream << "_";
+                }
+                
+                // How much support do we have for visiting this node?
+                Support node_support = nodeReadSupport.at(path[i].node);
+                // Grab the edge we're traversing into the node
+                vg::Edge* in_edge = vg.get_edge(make_pair(vg::NodeSide(path[i-1].node->id(), !path[i-1].backward),
+                                                          vg::NodeSide(path[i].node->id(), path[i].backward)));
+                // If there's less support on the in edge than on the node,
+                // knock it down. We do this separately in each dimension.
+                node_support = support_min(node_support, edgeReadSupport.at(in_edge));
+                
+                // Ditto for the edge we're traversing out of the node
+                vg::Edge* out_edge = vg.get_edge(make_pair(vg::NodeSide(path[i].node->id(), !path[i].backward),
+                                                           vg::NodeSide(path[i+1].node->id(), path[i+1].backward)));
+                node_support = support_min(node_support, edgeReadSupport.at(out_edge));
+                
+                
+                // Add support in to the total support for the alt. Scale by node length.
+                total_support += path[i].node->sequence().size() * node_support;
+                min_support = support_min(min_support, node_support);
+
+                // Update minimum likelihood in the alt path
+                min_likelihood = std::min(min_likelihood, nodeLikelihood.at(path[i].node));
+                
+                // TODO: use edge likelihood here too?
+                    
+                if(knownNodes.count(path[i].node)) {
+                    // This is a reference node.
+                    known_bases += path[i].node->sequence().size();
+                }
+            }
+            
+            if(path.size() == 2) {
+                // We just have the anchoring nodes and the edge between them.
+                // Look at that edge specially.
+                vg::Edge* edge = vg.get_edge(make_pair(vg::NodeSide(path[0].node->id(), !path[0].backward),
+                                                       vg::NodeSide(path[1].node->id(), path[1].backward)));
+                
+                // Only use the support on the edge
+                total_support = edgeReadSupport.at(edge);
+                min_support = total_support;
+                
+                // And the likelihood on the edge
+                min_likelihood = edgeLikelihood.at(edge);
+                
+                // The path is known if the edge is known
+                path_is_known = knownEdges.count(edge);
+            } else {
+                // We already filled in everything else; the path is known if
+                // most of it is known bases.
+                path_is_known = known_bases > 0 && known_bases >= sequences.back().size() / 2;
+            }
+            
+            // Fill in the vectors
+            sequences.push_back(sequence_stream.str());
+            min_supports.push_back(min_support);
+            // The support needs to get divided by bases, unless we're just a
+            // single edge empty allele, in which case we're sepcial.
+            average_supports.push_back(sequences.back().size() > 0 ? total_support / sequences.back().size() : total_support);
+            min_likelihoods.push_back(min_likelihood);
+            is_known.push_back(path_is_known);
         }
         
         // Now look at all the paths for the site and pick the top 2.
