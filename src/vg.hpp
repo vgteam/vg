@@ -510,6 +510,8 @@ public:
         const function<void(Node*)>& node_begin_fn,
         // called when node goes out of scope
         const function<void(Node*)>& node_end_fn,
+        // called to check if we should stop the DFS
+        const function<bool(void)>& break_fn,
         // called when an edge is encountered
         const function<void(Edge*)>& edge_fn,
         // called when an edge forms part of the DFS spanning tree
@@ -521,6 +523,10 @@ public:
     // specialization of dfs for only handling nodes
     void dfs(const function<void(Node*)>& node_begin_fn,
              const function<void(Node*)>& node_end_fn);
+    // specialization of dfs for only handling nodes + break function
+    void dfs(const function<void(Node*)>& node_begin_fn,
+             const function<void(Node*)>& node_end_fn,
+             const function<bool(void)>& break_fn);
 
     // is the graph empty?
     bool empty(void);

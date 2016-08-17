@@ -3971,6 +3971,7 @@ void VG::sort(void) {
 void VG::dfs(
     const function<void(Node*)>& node_begin_fn, // called when node is first encountered
     const function<void(Node*)>& node_end_fn,   // called when node goes out of scope
+    const function<bool(void)>& break_fn,       // called to check if we should stop the DFS
     const function<void(Edge*)>& edge_fn,       // called when an edge is encountered
     const function<void(Edge*)>& tree_fn,       // called when an edge forms part of the DFS spanning tree
     const function<void(Edge*)>& edge_curr_fn,  // called when we meet an edge in the current tree component
@@ -3998,71 +3999,91 @@ void VG::dfs(
     set<Node*> in_frame;
 
     // attempt the search rooted at all nodes
-    for_each_node([&](Node* root) {
-            // to store the stack frames
-            deque<Frame> todo;
-            if (state[root] == SearchState::PRE) {
-                state[root] = SearchState::CURR;
-                auto& es = edges[root];
-                es = edges_from(root);
-                todo.push_back(Frame(root, es.begin(), es.end()));
-                // run our discovery-time callback
-                node_begin_fn(root);
+    for (id_t i = 0; i < graph.node_size(); ++i) {
+        Node* root = graph.mutable_node(i);
+        // to store the stack frames
+        deque<Frame> todo;
+        if (state[root] == SearchState::PRE) {
+            state[root] = SearchState::CURR;
+            auto& es = edges[root];
+            es = edges_from(root);
+            todo.push_back(Frame(root, es.begin(), es.end()));
+            // run our discovery-time callback
+            node_begin_fn(root);
+            // and check if we should break
+            if (break_fn()) {
+                break;
             }
-            // now begin the search rooted at this node
-            while (!todo.empty()) {
-                // get the frame
-                auto& frame = todo.back();
-                todo.pop_back();
-                // and set up reference to it
-                auto node = frame.node;
-                auto edges_begin = frame.begin;
-                auto edges_end = frame.end;
-                // run through the edges to handle
-                while (edges_begin != edges_end) {
-                    auto edge = *edges_begin;
-                    // run the edge callback
-                    edge_fn(edge);
-                    // what's the node we'd get to following this edge
-                    auto target = get_node(edge->to());
-                    auto search_state = state[target];
-                    // if we've not seen it, follow it
-                    if (search_state == SearchState::PRE) {
-                        tree_fn(edge);
-                        // save the rest of the search for this node on the stack
-                        todo.push_back(Frame(node, ++edges_begin, edges_end));
-                        // switch our focus to the current node
-                        node = target;
-                        // and store the next node on the stack
-                        state[node] = SearchState::CURR;
-                        auto& es = edges[node];
-                        es = edges_from(node);
-                        edges_begin = es.begin();
-                        edges_end = es.end();
-                        // run our discovery-time callback
-                        node_begin_fn(node);
-                    } else if (search_state == SearchState::CURR) {
-                        // if it's on the stack
-                        edge_curr_fn(edge);
-                        ++edges_begin;
-                    } else {
-                        // it's already been handled, so in another part of the tree
-                        edge_cross_fn(edge);
-                        ++edges_begin;
-                    }
+        }
+        // now begin the search rooted at this node
+        while (!todo.empty()) {
+            // get the frame
+            auto& frame = todo.back();
+            todo.pop_back();
+            // and set up reference to it
+            auto node = frame.node;
+            auto edges_begin = frame.begin;
+            auto edges_end = frame.end;
+            // run through the edges to handle
+            while (edges_begin != edges_end) {
+                auto edge = *edges_begin;
+                // run the edge callback
+                edge_fn(edge);
+                // what's the node we'd get to following this edge
+                auto target = get_node(edge->to());
+                auto search_state = state[target];
+                // if we've not seen it, follow it
+                if (search_state == SearchState::PRE) {
+                    tree_fn(edge);
+                    // save the rest of the search for this node on the stack
+                    todo.push_back(Frame(node, ++edges_begin, edges_end));
+                    // switch our focus to the current node
+                    node = target;
+                    // and store the next node on the stack
+                    state[node] = SearchState::CURR;
+                    auto& es = edges[node];
+                    es = edges_from(node);
+                    edges_begin = es.begin();
+                    edges_end = es.end();
+                    // run our discovery-time callback
+                    node_begin_fn(node);
+                } else if (search_state == SearchState::CURR) {
+                    // if it's on the stack
+                    edge_curr_fn(edge);
+                    ++edges_begin;
+                } else {
+                    // it's already been handled, so in another part of the tree
+                    edge_cross_fn(edge);
+                    ++edges_begin;
                 }
-                state[node] = SearchState::POST;
-                node_end_fn(node);
-                edges.erase(node); // clean up edge cache
             }
-        });
+            state[node] = SearchState::POST;
+            node_end_fn(node);
+            edges.erase(node); // clean up edge cache
+        }
+    }
 }
+
 
 void VG::dfs(const function<void(Node*)>& node_begin_fn,
              const function<void(Node*)>& node_end_fn) {
     auto edge_noop = [](Edge* e) { };
     dfs(node_begin_fn,
         node_end_fn,
+        [](void) { return false; },
+        edge_noop,
+        edge_noop,
+        edge_noop,
+        edge_noop);
+}
+
+void VG::dfs(const function<void(Node*)>& node_begin_fn,
+             const function<void(Node*)>& node_end_fn,
+             const function<bool(void)>& break_fn) {
+    auto edge_noop = [](Edge* e) { };
+    dfs(node_begin_fn,
+        node_end_fn,
+        break_fn,
         edge_noop,
         edge_noop,
         edge_noop,
@@ -4150,17 +4171,24 @@ vector<Edge> VG::break_cycles(void) {
 
 bool VG::is_acyclic(void) {
     set<Node*> seen;
+    bool acyclic = true;
     dfs([&](Node* node) {
+            if (is_self_looping(node)) {
+                acyclic = false;
+            }
             if (seen.count(node)) {
-                return false;
+                acyclic = false;
             } else {
                 seen.insert(node);
             }
         },
         [&](Node* node) {
             seen.erase(node);
+        },
+        [&](void) { // our break function
+            return !acyclic;
         });
-    return true;
+    return acyclic;
 }
 
 set<set<id_t> > VG::multinode_strongly_connected_components(void) {
@@ -7450,10 +7478,12 @@ Alignment VG::align(const Alignment& alignment,
     
     auto aln = alignment;
 
+    /*
     for(auto& character : *(aln.mutable_sequence())) {
         // Make sure everything is upper-case for alignment.
         character = toupper(character);
     }
+    */
 
     auto do_align = [&](Graph& g) {
         if (aligner && !qual_adj_aligner) {
@@ -7468,29 +7498,31 @@ Alignment VG::align(const Alignment& alignment,
     };
 
     if (is_acyclic() && !has_inverting_edges()) {
-
+        Node* root = this->join_heads();
         // graph is a non-inverting DAG, so we just need to sort
         sort();
         // run the alignment
         do_align(this->graph);
 
     } else {
-
         map<id_t, pair<id_t, bool> > unfold_trans;
         map<id_t, pair<id_t, bool> > dagify_trans;
         size_t max_length = alignment.sequence().size();
         size_t component_length_max = 100*max_length; // hard coded to be 100x
 
         // dagify the graph by unfolding inversions and then applying dagify forward unroll
-        VG dag = unfold(max_length, unfold_trans).dagify(max_length, dagify_trans, max_length, component_length_max);
+        VG dag = unfold(max_length, unfold_trans)
+            .dagify(max_length, dagify_trans, max_length, component_length_max);
 
-        // give up if we've exceeded our maximum alignable graph size
+        /*
+        // enforce characters in the graph to be upper case
         dag.for_each_node_parallel([](Node* node) {
                 for(auto& character : *(node->mutable_sequence())) {
                     // Make sure everything is upper-case for alignment.
                     character = toupper(character);
                 }
             });
+        */
 
         // overlay the translations
         auto trans = overlay_node_translations(dagify_trans, unfold_trans);
@@ -7498,30 +7530,30 @@ Alignment VG::align(const Alignment& alignment,
         // Join to a common root, so alignment covers the entire graph
         // Put the nodes in sort order within the graph
         // and break any remaining cycles
+        Node* root = dag.join_heads();
         dag.sort();
 
         // run the alignment
         do_align(dag.graph);
-    
+
         /*
-          auto check_aln = [&](VG& graph, const Alignment& a) {
-          cerr << "checking alignment" << endl;
-          if (a.has_path()) {
-          auto seq = graph.path_string(a.path());
-          //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
-          if (seq != a.sequence()) {
-          cerr << "alignment does not match graph " << endl
-          << pb2json(a) << endl
-          << "expect:\t" << a.sequence() << endl
-          << "got:\t" << seq << endl;
-          write_alignment_to_file(a, "fail.gam");
-          graph.serialize_to_file("fail.vg");
-          assert(false);
-          }
-          }
-          };
+        auto check_aln = [&](VG& graph, const Alignment& a) {
+            if (a.has_path()) {
+                auto seq = graph.path_string(a.path());
+                //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
+                if (seq != a.sequence()) {
+                    cerr << "alignment does not match graph " << endl
+                         << pb2json(a) << endl
+                         << "expect:\t" << a.sequence() << endl
+                         << "got:\t" << seq << endl;
+                    write_alignment_to_file(a, "fail.gam");
+                    graph.serialize_to_file("fail.vg");
+                    assert(false);
+                }
+            }
+        };
+        check_aln(dag, aln);
         */
-        //check_aln(dag, aln);
         translate_nodes(aln, trans, [&](id_t node_id) {
                 // We need to feed in the lengths of nodes, so the offsets in the alignment can be updated.
                 return get_node(node_id)->sequence().size();
@@ -9491,7 +9523,9 @@ void VG::remove_inverting_edges(void) {
 
 bool VG::is_self_looping(NodeTraversal trav) {
     for (auto t : nodes_next(trav)) {
-        if (t.node == trav.node) return true;
+        if (t.node == trav.node) {
+            return true;
+        }
     }
     return false;
 }
