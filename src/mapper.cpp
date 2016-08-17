@@ -702,6 +702,7 @@ Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems
             // extend until we hit the end of the chrom or exceed 3x the length of the alignment
             while (x != seq_map.end() && x->first - pos < aln.sequence().size()*3) {
                 // greedy heuristic: use the longest SMEM at the position
+                // TODO don't just pick the biggest; for each of the MEMs, start a chain
                 MaximalExactMatch* mem = nullptr;
                 gcsa::node_type node;
                 for (auto& m : x->second) {
