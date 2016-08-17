@@ -1001,6 +1001,8 @@ void parse_tsv(const std::string& tsvFile,
     std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
 }
 
+#define debug
+
 // this was main() in glenn2vcf
 // all that's changed for now is that arguments passed in rather than
 // parsed from argc/argv (or passed as files)
@@ -1285,13 +1287,13 @@ int call2vcf(
                 ref_path_for_site.push_back((*found).second);
             }
             
+#ifdef debug
             // Make sure we didn't screw it up
-            
+            std::cerr << "Site " << site.start << " to " << site.end << ":" << std::endl;
             for(auto& item : ref_path_for_site) {
                 std::cerr << "\t" << item << std::endl;
             }
-            std::cerr << site.start << ", " << site.end << std::endl;
-            
+#endif
             assert(ref_path_for_site.front() == site.start);
             assert(ref_path_for_site.back() == site.end);
             
@@ -1337,12 +1339,24 @@ int call2vcf(
             
             for(Node* node : site.nodes) {
                 // Find the bubble for each node
+                
+                if(total(nodeReadSupport.at(node)) == 0) {
+                    // Don't bother with unsupported nodes
+                    continue;
+                }
+                
+                if(index.byId.count(node->id())) {
+                    // Don't try to pathfind to the reference for reference nodes.
+                    continue;
+                }
+                
                 // TODO: use edge support
                 std::vector<NodeTraversal> path = find_bubble(vg, node, index, nodeReadSupport, maxDepth);
                 
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
                     // this material.
+                    cerr << "Warning: No path found for node " << node->id() << endl;
                     basesLost += node->sequence().size();
                     // TODO: what if it's already in another bubble/the node is deleted?
                     break;
@@ -1504,7 +1518,7 @@ int call2vcf(
                 } else {
                     // We already filled in everything else; the path is known if
                     // most of it is known bases.
-                    path_is_known = known_bases > 0 && known_bases >= sequences.back().size() / 2;
+                    path_is_known = known_bases > 0 && known_bases >= sequence_stream.str().size() / 2;
                 }
                 
                 // Fill in the vectors
@@ -1540,6 +1554,11 @@ int call2vcf(
             
             // We should always have a best allele; we may sometimes have a second best.
             assert(best_allele != -1);
+            
+            if(best_allele == 0 && second_best_allele == -1) {
+                // This site isn't variable; don't bother with it.
+                continue;
+            }
             
             // Since the variable part of the site is after the first anchoring node, where does it start?
             size_t variation_start = index.byId.at(site.start.node->id()).first + site.start.node->sequence().size();
