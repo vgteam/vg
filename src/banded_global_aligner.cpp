@@ -1,9 +1,8 @@
 //
 //  banded_global_aligner.cpp
 //  
-//
-//  Created by Jordan Eizenga on 7/25/16.
-//
+//  Contains objects to support Aligner in performing banded global alignment against
+//  a graph.
 //
 
 #include "banded_global_aligner.hpp"

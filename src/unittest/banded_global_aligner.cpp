@@ -17,7 +17,7 @@ using namespace google::protobuf;
 namespace vg {
     namespace unittest {
         
-        TEST_CASE( "Banded global alignment works when read matches exactly",
+        TEST_CASE( "Banded global aligner produces correct alignment when read matches exactly",
                    "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -71,7 +71,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when there is a mismatch",
+        TEST_CASE( "Banded global aligner produces correct alignment when there is a mismatch",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -129,7 +129,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when there are paths of different lenths in the graph",
+        TEST_CASE( "Banded global aligner produces correct alignment when there are paths of different lenths in the graph",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -183,7 +183,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a node is masked",
+        TEST_CASE( "Banded global aligner produces correct alignment when a node is masked",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -237,7 +237,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a single base deletion",
+        TEST_CASE( "Banded global aligner produces correct alignment when a there is a single base deletion",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -299,7 +299,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a multi-base deletion",
+        TEST_CASE( "Banded global aligner produces correct alignment when a there is a multi-base deletion",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -361,7 +361,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a single base insertion",
+        TEST_CASE( "Banded global aligner produces correct alignment when a there is a single base insertion",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -423,7 +423,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a multi-base insertion",
+        TEST_CASE( "Banded global aligner produces correct alignment when a there is a multi-base insertion",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -485,7 +485,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a deletion across a node boundary",
+        TEST_CASE( "Banded global aligner produces correct alignment when a there is a deletion across a node boundary",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -547,7 +547,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a single base lead insertion",
+        TEST_CASE( "Banded global aligner produces correct alignment when it begins with a single base insertion",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -605,7 +605,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a multi-base lead insertion",
+        TEST_CASE( "Banded global aligner produces correct alignment when it begins with a multi-base insertion",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -663,7 +663,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a single base lead deletion",
+        TEST_CASE( "Banded global aligner produces correct alignment when it begins with a single base deletion",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -721,7 +721,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there is a multi-base lead deletion",
+        TEST_CASE( "Banded global aligner produces correct alignment when it begins with a multi-base deletion",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -779,7 +779,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when a there lead deletion across a node boundary",
+        TEST_CASE( "Banded global aligner produces correct alignment when it begins with a deletion that crosses a node boundary",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -837,7 +837,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when band is wider than read",
+        TEST_CASE( "Banded global aligner produces correct alignment when the band is wider than the read",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -891,7 +891,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works when band one base wide",
+        TEST_CASE( "Banded global aligner produces correct alignment when the band is one base wide",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -945,7 +945,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works with permissive banding",
+        TEST_CASE( "Banded global aligner runs with permissive banding",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -1000,7 +1000,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment with permissive banding can complete alignment outside of the padded band",
+        TEST_CASE( "Banded global aligner with permissive banding can complete alignment outside of the padded band",
                    "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -1063,7 +1063,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works with multiple source nodes",
+        TEST_CASE( "Banded global aligner produces correct alignment when there are multiple source nodes",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -1109,7 +1109,7 @@ namespace vg {
             REQUIRE(path.mapping(1).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works with multiple sink nodes",
+        TEST_CASE( "Banded global aligner produces correct alignment when there are multiple sink nodes",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -1155,7 +1155,7 @@ namespace vg {
             REQUIRE(path.mapping(1).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works with multiple source and multiple sink nodes",
+        TEST_CASE( "Banded global aligner produces correct alignment when there are multiple source and multiple sink nodes",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -1210,7 +1210,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment works with a separated graph",
+        TEST_CASE( "Banded global aligner produces correct alignment on a separated graph",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -1257,7 +1257,7 @@ namespace vg {
             REQUIRE(path.mapping(1).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment runs with quality adjusted alignments",
+        TEST_CASE( "Banded global aligner runs with base quality adjusted alignments",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
@@ -1316,7 +1316,7 @@ namespace vg {
             REQUIRE(path.mapping(2).edit(0).sequence().empty());
         }
         
-        TEST_CASE( "Banded global alignment increases score when adjusting for low quality mismatches",
+        TEST_CASE( "Banded global aligner increases score when adjusting for low quality mismatches",
                   "[alignment][banded][mapping]" ) {
             
             VG graph;
