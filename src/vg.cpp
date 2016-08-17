@@ -4149,7 +4149,18 @@ vector<Edge> VG::break_cycles(void) {
 }
 
 bool VG::is_acyclic(void) {
-    return multinode_strongly_connected_components().empty();
+    set<Node*> seen;
+    dfs([&](Node* node) {
+            if (seen.count(node)) {
+                return false;
+            } else {
+                seen.insert(node);
+            }
+        },
+        [&](Node* node) {
+            seen.erase(node);
+        });
+    return true;
 }
 
 set<set<id_t> > VG::multinode_strongly_connected_components(void) {
