@@ -1217,16 +1217,21 @@ int call2vcf(
         sites.emplace_back(std::move(site));
     });
     
-    // Bubble up nested site nodes
-    std::function<void(NestedSite&, std::set<Node*>&)> bubble_up = [&](NestedSite& child, std::set<Node*>& root_contents) {
+    // Bubble up nested site nodes and edges
+    std::function<void(NestedSite&, NestedSite&)> bubble_up = [&](NestedSite& child, NestedSite& root) {
         for(auto& next_child : child.children) {
             // Recurse on all the children
-            bubble_up(next_child, root_contents);
+            bubble_up(next_child, root);
         }
         
         for(Node* content : child.nodes) {
             // Dump all the node pointers into the root site.
-            root_contents.insert(content);
+            root.nodes.insert(content);
+        }
+        
+        for(Edge* content : child.edges) {
+            // Dump all the edges into the root site
+            root.edges.insert(content);
         }
         
     };
@@ -1234,7 +1239,7 @@ int call2vcf(
     for(auto& site : sites) {
         // Actually bubble up for all the sites
         for(auto& child : site.children) {
-            bubble_up(child, site.nodes);
+            bubble_up(child, site);
         }
         
         // Make sure start and end are front-ways relative to the ref path.
@@ -1287,19 +1292,10 @@ int call2vcf(
         // consider. We want them in a set so we can find only unique ones.
         std::set<std::vector<NodeTraversal>> site_traversals;
         
-        for(Node* node : site.nodes) {
-            // Find the bubble for each node
-            // TODO: use edge support
-            std::vector<NodeTraversal> path = find_bubble(vg, node, index, nodeReadSupport, maxDepth);
-            
-            if(path.empty()) {
-                // We couldn't find a path back to the primary path. Discard
-                // this material.
-                basesLost += node->sequence().size();
-                // TODO: what if it's already in another bubble/the node is deleted?
-                break;
-            }
-            
+        // We have this function to extand a partial traversal into a full
+        // traversal and add it as a path. The path must already be rooted on
+        // the reference in the correct order and orientation.
+        auto extend_into_allele = [&](std::vector<NodeTraversal> path) {
             // Splice the ref path through the site and the bubble's path
             // through the site together.
             vector<NodeTraversal> extended_path;
@@ -1329,10 +1325,61 @@ int call2vcf(
             
             // Now add it to the set
             site_traversals.insert(extended_path);
+        
+        };
+        
+        for(Node* node : site.nodes) {
+            // Find the bubble for each node
+            // TODO: use edge support
+            std::vector<NodeTraversal> path = find_bubble(vg, node, index, nodeReadSupport, maxDepth);
+            
+            if(path.empty()) {
+                // We couldn't find a path back to the primary path. Discard
+                // this material.
+                basesLost += node->sequence().size();
+                // TODO: what if it's already in another bubble/the node is deleted?
+                break;
+            }
+            
+            // Extend it out into an allele
+            extend_into_allele(path);
             
         }
         
-        // TODO: something about deletion edges? Add paths for the edges...
+        for(Edge* edge : site.edges) {
+            // Go through all the edges
+            
+            if(index.byId.count(edge->from()) && index.byId.count(edge->to()) && edge->from() != edge->to()) {
+                // We know the edge touches the reference at both ends, at two distinct nodes
+                
+                // Imagine a path between these two nodes
+                NodeTraversal left(vg.get_node(edge->from()), edge->from_start());
+                NodeTraversal right(vg.get_node(edge->to()), edge->to_end());
+                
+                if(index.byId.at(edge->to()).first < index.byId.at(edge->to()).first) {
+                    // If it runs backwards in reference space, flip it around.
+                    left = left.reverse();
+                    right = right.reverse();
+                    std::swap(left, right);
+                }
+                
+                if(index.byId.at(left.node->id()).second != left.backward || index.byId.at(right.node->id()).second != right.backward) {
+                    // This edge doesn't flow along the reference in a
+                    // consistent direction. In order to increase in reference
+                    // coordinate, one or both nodes has to be in the wrong
+                    // orientation. Skip it.
+                    continue;
+                }
+                
+                // Now we know we're going the right way. Make a proper path
+                std::vector<NodeTraversal> path{left, right};
+                
+                // Extend it with the rest of the reference nodes and add it to
+                // the set of paths through the site.
+                extend_into_allele(path);
+                
+            }
+        }
         
         // Now look at all the paths for the site and pick the top 2.
         
