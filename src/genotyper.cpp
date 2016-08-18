@@ -30,6 +30,11 @@ void Genotyper::run(VG& graph,
                     int length_override,
                     int variant_offset) {
 
+    // TODO: this maybe should be in a constructor? Or the base Aligner's
+    // constructor?
+    // Set up the mapping quality on our aligner.
+    normal_aligner.init_mapping_quality(default_gc_content);
+    
     if(ref_path_name.empty()) {
         // Guess the ref path name
         if(graph.paths.size() == 1) {
@@ -142,10 +147,18 @@ void Genotyper::run(VG& graph,
                     // We also need the edge from the last mapping to this one.
                     // Make the two sides we connected moving from the last mapping to this one.
                     NodeSide last(path.mapping(i - 1).position().node_id(), !path.mapping(i - 1).position().is_reverse());
-                    NodeSide here(node_id, path.mapping(i - 1).position().is_reverse());
+                    NodeSide here(node_id, path.mapping(i).position().is_reverse());
+                    
+                    Edge* edge = graph.get_edge(last, here);
+                    
+                    if(edge == nullptr) {
+                        cerr << "Error! Edge " << last << " to " << here 
+                            << " from path " << name_and_read.first << " is missing!" << endl;
+                        exit(1);
+                    }
                     
                     // We know the graph will have the edge
-                    supported_edges.insert(graph.get_edge(last, here));
+                    supported_edges.insert(edge);
                 }
             
             }
@@ -172,8 +185,16 @@ void Genotyper::run(VG& graph,
                     NodeSide last(last_mapping->position().node_id(), !last_mapping->position().is_reverse());
                     NodeSide here(node_id, mapping->position().is_reverse());
                     
+                    Edge* edge = graph.get_edge(last, here);
+                    
+                    if(edge == nullptr) {
+                        cerr << "Error! Edge " << last << " to " << here
+                            << " from path " << ref_path_name << " is missing!" << endl;
+                        exit(1);
+                    }
+                    
                     // We know the graph will have the edge
-                    supported_edges.insert(graph.get_edge(last, here));                    
+                    supported_edges.insert(edge);                    
                     
                 }
                 
@@ -185,7 +206,9 @@ void Genotyper::run(VG& graph,
         
         // Make the subset graph of only supported nodes and edges (which will
         // internally contain copies of all of them).
-        VG subset(supported_nodes, supported_edges);
+        VG subset;
+        subset.add_nodes(supported_nodes);
+        subset.add_edges(supported_edges);
         
         if(graph.paths.has_path(ref_path_name)) {
             // Copy over the reference path
@@ -265,6 +288,9 @@ void Genotyper::run(VG& graph,
                 {
                 
                     auto& site = *it;
+                    
+                    // Report the site to our statistics code
+                    report_site(site, reference_index);
                     
                     int tid = omp_get_thread_num();
                     
@@ -503,11 +529,53 @@ void Genotyper::run(VG& graph,
         cerr << "Computed " << total_affinities << " affinities" << endl;
     }
     
+    // Dump statistics before the sites go away, so the pointers won't be dangling
+    print_statistics(cerr);
+    
     if(output_vcf) {
         delete vcf;
         delete reference_index;
     }
 
+}
+
+pair<pair<int64_t, int64_t>, bool> Genotyper::get_site_reference_bounds(const Site& site, const ReferenceIndex& index) {
+    // Grab the start and end node IDs.
+    auto first_id = site.start.node->id();
+    auto last_id = site.end.node->id();
+    
+    if(!index.byId.count(first_id) || !index.byId.count(last_id)) {
+        // Site isn;t actually on the reference path so return a sentinel.
+        return make_pair(make_pair(-1, -1), false);
+    }
+    
+    // The position we have stored for this start node is the first
+    // position along the reference at which it occurs. Our bubble
+    // goes forward in the reference, so we must come out of the
+    // opposite end of the node from the one we have stored.
+    auto referenceIntervalStart = index.byId.at(first_id).first + site.start.node->sequence().size();
+    
+    // The position we have stored for the end node is the first
+    // position it occurs in the reference, and we know we go into
+    // it in a reference-concordant direction, so we must have our
+    // past-the-end position right there.
+    auto referenceIntervalPastEnd = index.byId.at(last_id).first;
+    
+    // Is this bubble articulated backwards relative to the reference?
+    bool site_is_reverse = false;
+    
+    if(referenceIntervalStart > referenceIntervalPastEnd) {
+        // Everything we know about the site is backwards relative to the reference. Flip it around frontways.
+        site_is_reverse = true;
+        swap(first_id, last_id);
+        // Recalculate reference positions Use the end node, which we've now
+        // made first_id, to get the length offset to the start of the actual
+        // internal variable bit.
+        referenceIntervalStart = index.byId.at(first_id).first + site.end.node->sequence().size();
+        referenceIntervalPastEnd = index.byId.at(last_id).first;
+    }
+    
+    return make_pair(make_pair(referenceIntervalStart, referenceIntervalPastEnd), site_is_reverse);
 }
 
 /**
@@ -532,7 +600,7 @@ string allele_to_string(VG& graph, const Path& allele) {
     return stream.str();
 }
 
-int Genotyper::alignment_qual_score(const Alignment& alignment) {
+int Genotyper::alignment_qual_score(VG& graph, const Site& site, const Alignment& alignment) {
     if(alignment.quality().empty()) {
         // Special case: qualities not given. Assume something vaguely sane so
         // we can genotype without quality.
@@ -543,20 +611,35 @@ int Genotyper::alignment_qual_score(const Alignment& alignment) {
         return default_sequence_quality;
     }
     
-    double total = 0;
-    for(size_t i = 0; i < alignment.quality().size(); i++) {
+    // Go through all the qualities in the site
+    // TODO: can we do this in place?
+    string relevant_qualities = get_qualities_in_site(graph, site, alignment);
+    
+    if(relevant_qualities.empty()) {
+        // No qualities available internal to the site for this read. Must be a
+        // pure-deletion allele.
 #ifdef debug
         #pragma omp critical (cerr)
-        cerr << "Quality: " << (int)alignment.quality()[i] << endl;
+        cerr << "No internal qualities. Assuming default quality of " << default_sequence_quality << endl;
 #endif
-        total += alignment.quality()[i];
+        // TODO: look at bases on either side of the deletion.
+        return default_sequence_quality;
+    }
+    
+    double total = 0;
+    for(auto& quality : relevant_qualities) {
+#ifdef debug
+        #pragma omp critical (cerr)
+        cerr << "Quality: " << (int)quality << endl;
+#endif
+        total += quality;
     }
 #ifdef debug
     #pragma omp critical (cerr)
-    cerr << "Count: " << alignment.quality().size() << endl;
+    cerr << "Count: " << relevant_qualities.size() << endl;
 #endif
     // Make the total now actually be an average
-    total /= alignment.quality().size();
+    total /= relevant_qualities.size();
     return round(total);
 }
 
@@ -775,6 +858,14 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
 #endif
                         }
                         
+                        if(reads_by_name.count(name)) {
+                            // We want to log stats on reads that read all the
+                            // way through sites. But since we may be called
+                            // multiple times we need to send the unique read
+                            // name too.
+                            report_site_traversal(site, name);
+                        }
+                        
                         // Then try the next embedded path
                         break;
                     }
@@ -821,7 +912,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
     
     return to_return;
 }
-
+   
 map<Alignment*, vector<Genotyper::Affinity>>
     Genotyper::get_affinities(VG& graph,
                               const map<string, Alignment*>& reads_by_name,
@@ -844,14 +935,16 @@ map<Alignment*, vector<Genotyper::Affinity>>
 
     for(auto id : site.contents) {
         // For every node in the superbubble, what paths visit it?
-        auto& mappings_by_name = graph.paths.get_node_mapping(id);
-        for(auto& name_and_mappings : mappings_by_name) {
-            // For each path visiting the node
-            if(reads_by_name.count(name_and_mappings.first)) {
-                // This path is a read, so add the name to the set if it's not
-                // there already
-                relevant_read_names.insert(name_and_mappings.first);
-            }    
+        if(graph.paths.has_node_mapping(id)) {
+            auto& mappings_by_name = graph.paths.get_node_mapping(id);
+            for(auto& name_and_mappings : mappings_by_name) {
+                // For each path visiting the node
+                if(reads_by_name.count(name_and_mappings.first)) {
+                    // This path is a read, so add the name to the set if it's not
+                    // there already
+                    relevant_read_names.insert(name_and_mappings.first);
+                }    
+            }
         }
     }
     
@@ -883,7 +976,7 @@ map<Alignment*, vector<Genotyper::Affinity>>
     for(auto id : relevant_ids) {
         // For all the IDs in the surrounding material
         
-        if(graph.paths.get_node_mapping(id).size() < min_recurrence) {
+        if(!graph.paths.has_node_mapping(id) || graph.paths.get_node_mapping(id).size() < min_recurrence) {
             // Skip nodes in the graph that have too little support. In practice
             // this means we'll restrict ourselves to supported, known nodes.
             // TODO: somehow do the same for edges.
@@ -1008,12 +1101,23 @@ map<Alignment*, vector<Genotyper::Affinity>>
             cerr << "\t" << pb2json(aligned) << endl;
 #endif
 
-            // Compute the score per base
+            // Compute the score per base. TODO: is this at all comparable
+            // between quality-adjusted and non-quality-adjusted reads?
             double score_per_base = (double)aligned.score() / aligned.sequence().size();
             
             // Save the score (normed per read base) and orientation
             // We'll normalize the affinities later to enforce the max of 1.0.
             Affinity affinity(score_per_base, aligned_rev.score() > aligned_fwd.score());
+            
+            // Compute the unnormalized likelihood of the read given the allele graph.
+            if(read->sequence().size() == read->quality().size()) {
+                // Use the quality-adjusted default scoring system
+                affinity.likelihood_ln = quality_aligner.score_to_unnormalized_likelihood_ln(aligned.score());
+            } else {
+                // We will have aligned without quality adjustment, so interpret
+                // score in terms of the normal scoring parameters.
+                affinity.likelihood_ln = normal_aligner.score_to_unnormalized_likelihood_ln(aligned.score());
+            }
             
             // Get the NodeTraversals for the winning alignment through the site.
             auto read_traversal = get_traversal_of_site(graph, site, aligned.path());
@@ -1175,14 +1279,16 @@ Genotyper::get_affinities_fast(VG& graph,
     
     for(auto id : site.contents) {
         // For every node in the superbubble, what paths visit it?
-        auto& mappings_by_name = graph.paths.get_node_mapping(id);
-        for(auto& name_and_mappings : mappings_by_name) {
-            // For each path visiting the node
-            if(reads_by_name.count(name_and_mappings.first)) {
-                // This path is a read, so add the name to the set if it's not
-                // there already
-                relevant_read_names.insert(name_and_mappings.first);
-            }    
+        if(graph.paths.has_node_mapping(id)) {
+            auto& mappings_by_name = graph.paths.get_node_mapping(id);
+            for(auto& name_and_mappings : mappings_by_name) {
+                // For each path visiting the node
+                if(reads_by_name.count(name_and_mappings.first)) {
+                    // This path is a read, so add the name to the set if it's not
+                    // there already
+                    relevant_read_names.insert(name_and_mappings.first);
+                }    
+            }
         }
     }
     
@@ -1278,7 +1384,7 @@ Genotyper::get_affinities_fast(VG& graph,
     return to_return;
 }
 
-double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const vector<pair<Alignment, vector<Affinity>>> alignment_consistency) {
+double Genotyper::get_genotype_log_likelihood(VG& graph, const Site& site, const vector<int>& genotype, const vector<pair<Alignment*, vector<Affinity>>>& alignment_consistency) {
     // For each genotype, calculate P(observed reads | genotype) as P(all reads
     // that don't support an allele from the genotype are mismapped or
     // miscalled) * P(all reads that do support alleles from the genotype ended
@@ -1318,7 +1424,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
         // For each read, work out if it supports a genotype we have or not.
         
         // Split out the alignment from its consistency flags
-        auto& read = read_and_consistency.first;
+        auto& read = *read_and_consistency.first;
         auto& consistency = read_and_consistency.second;
         
         // How many of the alleles in our genotype is it consistent with?
@@ -1348,7 +1454,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
             }
         }
         
-        auto read_qual = alignment_qual_score(read);
+        auto read_qual = alignment_qual_score(graph, site, read);
         
 #ifdef debug
         #pragma omp critical (cerr)
@@ -1454,7 +1560,7 @@ double Genotyper::get_genotype_log_likelihood(const vector<int>& genotype, const
                     // And also second, so it's ambiguous
                     ambiguous_reads++;
 #ifdef debug
-                    cerr << "Ambiguous read: " << read_and_consistency.first.sequence() << endl;
+                    cerr << "Ambiguous read: " << read_and_consistency.first->sequence() << endl;
                     for(int i = 0; i < consistency.size(); i++) {
                         cerr << "\t" << i << ": " << consistency[i].consistent << endl;
                     }
@@ -1580,7 +1686,10 @@ string Genotyper::get_qualities_in_site(VG& graph, const Site& site, const Align
             // For every edit
             auto& edit = mapping.edit(j);
         
-            if(in_site) {
+            if(in_site && mapping.position().node_id() != site.start.node->id()
+                && mapping.position().node_id() != site.end.node->id()) {
+                // We're in the site but not on the start or end nodes.
+                // TODO: qualities for a deletion/insertion?
                 for(size_t k = 0; k < edit.to_length(); k++) {
                     // Take each quality value from the edit and add it to our collection to return
                     if(quality_pos >= alignment.quality().size()) {
@@ -1628,8 +1737,8 @@ Locus Genotyper::genotype_site(VG& graph,
     cerr << "Looking between " << site.start << " and " << site.end << endl;
 #endif
 
-    // We'll fill this in with the trimmed alignments and their consistency-with-alleles flags.
-    vector<pair<Alignment, vector<Affinity>>> alignment_consistency;
+    // We'll fill this in with the alignments for this site and their consistency-with-alleles flags.
+    vector<pair<Alignment*, vector<Affinity>>> alignment_consistency;
     
     // We fill this in with totals of reads supporting alleles
     vector<int> reads_consistent_with_allele(superbubble_paths.size(), 0);
@@ -1646,16 +1755,10 @@ Locus Genotyper::genotype_site(VG& graph,
     
     for(auto& alignment_and_affinities : affinities) {
         // We need to clip down to just the important quality values        
-        Alignment trimmed = *alignment_and_affinities.first;
-        
-        // Trim down qualities to just those in the superbubble
-        auto trimmed_qualities = get_qualities_in_site(graph, site, trimmed);
-        
-        // Stick them back in the now bogus-ified Alignment object.
-        trimmed.set_quality(trimmed_qualities);
+        Alignment& alignment = *alignment_and_affinities.first;
         
         // Hide all the affinities where we can pull them later
-        debug_affinities[trimmed.name()] = alignment_and_affinities.second;
+        debug_affinities[alignment.name()] = alignment_and_affinities.second;
         
         // Affinities already know whether they are consistent with an allele. Don't second-guess them.
         // Fine even with alignment; no read we embedded should ever have non-perfect identity.
@@ -1702,8 +1805,8 @@ Locus Genotyper::genotype_site(VG& graph,
             cerr << "Warning! Read supports no alleles!" << endl;
         }
         
-        // Save the trimmed alignment and its affinities, which we use to get GLs.
-        alignment_consistency.emplace_back(std::move(trimmed), alignment_and_affinities.second);
+        // Save the alignment and its affinities, which we use to get GLs.
+        alignment_consistency.push_back(alignment_and_affinities);
         
     }
     
@@ -1720,9 +1823,9 @@ Locus Genotyper::genotype_site(VG& graph,
             for(auto& read_and_consistency : alignment_consistency) {
                 if(read_and_consistency.second.size() > i && 
                     read_and_consistency.second[i].consistent &&
-                    read_and_consistency.first.sequence().size() < 30) {
+                    read_and_consistency.first->sequence().size() < 30) {
                     // Dump all the short consistent reads
-                    cerr << "\t" << read_and_consistency.first.sequence() << " " << debug_affinities[read_and_consistency.first.name()][i].affinity << endl;
+                    cerr << "\t" << read_and_consistency.first->sequence() << " " << debug_affinities[read_and_consistency.first->name()][i].affinity << endl;
                 }
             }
         }
@@ -1742,7 +1845,7 @@ Locus Genotyper::genotype_site(VG& graph,
             vector<int> genotype_vector = {allele1, allele2};
             
             // Compute the log probability of the data given the genotype
-            double log_likelihood = get_genotype_log_likelihood(genotype_vector, alignment_consistency);
+            double log_likelihood = get_genotype_log_likelihood(graph, site, genotype_vector, alignment_consistency);
             
             // Compute the prior
             double log_prior = get_genotype_log_prior(genotype_vector);
@@ -1946,28 +2049,19 @@ Genotyper::locus_to_variant(VG& graph,
         return to_return;
     }
     
-    // The position we have stored for this start node is the first
-    // position along the reference at which it occurs. Our bubble
-    // goes forward in the reference, so we must come out of the
-    // opposite end of the node from the one we have stored.
-    auto referenceIntervalStart = index.byId.at(first_id).first + graph.get_node(first_id)->sequence().size();
+    // Compute the reference region occupied by the site, accounting for
+    // orientation.
+    auto bounds = get_site_reference_bounds(site, index);
     
-    // The position we have stored for the end node is the first
-    // position it occurs in the reference, and we know we go into
-    // it in a reference-concordant direction, so we must have our
-    // past-the-end position right there.
-    auto referenceIntervalPastEnd = index.byId.at(last_id).first;
+    // Where does this bubble start and end in the reference?
+    auto referenceIntervalStart = bounds.first.first;
+    auto referenceIntervalPastEnd = bounds.first.second;
     
-    // Is this bubble articulated backwards relative to the refedrence?
-    bool site_is_reverse = false;
-    
-    if(referenceIntervalStart > referenceIntervalPastEnd) {
-        // Everything we know about the site is backwards relative to the reference. Flip it around frontways.
-        site_is_reverse = true;
+    // Is this bubble articulated backwards relative to the reference?
+    bool site_is_reverse = bounds.second;
+    if(site_is_reverse) {
+        // Make sure our first and last IDs are actually accurate.
         swap(first_id, last_id);
-        // Recalculate reference positions
-        referenceIntervalStart = index.byId.at(first_id).first + graph.get_node(first_id)->sequence().size();
-        referenceIntervalPastEnd = index.byId.at(last_id).first;
     }
     
     // Get the string for the reference allele
@@ -2330,7 +2424,80 @@ ReferenceIndex::ReferenceIndex(vg::VG& vg, std::string refPathName) {
     }
 }
 
+void Genotyper::report_site(const Site& site, const ReferenceIndex* index) {
+    if(site.contents.size() == 2) {
+        // Skip degenerate sites
+        return;
+    }
 
+    // Remember that we have the site
+    #pragma omp critical (all_sites)
+    all_sites.insert(&site);
+    
+    if(index != nullptr) {
+        // We have an index of the reference.
+    
+        // Figure out its reference length and log it.
+        auto bounds = get_site_reference_bounds(site, *index);
+        
+        if(bounds.first.first == -1) {
+            // It's not really on that path
+            return;
+        }
+        
+        int64_t length = bounds.first.second - bounds.first.first;
+        
+        #pragma omp critical (site_reference_length_histogram)
+        site_reference_length_histogram[length]++;
+        
+    }
+    
+}
+
+void Genotyper::report_site_traversal(const Site& site, const string& name) {
+    if(site.contents.size() == 2) {
+        // Skip degenerate sites
+        return;
+    }
+
+    // Mark this read as traversing this site
+    #pragma omp critical (site_traversals)
+    site_traversals[&site].insert(name);
+}
+
+void Genotyper::print_statistics(ostream& out) {
+    // Dump our stats to the given ostream.
+    
+    out << "Statistics:" << endl;
+    out << "Number of Non-Degenerate Sites: " << all_sites.size() << endl;
+    
+    // How many sites were actually traversed by reads?
+    size_t sites_traversed = 0;
+    for(const Site* site : all_sites) {
+        // For every site
+        if(site_traversals.count(site) && site_traversals.at(site).size() > 0) {
+            // If it has a set of read names and the set is nonempty, it was traversed
+            sites_traversed++;
+        }
+    }
+    out << "Sites traversed by reads: " << sites_traversed << endl;
+    
+    // How many sites are on the reference? Only those that have defined lengths
+    size_t sites_on_reference = 0;
+    for(auto& length_and_count : site_reference_length_histogram) {
+        sites_on_reference += length_and_count.second;
+    }
+    out << "Sites on reference: " << sites_on_reference << endl;
+    
+    // What's the length distribution?
+    out << "Site length distribution: " << endl;
+    for(auto& length_and_count : site_reference_length_histogram) {
+        // Dump length and count as a TSV bit.
+        out << length_and_count.first << "\t" << length_and_count.second << endl;
+    }
+    
+}
+    
 }
 
 

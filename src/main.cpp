@@ -26,7 +26,7 @@
 #include "filter.hpp"
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
-#include "vg_git_version.hpp"
+#include "version.hpp"
 #include "IntervalTree.h"
 #include "genotyper.hpp"
 #include "bubbles.hpp"
@@ -34,10 +34,7 @@
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
 
-// Make sure the version macro is a thing
-#ifndef VG_GIT_VERSION
-    #define VG_GIT_VERSION "missing"
-#endif
+
 
 using namespace std;
 using namespace google::protobuf;
@@ -215,7 +212,8 @@ void help_filter(char** argv) {
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
-         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl;
+         << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
+         << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -239,6 +237,7 @@ int main_filter(int argc, char** argv) {
     int context_size = 0;
     bool verbose = false;
     double min_mapq = 0.;
+    int repeat_size = 0;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -259,11 +258,12 @@ int main_filter(int argc, char** argv) {
                 {"context",  required_argument, 0, 'c'},
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
+                {"repeat-ends", required_argument, 0, 'E'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -314,6 +314,9 @@ int main_filter(int argc, char** argv) {
         case 'v':
             verbose = true;
             break;
+        case 'E':
+            repeat_size = atoi(optarg);
+            break;            
 
         case 'h':
         case '?':
@@ -508,6 +511,8 @@ int main_filter(int argc, char** argv) {
     size_t max_pri_overhang_count = 0;
     size_t min_sec_mapq_count = 0;
     size_t min_pri_mapq_count = 0;
+    size_t repeat_sec_count = 0;
+    size_t repeat_pri_count = 0;
 
     // for deltas, we keep track of last primary
     Alignment prev;
@@ -515,6 +520,33 @@ int main_filter(int argc, char** argv) {
     bool keep_prev = true;
     double prev_score;
 
+    // quick and dirty filter to see if removing reads that can slip around
+    // and still map perfectly helps vg call.  returns true if at either
+    // end of read sequence, at least k bases are repetitive, checking repeats
+    // of up to size 2k
+    function<bool(Alignment&, int k)> has_repeat = [](Alignment& aln, int k) {
+        if (k == 0) {
+            return false;
+        }
+        const string& s = aln.sequence();
+        for (int i = 1; i <= 2 * k; ++i) {
+            int covered = 0;
+            bool ffound = true;
+            bool bfound = true;
+            for (int j = 1; (ffound || bfound) && (j + 1) * i < s.length(); ++j) {
+                ffound = ffound && s.substr(0, i) == s.substr(j * i, i);
+                bfound = bfound && s.substr(s.length() - i, i) == s.substr(s.length() - i - j * i, i);
+                if (ffound || bfound) {
+                    covered += i;
+                }
+            }
+            if (covered >= k) {
+                return true;
+            }
+        }
+        return false;
+    };
+        
     // we assume that every primary alignment has 0 or 1 secondary alignment
     // immediately following in the stream
     function<void(Alignment&)> lambda = [&](Alignment& aln) {
@@ -567,16 +599,20 @@ int main_filter(int argc, char** argv) {
                 ++min_sec_count;
                 keep = false;
             }
-            if (delta < min_sec_delta) {
+            if ((keep || verbose) && delta < min_sec_delta) {
                 ++min_sec_delta_count;
                 keep = false;
             }
-            if (overhang > max_overhang) {
+            if ((keep || verbose) && overhang > max_overhang) {
                 ++max_sec_overhang_count;
                 keep = false;
             }
-            if (aln.mapping_quality() < min_mapq) {
+            if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
                 ++min_sec_mapq_count;
+                keep = false;
+            }
+            if ((keep || verbose) && has_repeat(aln, repeat_size)) {
+                ++repeat_sec_count;
                 keep = false;
             }
             if (!keep) {
@@ -619,12 +655,16 @@ int main_filter(int argc, char** argv) {
                 ++min_pri_count;
                 keep_prev = false;
             }
-            if (overhang > max_overhang) {
+            if ((keep_prev || verbose) && overhang > max_overhang) {
                 ++max_pri_overhang_count;
                 keep_prev = false;
             }
-            if (aln.mapping_quality() < min_mapq) {
+            if ((keep_prev || verbose) && aln.mapping_quality() < min_mapq) {
                 ++min_pri_mapq_count;
+                keep_prev = false;
+            }
+            if ((keep_prev || verbose) && has_repeat(aln, repeat_size)) {
+                ++repeat_pri_count;
                 keep_prev = false;
             }
             if (!keep_prev) {
@@ -659,6 +699,9 @@ int main_filter(int argc, char** argv) {
              << "Min Delta Filter (secondary):      " << min_sec_delta_count << endl
              << "Max Overhang Filter (primary):     " << max_pri_overhang_count << endl
              << "Max Overhang Filter (secondary):   " << max_sec_overhang_count << endl
+             << "Repeat Ends Filter (primary):     " << repeat_pri_count << endl
+             << "Repeat Ends Filter (secondary):   " << repeat_sec_count << endl
+
              << endl;
     }
 
@@ -1441,24 +1484,37 @@ int main_compare(int argc, char** argv) {
 }
 
 void help_call(char** argv) {
-    cerr << "usage: " << argv[0] << " call [options] <graph.vg> <pileup.vgpu> > sample_graph.vg" << endl
-         << "Compute SNPs from pilup data (prototype! for evaluation only). " << endl
+    cerr << "usage: " << argv[0] << " call [options] <graph.vg> <pileup.vgpu> > output.vcf" << endl
+         << "Output variant calls in VCF format given a graph and pileup" << endl
          << endl
          << "options:" << endl
-         << "    -d, --min_depth         minimum depth of pileup (default=" << Caller::Default_min_depth <<")" << endl
-         << "    -e, --max_depth         maximum depth of pileup (default=" << Caller::Default_max_depth <<")" << endl
-         << "    -s, --min_support       minimum number of reads required to support snp (default=" << Caller::Default_min_support <<")" << endl
-         << "    -f, --min_frac          minimum percentage of reads required to support snp(default=" << Caller::Default_min_frac <<")" << endl
-         << "    -r, --het_prior         prior for heterozygous genotype (default=" << Caller::Default_het_prior <<")" << endl
-         << "    -q, --default_read_qual phred quality score to use if none found in the pileup (default="
-         << (int)Caller::Default_default_quality << ")" << endl
-         << "    -b, --max_strand_bias N limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. (default=" << Caller::Default_max_strand_bias << ")" << endl
-         << "    -l, --leave_uncalled    leave un-called graph regions in output, producing augmented graph" << endl
-         << "    -c, --calls TSV         write extra call information in TSV (must use with -l)" << endl
-         << "    -a, --link-alts         add all possible edges between adjacent alts" << endl
-         << "    -j, --json              output in JSON" << endl
-         << "    -p, --progress          show progress" << endl
-         << "    -t, --threads N         number of threads to use" << endl;
+         << "    -d, --min_depth INT        minimum depth of pileup [" << Caller::Default_min_depth <<"]" << endl
+         << "    -e, --max_depth INT        maximum depth of pileup [" << Caller::Default_max_depth <<"]" << endl
+         << "    -s, --min_support INT      minimum number of reads required to support snp [" << Caller::Default_min_support <<"]" << endl
+         << "    -f, --min_frac FLOAT       minimum percentage of reads required to support snp[" << Caller::Default_min_frac <<"]" << endl
+         << "    -q, --default_read_qual N  phred quality score to use if none found in the pileup ["
+         << (int)Caller::Default_default_quality << "]" << endl
+         << "    -b, --max_strand_bias FLOAT limit to absolute difference between 0.5 and proportion of supporting reads on reverse strand. [" << Caller::Default_max_strand_bias << "]" << endl
+         << "    -a, --link-alts            add all possible edges between adjacent alts" << endl
+         << "    -A, --aug-graph FILE       write out the agumented graph in vg format" << endl
+         << "    -r, --ref PATH             use the given path name as the reference path" << endl
+         << "    -c, --contig NAME          use the given name as the VCF contig name" << endl
+         << "    -S, --sample NAME          name the sample in the VCF with the given name [SAMPLE]" << endl
+         << "    -o, --offset INT           offset variant positions by this amount in VCF [0]" << endl
+         << "    -l, --length INT           override total sequence length in VCF" << endl
+         << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
+         << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
+         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
+         << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
+         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [6]" << endl
+         << "    -n, --min_count INT        min total supporting read count to call a variant [5]" << endl
+         << "    -B, --bin_size  INT        bin size used for counting coverage [1000]" << endl
+         << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
+         << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
+         << "    -u, --use_avg_support      use average instead of minimum support" << endl
+         << "    -h, --help                 print this help message" << endl
+         << "    -p, --progress             show progress" << endl
+         << "    -t, --threads N            number of threads to use" << endl;
 }
 
 int main_call(int argc, char** argv) {
@@ -1475,10 +1531,51 @@ int main_call(int argc, char** argv) {
     double min_frac = Caller::Default_min_frac;
     int default_read_qual = Caller::Default_default_quality;
     double max_strand_bias = Caller::Default_max_strand_bias;
-    bool leave_uncalled = false;
-    string calls_file;
+    string aug_file;
     bool bridge_alts = false;
-    bool output_json = false;
+    // Option variables (formerly from glenn2vcf)
+    // What's the name of the reference path in the graph?
+    string refPathName = "";
+    // What name should we give the contig in the VCF file?
+    string contigName = "";
+    // What name should we use for the sample in the VCF file?
+    string sampleName = "SAMPLE";
+    // How far should we offset positions of variants?
+    int64_t variantOffset = 0;
+    // How many nodes should we be willing to look at on our path back to the
+    // primary path? Keep in mind we need to look at all valid paths (and all
+    // combinations thereof) until we find a valid pair.
+    int64_t maxDepth = 10;
+    // Should we write pileup information to the VCF for debugging? 
+    bool pileupAnnotate = false;
+    // What should the total sequence length reported in the VCF header be?
+    int64_t lengthOverride = -1;
+    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
+    double minFractionForCall = 0.2;
+    // What fraction of the reads supporting an alt are we willing to discount?
+    // At 2, if twice the reads support one allele as the other, we'll call
+    // homozygous instead of heterozygous. At infinity, every call will be
+    // heterozygous if even one read supports each allele.
+    double maxHetBias = 3;
+    // Like above, but applied to ref / alt ratio (instead of alt / ref)
+    double maxRefBias = 6;
+    // What's the minimum integer number of reads that must support a call? We
+    // don't necessarily want to call a SNP as het because we have a single
+    // supporting read, even if there are only 10 reads on the site.
+    size_t minTotalSupportForCall = 10;
+    // Bin size used for counting coverage along the reference path.  The
+    // bin coverage is used for computing the probability of an allele
+    // of a certain depth
+    size_t refBinSize = 1000;
+    // On some graphs, we can't get the coverage because it's split over
+    // parallel paths.  Allow overriding here
+    size_t expCoverage = 0;
+    // Should we drop variants that would overlap old ones? TODO: we really need
+    // a proper system for accounting for usage of graph material.
+    bool suppress_overlaps = false;
+    // Should we use average support instead minimum support for our calculations?
+    bool useAverageSupport = false;
+
     bool show_progress = false;
     int thread_count = 1;
 
@@ -1493,18 +1590,31 @@ int main_call(int argc, char** argv) {
                 {"min_frac", required_argument, 0, 'f'},
                 {"default_read_qual", required_argument, 0, 'q'},
                 {"max_strand_bias", required_argument, 0, 'b'},
-                {"leave_uncalled", no_argument, 0, 'l'},
-                {"calls", required_argument, 0, 'c'},
+                {"aug_graph", required_argument, 0, 'A'},
                 {"link-alts", no_argument, 0, 'a'},
-                {"json", no_argument, 0, 'j'},
                 {"progress", no_argument, 0, 'p'},
-                {"het_prior", required_argument, 0, 'r'},
                 {"threads", required_argument, 0, 't'},
+                {"ref", required_argument, 0, 'r'},
+                {"contig", required_argument, 0, 'c'},
+                {"sample", required_argument, 0, 'S'},
+                {"offset", required_argument, 0, 'o'},
+                {"depth", required_argument, 0, 'D'},
+                {"length", required_argument, 0, 'l'},
+                {"pileup", no_argument, 0, 'P'},
+                {"min_cov_frac", required_argument, 0, 'F'},
+                {"max_het_bias", required_argument, 0, 'H'},
+                {"max_ref_bias", required_argument, 0, 'R'},
+                {"min_count", required_argument, 0, 'n'},
+                {"bin_size", required_argument, 0, 'B'},
+                {"avg_coverage", required_argument, 0, 'C'},
+                {"no_overlap", no_argument, 0, 'O'},
+                {"use_avg_support", no_argument, 0, 'u'},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:lc:ajpr:t:",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:n:B:C:Ouh",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1531,26 +1641,80 @@ int main_call(int argc, char** argv) {
         case 'b':
             max_strand_bias = atof(optarg);
             break;
-        case 'l':
-            leave_uncalled = true;
-            break;
-        case 'c':
-            calls_file = optarg;
-            break;
-        case 'j':
-            output_json = true;
-            break;
-        case 'p':
-            show_progress = true;
-            break;
-        case 'r':
-            het_prior = atof(optarg);
-            break;
-        case 't':
-            thread_count = atoi(optarg);
+        case 'A':
+            aug_file = optarg;
             break;
         case 'a':
             bridge_alts = true;
+            break;
+        // old glenn2vcf opts start here
+        case 'r':
+            // Set the reference path name
+            refPathName = optarg;
+            break;
+        case 'c':
+            // Set the contig name
+            contigName = optarg;
+            break;
+        case 'S':
+            // Set the sample name
+            sampleName = optarg;
+            break;
+        case 'o':
+            // Offset variants
+            variantOffset = std::stoll(optarg);
+            break;
+        case 'D':
+            // Limit max depth for pathing to primary path
+            maxDepth = std::stoll(optarg);
+            break;
+        case 'l':
+            // Set a length override
+            lengthOverride = std::stoll(optarg);
+            break;
+        case 'P':
+            pileupAnnotate = true;
+            break;
+        case 'F':
+            // Set min fraction of average coverage for a call
+            minFractionForCall = std::stod(optarg);
+            break;
+        case 'H':
+            // Set max factor between reads on one alt and reads on the other
+            // alt for calling a het.
+            maxHetBias = std::stod(optarg);
+            break;
+        case 'R':
+            // Set max factor between reads on ref and reads on the other
+            // alt for calling a homo ref.
+            maxRefBias = std::stod(optarg);
+            break;
+        case 'n':
+            // How many reads need to touch an allele before we are willing to
+            // call it?
+            minTotalSupportForCall = std::stoll(optarg);
+            break;
+        case 'B':
+            // Set the reference bin size
+            refBinSize = std::stoll(optarg);
+            break;
+        case 'C':
+            // Override expected coverage
+            expCoverage = std::stoll(optarg);
+            break;
+        case 'O':
+            // Suppress variants that overlap others
+            suppress_overlaps = true;
+            break;
+        case 'u':
+            // Average (isntead of min) support
+            useAverageSupport = true;
+            break;            
+        case 'p':
+            show_progress = true;
+            break;
+        case 't':
+            thread_count = atoi(optarg);
             break;
         case 'h':
         case '?':
@@ -1564,11 +1728,6 @@ int main_call(int argc, char** argv) {
     }
     omp_set_num_threads(thread_count);
     thread_count = get_thread_count();
-
-    if (!leave_uncalled && !calls_file.empty()) {
-        cerr << "-c can only be used with -l";
-        exit(1);
-    }
 
     // read the graph
     if (optind >= argc) {
@@ -1615,23 +1774,20 @@ int main_call(int argc, char** argv) {
         pileup_stream = &in;
     }
 
-    ofstream* text_file_stream = NULL;
-    if (!calls_file.empty()) {
-        text_file_stream = new ofstream(calls_file.c_str());
-        if (!text_file_stream) {
-            cerr << "error: calls file " << calls_file << " cannot be opened for writing." << endl;
-        }
-    }
+    // this is the call tsv file that was used to communicate with glenn2vcf
+    // it's still here for the time being but never actually written
+    // (just passed as a string to the caller)
+    stringstream text_file_stream;
 
-    // compute the variants.
+    // compute the augmented graph
     if (show_progress) {
-        cerr << "Computing variants" << endl;
+        cerr << "Computing augmented graph" << endl;
     }
     Caller caller(graph,
                   het_prior, min_depth, max_depth, min_support,
                   min_frac, Caller::Default_min_log_likelihood,
-                  leave_uncalled, default_read_qual, max_strand_bias,
-                  text_file_stream, bridge_alts);
+                  true, default_read_qual, max_strand_bias,
+                  &text_file_stream, bridge_alts);
 
     function<void(Pileup&)> lambda = [&caller](Pileup& pileup) {
         for (int i = 0; i < pileup.node_pileups_size(); ++i) {
@@ -1645,29 +1801,50 @@ int main_call(int argc, char** argv) {
 
     // map the edges from original graph
     if (show_progress) {
-        cerr << "Mapping edges into call graph" << endl;
+        cerr << "Mapping edges into augmented graph" << endl;
     }
     caller.update_call_graph();
 
     // map the paths from the original graph
-    if (leave_uncalled) {
-        if (show_progress) {
-            cerr << "Mapping paths into call graph" << endl;
-        }
-        caller.map_paths();
-    }
-
-    // write the call graph
     if (show_progress) {
-        cerr << "Writing call graph" << endl;
+        cerr << "Mapping paths into augmented graph" << endl;
     }
-    caller.write_call_graph(cout, output_json);
+    caller.map_paths();
 
-    // close text file
-    if (text_file_stream != NULL) {
-        delete text_file_stream;
+    if (!aug_file.empty()) {
+        // write the augmented graph
+        if (show_progress) {
+            cerr << "Writing augmented graph" << endl;
+        }
+        ofstream aug_stream(aug_file.c_str());
+        caller.write_call_graph(aug_stream, false);
     }
 
+    if (show_progress) {
+        cerr << "Calling variants" << endl;
+    }
+
+    // project the augmented graph to a reference path
+    // in order to create a VCF of calls.  this
+    // was once a separate tool called glenn2vcf
+    glenn2vcf::call2vcf(caller._call_graph,
+                        text_file_stream.str(),
+                        refPathName,
+                        contigName,
+                        sampleName,
+                        variantOffset,
+                        maxDepth,
+                        lengthOverride,
+                        pileupAnnotate ? pileup_file_name : string(),
+                        minFractionForCall,
+                        maxHetBias,
+                        maxRefBias,
+                        minTotalSupportForCall,
+                        refBinSize,
+                        expCoverage,
+                        suppress_overlaps,
+                        useAverageSupport);
+    
     return 0;
 }
 
@@ -1688,6 +1865,8 @@ void help_genotype(char** argv) {
          << "    -C, --cactus            use cactus for site finding" << std::endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
+         << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
+         << "    -P, --min_per_strand    min consistent reads per strand for an allele" << std::endl
          << "    -p, --progress          show progress" << endl
          << "    -t, --threads N         number of threads to use" << endl;
 }
@@ -1730,6 +1909,10 @@ int main_genotype(int argc, char** argv) {
     bool use_cactus = false;
     // Should we find superbubbles on the supported subset (true) or the whole graph (false)?
     bool subset_graph = false;
+    // What should the heterozygous genotype prior be? (1/this)
+    double het_prior_denominator = 10.0;
+    // At least how many reads must be consistent per strand for a call?
+    size_t min_consistent_per_strand = 2;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -1748,13 +1931,15 @@ int main_genotype(int argc, char** argv) {
                 {"cactus", no_argument, 0, 'C'},
                 {"subset-graph", no_argument, 0, 'S'},
                 {"realign_indels", no_argument, 0, 'i'},
+                {"het_prior_denom", required_argument, 0, 'd'},
+                {"min_per_strand", required_argument, 0, 'P'},
                 {"progress", no_argument, 0, 'p'},
                 {"threads", required_argument, 0, 't'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSipt:",
+        c = getopt_long (argc, argv, "hjvr:c:s:o:l:a:qCSid:P:pt:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1808,6 +1993,14 @@ int main_genotype(int argc, char** argv) {
         case 'i':
             // Do indel realignment
             realign_indels = true;
+            break;
+        case 'd':
+            // Set heterozygous genotype prior denominator
+            het_prior_denominator = std::stod(optarg);
+            break;
+        case 'P':
+            // Set min consistent reads per strand required to keep an allele
+            min_consistent_per_strand = std::stoll(optarg);
             break;
         case 'p':
             show_progress = true;
@@ -1904,6 +2097,9 @@ int main_genotype(int argc, char** argv) {
     // Configure it
     genotyper.use_mapq = use_mapq;
     genotyper.realign_indels = realign_indels;
+    assert(het_prior_denominator > 0);
+    genotyper.het_prior_logprob = prob_to_logprob(1.0/het_prior_denominator);
+    genotyper.min_consistent_per_strand = min_consistent_per_strand;
     // TODO: move arguments below up into configuration
     genotyper.run(*graph,
                   alignments,
@@ -8365,6 +8561,9 @@ int main_view(int argc, char** argv) {
         cerr << "[vg view] error: cannot save a graph in " << output_type << " format" << endl;
         return 1;
     }
+    
+    // We made it to the end and nothing broke.
+    return 0;
 }
 
     void help_sv(char** argv){
@@ -8749,7 +8948,7 @@ int main_version(int argc, char** argv){
         return 1;
     }
 
-    cout << VG_GIT_VERSION << endl;
+    cout << VG_VERSION_STRING << endl;
     return 0;
 }
 
@@ -8762,7 +8961,7 @@ int main_test(int argc, char** argv){
 }
 
 void vg_help(char** argv) {
-    cerr << "vg: variation graph tool, version " << VG_GIT_VERSION << endl
+    cerr << "vg: variation graph tool, version " << VG_VERSION_STRING << endl
          << endl
          << "usage: " << argv[0] << " <command> [options]" << endl
          << endl

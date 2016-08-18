@@ -9,16 +9,25 @@
 #include "Variant.h"
 #include "Fasta.h"
 #include "path.hpp"
+#include "banded_global_aligner.hpp"
 
 static const int8_t default_match = 1;
 static const int8_t default_mismatch = 4;
 static const int8_t default_gap_open = 6;
 static const int8_t default_gap_extension = 1;
-static const int8_t default_max_scaled_score = 32;
+static const int8_t default_max_scaled_score = 6;
 static const uint8_t default_max_qual_score = 255;
 static const double default_gc_content = 0.5;
 
 namespace vg {
+
+    static const int8_t default_match = 1;
+    static const int8_t default_mismatch = 4;
+    static const int8_t default_gap_open = 6;
+    static const int8_t default_gap_extension = 1;
+    static const int8_t default_max_scaled_score = 32;
+    static const uint8_t default_max_qual_score = 255;
+    static const double default_gc_content = 0.5;
 
     class Aligner {
     protected:
@@ -58,6 +67,12 @@ namespace vg {
         void align(Alignment& alignment, Graph& g,
                    bool print_score_matrices = false);
         
+        // store optimal alignment against a graph in the Alignment object
+        // permissive banding auto detects the width of band needed so that paths can travel
+        // through every node in the graph
+        void align_global_banded(Alignment& alignment, Graph& g,
+                                 int32_t band_padding = 0, bool permissive_banding = true);
+        
         // must be called before querying mapping_quality
         void init_mapping_quality(double gc_content);
         bool is_mapping_quality_initialized();
@@ -70,6 +85,12 @@ namespace vg {
         // same function for paired reads, mapping qualities are stored in both alignments in the pair
         void compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alignment>>& alignment_pairs,
                                             bool fast_approximation);
+                                            
+        // Convert a score to an unnormalized log likelihood for the sequence.
+        // Requires log_base to have been set.
+        double score_to_unnormalized_likelihood_ln(double score);
+        
+        int32_t score_exact_match(const string& sequence);
         
         // members
         int8_t* nt_table;
@@ -97,14 +118,19 @@ namespace vg {
 
         ~QualAdjAligner(void);
 
-        void align(Alignment& alignment, Graph& g,
-                   bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align_global_banded(Alignment& alignment, Graph& g,
+                                 int32_t band_padding = 0, bool permissive_banding = true);
+
         void init_mapping_quality(double gc_content);
 
         uint8_t max_qual_score;
         int8_t scaled_gap_open;
         int8_t scaled_gap_extension;
         int8_t* adjusted_score_matrix;
+        
+        
+        int32_t score_exact_match(const string& sequence, const string& base_quality);
         
     private:
         void init_quality_adjusted_scores(int8_t _max_scaled_score,

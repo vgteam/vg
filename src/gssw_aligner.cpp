@@ -122,6 +122,19 @@ void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
 
 }
 
+void Aligner::align_global_banded(Alignment& alignment, Graph& g,
+                                  int32_t band_padding, bool permissive_banding) {
+    
+    
+    BandedGlobalAlignmentGraph band_graph = BandedGlobalAlignmentGraph(alignment,
+                                                                       g,
+                                                                       band_padding,
+                                                                       permissive_banding,
+                                                                       false);
+    
+    band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+}
+
 void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                                         gssw_graph_mapping* gm,
                                         Alignment& alignment,
@@ -466,7 +479,18 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
         alignment_pairs.first[max_idx].set_mapping_quality((int32_t) mapping_quality);
         alignment_pairs.second[max_idx].set_mapping_quality((int32_t) mapping_quality);
     }
+}
 
+int32_t Aligner::score_exact_match(const string& sequence) {
+    return match * sequence.length();
+}
+
+double Aligner::score_to_unnormalized_likelihood_ln(double score) {
+    // Log base needs to be set, or this can't work. It's set by default in
+    // QualAdjAligner but needs to be set up manually in the normal Aligner.
+    assert(log_base != 0);
+    // Likelihood is proportional to e^(lambda * score), so ln is just the exponent.
+    return log_base * score; 
 }
 
 QualAdjAligner::QualAdjAligner(int8_t _match,
@@ -524,8 +548,8 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
                                                              sequence.size(),
                                                              nt_table,
                                                              adjusted_score_matrix,
-                                                             gap_open,
-                                                             gap_extension);
+                                                             scaled_gap_open,
+                                                             scaled_gap_extension);
 
     gssw_mapping_to_alignment(graph, gm, alignment, print_score_matrices);
 
@@ -536,3 +560,32 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
     gssw_graph_mapping_destroy(gm);
     gssw_graph_destroy(graph);
 }
+
+void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
+                                  int32_t band_padding, bool permissive_banding) {
+    
+    
+    BandedGlobalAlignmentGraph band_graph = BandedGlobalAlignmentGraph(alignment,
+                                                                       g,
+                                                                       band_padding,
+                                                                       permissive_banding,
+                                                                       true);
+    
+    band_graph.align(adjusted_score_matrix, nt_table, scaled_gap_open, scaled_gap_extension);
+}
+
+int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) {
+    int32_t score = 0;
+    for (int i = 0; i < sequence.length(); i++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += adjusted_score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];
+    }
+    return score;
+}
+
+
+
+
+
+

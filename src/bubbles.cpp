@@ -450,6 +450,23 @@ void bubble_up_bubbles(BubbleTree& bubble_tree) {
         });
 }
 
+void bubble_down_bubbles(BubbleTree& bubble_tree) {
+    bubble_tree.for_each_preorder([&](BubbleTree::Node* node) {
+            set<id_t> unique_set{node->v.contents.begin(), node->v.contents.end()};
+            if (node == bubble_tree.root) {
+                node->v.contents = vector<id_t>{*unique_set.begin(), *unique_set.end()};
+            } else {
+                set<id_t> child_set;
+                for (auto& c: node->children) {
+                    child_set.insert(c->v.contents.begin(), c->v.contents.end());                
+                }
+                auto it = set_difference(unique_set.begin(), unique_set.end(), child_set.begin(), child_set.end(),
+                               node->v.contents.begin());
+                node->v.contents.resize(it - node->v.contents.begin());
+            }
+        });
+}
+
 map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
 
     graph.sort();
@@ -460,6 +477,7 @@ map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
 
     BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
     bubble_up_bubbles(bubble_tree);
+
     bubble_tree.for_each_preorder([&](BubbleTree::Node* node) {
             Bubble& bubble = node->v;
             // cut root to be consistent with superbubbles()

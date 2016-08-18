@@ -55,6 +55,30 @@ struct StrandSupport {
     int total() { return fs + rs; }
 };
 
+inline StrandSupport minSup(vector<StrandSupport>& s) {
+    if (s.empty()) {
+        return StrandSupport();
+    }
+    return *min_element(s.begin(), s.end());
+}
+inline StrandSupport avgSup(vector<StrandSupport>& s) {
+    StrandSupport ret;
+    if (!s.empty()) {
+        ret.likelihood = 0;
+        for (auto sup : s) {
+            ret.fs += sup.fs;
+            ret.rs += sup.rs;
+            ret.os += sup.os;
+            ret.likelihood += sup.likelihood;
+        }
+        ret.fs /= s.size();
+        ret.rs /= s.size();
+        ret.os /= s.size();
+        ret.likelihood /= s.size();
+    }
+    return ret;
+}
+
 inline ostream& operator<<(ostream& os, const StrandSupport& sup) {
     return os << sup.fs << ", " << sup.rs << ", " << sup.os << ", " << sup.likelihood;
 }
@@ -68,17 +92,19 @@ struct NodeDivider {
     // up to three fragments per position in augmented graph (basically a Node 3-tuple,
     // avoiding aweful C++ tuple syntax)
     enum EntryCat {Ref = 0, Alt1, Alt2, Last};
-    struct Entry { Entry(Node* r = 0, StrandSupport sup_r = StrandSupport(),
-                         Node* a1 = 0, StrandSupport sup_a1 = StrandSupport(),
-                         Node* a2 = 0, StrandSupport sup_a2 = StrandSupport()) : ref(r), alt1(a1), alt2(a2),
+    struct Entry { Entry(Node* r = 0, vector<StrandSupport> sup_r = vector<StrandSupport>(),
+                         Node* a1 = 0, vector<StrandSupport> sup_a1 = vector<StrandSupport>(),
+                         Node* a2 = 0, vector<StrandSupport> sup_a2 = vector<StrandSupport>()) : ref(r), alt1(a1), alt2(a2),
                                                                sup_ref(sup_r), sup_alt1(sup_a1), sup_alt2(sup_a2){}
         Node* ref; Node* alt1; Node* alt2;
-        StrandSupport sup_ref; StrandSupport sup_alt1; StrandSupport sup_alt2;
+        vector<StrandSupport> sup_ref;
+        vector<StrandSupport> sup_alt1;
+        vector<StrandSupport> sup_alt2;
         Node*& operator[](int i) {
             assert(i >= 0 && i <= 2);
             return i == EntryCat::Ref ? ref : (i == EntryCat::Alt1 ? alt1 : alt2);
         }
-        StrandSupport& sup(int i) {
+        vector<StrandSupport>& sup(int i) {
             assert(i >= 0 && i <= 2);
             return i == EntryCat::Ref ? sup_ref : (i == EntryCat::Alt1 ? sup_alt1 : sup_alt2);
         }
@@ -91,7 +117,7 @@ struct NodeDivider {
     int64_t* _max_id;
     // map given node to offset i of node with id in original graph
     // this function can never handle overlaps (and should only be called before break_end)
-    void add_fragment(const Node* orig_node, int offset, Node* subnode, EntryCat cat, StrandSupport sup);
+    void add_fragment(const Node* orig_node, int offset, Node* subnode, EntryCat cat, vector<StrandSupport> sup);
     // break node if necessary so that we can attach edge at specified side
     // this function wil return NULL if there's no node covering the given location
     Entry break_end(const Node* orig_node, VG* graph, int offset, bool left_side);
@@ -313,8 +339,60 @@ public:
 };
 
 ostream& operator<<(ostream& os, const Caller::NodeOffSide& no);
+}
 
-
+namespace glenn2vcf {
+// old glenn2vcf interface
+// todo: integrate more smoothly into caller class
+int call2vcf(
+    // Augmented graph
+    vg::VG& vg,
+    // "glennfile" as string (relic from old pipeline)
+    const string& glennfile,
+    // Option variables
+    // What's the name of the reference path in the graph?
+    string refPathName,
+    // What name should we give the contig in the VCF file?
+    string contigName,
+    // What name should we use for the sample in the VCF file?
+    string sampleName,
+    // How far should we offset positions of variants?
+    int64_t variantOffset,
+    // How many nodes should we be willing to look at on our path back to the
+    // primary path? Keep in mind we need to look at all valid paths (and all
+    // combinations thereof) until we find a valid pair.
+    int64_t maxDepth,
+    // What should the total sequence length reported in the VCF header be?
+    int64_t lengthOverride,
+    // Should we load a pileup and print out pileup info as comments after
+    // variants?
+    string pileupFilename,
+    // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
+    // Default to 0 because vg call is still applying depth thresholding
+    double minFractionForCall,
+    // What fraction of the reads supporting an alt are we willing to discount?
+    // At 2, if twice the reads support one allele as the other, we'll call
+    // homozygous instead of heterozygous. At infinity, every call will be
+    // heterozygous if even one read supports each allele.
+    double maxHetBias,
+    // Like above, but applied to ref / alt ratio (instead of alt / ref)
+    double maxRefBias,
+    // What's the minimum integer number of reads that must support a call? We
+    // don't necessarily want to call a SNP as het because we have a single
+    // supporting read, even if there are only 10 reads on the site.
+    size_t minTotalSupportForCall,
+    // Bin size used for counting coverage along the reference path.  The
+    // bin coverage is used for computing the probability of an allele
+    // of a certain depth
+    size_t refBinSize,
+    // On some graphs, we can't get the coverage because it's split over
+    // parallel paths.  Allow overriding here
+    size_t expCoverage,
+    // Should we drop variants that would overlap old ones? TODO: we really need
+    // a proper system for accounting for usage of graph material.
+    bool suppress_overlaps,
+    // Should we use average support instead minimum support for our calculations?
+    bool useAverageSupport);
 }
 
 #endif

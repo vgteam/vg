@@ -11,14 +11,17 @@ namespace vg {
 const double Caller::Log_zero = (double)-1e100;
 
 // these values pretty arbitrary at this point
+// note, they conly control what makes the augmented graph
+// (so we keep fairly loose).  the final vcf calls are governed
+// by the (former) glenn2vcf options (passed to call2vcf())
 const double Caller::Default_het_prior = 0.001; // from MAQ
-const int Caller::Default_min_depth = 10;
+const int Caller::Default_min_depth = 2;
 const int Caller::Default_max_depth = 200;
-const int Caller::Default_min_support = 1;
-const double Caller::Default_min_frac = 0.25;
+const int Caller::Default_min_support = 2;
+const double Caller::Default_min_frac = 0.1;
 const double Caller::Default_min_log_likelihood = -5000.0;
 const char Caller::Default_default_quality = 30;
-const double Caller::Default_max_strand_bias = 0.5;
+const double Caller::Default_max_strand_bias = 1;
 
 Caller::Caller(VG* graph,
                double het_prior,
@@ -146,7 +149,8 @@ void Caller::update_call_graph() {
         function<void(Node*)> add_node = [&](Node* node) {
             if (_visited_nodes.find(node->id()) == _visited_nodes.end()) {
                 Node* call_node = _call_graph.create_node(node->sequence(), node->id());
-                _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref, 0);
+                _node_divider.add_fragment(node, 0, call_node, NodeDivider::EntryCat::Ref,
+                                           vector<StrandSupport>());
             }
         };
         _graph->for_each_node(add_node);
@@ -344,13 +348,13 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
         call_sides1 = _node_divider.break_end(node1, &_call_graph, from_offset,
                                               left_side1);
     } else {
-        call_sides1 = NodeDivider::Entry(node1, support);
+        call_sides1 = NodeDivider::Entry(node1, vector<StrandSupport>(1, support));
     }
     if (aug2) {
         call_sides2 = _node_divider.break_end(node2, &_call_graph, to_offset,
                                               left_side2);
     } else {
-        call_sides2 = NodeDivider::Entry(node2, support);
+        call_sides2 = NodeDivider::Entry(node2, vector<StrandSupport>(1, support));
     }
     
     // make up to 9 edges connecting them in the call graph
@@ -375,7 +379,7 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                         Edge* edge = _call_graph.create_edge(call_sides1[i], call_sides2[j],
                                                              left_side1, !left_side2);
                         StrandSupport edge_support = support >= StrandSupport() ? support :
-                            min(call_sides1.sup(i), call_sides2.sup(j));
+                            min(avgSup(call_sides1.sup(i)), avgSup(call_sides2.sup(j)));
 
                         NodeOffSide no1(NodeSide(node1->id(), !left_side1), from_offset);
                         NodeOffSide no2(NodeSide(node2->id(), !left_side2), to_offset);
@@ -441,7 +445,7 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
     bool first_passes = top_count >= min_support && top_sb <= _max_strand_bias;
     bool second_passes = second_count >= min_support && second_sb <= _max_strand_bias;
 
-    if (first_passes) {
+    if (first_passes || top_base == ref_base) {
         base_call.first = top_base != ref_base ? top_base : ".";
         support.first.fs = top_count - top_rev_count;
         support.first.rs = top_rev_count;
@@ -450,7 +454,7 @@ void Caller::call_base_pileup(const NodePileup& np, int64_t offset, bool inserti
         support.first.likelihood = ld.first;
         support.first.os = max(0, ld.second - top_count);
     }
-    if (second_passes) {
+    if (second_passes || (second_base == ref_base && second_base != top_base)) {
         base_call.second = second_base != ref_base ? second_base : ".";
         support.second.fs = second_count - second_rev_count;
         support.second.rs = second_rev_count;
@@ -661,14 +665,17 @@ void Caller::create_node_calls(const NodePileup& np) {
             }        
             else if (cat == 1 || (cat == 0 && _leave_uncalled)) {
                 // add reference
-                StrandSupport sup;
+                vector<StrandSupport> sup;
                 if (_node_calls[cur].first == ".") {
-                    sup += _node_supports[cur].first;
-                    sup.likelihood = _node_supports[cur].first.likelihood;
+                    for (int i = cur; i < next; ++i) {
+                        sup.push_back(_node_supports[i].first);
+                    }
                 }
                 if (_node_calls[cur].second == ".") {
-                    sup += _node_supports[cur].second;
-                    sup.likelihood = _node_supports[cur].second.likelihood;
+                    assert (_node_calls[cur].first != ".");
+                    for (int i = cur; i < next; ++i) {
+                        sup.push_back(_node_supports[i].second);
+                    }
                 }
                 string new_seq = seq.substr(cur, next - cur);
                 Node* node = _call_graph.create_node(new_seq, ++_max_id);
@@ -686,8 +693,8 @@ void Caller::create_node_calls(const NodePileup& np) {
                 // some mix of reference and alts
                 assert(next == cur + 1);
                 
-                function<void(string&, StrandSupport, string&, StrandSupport, NodeDivider::EntryCat)>  call_het =
-                    [&](string& call1, StrandSupport support1, string& call2, StrandSupport support2, NodeDivider::EntryCat altCat) {
+                function<void(string&, StrandSupport, string&, NodeDivider::EntryCat)>  call_het =
+                    [&](string& call1, StrandSupport support1, string& call2, NodeDivider::EntryCat altCat) {
                 
                     if (call1 == "." || (_leave_uncalled && altCat == NodeDivider::EntryCat::Alt1 && call2 != ".")) {
                         // reference base
@@ -695,7 +702,8 @@ void Caller::create_node_calls(const NodePileup& np) {
                         assert(call2 != "."); // should be handled above
                         string new_seq = seq.substr(cur, 1);
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
-                        _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref, sup);
+                        _node_divider.add_fragment(_node, cur, node, NodeDivider::EntryCat::Ref,
+                                                   vector<StrandSupport>(1, sup));
                         // bridge to node
                         NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
                         NodeOffSide no2(NodeSide(_node->id(), false), cur);
@@ -712,7 +720,8 @@ void Caller::create_node_calls(const NodePileup& np) {
                         // snp base
                         string new_seq = call1;
                         Node* node = _call_graph.create_node(new_seq, ++_max_id);
-                        _node_divider.add_fragment(_node, cur, node, altCat, sup);
+                        _node_divider.add_fragment(_node, cur, node, altCat,
+                                                   vector<StrandSupport>(1, sup));
                         // bridge to node
                         NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
                         NodeOffSide no2(NodeSide(_node->id(), false), cur);
@@ -772,9 +781,9 @@ void Caller::create_node_calls(const NodePileup& np) {
 
                 // apply same logic to both calls, updating opposite arrays
                 call_het(_node_calls[cur].first, _node_supports[cur].first,
-                         _node_calls[cur].second, _node_supports[cur].second, NodeDivider::EntryCat::Alt1);
+                         _node_calls[cur].second, NodeDivider::EntryCat::Alt1);
                 call_het(_node_calls[cur].second, _node_supports[cur].second,
-                         _node_calls[cur].first, _node_supports[cur].first, NodeDivider::EntryCat::Alt2);                
+                         _node_calls[cur].first, NodeDivider::EntryCat::Alt2);                
             }
 
             // inserts done separate at end since they take start between cur and next
@@ -859,20 +868,20 @@ void Caller::write_nd_tsv()
         for (auto& j : i.second) {
             int64_t orig_node_offset = j.first;
             NodeDivider::Entry& entry = j.second;
-            char call = entry.sup_ref == StrandSupport() ? 'U' : 'R';
-            write_node_tsv(entry.ref, call, entry.sup_ref, orig_node_id, orig_node_offset);
+            char call = entry.sup_ref.empty() || avgSup(entry.sup_ref) == StrandSupport() ? 'U' : 'R';
+            write_node_tsv(entry.ref, call, avgSup(entry.sup_ref), orig_node_id, orig_node_offset);
             if (entry.alt1 != NULL) {
-                write_node_tsv(entry.alt1, 'S', entry.sup_alt1, orig_node_id, orig_node_offset);
+                write_node_tsv(entry.alt1, 'S', avgSup(entry.sup_alt1), orig_node_id, orig_node_offset);
             }
             if (entry.alt2 != NULL) {
-                write_node_tsv(entry.alt2, 'S', entry.sup_alt2, orig_node_id, orig_node_offset);
+                write_node_tsv(entry.alt2, 'S', avgSup(entry.sup_alt2), orig_node_id, orig_node_offset);
             }
         }
     }
 }
 
 void NodeDivider::add_fragment(const Node* orig_node, int offset, Node* fragment,
-                               EntryCat cat, StrandSupport sup) {
+                               EntryCat cat, vector<StrandSupport> sup) {
     
     NodeHash::iterator i = index.find(orig_node->id());
     if (i == index.end()) {
@@ -919,20 +928,21 @@ NodeDivider::Entry NodeDivider::break_end(const Node* orig_node, VG* graph, int 
     --j;
     int sub_offset = j->first;
 
-    function<Node*(Node*, EntryCat, StrandSupport)>  lambda =[&](Node* fragment, EntryCat cat, StrandSupport sup) {
+    function<pair<Node*, vector<StrandSupport>>(Node*, EntryCat, vector<StrandSupport>& )>  lambda =
+        [&](Node* fragment, EntryCat cat, vector<StrandSupport>& sup) {
         if (offset < sub_offset || offset >= sub_offset + fragment->sequence().length()) {
-            return (Node*)NULL;
+            return make_pair((Node*)NULL, vector<StrandSupport>());
         }
 
         // if our cut point is already the exact left or right side of the node, then
         // we don't have anything to do than return it.
         if (offset == sub_offset && left_side == true) {
-            return fragment;
+            return make_pair(fragment, sup);
         }
         if (offset == sub_offset + fragment->sequence().length() - 1 && left_side == false) {
-            return fragment;
+            return make_pair(fragment, sup);
         }
-
+        
         // otherwise, we're somewhere in the middle, and have to subdivide the node
         // first, shorten the exsisting node
         int new_len = left_side ? offset - sub_offset : offset - sub_offset + 1;
@@ -942,23 +952,39 @@ NodeDivider::Entry NodeDivider::break_end(const Node* orig_node, VG* graph, int 
 
         // then make a new node for the right part
         Node* new_node = graph->create_node(frag_seq.substr(new_len, frag_seq.length() - new_len), ++(*_max_id));
-        add_fragment(orig_node, sub_offset + new_len, new_node, cat, sup);
+        
+        // now divide up the support, starting with the right bit
+        vector<StrandSupport> new_sup;
+        if (!sup.empty()) {
+            new_sup = vector<StrandSupport>(sup.begin() + new_len, sup.end());
+            // then cut the input (left bit) in place
+            sup.resize(new_len);
+        }
 
-        return new_node;
+        // update the data structure with the new node
+        add_fragment(orig_node, sub_offset + new_len, new_node, cat, new_sup);
+
+        return make_pair(new_node, new_sup);
     };
 
-    // none of this affects copy number
-    StrandSupport sup_ref = j->second.sup_ref;
+    vector<StrandSupport>& sup_ref = j->second.sup_ref;
     Node* fragment_ref = j->second.ref;
-    Node* new_node_ref = fragment_ref != NULL ? lambda(fragment_ref, Ref, sup_ref) : NULL;
-    StrandSupport sup_alt1 = j->second.sup_alt1;
+    auto new_node_info = fragment_ref != NULL ? lambda(fragment_ref, Ref, sup_ref) :
+        make_pair((Node*)NULL, vector<StrandSupport>());
+    
+    vector<StrandSupport>& sup_alt1 = j->second.sup_alt1;
     Node* fragment_alt1 = j->second.alt1;
-    Node* new_node_alt1 = fragment_alt1 != NULL ? lambda(fragment_alt1, Alt1, sup_alt1) : NULL;
-    StrandSupport sup_alt2 = j->second.sup_alt2;
+    auto new_node_alt1_info = fragment_alt1 != NULL ? lambda(fragment_alt1, Alt1, sup_alt1) :
+        make_pair((Node*)NULL, vector<StrandSupport>());
+    
+    vector<StrandSupport>& sup_alt2 = j->second.sup_alt2;
     Node* fragment_alt2 = j->second.alt2;
-    Node* new_node_alt2 = fragment_alt2 != NULL ? lambda(fragment_alt2, Alt2, sup_alt2) : NULL;
+    auto new_node_alt2_info = fragment_alt2 != NULL ? lambda(fragment_alt2, Alt2, sup_alt2) :
+        make_pair((Node*)NULL, vector<StrandSupport>());
 
-    Entry ret = left_side ? Entry(new_node_ref, sup_ref, new_node_alt1, sup_alt1, new_node_alt2, sup_alt2) :
+    Entry ret = left_side ? Entry(new_node_info.first, new_node_info.second,
+                                  new_node_alt1_info.first, new_node_alt1_info.second,
+                                  new_node_alt2_info.first, new_node_alt2_info.second) :
         Entry(fragment_ref, sup_ref, fragment_alt1, sup_alt1, fragment_alt2, sup_alt2);
 
     return ret;
