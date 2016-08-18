@@ -1218,6 +1218,9 @@ int main_call(int argc, char** argv) {
     // Should we go by sites and thus support multiallelic sites (true), or use
     // the old single-branch-bubble method (false)?
     bool multiallelic_support = false;
+    // How big a site should we try to type all at once instead of replacing
+    // with its children if it has any?
+    size_t max_ref_length = 100;
 
     bool show_progress = false;
     int thread_count = 1;
@@ -1498,7 +1501,8 @@ int main_call(int argc, char** argv) {
                         expCoverage,
                         suppress_overlaps,
                         useAverageSupport,
-                        multiallelic_support);
+                        multiallelic_support,
+                        max_ref_length);
     
     return 0;
 }

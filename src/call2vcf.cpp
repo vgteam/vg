@@ -1057,7 +1057,10 @@ int call2vcf(
     // Should we use average support instead minimum support for our calculations?
     bool useAverageSupport,
     // Should we use the site finder and multiallelic support?
-    bool multiallelic_support) {
+    bool multiallelic_support,
+    // What's the max ref length of a site that we genotype as a whole instead
+    // of splitting?
+    size_t max_ref_length) {
     
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
@@ -1210,7 +1213,7 @@ int call2vcf(
         // Do the new thing where we support multiple alleles
     
         // Find all the top-level sites
-        vector<NestedSite> sites;
+        std::list<NestedSite> site_queue;
         
         CactusSiteFinder finder(vg, refPathName);
         finder.for_each_site_parallel([&](NestedSite site) {
@@ -1221,8 +1224,68 @@ int call2vcf(
         
             // Stick all the sites in this vector.
             #pragma omp critical (sites)
-            sites.emplace_back(std::move(site));
+            site_queue.emplace_back(std::move(site));
         });
+        
+        // We're going to run through all the top-level sites and break up the
+        // huge ones and throw out the ones not on the reference, leaving only
+        // manageably-sized sites on the ref path. We won't be able to genotype
+        // huge translocations or deletions, but we can save those for the
+        // proper nested-site-aware genotyper.
+        std::vector<NestedSite> sites;
+        
+        while(!site_queue.empty()) {
+            // Grab the first site
+            NestedSite site = std::move(site_queue.front());
+            site_queue.pop_front();
+            
+            if(!index.byId.count(site.start.node->id()) || !index.byId.count(site.end.node->id())) {
+                // Skip sites that aren't on the reference path at both ends.
+                continue;
+            }
+            
+            // Where does the variable region start and end on the reference?
+            size_t ref_start = index.byId.at(site.start.node->id()).first + site.start.node->sequence().size();
+            size_t ref_end = index.byId.at(site.end.node->id()).first;
+            
+            if(ref_start > ref_end) {
+                // Make sure it's the right way around (it will get set straight
+                // in the site when we do the bubbling-up).
+                std::swap(ref_start, ref_end);
+            }
+            
+            if(!site.children.empty() && ref_end > ref_start + max_ref_length) {
+                // Site is too big and has children. Split it up and do the
+                // children.
+                for(auto& child : site.children) {
+                    // Dump all the children into the queue for separate
+                    // processing.
+                    site_queue.emplace_back(std::move(child));
+                }
+                
+                std::cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
+                    << site.children.size() << " children" << std::endl; 
+                
+            } else {
+                // With no children, site may still be huge, but it doesn't
+                // matter because there's nothing to nest in it, so we can
+                // genotype it just fine.
+                
+                // With children, it's practical to just include the child
+                // genotypes in the site genotype.
+                
+                if(ref_end > ref_start + max_ref_length) {
+                    // This site is big but we left it anyway.
+                    std::cerr << "Left site from " << ref_start << " to " << ref_end << " with "
+                        << site.children.size() << " children" << std::endl;
+                }
+                
+                // Throw it in the final vector of sites we're going to process.
+                sites.emplace_back(std::move(site));
+            }                
+        }
+        
+        std::cerr << "Found " << sites.size() << " sites" << std::endl;
         
         // Bubble up nested site nodes and edges
         std::function<void(NestedSite&, NestedSite&)> bubble_up = [&](NestedSite& child, NestedSite& root) {
@@ -1249,13 +1312,14 @@ int call2vcf(
                 bubble_up(child, site);
             }
             
-            // Make sure start and end are front-ways relative to the ref path.
-            if(index.byId.at(site.start.node->id()).first > index.byId.at(site.end.node->id()).first) {
-                // The site's end happens before its start
-                site.start = flip(site.start);
-                site.end = flip(site.end);
-                std::swap(site.start, site.end);
-            }
+             // Make sure start and end are front-ways relative to the ref path.
+             if(index.byId.at(site.start.node->id()).first > index.byId.at(site.end.node->id()).first) {
+                 // The site's end happens before its start
+                 site.start = flip(site.start);
+                 site.end = flip(site.end);
+                 std::swap(site.start, site.end);
+             }
+
         }
         
         for(auto& site : sites) {
@@ -1266,7 +1330,6 @@ int call2vcf(
             
             // Trace the ref path through the site
             std::vector<NodeTraversal> ref_path_for_site;
-            
 #ifdef debug
             std::cerr << "Site starts with " << site.start << " at " << index.byId.at(site.start.node->id()).first
                 << " and ends with " << site.end << " at " << index.byId.at(site.end.node->id()).first << std::endl;
@@ -1303,7 +1366,10 @@ int call2vcf(
             for(auto node : nodes_left) {
                 // Make sure none of the nodes in the site that we didn't visit
                 // while tracing along the ref path are on the ref path.
-                assert(!index.byId.count(node->id()));
+                if(index.byId.count(node->id())) {
+                    std::cerr << "Node " << node->id() << " is on ref path but not traced in site " << site.start << " to " << site.end << std::endl;
+                    throw runtime_error("Extra ref node found");
+                }
             }
             
 #ifdef debug
