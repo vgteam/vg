@@ -1557,7 +1557,7 @@ int call2vcf(
                 double min_likelihood = INFINITY;
                 
                 // How many bases are known (for XREF determination)?
-                size_t known_bases;
+                size_t known_bases = 0;
                 
                 // Set this if the path is known (either mostly known bases or a
                 // single known edge).
@@ -1635,6 +1635,10 @@ int call2vcf(
                     // most of it is known bases.
                     path_is_known = known_bases > 0 && known_bases >= sequence_stream.str().size() / 2;
                 }
+                
+#ifdef debug
+                std::cerr << "Sequence \"" << sequence_stream.str() << "\" has " << known_bases << " known bases" << std::endl;
+#endif
                 
                 // Fill in the vectors
                 sequences.push_back(sequence_stream.str());
@@ -1776,8 +1780,18 @@ int call2vcf(
                 // he add it?
                 double bias_limit = (second_best_allele == 0) ? maxRefBias : maxHetBias;
                 
+#ifdef debug
+                std::cerr << best_allele << ", " << best_support << " and "
+                    << second_best_allele << ", " << second_best_support << std::endl;
+                
+                std::cerr << bias_limit * bias_multiple * total(second_best_support) << " vs "
+                    << total(best_support) << std::endl;
+                    
+                std::cerr << total(second_best_support) << " vs " << minTotalSupportForCall << std::endl;
+#endif
+                
                 if(second_best_allele != -1 &&
-                    total(second_best_support) <= bias_limit * bias_multiple * total(best_support) &&
+                    bias_limit * bias_multiple * total(second_best_support) >= total(best_support) &&
                     total(best_support) >= minTotalSupportForCall &&
                     total(second_best_support) >= minTotalSupportForCall) {
                     // There's a second best allele, and it's not too biased to
@@ -1863,8 +1877,15 @@ int call2vcf(
             }
             
             // And total alt allele depth for the alt alleles
+            Support alt_support = std::make_pair(0.0, 0.0);
+            if(best_allele != 0) {
+                alt_support += best_support;
+            }
+            if(second_best_allele != -1 && second_best_allele != 0) {
+                alt_support += second_best_support;
+            }
             variant.format.push_back("XAAD");
-            variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(best_support + second_best_support))));
+            variant.samples[sampleName]["XAAD"].push_back(std::to_string((int64_t)round(total(alt_support))));
 
             // Copy over the quality value
             variant.quality = -10. * log10(1. - pow(10, gen_likelihood));
