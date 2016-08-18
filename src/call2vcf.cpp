@@ -1001,8 +1001,6 @@ void parse_tsv(const std::string& tsvFile,
     std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
 }
 
-#define debug
-
 // this was main() in glenn2vcf
 // all that's changed for now is that arguments passed in rather than
 // parsed from argc/argv (or passed as files)
@@ -1216,7 +1214,7 @@ int call2vcf(
         
         CactusSiteFinder finder(vg, refPathName);
         finder.for_each_site_parallel([&](NestedSite site) {
-            if(!index.byId.count(site.start.node->id()) || !index.byId.count(site.start.node->id())) {
+            if(!index.byId.count(site.start.node->id()) || !index.byId.count(site.end.node->id())) {
                 // Skip top-level sites that aren't on the reference path at both ends.
                 return;
             }
@@ -1263,8 +1261,16 @@ int call2vcf(
         for(auto& site : sites) {
             // For every site, we're going to make a variant
             
+            // Copy its node set
+            std::set<Node*> nodes_left(site.nodes);
+            
             // Trace the ref path through the site
             std::vector<NodeTraversal> ref_path_for_site;
+            
+#ifdef debug
+            std::cerr << "Site starts with " << site.start << " at " << index.byId.at(site.start.node->id()).first
+                << " and ends with " << site.end << " at " << index.byId.at(site.end.node->id()).first << std::endl;
+#endif
             
             int64_t ref_node_start = index.byId.at(site.start.node->id()).first;
             while(ref_node_start <= index.byId.at(site.end.node->id()).first) {
@@ -1277,14 +1283,27 @@ int call2vcf(
                 if((*found).first > index.byId.at(site.end.node->id()).first) {
                     // The next reference node we can find is out of the space
                     // being replaced. We're done.
+                    cerr << "Stopping for out-of-bounds node" << endl;
                     break;
                 }
                 
-                // Next iteration look where this node ends.
-                ref_node_start = (*found).first + (*found).second.node->sequence().size();
-                
                 // Add the traversal to the ref path through the site
                 ref_path_for_site.push_back((*found).second);
+                
+                // Make sure this node is actually in the site
+                assert(site.nodes.count((*found).second.node));
+                
+                // Drop it from the set of nodes in the site we haven't visited.
+                nodes_left.erase((*found).second.node);
+                
+                // Next iteration look where this node ends.
+                ref_node_start = (*found).first + (*found).second.node->sequence().size();
+            }
+            
+            for(auto node : nodes_left) {
+                // Make sure none of the nodes in the site that we didn't visit
+                // while tracing along the ref path are on the ref path.
+                assert(!index.byId.count(node->id()));
             }
             
 #ifdef debug
@@ -1309,6 +1328,19 @@ int call2vcf(
                 // through the site together.
                 vector<NodeTraversal> extended_path;
                 
+                for(auto& traversal : path) {
+                    // Make sure the site actually has the nodes we're visiting.
+                    assert(site.nodes.count(traversal.node));
+#ifdef debug
+                    if(index.byId.count(traversal.node->id())) {
+                        std::cerr << "Path member " << traversal << " lives on ref at "
+                        << index.byId.at(traversal.node->id()).first << std::endl;
+                    } else {
+                        std::cerr << "Path member " << traversal << " does not live on ref" << std::endl;
+                    }
+#endif
+                }
+                
                 size_t ref_path_index = 0;
                 size_t bubble_path_index = 0;
                 
@@ -1321,9 +1353,26 @@ int call2vcf(
                     // Then take the whole bubble path
                     extended_path.push_back(path[bubble_path_index++]);
                 }
-                while(ref_path_for_site.at(ref_path_index) != path.back()) {
+                while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
                     // Then skip ahead to the matching point in the ref path
                     ref_path_index++;
+                }
+                if(ref_path_index == ref_path_for_site.size()) {
+                    // We ran out of ref path before finding the place to leave the alt.
+                    // This must be a backtracking loop or something; start over from the beginning.
+                    ref_path_index = 0;
+                    
+                    while(ref_path_index < ref_path_for_site.size() && ref_path_for_site.at(ref_path_index) != path.back()) {
+                        // Then skip ahead to the matching point in the ref path
+                        ref_path_index++;
+                    }
+                    
+                    if(ref_path_index == ref_path_for_site.size()) {
+                        // Still couldn't find it!
+                        std::stringstream err;
+                        err << "Couldn't find " << path.back() << " in ref path of site " << site.start << " to " << site.end;
+                        throw std::runtime_error(err.str());
+                    }
                 }
                 // Skip the matching NodeTraversal
                 ref_path_index++;
