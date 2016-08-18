@@ -279,7 +279,7 @@ pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph, const string& path_na
     
     NodeSide source(path.front().position().node_id(), true);
     NodeSide sink(path.back().position().node_id(), false);
-
+    
     // search context of path ends for actual head and tail nodes
     function<pair<id_t, id_t>(id_t)> find_endpoints = [&](id_t node_id) -> pair<id_t, id_t> {
         pair<id_t, id_t> found_ends(graph.is_head_node(node_id) ? node_id : 0,
@@ -316,6 +316,12 @@ pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph, const string& path_na
     } else if (source_ends.second > 0 && sink_ends.second > 0) {
         source = NodeSide(source_ends.second, false);
         sink = NodeSide(sink_ends.second, false);
+    } else {
+        // We couldn't find anything.
+        cerr << "[get_cactus_source_sink] Warning: Cannot find source and sink within "
+            << steps << " nodes of ends of hint path " << path_name
+            << "! Pretending that the path start and end are the source and sink!" << endl;
+        return make_pair(source, sink);
     }
 
     assert((source.is_end && graph.is_head_node(source.node)) ||
