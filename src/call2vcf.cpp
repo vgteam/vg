@@ -1513,6 +1513,13 @@ int call2vcf(
             for(Edge* edge : site.edges) {
                 // Go through all the edges
                 
+                if(!index.byId.count(edge->from()) || !index.byId.count(edge->to())) {
+                    // Edge doesn't touch reference at both ends. Don't use it
+                    // because for some reason it makes performance worse
+                    // overall.
+                    continue;
+                }
+                
                 // Find a path based around this edge
                 // TODO: use edge support
                 std::vector<NodeTraversal> path = find_bubble(vg, nullptr, edge, index, nodeReadSupport, maxDepth);
