@@ -498,11 +498,14 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& grap
     return toReturn;
 }
 
+
 /**
- * Given a vg graph, a node in the graph, and an index for the reference path,
- * look out from the node in both directions to find a shortest bubble relative
- * to the path, with a consistent orientation. The bubble may not visit the same
- * node twice.
+ * Given a vg graph, an edge or node in the graph, and an index for the
+ * reference path, look out from the edge or node in both directions to find a
+ * shortest bubble relative to the path, with a consistent orientation. The
+ * bubble may not visit the same node twice.
+ *
+ * Exactly one of edge and node must be null, and one not null.
  *
  * Takes a max depth for the searches producing the paths on each side.
  * 
@@ -511,14 +514,36 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& grap
  * before the last node in the reference.
  */
 std::vector<vg::NodeTraversal>
-find_bubble(vg::VG& graph, vg::Node* node, const ReferenceIndex& index,
+find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex& index,
     const std::map<vg::Node*, Support>& nodeReadSupport, int64_t maxDepth = 10) {
 
+    // What are we going to find our left and right path halves based on?
+    NodeTraversal left_traversal;
+    NodeTraversal right_traversal;
+
+    if(edge != nullptr) {
+        // Be edge-based
+        
+        // Find the nodes at the ends of the edges. Look at them traversed in the
+        // edge's local orientation.
+        left_traversal = NodeTraversal(graph.get_node(edge->from()), edge->from_start());
+        right_traversal = NodeTraversal(graph.get_node(edge->to()), edge->to_end());
+        
+    } else {
+        // Be node-based
+        assert(node != nullptr);
+        left_traversal = right_traversal = NodeTraversal(node);
+    }
+    
+#ifdef debug
+    std::cerr << "Starting from: " << left_traversal << ", " << right_traversal << std::endl;
+#endif
+
     // Find paths on both sides, with nodes on the primary path at the outsides
-    // and this node in the middle. Returns path lengths and paths in pairs in a
+    // and this edge in the middle. Returns path lengths and paths in pairs in a
     // set.
-    auto leftPaths = bfs_left(graph, vg::NodeTraversal(node), index, nodeReadSupport, maxDepth);
-    auto rightPaths = bfs_right(graph, vg::NodeTraversal(node), index, nodeReadSupport, maxDepth);
+    auto leftPaths = bfs_left(graph, left_traversal, index, nodeReadSupport, maxDepth);
+    auto rightPaths = bfs_right(graph, right_traversal, index, nodeReadSupport, maxDepth);
     
     // Find a combination of two paths which gets us to the reference in a
     // consistent orientation (meaning that when you look at the ending nodes'
@@ -589,7 +614,11 @@ find_bubble(vg::VG& graph, vg::Node* node, const ReferenceIndex& index,
                     // We need to detect overlap with the left path
                     bool overlap = false;
                     
-                    for(auto it = ++(rightPath.begin()); it != rightPath.end(); ++it) {
+                    // If we're starting from an edge, we keep the first node on
+                    // the right path. If we're starting from a node, we need to
+                    // discard it because it's just another copy of our node
+                    // we're starting with.
+                    for(auto it = (edge != nullptr ? rightPath.begin() : ++(rightPath.begin())); it != rightPath.end(); ++it) {
                         // For all but the first node on the right path, add that in
                         fullPath.push_back(*it);
                         
@@ -653,7 +682,6 @@ find_bubble(vg::VG& graph, vg::Node* node, const ReferenceIndex& index,
     return testCombinations(leftConverted, rightConverted);
     
 }
-
 
 /**
  * Trace out the reference path in the given graph named by the given name.
@@ -1466,7 +1494,7 @@ int call2vcf(
                 }
                 
                 // TODO: use edge support
-                std::vector<NodeTraversal> path = find_bubble(vg, node, index, nodeReadSupport, maxDepth);
+                std::vector<NodeTraversal> path = find_bubble(vg, node, nullptr, index, nodeReadSupport, maxDepth);
                 
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
@@ -1474,7 +1502,7 @@ int call2vcf(
                     cerr << "Warning: No path found for node " << node->id() << endl;
                     basesLost += node->sequence().size();
                     // TODO: what if it's already in another bubble/the node is deleted?
-                    break;
+                    continue;
                 }
                 
                 // Extend it out into an allele
@@ -1485,36 +1513,28 @@ int call2vcf(
             for(Edge* edge : site.edges) {
                 // Go through all the edges
                 
-                if(index.byId.count(edge->from()) && index.byId.count(edge->to()) && edge->from() != edge->to()) {
-                    // We know the edge touches the reference at both ends, at two distinct nodes
-                    
-                    // Imagine a path between these two nodes
-                    NodeTraversal left(vg.get_node(edge->from()), edge->from_start());
-                    NodeTraversal right(vg.get_node(edge->to()), edge->to_end());
-                    
-                    if(index.byId.at(edge->to()).first < index.byId.at(edge->to()).first) {
-                        // If it runs backwards in reference space, flip it around.
-                        left = left.reverse();
-                        right = right.reverse();
-                        std::swap(left, right);
-                    }
-                    
-                    if(index.byId.at(left.node->id()).second != left.backward || index.byId.at(right.node->id()).second != right.backward) {
-                        // This edge doesn't flow along the reference in a
-                        // consistent direction. In order to increase in reference
-                        // coordinate, one or both nodes has to be in the wrong
-                        // orientation. Skip it.
-                        continue;
-                    }
-                    
-                    // Now we know we're going the right way. Make a proper path
-                    std::vector<NodeTraversal> path{left, right};
-                    
-                    // Extend it with the rest of the reference nodes and add it to
-                    // the set of paths through the site.
-                    extend_into_allele(path);
-                    
+                // Find a path based around this edge
+                // TODO: use edge support
+                std::vector<NodeTraversal> path = find_bubble(vg, nullptr, edge, index, nodeReadSupport, maxDepth);
+                
+#ifdef debug
+                std::cerr << "Edge " << edge->from() << " to " << edge->to() << " yields:" << std::endl;
+                for(auto& traversal : path) {
+                    std::cerr << "\t" << traversal << std::endl;
                 }
+#endif
+                
+                if(path.empty()) {
+                    // We couldn't find a path back to the primary path. Discard
+                    // this material.
+                    cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
+                    // TODO: bases lost
+                    // TODO: what if it's already in another bubble/the node is deleted?
+                    continue;
+                }
+                
+                // Extend it out into an allele
+                extend_into_allele(path);
             }
             
             // Throw the ref allele out of the set
@@ -1927,7 +1947,7 @@ int call2vcf(
                 // We have copy number on this node.
                 
                 // Find a path to the primary reference from here
-                auto path = find_bubble(vg, node, index, nodeReadSupport, maxDepth);
+                auto path = find_bubble(vg, node, nullptr, index, nodeReadSupport, maxDepth);
                 
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
