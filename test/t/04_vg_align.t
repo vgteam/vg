@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 14
+plan tests 13
 
 is $(vg construct -r small/x.fa -v small/x.vcf.gz | vg align -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -j - | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "alignment traverses the correct path"
 
@@ -42,6 +42,3 @@ is $? 0 "alignment correctly handles an inversion"
 vg align -s AAACATACATTTTC graphs/exploding.vg >/dev/null
 is $? 0 "the exploding graph doesn't blow up"
 
-vg construct -r tiny/tiny.fa -v tiny/tiny.vcf.gz -m 5 >tiny.vg
-is $(vg align -s TG -F 22 -j tiny.vg | jq '.path.mapping[0].position.node_id') 21 "alignment traceback can be forced to start at the end of a given node"
-rm -f tiny.vg

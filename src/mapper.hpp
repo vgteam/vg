@@ -113,8 +113,9 @@ public:
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
-    // GSSW aligner
-    QualAdjAligner* aligner;
+    // GSSW aligner(s)
+    vector<QualAdjAligner*> aligners;
+    QualAdjAligner* get_aligner(void);
 
     // match walking support to prevent repeated calls to the xg index for the same node
     LRUCache<id_t, Node> node_cache;

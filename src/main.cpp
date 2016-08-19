@@ -2722,7 +2722,6 @@ int main_msga(int argc, char** argv) {
             mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
             mapper->min_identity = min_identity;
-            mapper->alignment_threads = alignment_threads;
             mapper->max_mem_length = max_mem_length;
             mapper->min_mem_length = min_mem_length;
             mapper->hit_max = hit_max;
@@ -2730,6 +2729,9 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
+            mapper->alignment_threads = alignment_threads;
+            mapper->aligners.clear(); // number of aligners per mapper depends on thread count
+                                      // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         }
     };
@@ -4750,6 +4752,7 @@ void help_stats(char** argv) {
          << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
          << "    -C, --cactusbubbles   describe the cactus bubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
+         << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
          << "    -d, --to-head         show distance to head for each provided node" << endl
          << "    -t, --to-tail         show distance to head for each provided node" << endl
@@ -4778,6 +4781,7 @@ int main_stats(int argc, char** argv) {
     bool superbubbles = false;
     bool cactus = false;
     bool verbose = false;
+    bool is_acyclic = false;
     set<vg::id_t> ids;
     // What alignments GAM file should we read and compute stats on with the
     // graph?
@@ -4804,12 +4808,13 @@ int main_stats(int argc, char** argv) {
             {"superbubbles", no_argument, 0, 'b'},
             {"cactusbubbles", no_argument, 0, 'C'},
             {"alignments", required_argument, 0, 'a'},
+            {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:v",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4872,6 +4877,10 @@ int main_stats(int argc, char** argv) {
 
         case 'C':
             cactus = true;
+            break;
+
+        case 'A':
+            is_acyclic = true;
             break;
             
         case 'a':
@@ -4988,6 +4997,14 @@ int main_stats(int argc, char** argv) {
                 cout << id << ", ";
             }
             cout << endl;
+        }
+    }
+
+    if (is_acyclic) {
+        if (graph->is_acyclic()) {
+            cout << "acyclic" << endl;
+        } else {
+            cout << "cyclic" << endl;
         }
     }
 

@@ -41,7 +41,6 @@ Mapper::Mapper(Index* idex,
     , fragment_size(0)
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
-    , aligner(nullptr)
     , node_cache(100)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
@@ -83,8 +82,10 @@ Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr, nullptr) {
 }
 
 Mapper::~Mapper(void) {
-    if (aligner) {
-        delete aligner;
+    if (!aligners.empty()) {
+        for (auto& aligner : aligners) {
+            delete aligner;
+        }
     }
 }
     
@@ -117,29 +118,49 @@ void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int
     if (gap_extend > max_score) max_score = gap_extend;
     
     double gc_content = estimate_gc_content();
-    
-    aligner = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
-                                          255, gc_content);
+
+    aligners.resize(alignment_threads);
+    for (int i = 0; i < alignment_threads; ++i) {
+        aligners[i] = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
+                                         255, gc_content);
+    }
 }
     
     
 void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
-    if (aligner) {
+    if (!aligners.empty()) {
+        auto aligner = aligners.front();
         if (match == aligner->match && mismatch == aligner->mismatch &&
             gap_open == aligner->gap_open && gap_extend == aligner->gap_extension) {
             return;
         }
-        delete aligner;
+        for (auto& a : aligners) {
+            delete aligner;
+        }
+        aligners.clear();
     }
     
     init_aligner(match, mismatch, gap_open, gap_extend);
 }
     
 Alignment Mapper::align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio) {
+    // check if we have a cached aligner for this thread
+    auto aligner = aligners[omp_get_thread_num()];
     if (adjust_alignments_for_base_quality) {
         return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
     }
     else  {
+        // XXXXX OW
+        {
+            int32_t max_score = aligner->match;
+            if (aligner->mismatch > max_score) max_score = aligner->mismatch;
+            if (aligner->gap_open > max_score) max_score = aligner->gap_open;
+            if (aligner->gap_extension > max_score) max_score = aligner->gap_extension;
+            double gc_content = estimate_gc_content();
+            auto new_aligner = new QualAdjAligner(aligner->match, aligner->mismatch, aligner->gap_open, aligner->gap_extension, max_score,
+                                                  255, gc_content);
+            return vg.align(aln, *new_aligner, max_query_graph_ratio);
+        }
         return vg.align(aln, *aligner, max_query_graph_ratio);
     }
 }
@@ -1246,7 +1267,13 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     return graph.adjacent(pos1, pos2);
 }
 
+QualAdjAligner* Mapper::get_aligner(void) {
+    int tid = aligners.size() > 1 ? omp_get_thread_num() : 0;
+    return aligners[tid];
+}
+
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
+    auto aligner = get_aligner();
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_mapping_quality(alns, true);
@@ -1260,6 +1287,7 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
 }
     
 void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns) {
+    auto aligner = get_aligner();
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_paired_mapping_quality(pair_alns, true);
@@ -1366,6 +1394,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
         // use pre-restricted mems for paired mapping or find mems here
         if (restricted_mems) {
             // mem hits will already have been queried
+            cerr << "in resrticted mems" << endl;
             alignments = align_mem_multi(aln, *restricted_mems, additional_multimaps_for_quality);
         }
         else {
@@ -1375,7 +1404,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
             if (debug) cerr << "mems before filtering " << mems_to_json(mems) << endl;
             for (auto& mem : mems) { get_mem_hits_if_under_max(mem); }
             if (debug) cerr << "mems after filtering " << mems_to_json(mems) << endl;
-            
+
             alignments = align_mem_multi(aln, mems, additional_multimaps_for_quality);
         }
     }
@@ -1889,6 +1918,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     // walk along the alignment and find the portions that are unaligned
     int read_pos = 0;
     auto& path = aln.path();
+    auto aligner = get_aligner();
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         //cerr << "looking at mapping " << pb2json(mapping) << endl;
@@ -2882,6 +2912,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
     int thread_ex = thread_extension;
     map<vector<int64_t>*, Alignment> alignments;
+    auto aligner = get_aligner();
 
     // collect the nodes from the best N threads by length
     // and expand subgraphs as before
