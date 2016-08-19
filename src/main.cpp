@@ -2381,7 +2381,7 @@ int main_msga(int argc, char** argv) {
     bool debug = false;
     bool debug_align = false;
     size_t node_max = 0;
-    int alignment_threads = 1;
+    int alignment_threads = get_thread_count();
     int edge_max = 0;
     int subgraph_prune = 0;
     bool normalize = false;
