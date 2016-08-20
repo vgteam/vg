@@ -86,7 +86,7 @@ rm -Rf g.idx
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.vg.idx -g x.vg.gcsa -k 16 -X 2 x.vg
-vg index -x x.xg -g x.gcsa -k 16 x.vg
+vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg sim -s 1337 -n 1000 -x x.vg.idx >x.reads
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
 
@@ -94,7 +94,7 @@ is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -n 5 -t 1 -J | jq -c '.path.m
 
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J -2 | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "mem threaded mapping works"
 
-is $(vg map -r x.reads -V x.vg -k 16 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map can build its own in-memory indexes"
+is $(vg map -r x.reads -V x.vg -k 11 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map can build its own in-memory indexes"
 
 vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -W 300 -u 4 -J  > temp_paired_alignment.json
 vg map -x graphs/refonly-lrc_kir.vg.xg -g graphs/refonly-lrc_kir.vg.gcsa -f reads/grch38_lrc_kir_paired.fq -i -u 4 -J  > temp_independent_alignment.json

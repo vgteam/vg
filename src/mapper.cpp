@@ -109,7 +109,7 @@ double Mapper::estimate_gc_content() {
     return ((double) gc) / (at + gc);
 }
 
-    
+
 void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
     // hacky, find max score so that scaling doesn't change score
     int32_t max_score = match;
@@ -125,21 +125,22 @@ void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int
                                          255, gc_content);
     }
 }
-    
-    
+
 void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
     if (!aligners.empty()) {
         auto aligner = aligners.front();
+        // we've already set the right score
         if (match == aligner->match && mismatch == aligner->mismatch &&
             gap_open == aligner->gap_open && gap_extend == aligner->gap_extension) {
             return;
         }
+        // otherwise, destroy them and reset
         for (auto& a : aligners) {
             delete aligner;
         }
         aligners.clear();
     }
-    
+    // reset the aligners
     init_aligner(match, mismatch, gap_open, gap_extend);
 }
     
@@ -1033,8 +1034,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
         }
     };
 
-#pragma omp parallel for schedule(dynamic,1)
-    for (int i = 0; i < bands.size(); ++i) {
+    auto do_band = [&](int i) {
         if (max_multimaps > 1) {
             vector<Alignment>& malns = multi_alns[i];
             malns = align_multi_internal(false, bands[i], kmer_size, stride, band_width, 0, nullptr);
@@ -1071,6 +1071,17 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             //cerr << "checking after strip" << endl;
             //check_alignment(aln);
             //cerr << "OK" << endl;
+        }
+    };
+    
+    if (alignment_threads > 1) {
+#pragma omp parallel for schedule(dynamic,1)
+        for (int i = 0; i < bands.size(); ++i) {
+            do_band(i);
+        }
+    } else {
+        for (int i = 0; i < bands.size(); ++i) {
+            do_band(i);
         }
     }
 
