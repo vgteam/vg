@@ -1383,7 +1383,6 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
         // use pre-restricted mems for paired mapping or find mems here
         if (restricted_mems) {
             // mem hits will already have been queried
-            cerr << "in resrticted mems" << endl;
             alignments = align_mem_multi(aln, *restricted_mems, additional_multimaps_for_quality);
         }
         else {
