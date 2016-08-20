@@ -140,6 +140,9 @@ public:
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                 vector<MaximalExactMatch>& mems2);
 
+    // uses heuristic clustering based on node id ranges to find alignment targets, and aligns
+    vector<Alignment> clustered_mems_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps);
+
     // takes the input alignment (with seq, etc) so we have reference to the base sequence
     // for reconstruction the alignments from the SMEMs
     vector<Alignment> mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);

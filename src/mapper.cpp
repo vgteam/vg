@@ -150,17 +150,6 @@ Alignment Mapper::align_to_graph(const Alignment& aln, VG& vg, size_t max_query_
         return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
     }
     else  {
-        // XXXXX OW
-        {
-            int32_t max_score = aligner->match;
-            if (aligner->mismatch > max_score) max_score = aligner->mismatch;
-            if (aligner->gap_open > max_score) max_score = aligner->gap_open;
-            if (aligner->gap_extension > max_score) max_score = aligner->gap_extension;
-            double gc_content = estimate_gc_content();
-            auto new_aligner = new QualAdjAligner(aligner->match, aligner->mismatch, aligner->gap_open, aligner->gap_extension, max_score,
-                                                  255, gc_content);
-            return vg.align(aln, *new_aligner, max_query_graph_ratio);
-        }
         return vg.align(aln, *aligner, max_query_graph_ratio);
     }
 }
@@ -2197,10 +2186,12 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     //then do the alignment
                     Alignment patch;
                     if (mapping.position().is_reverse()) {
-                        patch = reverse_complement_alignment(graph.align(reverse_complement(edit.sequence())),
+                        patch.set_sequence(reverse_complement(edit.sequence()));
+                        patch = reverse_complement_alignment(align_to_graph(patch, graph, max_query_graph_ratio),
                                                              (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
                     } else {
-                        patch = graph.align(edit.sequence());
+                        patch.set_sequence(edit.sequence());
+                        patch = align_to_graph(patch, graph, max_query_graph_ratio);
                     }
                     //cerr << "patch: " << pb2json(patch) << endl;
                     // apply the cut node translation
@@ -2340,7 +2331,14 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
 
     if (mem_threading) {
         return mems_to_alignments(alignment, mems, additional_multimaps);
-    } // implict else
+    } else {
+        return clustered_mems_to_alignments(alignment, mems, additional_multimaps);
+    }
+
+}
+
+vector<Alignment>
+Mapper::clustered_mems_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
 
     struct StrandCounts {
         uint32_t forward;
