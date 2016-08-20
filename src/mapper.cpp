@@ -145,7 +145,7 @@ void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_o
     
 Alignment Mapper::align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio) {
     // check if we have a cached aligner for this thread
-    auto aligner = aligners[omp_get_thread_num()];
+    auto aligner = get_aligner();
     if (adjust_alignments_for_base_quality) {
         return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
     }
