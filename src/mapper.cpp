@@ -742,9 +742,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
 
-    // TODO remove clusters that are fully contained in others
-    // can we do this efficiently without a suffix tree?
-
     auto mem_len_sum = [&](const vector<MaximalExactMatch>& cluster) {
         int i = 0;
         for (auto& mem : cluster) {
@@ -760,6 +757,47 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                   const vector<MaximalExactMatch>& c2) {
                   return mem_len_sum(c1) > mem_len_sum(c2);
               });
+
+    // remove duplicates by building up a reverse map from MEM to cluster
+    // and adding new clusters by following the reverse map and checking for
+    // containment within the found clusters
+    map<MaximalExactMatch, vector<vector<MaximalExactMatch>*> > mem_to_clusters;
+    vector<vector<MaximalExactMatch>> kept_clusters;
+    //set<vector<MaximalExactMatch>*> _clusters;
+    for (auto& cluster : clusters) {
+        map<vector<MaximalExactMatch>*, int> hits;
+        bool possible_containment = true;
+        for (auto& mem : cluster) {
+            auto f = mem_to_clusters.find(mem);
+            if (f == mem_to_clusters.end()) {
+                possible_containment = false;
+                break;
+            } else {
+                // record hits
+                for (auto& c : f->second) {
+                    hits[c]++;
+                }
+            }
+        }
+        bool drop = false;
+        if (possible_containment) {
+            // if there is a full containment, drop
+            // otherwise, add
+            for (auto& hit : hits) {
+                if (hit.second == cluster.size()) {
+                    drop = true; break;
+                }
+            }
+        }
+        if (!drop) {
+            kept_clusters.push_back(cluster);
+            for (auto& mem : cluster) {
+                mem_to_clusters[mem].push_back(&cluster);
+            }
+        }
+    }
+
+    clusters = kept_clusters;
 
     if (debug) {
         cerr << "clusters: " << endl;
