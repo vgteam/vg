@@ -105,9 +105,9 @@ is $(cat c.vg | vg mod -X 10 - | vg mod -w 50 -L 400 - | vg stats -l - | cut -f 
 rm -f c.vg
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
-vg index -x x.xg -g x.gcsa -k 11 x.vg
+vg index -x x.xg -g x.gcsa -k 16 x.vg
 vg sim -s 1337 -n 100 -x x.xg >x.reads
-vg map -x x.xg -g x.gcsa -r x.reads -L 10 >x.gam
+vg map -x x.xg -g x.gcsa -r x.reads -L 10 -t 1 >x.gam
 vg mod -Z x.trans -i x.gam x.vg >x.mod.vg
 is $(vg view -Z x.trans | jq -c --sort-keys . | sort | md5sum | cut -f 1 -d\ ) $(md5sum correct/14_vg_mod/36.txt | cut -f 1 -d\ ) "the expected graph translation is exported when the graph is edited"
 rm -rf x.vg x.xg x.gcsa x.reads x.gam x.mod.vg x.trans

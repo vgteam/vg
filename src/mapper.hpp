@@ -12,6 +12,8 @@
 #include "lcp.h"
 #include "alignment.hpp"
 #include "path.hpp"
+#include "position.hpp"
+#include "lru_cache.h"
 #include "json2pb.h"
 #include "entropy.hpp"
 #include "gssw_aligner.hpp"
@@ -52,7 +54,15 @@ public:
     void fill_match_count(gcsa::GCSA* gcsa) {
         match_count = gcsa->count(range);
     }
+    int length(void) const {
+        return end - begin;
+    }
+
+    friend bool operator==(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+    friend bool operator<(const MaximalExactMatch& m1, const MaximalExactMatch& m2);
+
 };
+
 
 class Mapper {
 
@@ -77,8 +87,6 @@ private:
                            int stride = 0,
                            int band_width = 1000);
     // alignment based on the MEM approach
-    //vector<Alignment> align_mem(const Alignment& alignment, int additional_multimaps = 0);
-    Alignment align_mem_optimal(const Alignment& alignment, vector<MaximalExactMatch>& mems);
     vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
     // base algorithm for above Update the passed-in Alignment with a highest-
     // score alignment, and return all good alignments sorted by score up to
@@ -105,8 +113,12 @@ public:
     // GCSA index and its LCP array
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
-    // GSSW aligner
-    QualAdjAligner* aligner;
+    // GSSW aligner(s)
+    vector<QualAdjAligner*> aligners;
+    QualAdjAligner* get_aligner(void);
+
+    // match walking support to prevent repeated calls to the xg index for the same node
+    LRUCache<id_t, Node> node_cache;
     
     double estimate_gc_content();
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
@@ -127,6 +139,17 @@ public:
     vector<Alignment> resolve_banded_multi(vector<vector<Alignment>>& multi_alns);
     set<MaximalExactMatch*> resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                 vector<MaximalExactMatch>& mems2);
+
+    // uses heuristic clustering based on node id ranges to find alignment targets, and aligns
+    vector<Alignment> clustered_mems_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps);
+
+    // takes the input alignment (with seq, etc) so we have reference to the base sequence
+    // for reconstruction the alignments from the SMEMs
+    vector<Alignment> mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
+    Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
+    Alignment mem_to_alignment(MaximalExactMatch& mem);
+    // fix up a SMEM-threaded exact match alignment by locally aligning small pieces against gaps in alignment
+    Alignment patch_alignment(const Alignment& aln);
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
@@ -185,6 +208,7 @@ public:
     map<pos_t, char> next_pos_chars(pos_t pos);
     // convert a single MEM hit into an alignment (by definition, a perfect one)
     Alignment walk_match(const string& seq, pos_t pos);
+    vector<Alignment> walk_match(const Alignment& base, const string& seq, pos_t pos);
     // convert the set of hits of a MEM into a set of alignments
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
     // Use the GCSA index to look up the sequence
@@ -211,6 +235,7 @@ public:
     //
     int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
+    int mem_threading; // whether to use the mem threading mapper or not
 
     // general parameters, applying to both types of mapping
     //

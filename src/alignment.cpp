@@ -707,10 +707,10 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
 
 
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {
-    if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
+    //if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
     a1.set_sequence(a1.sequence() + a2.sequence());
     extend_path(*a1.mutable_path(), a2.path());
-    if (debug) cerr << "extended alignments, result is " << endl << pb2json(a1) << endl;
+    //if (debug) cerr << "extended alignments, result is " << endl << pb2json(a1) << endl;
     return a1;
 }
 

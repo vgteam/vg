@@ -41,7 +41,6 @@ Aligner::Aligner(int32_t _match,
 gssw_graph* Aligner::create_gssw_graph(Graph& g) {
     
     gssw_graph* graph = gssw_graph_create(g.node_size());
-    map<int64_t, gssw_node*> nodes;
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
@@ -101,7 +100,7 @@ void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
     gssw_graph_fill(graph, sequence.c_str(),
                     nt_table, score_matrix,
                     gap_open, gap_extension, 15, 2);
-    
+
     gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
                                                     sequence.c_str(),
                                                     sequence.size(),

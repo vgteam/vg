@@ -64,7 +64,8 @@ namespace vg {
         ~Aligner(void);
         
         // store optimal alignment against a graph in the Alignment object
-        void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
+        void align(Alignment& alignment, Graph& g,
+                   bool print_score_matrices = false);
         
         // store optimal alignment against a graph in the Alignment object
         // permissive banding auto detects the width of band needed so that paths can travel
@@ -98,6 +99,9 @@ namespace vg {
         int32_t mismatch;
         int32_t gap_open;
         int32_t gap_extension;
+
+        // map from id to the nodes
+        map<int64_t, gssw_node*> nodes;
         
     };
 
@@ -117,6 +121,7 @@ namespace vg {
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
+
         void init_mapping_quality(double gc_content);
 
         uint8_t max_qual_score;

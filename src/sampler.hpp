@@ -9,8 +9,9 @@
 #include "xg.hpp"
 #include "alignment.hpp"
 #include "path.hpp"
-#include "json2pb.h"
+#include "position.hpp"
 #include "lru_cache.h"
+#include "json2pb.h"
 
 namespace vg {
 
