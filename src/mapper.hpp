@@ -141,11 +141,13 @@ public:
                                                 vector<MaximalExactMatch>& mems2);
 
     // uses heuristic clustering based on node id ranges to find alignment targets, and aligns
-    vector<Alignment> clustered_mems_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps);
+    vector<Alignment> mems_id_clusters_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps);
+
+    // uses approximate-positional clustering based on embedded paths in the xg index to find and align against alignment targets
+    vector<Alignment> mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps);
 
     // takes the input alignment (with seq, etc) so we have reference to the base sequence
     // for reconstruction the alignments from the SMEMs
-    vector<Alignment> mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
     Alignment mems_to_alignment(const Alignment& aln, vector<MaximalExactMatch>& mems);
     Alignment mem_to_alignment(MaximalExactMatch& mem);
     // fix up a SMEM-threaded exact match alignment by locally aligning small pieces against gaps in alignment

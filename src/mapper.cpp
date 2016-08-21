@@ -674,7 +674,7 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Al
 // uses the exact matches to generate as much of each alignment as possible
 // then local dynamic programming to fill in the gaps
 vector<Alignment>
-Mapper::mems_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps) {
+Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExactMatch>& mems, int additional_multimaps) {
 
     int total_multimaps = max_multimaps + additional_multimaps;
     
@@ -2340,15 +2340,15 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
     }
 
     if (mem_threading) {
-        return mems_to_alignments(alignment, mems, additional_multimaps);
+        return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps);
     } else {
-        return clustered_mems_to_alignments(alignment, mems, additional_multimaps);
+        return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
     }
 
 }
 
 vector<Alignment>
-Mapper::clustered_mems_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
+Mapper::mems_id_clusters_to_alignments(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps) {
 
     struct StrandCounts {
         uint32_t forward;
