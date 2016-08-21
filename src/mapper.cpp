@@ -1929,6 +1929,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             //cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
                 // matches behave as expected
+                score += aligner->score_exact_match(
+                    aln.sequence().substr(read_pos, edit.to_length()),
+                    aln.quality().substr(read_pos, edit.to_length()));
                 score += edit.from_length()*aligner->match;
                 *new_mapping->add_edit() = edit;
             } else if (edit_is_deletion(edit)) {
@@ -2197,10 +2200,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     Alignment patch;
                     if (mapping.position().is_reverse()) {
                         patch.set_sequence(reverse_complement(edit.sequence()));
+                        string qual = aln.quality().substr(read_pos, edit.to_length());
+                        reverse(qual.begin(), qual.end());
+                        patch.set_quality(qual);
                         patch = reverse_complement_alignment(align_to_graph(patch, graph, max_query_graph_ratio),
                                                              (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
                     } else {
                         patch.set_sequence(edit.sequence());
+                        patch.set_quality(aln.quality().substr(read_pos, edit.to_length()));
                         patch = align_to_graph(patch, graph, max_query_graph_ratio);
                     }
                     //cerr << "patch: " << pb2json(patch) << endl;
@@ -2247,10 +2254,9 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     }
     // finally, fix up the alignment score
     patched.set_sequence(aln.sequence());
+    patched.set_quality(aln.quality());
     patched.set_identity(identity(patched.path()));
-    patched.set_score(score);
-    //cerr << "patched be " << pb2json(patched) << endl;
-    // and re-get the identity??
+    patched.set_score(score); // todo... re get score?
     return patched;
 }
 
@@ -2296,8 +2302,9 @@ Alignment Mapper::mems_to_alignment(const Alignment& aln, vector<MaximalExactMat
     int start = last_end - seq_begin;
     int length = seq_end - (seq_begin + start);
     alns.back().set_sequence(aln.sequence().substr(start, length));
-    // TODO XXXXXX quality 
-    return merge_alignments(alns);
+    auto alnm = merge_alignments(alns);
+    *alnm.mutable_quality() = aln.quality();
+    return alnm;
 }
 
 // convert one mem into an alignment; validates that only one node is given
