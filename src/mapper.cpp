@@ -822,14 +822,12 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         if (++multimaps > total_multimaps) { break; }
         alns.emplace_back(simplify(patch_alignment(mems_to_alignment(aln, cluster))));
         alns.back().set_name(aln.name());
-        //cerr << "before " << pb2json(alns.back()) << endl;
-        //cerr << "patched " << pb2json(patch_alignment(alns.back())) << endl;
-        // now fix it up!
-        // for each non-aligned portion
-        // get the graph starting and the beginning and end of the gap
-        // and try to align it
-        // force-matching the traceback
     }
+    /*
+    for (auto& aln : alns) {
+        cerr << "------- " << pb2json(aln) << endl;
+    }
+    */
     
     return alns;
 }
@@ -1967,15 +1965,18 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             //cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
                 // matches behave as expected
-                score += aligner->score_exact_match(
-                    aln.sequence().substr(read_pos, edit.to_length()),
-                    aln.quality().substr(read_pos, edit.to_length()));
-                score += edit.from_length()*aligner->match;
+                if (!aln.quality().empty()) {
+                    score += aligner->score_exact_match(
+                        aln.sequence().substr(read_pos, edit.to_length()),
+                        aln.quality().substr(read_pos, edit.to_length()));
+                } else {
+                    score += edit.from_length()*aligner->match;
+                }
                 *new_mapping->add_edit() = edit;
             } else if (edit_is_deletion(edit)) {
                 // we can't do anything for deletions-- anyway they shouldn't get here if we call this
                 // in the SMEM threading alignment
-                score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
+                score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
                 *new_mapping->add_edit() = edit;
             } else if (edit_is_insertion(edit)) {
                 //cerr << "looking at " << edit.sequence() << endl;
@@ -2225,7 +2226,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 }
                 if (!has_target || graph.empty()) {
                     if (debug) cerr << "no target for alignment of " << edit.sequence() << endl;
-                    score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
+                    score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
                     *new_mapping->add_edit() = edit;
                 } else {
                     // we've set the graph to the trimmed target
@@ -2238,14 +2239,18 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     Alignment patch;
                     if (mapping.position().is_reverse()) {
                         patch.set_sequence(reverse_complement(edit.sequence()));
-                        string qual = aln.quality().substr(read_pos, edit.to_length());
-                        reverse(qual.begin(), qual.end());
-                        patch.set_quality(qual);
+                        if (!aln.quality().empty()) {
+                            string qual = aln.quality().substr(read_pos, edit.to_length());
+                            reverse(qual.begin(), qual.end());
+                            patch.set_quality(qual);
+                        }
                         patch = reverse_complement_alignment(align_to_graph(patch, graph, max_query_graph_ratio),
                                                              (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
                     } else {
                         patch.set_sequence(edit.sequence());
-                        patch.set_quality(aln.quality().substr(read_pos, edit.to_length()));
+                        if (!aln.quality().empty()) {
+                            patch.set_quality(aln.quality().substr(read_pos, edit.to_length()));
+                        }
                         patch = align_to_graph(patch, graph, max_query_graph_ratio);
                     }
                     //cerr << "patch: " << pb2json(patch) << endl;
@@ -2266,19 +2271,25 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
                     
                     // append the chunk to patched
-                    /*
-                    cerr << "aligned" << endl;
-                    cerr << pb2json(patched) << endl;
-                    cerr << " yo " << endl;
-                    */
+
+                    //cerr << "aligned" << endl;
+                    //cerr << pb2json(patch) << endl;
+
                     patch.clear_sequence();
                     if (min_identity && patch.identity() < min_identity
                         || patch.score() == 0) {
                         //cerr << "doing that other thing" << endl;
-                        score += aligner->gap_open + edit.from_length()*aligner->gap_extension;
+                        score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
                         *new_mapping->add_edit() = edit;
                     } else {
                         //cerr << "extending alignment" << endl;
+                        auto last_mapping = patched.mutable_path()->mutable_mapping(patched.path().mapping_size()-1);
+                        if (last_mapping->edit_size() == 0
+                            && last_mapping->position().node_id() != 0) {
+                            // if we just did an alignment, use its position rather than a previous hint
+                            // such as for soft clips
+                            last_mapping->clear_position();
+                        }
                         extend_alignment(patched, patch, true);
                         score += patch.score();
                     }
@@ -2292,9 +2303,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     }
     // finally, fix up the alignment score
     patched.set_sequence(aln.sequence());
-    patched.set_quality(aln.quality());
+    if (!aln.quality().empty()) {
+        patched.set_quality(aln.quality());
+    }
     patched.set_identity(identity(patched.path()));
-    patched.set_score(score); // todo... re get score?
+    patched.set_score(max(0, score)); // todo... re get score?
     return patched;
 }
 
