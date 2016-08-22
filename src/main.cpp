@@ -6727,7 +6727,7 @@ int main_index(int argc, char** argv) {
         // We need to make a gcsa index.
 
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
-        gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        if(!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
         // Load up the graphs
         vector<string> tmpfiles;
