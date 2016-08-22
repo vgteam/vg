@@ -36,9 +36,12 @@
 % Have a command for vocab words
 \newcommand{\vocab}[1]{\textbf{#1}\xspace}
 
+\newcommand{\vg}{{\tt vg}}
+\newcommand{\gcsa}{{\tt GCSA2}}
+
 \begin{document}
 
-\title{vg: the variation graph toolkit}
+\title{Sequence variation aware references and read mapping with vg: the variation graph toolkit}
 
 \author{Erik Garrison 1, Adam Novak 2, Glenn Hickey 2, Jouni Siren 1, Eric
   Dawson 1, Will Jones 1, Orion Buske 3, Mike Lin 4, Benedict Paten 2,
@@ -48,10 +51,10 @@
 
 \begin{abstract}
 Reference genomes provide a prior to guide our interpretation of DNA sequence data.
-However, standard reference sequence have a fundamental limitation in that they only represent one version of each locus, whereas
-in a population or species there is in general a distribution of related sequences for each locus.
-Mapping data from this distribution to a single sequence can introduce bias and other problems.
-\emph{Variation graphs}, which are bidirectional DNA sequence graphs with embedded paths that describe sequences of interest as walks through the graph.
+However, standard linear reference sequences have a fundamental limitation in that they only represent one version of each locus, whereas
+in a population or species there is in general a distribution of related sequences at each locus.
+Mapping sequence read data from new individuals to a single linear reference can introduce bias and other problems.
+\emph{Variation graphs}, which are bidirectional DNA sequence graphs that capture , describe general sequences of interest as walks through the graph.
 Here we enable the practical use of variation graphs at human genome scale, allow the representation of alternate genomes in the reference system.
 by building a toolkit of computational methods for the creation, manipulation, and utilization of these structures.
 Using generalised compressed suffix array technology we provide an efficient approach to mapping reads onto our graphs.
@@ -64,7 +67,7 @@ Where genomes are small and sequences from different individuals can be reliably
 In practice, complete de novo genome assemblies are not obtainable for large genomes such as \emph{Homo sapiens}, and we require prior information to interpret new sequence data in its correct genomic context.  
 The current paradigm is to align sequence reads to a single high quality reference genome sequence obtained from one (or a few)  closely-related individuals.  
 While expedient, this approach biases our results towards a reference that may poorly represent alleles present in the sample we obtained our sequence reads from.  
-There is even likely to be sequence in the new sample that is not present in the reference \cite{li2010building}.
+There is even likely to be sequence in the new sample that is not present in the reference {cite BGI pangenome paper}.  
 
 In principle we would like to align to a genome that is as similar to our sample as possible, ideally a ``personalized'' reference genome \cite{Yuan_2012}, which already incorporates sequence variants present in the individual.  
 Of course there is a chicken and egg problem in knowing what the variants are before aligning data from a sample, but most differences between any one genome and the reference are shared in the population, so if we can build a structure that contains known shared variation then that could potentially contain most of the correct personalised reference sequence for any individual from the population or species.
@@ -76,8 +79,8 @@ The total information available in a shotgun sequencing data set set can be comp
 A similar structure which has good scaling properties when applied to the problem of genome assembly is the de Bruijn graph, which records the relationships between unique $k$-mers of a set of sequences with edges that link pairs of $k$-mers for which the suffix of one $k$-mer is the prefix of the next \cite{iqbal2012}.
 
 To serve as a population variation aware reference system, we adopt a general sequence graph structure. 
-A similar approach has been introduced before for localised genomic regions \cite{prg2015}, but here we extend to a wider range of variation, and provide an implementation in a practical software environment for operating with them at the multi-gigabase scale: {\tt vg}. 
-We demonstrate the use of {\tt vg} by constructing a whole human genome graph incorporating all base-pair specific variation from the 1000 Genomes Project \cite{1000g2015} aligning short read sequencing data against it, and reporting genotypes.
+A similar approach has been introduced before for localised genomic regions \cite{prg2015}, but here we extend to a wider range of variation, and provide an implementation in a practical software environment for operating with them at the multi-gigabase scale: \vg. 
+We demonstrate the use of \vg by constructing a whole human genome graph incorporating all base-pair specific variation from the 1000 Genomes Project \cite{1000g2015} aligning short read sequencing data against it, and reporting genotypes.
 
 \section{Methods}
 
@@ -103,7 +106,7 @@ reverse direction, with the reverse strand defined by $\overline{e_{i \rightarro
 We define paths as alignments to a walk through the graph.  Explicitly, a path is a series of {\em mapping} operations, each
 describing the segment of the path derived from a single node, $p = m_1, \ldots, m_{|p|}$.  Each mapping $m$ can be written
 as $( (n, o), e_i \ldots e_{|m|} )$, where $n$ is the node, $o$ is the zero-offset start position in the node sequence ($0 \le o < |n|$),
-and each $e_i$ is an ``edit'' which copies or replaces a segment of the node sequence.  In {\tt vg} we encode $e$ as $(f, t, s)$
+and each $e_i$ is an ``edit'' which copies or replaces a segment of the node sequence.  In \vg we encode $e$ as $(f, t, s)$
 where $f$ is a length in the node (``from length''), $t$ is a length in the derived sequence (``to length''), and $s$ is an optional
 replacement literal sequence of length $t$.  Edges traversed in a path are implicitly defined by the nodes of neighbouring mappings.
 If all the edits are copies then we say that the path is {\em fully embedded} in the graph.
@@ -131,14 +134,12 @@ We first describe our approach to alignment and editing, then summarise a number
 
 \subsubsection{Alignment}
 
-\emph{Alignment} is the process of finding an optimal path to the graph for a new read.
-Our approach to this is to find seed matches by an indexed search process, and then perform local dynamic programming alignment of the 
-read into a region of the graph around the seed.  
-We discuss how we find out seeds below in \ref{sec:GCSA2}.
-When it comes to local dynamic programming, we must deal with the issue that {\tt vg} supports arbitrary sequence graphs, which may contain cycles representing repeats and inversions.  
-The general case of alignment between cyclic graphs was discussed by \cite{myers1989} in the context of the alignment of regular expressions.
-To avoid the complications introduced by cycles, we transform the local graph region into a directed acyclic graph (DAG), on which we can perform
-partial order alignment (POA) \cite{lee2002POA}, which generalizes standard pairwise sequence alignment, by considering all possible inbound 
+\emph{Alignment} is the process of finding an optimal path to the graph for a new DNA sequence such as a sequencing read.
+Our approach to this is to find seed matches by an indexed search process, cluster them if there are multiple nearby seeds, and then perform local dynamic programming alignment of the read into a region of the graph around the seeds.  
+We discuss how we find seeds below in \ref{sec:GCSA2}.
+When it comes to local dynamic programming, we must deal with the issue that \vg supports arbitrary sequence graphs, which may contain cycles representing repeats and inversions.  
+To avoid the complications introduced by cycles \cite{myers1989}, we transform the local graph region into a directed acyclic graph (DAG), on which we can perform
+partial order alignment (POA) \cite{lee2002POA}, which generalizes standard pairwise sequence alignment by considering all possible inbound 
 positions in the graph in the recursion that derives the score for a new cell.
 
 To transform the local graph into a DAG, we introduce {\tt VG::unfold} and {\tt VG::dagify}.  
@@ -149,7 +150,7 @@ We keep track of the mappings through both these processes, so that we are able 
 Further details are given in the Appendix.
 
 To carry out the partial order alignment, we extended a SIMD-accelerated implementation \cite{zhao2013} of Farrar's  striped Smith Waterman (SSW) algorithm \cite{farrar2007}, which we term ``graph striped Smith-Waterman'' \href{https://github.com/ekg/gssw}{GSSW}.
-GSSW generalizes all aspects of SSW to operate over sequence DAGs, including affine gap penalties, retains its matrices for traceback, and is around 6 times faster than a non-SIMD based implementation of POA.
+GSSW generalizes all aspects of SSW to operate over sequence DAGs, including affine gap penalties, retains its matrices for traceback, and is around six times faster than a non-SIMD based implementation of POA.
 
 \subsubsection{Editing}
 
@@ -164,76 +165,64 @@ To edit a non-atomic graph, where the node labels may be of arbitrary length, we
 
 We implement this editing method as \href{https://github.com/vgteam/vg/blob/fbcb6e62/src/vg.cpp#L4846-L4912}{{\tt VG::edit}}, which consumes a set of paths (possibly from alignments) and extends the graph.
 
-\subsubsection{Progressive variation graph assembly}
+\subsubsection{Progressive variation graph construction}
 
 Given a set of alternate genome sequences or fragments of genomes, we can align each sequence in turn and edit the graph to include it.
 The resulting graph contains all input sequences as embedded paths.
 We implement this technique as the \href{https://github.com/vgteam/vg/blob/fbcb6e62/src/main.cpp#L674-L1248}{multiple sequence/graph aligner {\tt vg msga}}, and have applied it to assemble long sequences from the human MHC as described in section \ref{sec:MHC}.
 
-\subsubsection{From existing population variation data}
+\subsubsection{Construction from existing population variation data}
 
 Population sequencing projects that have inferred variation from alignments to a linear reference sequence, such as the 1000 Genomes Project, typically generate a file of variants in VCF format.
 First, we convert the variants in the VCF file into mappings to a graph made of only the reference sequence. 
 We then edit this graph using the mappings, incorporating the sequences given by the alleles in the VCF record into the graph. 
 We use this approach below in results section \ref{sec:1000g}.
 
-\subsubsection{\emph{De novo} assemblies}
+\subsubsection{Construction from a \emph{de novo} assembly}
 
-Many \emph{de novo} assembly algorithms build a sequence graph internally to represent ambiguity in the ways to connect together sequence reads.
-They assemble a graph by overlapping reads or their $k$-mers, then generate contigs as regions of this graph with low diversity in the input sequencing data.
-Provided that an assembler implements a compatible data model that can be exported, we can build a variation graph from this intermediate representation.
-In {\tt vg} we support the \href{https://github.com/pmelsted/GFA-spec}{graphical fragment assembly (GFA) format}, which is a community standard for serialization of bidirectional sequence graphs from assemblers.  There are some complexities in transitioning from an overlap graph formalism to the blunt-end-join model used in {\tt vg}.
+Almost all \emph{de novo} assembly algorithms build a sequence graph internally to represent ambiguity in the ways to connect together sequence reads.
+They assemble a graph by overlapping reads or their $k$-mers, then generate contigs as non-branching regions of this graph after removing likely sequencing errors.
+Provided that an assembler implements export of its graph structure, we can build a variation graph from this intermediate representation.
+In \vg we support the \href{https://github.com/pmelsted/GFA-spec}{graphical fragment assembly (GFA) format}, which is a community standard for serialization of bidirectional sequence graphs from assemblers.  There are some complexities in transitioning from an overlap graph formalism to the blunt-end-join model used in \vg, described further in the appendix.
 
 \subsection{Compressed representation and indexing}
 
 Our core implementation of variation graphs, \href{https://github.com/vgteam/vg/blob/fbcb6e62/src/vg.hpp#L196-L1146}{{\tt vg::VG}}, is optimized for efficient runtime for editing and transformation operations.
-These needs mean we must store a dynamic version of the graph, which we do using unordered maps that are optimized for run time and not memory overhead.
-We have estimated that more than 300GB of RAM would be necessary to load the entire graph for common human genome variation into main memory with this representation.
-However, editing operations are mostly local.  
+This requires that we must store a dynamic version of the graph, which we do using a hash structure that is optimized for run time and not memory overhead.
+To load the entire human genome graph with common variation into main memory would require more than 300GB of RAM with this representation, but editing and alignment operations are local and do not require the whole graph to be available in memory at once.
 The solution we have adopted is to also implement a succinct representation \footnote{Representations are termed ``succinct'' when they occupy only a small constant factor more space than that required to store a compressed version of their source data.}  \href{https://github.com/vgteam/xg}{{\tt xg}} of a variation graph that is static but allows efficient random access, using rank/select dictionaries and other data structures from the Succinct Data Structures Library (SDSL) \cite{sdsl2014}. 
 We then provide code to take subgraphs out of {\tt xg} and transform them into our mutable representation for alignment and editing.  See the Appendix for details.
 
-\subsection{Sequence query matching: ({\tt GCSA2})}
+\subsection{Sequence query matching: (\gcsa)}
 \label{sec:GCSA2}
 
 In order to find seed matches for alignment to the graph, we introduce a second index that enables very rapid discovery of maximal exact substring matches.  
-For linear sequences, the FM-index \cite{fmindex2000, fmindex2005} provides the required functionality, as implemented for example in BWA \cite{li2013bwamem}.
+Maximal exact matches (MEMs) are matches between a query and a reference system that cannot be extended in either direction along the query while still matching some sequence in the reference system.
+Super-maximal exact matches (SMEMs) are MEMs that are not contained by any other MEM.
+For linear sequences, the FM-index \cite{fmindex2000, fmindex2005} provides the required functionality in conjunction with the Burrows-Wheeler transform (BWT)\cite{burrowswheeler1994}, as implemented for example in {\tt bwa mem} \cite{li2013bwamem}.
+As in {\tt bwa mem}, we use SMEMs to seed local alignment of reads, and to do this we use a generalisation of the BWT and FM-index to sequence graphs.
 
-Efficient alignment of sequences against large graphs using only dynamic programming is not feasible as it requires $O(NM)$ operations to derive an optimal alignment of a pair of sequences of length $N$ and $M$.
-We can substantially improve these bounds by focusing the expensive dynamic programming alignment only in regions of the graph where we find exact matches between the query and our reference.
- to do so.
-Based on the Burrows-Wheeler transform (BWT) of a source text \cite{burrowswheeler1994}, the FM-index adds operations that allow the traversal of the suffix array embedded in the BWT.
-An auxiliary data structure provides the mapping from BWT positions to positions in the source sequence.
-As we can look up exact matches of length $N$ in a suffix array in $O(N)$ operations, the FM-index and other compressed suffix array variants allow us to efficiently localize reads to regions of the reference before applying expensive local alignment algorithms.
-
-Several generalizations of the FM-index to sequence graphs have been developed in recent years.
+Several such generalizations have been developed in recent years.
 The generalized compressed suffix array (GCSA) allows sequence queries in populations of genomes represented in a single multiple sequence alignment, but is limited to directed acyclic representations of these collections and requires heuristic optimization to build whole genome indexes \cite{siren2011indexing, siren2014indexing}.
 The hierarchical graph FM index (HGFM) implemented in \href{https://github.com/infphilo/hisat2}{HISAT2} allows direct mapping of RNA sequencing reads against a transcriptome model including small sequence variants such as SNPs and indels \cite{kim2015hisat}.
 In the HGFM, a global GFM represents the general population, while tens of thousands of local GFMs represent denser variation on a small scale.
 Similarly to GCSA, HGFM requires the input graph be acyclic.
 
-Recently, Sirén\footnote{Jouni Sirén is currently a postdoctoral fellow in computational genomics at the Sanger.} has developed \href{https://github.com/jltsiren/gcsa2}{GCSA2}, which generalizes the GCSA/GFM model to use positionally-labeled deBruijn graphs as input.
-We implement global alignment in {\tt vg} by transforming the variation graph into a deBruijn graph with positional labels that indicate where in the source graph a particular kmer starts and ends.
-{\tt GCSA2} can then generate a GCSA from this labeled deBruijn graph, which we utilize during queries of the sequence space of the graph.
+Recently, Siren has developed \href{https://github.com/jltsiren/gcsa2}{GCSA2}, which generalizes the GCSA/GFM model to use positionally-labeled de Bruijn graphs as input \cite{siren2016gcsa2}, including cyclic graphs, and provides a near complete generalization of the FM-index to arbitrary sequence graphs.
+We implement global alignment in \vg by transforming the variation graph into a de Bruijn graph effectively with $k=128$ ,with positional labels that indicate where in the source graph a particular kmer starts and ends.  \gcsa can then generate a GCSA from this labeled de Bruijn graph, which we use to find SMEMs for query sequences in time effectively proportional to the query length and independent of the graph size.
 
-MEMs are matches between a query and a reference system that cannot be extended in either direction along the query while still matching some sequence in the reference system.
-Super-maximal exact matches (SMEMs) are MEMs that are not contained by any other MEM.
-As in {\tt bwa mem} \cite{li2013bwamem}, we use SMEMs to seed local alignment of reads.
-{\tt GCSA2} provides a nearly-complete generalization of the FM-index to sequence graphs.
-As it provides functions to traverse the suffix tree embedded in the GCSA, we can use it to derive maximal exact matches (MEMs) against the source graph in a single pass over our query.
+To build the $k=128$ de Bruijn graph efficiently, we initially generate kmers with $k=16$ labelled by their origin in the \vg graph.  GCSA2 then undertakes three rounds of prefix doubling, wherein it uses the positional information in the input de Bruijn graph to double the order of the graph, to increase to $k=128$.  In certain circumstances where there are repeated patterns of dense variants in the graph, the path complexity explodes exponentially, preventing practical enumeration of the de Bruijn graph.  To avoid this, we 
+prune edges from the \vg graph which induce more than a small number of combinatorial bifurcations (typically 4) within the initial 16bp kmers, and remove any extremely short subgraphs that result from this destructive masking operation.  This transformation preserves the coordinate system of the graph, allowing us to use it as the basis for seed generation against the unpruned graph.
 
-\section{Resequencing against the graph}
+\subsection{Global alignment and read set mapping}
 
-Provided compact representations of the graph and the sequences of paths through it, we are able to support resequencing experiments where a graph is used as the reference system.
-Here we describe the two essential phases of this process: the global alignment of reads to a large graph, and the detection of novel variation against the graph.
+Given a set of sequencing reads, we 
 
-\subsection{Global alignment}
+The first step is to derive the SMEMs for a query relative to our reference system.
+SMEMs that are high-abundance may be filtered out by counting the number of occurrences in the graph using \href{https://github.com/jltsiren/gcsa2/releases/tag/v0.6}{\gcsa's $count$ function}, which uses techniques from document counting in compressed indexes to generalize the range counting that is possible in a compressed suffix array to GCSA.
+This allows us to avoid SMEMs that have hundreds of thousands of hits in our index without extracting the specific hits from \gcsa.
 
-We begin global alignment by deriving the MEMs for a query relative to our reference system.
-MEMs that are high-abundance may be filtered out by counting the number of occurrences in the graph using \href{https://github.com/jltsiren/gcsa2/releases/tag/v0.6}{{\tt GCSA2}'s $count$ function}, which uses techniques from document counting in compressed indexes to generalize the range counting that is possible in a compressed suffix array to GCSA.
-This allows us to avoid MEMs that have hundreds of thousands of hits in our index without extracting the specific hits from {\tt GCSA2}.
-
-We then cluster these MEMs by exploiting an approximate distance metric on the graph.
+We then cluster these SMEMs by exploiting an approximate distance metric on the graph.
 If our node id space is locally ordered, then nodes with nearby ids are likely to lie close together in the graph.
 We set a parameter to limit the distance at which we cluster, which is usually small (in the range of 5-10 when we have built our graph with a maximum node size of 32).
 
@@ -245,81 +234,48 @@ Where one but not both fragments of a read pair map, we attempt to rescue the fa
 
 For very long reads, where the local dynamic programming can become prohibitively expensive, we break the reads into ``bands'' of a fixed width $w$ with overlap between successive bands of $w/2$.
 We then align these bands independently, trim the overlaps from the alignments, and concatenate the results.
-This allows {\tt vg} to map reads of arbitrary length, and is used as a core component in the long read progressive assembler {\tt vg msga}.
+This allows \vg to map reads of arbitrary length, and is used as a core component in the long read progressive assembler {\tt vg msga}.
 
-\subsection{Variant calling}
-
-Variant calling on the graph is similar to variant calling on a linear reference \cite{samtools, garrison2012haplotype}.
-To call new variation, we extend the graph with the putative novel alleles from alignments (via $edit$), label the graph with the amount of read support we have, and filter out the portions of the graph with little or no support from the reads.
-The resulting graph is a sample-specific graph, and conveys similar information as a \href{http://samtools.github.io/hts-specs/VCFv4.2.pdf}{gVCF} file, which describes both the novel and reference-matching portions of the genome of a particular sample.
-Currently variant calling in {\tt vg} is rudimentary and based around a multi-stage ``pileup'', $edit$, and calling pipeline.\footnote{UCSC researchers Glenn Hickey, Adam Novak, Benedict Paten, and Maciej Smuga-Otto have contributed to this effort as part of the Global Alliance for Genomics and Health evaluation of graph reference genomes.}
+{introduce GAM}
 
 \section{Results}
 
-We have implemented {\tt vg} in C++11 under an open, distributed software development model.
-The \href{https://github.com/vgteam/vg}{{\tt vg} source repository} totals 28k lines of {\tt vg}-specific code, which is augmented by a variety of dependencies (including {\tt xg} and {\tt GCSA2}).
+We have implemented \vg in C++11 under an open, distributed software development model, available from \href{https://github.com/vgteam/vg}{\tt https://github.com/vgteam/vg}.  Further details are given in the appendix.
 
-Here we briefly describe several results demonstrating the functionality of {\tt vg}.
-All experiments were carried out on the Sanger farm on a dedicated compute node with 256 gigabytes of RAM and 32 2.4GHz AMD Opteron 6378 processors.
-
-\subsection{Software development and continuous integration testing}
-
-All features of {\tt vg} are validated after every update to the source repository using \href{https://travis-ci.org/vgteam/vg}{continuous integration software validation approaches}.
-As such, basic tests demonstrate the desired functionality for each feature, in some cases in using a programmatic proof.
-For example, we use kmer matching to verify that the kmer space of a graph is equivalent before and after unrolling and kDAGification.
-As of this writing, we have implemented 228 tests validating the functionality of the system.
+Here we briefly describe several results demonstrating the functionality of \vg.
+All experiments were carried out on a dedicated compute node with 256 gigabytes of RAM and 32 2.4GHz AMD Opteron 6378 processors.
 
 \subsection{The 1000 Genomes Project graph}
 \label{sec:1000g}
 
-The final phase of the 1000 Genomes Project has produced a data set describing the genomes of 2500 humans \cite{1000g2015}.
-We transformed the sequence DAG described by the project's released VCF and the GRCh37 reference into a variation graph in 15.5 hours using 32 threads.\footnote{VCF-based construction is parallelized by breaking the build into smaller pieces at particular parts of the reference and concatenating the resulting graphs.}
-The resulting graph is 4.5G when serialized to disk, and contains 3.181 gigabases of sequence, which is exactly equivalent to the length of the input reference plus the length of the novel alleles in the VCF file.
+The final phase of the 1000 Genomes Project has produced a data set describing the diploid genome sequences of 2504 humans \cite{1000g2015}.
+We transformed the sequence DAG described by the project's released VCF and the GRCh37 reference into a variation graph in 15.5 hours using 32 threads, breaking the build into smaller pieces at particular parts of the reference and concatenating the resulting graphs.
+The resulting graph, which we call 1000GP below, uses 4.76 GB when serialized to disk, and contains 3.181 Gbp of sequence, which is exactly equivalent to the length of the input reference plus the length of the novel alleles in the VCF file.
 
-\subsection{Indexing the 1000GP graph}
-
-We indexed the 1000GP+GRCh37 graph in two phases.
-First, we built the {\tt xg} index using a single-threaded process in 1.5 hours.
-This process requires a high amount of RAM as it must load the entire graph into memory. For this bootstrapping process we use a reduced representation of the variation graph that requires 170G of RAM at peak.
-The resulting {\tt xg} index is 30G on disk and when loaded into RAM for use by {\tt vg}.
-
-The 1000GP+GRCh37 graph includes some regions that are highly degenerate, where many variants occur in small window.
-As our current construction process does not take into account the haplotypes in the VCF file, we include all recombinations between these alleles in our graph, generating small regions of high complexity.
-To build the {\tt GCSA2} index, we must remove these regions. Otherwise, the intermediate deBruijn graph will be too large to process in reasonable time.
-Using algorithms in {\tt vg mod}, we pruned edges from the graph which induce more than 4 bifurcations in 16bp, and removed any extremely short subgraphs that result from this destructive masking operation.
-This transformation preserves the id space of the graph, allowing us to use it as the basis for seed generation against the un-pruned graph.
-
-Then, we transform this pruned 1000GP+GRCh37 graph into an order 16 deBruijn graph.
-We were able to distribute the pruning and deBruijn graph generation steps by chromosome across the cluster, so precise timing of this step was not possible, but we estimate it to be in the range of 24 hours on a single 32-core system.
-We then built the {\tt GCSA2} index with two steps of prefix doubling, wherein the its construction algorithm uses the positional information in the input deBruijn graph to double the order of the graph (prefix doubling takes us from a graph where $k = 16$ to $k = 32$, and finally $k = 64$).
-The {\tt GCSA2} indexing process required 100G of RAM at peak, but minimizes memory usage by implementing most operations using streaming disk-backed sorts.
+We indexed the 1000GP graph in two phases.
+First, we built the {\tt xg} index using a single-threaded process in 1.5 hours, with the resulting index taking 31.6 GB both on disk and when loaded into RAM for use by \vg.
+The initial kmer generation step of  \gcsa indexing took approximately 24 hours of compute time, with the final indexing step taking 32.9 hours of wall clock time and 105.3 hours of CPU time.
+This process required 100GB of RAM at peak, but reduces memory usage by implementing most operations using streaming disk-backed sorts.
 As such, it required several terabytes of I/O during indexing.
-The final step of {\tt GCSA2} indexing required 32.9 hours of wall clock time and 105.3 hours of CPU time.
+The final GCSA2 index takes 35.9 GB space both on disk and in RAM.
 
-\subsection{Mapping reads from NA12878}
-
-As a basic test of the functionality of the current implementation of the indexes, we aligned a million reads from an Illumina X10 read set of NA12878 against the graph.
-This requires 60 seconds to load the indexes, 67G of RAM, and approximately 145 seconds to align the reads.\footnote{Completed on {\tt vg-fbcb6e62} using paired end mapping and parameters -GX 0.9 -m 10 -c 5}
-The mapping rate is 99.4\% = $1 - (6418 / 1e6)$.
-Based on this test, we estimate that we are able to align 7000 reads per second on the 32-core machine.\footnote{This will need to be improved by as much as a factor of two to ensure that the method can be used in production on resources available at the Sanger.}
-We were not able to complete a whole genome analysis using {\tt vg}'s MEM mapping algorithm in time for this report.
+Using these indexes, we aligned one million 150bp reads from an Illumina HiSeq X read set of NA12878 against the 1000GP graph.
+This requires 60 seconds to load the indexes, 67G of RAM, and approximately 145 seconds to align the reads, with 99.36\% of reads being mapped, and resulting in a 160 MB
+GAM file.  This corresponds to approximately 24 hours of compute time on a single 32-processor server to map a 30x genome data set, resulting in an approximately 100 GB GAM file.  XXX CHECK.  IDEALLY ALIGN A WHOLE DATA SET.
 
 \subsection{An overlap assembly of the MHC}
 \label{sec:MHC}
 
 In many contexts we have finished genomes, but not an assembly graph or VCF file suitable for direct transformation into a variation graph. 
-To support the use of {\tt vg} in these contexts,
+To support the use of \vg in these contexts,
 we developed a long read assembler \href{https://github.com/vgteam/vg/wiki/Long-read-assemblies-using-vg-msga}{\tt vg msga}.
 This method takes a starting sequence or graph and progressively aligns new sequences to the graph, editing the graph to embed each new sequence as a path until all sequences have been included.
 The process is deterministic and complete in that each new sequence will generate an alignment.
 New sequences which do not map become new disjoint subgraphs, while homologs will be compressed against each other in the resulting graph.
 
-We applied this method to the GRCh38 alternate alleles for the entire MHC.
-Each sequence is between 4.6 and 5 megabases.
-We begin with the base reference sequence and add GI568335879, GI568335954, GI568335976, GI568335986, GI568335989, GI568335992, GI568335994, and GI568335997 in turn.
-The process requires around on hour on our test machine, producing a graph that serializes to 18M on disk.
-We observe that the similarity of the sequences results in a more compact graph than would be expected by concatenating the sequences.
-The total sequence length of the input is $38.16 \times 10^6$ bases, whereas the resulting graph contains $10.8 \times 10^6$, a reduction of 3.5 fold.
+We applied this method to the nine GRCh38 alternate haplotype sequences for the entire MHC, each between 4.6 and 5 megabases.
+We begin with the primary reference sequence and add GI568335879, GI568335954, GI568335976, GI568335986, GI568335989, GI568335992, GI568335994, and GI568335997 in turn.
+The process requires around an hour on our test machine, producing a graph that serializes to 18 MB on disk including the original sequences as paths, representing 10.8 Mbp DNA in comparison with a total sequence length of 38.2 Mbp in the combined input sequences. 
 Figure \ref{fig:DRB1-3123} shows a rendering of a graph generated by {\tt vg msga} using the sequences of one of the MHC genes (DRB1-3123).
 
 % actual counts: 38160773bp, 10802468bp
@@ -335,8 +291,8 @@ Figure \ref{fig:DRB1-3123} shows a rendering of a graph generated by {\tt vg msg
 
 \section{Discussion and future plans}
 
-Presently {\tt vg} provides interfaces to the basic functions required for resequencing analysis using variation graph references.
-We can construct, import, visualize, assemble, examine, modify, index, and query the graph and associated indexes using tools in {\tt vg}.
+Presently \vg provides interfaces to the basic functions required for resequencing analysis using variation graph references.
+We can construct, import, visualize, assemble, examine, modify, index, and query the graph and associated indexes using tools in \vg.
 We can efficiently map new sequence reads to the reference using succinct indexes of the graph and its sequence space, and finally we can describe variation between a new sample and an arbitrary reference embedded as a path in the graph.
 This framework provides the basis for future improvements and experimentation.
 However, the project currently has a number of weak points which we would like to improve.
@@ -349,7 +305,7 @@ This approach will be generic and handle all classes of variation, both small (S
 
 Furthermore, we would like to utilize recent work generalizing the PBWT to graphs in the genotyping process.
 This generalized system, gPBWT, provides the same efficient haplotype matching and counting queries possible in PBWT, but on a variation graph.
-It should also be possible to apply this to reduce the complexity of the indexing process by generating a deBruijn graph for {\tt GCSA2} that only contains kmers we have observed previously.
+It should also be possible to apply this to reduce the complexity of the indexing process by generating a deBruijn graph for \gcsa that only contains kmers we have observed previously.
 In anticipation of this, we have attempted a modification of the indexing process that only indexes the embedded paths in the graph, but have not completely debugged and tested it.
 
 We would like to complete several experiments to validate the performance of the method in and end-to-end alignment and variant calling process.
@@ -362,10 +318,10 @@ We will use the calling process to generate a sample graph based on short reads 
 In standard practice, we ignore the haplotype information in the VCF file and build the graph so as to allow all possible recombinations between successive variant loci.
 This haplotype-agnostic approach has advantages of simplicity and ubiquity.
 Even data providers with closed access policies often release information about the variants discovered in their cohorts, which provides a valuable resource when examining new individuals even if we do not have the complete haplotype information of the source genomes \cite{exac2015}.
-However, there are valuable uses for the haplotypes, and storing this haplotype information efficiently is an area of active work among other collaborators on {\tt vg} are exploring generalizations of the positional Burrows Wheeler Transform (PBWT) \cite{durbin2014}.\footnote{Adam Novak, a collaborator on the {\tt vg} project, has implemented a generalization of the PBWT to graphs in xg. This generalization (gPBWT) is designed for efficient haplotype matching and frequency queries, but does not provide efficient positional queries.}
+However, there are valuable uses for the haplotypes, and storing this haplotype information efficiently is an area of active work among other collaborators on \vg are exploring generalizations of the positional Burrows Wheeler Transform (PBWT) \cite{durbin2014}.\footnote{Adam Novak, a collaborator on the \vg project, has implemented a generalization of the PBWT to graphs in xg. This generalization (gPBWT) is designed for efficient haplotype matching and frequency queries, but does not provide efficient positional queries.}
 
 A large number of organisms lack complete reference genomes, or have such high rates of heterozygosity that generating linear versions of their genomes may be practically impossible.
-We plan to apply {\tt vg} to these contexts by generating assembly graphs with other methods and then using these graphs as a reference for resequencing analysis.
+We plan to apply \vg to these contexts by generating assembly graphs with other methods and then using these graphs as a reference for resequencing analysis.
 This would allow whole genome resequencing analysis in previously-inaccessible contexts, such as in pooled sequencing of organisms without the aid of a finished reference sequence. 
 Validating these approaches will require the extension of methods for population structure and association analysis to the graph, which will be a difficult but essential step in the generalization of genomics from linear to graphical systems.
 
@@ -405,7 +361,7 @@ If $k$ is greater than any length in our graph, then we will duplicate the entir
 \centering
 \includegraphics[width=1.0\textwidth]{figures/unfold}
 \caption{\label{fig:unfold}
-  The starting graph (A) has an inverting edge leading from the forward to reverse strand of node 2.
+  Illustration of the unfolding process. The starting graph (A) has an inverting edge leading from the forward to reverse strand of node 2.
   In (B) we unroll the graph with $k$ greater than the length of the graph, which materializes the implied reverse strand as sequence on the forward strand of new nodes.
 }
 \end{figure}
@@ -432,7 +388,7 @@ Figure \ref{fig:kdagify} provides a visual description of the process.
 \centering
 \includegraphics[width=1.0\textwidth]{figures/kdagify}
 \caption{\label{fig:kdagify}
-  The starting graph (A) and a representation without sequences or sides to clarify the underlying structure (B).
+  Illustration of the unrolling process. The starting graph (A) and a representation without sequences or sides to clarify the underlying structure (B).
   In (C) we have unrolled one step ($k = 2$). In (D), $k = 4$, (E) $k = 10$, and (F) $k = 25$.
 }
 \end{figure}
@@ -443,7 +399,7 @@ When using a variation graph as a reference system, we are unlikely to need to m
 As such we can compress it into a system that provides efficient access to important aspects of the graph.
 Specifically, we care about the node and edge structure of the graph and queries that allow us to extract and seek to positions in embedded paths.
 We would like to be able to query a part of the graph corresponding to a particular region of a chromosome in a reference path embedded in the graph.
-Similarly, if we find an exact match on the graph using {\tt GCSA2}, we would like to load that region of the graph into memory for efficient local alignment.
+Similarly, if we find an exact match on the graph using \gcsa, we would like to load that region of the graph into memory for efficient local alignment.
 
 We implement a succinct representation of the graph in the \href{https://github.com/vgteam/xg}{{\tt xg}} library.
 We do so using data structures from \href{https://github.com/simongog/sdsl-lite}{SDSL-lite}, which provides \href{https://en.wikipedia.org/wiki/Succinct_data_structure#Succinct_dictionaries}{rank/select dictionaries} that we use to navigate compressed vectors that record the labels and id space of the nodes, edges, and paths of the graph \cite{okanohara2007}.
@@ -521,6 +477,17 @@ However, it is an essential component of the index if we wish to query the graph
 }
 \end{figure}
 
+\section{Implementation}
+
+Dependencies on \href{}{xg}, \href{}{GCSA2}, and various libraries including \href{}{SDSL}. 
+Protobuf for serialisation onto disk.
+
+\subsection{Software development and continuous integration testing}
+
+All features of \vg are validated after every update to the source repository using \href{https://travis-ci.org/vgteam/vg}{continuous integration software validation approaches}.
+As such, basic tests demonstrate the desired functionality for each feature, in some cases in using a programmatic proof.
+For example, we use kmer matching to verify that the kmer space of a graph is equivalent before and after unrolling and kDAGification.
+As of this writing, we have implemented 228 tests validating the functionality of the system.
 
 
 \end{document}
