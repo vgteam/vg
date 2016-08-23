@@ -155,7 +155,7 @@ public:
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
-    
+    bool check_alignment(const Alignment& aln);    
     
     // Align the given string and return an Alignment.
     Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
