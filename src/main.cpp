@@ -31,6 +31,7 @@
 #include "genotyper.hpp"
 #include "bubbles.hpp"
 #include "translator.hpp"
+#include "homogenize_main.cpp"
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
 #include "homogenize_main.cpp"
@@ -9081,12 +9082,12 @@ int main(int argc, char *argv[])
         return main_translate(argc, argv);
     }  else if (command == "version") {
         return main_version(argc, argv);
+    }  else if (command == "homogenize"){
+        return main_homogenize(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
     }  else if (command == "homogenize"){
         return main_homogenize(argc, argv);
-    }
-    
     } else if (command == "test") {
         return main_test(argc, argv);
     } else {
