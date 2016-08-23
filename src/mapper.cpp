@@ -823,11 +823,12 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         alns.emplace_back(simplify(patch_alignment(mems_to_alignment(aln, cluster))));
         alns.back().set_name(aln.name());
     }
-    /*
-    for (auto& aln : alns) {
-        cerr << "------- " << pb2json(aln) << endl;
+
+    if (debug) {
+        for (auto& aln : alns) {
+            cerr << "------- " << pb2json(aln) << endl;
+        }
     }
-    */
     
     return alns;
 }
