@@ -5525,6 +5525,7 @@ void help_find(char** argv) {
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
+         << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
          << "alignments: (rocksdb only)" << endl
          << "    -a, --alignments       writes alignments from index, sorted by node id" << endl
          << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
@@ -5576,6 +5577,7 @@ int main_find(int argc, char** argv) {
     vg::id_t end_id = 0;
     bool pairwise_distance = false;
     string haplotype_alignments;
+    string gam_file;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5607,11 +5609,12 @@ int main_find(int argc, char** argv) {
                 {"alns-on", required_argument, 0, 'o'},
                 {"distance", no_argument, 0, 'D'},
                 {"haplotypes", required_argument, 0, 'H'},
+                {"gam", required_argument, 0, 'G'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -5715,6 +5718,10 @@ int main_find(int argc, char** argv) {
             
         case 'H':
             haplotype_alignments = optarg;
+            break;
+
+        case 'G':
+            gam_file = optarg;
             break;
 
         case 'h':
@@ -5920,6 +5927,35 @@ int main_find(int argc, char** argv) {
                 stream::for_each(in, lambda);
             }
             
+        }
+        if (!gam_file.empty()) {
+            set<vg::id_t> nodes;
+            function<void(Alignment&)> lambda = [&nodes](Alignment& aln) {
+                // accumulate nodes matched by the path
+                auto& path = aln.path();
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    nodes.insert(path.mapping(i).position().node_id());
+                }
+            };
+            if (gam_file == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(gam_file.c_str());
+                if(!in.is_open()) {
+                    cerr << "[vg find] error: could not open alignments file " << gam_file << endl;
+                    exit(1);
+                }
+                stream::for_each(in, lambda);
+            }
+            // now we have the nodes to get
+            VG graph;
+            for (auto& node : nodes) {
+                *graph.graph.add_node() = xindex.node(node);
+            }
+            xindex.expand_context(graph.graph, max(1, context_size)); // get connected edges
+            graph.rebuild_indexes();
+            graph.serialize_to_ostream(cout);
         }
     } else if (!db_name.empty()) {
         if (!node_ids.empty() && path_name.empty()) {
