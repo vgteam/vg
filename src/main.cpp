@@ -9086,8 +9086,6 @@ int main(int argc, char *argv[])
         return main_homogenize(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
-    }  else if (command == "homogenize"){
-        return main_homogenize(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
     } else {

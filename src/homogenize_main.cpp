@@ -1,3 +1,5 @@
+#ifndef HOMOG_MAIN
+#define HOMOG_MAIN
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -201,3 +203,5 @@ int main_homogenize(int argc, char** argv){
     delete o_graph;
 
 }
+
+#endif

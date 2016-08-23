@@ -6633,7 +6633,7 @@ void VG::to_dot(ostream& out,
         stringstream nlabel;
         //nlabel << "<";
         //nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
-        n//label << inner_label.str();
+        //label << inner_label.str();
         //nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
         //nlabel << ">";
 
