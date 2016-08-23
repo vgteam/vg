@@ -50,6 +50,7 @@ class Filter{
         /*PE Functions*/
         pair<Alignment, Alignment> one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Alignment, Alignment> interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);
+        // TODO should give this one an insert size arg
         pair<Alignment, Alignment> insert_size_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Alignment, Alignment> orientation_filter(Alignment& aln_first, Alignment& aln_second);
 
