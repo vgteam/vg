@@ -18,6 +18,7 @@ pair<Edit, Edit> cut_edit_at_to(const Edit& e, size_t to_off);
 pair<Edit, Edit> cut_edit_at_from(const Edit& e, size_t from_off);
 // Reverse an edit and reverse complement any embedded sequence
 Edit reverse_complement_edit(const Edit& e);
+bool operator==(const Edit& e1, const Edit& e2);
 
 }
 

@@ -1716,10 +1716,67 @@ double identity(const Path& path) {
     return total_length == 0 ? 0.0 : (double) matched_length / (double) total_length;
 }
 
+
+void
+decompose(const Path& path,
+          map<pos_t, int>& ref_positions,
+          map<int, Edit>& edits) {
+    int read_pos = 0;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        pos_t ref_pos = make_pos_t(mapping.position());
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            if (edit_is_match(edit)) {
+                int p = offset(ref_pos);
+                for (int q = p; q < edit.from_length()+p; ++q) {
+                    ref_positions[ref_pos]++;
+                    get_offset(ref_pos)++;
+                }
+            } else {
+                edits[read_pos] = edit;
+                get_offset(ref_pos) += edit.from_length();
+            }
+            read_pos += edit.to_length();
+        }
+    }
+}
+
 double overlap(const Path& p1, const Path& p2) {
-    // to make a mapping for each position in both paths
-    // then to compare these
-    // simpler --- just compare mappings
+    map<pos_t, int> ref1, ref2;
+    map<int, Edit> edit1, edit2;
+    decompose(p1, ref1, edit1);
+    decompose(p2, ref2, edit2);
+    // compare the two position sets
+    int matching = 0;
+    int total = 0;
+    // match positions from 1 in 2
+    for (auto& p : ref1) {
+        total += p.second;
+        auto f = ref2.find(p.first);
+        if (f != ref2.end()) {
+            matching += min(p.second, f->second);
+            ref2.erase(f);
+        }
+    }
+    // unmatched positions from 2
+    for (auto& p : ref2) {
+        total += p.second;
+    }
+    // handle edits
+    for (auto& e : edit1) {
+        auto& edit = e.second;
+        total += edit.to_length();
+        
+        auto f = edit2.find(e.first);
+        if (f != edit2.end()) {
+            if (edit == f->second) {
+                matching += edit.to_length();
+            }
+            edit2.erase(f);
+        }
+    }
+    return (double) matching / (double) total;
 }
 
 Path path_from_node_traversals(const list<NodeTraversal>& traversals) {

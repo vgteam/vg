@@ -912,7 +912,7 @@ vector<list<NodeTraversal>> Genotyper::get_paths_through_site(VG& graph, const S
     
     return to_return;
 }
-
+   
 map<Alignment*, vector<Genotyper::Affinity>>
     Genotyper::get_affinities(VG& graph,
                               const map<string, Alignment*>& reads_by_name,

@@ -41,7 +41,6 @@ Aligner::Aligner(int32_t _match,
 gssw_graph* Aligner::create_gssw_graph(Graph& g) {
     
     gssw_graph* graph = gssw_graph_create(g.node_size());
-    map<int64_t, gssw_node*> nodes;
 
     for (int i = 0; i < g.node_size(); ++i) {
         Node* n = g.mutable_node(i);
@@ -101,7 +100,7 @@ void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
     gssw_graph_fill(graph, sequence.c_str(),
                     nt_table, score_matrix,
                     gap_open, gap_extension, 15, 2);
-    
+
     gssw_graph_mapping* gm = gssw_graph_trace_back (graph,
                                                     sequence.c_str(),
                                                     sequence.size(),
@@ -121,6 +120,19 @@ void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
     gssw_graph_mapping_destroy(gm);
     gssw_graph_destroy(graph);
 
+}
+
+void Aligner::align_global_banded(Alignment& alignment, Graph& g,
+                                  int32_t band_padding, bool permissive_banding) {
+    
+    
+    BandedGlobalAlignmentGraph band_graph = BandedGlobalAlignmentGraph(alignment,
+                                                                       g,
+                                                                       band_padding,
+                                                                       permissive_banding,
+                                                                       false);
+    
+    band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
 }
 
 void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
@@ -388,7 +400,7 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
     }
     
     *max_idx_out = max_idx;
-    
+
     return quality_scale_factor * (max_score - next_count * next_score);
 }
 
@@ -467,7 +479,10 @@ void Aligner::compute_paired_mapping_quality(pair<vector<Alignment>, vector<Alig
         alignment_pairs.first[max_idx].set_mapping_quality((int32_t) mapping_quality);
         alignment_pairs.second[max_idx].set_mapping_quality((int32_t) mapping_quality);
     }
+}
 
+int32_t Aligner::score_exact_match(const string& sequence) {
+    return match * sequence.length();
 }
 
 double Aligner::score_to_unnormalized_likelihood_ln(double score) {
@@ -533,8 +548,8 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
                                                              sequence.size(),
                                                              nt_table,
                                                              adjusted_score_matrix,
-                                                             gap_open,
-                                                             gap_extension);
+                                                             scaled_gap_open,
+                                                             scaled_gap_extension);
 
     gssw_mapping_to_alignment(graph, gm, alignment, print_score_matrices);
 
@@ -545,3 +560,32 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
     gssw_graph_mapping_destroy(gm);
     gssw_graph_destroy(graph);
 }
+
+void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
+                                  int32_t band_padding, bool permissive_banding) {
+    
+    
+    BandedGlobalAlignmentGraph band_graph = BandedGlobalAlignmentGraph(alignment,
+                                                                       g,
+                                                                       band_padding,
+                                                                       permissive_banding,
+                                                                       true);
+    
+    band_graph.align(adjusted_score_matrix, nt_table, scaled_gap_open, scaled_gap_extension);
+}
+
+int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) {
+    int32_t score = 0;
+    for (int i = 0; i < sequence.length(); i++) {
+        // index 5 x 5 score matrices (ACGTN)
+        // always have match so that row and column index are same and can combine algebraically
+        score += adjusted_score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];
+    }
+    return score;
+}
+
+
+
+
+
+

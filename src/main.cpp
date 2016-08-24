@@ -742,6 +742,8 @@ void help_vectorize(char** argv){
          << "  -w --wabbit        Output a format that's friendly to vowpal wabbit" << endl
          << "  -M --wabbit-mapping <FILE> output the mappings used for vowpal wabbit classes (default: print to stderr)" << endl
          << "  -m --mem-sketch    Generate a MEM sketch of a given read based on the GCSA" << endl
+         << "  -p --mem-positions Add the positions to the MEM sketch of a given read based on the GCSA" << endl
+         << "  -H --mem-hit-max N Ignore MEMs with this many hits when extracting poisitions" << endl
          << "  -i --identity-hot  Output a score vector based on percent identity and coverage" << endl
          << endl;
 }
@@ -761,6 +763,8 @@ int main_vectorize(int argc, char** argv){
     bool output_wabbit = false;
     bool use_identity_hot = false;
     bool mem_sketch = false;
+    bool mem_positions = false;
+    bool mem_hit_max = 0;
 
     if (argc <= 2) {
         help_vectorize(argv);
@@ -782,6 +786,8 @@ int main_vectorize(int argc, char** argv){
             {"wabbit", no_argument, 0, 'w'},
             {"wabbit-mapping", required_argument, 0, 'M'},
             {"mem-sketch", no_argument, 0, 'm'},
+            {"mem-positions", no_argument, 0, 'p'},
+            {"mem-hit-max", required_argument, 0, 'H'},
             {"identity-hot", no_argument, 0, 'i'},
             {"aln-label", required_argument, 0, 'l'},
             {"reads", required_argument, 0, 'r'},
@@ -789,7 +795,7 @@ int main_vectorize(int argc, char** argv){
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "AaihwM:fmx:g:l:",
+        c = getopt_long (argc, argv, "AaihwM:fmpx:g:l:H:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -798,6 +804,7 @@ int main_vectorize(int argc, char** argv){
 
         switch (c)
         {
+
  /*           case '?':
             case 'h':
                 help_vectorize(argv);
@@ -832,6 +839,7 @@ int main_vectorize(int argc, char** argv){
             default:
                 abort();
 */
+
         case '?':
         case 'h':
             help_vectorize(argv);
@@ -844,6 +852,12 @@ int main_vectorize(int argc, char** argv){
             break;
         case 'm':
             mem_sketch = true;
+            break;
+        case 'p':
+            mem_positions = true;
+            break;
+        case 'H':
+            mem_hit_max = atoi(optarg);
             break;
         case 'a':
             a_hot = true;
@@ -902,13 +916,16 @@ int main_vectorize(int argc, char** argv){
             mapper.gcsa = &gcsa_index;
             mapper.lcp = &lcp_index;
         }
+        if (mem_hit_max) {
+            mapper.hit_max = mem_hit_max;
+        }
     }
 
     Vectorizer vz(xg_index);
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, format, a_hot](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
         if (a_hot) {
@@ -945,6 +962,21 @@ int main_vectorize(int argc, char** argv){
             cout << " |mems";
             for (auto m : mem_to_count) {
                 cout << " " << m.first << ":" << m.second;
+            }
+            if (mem_positions) {
+                cout << " |positions";
+                for (auto& mem : mems) {
+                    mapper.get_mem_hits_if_under_max(mem);
+                    for (auto& node : mem.nodes) {
+                        cout << " " << gcsa::Node::id(node);
+                        if (gcsa::Node::rc(node)) {
+                            cout << "-";
+                        } else {
+                            cout << "+";
+                        }
+                        cout << ":" << mem.end - mem.begin;
+                    }
+                }
             }
             cout << endl;
         } else {
@@ -2040,7 +2072,7 @@ int main_msga(int argc, char** argv) {
     bool debug = false;
     bool debug_align = false;
     size_t node_max = 0;
-    int alignment_threads = 1;
+    int alignment_threads = get_thread_count();
     int edge_max = 0;
     int subgraph_prune = 0;
     bool normalize = false;
@@ -2297,13 +2329,23 @@ int main_msga(int argc, char** argv) {
             // only use the sequence if we have whitelisted it
             string seq = ref.getSequence(name);
             strings[name] = seq;
+            names_in_order.push_back(name);
         }
     }
 
-    // give a null label to sequences passed on the command line
-    // thus far there is no way to specify these (use fasta instead)
+    // give a label to sequences passed on the command line
+    // use the sha1sum, take the head
+    // collision avoidance pattern ensures we get the same names for the same sequences across multiple runs
     for (auto& s : sequences) {
-        strings[sha1head(s, 8)] = s;
+        auto name = sha1head(s, 8);
+        int nonce = 0;
+        while (strings.find(name) != strings.end()) {
+            stringstream ss;
+            ss << s << ++nonce;
+            name = sha1head(ss.str(), 8);
+        }
+        strings[name] = s;
+        names_in_order.push_back(name);
     }
 
     // align, include, repeat
@@ -2371,7 +2413,6 @@ int main_msga(int argc, char** argv) {
             mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
             mapper->min_identity = min_identity;
-            mapper->alignment_threads = alignment_threads;
             mapper->max_mem_length = max_mem_length;
             mapper->min_mem_length = min_mem_length;
             mapper->hit_max = hit_max;
@@ -2379,6 +2420,9 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
+            mapper->alignment_threads = alignment_threads;
+            mapper->aligners.clear(); // number of aligners per mapper depends on thread count
+                                      // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         }
     };
@@ -2388,10 +2432,10 @@ int main_msga(int argc, char** argv) {
 
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
-    for (auto& sp : strings) {
+    for (auto& name : names_in_order) {
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
-        auto& name = sp.first;
+        auto& seq = strings[name];
         //graph->serialize_to_file("msga-pre-" + name + ".vg");
         while (incomplete && iter++ < iter_max) {
             stringstream s; s << iter; string iterstr = s.str();
@@ -2399,8 +2443,6 @@ int main_msga(int argc, char** argv) {
             vector<Path> paths;
             vector<Alignment> alns;
             int j = 0;
-            // TODO we should use just one seq
-            auto& seq = sp.second;
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
@@ -4401,6 +4443,7 @@ void help_stats(char** argv) {
          << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
          << "    -C, --cactusbubbles   describe the cactus bubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
+         << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
          << "    -d, --to-head         show distance to head for each provided node" << endl
          << "    -t, --to-tail         show distance to head for each provided node" << endl
@@ -4429,6 +4472,7 @@ int main_stats(int argc, char** argv) {
     bool superbubbles = false;
     bool cactus = false;
     bool verbose = false;
+    bool is_acyclic = false;
     set<vg::id_t> ids;
     // What alignments GAM file should we read and compute stats on with the
     // graph?
@@ -4455,12 +4499,13 @@ int main_stats(int argc, char** argv) {
             {"superbubbles", no_argument, 0, 'b'},
             {"cactusbubbles", no_argument, 0, 'C'},
             {"alignments", required_argument, 0, 'a'},
+            {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:v",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4523,6 +4568,10 @@ int main_stats(int argc, char** argv) {
 
         case 'C':
             cactus = true;
+            break;
+
+        case 'A':
+            is_acyclic = true;
             break;
             
         case 'a':
@@ -4639,6 +4688,14 @@ int main_stats(int argc, char** argv) {
                 cout << id << ", ";
             }
             cout << endl;
+        }
+    }
+
+    if (is_acyclic) {
+        if (graph->is_acyclic()) {
+            cout << "acyclic" << endl;
+        } else {
+            cout << "cyclic" << endl;
         }
     }
 
@@ -5159,6 +5216,7 @@ void help_find(char** argv) {
          << "    -p, --path TARGET      find the node(s) in the specified path range TARGET=path[:pos1[-pos2]]" << endl
          << "    -P, --position-in PATH find the position of the node (specified by -n) in the given path" << endl
          << "    -r, --node-range N:M   get nodes from N to M" << endl
+         << "    -G, --gam GAM          accumulate the graph touched by the alignments in the GAM" << endl
          << "alignments: (rocksdb only)" << endl
          << "    -a, --alignments       writes alignments from index, sorted by node id" << endl
          << "    -i, --alns-in N:M      writes alignments whose start nodes is between N and M (inclusive)" << endl
@@ -5210,6 +5268,7 @@ int main_find(int argc, char** argv) {
     vg::id_t end_id = 0;
     bool pairwise_distance = false;
     string haplotype_alignments;
+    string gam_file;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5241,11 +5300,12 @@ int main_find(int argc, char** argv) {
                 {"alns-on", required_argument, 0, 'o'},
                 {"distance", no_argument, 0, 'D'},
                 {"haplotypes", required_argument, 0, 'H'},
+                {"gam", required_argument, 0, 'G'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:",
+        c = getopt_long (argc, argv, "d:x:n:e:s:o:k:hc:LS:z:j:CTp:P:r:amg:M:i:DH:G:",
                          long_options, &option_index);
 
         // Detect the end of the options.
@@ -5349,6 +5409,10 @@ int main_find(int argc, char** argv) {
             
         case 'H':
             haplotype_alignments = optarg;
+            break;
+
+        case 'G':
+            gam_file = optarg;
             break;
 
         case 'h':
@@ -5554,6 +5618,35 @@ int main_find(int argc, char** argv) {
                 stream::for_each(in, lambda);
             }
             
+        }
+        if (!gam_file.empty()) {
+            set<vg::id_t> nodes;
+            function<void(Alignment&)> lambda = [&nodes](Alignment& aln) {
+                // accumulate nodes matched by the path
+                auto& path = aln.path();
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    nodes.insert(path.mapping(i).position().node_id());
+                }
+            };
+            if (gam_file == "-") {
+                stream::for_each(std::cin, lambda);
+            } else {
+                ifstream in;
+                in.open(gam_file.c_str());
+                if(!in.is_open()) {
+                    cerr << "[vg find] error: could not open alignments file " << gam_file << endl;
+                    exit(1);
+                }
+                stream::for_each(in, lambda);
+            }
+            // now we have the nodes to get
+            VG graph;
+            for (auto& node : nodes) {
+                *graph.graph.add_node() = xindex.node(node);
+            }
+            xindex.expand_context(graph.graph, max(1, context_size)); // get connected edges
+            graph.rebuild_indexes();
+            graph.serialize_to_ostream(cout);
         }
     } else if (!db_name.empty()) {
         if (!node_ids.empty() && path_name.empty()) {
@@ -6361,7 +6454,7 @@ int main_index(int argc, char** argv) {
         // We need to make a gcsa index.
 
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
-        gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
+        if(!show_progress) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
 
         // Load up the graphs
         vector<string> tmpfiles;
@@ -6636,7 +6729,7 @@ int main_align(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:",
+        c = getopt_long (argc, argv, "s:jhQ:m:M:g:e:Dr:F:O:",
                 long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -6793,6 +6886,7 @@ void help_map(char** argv) {
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
+         << "    -2, --mem-threading      use the MEM-threading alingment algorithm" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -6850,6 +6944,7 @@ int main_map(int argc, char** argv) {
     bool build_in_memory = false;
     int max_mem_length = 0;
     int min_mem_length = 0;
+    bool mem_threading = false;
     int max_target_factor = 100;
     bool in_mem_path_only = false;
     int buffer_size = 100;
@@ -6912,6 +7007,7 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
+                {"mem-threading", no_argument, 0, '2'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
                 {"match", required_argument, 0, 'q'},
@@ -6927,7 +7023,7 @@ int main_map(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:2",
                          long_options, &option_index);
 
 
@@ -7099,6 +7195,10 @@ int main_map(int argc, char** argv) {
             max_mem_length = atoi(optarg);
             break;
 
+        case '2':
+            mem_threading = true;
+            break;
+
         case 'H':
             max_target_factor = atoi(optarg);
             break;
@@ -7129,7 +7229,7 @@ int main_map(int argc, char** argv) {
             
         case 'u':
             extra_pairing_multimaps = atoi(optarg);
-                break;
+            break;
                 
         case 'v':
             method_code = atoi(optarg);
@@ -7336,6 +7436,7 @@ int main_map(int argc, char** argv) {
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
         m->max_mem_length = max_mem_length;
+        m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
         m->adjust_alignments_for_base_quality = qual_adjust_alignments;
