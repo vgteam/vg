@@ -2059,11 +2059,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // instantiate a translator object (make sure it can handle the deleted bits?)
                 // translate the alignment
 
-                int min_distance = (!(id1&&id2) ? (edit.to_length() * 3) : // awkward constants
-                                    max((int)(edit.to_length() * 3),
-                                        (int)(xindex->node_length(id2) +
-                                              xindex->node_length(id2) +
-                                              xindex->min_approx_path_distance({}, id1, id2))));
+                int min_distance = edit.to_length() * 3;
 
                 //cerr << "going at least " << min_distance << endl;
                 VG graph;
