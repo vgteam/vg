@@ -813,15 +813,32 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     // by our construction of the local SMEM copies, each has only one match
     // which is where we've used it for clustering
 
-    vector<Alignment> alns;
     // for up to our required number of multimaps
     // make the perfect-match alignment for the SMEM cluster
     // then fix it up with DP on the little bits between the alignments
+
+    // remove clusters which are contained in other clusters
+    // use a pairwise identity metric to identify overlaps
+    // for each overlap pair found, remove the smaller cluster (by length)
+    // and continue searching for overlaps
+    // accomplish this by skipping the alignment if its exact match alignment has substantial identity with any previous alignment we've patched up
+    vector<Alignment> alns;
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (++multimaps > total_multimaps) { break; }
-        alns.emplace_back(simplify(patch_alignment(mems_to_alignment(aln, cluster))));
-        alns.back().set_name(aln.name());
+        Alignment partial_alignment = mems_to_alignment(aln, cluster);
+        // look through the alignments and see if we have high overlap with anything
+        bool unique = true;
+        for (auto& aln : alns) {
+            if (overlap(aln.path(), partial_alignment.path()) > 0) {
+                unique = false;
+                break;
+            }
+        }
+        if (unique) {
+            alns.emplace_back(simplify(patch_alignment(partial_alignment)));
+            alns.back().set_name(aln.name());
+        }
     }
 
     if (debug) {

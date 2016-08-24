@@ -93,4 +93,10 @@ Edit reverse_complement_edit(const Edit& e) {
     return reversed;
 }
 
+bool operator==(const Edit& e1, const Edit& e2) {
+    return (e1.to_length() == e2.to_length())
+        && (e1.from_length() == e2.from_length())
+        && (e1.sequence() == e2.sequence());
+}
+
 }
