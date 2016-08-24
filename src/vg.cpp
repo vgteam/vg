@@ -6826,16 +6826,6 @@ void VG::to_dot(ostream& out,
     for (auto& aln : alignments) {
         // check direction
         if (!aln.has_path()) continue; // skip pathless alignments
-        if (!aln.path().mapping(0).position().is_reverse()) {
-            out << "    " << alnid << " [label=\"" << aln.name() << "\"];" << endl;
-            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=black];" << endl;
-            alnid++;
-            out << "    " << alnid << " [label=\"+\",fontcolor=green];" << endl;
-            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=green];" << endl;
-        } else {
-            out << "    " << alnid << " [label=\"-\",fontcolor=purple];" << endl;
-            out << "    " << alnid << " -> " << alnid+1 << " [dir=none,color=purple];" << endl;
-        }
         alnid++;
         for (int i = 0; i < aln.path().mapping_size(); ++i) {
             const Mapping& m = aln.path().mapping(i);
@@ -6894,16 +6884,6 @@ void VG::to_dot(ostream& out,
             out << "    { rank = same; " << alnid << "; " << m.position().node_id() << "; };" << endl;
             //out << "    " << m.position().node_id() << " -- " << alnid << "[color=" << color << ", style=invis];" << endl;
             alnid++;
-        }
-        if (!aln.path().mapping(aln.path().mapping_size()-1).position().is_reverse()) {
-            out << "    " << alnid << " [label=\"-""\",fontcolor=purple];" << endl;
-            out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=purple];" << endl;
-        } else {
-            out << "    " << alnid << " [label=\"+""\",fontcolor=green];" << endl;
-            out << "    " << alnid-1 << " -> " << alnid << " [dir=none,color=green];" << endl;
-            alnid++;
-            out << "    " << alnid << " [label=\"" << aln.name() << "\"];" << endl;
-            out << "    " << alnid << " -> " << alnid-1 << " [dir=none,color=black];" << endl;
         }
         alnid++;
         // todo --- circular alignments

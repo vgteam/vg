@@ -813,22 +813,45 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     // by our construction of the local SMEM copies, each has only one match
     // which is where we've used it for clustering
 
-    vector<Alignment> alns;
     // for up to our required number of multimaps
     // make the perfect-match alignment for the SMEM cluster
     // then fix it up with DP on the little bits between the alignments
+
+    // remove clusters which are contained in other clusters
+    // use a pairwise identity metric to identify overlaps
+    // for each overlap pair found, remove the smaller cluster (by length)
+    // and continue searching for overlaps
+    // accomplish this by skipping the alignment if its exact match alignment has substantial identity with any previous alignment we've patched up
+    vector<Alignment> alns;
     int multimaps = 0;
     for (auto& cluster : clusters) {
         if (++multimaps > total_multimaps) { break; }
-        alns.emplace_back(simplify(patch_alignment(mems_to_alignment(aln, cluster))));
-        alns.back().set_name(aln.name());
+        Alignment partial_alignment = mems_to_alignment(aln, cluster);
+        // look through the alignments and see if we have high overlap with anything
+        bool unique = true;
+        for (auto& aln : alns) {
+            if (overlap(aln.path(), partial_alignment.path()) > 0) {
+                unique = false;
+                break;
+            }
+        }
+        if (unique) {
+            alns.emplace_back(simplify(patch_alignment(partial_alignment)));
+            alns.back().set_name(aln.name());
+        }
     }
-    /*
-    for (auto& aln : alns) {
-        cerr << "------- " << pb2json(aln) << endl;
+
+    if (debug) {
+        for (auto& aln : alns) {
+            cerr << "cluster aln ------- " << pb2json(aln) << endl;
+        }
+        for (auto& aln : alns) {
+            if (!check_alignment(aln)) {
+                cerr << "alignment failure " << pb2json(aln) << endl;
+                assert(false);
+            }
+        }
     }
-    */
-    
     return alns;
 }
 
@@ -952,6 +975,40 @@ int64_t Mapper::get_node_length(int64_t node_id) {
     }
 }
 
+bool Mapper::check_alignment(const Alignment& aln) {
+    // use the graph to extract the sequence
+    // assert that this == the alignment
+    if (aln.path().mapping_size()) {
+        // get the graph corresponding to the alignment path
+        Graph sub;
+        for (int i = 0; i < aln.path().mapping_size(); ++ i) {
+            auto& m = aln.path().mapping(i);
+            if (m.has_position() && m.position().node_id()) {
+                auto id = aln.path().mapping(i).position().node_id();
+                // XXXXXX this is single-threaded!
+                xindex->neighborhood(id, 2, sub);
+            }
+        }
+        VG g; g.extend(sub);
+        auto seq = g.path_string(aln.path());
+        //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
+        if (seq != aln.sequence()) {
+            cerr << "alignment does not match graph " << endl
+                 << pb2json(aln) << endl
+                 << "expect:\t" << aln.sequence() << endl
+                 << "got:\t" << seq << endl;
+            // save alignment
+            write_alignment_to_file(aln, "fail.gam");
+            // save graph, bigger fragment
+            xindex->expand_context(sub, 5, true);
+            VG gn; gn.extend(sub);
+            gn.serialize_to_file("fail.vg");
+            return false;
+        }
+    }
+    return true;
+}
+
 Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride, int band_width) {
     // split the alignment up into overlapping chunks of band_width size
     list<Alignment> alignments;
@@ -1036,39 +1093,6 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
     vector<Alignment> alns;
     if (max_multimaps > 1) multi_alns.resize(to_align);
     else alns.resize(to_align);
-
-    auto check_alignment = [&](const Alignment& aln) {
-        // use the graph to extract the sequence
-        // assert that this == the alignment
-        if (aln.path().mapping_size()) {
-            // get the graph corresponding to the alignment path
-            Graph sub;
-            for (int i = 0; i < aln.path().mapping_size(); ++ i) {
-                auto& m = aln.path().mapping(i);
-                if (m.has_position() && m.position().node_id()) {
-                    auto id = aln.path().mapping(i).position().node_id();
-                    // XXXXXX this is single-threaded!
-                    xindex->neighborhood(id, 2, sub);
-                }
-            }
-            VG g; g.extend(sub);
-            auto seq = g.path_string(aln.path());
-            //if (aln.sequence().find('N') == string::npos && seq != aln.sequence()) {
-            if (seq != aln.sequence()) {
-                cerr << "alignment does not match graph " << endl
-                     << pb2json(aln) << endl
-                     << "expect:\t" << aln.sequence() << endl
-                     << "got:\t" << seq << endl;
-                // save alignment
-                write_alignment_to_file(aln, "fail.gam");
-                // save graph, bigger fragment
-                xindex->expand_context(sub, 5, true);
-                VG gn; gn.extend(sub);
-                gn.serialize_to_file("fail.vg");
-                assert(false);
-            }
-        }
-    };
 
     auto do_band = [&](int i) {
         if (max_multimaps > 1) {
@@ -1948,6 +1972,7 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
 
 Alignment Mapper::patch_alignment(const Alignment& aln) {
     //cerr << "patching " << pb2json(aln) << endl;
+    //if (!check_alignment(aln)) cerr << "aln is invalid!" << endl;
     Alignment patched;
     int score = 0;
     // walk along the alignment and find the portions that are unaligned
@@ -2262,20 +2287,17 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         auto* mapping = patch.mutable_path()->mutable_mapping(k);
                         // convert the position if we're mapped to the translated node
                         if (mapping->position().node_id() == trimmed_node) {
-                            //cerr << "should adjust " << pb2json(*mapping) << endl;
                             mapping->mutable_position()->set_offset(
                                 mapping->position().offset() +
                                 ( mapping->position().is_reverse() ? trimmed_length_rev : trimmed_length_fwd ));
-                            //cerr << "adjusted " << pb2json(*mapping) << endl;
                         }
                     }
                     
                     // append the chunk to patched
 
-                    //cerr << "aligned" << endl;
-                    //cerr << pb2json(patch) << endl;
+                    //cerr << "patch: " << pb2json(patch) << endl;
 
-                    patch.clear_sequence();
+                    patch.clear_sequence(); // we set the whole sequence later
                     if (min_identity && patch.identity() < min_identity
                         || patch.score() == 0) {
                         //cerr << "doing that other thing" << endl;
@@ -2288,9 +2310,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             && last_mapping->position().node_id() != 0) {
                             // if we just did an alignment, use its position rather than a previous hint
                             // such as for soft clips
-                            last_mapping->clear_position();
+                            patched = merge_alignments(patch, patched, debug);
+                        } else {
+                        //hhhmmm
+                            extend_alignment(patched, patch, true);
+
                         }
-                        extend_alignment(patched, patch, true);
+                        // point at the correct "new mapping"
+                        new_mapping = patched.mutable_path()->mutable_mapping(patched.path().mapping_size()-1);
                         score += patch.score();
                     }
                     //cerr << "extended " << pb2json(patched) << endl;
@@ -2300,6 +2327,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             get_offset(ref_pos) += edit.from_length();
             read_pos += edit.to_length();
         }
+        //cerr << "growing patched: " << pb2json(patched) << endl;
     }
     // finally, fix up the alignment score
     patched.set_sequence(aln.sequence());

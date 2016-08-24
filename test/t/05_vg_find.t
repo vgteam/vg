@@ -5,7 +5,7 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 30
+plan tests 31
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 is $? 0 "construction"
@@ -85,4 +85,10 @@ vg sim -s 1337 -n 100 -x x.xg >x.reads
 vg map -x x.xg -g x.gcsa -r x.reads >x.gam
 vg index -d x.db -N x.gam
 is $(vg find -o 127 -d x.db | vg view -a - | wc -l) 6 "the index can return the set of alignments mapping to a particular node"
-rm -rf x.vg x.xg x.gcsa x.reads x.gam x.db
+rm -rf x.db x.gam x.reads
+
+vg sim -s 1337 -n 1 -x x.xg -a >x.gam
+is $(vg find -G x.gam -x x.xg | vg view - | grep ATTAGCCATGTGACTTTGAACAAGTTAGTTAATCTCTCTGAACTTCAGTT | wc -l) 1 "the index can be queried using GAM alignments"
+
+rm -rf x.vg x.xg x.gcsa x.gam
+
