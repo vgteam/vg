@@ -193,7 +193,7 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, pair<NodeSide, NodeS
     // copy each component into cactus node
     for (int i = 0; i < components.size(); ++i) {
 #ifdef debug
-        cout << "Creating cactus node for compontnet " << i << " with size " << components[i].size() << endl;
+        cout << "Creating cactus node for component " << i << " with size " << components[i].size() << endl;
 #endif
         id_t* cactus_node_id = (id_t*)malloc(sizeof(id_t));
         *cactus_node_id = i;
@@ -235,9 +235,9 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, pair<NodeSide, NodeS
     stCactusGraph_collapseToCactus(
         cactus_graph, mergeNodeObjects, cactus_nodes[0]);
 
-    // don't worry about bridges
-    stCactusGraph_collapseBridges(
-        cactus_graph, cactus_nodes[0], mergeNodeObjects);
+    // Uncommenting this will force all bridge edges to be a member of a simple cycle
+    //stCactusGraph_collapseBridges(
+    //    cactus_graph, cactus_nodes[0], mergeNodeObjects);
 
     return make_pair(cactus_graph, cactus_nodes[0]);
 
@@ -359,6 +359,8 @@ BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink) {
     pair<stCactusGraph*, stCactusNode*> cac_pair = vg_to_cactus(graph, source_sink);
     stCactusGraph* cactus_graph = cac_pair.first;
     stCactusNode* root_node = cac_pair.second;
+    
+    
 
     BubbleTree out_tree(new BubbleTree::Node());
         
