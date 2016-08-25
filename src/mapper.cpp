@@ -350,16 +350,14 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         for (auto& mem : mems2) { get_mem_hits_if_under_max(mem); }
         
         // use pair resolution filterings on the SMEMs to constrain the candidates
-        if (fragment_size) {
-            set<MaximalExactMatch*> pairable_mems = resolve_paired_mems(mems1, mems2);
-            for (auto& mem : mems1) if (pairable_mems.count(&mem)) pairable_mems1.push_back(mem);
-            for (auto& mem : mems2) if (pairable_mems.count(&mem)) pairable_mems2.push_back(mem);
-        } else {
-            pairable_mems1 = mems1;
-            pairable_mems2 = mems2;
-        }
+        set<MaximalExactMatch*> pairable_mems = resolve_paired_mems(mems1, mems2);
+        for (auto& mem : mems1) if (pairable_mems.count(&mem)) pairable_mems1.push_back(mem);
+        for (auto& mem : mems2) if (pairable_mems.count(&mem)) pairable_mems2.push_back(mem);
         pairable_mems_ptr_1 = &pairable_mems1;
         pairable_mems_ptr_2 = &pairable_mems2;
+    } else {
+        pairable_mems_ptr_1 = &mems1;
+        pairable_mems_ptr_2 = &mems2;
     }
     
     //cerr << pairable_mems1.size() << " and " << pairable_mems2.size() << endl;
@@ -872,18 +870,18 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
 
     // run through the mems
     for (auto& mem : mems1) {
-        size_t len = mem.begin - mem.end;
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
+            //cerr << "#1: " << id << endl;
             id_to_mems[id].push_back(&mem);
             ids1.insert(id);
             ids.push_back(id);
         }
     }
     for (auto& mem : mems2) {
-        size_t len = mem.begin - mem.end;
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
+            //cerr << "#2: " << id << endl;
             id_to_mems[id].push_back(&mem);
             ids2.insert(id);
             ids.push_back(id);
@@ -916,6 +914,9 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
             //auto& prev = clusters.back().back();
             auto curr = x.first;
             //cerr << "p/c " << prev << " " << curr << endl;
+            //for (auto& c : *cluster) {
+            //cerr << c << " ";
+            //} cerr << endl;
             if (prev == -1) {
             } else if (curr - prev <= fragment_size) {
                 // in cluster
@@ -1452,7 +1453,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
         // otherwise use the mem mapper, which is a banded multi mapper by default
         
         // use pre-restricted mems for paired mapping or find mems here
-        if (restricted_mems) {
+        if (restricted_mems != nullptr) {
             // mem hits will already have been queried
             alignments = align_mem_multi(aln, *restricted_mems, additional_multimaps_for_quality);
         }
