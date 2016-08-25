@@ -2377,7 +2377,7 @@ int main_msga(int argc, char** argv) {
     int thread_extension = 10;
     float min_identity = 0.75;
     int band_width = 256;
-    size_t doubling_steps = 2;
+    size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
     size_t node_max = 0;
@@ -6222,7 +6222,7 @@ int main_index(int argc, char** argv) {
     bool compact = false;
     bool dump_alignments = false;
     bool use_snappy = false;
-    int doubling_steps = 2;
+    int doubling_steps = 3;
     bool verify_index = false;
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
@@ -7638,7 +7638,7 @@ int main_map(int argc, char** argv) {
         }
         xindex = new xg::XG(graph->graph);
         assert(kmer_size);
-        int doubling_steps = 2;
+        int doubling_steps = 3;
         graph->build_gcsa_lcp(gcsa, lcp, kmer_size, in_mem_path_only, false, 2);
         delete graph;
     } else {
