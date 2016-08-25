@@ -7463,7 +7463,7 @@ Alignment VG::align(const Alignment& alignment,
             character = toupper(character);
         }
     });
-
+    
     // overlay the translations
     auto trans = overlay_node_translations(dagify_trans, unfold_trans);
 
@@ -7471,8 +7471,9 @@ Alignment VG::align(const Alignment& alignment,
     // Put the nodes in sort order within the graph
     // and break any remaining cycles
     Node* root = dag.join_heads();
+    
     dag.sort();
-
+    
     if (aligner && !qual_adj_aligner) {
         aligner->align(aln, dag.graph, print_score_matrices);
     }
@@ -7482,7 +7483,6 @@ Alignment VG::align(const Alignment& alignment,
     else {
         cerr << "error:[VG] cannot both adjust and not adjust alignment for base quality" << endl;
     }
-    
     /*
     auto check_aln = [&](VG& graph, const Alignment& a) {
         cerr << "checking alignment" << endl;

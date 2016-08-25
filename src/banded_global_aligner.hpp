@@ -22,7 +22,10 @@ using namespace std;
 
 namespace vg {
     
+    class BandedGlobalAlignmentGraph;
     class BandedAlignmentMatrix;
+    class BandedAlignmentBuilder;
+    
     
     // This class is the outward-facing interface for banded global graph alignment. It computes
     // optimal alignment of a DNA sequence to a DAG with POA. The alignment will start at any source
@@ -84,8 +87,6 @@ namespace vg {
                                vector<bool>& node_masked, vector<pair<int64_t, int64_t>>& band_ends);
         void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, vector<int64_t>& seq_lens_out);
     };
-    
-    class BandedAlignmentBuilder;
     
     // matrices used in Smith-Waterman-Gotoh alignment algorithm
     enum matrix_t {Match, InsertCol, InsertRow};

@@ -1,9 +1,7 @@
 //
 //  banded_global_aligner.cpp
 //  
-//
-//  Created by Jordan Eizenga on 7/26/16.
-//
+//  Unit tests for banded global aligner module.
 //
 
 #include <stdio.h>
@@ -1275,6 +1273,64 @@ namespace vg {
                 
                 string read = string("AGTGCTGAAGT");
                 string qual = string("HHHHHHHHHHH");
+                Alignment aln;
+                aln.set_sequence(read);
+                aln.set_quality(qual);
+                alignment_quality_char_to_short(aln);
+                
+                int band_width = 1;
+                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
+                                                                                       graph.graph,
+                                                                                       band_width,
+                                                                                       true,
+                                                                                       true);
+                
+                
+                banded_aligner.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.gap_open,
+                                     aligner.gap_extension);
+                
+                const Path& path = aln.path();
+                
+                // is a global alignment
+                REQUIRE(path.mapping(0).position().offset() == 0);
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(2).position().node_id() == 4);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 4);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 4);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(2).edit(0).from_length() == 6);
+                REQUIRE(path.mapping(2).edit(0).to_length() == 6);
+                REQUIRE(path.mapping(2).edit(0).sequence().empty());
+            }
+            
+            SECTION( "Banded global aligner produces correct base quality adjusted alignments with variable base qualities" ) {
+                
+                VG graph;
+                
+                QualAdjAligner aligner = QualAdjAligner();
+                
+                Node* n0 = graph.create_node("AGTG");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("A");
+                Node* n3 = graph.create_node("TGAAGT");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AGTGCTGAAGT");
+                string qual = string("HHDD><<9861");
                 Alignment aln;
                 aln.set_sequence(read);
                 aln.set_quality(qual);
