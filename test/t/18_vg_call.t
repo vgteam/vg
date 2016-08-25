@@ -20,7 +20,7 @@ rm -f calls_l.json calls_l.vg
 
 vg view -J -l call/pileup.json -L > tiny.vgpu
 vg call tiny.vg tiny.vgpu -A calls_l.vg -s 10 -d 10 -q 10 -b 0.25 --multiallelic > /dev/null 2> /dev/null
-is $! "0" "vg call doesn't crash in multiallelic mode"
+is $? "0" "vg call doesn't crash in multiallelic mode"
 
 rm -f calls_l.json calls_l.vg tiny.vg tiny.vgpu
 
