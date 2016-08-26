@@ -238,8 +238,8 @@ void Caller::update_call_graph() {
     // two passes here is a hack to make sure break_end is called on all edge ends
     // before processing any of them. 
     process_augmented_edges(true);
-    process_augmented_edges(false);
     _graph->for_each_edge(map_edge);
+    process_augmented_edges(false);
 
     // write out all the nodes in the divider structure to tsv
     if (_text_calls != NULL) {

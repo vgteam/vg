@@ -976,7 +976,9 @@ map<Alignment*, vector<Genotyper::Affinity>>
     for(auto id : relevant_ids) {
         // For all the IDs in the surrounding material
         
-        if(!graph.paths.has_node_mapping(id) || graph.paths.get_node_mapping(id).size() < min_recurrence) {
+        if(min_recurrence != 0 && 
+            (!graph.paths.has_node_mapping(id) || 
+            graph.paths.get_node_mapping(id).size() < min_recurrence)) {
             // Skip nodes in the graph that have too little support. In practice
             // this means we'll restrict ourselves to supported, known nodes.
             // TODO: somehow do the same for edges.
@@ -1157,10 +1159,11 @@ map<Alignment*, vector<Genotyper::Affinity>>
                 // If the first difference is the past-the-rend of the suffix, then it's a suffix
                 affinity.consistent = (difference.first == seq.rend());
             } else {
-                // This read doesn't touch either end. Just assume it's
-                // consistent and let scoring work it out.
+                // This read doesn't touch either end. This might happen if the
+                // site is very large. Just assume it's consistent and let
+                // scoring work it out.
                 #pragma omp critical (cerr)
-                cerr << "Warning: realigned read doesn't touch either end of its site!" << endl;
+                cerr << "Warning: realigned read " << aligned.sequence() << " doesn't touch either end of its site!" << endl;
                 affinity.consistent = true;
             }
             
