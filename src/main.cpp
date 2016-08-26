@@ -1253,6 +1253,9 @@ int main_call(int argc, char** argv) {
     // How big a site should we try to type all at once instead of replacing
     // with its children if it has any?
     size_t max_ref_length = 100;
+    // What's the maximum number of bubble path combinations we can explore
+    // while finding one with maximum support?
+    size_t max_bubble_paths = 100;
 
     bool show_progress = false;
     int thread_count = 1;
@@ -1534,7 +1537,8 @@ int main_call(int argc, char** argv) {
                         suppress_overlaps,
                         useAverageSupport,
                         multiallelic_support,
-                        max_ref_length);
+                        max_ref_length,
+                        max_bubble_paths);
     
     return 0;
 }

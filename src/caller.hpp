@@ -399,7 +399,11 @@ int call2vcf(
     bool multiallelic_support,
     // What's the max ref length of a site that we genotype as a whole instead
     // of splitting?
-    size_t max_ref_length);
+    size_t max_ref_length,
+    // What's the maximum number of bubble path combinations we can explore
+    // while finding one with maximum support?
+    size_t max_bubble_paths);
+
 }
 
 #endif

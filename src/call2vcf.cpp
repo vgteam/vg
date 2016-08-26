@@ -357,6 +357,34 @@ size_t bp_length(const std::list<vg::NodeTraversal>& path) {
 }
 
 /**
+ * Get the minimum support of all nodes and edges in path
+ */
+Support min_support_in_path(vg::VG& graph,
+                            const std::map<vg::Node*, Support>& nodeReadSupport,
+                            const std::map<vg::Edge*, Support>& edgeReadSupport,
+                            const std::list<vg::NodeTraversal>& path) {
+    if (path.empty()) {
+        return Support();
+    }
+    auto cur = path.begin();
+    auto next = path.begin();
+    ++next;
+    Support minSupport = nodeReadSupport.count(cur->node) ? nodeReadSupport.at(cur->node) : Support();
+    for (; next != path.end(); ++cur, ++next) {
+        // check the node support
+        Support support = nodeReadSupport.count(next->node) ? nodeReadSupport.at(next->node) : Support();
+        minSupport = support_min(minSupport, support);
+        
+        // check the edge support
+        Edge* edge = graph.get_edge(*cur, *next);
+        assert(edge != NULL);
+        Support edgeSupport = edgeReadSupport.count(edge) ? edgeReadSupport.at(edge) : Support();
+        minSupport = support_min(minSupport, edgeSupport);
+    }
+    return minSupport;
+}
+
+/**
  * Do a breadth-first search left from the given node traversal, and return
  * lengths and paths starting at the given node and ending on the indexed
  * reference path. Refuses to visit nodes with no support.
@@ -518,12 +546,15 @@ std::set<std::pair<size_t, std::list<vg::NodeTraversal>>> bfs_right(vg::VG& grap
  * 
  * Return the ordered and oriented nodes in the bubble, with the outer nodes
  * being oriented forward along the named path, and with the first node coming
- * before the last node in the reference.
+ * before the last node in the reference.  Also return the minimum support
+ * found on any edge or node in the bubble (including the reference node endpoints
+ * and their edges which aren't stored in the path)
  */
-std::vector<vg::NodeTraversal>
+std::pair<Support, std::vector<vg::NodeTraversal> >
 find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex& index,
             const std::map<vg::Node*, Support>& nodeReadSupport,
-            const std::map<vg::Edge*, Support>& edgeReadSupport, int64_t maxDepth = 10) {
+            const std::map<vg::Edge*, Support>& edgeReadSupport, int64_t maxDepth,
+            size_t max_bubble_paths) {
 
     // What are we going to find our left and right path halves based on?
     NodeTraversal left_traversal;
@@ -559,6 +590,10 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
     // consistent orientation (meaning that when you look at the ending nodes'
     // Mappings in the reference path, the ones with minimal ranks have the same
     // orientations) and which doesn't use the same nodes on both sides.
+    // Track support of up to max_bubble_paths combinations, and return the
+    // highest
+    std::pair<Support, std::vector<NodeTraversal> > bestBubblePath;
+    int bubbleCount = 0;
     
     // We need to look in different combinations of lists.
     auto testCombinations = [&](const std::list<std::list<vg::NodeTraversal>>& leftList,
@@ -589,6 +624,10 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
             for(auto visit : leftPath) {
                 leftPathNodes.insert(visit.node->id());
             }
+
+            // Get the minimum support in the left path
+            Support minLeftSupport = min_support_in_path(
+                graph, nodeReadSupport, edgeReadSupport, leftPath);
             
             for(auto rightPath : rightList) {
                 // Figure out the relative orientation for the rightmost node.
@@ -610,6 +649,10 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
                 // were traversing the anchoring node backwards, xor if it is backwards
                 // in the reference path.
                 bool rightRelativeOrientation = rightOrientation != rightRefPos.second;
+
+                // Get the minimum support in the right path
+                Support minRightSupport = min_support_in_path(
+                    graph, nodeReadSupport, edgeReadSupport, rightPath);
                 
                 if(leftRelativeOrientation == rightRelativeOrientation &&
                     ((!leftRelativeOrientation && leftRefPos.first < rightRefPos.first) ||
@@ -617,6 +660,9 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
                     // We found a pair of paths that get us to and from the
                     // reference without turning around, and that don't go back to
                     // the reference before they leave.
+
+                    // Get the minimum support of combined left and right paths
+                    Support minFullSupport = support_min(minLeftSupport, minRightSupport);
                     
                     // Start with the left path
                     std::vector<vg::NodeTraversal> fullPath{leftPath.begin(), leftPath.end()};
@@ -658,22 +704,31 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
                             traversal = flip(traversal);
                         }
                     }
+
                     
-                    // Just give the first valid path we find.
 #ifdef debug        
                     std::cerr << "Merged path:" << std::endl;
                     for(auto traversal : fullPath) {
                         std::cerr << "\t" << traversal << std::endl;
-                    }
+                    }                    
 #endif
-                    return fullPath;
+                    // update our best path by seeing if we've found one with higher min support
+                    if (total(minFullSupport) > total(bestBubblePath.first)) {
+                        bestBubblePath.first = minFullSupport;
+                        bestBubblePath.second = fullPath;
+                    }
+
+                    // keep things from getting out of hand
+                    if (++bubbleCount >= max_bubble_paths) {
+                        return bestBubblePath;
+                    }
                 }
-                
             }
         }
         
-        // Return the empty path if we can't find anything.
-        return std::vector<vg::NodeTraversal>();
+        // Return the best path along with its min support
+        // (could be empty)
+        return bestBubblePath;
         
     };
     
@@ -1098,7 +1153,10 @@ int call2vcf(
     bool multiallelic_support,
     // What's the max ref length of a site that we genotype as a whole instead
     // of splitting?
-    size_t max_ref_length) {
+    size_t max_ref_length,
+    // What's the maximum number of bubble path combinations we can explore
+    // while finding one with maximum support?
+    size_t max_bubble_paths) {
     
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
@@ -1503,9 +1561,11 @@ int call2vcf(
                     continue;
                 }
                 
-                // TODO: use edge support
-                std::vector<NodeTraversal> path = find_bubble(vg, node, nullptr, index, nodeReadSupport,
-                                                              edgeReadSupport, maxDepth);
+                std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+                    vg, node, nullptr, index, nodeReadSupport,
+                    edgeReadSupport, maxDepth, max_bubble_paths);
+
+                std::vector<NodeTraversal>& path = sup_path.second;
                 
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
@@ -1532,9 +1592,10 @@ int call2vcf(
                 }
                 
                 // Find a path based around this edge
-                // TODO: use edge support
-                std::vector<NodeTraversal> path = find_bubble(vg, nullptr, edge, index, nodeReadSupport,
-                                                              edgeReadSupport, maxDepth);
+                std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+                    vg, nullptr, edge, index, nodeReadSupport,
+                    edgeReadSupport, maxDepth, max_bubble_paths);
+                std::vector<NodeTraversal>& path = sup_path.second;
                 
 #ifdef debug
                 std::cerr << "Edge " << edge->from() << " to " << edge->to() << " yields:" << std::endl;
@@ -1966,8 +2027,10 @@ int call2vcf(
                 // We have copy number on this node.
                 
                 // Find a path to the primary reference from here
-                auto path = find_bubble(vg, node, nullptr, index, nodeReadSupport,
-                                        edgeReadSupport, maxDepth);
+                std::pair<Support, std::vector<NodeTraversal>> sup_path = find_bubble(
+                    vg, node, nullptr, index, nodeReadSupport,
+                    edgeReadSupport, maxDepth, max_bubble_paths);
+                std::vector<NodeTraversal>& path = sup_path.second;
                 
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
@@ -2027,9 +2090,8 @@ int call2vcf(
                 // And we want to know how much read support in total ther alt has
                 // (support * node length)
                 Support altReadSupportTotal = std::make_pair(0.0, 0.0);
-                Support altReadSupportMin = std::make_pair(std::numeric_limits<double>::max(),
-                                                           std::numeric_limits<double>::max());
-
+                Support altReadSupportMin = sup_path.first;
+                
                 // And we keep track of the ref and alt nodes with the lowest likelihoods
                 // (for insertion, we use the bypass edge for the ref likelihood)
                 std::pair<vg::Node*, double> altMinLikelihood(nullptr, LOG_ZERO);
@@ -2040,7 +2102,7 @@ int call2vcf(
                     // the correct orientation.
                     
                     std::string addedSequence = path[i].node->sequence();
-                
+
                     if(path[i].backward) {
                         // If the node is traversed backward, we need to flip its sequence.
                         addedSequence = vg::reverse_complement(addedSequence);
@@ -2069,14 +2131,13 @@ int call2vcf(
                                                                vg::NodeSide(path[i].node->id(), path[i].backward)));
                     if (edgeReadSupport.count(pathEdge)) {
                         // We have read support for edge into node, take minimum between it and the node.
-                        nodeSupport = min(nodeSupport, edgeReadSupport[pathEdge]);
+                        nodeSupport = support_min(nodeSupport, edgeReadSupport[pathEdge]);
                     } else {
                         throw runtime_error("No support on edge!");
                     }
                     
                     //Add support in to the total support for the alt.
                     altReadSupportTotal += path[i].node->sequence().size() * nodeSupport;
-                    altReadSupportMin = min(altReadSupportMin, nodeSupport);
 
                     // Update minimum likelihood in the alt path
                     if(nodeLikelihood.count(path[i].node)) {
@@ -2158,7 +2219,7 @@ int call2vcf(
                     
                     // Count the bases we see not deleted
                     refReadSupportTotal += refNode->sequence().size() * nodeReadSupport.at(refNode);
-                    refReadSupportMin = min(refReadSupportMin, nodeReadSupport.at(refNode));
+                    refReadSupportMin = support_min(refReadSupportMin, nodeReadSupport.at(refNode));
 
                     // Update minimum likelihood in the ref path
                     if(nodeLikelihood.count(refNode)) {
@@ -2503,7 +2564,7 @@ int call2vcf(
                 
                 // Count the read observations we see not deleted
                 refReadSupportTotal += deletedNode->sequence().size() * nodeReadSupport.at(deletedNode);
-                refReadSupportMin = min(refReadSupportMin, nodeReadSupport.at(deletedNode));
+                refReadSupportMin = support_min(refReadSupportMin, nodeReadSupport.at(deletedNode));
 
                 // Update minimum node likelihood
                 double likelihood = nodeLikelihood.at(deletedNode);
