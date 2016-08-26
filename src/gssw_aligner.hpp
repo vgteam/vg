@@ -46,7 +46,7 @@ namespace vg {
         // create a reversed graph for left-pinned alignment
         void reverse_graph(Graph& g, Graph& reversed_graph_out);
         // reverse all node sequences (other aspects of graph object not unreversed)
-        void unreverse_graph(gssw_graph* graph);
+        void unreverse_graph(Graph& graph);
         // convert graph mapping back into unreversed node positions
         void unreverse_graph_mapping(gssw_graph_mapping* gm);
         
@@ -58,7 +58,7 @@ namespace vg {
         string graph_cigar(gssw_graph_mapping* gm);
         
         // internal function for pinned and local alignment
-        void align_internal(Alignment* alignment, vector<Alignment>* multi_alignments, Graph& g,
+        void align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
                             int64_t pinned_node_id, bool pin_left, int32_t max_alt_alns,
                             bool print_score_matrices = false);
         
@@ -80,23 +80,24 @@ namespace vg {
         ~Aligner(void);
         
         // store optimal local alignment against a graph in the Alignment object
+        // assumes that graph is topologically sorted by node index
         void align(Alignment& alignment, Graph& g, bool print_score_matrices = false);
         
         // store optimal alignment against a graph in the Alignment object with one end of the sequence
         // fixed to the end a node sequence
-        // pinning left means that that the first base of the read sequence is aligned to the first base
-        // of the node sequence, pinning left means that the final base of the read sequence is aligned to
-        // the final base of the node sequence
+        // pinning left means that that the alignment starts with the first base of the read sequence and the
+        // first base of the node sequence, pinning right means that the alignment starts with the final base
+        // of the read sequence and the final base of the node sequence
+        // assumes that graph is topologically sorted by node index
         void align_pinned(Alignment& alignment, Graph& g, int64_t pinned_node_id, bool pin_left);
-        
-        // IMPORTANT: alignments argument should be a vector with exactly one Alignment object already in it
-        //
+                
         // stores the top scoring pinned alignments in the vector in descending score order up to a maximum
         // number of alignments (including the optimal one). if there are fewer than the maximum number in
-        // the return value, then it includes all alignments with a positive score. the optimal alignment will
-        // be stored in the Alignment object that is already in the vector
-        void align_pinned_multi(vector<Alignment>& alignments, Graph& g, int64_t pinned_node_id,
-                                bool pin_left, int32_t max_alt_alns);
+        // the return value, then it includes all alignments with a positive score. the optimal alignment
+        // will be stored in both the vector and in the main alignment object
+        // assumes that graph is topologically sorted by node index
+        void align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+                                int64_t pinned_node_id, bool pin_left, int32_t max_alt_alns);
         
         // store optimal global alignment against a graph within a specified band in the Alignment object
         // permissive banding auto detects the width of band needed so that paths can travel
