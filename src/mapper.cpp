@@ -856,6 +856,21 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     return alns;
 }
 
+VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
+    set<id_t> nodes;
+    auto& path = aln.path();
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        nodes.insert(path.mapping(i).position().node_id());
+    }
+    VG graph;
+    for (auto& node : nodes) {
+        *graph.graph.add_node() = xindex->node(node);
+    }
+    xindex->expand_context(graph.graph, max(1, context_size)); // get connected edges
+    graph.rebuild_indexes();
+    return graph;
+}
+
 set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
                                                     vector<MaximalExactMatch>& mems2) {
     // find the MEMs that are within estimated_fragment_size of each other
@@ -2343,6 +2358,27 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     }
     patched.set_identity(identity(patched.path()));
     patched.set_score(max(0, score)); // todo... re get score?
+
+    /*
+    {
+        // locally realign
+        VG graph = alignment_subgraph(patched, 2);
+        if (patched.path().mapping_size() && patched.path().mapping(0).position().is_reverse()) {
+            patched.set_sequence(reverse_complement(patched.sequence()));
+            patched.clear_path();
+            patched = align_to_graph(patched, graph, max_query_graph_ratio);
+            resolve_softclips(patched, graph);
+            patched = reverse_complement_alignment(patched,
+                                                   (function<int64_t(int64_t)>) ([&](int64_t id) {
+                                                           return (int64_t)get_node_length(id);
+                                                       }));
+        } else {
+            patched = align_to_graph(patched, graph, max_query_graph_ratio);
+            resolve_softclips(patched, graph);
+        }
+    }
+    */
+
     return patched;
 }
 
