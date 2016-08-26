@@ -834,8 +834,11 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }
         }
         if (unique) {
-            alns.emplace_back(simplify(patch_alignment(partial_alignment)));
-            alns.back().set_name(aln.name());
+            auto patch = simplify(patch_alignment(partial_alignment));
+            if (patch.identity() > min_identity) {
+                alns.emplace_back(patch);
+                alns.back().set_name(aln.name());
+            }
         }
     }
 
@@ -872,7 +875,6 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
     for (auto& mem : mems1) {
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
-            //cerr << "#1: " << id << endl;
             id_to_mems[id].push_back(&mem);
             ids1.insert(id);
             ids.push_back(id);
@@ -881,7 +883,6 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
     for (auto& mem : mems2) {
         for (auto& node : mem.nodes) {
             id_t id = gcsa::Node::id(node);
-            //cerr << "#2: " << id << endl;
             id_to_mems[id].push_back(&mem);
             ids2.insert(id);
             ids.push_back(id);
@@ -894,7 +895,6 @@ set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& m
     // get each hit's path-relative position
     map<string, map<int, vector<id_t> > > node_positions;
     for (auto& id : ids) {
-        //map<string, vector<size_t> >
         for (auto& ref : xindex->node_positions_in_paths(id)) {
             auto& name = ref.first;
             for (auto pos : ref.second) {
@@ -999,11 +999,11 @@ bool Mapper::check_alignment(const Alignment& aln) {
                  << "expect:\t" << aln.sequence() << endl
                  << "got:\t" << seq << endl;
             // save alignment
-            write_alignment_to_file(aln, "fail.gam");
+            write_alignment_to_file(aln, "fail-" + hash_alignment(aln) + ".gam");
             // save graph, bigger fragment
             xindex->expand_context(sub, 5, true);
             VG gn; gn.extend(sub);
-            gn.serialize_to_file("fail.vg");
+            gn.serialize_to_file("fail-" + gn.hash() + ".vg");
             return false;
         }
     }
@@ -2266,32 +2266,35 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             reverse(qual.begin(), qual.end());
                             patch.set_quality(qual);
                         }
-                        patch = reverse_complement_alignment(align_to_graph(patch, graph, max_query_graph_ratio),
-                                                             (function<int64_t(int64_t)>) ([&](int64_t id) { return get_node_length(id); }));
                     } else {
                         patch.set_sequence(edit.sequence());
                         if (!aln.quality().empty()) {
                             patch.set_quality(aln.quality().substr(read_pos, edit.to_length()));
                         }
-                        patch = align_to_graph(patch, graph, max_query_graph_ratio);
                     }
-                    //cerr << "patch: " << pb2json(patch) << endl;
-                    // apply the cut node translation
-                    //trimmed_node, trimmed_length
-                    // but does it matter which orientation we are on?
-                    // no because trimmed_length handles this
+
+                    //graph.serialize_to_file("aln-" + graph.hash() + ".vg");
+                    // do the alignment
+                    patch = align_to_graph(patch, graph, max_query_graph_ratio);
+                    // adjust the translated node positions
                     for (int k = 0; k < patch.path().mapping_size(); ++k) {
                         auto* mapping = patch.mutable_path()->mutable_mapping(k);
-                        // convert the position if we're mapped to the translated node
                         if (mapping->position().node_id() == trimmed_node) {
                             mapping->mutable_position()->set_offset(
                                 mapping->position().offset() +
                                 ( mapping->position().is_reverse() ? trimmed_length_rev : trimmed_length_fwd ));
                         }
                     }
-                    
-                    // append the chunk to patched
 
+                    // reverse complement back if our source is reversed
+                    if (mapping.position().is_reverse()) {
+                        patch = reverse_complement_alignment(patch,
+                                                             (function<int64_t(int64_t)>) ([&](int64_t id) {
+                                                                     return (int64_t)get_node_length(id);
+                                                                 }));
+                    }
+
+                    // append the chunk to patched
                     //cerr << "patch: " << pb2json(patch) << endl;
 
                     patch.clear_sequence(); // we set the whole sequence later
@@ -2325,6 +2328,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             read_pos += edit.to_length();
         }
         //cerr << "growing patched: " << pb2json(patched) << endl;
+        if (debug) {
+            patched.set_sequence(aln.sequence().substr(0, read_pos));
+            if (!check_alignment(patched)) {
+                cerr << "patched failure " << pb2json(patched) << endl;
+                assert(false);
+            }
+        }
     }
     // finally, fix up the alignment score
     patched.set_sequence(aln.sequence());
