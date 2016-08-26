@@ -2343,6 +2343,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             read_pos += edit.to_length();
         }
         //cerr << "growing patched: " << pb2json(patched) << endl;
+
         if (debug) {
             patched.set_sequence(aln.sequence().substr(0, read_pos));
             if (!check_alignment(patched)) {
