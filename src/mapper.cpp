@@ -2064,7 +2064,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // only go backward if we are at the first edit (e.g. soft clip)
                 // otherwise we go forward
 
-                // design: (todo)
                 // find the cut positions (on the forward strand)
                 // if they are on the same node, use the multi-cut interface
                 // if they are on separate, cut each node
@@ -2089,7 +2088,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                        id2);  // our target node
                 graph.rebuild_indexes();
                 //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-                //cerr << "got graph " << graph.size() << endl;
                 // now trim the graph to fit by cutting the head/tail node(s)
                 // trim head
                 pos_t first_cut = ref_pos;
@@ -2130,6 +2128,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         first_cut = reverse(second_cut, graph.get_node(id(second_cut))->sequence().size());
                         second_cut = reverse(tmp_cut, graph.get_node(id(tmp_cut))->sequence().size());
                         align_rc = true;
+                        //cerr << "reversed cuts" << endl;
                     } else if (is_rev(first_cut)
                                || is_rev(second_cut)) {
                         cerr << "mismatched cut orientations!" << endl;
@@ -2144,27 +2143,43 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     if (id(first_cut) == id(second_cut)) {
                         if (offset(first_cut) == offset(second_cut)) {
                             if (offset(first_cut)) {
-                                Node* left; Node* right;
+                                //cerr << "cut has offset" << endl;
+                                Node* left; Node* right; Node* trimmed;
                                 Node* node = graph.get_node(id(first_cut));
                                 graph.divide_node(node, offset(first_cut), left, right);
+                                //cerr << pb2json(*left) << " | " << pb2json(*right) << endl;
                                 // check soft clip status, which will change what part we keep
+                                // keep the part that's relevant to the soft clip resolution
                                 if (soft_clip_to_left) {
-                                    // keep the part that's relevant to the soft clip resolution
+                                    //cerr << "soft clip to left" << endl;
                                     graph.destroy_node(right);
                                     graph.swap_node_id(left, id(first_cut));
+                                    trimmed = left;
                                     trimmed_node = id(first_cut);
                                     trimmed_length_fwd = 0;
                                     trimmed_length_rev = offset(first_cut);
                                 } else {
-                                    // remove the unused part
+                                    //cerr << "soft clip to right or other" << endl;
                                     graph.destroy_node(left);
                                     graph.swap_node_id(right, id(first_cut));
+                                    trimmed = right;
                                     trimmed_node = id(first_cut);
                                     trimmed_length_fwd = offset(first_cut);
                                     trimmed_length_rev = 0;
                                 }
-                                target_nodes.push_back(graph.get_node(id(first_cut)));
+                                if (trimmed->sequence().size()) {
+                                    target_nodes.push_back(trimmed);
+                                } else {
+                                    // push back each connected node
+                                    for (auto& edge : graph.edges_to(trimmed)) {
+                                        target_nodes.push_back(graph.get_node(edge->from()));
+                                    }
+                                    for (auto& edge : graph.edges_from(trimmed)) {
+                                        target_nodes.push_back(graph.get_node(edge->to()));
+                                    }
+                                }
                             } else {
+                                //cerr << "erase everything before this node" << endl;
                                 // erase everything before this node
                                 // do so by removing edges
                                 // later we will decide which subgraphs to keep
@@ -2177,6 +2192,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                 target_nodes.push_back(graph.get_node(id(first_cut)));
                             }
                         } else {
+                            //cerr << "offsets different same node" << endl;
                             vector<int> positions = { (int)offset(first_cut), (int)offset(second_cut) };
                             vector<Node*> parts;
                             Node* node = graph.get_node(id(first_cut));
@@ -2192,6 +2208,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                             trimmed_length_rev = (orig_len - offset(second_cut));
                         }
                     } else { // different nodes to trim
+                        //cerr << "different nodes" << endl;
                         if (offset(first_cut)) {
                             Node* left; Node* right;
                             Node* node = graph.get_node(id(first_cut));
@@ -2235,28 +2252,31 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     // expanding context until we complete the subgraph it's on
                     // and then checking if the second cut position is on this graph
 
-                    assert(target_nodes.size());
-                    vector<Node*> valid_target_nodes;
-                    // find a valid target node
-                    for (auto& n : target_nodes) {
-                        if (graph.has_node(*n)) {
-                            valid_target_nodes.push_back(n);
-                        }
-                    }
-                    // if we find one, use it to build out a subgraph
-                    if (!valid_target_nodes.empty()) {
-                        VG target;
-                        target.add_node(*valid_target_nodes.front());
-                        graph.expand_context(target, 1e6, false);
-                        // then check if all of the targets are in this subgraph
-                        for (auto& n : valid_target_nodes) {
-                            if (!target.has_node(*n)) {
-                                has_target = false;
-                                break;
+                    if (target_nodes.size()) {
+                        vector<Node*> valid_target_nodes;
+                        // find a valid target node
+                        for (auto& n : target_nodes) {
+                            if (graph.has_node(*n)) {
+                                valid_target_nodes.push_back(n);
                             }
                         }
-                        // if so, use the target as our graph
-                        if (has_target) graph = target;
+                        // if we find one, use it to build out a subgraph
+                        if (!valid_target_nodes.empty()) {
+                            VG target;
+                            target.add_node(*valid_target_nodes.front());
+                            graph.expand_context(target, 1e6, false);
+                            // then check if all of the targets are in this subgraph
+                            for (auto& n : valid_target_nodes) {
+                                if (!target.has_node(*n)) {
+                                    has_target = false;
+                                    break;
+                                }
+                            }
+                            // if so, use the target as our graph
+                            if (has_target) graph = target;
+                        } else {
+                            has_target = false;
+                        }
                     } else {
                         has_target = false;
                     }
