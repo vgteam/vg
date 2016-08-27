@@ -45,6 +45,7 @@ public:
                                    double indel_error);
     vector<Alignment> alignment_pair(size_t read_length,
                                      size_t fragment_length,
+                                     double fragment_std_dev,
                                      double base_error,
                                      double indel_error);
     size_t node_length(id_t id);

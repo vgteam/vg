@@ -4138,7 +4138,8 @@ void help_sim(char** argv) {
          << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
          << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
          << "    -f, --forward-only    don't simulate from the reverse strand" << endl
-         << "    -p, --paired N        make paired end reads with given fragment length N" << endl
+         << "    -p, --frag-len N      make paired end reads with given fragment length N" << endl
+         << "    -v, --frag-std-dev N  use this standard deviation for fragment length estimation" << endl
          << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl
          << "    -J, --json-out        write alignments in json" << endl;
 }
@@ -4159,6 +4160,7 @@ int main_sim(int argc, char** argv) {
     bool align_out = false;
     bool json_out = false;
     int fragment_length = 0;
+    double fragment_std_dev = 0;
     string xg_name;
 
     int c;
@@ -4176,12 +4178,13 @@ int main_sim(int argc, char** argv) {
             {"json-out", no_argument, 0, 'J'},
             {"base-error", required_argument, 0, 'e'},
             {"indel-error", required_argument, 0, 'i'},
-            {"paired", required_argument, 0, 'p'},
+            {"frag-len", required_argument, 0, 'p'},
+            {"frag-std-dev", required_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4232,6 +4235,10 @@ int main_sim(int argc, char** argv) {
             fragment_length = atoi(optarg);
             break;
 
+        case 'v':
+            fragment_std_dev = atof(optarg);
+            break;
+
         case 'h':
         case '?':
             help_sim(argv);
@@ -4265,14 +4272,13 @@ int main_sim(int argc, char** argv) {
     size_t max_iter = 1000;
     int nonce = 1;
     for (int i = 0; i < num_reads; ++i) {
-        // TODO paired end
         if (fragment_length) {
-            auto alns = sampler.alignment_pair(read_length, fragment_length, base_error, indel_error);
+            auto alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
             size_t iter = 0;
             while (iter++ < max_iter) {
                 if (alns.front().sequence().size() < read_length
                     || alns.back().sequence().size() < read_length) {
-                    alns = sampler.alignment_pair(read_length, fragment_length, base_error, indel_error);
+                    alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
                 }
             }
             // write the alignment or its string

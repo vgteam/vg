@@ -153,9 +153,11 @@ string Sampler::alignment_seq(const Alignment& aln) {
     return g.path_string(aln.path());
 }
 
-vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_length, double base_error, double indel_error) {
+vector<Alignment> Sampler::alignment_pair(size_t read_length, size_t fragment_length, double fragment_std_dev, double base_error, double indel_error) {
     // simulate forward/reverse pair by first simulating a long read
-    auto fragment = alignment_with_error(fragment_length, base_error, indel_error);
+    normal_distribution<> norm_dist(fragment_length, fragment_std_dev);
+    int frag_len = round(norm_dist(rng));
+    auto fragment = alignment_with_error(frag_len, base_error, indel_error);
     // then taking the ends
     auto fragments = alignment_ends(fragment, read_length, read_length);
     auto& aln1 = fragments.front();
