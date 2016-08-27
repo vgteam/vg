@@ -92,7 +92,7 @@ is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J | jq -c '.path.mappin
 
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -n 5 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "mem mapping works"
 
-is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J -2 | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "mem threaded mapping works"
+is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J -a | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "mem threaded mapping works"
 
 is $(vg map -r x.reads -V x.vg -k 11 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map can build its own in-memory indexes"
 

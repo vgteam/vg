@@ -7221,7 +7221,7 @@ void help_map(char** argv) {
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -2, --mem-threading      use the MEM-threading alingment algorithm" << endl
+         << "    -a, --mem-threading      use the MEM-threading alingment algorithm" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
@@ -7342,7 +7342,7 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
-                {"mem-threading", no_argument, 0, '2'},
+                {"mem-threading", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
                 {"match", required_argument, 0, 'q'},
@@ -7352,13 +7352,13 @@ int main_map(int argc, char** argv) {
                 {"qual-adjust", no_argument, 0, '1'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
                 {"map-qual-method", required_argument, 0, 'v'},
-                {"compare", required_argument, 0, 'w'},
+                {"compare", no_argument, 0, 'w'},
                 {"fragment-window", required_argument, 0, 'W'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:2",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:wW:a",
                          long_options, &option_index);
 
 
@@ -7530,7 +7530,7 @@ int main_map(int argc, char** argv) {
             max_mem_length = atoi(optarg);
             break;
 
-        case '2':
+        case 'a':
             mem_threading = true;
             break;
 
@@ -7572,7 +7572,6 @@ int main_map(int argc, char** argv) {
 
         case 'w':
             compare_gam = true;
-            output_json = true; // avoid GAM output as we make a table
             break;
 
         case 'W':
