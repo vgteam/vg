@@ -9,6 +9,7 @@
 #include "gssw_aligner.hpp"
 #include "vg.hpp"
 #include "banded_global_aligner.hpp"
+#include "json2pb.h"
 
 using namespace google::protobuf;
 
@@ -40,9 +41,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -93,14 +94,14 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
                                      aligner.gap_extension);
-                
+                                
                 const Path& path = aln.path();
                 
                 // is a global alignment
@@ -150,9 +151,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -211,9 +212,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -272,9 +273,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -333,9 +334,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -394,9 +395,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -456,9 +457,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -513,9 +514,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -570,9 +571,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -627,9 +628,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 2;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -684,9 +685,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 3;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -745,9 +746,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -798,9 +799,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -848,9 +849,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -893,9 +894,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -942,9 +943,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -993,9 +994,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -1046,9 +1047,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 20;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -1099,9 +1100,9 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 0;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -1156,10 +1157,10 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width,
-                                                                                       true);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width,
+                                                                         true);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -1210,10 +1211,10 @@ namespace vg {
                 aln.set_sequence(read);
                 
                 int band_width = 0;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width,
-                                                                                       true);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width,
+                                                                         true);
                 
                 
                 banded_aligner.align(aligner.score_matrix, aligner.nt_table, aligner.gap_open,
@@ -1279,11 +1280,11 @@ namespace vg {
                 alignment_quality_char_to_short(aln);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width,
-                                                                                       true,
-                                                                                       true);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width,
+                                                                         true,
+                                                                         true);
                 
                 
                 banded_aligner.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.gap_open,
@@ -1337,11 +1338,11 @@ namespace vg {
                 alignment_quality_char_to_short(aln);
                 
                 int band_width = 1;
-                BandedGlobalAlignmentGraph banded_aligner = BandedGlobalAlignmentGraph(aln,
-                                                                                       graph.graph,
-                                                                                       band_width,
-                                                                                       true,
-                                                                                       true);
+                BandedGlobalAligner banded_aligner = BandedGlobalAligner(aln,
+                                                                         graph.graph,
+                                                                         band_width,
+                                                                         true,
+                                                                         true);
                 
                 
                 banded_aligner.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.gap_open,
@@ -1395,17 +1396,17 @@ namespace vg {
                 
                 int band_width = 1;
                 
-                BandedGlobalAlignmentGraph banded_aligner_full = BandedGlobalAlignmentGraph(aln_full,
-                                                                                            graph.graph,
-                                                                                            band_width,
-                                                                                            true,
-                                                                                            true);
+                BandedGlobalAligner banded_aligner_full = BandedGlobalAligner(aln_full,
+                                                                              graph.graph,
+                                                                              band_width,
+                                                                              true,
+                                                                              true);
                 
-                BandedGlobalAlignmentGraph banded_aligner_reduced = BandedGlobalAlignmentGraph(aln_reduced,
-                                                                                               graph.graph,
-                                                                                               band_width,
-                                                                                               true,
-                                                                                               true);
+                BandedGlobalAligner banded_aligner_reduced = BandedGlobalAligner(aln_reduced,
+                                                                                 graph.graph,
+                                                                                 band_width,
+                                                                                 true,
+                                                                                 true);
                 
                 
                 banded_aligner_full.align(aligner.adjusted_score_matrix, aligner.nt_table, aligner.scaled_gap_open,
