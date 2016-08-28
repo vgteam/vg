@@ -7578,6 +7578,7 @@ int main_map(int argc, char** argv) {
 
         case 'w':
             compare_gam = true;
+            output_json = true;
             break;
 
         case 'W':
@@ -7977,9 +7978,17 @@ int main_map(int argc, char** argv) {
                 // Make sure we have unaligned "alignments" for things that don't align.
                 if(alnp.first.empty()) {
                     alnp.first.push_back(aln1);
+                    auto& aln = alnp.first.back();
+                    aln.clear_path();
+                    aln.clear_score();
+                    aln.clear_identity();
                 }
                 if(alnp.second.empty()) {
                     alnp.second.push_back(aln2);
+                    auto& aln = alnp.second.back();
+                    aln.clear_path();
+                    aln.clear_score();
+                    aln.clear_identity();
                 }
                 if (compare_gam) {
 #pragma omp critical (cout)
