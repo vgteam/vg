@@ -385,7 +385,7 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                         NodeOffSide no2(NodeSide(node2->id(), !left_side2), to_offset);
                         // take augmented deletion edge support from the pileup
                         if (cat == 'L') {
-                            edge_support = _deletion_supports[make_pair(no1, no2)];
+                            edge_support = _deletion_supports[minmax(no1, no2)];
                         }
                         // hack to decrease support for an edge that spans an insertion, by subtracting
                         // that insertion's copy number.  
@@ -683,11 +683,11 @@ void Caller::create_node_calls(const NodePileup& np) {
                 // bridge to node
                 NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
                 NodeOffSide no2(NodeSide(_node->id(), false), cur);
-                _augmented_edges[make_pair(no1, no2)] = 'R';
+                _augmented_edges[minmax(no1, no2)] = 'R';
                 // bridge from node
                 no1 = NodeOffSide(NodeSide(_node->id(), true), next-1);
                 no2 = NodeOffSide(NodeSide(_node->id(), false), next);
-                _augmented_edges[make_pair(no1, no2)] = 'R';
+                _augmented_edges[minmax(no1, no2)] = 'R';
             }            
             else {
                 // some mix of reference and alts
@@ -707,11 +707,11 @@ void Caller::create_node_calls(const NodePileup& np) {
                         // bridge to node
                         NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
                         NodeOffSide no2(NodeSide(_node->id(), false), cur);
-                        _augmented_edges[make_pair(no1, no2)] = 'R';
+                        _augmented_edges[minmax(no1, no2)] = 'R';
                         // bridge from node
                         no1 = NodeOffSide(NodeSide(_node->id(), true), next-1);
                         no2 = NodeOffSide(NodeSide(_node->id(), false), next);
-                        _augmented_edges[make_pair(no1, no2)] = 'R';
+                        _augmented_edges[minmax(no1, no2)] = 'R';
                     }
                     if (call1 != "." && call1[0] != '-' && call1[0] != '+' && (
                             // we only want to process a homozygous snp once:
@@ -725,11 +725,11 @@ void Caller::create_node_calls(const NodePileup& np) {
                         // bridge to node
                         NodeOffSide no1(NodeSide(_node->id(), true), cur-1);
                         NodeOffSide no2(NodeSide(_node->id(), false), cur);
-                        _augmented_edges[make_pair(no1, no2)] = 'S';
+                        _augmented_edges[minmax(no1, no2)] = 'S';
                         // bridge from node
                         no1 = NodeOffSide(NodeSide(_node->id(), true), next-1);
                         no2 = NodeOffSide(NodeSide(_node->id(), false), next);
-                        _augmented_edges[make_pair(no1, no2)] = 'S';
+                        _augmented_edges[minmax(no1, no2)] = 'S';
                     }
                     else if (call1 != "." && call1[0] == '-' && call1.length() > 1 && (
                                  // we only want to process homozygous delete once
@@ -753,9 +753,9 @@ void Caller::create_node_calls(const NodePileup& np) {
                         
                         // we're just going to update the divider here, since all
                         // edges get done at the end
-                        _augmented_edges[make_pair(s1, s2)] = 'L';
+                        _augmented_edges[minmax(s1, s2)] = 'L';
                         // keep track of its support
-                        _deletion_supports[make_pair(s1, s2)] = support1;
+                        _deletion_supports[minmax(s1, s2)] = support1;
                         
                         // also need to bridge any fragments created above
                         if ((from_start && from_offset > 0) ||
@@ -763,16 +763,16 @@ void Caller::create_node_calls(const NodePileup& np) {
                             NodeOffSide no1(NodeSide(from_id, !from_start), from_offset);
                             NodeOffSide no2(NodeSide(from_id, from_start),
                                             (from_start ? from_offset - 1 : from_offset + 1));
-                            if (_augmented_edges.find(make_pair(no1, no2)) == _augmented_edges.end()) {
-                                _augmented_edges[make_pair(no1, no2)] = 'R';
+                            if (_augmented_edges.find(minmax(no1, no2)) == _augmented_edges.end()) {
+                                _augmented_edges[minmax(no1, no2)] = 'R';
                             }
                         }
                         if ((!to_end && to_offset > 0) ||
                             (to_end && to_offset < node2->sequence().length() - 1)) {
                             NodeOffSide no1(NodeSide(to_id, to_end), to_offset);
                             NodeOffSide no2(NodeSide(to_id, !to_end), !to_end ? to_offset - 1 : to_offset + 1);
-                            if (_augmented_edges.find(make_pair(no1, no2)) == _augmented_edges.end()) {
-                                _augmented_edges[make_pair(no1, no2)] = 'R';
+                            if (_augmented_edges.find(minmax(no1, no2)) == _augmented_edges.end()) {
+                                _augmented_edges[minmax(no1, no2)] = 'R';
                             }
 
                         }
@@ -806,14 +806,14 @@ void Caller::create_node_calls(const NodePileup& np) {
                     // bridge to insert
                     NodeOffSide no1(NodeSide(_node->id(), true), next-1);
                     NodeOffSide no2(NodeSide(node->id(), false), 0);
-                    _augmented_edges[make_pair(no1, no2)] = 'I';
+                    _augmented_edges[minmax(no1, no2)] = 'I';
                     // bridge from insert
                     if (next < _node->sequence().length()) {
                         NodeOffSide no3 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
                         NodeOffSide no4 = NodeOffSide(NodeSide(_node->id(), false), next);
-                        _augmented_edges[make_pair(no3, no4)] = 'I';
+                        _augmented_edges[minmax(no3, no4)] = 'I';
                         // bridge across insert
-                        _augmented_edges[make_pair(no1, no4)] = 'R';
+                        _augmented_edges[minmax(no1, no4)] = 'R';
                         // remember support "lost" to insertion so we
                         // can subtract it from the bridge later on
                         if (_insertion_supports.count(minmax(no1, no4))) {
@@ -829,9 +829,9 @@ void Caller::create_node_calls(const NodePileup& np) {
                         NodeOffSide no3 = NodeOffSide(NodeSide(node->id(), true), node->sequence().length() - 1);
                         for (auto nn : next_nodes) {
                             NodeOffSide no4 = NodeOffSide(NodeSide(nn.first, nn.second), 0);
-                            _augmented_edges[make_pair(no3, no4)] = 'I';
+                            _augmented_edges[minmax(no3, no4)] = 'I';
                             // bridge across insert
-                            _augmented_edges[make_pair(no1, no4)] = 'R';
+                            _augmented_edges[minmax(no1, no4)] = 'R';
                             // remember support "lost" to insertion so we
                             // can subtract it from the bridge later on
                             if (_insertion_supports.count(minmax(no1, no4))) {
