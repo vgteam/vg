@@ -1182,6 +1182,7 @@ void help_call(char** argv) {
          << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
          << "    -u, --use_avg_support      use average instead of minimum support" << endl
          << "    -m, --multiallelic         support multiallelic sites" << endl
+         << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
          << "    -t, --threads N            number of threads to use" << endl;
@@ -1256,6 +1257,9 @@ int main_call(int argc, char** argv) {
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?
     size_t max_bubble_paths = 100;
+    // what's the minimum minimum allele depth to give a PASS in the filter column
+    // (anything below gets FAIL)
+    size_t min_mad_for_filter = 5;
 
     bool show_progress = false;
     int thread_count = 1;
@@ -1292,12 +1296,13 @@ int main_call(int argc, char** argv) {
                 {"no_overlap", no_argument, 0, 'O'},
                 {"use_avg_support", no_argument, 0, 'u'},
                 {"multiallelic", no_argument, 0, 'm'},
+                {"min_mad", required_argument, 0, 'E'},                
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:Oumh",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OumE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1400,7 +1405,11 @@ int main_call(int argc, char** argv) {
         case 'm':
             // Allow for multiallelic sites by using a different algorithm
             multiallelic_support = true;
-            break;                    
+            break;
+        case 'E':
+            // Minimum min-allele-depth required to give Filter column a PASS
+            min_mad_for_filter = std::stoi(optarg);
+            break;                                
         case 'p':
             show_progress = true;
             break;
@@ -1538,7 +1547,8 @@ int main_call(int argc, char** argv) {
                         useAverageSupport,
                         multiallelic_support,
                         max_ref_length,
-                        max_bubble_paths);
+                        max_bubble_paths,
+                        min_mad_for_filter);
     
     return 0;
 }

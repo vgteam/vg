@@ -1156,7 +1156,10 @@ int call2vcf(
     size_t max_ref_length,
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?
-    size_t max_bubble_paths) {
+    size_t max_bubble_paths,
+    // what's the minimum minimum allele depth to give a PASS in the filter column
+    // (anything below gets FAIL)    
+    size_t min_mad_for_filter) {
     
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
@@ -1864,6 +1867,9 @@ int call2vcf(
             // As we do the genotype, we also compute the likelihood. Holds
             // likelihood log 10. Starts out at "completely wrong".
             double gen_likelihood = -1 * INFINITY;
+
+            // Minimum allele depth of called alleles
+            double min_site_support = 0;
             
             // We're going to make some really bad calls at low depth. We can
             // pull them out with a depth filter, but for now just elide them.
@@ -1905,6 +1911,8 @@ int call2vcf(
                     gen_likelihood = log10(poissonp(total(best_support), 0.5 * total(baseline_support))) +
                         log10(poissonp(total(second_best_support), 0.5 * total(baseline_support)));
                     gen_likelihood += min_likelihoods.at(best_allele) + min_likelihoods.at(second_best_allele);
+                    // Get minimum support for filter (not assuming it's second_best just to be sure)
+                    min_site_support = std::min(total(second_best_support), total(best_support));
                     
                 } else if(total(best_support) >= minTotalSupportForCall) {
                     // The second best allele isn't present or isn't good enough,
@@ -1915,6 +1923,10 @@ int call2vcf(
                     // Compute the likelihood for hom best allele
                     gen_likelihood = log10(poissonp(total(best_support), total(baseline_support)));
                     gen_likelihood += min_likelihoods.at(best_allele);
+
+                    // Get minimum support for filter
+                    min_site_support = total(best_support);
+
                 
                 } else {
                     // We can't really call this as anything.
@@ -1989,6 +2001,9 @@ int call2vcf(
 
             // Copy over the quality value
             variant.quality = -10. * log10(1. - pow(10, gen_likelihood));
+
+            // Apply Min Allele Depth cutoff and store result in Filter column
+            variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
             
             if(can_write_alleles(variant)) {
                 // No need to check for collisions because we assume sites are correctly found.
@@ -2412,18 +2427,25 @@ int call2vcf(
                 // Quick quality: combine likelihood and depth, using poisson for latter
                 // todo: revize which depth (cur: avg) / likelihood (cur: min) pair to use
                 double genLikelihood;
+                double min_site_support = 0;
                 if (genotype.back() == "0/0") {
                     genLikelihood = log10(poissonp(total(refSupport), total(baselineSupport)));
                     genLikelihood += refMinLikelihood.second;
+                    min_site_support =  total(refSupport);
                 } else if (genotype.back() == "1/1") {
                     genLikelihood = log10(poissonp(total(altSupport), total(baselineSupport)));
                     genLikelihood += altMinLikelihood.second;
+                    min_site_support = total(altSupport);
                 } else {
                     genLikelihood = log10(poissonp(total(refSupport), 0.5 * total(baselineSupport))) +
                         log10(poissonp(total(altSupport), 0.5 * total(baselineSupport)));
                     genLikelihood += refMinLikelihood.second + altMinLikelihood.second;
+                    min_site_support = std::min(total(refSupport), total(altSupport));
                 }
                 variant.quality = -10. * log10(1. - pow(10, genLikelihood));
+
+                // Apply Min Allele Depth cutoff and store result in Filter column
+                variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
                 
                 
 #ifdef debug
@@ -2725,19 +2747,26 @@ int call2vcf(
                 // Quick quality: combine likelihood and depth, using poisson for latter
                 // todo: revize which depth (cur: avg) / likelihood (cur: min) pair to use
                 double genLikelihood;
+                double min_site_support = 0;
                 if (genotype.back() == "0/0") {
                     genLikelihood = log10(poissonp(total(refSupport), total(baselineSupport)));
                     genLikelihood += refMinLikelihood.second;
+                    min_site_support = total(refSupport);
                 } else if (genotype.back() == "1/1") {
                     genLikelihood = log10(poissonp(total(altReadSupportTotal), total(baselineSupport)));
                     genLikelihood += altMinLikelihood;
+                    min_site_support = total(altReadSupportTotal);
                 } else {
                     genLikelihood = log10(poissonp(total(refSupport), 0.5 * total(baselineSupport))) +
                         log10(poissonp(total(altReadSupportTotal), 0.5 * total(baselineSupport)));
                     genLikelihood += refMinLikelihood.second + altMinLikelihood;
+                    min_site_support = std::min(total(refSupport), total(altReadSupportTotal));
                 }
                 variant.quality = -10. * log10(1. - pow(10, genLikelihood));
-            
+
+                // Apply Min Allele Depth cutoff and store result in Filter column
+                variant.filter = min_site_support >= min_mad_for_filter ? "PASS" : "FAIL";
+                
 #ifdef debug
             std::cerr << "Found variant " << refAllele << " -> " << altAllele
                 << " caused by edge " <<  variant.id
