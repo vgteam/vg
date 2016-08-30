@@ -15,10 +15,10 @@ const double Caller::Log_zero = (double)-1e100;
 // (so we keep fairly loose).  the final vcf calls are governed
 // by the (former) glenn2vcf options (passed to call2vcf())
 const double Caller::Default_het_prior = 0.001; // from MAQ
-const int Caller::Default_min_depth = 2;
-const int Caller::Default_max_depth = 200;
-const int Caller::Default_min_support = 2;
-const double Caller::Default_min_frac = 0.1;
+const int Caller::Default_min_depth = 1;
+const int Caller::Default_max_depth = 1000;
+const int Caller::Default_min_support = 1;
+const double Caller::Default_min_frac = 0.;
 const double Caller::Default_min_log_likelihood = -5000.0;
 const char Caller::Default_default_quality = 30;
 const double Caller::Default_max_strand_bias = 1;
@@ -385,11 +385,11 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                         NodeOffSide no2(NodeSide(node2->id(), !left_side2), to_offset);
                         // take augmented deletion edge support from the pileup
                         if (cat == 'L') {
-                            edge_support = _deletion_supports[make_pair(no1, no2)];
+                            edge_support = _deletion_supports[minmax(no1, no2)];
                         }
                         // hack to decrease support for an edge that spans an insertion, by subtracting
                         // that insertion's copy number.  
-                        auto is_it = _insertion_supports.find(make_pair(no1, no2));
+                        auto is_it = _insertion_supports.find(minmax(no1, no2));
                         if (is_it != _insertion_supports.end()) {
                             edge_support = edge_support - is_it->second;
                         }                        
@@ -755,7 +755,7 @@ void Caller::create_node_calls(const NodePileup& np) {
                         // edges get done at the end
                         _augmented_edges[make_pair(s1, s2)] = 'L';
                         // keep track of its support
-                        _deletion_supports[make_pair(s1, s2)] = support1;
+                        _deletion_supports[minmax(s1, s2)] = support1;
                         
                         // also need to bridge any fragments created above
                         if ((from_start && from_offset > 0) ||
@@ -814,7 +814,13 @@ void Caller::create_node_calls(const NodePileup& np) {
                         _augmented_edges[make_pair(no3, no4)] = 'I';
                         // bridge across insert
                         _augmented_edges[make_pair(no1, no4)] = 'R';
-                        _insertion_supports[make_pair(no1, no4)] = sup;
+                        // remember support "lost" to insertion so we
+                        // can subtract it from the bridge later on
+                        if (_insertion_supports.count(minmax(no1, no4))) {
+                          _insertion_supports[minmax(no1, no4)] += sup;
+                        } else {
+                          _insertion_supports[minmax(no1, no4)] = sup;
+                        }                                                    
                     } else {
                         // we have to link all outgoing edges to our insert if
                         // we're at end of node (unlike snps, the fragment structure doesn't
@@ -826,7 +832,13 @@ void Caller::create_node_calls(const NodePileup& np) {
                             _augmented_edges[make_pair(no3, no4)] = 'I';
                             // bridge across insert
                             _augmented_edges[make_pair(no1, no4)] = 'R';
-                            _insertion_supports[make_pair(no1, no4)] = sup;
+                            // remember support "lost" to insertion so we
+                            // can subtract it from the bridge later on
+                            if (_insertion_supports.count(minmax(no1, no4))) {
+                                _insertion_supports[minmax(no1, no4)] += sup;
+                            } else {
+                                _insertion_supports[minmax(no1, no4)] = sup;
+                            }                            
                         }
                     }
                 }

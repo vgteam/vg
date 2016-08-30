@@ -1174,14 +1174,15 @@ void help_call(char** argv) {
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
          << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
-         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [6]" << endl
-         << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [2]" << endl
-         << "    -n, --min_count INT        min total supporting read count to call a variant [5]" << endl
-         << "    -B, --bin_size  INT        bin size used for counting coverage [1000]" << endl
+         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
+         << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
+         << "    -n, --min_count INT        min total supporting read count to call a variant [1]" << endl
+         << "    -B, --bin_size  INT        bin size used for counting coverage [250]" << endl
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
          << "    -u, --use_avg_support      use average instead of minimum support" << endl
-         << "    -m, --multiallelic         support multiallelic sites" << endl
+         << "    -I, --singleallelic        disable support for multiallelic sites" << endl
+         << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
          << "    -t, --threads N            number of threads to use" << endl;
@@ -1228,17 +1229,17 @@ int main_call(int argc, char** argv) {
     // heterozygous if even one read supports each allele.
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 6;
+    double maxRefBias = 4;
     // How many times more bias do we allow for indels?
-    double indelBiasMultiple = 2;
+    double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall = 10;
+    size_t minTotalSupportForCall = 1;
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
-    size_t refBinSize = 1000;
+    size_t refBinSize = 250;
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
     size_t expCoverage = 0;
@@ -1249,13 +1250,16 @@ int main_call(int argc, char** argv) {
     bool useAverageSupport = false;
     // Should we go by sites and thus support multiallelic sites (true), or use
     // the old single-branch-bubble method (false)?
-    bool multiallelic_support = false;
+    bool multiallelic_support = true;
     // How big a site should we try to type all at once instead of replacing
     // with its children if it has any?
     size_t max_ref_length = 100;
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?
     size_t max_bubble_paths = 100;
+    // what's the minimum minimum allele depth to give a PASS in the filter column
+    // (anything below gets FAIL)
+    size_t min_mad_for_filter = 5;
 
     bool show_progress = false;
     int thread_count = 1;
@@ -1291,13 +1295,14 @@ int main_call(int argc, char** argv) {
                 {"avg_coverage", required_argument, 0, 'C'},
                 {"no_overlap", no_argument, 0, 'O'},
                 {"use_avg_support", no_argument, 0, 'u'},
-                {"multiallelic", no_argument, 0, 'm'},
+                {"singleallelic", no_argument, 0, 'I'},
+                {"min_mad", required_argument, 0, 'E'},                
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:Oumh",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1397,10 +1402,14 @@ int main_call(int argc, char** argv) {
             // Average (isntead of min) support
             useAverageSupport = true;
             break;
-        case 'm':
-            // Allow for multiallelic sites by using a different algorithm
-            multiallelic_support = true;
-            break;                    
+        case 'I':
+            // Disallow for multiallelic sites by using a different algorithm
+            multiallelic_support = false;
+            break;
+        case 'E':
+            // Minimum min-allele-depth required to give Filter column a PASS
+            min_mad_for_filter = std::stoi(optarg);
+            break;                                
         case 'p':
             show_progress = true;
             break;
@@ -1538,7 +1547,8 @@ int main_call(int argc, char** argv) {
                         useAverageSupport,
                         multiallelic_support,
                         max_ref_length,
-                        max_bubble_paths);
+                        max_bubble_paths,
+                        min_mad_for_filter);
     
     return 0;
 }

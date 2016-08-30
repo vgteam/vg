@@ -402,7 +402,10 @@ int call2vcf(
     size_t max_ref_length,
     // What's the maximum number of bubble path combinations we can explore
     // while finding one with maximum support?
-    size_t max_bubble_paths);
+    size_t max_bubble_paths,
+    // what's the minimum minimum allele depth to give a PASS in the filter column
+    // (anything below gets FAIL)    
+    size_t min_mad_for_filter);
 
 }
 
