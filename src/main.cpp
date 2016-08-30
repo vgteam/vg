@@ -1181,7 +1181,7 @@ void help_call(char** argv) {
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
          << "    -u, --use_avg_support      use average instead of minimum support" << endl
-         << "    -m, --multiallelic         support multiallelic sites" << endl
+         << "    -I, --singleallelic        disable support for multiallelic sites" << endl
          << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
@@ -1250,7 +1250,7 @@ int main_call(int argc, char** argv) {
     bool useAverageSupport = false;
     // Should we go by sites and thus support multiallelic sites (true), or use
     // the old single-branch-bubble method (false)?
-    bool multiallelic_support = false;
+    bool multiallelic_support = true;
     // How big a site should we try to type all at once instead of replacing
     // with its children if it has any?
     size_t max_ref_length = 100;
@@ -1295,14 +1295,14 @@ int main_call(int argc, char** argv) {
                 {"avg_coverage", required_argument, 0, 'C'},
                 {"no_overlap", no_argument, 0, 'O'},
                 {"use_avg_support", no_argument, 0, 'u'},
-                {"multiallelic", no_argument, 0, 'm'},
+                {"singleallelic", no_argument, 0, 'I'},
                 {"min_mad", required_argument, 0, 'E'},                
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OumE:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1402,9 +1402,9 @@ int main_call(int argc, char** argv) {
             // Average (isntead of min) support
             useAverageSupport = true;
             break;
-        case 'm':
-            // Allow for multiallelic sites by using a different algorithm
-            multiallelic_support = true;
+        case 'I':
+            // Disallow for multiallelic sites by using a different algorithm
+            multiallelic_support = false;
             break;
         case 'E':
             // Minimum min-allele-depth required to give Filter column a PASS
