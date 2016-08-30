@@ -1174,10 +1174,10 @@ void help_call(char** argv) {
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
          << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
-         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [6]" << endl
-         << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [2]" << endl
-         << "    -n, --min_count INT        min total supporting read count to call a variant [5]" << endl
-         << "    -B, --bin_size  INT        bin size used for counting coverage [1000]" << endl
+         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
+         << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
+         << "    -n, --min_count INT        min total supporting read count to call a variant [1]" << endl
+         << "    -B, --bin_size  INT        bin size used for counting coverage [250]" << endl
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
          << "    -u, --use_avg_support      use average instead of minimum support" << endl
@@ -1229,17 +1229,17 @@ int main_call(int argc, char** argv) {
     // heterozygous if even one read supports each allele.
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 6;
+    double maxRefBias = 4;
     // How many times more bias do we allow for indels?
-    double indelBiasMultiple = 2;
+    double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall = 10;
+    size_t minTotalSupportForCall = 1;
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
-    size_t refBinSize = 1000;
+    size_t refBinSize = 250;
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
     size_t expCoverage = 0;
