@@ -389,7 +389,7 @@ void Caller::create_augmented_edge(Node* node1, int from_offset, bool left_side1
                         }
                         // hack to decrease support for an edge that spans an insertion, by subtracting
                         // that insertion's copy number.  
-                        auto is_it = _insertion_supports.find(make_pair(no1, no2));
+                        auto is_it = _insertion_supports.find(minmax(no1, no2));
                         if (is_it != _insertion_supports.end()) {
                             edge_support = edge_support - is_it->second;
                         }                        
@@ -814,7 +814,13 @@ void Caller::create_node_calls(const NodePileup& np) {
                         _augmented_edges[make_pair(no3, no4)] = 'I';
                         // bridge across insert
                         _augmented_edges[make_pair(no1, no4)] = 'R';
-                        _insertion_supports[make_pair(no1, no4)] = sup;
+                        // remember support "lost" to insertion so we
+                        // can subtract it from the bridge later on
+                        if (_insertion_supports.count(minmax(no1, no4))) {
+                          _insertion_supports[minmax(no1, no4)] += sup;
+                        } else {
+                          _insertion_supports[minmax(no1, no4)] = sup;
+                        }                                                    
                     } else {
                         // we have to link all outgoing edges to our insert if
                         // we're at end of node (unlike snps, the fragment structure doesn't
@@ -826,7 +832,13 @@ void Caller::create_node_calls(const NodePileup& np) {
                             _augmented_edges[make_pair(no3, no4)] = 'I';
                             // bridge across insert
                             _augmented_edges[make_pair(no1, no4)] = 'R';
-                            _insertion_supports[make_pair(no1, no4)] = sup;
+                            // remember support "lost" to insertion so we
+                            // can subtract it from the bridge later on
+                            if (_insertion_supports.count(minmax(no1, no4))) {
+                                _insertion_supports[minmax(no1, no4)] += sup;
+                            } else {
+                                _insertion_supports[minmax(no1, no4)] = sup;
+                            }                            
                         }
                     }
                 }
