@@ -7224,6 +7224,7 @@ void help_map(char** argv) {
          << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
+         << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
@@ -7234,7 +7235,6 @@ void help_map(char** argv) {
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
-         << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl;
 }
@@ -7254,7 +7254,7 @@ int main_map(int argc, char** argv) {
     string gcsa_name;
     int kmer_size = 0;
     int kmer_stride = 0;
-    int sens_step = 0;
+    int sens_step = 5;
     int best_clusters = 0;
     int cluster_min = 1;
     int max_attempts = 7;
@@ -7766,7 +7766,7 @@ int main_map(int argc, char** argv) {
         m->max_multimaps = max_multimaps;
         m->debug = debug;
         m->accept_identity = accept_identity;
-        if (sens_step) m->kmer_sensitivity_step = sens_step;
+        m->kmer_sensitivity_step = sens_step;
         m->prefer_forward = prefer_forward;
         m->greedy_accept = greedy_accept;
         m->thread_extension = thread_ex;
@@ -7798,7 +7798,7 @@ int main_map(int argc, char** argv) {
         if (!qual.empty()) {
             unaligned.set_quality(qual);
         }
-        
+
         vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
         if(alignments.size() == 0) {
             // If we didn't have any alignments, report the unaligned alignment
@@ -7856,11 +7856,12 @@ int main_map(int argc, char** argv) {
     if (!hts_file.empty()) {
         function<void(Alignment&)> lambda =
             [&mapper,
-            &output_alignments,
-            &keep_secondary,
-            &kmer_size,
-            &kmer_stride,
-            &band_width]
+             &output_alignments,
+             &keep_secondary,
+             &kmer_size,
+             &kmer_stride,
+             &max_mem_length,
+             &band_width]
                 (Alignment& alignment) {
 
                     if(alignment.is_secondary() && !keep_secondary) {
@@ -7869,7 +7870,7 @@ int main_map(int argc, char** argv) {
                     }
 
                     int tid = omp_get_thread_num();
-                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
                     if(alignments.empty()) {
                         alignments.push_back(alignment);
                     }
@@ -7922,7 +7923,7 @@ int main_map(int argc, char** argv) {
                     (Alignment& alignment) {
 
                         int tid = omp_get_thread_num();
-                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, max_mem_length, kmer_stride, band_width);
+                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
 
                         if(alignments.empty()) {
                             // Make sure we have a "no alignment" alignment
@@ -8019,7 +8020,7 @@ int main_map(int argc, char** argv) {
                  &compare_gam]
                 (Alignment& alignment) {
                 int tid = omp_get_thread_num();
-                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
                 if(alignments.empty()) {
                     alignments.push_back(alignment);
                 }

@@ -16,7 +16,7 @@ Mapper::Mapper(Index* idex,
     , hit_max(0)
     , hit_size_threshold(512)
     , kmer_min(0)
-    , kmer_sensitivity_step(3)
+    , kmer_sensitivity_step(5)
     , thread_extension(10)
     , max_thread_gap(30)
     , context_depth(1)
@@ -390,9 +390,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // A nonzero best score means we have any valid alignments of that read.
     for (auto& aln : alignments1) best_score1 = max(best_score1, (size_t)aln.score());
     for (auto& aln : alignments2) best_score2 = max(best_score2, (size_t)aln.score());
-    
+
+    bool rescue = fragment_size != 0; // don't try to rescue if we have a defined fragment size
     // Rescue only if the top alignment on one side has no mappings
-    if(best_score1 == 0 && best_score2 != 0) {
+    if(rescue && best_score1 == 0 && best_score2 != 0) {
         // Must rescue 1 off of 2
         if (debug) cerr << "Rescue read 1 off of read 2" << endl;
         alignments1.clear();
@@ -423,7 +424,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 break;
             }
         }
-    } else if(best_score1 != 0 && best_score2 == 0) {
+    } else if(rescue && best_score1 != 0 && best_score2 == 0) {
         // Must rescue 2 off of 1
         if (debug) cerr << "Rescue read 2 off of read 1" << endl;
         alignments2.clear();
@@ -537,7 +538,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     pair<vector<Alignment>, vector<Alignment>> results;
 
-
+    bool found_consistent = false;
+    
     if (fragment_size) {
 
         map<Alignment*, map<string, double> > aln_pos;
@@ -576,8 +578,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // ensure that there is always an additional pair to compute a mapping quality against
         int num_pairs = max_multimaps >= 2 ? max_multimaps : 2;
 
-        bool found_consistent = false;
-        
         pair_queue.push(make_pair(0, 0));
         while (!pair_queue.empty() && consistent_pairs.first.size() < num_pairs) {
             // get index of remaining pair with highest combined score
@@ -609,10 +609,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 pair_queue.push(next_aln_pair_right);
                 considered_pairs.insert(next_aln_pair_right);
             }
-        }
-
-        if (!found_consistent) {
-            // call the function again with a smaller MEM size
         }
 
         compute_mapping_qualities(consistent_pairs);
@@ -654,17 +650,21 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results = make_pair(alignments1, alignments2);
     }
 
-    if (results.first.empty() || results.second.empty()
+    if (results.first.empty()
+        || results.second.empty()
         || !results.first.front().score()
-        && !results.second.front().score()) {
-        cerr << "failed alignment" << endl;
-        /*
-        if (stride) {
-            pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
-                const Alignment& read1, const Alignment& read2,
-                int kmer_size, int stride, int band_width, int pair_window);
+        || !results.second.front().score()) {
+        //|| fragment_size && !found_consistent) {
+        //cerr << "failed alignment" << endl;
+        if (kmer_sensitivity_step) {
+            int new_mem_max = max((int) min_mem_length,
+                                  (int) (max_mem_length ? max_mem_length : gcsa->order()) - kmer_sensitivity_step);
+            if (new_mem_max == min_mem_length) return results;
+            //cerr << "trying with " << new_mem_max << endl;
+            return align_paired_multi(read1, read2, kmer_size, stride,
+                                      new_mem_max,
+                                      band_width, pair_window);
         }
-        */
     }
 
     return results;
@@ -1164,7 +1164,7 @@ Alignment Mapper::align_banded(const Alignment& read, int kmer_size, int stride,
             }
         } else {
             Alignment& aln = alns[i];
-            aln = align(bands[i], kmer_size, stride);
+            aln = align(bands[i], kmer_size, stride, max_mem_length, band_width);
             bool above_threshold = aln.identity() >= min_identity;
             if (!above_threshold) {
                 aln = bands[i]; // unmapped
@@ -1484,7 +1484,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
     if (aln.sequence().size() > band_width) {
         // TODO: banded alignment currently doesn't support mapping qualities because it only produces one alignment
         if (debug) cerr << "switching to banded alignment" << endl;
-        return vector<Alignment>{align_banded(aln, kmer_size, stride, band_width)};
+        return vector<Alignment>{align_banded(aln, kmer_size, stride, max_mem_length, band_width)};
     }
     
     // try to get at least 2 multimaps so that we can calculate mapping quality
