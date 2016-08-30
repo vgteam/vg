@@ -1097,6 +1097,7 @@ int main_vectorize(int argc, char** argv){
     bool mem_sketch = false;
     bool mem_positions = false;
     bool mem_hit_max = 0;
+    int max_mem_length = 0;
 
     if (argc <= 2) {
         help_vectorize(argv);
@@ -1257,7 +1258,7 @@ int main_vectorize(int argc, char** argv){
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot, max_mem_length](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
         if (a_hot) {
@@ -1286,7 +1287,7 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            auto mems = mapper.find_smems(a.sequence());
+            auto mems = mapper.find_smems(a.sequence(), max_mem_length);
             for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
@@ -2722,7 +2723,6 @@ int main_msga(int argc, char** argv) {
             mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
             mapper->min_identity = min_identity;
-            mapper->max_mem_length = max_mem_length;
             mapper->min_mem_length = min_mem_length;
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
@@ -2755,7 +2755,7 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
-            Alignment aln = simplify(mapper->align(seq, 0, 0, band_width));
+            Alignment aln = simplify(mapper->align(seq, 0, 0, max_mem_length, band_width));
             auto aln_seq = graph->path_string(aln.path());
             if (aln_seq != seq) {
                 cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
@@ -5610,6 +5610,7 @@ int main_find(int argc, char** argv) {
     bool pairwise_distance = false;
     string haplotype_alignments;
     string gam_file;
+    int max_mem_length = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -6127,7 +6128,7 @@ int main_find(int argc, char** argv) {
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
                 // get the mems
-                auto mems = mapper.find_smems(sequence);
+                auto mems = mapper.find_smems(sequence, max_mem_length);
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
@@ -7777,7 +7778,6 @@ int main_map(int argc, char** argv) {
         m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
-        m->max_mem_length = max_mem_length;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
@@ -7799,7 +7799,7 @@ int main_map(int argc, char** argv) {
             unaligned.set_quality(qual);
         }
         
-        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
+        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
         if(alignments.size() == 0) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
@@ -7834,7 +7834,7 @@ int main_map(int argc, char** argv) {
                     Alignment unaligned;
                     unaligned.set_sequence(line);
 
-                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
+                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
                     if(alignments.empty()) {
                         alignments.push_back(unaligned);
                     }
@@ -7886,15 +7886,16 @@ int main_map(int argc, char** argv) {
             // paired interleaved
             function<void(Alignment&, Alignment&)> lambda =
                 [&mapper,
-                &output_alignments,
-                &kmer_size,
-                &kmer_stride,
-                &band_width,
-                &pair_window]
+                 &output_alignments,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width,
+                 &pair_window]
                     (Alignment& aln1, Alignment& aln2) {
 
                         int tid = omp_get_thread_num();
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
 
                         // Make sure we have unaligned "alignments" for things that don't align.
                         if(alnp.first.empty()) {
@@ -7913,14 +7914,15 @@ int main_map(int argc, char** argv) {
             // single
             function<void(Alignment&)> lambda =
                 [&mapper,
-                &output_alignments,
-                &kmer_size,
-                &kmer_stride,
-                &band_width]
+                 &output_alignments,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width]
                     (Alignment& alignment) {
 
                         int tid = omp_get_thread_num();
-                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, max_mem_length, kmer_stride, band_width);
 
                         if(alignments.empty()) {
                             // Make sure we have a "no alignment" alignment
@@ -7935,15 +7937,16 @@ int main_map(int argc, char** argv) {
             // paired two-file
             function<void(Alignment&, Alignment&)> lambda =
                 [&mapper,
-                &output_alignments,
-                &kmer_size,
-                &kmer_stride,
-                &band_width,
-                &pair_window]
+                 &output_alignments,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width,
+                 &pair_window]
                     (Alignment& aln1, Alignment& aln2) {
 
                         int tid = omp_get_thread_num();
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
 
                         // Make sure we have unaligned "alignments" for things that don't align.
                         if(alnp.first.empty()) {
@@ -7969,12 +7972,13 @@ int main_map(int argc, char** argv) {
                  &keep_secondary,
                  &kmer_size,
                  &kmer_stride,
+                 &max_mem_length,
                  &band_width,
                  &compare_gam,
                  &pair_window]
                 (Alignment& aln1, Alignment& aln2) {
                 int tid = omp_get_thread_num();
-                auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
                 // Make sure we have unaligned "alignments" for things that don't align.
                 if(alnp.first.empty()) {
                     alnp.first.push_back(aln1);
@@ -8010,6 +8014,7 @@ int main_map(int argc, char** argv) {
                  &keep_secondary,
                  &kmer_size,
                  &kmer_stride,
+                 &max_mem_length,
                  &band_width,
                  &compare_gam]
                 (Alignment& alignment) {
