@@ -7486,6 +7486,10 @@ Alignment VG::align(const Alignment& alignment,
         sort();
         // run the alignment
         do_align(this->graph);
+        
+        // Clean up the node we added. This is important because this graph will
+        // later be extended with more material for softclip handling, and we
+        // might need that node ID.
         destroy_node(root);
 
     } else {
@@ -7544,6 +7548,11 @@ Alignment VG::align(const Alignment& alignment,
                 return get_node(node_id)->sequence().size();
             });
         //check_aln(*this, aln);
+        
+        // Clean up the node we added. This is important because this graph will
+        // later be extended with more material for softclip handling, and we
+        // might need that node ID.
+        destroy_node(root);
 
     }
 
