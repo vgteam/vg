@@ -217,25 +217,30 @@ void Pileups::compute_from_alignment(Alignment& alignment) {
         if ((rank1_idx > 0 || rank2_idx > 0) && (rank1_idx >= 0 && rank2_idx >= 0)) {
             auto& m1 = path.mapping(rank1_idx);
             auto& m2 = path.mapping(rank2_idx);
-            auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
-            auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
-            // no quality gives a free pass from quality filter
-            char edge_qual = 127;
-            if (!alignment.quality().empty()) {
-                char from_qual = alignment.quality()[out_read_offsets[rank1_idx]];
-                char to_qual = alignment.quality()[in_read_offsets[rank2_idx]];
-                edge_qual = combined_quality(min(from_qual, to_qual), alignment.mapping_quality());
-            }
-            if (edge_qual >= _min_quality) {
-                EdgePileup* edge_pileup = get_create_edge_pileup(pair<NodeSide, NodeSide>(s1, s2));
-                if (edge_pileup->num_reads() < _max_depth) {
-                    edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
-                    if (!m1.position().is_reverse()) {
-                      edge_pileup->set_num_forward_reads(edge_pileup->num_forward_reads() + 1);
-                  }
-                  if (!alignment.quality().empty()) {
-                    *edge_pileup->mutable_qualities() += edge_qual;
-                  }
+            // only count edges bookended by matches
+            size_t m1eds = m1.edit_size();
+            if ((m1eds == 0 || m1.edit(m1eds - 1).from_length() == m1.edit(m1eds - 1).to_length()) &&
+                (m2.edit_size() == 0 || m2.edit(0).from_length() == m2.edit(0).to_length())) {
+                auto s1 = NodeSide(m1.position().node_id(), (m1.position().is_reverse() ? false : true));
+                auto s2 = NodeSide(m2.position().node_id(), (m2.position().is_reverse() ? true : false));
+                // no quality gives a free pass from quality filter
+                char edge_qual = 127;
+                if (!alignment.quality().empty()) {
+                    char from_qual = alignment.quality()[out_read_offsets[rank1_idx]];
+                    char to_qual = alignment.quality()[in_read_offsets[rank2_idx]];
+                    edge_qual = combined_quality(min(from_qual, to_qual), alignment.mapping_quality());
+                }
+                if (edge_qual >= _min_quality) {
+                    EdgePileup* edge_pileup = get_create_edge_pileup(pair<NodeSide, NodeSide>(s1, s2));
+                    if (edge_pileup->num_reads() < _max_depth) {
+                        edge_pileup->set_num_reads(edge_pileup->num_reads() + 1);
+                        if (!m1.position().is_reverse()) {
+                            edge_pileup->set_num_forward_reads(edge_pileup->num_forward_reads() + 1);
+                        }
+                        if (!alignment.quality().empty()) {
+                            *edge_pileup->mutable_qualities() += edge_qual;
+                        }
+                    }
                 }
             }
         }

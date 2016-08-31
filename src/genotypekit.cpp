@@ -18,7 +18,7 @@ void CactusSiteFinder::for_each_site_parallel(const function<void(const NestedSi
     
     // get endpoints using node ranks
     pair<NodeSide, NodeSide> source_sink = graph.paths.has_path(hint_path_name) ? 
-        get_cactus_source_sink(graph, hint_path_name)
+        get_cactus_source_sink(graph, hint_path_name, 50)
         : get_cactus_source_sink(graph);
         
     // Don't keep going if we can't find sources/sinks

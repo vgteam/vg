@@ -89,7 +89,8 @@ const string hash_alignment(const Alignment& aln);
 // Flip the alignment's sequence and is_reverse flag, and flip and re-order its
 // Mappings to match. A function to get node lengths is needed because the
 // Mappings in the alignment will need to give their positions from the opposite
-// ends of their nodes.
+// ends of their nodes. Offsets will be updated to count unused bases from node
+// start when considering the node in its new orientation.
 Alignment reverse_complement_alignment(const Alignment& aln, const function<int64_t(id_t)>& node_length);
 vector<Alignment> reverse_complement_alignments(const vector<Alignment>& alns, const function<int64_t(int64_t)>& node_length);
 int softclip_start(Alignment& alignment);

@@ -377,6 +377,8 @@ int call2vcf(
     double maxHetBias,
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
     double maxRefBias,
+    // How much should we multiply the bias limits for indels?
+    double indelBiasMultiple,
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
@@ -392,7 +394,19 @@ int call2vcf(
     // a proper system for accounting for usage of graph material.
     bool suppress_overlaps,
     // Should we use average support instead minimum support for our calculations?
-    bool useAverageSupport);
+    bool useAverageSupport,
+    // Should we use the site finder and multiallelic support?
+    bool multiallelic_support,
+    // What's the max ref length of a site that we genotype as a whole instead
+    // of splitting?
+    size_t max_ref_length,
+    // What's the maximum number of bubble path combinations we can explore
+    // while finding one with maximum support?
+    size_t max_bubble_paths,
+    // what's the minimum minimum allele depth to give a PASS in the filter column
+    // (anything below gets FAIL)    
+    size_t min_mad_for_filter);
+
 }
 
 #endif

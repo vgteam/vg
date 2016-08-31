@@ -27,10 +27,10 @@
 #include "google/protobuf/stubs/common.h"
 #include "progress_bar.hpp"
 #include "version.hpp"
-#include "IntervalTree.h"
 #include "genotyper.hpp"
 #include "bubbles.hpp"
 #include "translator.hpp"
+#include "readfilter.hpp"
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
 
@@ -213,7 +213,8 @@ void help_filter(char** argv) {
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
-         << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl;
+         << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
+         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl;
 }
 
 int main_filter(int argc, char** argv) {
@@ -223,21 +224,14 @@ int main_filter(int argc, char** argv) {
         return 1;
     }
 
-    double min_secondary = 0.;
-    double min_primary = 0.;
-    double min_sec_delta = 0.;
-    double min_pri_delta = 0.;
-    bool frac_score = false;
-    bool frac_delta = false;
-    bool sub_score = false;
-    int max_overhang = 99999;
+    // This is the better design for a subcommand: we have a class that
+    // implements it and encapsulates all the default parameters, and then we
+    // just feed in overrides in the option parsing code. Thsi way we don't have
+    // multiple defaults all over the place.
+    ReadFilter filter;
+
+    // What XG index, if any, should we load to support the other options?
     string xg_name;
-    string regions_file;
-    string outbase;
-    int context_size = 0;
-    bool verbose = false;
-    double min_mapq = 0.;
-    int repeat_size = 0;
 
     int c;
     optind = 2; // force optind past command positional arguments
@@ -259,11 +253,12 @@ int main_filter(int argc, char** argv) {
                 {"verbose",  no_argument, 0, 'v'},
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
+                {"defray-ends", required_argument, 0, 'D'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:D:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -273,50 +268,53 @@ int main_filter(int argc, char** argv) {
         switch (c)
         {
         case 's':
-            min_secondary = atof(optarg);
+            filter.min_secondary = atof(optarg);
             break;
         case 'r':
-            min_primary = atof(optarg);
+            filter.min_primary = atof(optarg);
             break;
         case 'd':
-            min_sec_delta = atof(optarg);
+            filter.min_sec_delta = atof(optarg);
             break;
         case 'e':
-            min_pri_delta = atof(optarg);
+            filter.min_pri_delta = atof(optarg);
             break;
         case 'f':
-            frac_score = true;
+            filter.frac_score = true;
             break;
         case 'a':
-            frac_delta = true;
+            filter.frac_delta = true;
             break;
         case 'u':
-            sub_score = true;
+            filter.sub_score = true;
             break;
         case 'o':
-            max_overhang = atoi(optarg);
+            filter.max_overhang = atoi(optarg);
             break;
         case 'x':
             xg_name = optarg;
             break;
         case 'R':
-            regions_file = optarg;
+            filter.regions_file = optarg;
             break;
         case 'B':
-            outbase = optarg;
+            filter.outbase = optarg;
             break;
         case 'c':
-            context_size = atoi(optarg);
+            filter.context_size = atoi(optarg);
             break;
         case 'q':
-            min_mapq = atof(optarg);
+            filter.min_mapq = atof(optarg);
             break;
         case 'v':
-            verbose = true;
+            filter.verbose = true;
             break;
         case 'E':
-            repeat_size = atoi(optarg);
-            break;            
+            filter.repeat_size = atoi(optarg);
+            break;
+        case 'D':
+            filter.defray_length = atoi(optarg);
+            break;          
 
         case 'h':
         case '?':
@@ -330,101 +328,26 @@ int main_filter(int argc, char** argv) {
         }
     }
 
-    // name helper for output
-    function<string(int)> chunk_name = [&outbase](int num) -> string {
-        stringstream ss;
-        ss << outbase << "-" << num << ".gam";
-        return ss.str();
-    };
-
-    // index regions by their inclusive ranges
-    vector<Interval<int, int64_t> > interval_list;
-    vector<Region> regions;
-    // use strings instead of ofstreams because worried about too many handles
-    vector<string> chunk_names;
-    vector<bool> chunk_new; // flag if write or append
-
-    // parse a bed, for now this is only way to do regions.  note
-    // this operation converts from 0-based BED to 1-based inclusive VCF
-    if (!regions_file.empty()) {
-        if (outbase.empty()) {
-            cerr << "-B option required with -R" << endl;
-            exit(1);
-        }
-        parse_bed_regions(regions_file, regions);
-        if (regions.empty()) {
-            cerr << "No regions read from BED file, doing whole graph" << endl;
-        }
-    }
-
-    // empty region, do everything
-    if (regions.empty()) {
-        // we handle empty intervals as special case when looking up, otherwise,
-        // need to insert giant interval here.
-        chunk_names.push_back(outbase.empty() ? "-" : chunk_name(0));
-    }
-
-    // otherwise, need to extract regions with xg
-    else {
-        if (xg_name.empty()) {
-            cerr << "xg index required for -R option" << endl;
-            exit(1);
-        }
-        // read the xg index
-        ifstream xg_stream(xg_name);
-        if(!xg_stream) {
-            cerr << "Unable to open xg index: " << xg_name << endl;
-            exit(1);
-        }
-        xg::XG xindex(xg_stream);
-
-        // fill in the map using xg index
-        // relies entirely on the assumption that are path chunks
-        // are perfectly spanned by an id range
-        for (int i = 0; i < regions.size(); ++i) {
-            Graph graph;
-            int rank = xindex.path_rank(regions[i].seq);
-            int path_size = rank == 0 ? 0 : xindex.path_length(regions[i].seq);
-
-            if (regions[i].start >= path_size) {
-                cerr << "Unable to find region in index: " << regions[i].seq << ":" << regions[i].start
-                     << "-" << regions[i].end << endl;
-            } else {
-                // clip region on end of path
-                regions[i].end = min(path_size - 1, regions[i].end);
-                // do path node query
-                // convert to 0-based coordinates as this seems to be what xg wants
-                xindex.get_path_range(regions[i].seq, regions[i].start - 1, regions[i].end - 1, graph);
-                if (context_size > 0) {
-                    xindex.expand_context(graph, context_size);
-                }
-            }
-            // find node range of graph, without bothering to build vg indices..
-            int64_t min_id = numeric_limits<int64_t>::max();
-            int64_t max_id = 0;
-            for (int j = 0; j < graph.node_size(); ++j) {
-                min_id = min(min_id, (int64_t)graph.node(j).id());
-                max_id = max(max_id, (int64_t)graph.node(j).id());
-            }
-            // map the chunk id to a name
-            chunk_names.push_back(chunk_name(i));
-
-            // map the node range to the chunk id.
-            if (graph.node_size() > 0) {
-                interval_list.push_back(Interval<int, int64_t>(min_id, max_id, i));
-                assert(chunk_names.size() == i + 1);
-            }
-        }
-    }
-
-    // index chunk regions
-    IntervalTree<int, int64_t> region_map(interval_list);
-
     // setup alignment stream
     if (optind >= argc) {
         help_filter(argv);
         return 1;
     }
+    
+    // If the user gave us an XG index, we probably ought to load it up.
+    // TODO: make sure if we add any other error exits from this function we
+    // remember to delete this!
+    xg::XG* xindex = nullptr;
+    if (!xg_name.empty()) {
+        // read the xg index
+        ifstream xg_stream(xg_name);
+        if(!xg_stream) {
+            cerr << "Unable to open xg index: " << xg_name << endl;
+            return 1;
+        }
+        xindex = new xg::XG(xg_stream);
+    }
+    
     string alignments_file_name = argv[optind++];
     istream* alignment_stream = NULL;
     ifstream in;
@@ -434,278 +357,23 @@ int main_filter(int argc, char** argv) {
         in.open(alignments_file_name);
         if (!in) {
             cerr << "error: input file " << alignments_file_name << " not found." << endl;
-            exit(1);
+            
+            if(xindex != nullptr) {
+                delete xindex;
+            }
+            return 1;
+            
         }
         alignment_stream = &in;
     }
 
-    // which chunk(s) does a gam belong to?
-    function<void(Alignment&, vector<int>&)> get_chunks = [&region_map, &regions](Alignment& aln, vector<int>& chunks) {
-        // speed up case where no chunking
-        if (regions.empty()) {
-            chunks.push_back(0);
-        } else {
-            int64_t min_aln_id = numeric_limits<int64_t>::max();
-            int64_t max_aln_id = -1;
-            for (int i = 0; i < aln.path().mapping_size(); ++i) {
-                const Mapping& mapping = aln.path().mapping(i);
-                min_aln_id = min(min_aln_id, (int64_t)mapping.position().node_id());
-                max_aln_id = max(max_aln_id, (int64_t)mapping.position().node_id());
-            }
-            vector<Interval<int, int64_t> > found_ranges;
-            region_map.findOverlapping(min_aln_id, max_aln_id, found_ranges);
-            for (auto& interval : found_ranges) {
-                chunks.push_back(interval.value);
-            }
-        }
-    };
-
-    // buffered output (one buffer per chunk)
-    vector<vector<Alignment> > buffer(chunk_names.size());
-    int cur_buffer = -1;
-    static const int buffer_size = 1000; // we let this be off by 1
-    function<Alignment&(uint64_t)> write_buffer = [&buffer, &cur_buffer](uint64_t i) -> Alignment& {
-        return buffer[cur_buffer][i];
-    };
-    // remember if write or append
-    vector<bool> chunk_append(chunk_names.size(), false);
-
-    // flush a buffer specified by cur_buffer to target in chunk_names, and clear it
-    function<void()> flush_buffer = [&buffer, &cur_buffer, &write_buffer, &chunk_names, &chunk_append]() {
-        ofstream outfile;
-        auto& outbuf = chunk_names[cur_buffer] == "-" ? cout : outfile;
-        if (chunk_names[cur_buffer] != "-") {
-            outfile.open(chunk_names[cur_buffer], chunk_append[cur_buffer] ? ios::app : ios_base::out);
-            chunk_append[cur_buffer] = true;
-        }
-        stream::write(outbuf, buffer[cur_buffer].size(), write_buffer);
-        buffer[cur_buffer].clear();
-    };
-
-    // add alignment to all appropriate buffers, flushing as necessary
-    // (note cur_buffer variable used here as a hack to specify which buffer is written to)
-    function<void(Alignment&)> update_buffers = [&buffer, &cur_buffer, &region_map,
-                                                 &write_buffer, &get_chunks, &flush_buffer](Alignment& aln) {
-        vector<int> aln_chunks;
-        get_chunks(aln, aln_chunks);
-        for (auto chunk : aln_chunks) {
-            buffer[chunk].push_back(aln);
-            if (buffer[chunk].size() >= buffer_size) {
-                // flush buffer
-                cur_buffer = chunk;
-                flush_buffer();
-            }
-        }
-    };
-
-    // keep track of how many reads were dropped by which option
-    size_t pri_read_count = 0;
-    size_t sec_read_count = 0;
-    size_t sec_filtered_count = 0;
-    size_t pri_filtered_count = 0;
-    size_t min_sec_count = 0;
-    size_t min_pri_count = 0;
-    size_t min_sec_delta_count = 0;
-    size_t min_pri_delta_count = 0;
-    size_t max_sec_overhang_count = 0;
-    size_t max_pri_overhang_count = 0;
-    size_t min_sec_mapq_count = 0;
-    size_t min_pri_mapq_count = 0;
-    size_t repeat_sec_count = 0;
-    size_t repeat_pri_count = 0;
-
-    // for deltas, we keep track of last primary
-    Alignment prev;
-    bool prev_primary = false;
-    bool keep_prev = true;
-    double prev_score;
-
-    // quick and dirty filter to see if removing reads that can slip around
-    // and still map perfectly helps vg call.  returns true if at either
-    // end of read sequence, at least k bases are repetitive, checking repeats
-    // of up to size 2k
-    function<bool(Alignment&, int k)> has_repeat = [](Alignment& aln, int k) {
-        if (k == 0) {
-            return false;
-        }
-        const string& s = aln.sequence();
-        for (int i = 1; i <= 2 * k; ++i) {
-            int covered = 0;
-            bool ffound = true;
-            bool bfound = true;
-            for (int j = 1; (ffound || bfound) && (j + 1) * i < s.length(); ++j) {
-                ffound = ffound && s.substr(0, i) == s.substr(j * i, i);
-                bfound = bfound && s.substr(s.length() - i, i) == s.substr(s.length() - i - j * i, i);
-                if (ffound || bfound) {
-                    covered += i;
-                }
-            }
-            if (covered >= k) {
-                return true;
-            }
-        }
-        return false;
-    };
-        
-    // we assume that every primary alignment has 0 or 1 secondary alignment
-    // immediately following in the stream
-    function<void(Alignment&)> lambda = [&](Alignment& aln) {
-        bool keep = true;
-        double score = (double)aln.score();
-        double denom = 2. * aln.sequence().length();
-        // toggle substitution score
-        if (sub_score == true) {
-            // hack in ident to replace old counting logic.
-            score = aln.identity() * aln.sequence().length();
-            denom = aln.sequence().length();
-            assert(score <= denom);
-        }
-        // toggle absolute or fractional score
-        if (frac_score == true) {
-            if (denom > 0.) {
-                score /= denom;
-            }
-            else {
-                assert(score == 0.);
-            }
-        }
-        // compute overhang
-        int overhang = 0;
-        if (aln.path().mapping_size() > 0) {
-            const auto& left_mapping = aln.path().mapping(0);
-            if (left_mapping.edit_size() > 0) {
-                overhang = left_mapping.edit(0).to_length() - left_mapping.edit(0).from_length();
-            }
-            const auto& right_mapping = aln.path().mapping(aln.path().mapping_size() - 1);
-            if (right_mapping.edit_size() > 0) {
-                const auto& edit = right_mapping.edit(right_mapping.edit_size() - 1);
-                overhang = max(overhang, edit.to_length() - edit.from_length());
-            }
-        } else {
-            overhang = aln.sequence().length();
-        }
-
-        if (aln.is_secondary()) {
-            ++sec_read_count;
-            assert(prev_primary && aln.name() == prev.name());
-            double delta = prev_score - score;
-            if (frac_delta == true) {
-                delta = prev_score > 0 ? score / prev_score : 0.;
-            }
-
-            // filter (current) secondary
-            keep = true;
-            if (score < min_secondary) {
-                ++min_sec_count;
-                keep = false;
-            }
-            if ((keep || verbose) && delta < min_sec_delta) {
-                ++min_sec_delta_count;
-                keep = false;
-            }
-            if ((keep || verbose) && overhang > max_overhang) {
-                ++max_sec_overhang_count;
-                keep = false;
-            }
-            if ((keep || verbose) && aln.mapping_quality() < min_mapq) {
-                ++min_sec_mapq_count;
-                keep = false;
-            }
-            if ((keep || verbose) && has_repeat(aln, repeat_size)) {
-                ++repeat_sec_count;
-                keep = false;
-            }
-            if (!keep) {
-                ++sec_filtered_count;
-            }
-
-            // filter unfiltered previous primary
-            if (keep_prev && delta < min_pri_delta) {
-                ++min_pri_delta_count;
-                ++pri_filtered_count;
-                keep_prev = false;
-            }
-            // add to write buffer
-            if (keep) {
-                update_buffers(aln);
-            }
-            if (keep_prev) {
-                update_buffers(prev);
-            }
-
-            // forget last primary
-            prev_primary = false;
-            prev_score = -1;
-            keep_prev = false;
-
-        } else {
-            // this awkward logic where we keep the primary and write in the secondary
-            // is because we can only stream one at a time with for_each, but we need
-            // to look at pairs (if secondary exists)...
-            ++pri_read_count;
-            if (keep_prev) {
-                update_buffers(prev);
-            }
-
-            prev_primary = true;
-            prev_score = score;
-            prev = aln;
-            keep_prev = true;
-            if (score < min_primary) {
-                ++min_pri_count;
-                keep_prev = false;
-            }
-            if ((keep_prev || verbose) && overhang > max_overhang) {
-                ++max_pri_overhang_count;
-                keep_prev = false;
-            }
-            if ((keep_prev || verbose) && aln.mapping_quality() < min_mapq) {
-                ++min_pri_mapq_count;
-                keep_prev = false;
-            }
-            if ((keep_prev || verbose) && has_repeat(aln, repeat_size)) {
-                ++repeat_pri_count;
-                keep_prev = false;
-            }
-            if (!keep_prev) {
-                ++pri_filtered_count;
-            }
-        }
-    };
-    stream::for_each(*alignment_stream, lambda);
-
-    // flush buffer if trailing primary to keep
-    if (keep_prev) {
-        update_buffers(prev);
+    auto to_return = filter.filter(alignment_stream, xindex);
+    
+    if(xindex != nullptr) {
+        delete xindex;
     }
-
-    for (int i = 0; i < buffer.size(); ++i) {
-        if (buffer[i].size() > 0) {
-            cur_buffer = i;
-            flush_buffer();
-        }
-    }
-
-    if (verbose) {
-        size_t tot_reads = pri_read_count + sec_read_count;
-        size_t tot_filtered = pri_filtered_count + sec_filtered_count;
-        cerr << "Total Filtered (primary):          " << pri_filtered_count << " / "
-             << pri_read_count << endl
-             << "Total Filtered (secondary):        " << sec_filtered_count << " / "
-             << sec_read_count << endl
-             << "Min Identity Filter (primary):     " << min_pri_count << endl
-             << "Min Identity Filter (secondary):   " << min_sec_count << endl
-             << "Min Delta Filter (primary):        " << min_pri_delta_count << endl
-             << "Min Delta Filter (secondary):      " << min_sec_delta_count << endl
-             << "Max Overhang Filter (primary):     " << max_pri_overhang_count << endl
-             << "Max Overhang Filter (secondary):   " << max_sec_overhang_count << endl
-             << "Repeat Ends Filter (primary):     " << repeat_pri_count << endl
-             << "Repeat Ends Filter (secondary):   " << repeat_sec_count << endl
-
-             << endl;
-    }
-
-    return 0;
+    
+    return to_return;
 }
 
 void help_validate(char** argv) {
@@ -1507,12 +1175,15 @@ void help_call(char** argv) {
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
          << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
-         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [6]" << endl
-         << "    -n, --min_count INT        min total supporting read count to call a variant [5]" << endl
-         << "    -B, --bin_size  INT        bin size used for counting coverage [1000]" << endl
+         << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
+         << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
+         << "    -n, --min_count INT        min total supporting read count to call a variant [1]" << endl
+         << "    -B, --bin_size  INT        bin size used for counting coverage [250]" << endl
          << "    -C, --exp_coverage INT     specify expected coverage (instead of computing on reference)" << endl
          << "    -O, --no_overlap           don't emit new variants that overlap old ones" << endl
          << "    -u, --use_avg_support      use average instead of minimum support" << endl
+         << "    -I, --singleallelic        disable support for multiallelic sites" << endl
+         << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
          << "    -t, --threads N            number of threads to use" << endl;
@@ -1559,15 +1230,17 @@ int main_call(int argc, char** argv) {
     // heterozygous if even one read supports each allele.
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 6;
+    double maxRefBias = 4;
+    // How many times more bias do we allow for indels?
+    double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
     // don't necessarily want to call a SNP as het because we have a single
     // supporting read, even if there are only 10 reads on the site.
-    size_t minTotalSupportForCall = 10;
+    size_t minTotalSupportForCall = 1;
     // Bin size used for counting coverage along the reference path.  The
     // bin coverage is used for computing the probability of an allele
     // of a certain depth
-    size_t refBinSize = 1000;
+    size_t refBinSize = 250;
     // On some graphs, we can't get the coverage because it's split over
     // parallel paths.  Allow overriding here
     size_t expCoverage = 0;
@@ -1576,6 +1249,18 @@ int main_call(int argc, char** argv) {
     bool suppress_overlaps = false;
     // Should we use average support instead minimum support for our calculations?
     bool useAverageSupport = false;
+    // Should we go by sites and thus support multiallelic sites (true), or use
+    // the old single-branch-bubble method (false)?
+    bool multiallelic_support = true;
+    // How big a site should we try to type all at once instead of replacing
+    // with its children if it has any?
+    size_t max_ref_length = 100;
+    // What's the maximum number of bubble path combinations we can explore
+    // while finding one with maximum support?
+    size_t max_bubble_paths = 100;
+    // what's the minimum minimum allele depth to give a PASS in the filter column
+    // (anything below gets FAIL)
+    size_t min_mad_for_filter = 5;
 
     bool show_progress = false;
     int thread_count = 1;
@@ -1605,17 +1290,20 @@ int main_call(int argc, char** argv) {
                 {"min_cov_frac", required_argument, 0, 'F'},
                 {"max_het_bias", required_argument, 0, 'H'},
                 {"max_ref_bias", required_argument, 0, 'R'},
+                {"bias_mult", required_argument, 0, 'M'},
                 {"min_count", required_argument, 0, 'n'},
                 {"bin_size", required_argument, 0, 'B'},
                 {"avg_coverage", required_argument, 0, 'C'},
                 {"no_overlap", no_argument, 0, 'O'},
                 {"use_avg_support", no_argument, 0, 'u'},
+                {"singleallelic", no_argument, 0, 'I'},
+                {"min_mad", required_argument, 0, 'E'},                
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:n:B:C:Ouh",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1690,6 +1378,10 @@ int main_call(int argc, char** argv) {
             // alt for calling a homo ref.
             maxRefBias = std::stod(optarg);
             break;
+        case 'M':
+            // Set multiplier for bias limits for indels
+            indelBiasMultiple = std::stod(optarg);
+            break;
         case 'n':
             // How many reads need to touch an allele before we are willing to
             // call it?
@@ -1710,7 +1402,15 @@ int main_call(int argc, char** argv) {
         case 'u':
             // Average (isntead of min) support
             useAverageSupport = true;
-            break;            
+            break;
+        case 'I':
+            // Disallow for multiallelic sites by using a different algorithm
+            multiallelic_support = false;
+            break;
+        case 'E':
+            // Minimum min-allele-depth required to give Filter column a PASS
+            min_mad_for_filter = std::stoi(optarg);
+            break;                                
         case 'p':
             show_progress = true;
             break;
@@ -1840,11 +1540,16 @@ int main_call(int argc, char** argv) {
                         minFractionForCall,
                         maxHetBias,
                         maxRefBias,
+                        indelBiasMultiple,
                         minTotalSupportForCall,
                         refBinSize,
                         expCoverage,
                         suppress_overlaps,
-                        useAverageSupport);
+                        useAverageSupport,
+                        multiallelic_support,
+                        max_ref_length,
+                        max_bubble_paths,
+                        min_mad_for_filter);
     
     return 0;
 }
