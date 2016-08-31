@@ -40,9 +40,9 @@ Mapper::Mapper(Index* idex,
     , fragment_size(0)
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
-    , node_cache(100)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
+    init_node_cache();
 }
 
 Mapper::Mapper(Index* idex, gcsa::GCSA* g, gcsa::LCPArray* a) : Mapper(idex, nullptr, g, a)
@@ -81,10 +81,11 @@ Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr, nullptr) {
 }
 
 Mapper::~Mapper(void) {
-    if (!aligners.empty()) {
-        for (auto& aligner : aligners) {
-            delete aligner;
-        }
+    for (auto& aligner : aligners) {
+        delete aligner;
+    }
+    for (auto& nc : node_cache) {
+        delete nc;
     }
 }
     
@@ -108,6 +109,15 @@ double Mapper::estimate_gc_content() {
     return ((double) gc) / (at + gc);
 }
 
+void Mapper::init_node_cache(void) {
+    for (auto& nc : node_cache) {
+        delete nc;
+    }
+    node_cache.clear();
+    for (int i = 0; i < alignment_threads; ++i) {
+        node_cache.push_back(new LRUCache<id_t, Node>(100));
+    }
+}
 
 void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
     // hacky, find max score so that scaling doesn't change score
@@ -1382,6 +1392,11 @@ QualAdjAligner* Mapper::get_aligner(void) {
     return aligners[tid];
 }
 
+LRUCache<id_t, Node>& Mapper::get_node_cache(void) {
+    int tid = node_cache.size() > 1 ? omp_get_thread_num() : 0;
+    return *node_cache[tid];
+}
+
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
     auto aligner = get_aligner();
     switch (mapping_quality_method) {
@@ -1896,11 +1911,11 @@ const string mems_to_json(const vector<MaximalExactMatch>& mems) {
 }
 
 char Mapper::pos_char(pos_t pos) {
-    return xg_cached_pos_char(pos, xindex, node_cache);
+    return xg_cached_pos_char(pos, xindex, get_node_cache());
 }
 
 map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
-    return xg_cached_next_pos_chars(pos, xindex, node_cache);
+    return xg_cached_next_pos_chars(pos, xindex, get_node_cache());
 }
 
 Alignment Mapper::walk_match(const string& seq, pos_t pos) {

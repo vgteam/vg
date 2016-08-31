@@ -2435,11 +2435,15 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
+            mapper->mem_threading = true;
+
+            // set up the multi-threaded alignment interface
+            // TODO abstract this into a single call!!
             mapper->alignment_threads = alignment_threads;
             mapper->aligners.clear(); // number of aligners per mapper depends on thread count
                                       // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
-            mapper->mem_threading = true;
+            mapper->init_node_cache();
         }
     };
 

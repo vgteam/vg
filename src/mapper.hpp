@@ -126,7 +126,9 @@ public:
     QualAdjAligner* get_aligner(void);
 
     // match walking support to prevent repeated calls to the xg index for the same node
-    LRUCache<id_t, Node> node_cache;
+    vector<LRUCache<id_t, Node>* > node_cache;
+    LRUCache<id_t, Node>& get_node_cache(void);
+    void init_node_cache(void);
     
     double estimate_gc_content();
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
