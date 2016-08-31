@@ -2399,6 +2399,7 @@ int main_msga(int argc, char** argv) {
     int gap_open = 6;
     int gap_extend = 1;
     bool circularize = false;
+    int sens_step = 5;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2733,6 +2734,7 @@ int main_msga(int argc, char** argv) {
             mapper->aligners.clear(); // number of aligners per mapper depends on thread count
                                       // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+            mapper->mem_threading = true;
         }
     };
 
@@ -2755,7 +2757,7 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
-            Alignment aln = simplify(mapper->align(seq, 0, 0, max_mem_length, band_width));
+            Alignment aln = simplify(mapper->align(seq, 0, sens_step, max_mem_length, band_width));
             auto aln_seq = graph->path_string(aln.path());
             if (aln_seq != seq) {
                 cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;

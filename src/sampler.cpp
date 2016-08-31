@@ -136,6 +136,7 @@ Alignment Sampler::mutate(const Alignment& aln,
     // re-derive the alignment's sequence
     mutaln = simplify(mutaln);
     mutaln.set_sequence(alignment_seq(mutaln));
+    mutaln.set_name(aln.name());
     return mutaln;
 }
 

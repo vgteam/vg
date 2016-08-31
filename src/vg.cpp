@@ -7486,6 +7486,7 @@ Alignment VG::align(const Alignment& alignment,
         sort();
         // run the alignment
         do_align(this->graph);
+        destroy_node(root);
 
     } else {
         map<id_t, pair<id_t, bool> > unfold_trans;

@@ -738,7 +738,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         auto& seq_map = b.second;
         for (auto& p : seq_map) {
             auto& pos = p.first;
-            //cerr << "starting from pos " << pos << (b.first.second?"-":"+") << endl;
             clusters.emplace_back();
             auto& cluster = clusters.back();
             set<MaximalExactMatch*> in_cluster;
@@ -2526,7 +2525,7 @@ vector<Alignment> Mapper::align_mem_multi(const Alignment& alignment, vector<Max
         exit(1);
     }
 
-    if (mem_threading) {
+    if (mem_threading && xindex->max_path_rank()) {
         return mems_pos_clusters_to_alignments(alignment, mems, additional_multimaps);
     } else {
         return mems_id_clusters_to_alignments(alignment, mems, additional_multimaps);
@@ -2746,25 +2745,15 @@ void Mapper::resolve_softclips(Alignment& aln, VG& graph) {
         double avg_node_size = graph.length() / (double)graph.size();
         if (debug) cerr << "average node size " << avg_node_size << endl;
         // step towards the side where there were soft clips
-        if (sc_start) {
-            Graph flank;
-            xindex->get_id_range(idf, idf, flank);
-            xindex->expand_context(flank,
-                                   max(context_depth, (int)(sc_start/avg_node_size)),
-                                   false);
-            graph.extend(flank);
-            if (debug) cerr << "Expand start by " << max(context_depth, (int)(sc_start/avg_node_size)) << endl;
-        }
-        if (sc_end) {
-            Graph flank;
-            xindex->get_id_range(idl, idl, flank);
-            xindex->expand_context(flank,
-                                   max(context_depth, (int)(sc_end/avg_node_size)),
-                                   false);
-            graph.extend(flank);
-            if (debug) cerr << "Expand end by " << max(context_depth, (int)(sc_start/avg_node_size)) << endl;
-        }
-        graph.remove_orphan_edges();
+        Graph flanks;
+        xindex->get_id_range(idf, idf, flanks);
+        xindex->get_id_range(idl, idl, flanks);
+        xindex->expand_context(flanks,
+                               max(context_depth, (int)((sc_start+sc_end)/avg_node_size)),
+                               true, // use steps
+                               false); // don't add paths
+        graph.extend(flanks);
+
         aln.clear_path();
         aln.set_score(0);
 
