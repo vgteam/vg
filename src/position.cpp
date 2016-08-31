@@ -74,4 +74,76 @@ ostream& operator<<(ostream& out, const pos_t& pos) {
     return out << id(pos) << (is_rev(pos) ? "-" : "+") << offset(pos);
 }
 
+char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+    //cerr << "Looking for position " << pos << endl;
+    pair<Node, bool> cached = node_cache.retrieve(id(pos));
+    if(!cached.second) {
+        //cerr << "Not in the cache" << endl;
+        // If it's not in the cache, put it in
+        cached.first = xgidx->node(id(pos));
+        node_cache.put(id(pos), cached.first);
+    }
+    Node& node = cached.first;
+    if (is_rev(pos)) {
+        /*
+        cerr << "reversed... " << endl;
+        cerr << "rev pos " << offset(reverse(pos, node.sequence().size())) << endl;
+        cerr << "seq is " << node.sequence() << " and got " <<
+            reverse_complement(node.sequence()[offset(reverse(pos, node.sequence().size()))-1]) << endl;
+        */
+        return reverse_complement(node.sequence()[offset(reverse(pos, node.sequence().size()))-1]);
+    } else {
+        /*
+        cerr << "forward... " << endl;
+        cerr << "seq is " << node.sequence() << " and got " << node.sequence().at(offset(pos)) << endl;
+        */
+        return node.sequence().at(offset(pos));
+    }
+}
+
+map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+    map<pos_t, char> nexts;
+    // See if the node is cached (did we just visit it?)
+    pair<Node, bool> cached = node_cache.retrieve(id(pos));
+    if(!cached.second) {
+        // If it's not in the cache, put it in
+        cached.first = xgidx->node(id(pos));
+        node_cache.put(id(pos), cached.first);
+    }
+    Node& node = cached.first;
+    // if we are still in the node, return the next position and character
+    if (offset(pos) < node.sequence().size()-1) {
+        ++get_offset(pos);
+        nexts[pos] = xg_cached_pos_char(pos, xgidx, node_cache);
+    } else {
+        // look at the next positions we could reach
+        if (!is_rev(pos)) {
+            // we are on the forward strand, the next things from this node come off the end
+            for (auto& edge : xgidx->edges_on_end(id(pos))) {
+                if (edge.from() == id(pos)) {
+                    pos_t p = make_pos_t(edge.to(), edge.to_end(), 0);
+                    nexts[p] = xg_cached_pos_char(p, xgidx, node_cache);
+                } else if (edge.from_start() && edge.to_end() && edge.to() == id(pos)) {
+                    // doubly inverted, should be normalized to forward but we handle here for safety
+                    pos_t p = make_pos_t(edge.from(), false, 0);
+                    nexts[p] = xg_cached_pos_char(p, xgidx, node_cache);
+                }
+            }
+        } else {
+            // we are on the reverse strand, the next things from this node come off the start
+            for (auto& edge : xgidx->edges_on_start(id(pos))) {
+                if (edge.to() == id(pos)) {
+                    pos_t p = make_pos_t(edge.from(), !edge.from_start(), 0);
+                    nexts[p] = xg_cached_pos_char(p, xgidx, node_cache);
+                } else if (edge.from_start() && edge.to_end() && edge.from() == id(pos)) {
+                    // doubly inverted, should be normalized to forward but we handle here for safety
+                    pos_t p = make_pos_t(edge.to(), true, 0);
+                    nexts[p] = xg_cached_pos_char(p, xgidx, node_cache);
+                }
+            }
+        }
+    }
+    return nexts;
+}
+
 }

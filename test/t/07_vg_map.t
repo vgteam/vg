@@ -5,11 +5,15 @@ BASH_TAP_ROOT=../deps/bash-tap
 
 PATH=../bin:$PATH # for vg
 
-plan tests 28
+plan tests 31
 
 vg construct -r small/x.fa -v small/x.vcf.gz >x.vg
 vg index -x x.xg -g x.gcsa -k 11 x.vg
 vg index -sk 11 -d x.idx x.vg
+
+is  "$(vg map -s GCTGTGAAGATTAAATTAGGTGAT -x x.xg -g x.gcsa -J - | jq '.path.mapping[0].position.offset')" "3" "offset counts unused bases from the start of the node on the forward strand"
+
+is  "$(vg map -s ATCACCTAATTTAATCTTCACAGC -x x.xg -g x.gcsa -J - | jq '.path.mapping[0].position.offset')" "5" "offset counts unused bases from the start of the node on the reverse strand"
 
 is $(vg map -s CTACTGACAGCAGAAGTTTGCTGTGAAGATTAAATTAGGTGATGCTTG -x x.xg -g x.gcsa -J | tr ',' '\n' | grep node_id | grep "72\|74\|75\|77" | wc -l) 4 "global alignment traverses the correct path"
 
@@ -42,7 +46,7 @@ rm -f x.vg x.xg x.gcsa x.gcsa.lcp
 rm -rf x.vg.index
 
 vg construct -r minigiab/q.fa -v minigiab/NA12878.chr22.tiny.giab.vcf.gz -m 64 >giab.vg
-vg index -x giab.xg -g giab.gcsa -k 11 giab.vg
+vg index -x giab.xg -g giab.gcsa -k 16 giab.vg
 
 is $(vg map -K -b minigiab/NA12878.chr22.tiny.bam -x giab.xg -g giab.gcsa | vg view -a - | wc -l) $(samtools view minigiab/NA12878.chr22.tiny.bam | wc -l) "mapping of BAM file produces expected number of alignments"
 
@@ -91,6 +95,8 @@ vg sim -s 1337 -n 1000 -x x.vg.idx >x.reads
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map works based on gcsa and xg indexes"
 
 is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -n 5 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "mem mapping works"
+
+is $(vg map -r x.reads -x x.vg.idx -g x.vg.gcsa -J -t 1 -J -2 | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "mem threaded mapping works"
 
 is $(vg map -r x.reads -V x.vg -k 11 -t 1 -J | jq -c '.path.mapping[0].position.node_id' | wc -l) 1000 "vg map can build its own in-memory indexes"
 

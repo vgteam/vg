@@ -16,24 +16,24 @@
           "ref_base": 65
         },
         {
+          "bases": ".",
           "ref_base": 84,
-          "num_bases": 1,
-          "bases": "."
+          "num_bases": 1
         },
         {
+          "bases": ".",
           "ref_base": 65,
-          "num_bases": 1,
-          "bases": "."
+          "num_bases": 1
         },
         {
+          "bases": ".,",
           "ref_base": 65,
-          "num_bases": 2,
-          "bases": ".,"
+          "num_bases": 2
         },
         {
+          "bases": ".,",
           "ref_base": 71,
-          "num_bases": 2,
-          "bases": ".,"
+          "num_bases": 2
         }
       ]
     },
@@ -41,9 +41,9 @@
       "node_id": 2,
       "base_pileup": [
         {
+          "bases": ",",
           "ref_base": 71,
-          "num_bases": 1,
-          "bases": ","
+          "num_bases": 1
         }
       ]
     },
@@ -51,9 +51,9 @@
       "node_id": 3,
       "base_pileup": [
         {
+          "bases": ".",
           "ref_base": 65,
-          "num_bases": 1,
-          "bases": "."
+          "num_bases": 1
         }
       ]
     },
@@ -61,9 +61,9 @@
       "node_id": 4,
       "base_pileup": [
         {
+          "bases": ".,",
           "ref_base": 67,
-          "num_bases": 2,
-          "bases": ".,"
+          "num_bases": 2
         }
       ]
     },
@@ -71,19 +71,19 @@
       "node_id": 6,
       "base_pileup": [
         {
+          "bases": "-0;4;0;0;6;2;0,",
           "ref_base": 84,
-          "num_bases": 2,
-          "bases": "-0;4;0;0;6;2;0,"
+          "num_bases": 2
         },
         {
+          "bases": "g",
           "ref_base": 84,
-          "num_bases": 1,
-          "bases": "g"
+          "num_bases": 1
         },
         {
+          "bases": ".,",
           "ref_base": 71,
-          "num_bases": 2,
-          "bases": ".,"
+          "num_bases": 2
         }
       ]
     }
@@ -91,41 +91,40 @@
   "edge_pileups": [
     {
       "edge": {
-        "to": 8,
-        "from": 6
+        "from": 6,
+        "to": 8
       },
-      "num_forward_reads": 1,
+      "num_reads": 1,
+      "num_forward_reads": 1
+    },
+    {
+      "edge": {
+        "from": 1,
+        "to": 2
+      },
       "num_reads": 1
     },
     {
       "edge": {
-        "to": 2,
-        "from": 1
+        "from": 3,
+        "to": 4
       },
-      "num_reads": 1
+      "num_reads": 1,
+      "num_forward_reads": 1
     },
     {
       "edge": {
-        "to": 3,
-        "from": 1
+        "from": 8,
+        "to": 9
       },
-      "num_forward_reads": 1,
-      "num_reads": 1
+      "num_reads": 1,
+      "num_forward_reads": 1
     },
     {
       "edge": {
-        "to": 4,
-        "from": 3
+        "from": 6,
+        "to": 7
       },
-      "num_forward_reads": 1,
-      "num_reads": 1
-    },
-    {
-      "edge": {
-        "to": 9,
-        "from": 8
-      },
-      "num_forward_reads": 1,
       "num_reads": 1
     }
   ]
@@ -136,9 +135,9 @@
       "node_id": 7,
       "base_pileup": [
         {
+          "bases": ",",
           "ref_base": 71,
-          "num_bases": 1,
-          "bases": ","
+          "num_bases": 1
         }
       ]
     },
@@ -146,9 +145,9 @@
       "node_id": 8,
       "base_pileup": [
         {
+          "bases": ".",
           "ref_base": 65,
-          "num_bases": 1,
-          "bases": "."
+          "num_bases": 1
         }
       ]
     },
@@ -156,14 +155,14 @@
       "node_id": 9,
       "base_pileup": [
         {
+          "bases": ".+1G",
           "ref_base": 65,
-          "num_bases": 2,
-          "bases": ".+1G"
+          "num_bases": 2
         },
         {
+          "bases": ".",
           "ref_base": 65,
-          "num_bases": 1,
-          "bases": "."
+          "num_bases": 1
         },
         {
           "ref_base": 65
@@ -222,23 +221,15 @@
   "edge_pileups": [
     {
       "edge": {
-        "to": 7,
-        "from": 6
+        "from": 4,
+        "to": 6
       },
       "num_reads": 1
     },
     {
       "edge": {
-        "to": 6,
-        "from": 4
-      },
-      "num_forward_reads": 1,
-      "num_reads": 2
-    },
-    {
-      "edge": {
-        "to": 4,
-        "from": 2
+        "from": 2,
+        "to": 4
       },
       "num_reads": 1
     }

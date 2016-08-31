@@ -670,7 +670,7 @@ double Aligner::maximum_mapping_quality_approx(vector<double>& scaled_scores, si
     }
     
     *max_idx_out = max_idx;
-    
+
     return quality_scale_factor * (max_score - next_count * next_score);
 }
 

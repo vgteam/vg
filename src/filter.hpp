@@ -1,3 +1,6 @@
+#ifndef VG_FILTER_HPP
+#define VG_FILTER_HPP
+
 #include <vector>
 #include <cstdlib>
 #include <iostream>
@@ -92,3 +95,4 @@ class Filter{
         double min_avg_qual = 0.0;
         };
 }
+#endif

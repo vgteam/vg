@@ -41,3 +41,4 @@ is $? 0 "alignment correctly handles an inversion"
 
 vg align -s AAACATACATTTTC graphs/exploding.vg >/dev/null
 is $? 0 "the exploding graph doesn't blow up"
+

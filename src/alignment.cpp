@@ -661,9 +661,9 @@ Alignment reverse_complement_alignment(const Alignment& aln,
     
     if(aln.has_path()) {
         // Now invert the order of the mappings, and for each mapping, flip the
-        // is_reverse flag. The edits within mappings also get put in reverse
-        // order, get their positions corrected, and get their sequences get
-        // reverse complemented.
+        // is_reverse flag, and adjust offsets to count from the other end. The
+        // edits within mappings also get put in reverse order, and get their
+        // sequences reverse complemented.
         *reversed.mutable_path() = reverse_complement_path(aln.path(), node_length);
     }
     
@@ -707,10 +707,10 @@ Alignment merge_alignments(const vector<Alignment>& alns, bool debug) {
 
 
 Alignment& extend_alignment(Alignment& a1, const Alignment& a2, bool debug) {
-    if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
+    //if (debug) cerr << "extending alignment " << endl << pb2json(a1) << endl << pb2json(a2) << endl;
     a1.set_sequence(a1.sequence() + a2.sequence());
     extend_path(*a1.mutable_path(), a2.path());
-    if (debug) cerr << "extended alignments, result is " << endl << pb2json(a1) << endl;
+    //if (debug) cerr << "extended alignments, result is " << endl << pb2json(a1) << endl;
     return a1;
 }
 
