@@ -2351,7 +2351,7 @@ int main_msga(int argc, char** argv) {
 
     // give a label to sequences passed on the command line
     // use the sha1sum, take the head
-    // collision avoidance pattern ensures we get the same names for the same sequences across multiple runs
+    // collision avoidance with nonce ensures we get the same names for the same sequences across multiple runs
     for (auto& s : sequences) {
         auto name = sha1head(s, 8);
         int nonce = 0;
@@ -2406,8 +2406,8 @@ int main_msga(int argc, char** argv) {
 
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
+
         if (debug) cerr << "building GCSA2 index" << endl;
-        
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
@@ -2511,8 +2511,11 @@ int main_msga(int argc, char** argv) {
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
 
-            // check that all is well
             //graph->serialize_to_file(name + "-pre-index.vg");
+            // update the paths
+            graph->graph.clear_path();
+            graph->paths.to_graph(graph->graph);
+            // and rebuild the indexes
             rebuild(graph);
 
             // verfy validity of path
