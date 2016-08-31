@@ -59,7 +59,7 @@ namespace vg{
     }
 
     void Filter::set_my_xg_idx(xg::XG* idx){
-        my_xg_idx = idx;
+        my_xg_index = idx;
     }
 
     void Filter::set_inverse(bool do_inv){
@@ -114,6 +114,112 @@ namespace vg{
         return do_reversing;
     }
 
+
+    /* PE functions using fragment_prev and fragment_next */
+    Alignment Filter::one_end_anchored_filter(Alignment& aln){
+        if (aln.fragment_prev().name() != ""){
+            if (aln.path().name() == "" || aln.fragment_prev().path().name() == ""){
+                inverse ? Alignment() : aln;
+            }
+            else{
+                inverse ? aln : Alignment();
+            }
+        }
+        else{
+            return inverse ? aln : Alignment();
+        }
+    }
+
+    Alignment Filter::interchromosomal_filter(Alignment& aln){
+        bool fails = aln.path().name() != aln.fragment_prev().path().name();
+        if (fails){
+            return inverse ? Alignment() : aln;
+        }
+        else{
+            return inverse ? aln : Alignment();
+        }
+    }
+
+    Alignment Filter::insert_size_filter(Alignment& aln){
+        // Get mapping distance from XG index
+        // between last node in aln and first node in aln.fragment_prev
+
+    }
+
+    Alignment Filter::orientation_filter(Alignment& aln){
+        bool f_rev = false;
+        bool s_rev = false;
+        Path f_path = aln.path();
+        Path s_path = aln.fragment_prev().path();
+        for (int i = 0; i < f_path.mapping_size(); i++){
+            if (f_path.mapping(i).position().is_reverse()){
+                f_rev = true;
+            }
+        }
+
+        for (int j = 0; j < s_path.mapping_size(); j++){
+            if (s_path.mapping(j).position().is_reverse()){
+                s_rev = true;
+            }
+        }
+        
+        if (f_rev & s_rev){
+            return inverse ? Alignment() : aln;
+        }
+        else{
+            return inverse ? aln : Alignment();
+        }
+    }
+
+
+
+    /*PE Functions*/
+    pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
+        if (aln_first.mapping_quality() == 0 | aln_second.mapping_quality() == 0){
+            return std::make_pair(aln_first, aln_second);
+        }
+        else{
+            return std::make_pair(Alignment(), Alignment());
+        }
+    }
+
+    pair<Alignment, Alignment> Filter::interchromosomal_filter(Alignment& aln_first, Alignment& aln_second){
+        if (aln_first.path().name() != aln_second.path().name()){
+            return std::make_pair(aln_first, aln_second);
+        }
+        else{
+            return std::make_pair(Alignment(), Alignment());
+        }
+    }
+
+    pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
+        // TODO: gret positions from aln_first and aln_second
+        int distance = my_xg_index->approx_path_distance(aln_first.path().name(), 1, 1);
+        if (distance > my_max_distance){
+            return std::make_pair(aln_first, aln_second);
+        }
+        else{
+            return std::make_pair(Alignment(), Alignment());
+        }
+    }
+    pair<Alignment, Alignment> Filter::orientation_filter(Alignment& aln_first, Alignment& aln_second){
+        Path f_path = aln_first.path();
+        Path s_path = aln_second.path();
+        
+        bool s_rev;
+        bool f_rev;
+
+        if (s_rev | f_rev){
+            return std::make_pair(Alignment(), Alignment());
+        }
+        else{
+            return std::make_pair(aln_first, aln_second);
+        }
+
+    }
+
+
+
     /**
      *
      * Looks for alignments that transition from one path to another
@@ -133,10 +239,10 @@ namespace vg{
             id_t current_node = pos.node_id();
             id_t prev_node = path.mapping(i - 1).position().node_id();
             bool paths_match = false;
-            vector<size_t> paths_of_prev = my_xg_idx->paths_of_node(prev_node);
+            vector<size_t> paths_of_prev = my_xg_index->paths_of_node(prev_node);
             for (int i = 0; i < paths_of_prev.size(); i++){
-                string p_name = my_xg_idx->path_name(paths_of_prev[i]);
-                if (my_xg_idx->path_contains_node(p_name, current_node)){
+                string p_name = my_xg_index->path_name(paths_of_prev[i]);
+                if (my_xg_index->path_contains_node(p_name, current_node)){
                     paths_match = true;
                 }
             }
@@ -228,7 +334,7 @@ namespace vg{
                 stringstream est;
                 est <<  ee.from_length() << "_" << ee.to_length() << "_" + ee.sequence();
                 string e_hash = est.str();
-                #pragma omp critical(write)
+#pragma omp critical(write)
                 pos_to_edit_to_depth[p_hash][e_hash] += 1;
                 /**
                  * If an edit fails the filter, either return a new empty alignment
@@ -406,7 +512,7 @@ namespace vg{
             bottom_side++;
         }
 
-            return inverse ? Alignment() : aln;
+        return inverse ? Alignment() : aln;
 
     }
 
