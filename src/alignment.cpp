@@ -305,9 +305,10 @@ size_t fastq_paired_two_files_for_each(string& file1, string& file2, function<vo
 
 void gam_paired_interleaved_for_each_parallel(ifstream& in, function<void(Alignment&, Alignment&)> lambda) {
     vector<Alignment> aln_buf;
-    auto handler = (std::function<void(Alignment&)>) [&](Alignment& aln) {
+    std::function<void(Alignment&)> handler = [&](Alignment& aln) {
         bool got_pair = false;
-        Alignment aln1, aln2;
+        Alignment aln1;
+        Alignment aln2;
 #pragma omp critical(input)
         {
             if (aln_buf.size() == 1) {
