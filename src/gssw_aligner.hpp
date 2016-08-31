@@ -91,7 +91,7 @@ namespace vg {
         // assumes that graph is topologically sorted by node index
         void align_pinned(Alignment& alignment, Graph& g, int64_t pinned_node_id, bool pin_left);
                 
-        // stores the top scoring pinned alignments in the vector in descending score order up to a maximum
+        // store the top scoring pinned alignments in the vector in descending score order up to a maximum
         // number of alignments (including the optimal one). if there are fewer than the maximum number in
         // the return value, then it includes all alignments with a positive score. the optimal alignment
         // will be stored in both the vector and in the main alignment object
@@ -104,6 +104,13 @@ namespace vg {
         // through every node in the graph
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
+        
+        // store top scoring global alignments in the vector in descending score order up to a maximum number
+        // of alternate alignments (including the optimal alignment). if there are fewer than the maximum
+        // number of alignments in the return value, then the vector contains all possible alignments. the
+        // optimal alignment will be stored in both the vector and the original alignment object
+        void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+                                       int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         
         // must be called before querying mapping_quality
         void init_mapping_quality(double gc_content);
@@ -153,6 +160,8 @@ namespace vg {
         void align_global_banded(Alignment& alignment, Graph& g,
                                  int32_t band_padding = 0, bool permissive_banding = true);
         void align_pinned(Alignment& alignment, Graph& g, int64_t node_id, bool pin_left);
+        void align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+                                       int32_t max_alt_alns, int32_t band_padding = 0, bool permissive_banding = true);
         
         
         void init_mapping_quality(double gc_content);

@@ -18,8 +18,6 @@ using namespace google::protobuf;
 namespace vg {
     namespace unittest {
         
-        // TODO add tests with soft clips
-        
         TEST_CASE( "Pinned alignment produces correct alignments with different types of edits",
                   "[alignment][pinned][mapping]" ) {
             
@@ -1133,43 +1131,6 @@ namespace vg {
                 REQUIRE(found_second_opt);
             }
             
-            SECTION( "Pinned multi-alignment does not produce duplicate alignments" ) {
-                
-                VG graph;
-                
-                Aligner aligner;
-                
-                // low complexity sequences to ensure many alternate alignments
-                Node* n0 = graph.create_node("CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCC");
-                Node* n1 = graph.create_node("CCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCA");
-                Node* n2 = graph.create_node("CCCCCACCCCCCCCGTCCCCCCCCCCCA");
-                Node* n3 = graph.create_node("CCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC");
-                
-                graph.create_edge(n0, n1);
-                graph.create_edge(n0, n2);
-                graph.create_edge(n1, n3);
-                graph.create_edge(n2, n3);
-                
-                string read = "CCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCCCCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCACCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC";
-                Alignment aln;
-                aln.set_sequence(read);
-                
-                Node* pinned_node = n3;
-                bool pin_left = false;
-                int max_multi_alns = 10000;
-                
-                vector<Alignment> multi_alns;
-                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pinned_node->id(), pin_left, max_multi_alns);
-                
-                unordered_set<string> alns_seen;
-                for (Alignment& alt_aln : multi_alns) {
-                    string aln_string = hash_alignment(alt_aln);
-                    
-                    REQUIRE(alns_seen.count(aln_string) == 0);
-                    alns_seen.insert(aln_string);
-                }
-            }
-            
             SECTION( "Pinned multi-alignment can identify an alternate alignment that branches from another alternate alignment inside a node sequence" ) {
                 
                 VG graph;
@@ -1192,7 +1153,7 @@ namespace vg {
                 
                 Node* pinned_node = n3;
                 bool pin_left = false;
-                int max_multi_alns = 2;
+                int max_multi_alns = 10;
                 
                 vector<Alignment> multi_alns;
                 aligner.align_pinned_multi(aln, multi_alns, graph.graph, pinned_node->id(), pin_left, max_multi_alns);
@@ -1200,7 +1161,6 @@ namespace vg {
                 bool found_first_opt = false;
                 bool found_second_opt = false;
                 for (Alignment& alt_aln : multi_alns) {
-                    cerr << pb2json(aln) << endl;
                     bool is_first_opt = true;
                     bool is_second_opt = true;
                     
@@ -1241,7 +1201,7 @@ namespace vg {
                         
                         is_first_opt = is_first_opt && (path.mapping(1).edit(3).from_length() == 1);
                         is_first_opt = is_first_opt && (path.mapping(1).edit(3).to_length() == 1);
-                        is_first_opt = is_first_opt && (path.mapping(1).edit(3).sequence() == "T");
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(3).sequence() == "C");
                     }
                     else {
                         is_first_opt = false;
@@ -1276,7 +1236,7 @@ namespace vg {
                         
                         is_second_opt = is_second_opt && (path.mapping(1).edit(3).from_length() == 1);
                         is_second_opt = is_second_opt && (path.mapping(1).edit(3).to_length() == 1);
-                        is_second_opt = is_second_opt && (path.mapping(1).edit(3).sequence() == "T");
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(3).sequence() == "C");
                     }
                     else {
                         is_second_opt = false;
@@ -1293,6 +1253,43 @@ namespace vg {
                 
                 REQUIRE(found_first_opt);
                 REQUIRE(found_second_opt);
+            }
+            
+            SECTION( "Pinned multi-alignment does not produce duplicate alignments" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                // low complexity sequences to ensure many alternate alignments
+                Node* n0 = graph.create_node("CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCC");
+                Node* n1 = graph.create_node("CCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCA");
+                Node* n2 = graph.create_node("CCCCCACCCCCCCCGTCCCCCCCCCCCA");
+                Node* n3 = graph.create_node("CCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = "CCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCCCCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCACCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC";
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                Node* pinned_node = n3;
+                bool pin_left = false;
+                int max_multi_alns = 2000;//2131;
+                
+                vector<Alignment> multi_alns;
+                aligner.align_pinned_multi(aln, multi_alns, graph.graph, pinned_node->id(), pin_left, max_multi_alns);
+                
+                unordered_set<string> alns_seen;
+                for (Alignment& alt_aln : multi_alns) {
+                    string aln_string = hash_alignment(alt_aln);
+                    
+                    REQUIRE(alns_seen.count(aln_string) == 0);
+                    alns_seen.insert(aln_string);
+                }
             }
         }
     }

@@ -181,9 +181,10 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
             gssw_mapping_to_alignment(graph, gms[0], alignment, print_score_matrices);
         }
         else {
-            // gssw will not identify mapping with 0 score, infer location based on pinning
+            // gssw will not identify mappings with 0 score, infer location based on pinning
             
             Mapping* mapping = alignment.mutable_path()->add_mapping();
+            mapping->set_rank(1);
             
             // locate at the end of the node
             Position* position = mapping->mutable_position();
@@ -207,6 +208,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                 }
             }
             
+            // reserve to avoid illegal access errors that occur when the vector reallocates
             multi_alignments->reserve(num_non_null);
             
             // copy the primary alignment
@@ -219,7 +221,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                 
                 // make new alignment object
                 multi_alignments->emplace_back();
-                Alignment& next_alignment = multi_alignments->at(i);
+                Alignment& next_alignment = multi_alignments->back();
                 
                 // copy over sequence information from the primary alignment
                 next_alignment.set_sequence(alignment.sequence());
@@ -227,6 +229,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
                 
                 // get path of the alternate alignment
                 gssw_mapping_to_alignment(graph, gm, next_alignment, print_score_matrices);
+                
             }
         }
         
@@ -263,7 +266,6 @@ void Aligner::align(Alignment& alignment, Graph& g, bool print_score_matrices) {
 void Aligner::align_pinned(Alignment& alignment, Graph& g, int64_t pinned_node_id, bool pin_left) {
     
     align_internal(alignment, nullptr, g, pinned_node_id, pin_left, 1, false);
-    
 }
 
 void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
@@ -274,18 +276,32 @@ void Aligner::align_pinned_multi(Alignment& alignment, vector<Alignment>& alt_al
         exit(EXIT_FAILURE);
     }
     
-     align_internal(alignment, &alt_alignments, g, pinned_node_id, pin_left, max_alt_alns, false);
+    align_internal(alignment, &alt_alignments, g, pinned_node_id, pin_left, max_alt_alns, false);
 }
 
 void Aligner::align_global_banded(Alignment& alignment, Graph& g,
                                   int32_t band_padding, bool permissive_banding) {
     
     
-    BandedGlobalAlignmentGraph band_graph = BandedGlobalAlignmentGraph(alignment,
-                                                                       g,
-                                                                       band_padding,
-                                                                       permissive_banding,
-                                                                       false);
+    BandedGlobalAligner band_graph = BandedGlobalAligner(alignment,
+                                                         g,
+                                                         band_padding,
+                                                         permissive_banding,
+                                                         false);
+    
+    band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
+}
+
+void Aligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+                                        int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
+    
+    BandedGlobalAligner band_graph = BandedGlobalAligner(alignment,
+                                                         g,
+                                                         alt_alignments,
+                                                         max_alt_alns,
+                                                         band_padding,
+                                                         permissive_banding,
+                                                         false);
     
     band_graph.align(score_matrix, nt_table, gap_open, gap_extension);
 }
@@ -294,8 +310,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                                         gssw_graph_mapping* gm,
                                         Alignment& alignment,
                                         bool print_score_matrices) {
-    gssw_print_graph_mapping(gm, stderr);
-    
     alignment.clear_path();
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
@@ -410,9 +424,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
 
     // set identity
     alignment.set_identity(identity(alignment.path()));
-    
-    cerr << "# " << pb2json(alignment) << endl;
-
 }
 
 void Aligner::reverse_graph(Graph& g, Graph& reversed_graph_out) {
@@ -825,18 +836,32 @@ void QualAdjAligner::align_global_banded(Alignment& alignment, Graph& g,
                                   int32_t band_padding, bool permissive_banding) {
     
     
-    BandedGlobalAlignmentGraph band_graph = BandedGlobalAlignmentGraph(alignment,
-                                                                       g,
-                                                                       band_padding,
-                                                                       permissive_banding,
-                                                                       true);
+    BandedGlobalAligner band_graph = BandedGlobalAligner(alignment,
+                                                         g,
+                                                         band_padding,
+                                                         permissive_banding,
+                                                         true);
+    
+    band_graph.align(adjusted_score_matrix, nt_table, scaled_gap_open, scaled_gap_extension);
+}
+
+void QualAdjAligner::align_global_banded_multi(Alignment& alignment, vector<Alignment>& alt_alignments, Graph& g,
+                                               int32_t max_alt_alns, int32_t band_padding, bool permissive_banding) {
+    
+    BandedGlobalAligner band_graph = BandedGlobalAligner(alignment,
+                                                         g,
+                                                         alt_alignments,
+                                                         max_alt_alns,
+                                                         band_padding,
+                                                         permissive_banding,
+                                                         true);
     
     band_graph.align(adjusted_score_matrix, nt_table, scaled_gap_open, scaled_gap_extension);
 }
 
 int32_t QualAdjAligner::score_exact_match(const string& sequence, const string& base_quality) {
     int32_t score = 0;
-    for (int i = 0; i < sequence.length(); i++) {
+    for (int32_t i = 0; i < sequence.length(); i++) {
         // index 5 x 5 score matrices (ACGTN)
         // always have match so that row and column index are same and can combine algebraically
         score += adjusted_score_matrix[25 * base_quality[i] + 6 * nt_table[sequence[i]]];

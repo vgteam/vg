@@ -36,7 +36,7 @@ namespace vg {
          *  alignment                   empty alignment with a sequence (and possibly base qualities)
          *  g                           graph to align to
          *  band_padding                width to expand band by
-         *  permissive_banding          expand band to allow all node paths
+         *  permissive_banding          expand band, not necessarily symmetrically, to allow all node paths
          *  adjust_for_base_quality     perform base quality adjusted alignment (see QualAdjAligner)
          */
         BandedGlobalAligner(Alignment& alignment, Graph& g,
@@ -54,7 +54,7 @@ namespace vg {
          *                              will be a copy of the primary alignment
          *  max_multi_alns              the maximum number of alternate alignments (including the primary)
          *  band_padding                width to expand band by
-         *  permissive_banding          expand band to allow all node paths
+         *  permissive_banding          expand band, not necessarily symmetrically, to allow all node paths
          *  adjust_for_base_quality     perform base quality adjusted alignment (see QualAdjAligner)
          */
         BandedGlobalAligner(Alignment& alignment, Graph& g,
@@ -83,6 +83,7 @@ namespace vg {
     private:
         class BAMatrix;
         class BABuilder;
+        class AltTracebackStack;
         
         // matrices used in Smith-Waterman-Gotoh alignment algorithm
         enum matrix_t {Match, InsertCol, InsertRow};
@@ -109,7 +110,7 @@ namespace vg {
                             bool adjust_for_base_quality = false);
         
         // traceback an alignment
-        void traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend);
+        void traceback(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, int8_t min_inf);
         
         // construction functions
         void graph_edge_lists(Graph& g, bool outgoing_edges, vector<vector<int64_t>>& out_edge_list);
@@ -145,9 +146,10 @@ namespace vg {
         int8_t* insert_col;
         int8_t* insert_row;
         
-        void traceback_internal(BABuilder& builder, int64_t start_row, int64_t start_col, matrix_t start_mat,
-                                bool in_lead_gap, int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
-                                int8_t gap_extend, bool qual_adjusted);
+        void traceback_internal(BABuilder& builder, AltTracebackStack& traceback_stack, int64_t start_row,
+                                int64_t start_col, matrix_t start_mat, bool in_lead_gap, int8_t* score_mat,
+                                int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
+                                int8_t min_inf);
         
         void print_matrix(matrix_t which_mat);
         void print_band(matrix_t which_mat);
@@ -158,19 +160,77 @@ namespace vg {
         ~BAMatrix();
         
         // use DP to fill the band with alignment scores
-        void fill_matrix(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted);
+        void fill_matrix(int8_t* score_mat, int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted,
+                         int8_t min_inf);
         
-        // the score in the bottom-right corner of the DP band
-        int8_t final_score();
-        
-        void traceback(BABuilder& builder, int8_t* score_mat, int8_t* nt_table, int8_t gap_open,
-                       int8_t gap_extend, bool qual_adjusted);
+        void traceback(BABuilder& builder, AltTracebackStack& traceback_stack, matrix_t start_mat, int8_t* score_mat,
+                       int8_t* nt_table, int8_t gap_open, int8_t gap_extend, bool qual_adjusted, int8_t min_inf);
         
         // debugging functions
         void print_full_matrices();
         void print_rectangularized_bands();
         
         friend class BABuilder;
+        friend class AltTracebackStack; // not a fan of this one, but constructor ugly without it
+    };
+    
+    // maintains a stack of directions to find the top scoring tracebacks
+    class BandedGlobalAligner::AltTracebackStack {
+    public:
+        AltTracebackStack(int64_t max_multi_alns, vector<BAMatrix*> sink_node_matrices);
+        ~AltTracebackStack();
+        
+        // get the start position of the current alignment and advance to the first deflection
+        inline void get_alignment_start(int64_t& node_id, matrix_t& matrix);
+        
+        // advance to the next alternate alignment
+        inline void next();
+        inline bool has_next();
+        
+        // check if a deflection from the current traceback
+        inline void propose_deflection(const int8_t score, const int64_t from_node_id, const int64_t row_idx,
+                                       const int64_t col_idx, const int64_t to_node_id, const matrix_t to_matrix);
+        
+        // score of the current traceback
+        inline int8_t current_traceback_score();
+        
+        // are these the coordinates of the next deflection?
+        inline bool at_next_deflection(int64_t node_id, int64_t row_idx, int64_t col_idx);
+        
+        // get the matrix to deflect to and advance to the next deflection
+        inline BandedGlobalAligner::matrix_t deflect_to_matrix();
+        // additionally get the node id if at a node boundary
+        inline BandedGlobalAligner::matrix_t deflect_to_matrix(int64_t& to_node_id);
+        
+    private:
+        class Deflection;
+        
+        int64_t max_multi_alns;
+        // pairs contain scores of alignments and the places where their traceback differs from the optimum
+        list<pair<vector<Deflection>, int8_t>> alt_tracebacks;
+        
+        list<pair<vector<Deflection>, int8_t>>::iterator curr_traceback;
+        vector<Deflection>::iterator curr_deflxn;
+        
+        inline void insert_traceback(const vector<Deflection>& traceback_prefix, const int8_t score,
+                                     const int64_t from_node_id, const int64_t row_idx,
+                                     const int64_t col_idx, const int64_t to_node_id, const matrix_t to_matrix);
+    };
+    
+    
+    class BandedGlobalAligner::AltTracebackStack::Deflection {
+    public:
+        Deflection(const int64_t from_node_id, const int64_t row_idx, const int64_t col_idx,
+                   const int64_t to_node_id, const matrix_t to_matrix);
+        ~Deflection();
+        
+        const int64_t from_node_id;
+        // coordinates from rectangularized band (not original matrix)
+        const int64_t row_idx;
+        const int64_t col_idx;
+        // matrix and node to deflect to
+        const int64_t to_node_id;
+        const matrix_t to_matrix;
     };
     
     // translates a traceback path into a Path object and stores it in an Alignment object

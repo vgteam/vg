@@ -8,6 +8,7 @@
 #include "catch.hpp"
 #include "gssw_aligner.hpp"
 #include "vg.hpp"
+#include "path.hpp"
 #include "banded_global_aligner.hpp"
 #include "json2pb.h"
 
@@ -53,6 +54,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -106,6 +108,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -163,6 +166,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -224,6 +228,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -285,6 +290,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -346,6 +352,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -407,6 +414,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -467,8 +475,10 @@ namespace vg {
                 
                 const Path& path = aln.path();
                 
+                
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -491,6 +501,7 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).from_length() == 6);
                 REQUIRE(path.mapping(2).edit(0).to_length() == 6);
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                
             }
             
             SECTION( "Banded global aligner produces correct alignment when it begins with a multi-base insertion" ) {
@@ -526,6 +537,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -583,6 +595,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -640,6 +653,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -697,6 +711,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -725,7 +740,7 @@ namespace vg {
         TEST_CASE( "Banded global aligner produces correct alignments with different graph structures",
                   "[alignment][banded][mapping]" ) {
             
-            SECTION( "Banded global aligner produces correct alignment when there are paths of different lenths in the graph" ) {
+            SECTION( "Banded global aligner produces correct alignment when there are paths of different lengths in the graph" ) {
                 
                 VG graph;
                 
@@ -758,6 +773,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -811,6 +827,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -861,6 +878,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -906,6 +924,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -955,6 +974,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -1006,6 +1026,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -1059,6 +1080,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -1112,6 +1134,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -1170,6 +1193,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -1224,6 +1248,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -1294,6 +1319,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -1352,6 +1378,7 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
@@ -1422,7 +1449,10 @@ namespace vg {
                 
                 // is a global alignment
                 REQUIRE(path_full.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path_full.mapping(path_full.mapping_size() - 1)) == graph.graph.node(path_full.mapping(path_full.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
                 REQUIRE(path_reduced.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path_reduced.mapping(path_reduced.mapping_size() - 1)) == graph.graph.node(path_reduced.mapping(path_reduced.mapping_size() - 1).position().node_id() - 1).sequence().length());
                 
                 // follows correct path
                 REQUIRE(path_full.mapping(0).position().node_id() == 1);
@@ -1458,5 +1488,518 @@ namespace vg {
                 REQUIRE(aln_reduced.score() > aln_full.score());
             }
         }
+        
+        TEST_CASE( "Banded global aligner produces correct alternate alignments in different traceback scenarios",
+                  "[alignment][banded][mapping]" ) {
+            
+            
+            SECTION( "Banded global aligner returns alternate alignments in descending score order" ) {
+                
+                VG graph;
+                
+                Aligner aligner = Aligner();
+                
+                Node* n0 = graph.create_node("ACGTAGTCTGAA");
+                Node* n1 = graph.create_node("CA");
+                Node* n2 = graph.create_node("TT");
+                Node* n3 = graph.create_node("TGACGTACGTTA");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("ACGTAGTCTGACATGACGTACGTTA");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                
+                int max_multi_alns = 20;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                const Path& path = aln.path();
+                
+                
+                int64_t prev_score = numeric_limits<int64_t>::max();
+                for (Alignment& alt_aln : multi_alns) {
+                    const Path& path = alt_aln.path();
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    // score is in descending order
+                    REQUIRE(aln.score() <= prev_score);
+                    prev_score = aln.score();
+                }
+            }
+            
+            SECTION( "Banded global aligner stores the optimal alignment in both the main Alignment object and the first position in the return vector in multiple alignment" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("ACGTAGTCTGAA");
+                Node* n1 = graph.create_node("CA");
+                Node* n2 = graph.create_node("TT");
+                Node* n3 = graph.create_node("TGACGTACGTTA");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("ACGTAGTCTGACATGACGTACGTTA");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int max_multi_alns = 20;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                REQUIRE(aln.sequence() == multi_alns[0].sequence());
+                REQUIRE(aln.score() == multi_alns[0].score());
+                REQUIRE(aln.identity() == multi_alns[0].identity());
+                REQUIRE(aln.path().mapping_size() == multi_alns[0].path().mapping_size());
+                for (int i = 0; i < aln.path().mapping_size(); i++) {
+                    REQUIRE(aln.path().mapping(i).position().node_id() == multi_alns[0].path().mapping(i).position().node_id());
+                    REQUIRE(aln.path().mapping(i).position().offset() == multi_alns[0].path().mapping(i).position().offset());
+                    REQUIRE(aln.path().mapping(i).edit_size() == multi_alns[0].path().mapping(i).edit_size());
+                    for (int j = 0; j < aln.path().mapping(i).edit_size(); j++) {
+                        REQUIRE(aln.path().mapping(i).edit(j).from_length() == multi_alns[0].path().mapping(i).edit(j).from_length());
+                        REQUIRE(aln.path().mapping(i).edit(j).to_length() == multi_alns[0].path().mapping(i).edit(j).to_length());
+                        REQUIRE(aln.path().mapping(i).edit(j).sequence() == multi_alns[0].path().mapping(i).edit(j).sequence());
+                    }
+                }
+            }
+            
+            SECTION( "Banded global aligner can identify both optimal alignments when there is a deletion in a homodimer" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("ACGTAGTCTGAA");
+                Node* n1 = graph.create_node("CA");
+                Node* n2 = graph.create_node("TT");
+                Node* n3 = graph.create_node("TGACGTACGTTA");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("ACGTAGTCTGACATGACGTACGTTA");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int max_multi_alns = 2;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                bool found_first_opt = false;
+                bool found_second_opt = false;
+                for (Alignment& alt_aln : multi_alns) {
+                    const Path& path = alt_aln.path();
+                    
+                    bool is_first_opt = true;
+                    bool is_second_opt = true;
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    // follows correct path
+                    is_first_opt = is_first_opt && (path.mapping(0).position().node_id() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(1).position().node_id() == 2);
+                    is_first_opt = is_first_opt && (path.mapping(2).position().node_id() == 4);
+                    
+                    // has corrects edits
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).from_length() == 11);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).to_length() == 11);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(1).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(1).to_length() == 0);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(1).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).from_length() == 2);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).to_length() == 2);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).from_length() == 12);
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).to_length() == 12);
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).sequence().empty());
+                    
+                    // follows correct path
+                    is_second_opt = is_second_opt && (path.mapping(0).position().node_id() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(1).position().node_id() == 2);
+                    is_second_opt = is_second_opt && (path.mapping(2).position().node_id() == 4);
+                    
+                    // has corrects edits
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).from_length() == 10);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).to_length() == 10);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(1).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(1).to_length() == 0);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(1).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(2).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(2).to_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(2).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).from_length() == 2);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).to_length() == 2);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).from_length() == 12);
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).to_length() == 12);
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).sequence().empty());
+                    
+                    found_first_opt = found_first_opt || is_first_opt;
+                    found_second_opt = found_second_opt || is_second_opt;
+                }
+                
+                REQUIRE(found_first_opt);
+                REQUIRE(found_second_opt);
+            }
+            
+            SECTION( "Banded global aligner can identify alternate alignments that follow a different node sequence than the optimal alignment" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("ACGTAGTCTGAA");
+                Node* n1 = graph.create_node("C");
+                Node* n2 = graph.create_node("T");
+                Node* n3 = graph.create_node("TGACGTACGTTA");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("ACGTAGTCTGAACTGACGTACGTTA");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int max_multi_alns = 20;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                bool took_alternate_path = false;
+                for (Alignment& alt_aln : multi_alns) {
+                    const Path& path = alt_aln.path();
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    if (path.mapping(1).position().node_id() != aln.path().mapping(1).position().node_id()) {
+                        took_alternate_path = true;
+                        break;
+                    }
+                }
+                
+                REQUIRE(took_alternate_path);
+            }
+            
+            SECTION( "Banded global aligner can identify an alternate alignment that branches from another alternate alignment at a node boundary" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("AAAAAAAA");
+                Node* n1 = graph.create_node("GGG");
+                Node* n2 = graph.create_node("G");
+                Node* n3 = graph.create_node("C");
+                Node* n4 = graph.create_node("T");
+                Node* n5 = graph.create_node("G");
+                Node* n6 = graph.create_node("AAAAAA");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n2, n3);
+                graph.create_edge(n2, n4);
+                graph.create_edge(n3, n5);
+                graph.create_edge(n4, n5);
+                graph.create_edge(n1, n6);
+                graph.create_edge(n5, n6);
+                
+                string read = string("AAAAAAAAGGGAAAAAA");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int max_multi_alns = 3;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                bool found_first_opt = false;
+                bool found_second_opt = false;
+                for (Alignment& alt_aln : multi_alns) {
+                    bool is_first_opt = true;
+                    bool is_second_opt = true;
+                    
+                    const Path& path = alt_aln.path();
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    // follows correct path
+                    is_first_opt = is_first_opt && (path.mapping(0).position().node_id() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(1).position().node_id() == 3);
+                    is_first_opt = is_first_opt && (path.mapping(2).position().node_id() == 4);
+                    is_first_opt = is_first_opt && (path.mapping(3).position().node_id() == 6);
+                    is_first_opt = is_first_opt && (path.mapping(4).position().node_id() == 7);
+                    
+                    // has corrects edits
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).from_length() == 8);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).to_length() == 8);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).to_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(1).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).to_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).sequence() == "G");
+                    
+                    is_first_opt = is_first_opt && (path.mapping(3).edit(0).from_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(3).edit(0).to_length() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(3).edit(0).sequence().empty());
+                    
+                    is_first_opt = is_first_opt && (path.mapping(4).edit(0).from_length() == 6);
+                    is_first_opt = is_first_opt && (path.mapping(4).edit(0).to_length() == 6);
+                    is_first_opt = is_first_opt && (path.mapping(4).edit(0).sequence().empty());
+                    
+                    // follows correct path
+                    is_second_opt = is_second_opt && (path.mapping(0).position().node_id() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(1).position().node_id() == 3);
+                    is_second_opt = is_second_opt && (path.mapping(2).position().node_id() == 5);
+                    is_second_opt = is_second_opt && (path.mapping(3).position().node_id() == 6);
+                    is_second_opt = is_second_opt && (path.mapping(4).position().node_id() == 7);
+                    
+                    // has corrects edits
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).from_length() == 8);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).to_length() == 8);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).to_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(1).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).to_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).sequence() == "G");
+                    
+                    is_second_opt = is_second_opt && (path.mapping(3).edit(0).from_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(3).edit(0).to_length() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(3).edit(0).sequence().empty());
+                    
+                    is_second_opt = is_second_opt && (path.mapping(4).edit(0).from_length() == 6);
+                    is_second_opt = is_second_opt && (path.mapping(4).edit(0).to_length() == 6);
+                    is_second_opt = is_second_opt && (path.mapping(4).edit(0).sequence().empty());
+                    
+                    found_first_opt = found_first_opt || is_first_opt;
+                    found_second_opt = found_second_opt || is_second_opt;
+                    
+                }
+                
+                REQUIRE(found_first_opt);
+                REQUIRE(found_second_opt);
+            }
+            
+            
+            
+            SECTION( "Banded global aligner can identify an alternate alignment that branches from another alternate alignment inside a node sequence" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("AAAAAAAAAA");
+                Node* n1 = graph.create_node("CGGC");
+                Node* n2 = graph.create_node("CGGT");
+                Node* n3 = graph.create_node("AAAAAAAAAA");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = string("AAAAAAAAAACGGGCAAAAAAAAAA");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int max_multi_alns = 10;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                bool found_first_opt = false;
+                bool found_second_opt = false;
+                for (Alignment& alt_aln : multi_alns) {
+                    bool is_first_opt = true;
+                    bool is_second_opt = true;
+                    
+                    const Path& path = alt_aln.path();
+                    
+                    // is a global alignment
+                    REQUIRE(path.mapping(0).position().offset() == 0);
+                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                    
+                    // follows correct path
+                    is_first_opt = is_first_opt && (path.mapping(0).position().node_id() == 1);
+                    is_first_opt = is_first_opt && (path.mapping(1).position().node_id() == 3);
+                    is_first_opt = is_first_opt && (path.mapping(2).position().node_id() == 4);
+                    
+                    // has corrects edits
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).from_length() == 10);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).to_length() == 10);
+                    is_first_opt = is_first_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    if (path.mapping(1).edit_size() >= 4) {
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(0).from_length() == 1);
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(0).to_length() == 1);
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(0).sequence().empty());
+                        
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(1).from_length() == 0);
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(1).to_length() == 1);
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(1).sequence() == "G");
+                        
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(2).from_length() == 2);
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(2).to_length() == 2);
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(2).sequence().empty());
+                        
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(3).from_length() == 1);
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(3).to_length() == 1);
+                        is_first_opt = is_first_opt && (path.mapping(1).edit(3).sequence() == "C");
+                    }
+                    else {
+                        is_first_opt = false;
+                    }
+                    
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).from_length() == 10);
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).to_length() == 10);
+                    is_first_opt = is_first_opt && (path.mapping(2).edit(0).sequence().empty());
+                    
+                    // follows correct path
+                    is_second_opt = is_second_opt && (path.mapping(0).position().node_id() == 1);
+                    is_second_opt = is_second_opt && (path.mapping(1).position().node_id() == 3);
+                    is_second_opt = is_second_opt && (path.mapping(2).position().node_id() == 4);
+                    
+                    // has corrects edits
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).from_length() == 10);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).to_length() == 10);
+                    is_second_opt = is_second_opt && (path.mapping(0).edit(0).sequence().empty());
+                    
+                    if (path.mapping(1).edit_size() >= 4) {
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(0).from_length() == 2);
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(0).to_length() == 2);
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(0).sequence().empty());
+                        
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(1).from_length() == 0);
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(1).to_length() == 1);
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(1).sequence() == "G");
+                        
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(2).from_length() == 1);
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(2).to_length() == 1);
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(2).sequence().empty());
+                        
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(3).from_length() == 1);
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(3).to_length() == 1);
+                        is_second_opt = is_second_opt && (path.mapping(1).edit(3).sequence() == "C");
+                    }
+                    else {
+                        is_second_opt = false;
+                    }
+                    
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).from_length() == 10);
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).to_length() == 10);
+                    is_second_opt = is_second_opt && (path.mapping(2).edit(0).sequence().empty());
+                    
+                    found_first_opt = found_first_opt || is_first_opt;
+                    found_second_opt = found_second_opt || is_second_opt;
+                    
+                }
+                
+                REQUIRE(found_first_opt);
+                REQUIRE(found_second_opt);
+            }
+            
+            SECTION( "Global banded aligner does not produce duplicate alternate alignments" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                // low complexity sequences to ensure many alternate alignments
+                Node* n0 = graph.create_node("CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCC");
+                Node* n1 = graph.create_node("CCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCA");
+                Node* n2 = graph.create_node("CCCCCACCCCCCCCGTCCCCCCCCCCCA");
+                Node* n3 = graph.create_node("CCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC");
+                
+                graph.create_edge(n0, n1);
+                graph.create_edge(n0, n2);
+                graph.create_edge(n1, n3);
+                graph.create_edge(n2, n3);
+                
+                string read = "CCCCCCCCCTCCCCCCCCCCTCCCCCCCCCCGACCCCCCCCCCCCCCCCCCCCCACCCCCCCCCCACCCCCCCCCCTCCCACCCCCCCCCCCCGCCCCCCCCCCGCCCCCCCCC";
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int max_multi_alns = 2000;
+                int band_padding = 1;
+                bool permissive_banding = true;
+                vector<Alignment> multi_alns;
+                
+                aligner.align_global_banded_multi(aln, multi_alns, graph.graph, max_multi_alns,
+                                                  band_padding, permissive_banding);
+                
+                unordered_set<string> alns_seen;
+                for (Alignment& alt_aln : multi_alns) {
+                    string aln_string = hash_alignment(alt_aln);
+                    
+                    REQUIRE(alns_seen.count(aln_string) == 0);
+                    alns_seen.insert(aln_string);
+                }
+            }
+        }
     }
 }
+
+
+
+
+
+
