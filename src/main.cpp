@@ -765,6 +765,7 @@ int main_vectorize(int argc, char** argv){
     bool mem_sketch = false;
     bool mem_positions = false;
     bool mem_hit_max = 0;
+    int max_mem_length = 0;
 
     if (argc <= 2) {
         help_vectorize(argv);
@@ -925,7 +926,7 @@ int main_vectorize(int argc, char** argv){
     string alignment_file = argv[optind];
 
     //Generate a 1-hot coverage vector for graph entities.
-    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot](Alignment& a){
+    function<void(Alignment&)> lambda = [&vz, &mapper, use_identity_hot, output_wabbit, aln_label, mem_sketch, mem_positions, format, a_hot, max_mem_length](Alignment& a){
         //vz.add_bv(vz.alignment_to_onehot(a));
         //vz.add_name(a.name());
         if (a_hot) {
@@ -954,7 +955,7 @@ int main_vectorize(int argc, char** argv){
         } else if (mem_sketch) {
             // get the mems
             map<string, int> mem_to_count;
-            auto mems = mapper.find_smems(a.sequence());
+            auto mems = mapper.find_smems(a.sequence(), max_mem_length);
             for (auto& mem : mems) {
                 mem_to_count[mem.sequence()]++;
             }
@@ -2082,7 +2083,7 @@ int main_msga(int argc, char** argv) {
     int thread_extension = 10;
     float min_identity = 0.75;
     int band_width = 256;
-    size_t doubling_steps = 2;
+    size_t doubling_steps = 3;
     bool debug = false;
     bool debug_align = false;
     size_t node_max = 0;
@@ -2103,6 +2104,7 @@ int main_msga(int argc, char** argv) {
     int gap_open = 6;
     int gap_extend = 1;
     bool circularize = false;
+    int sens_step = 5;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2427,7 +2429,6 @@ int main_msga(int argc, char** argv) {
             mapper->thread_extension = thread_extension;
             mapper->max_attempts = max_attempts;
             mapper->min_identity = min_identity;
-            mapper->max_mem_length = max_mem_length;
             mapper->min_mem_length = min_mem_length;
             mapper->hit_max = hit_max;
             mapper->greedy_accept = greedy_accept;
@@ -2438,6 +2439,7 @@ int main_msga(int argc, char** argv) {
             mapper->aligners.clear(); // number of aligners per mapper depends on thread count
                                       // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+            mapper->mem_threading = true;
         }
     };
 
@@ -2460,7 +2462,7 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
-            Alignment aln = simplify(mapper->align(seq, 0, 0, band_width));
+            Alignment aln = simplify(mapper->align(seq, 0, sens_step, max_mem_length, band_width));
             auto aln_seq = graph->path_string(aln.path());
             if (aln_seq != seq) {
                 cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
@@ -3843,6 +3845,8 @@ void help_sim(char** argv) {
          << "    -e, --base-error N    base substitution error rate (default 0.0)" << endl
          << "    -i, --indel-error N   indel error rate (default 0.0)" << endl
          << "    -f, --forward-only    don't simulate from the reverse strand" << endl
+         << "    -p, --frag-len N      make paired end reads with given fragment length N" << endl
+         << "    -v, --frag-std-dev N  use this standard deviation for fragment length estimation" << endl
          << "    -a, --align-out       generate true alignments on stdout rather than reads" << endl
          << "    -J, --json-out        write alignments in json" << endl;
 }
@@ -3862,6 +3866,8 @@ int main_sim(int argc, char** argv) {
     bool forward_only = false;
     bool align_out = false;
     bool json_out = false;
+    int fragment_length = 0;
+    double fragment_std_dev = 0;
     string xg_name;
 
     int c;
@@ -3879,11 +3885,13 @@ int main_sim(int argc, char** argv) {
             {"json-out", no_argument, 0, 'J'},
             {"base-error", required_argument, 0, 'e'},
             {"indel-error", required_argument, 0, 'i'},
+            {"frag-len", required_argument, 0, 'p'},
+            {"frag-std-dev", required_argument, 0, 'v'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:J",
+        c = getopt_long (argc, argv, "hl:n:s:e:i:fax:Jp:v:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -3930,6 +3938,14 @@ int main_sim(int argc, char** argv) {
             align_out = true;
             break;
 
+        case 'p':
+            fragment_length = atoi(optarg);
+            break;
+
+        case 'v':
+            fragment_std_dev = atof(optarg);
+            break;
+
         case 'h':
         case '?':
             help_sim(argv);
@@ -3963,30 +3979,48 @@ int main_sim(int argc, char** argv) {
     size_t max_iter = 1000;
     int nonce = 1;
     for (int i = 0; i < num_reads; ++i) {
-        auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
-        size_t iter = 0;
-        while (iter++ < max_iter) {
-            if (aln.sequence().size() < read_length) {
-                aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+        if (fragment_length) {
+            auto alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
+            size_t iter = 0;
+            while (iter++ < max_iter) {
+                if (alns.front().sequence().size() < read_length
+                    || alns.back().sequence().size() < read_length) {
+                    alns = sampler.alignment_pair(read_length, fragment_length, fragment_std_dev, base_error, indel_error);
+                }
             }
-        }
-        // write the alignment or its string
-        if (align_out) {
-            // name the alignment
-            string data;
-            aln.SerializeToString(&data);
-            data += std::to_string(nonce++);
-            const string hash = sha1head(data, 16);
-            aln.set_name(hash);
-            // write it out as requested
-            if (json_out) {
-                cout << pb2json(aln) << endl;
+            // write the alignment or its string
+            if (align_out) {
+                // write it out as requested
+                if (json_out) {
+                    cout << pb2json(alns.front()) << endl;
+                    cout << pb2json(alns.back()) << endl;
+                } else {
+                    function<Alignment(uint64_t)> lambda = [&alns](uint64_t n) { return alns[n]; };
+                    stream::write(cout, 2, lambda);
+                }
             } else {
-                function<Alignment(uint64_t)> lambda = [&aln](uint64_t n) { return aln; };
-                stream::write(cout, 1, lambda);
+                cout << alns.front().sequence() << "\t" << alns.back().sequence() << endl;
             }
         } else {
-            cout << aln.sequence() << endl;
+            auto aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+            size_t iter = 0;
+            while (iter++ < max_iter) {
+                if (aln.sequence().size() < read_length) {
+                    aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+                }
+            }
+            // write the alignment or its string
+            if (align_out) {
+                // write it out as requested
+                if (json_out) {
+                    cout << pb2json(aln) << endl;
+                } else {
+                    function<Alignment(uint64_t)> lambda = [&aln](uint64_t n) { return aln; };
+                    stream::write(cout, 1, lambda);
+                }
+            } else {
+                cout << aln.sequence() << endl;
+            }
         }
     }
 
@@ -5283,6 +5317,7 @@ int main_find(int argc, char** argv) {
     bool pairwise_distance = false;
     string haplotype_alignments;
     string gam_file;
+    int max_mem_length = 0;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -5800,7 +5835,7 @@ int main_find(int argc, char** argv) {
                 mapper.gcsa = &gcsa_index;
                 mapper.lcp = &lcp_index;
                 // get the mems
-                auto mems = mapper.find_smems(sequence);
+                auto mems = mapper.find_smems(sequence, max_mem_length);
                 // then fill the nodes that they match
                 for (auto& mem : mems) mem.fill_nodes(&gcsa_index);
                 // dump them to stdout
@@ -5927,7 +5962,7 @@ int main_index(int argc, char** argv) {
     bool compact = false;
     bool dump_alignments = false;
     bool use_snappy = false;
-    int doubling_steps = 2;
+    int doubling_steps = 3;
     bool verify_index = false;
     bool forward_only = false;
     size_t size_limit = 200; // in gigabytes
@@ -6868,7 +6903,7 @@ void help_map(char** argv) {
          << "output:" << endl
          << "    -J, --output-json     output JSON rather than an alignment stream (helpful for debugging)" << endl
          << "    -Z, --buffer-size N   buffer this many alignments together before outputting in GAM (default: 100)" << endl
-         << "    -w, --check           if using GAM input (-G), write a comparison of before/after alignments to stdout" << endl
+         << "    -w, --compare         if using GAM input (-G), write a comparison of before/after alignments to stdout" << endl
          << "    -D, --debug           print debugging information about alignment to stderr" << endl
          << "local alignment parameters:" << endl
          << "    -q, --match N         use this match score (default: 1)" << endl
@@ -6896,17 +6931,17 @@ void help_map(char** argv) {
          << "    -X, --accept-identity N   accept early alignment if the normalized alignment score is >= N and -F or -G is set" << endl
          << "    -A, --max-attempts N      try to improve sensitivity and align this many times (default: 7)" << endl
          << "    -v  --map-qual-method OPT mapping quality method: 0 - none, 1 - fast approximation, 2 - exact (default 1)" << endl
+         << "    -S, --sens-step N     decrease maximum MEM size or kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "maximal exact match (MEM) mapper:" << endl
          << "  This algorithm is used when --kmer-size is not specified and a GCSA index is given" << endl
          << "    -L, --min-mem-length N   ignore MEMs shorter than this length (default: 0/unset)" << endl
          << "    -Y, --max-mem-length N   ignore MEMs longer than this length by stopping backward search (default: 0/unset)" << endl
-         << "    -2, --mem-threading      use the MEM-threading alingment algorithm" << endl
+         << "    -a, --mem-threading      use the MEM-threading alingment algorithm" << endl
          << "kmer-based mapper:" << endl
          << "  This algorithm is used when --kmer-size is specified or a rocksdb index is given" << endl
          << "    -k, --kmer-size N     use this kmer size, it must be < kmer size in db (default: from index)" << endl
          << "    -j, --kmer-stride N   step distance between succesive kmers to use for seeding (default: kmer size)" << endl
          << "    -E, --min-kmer-entropy N  require shannon entropy of this in order to use kmer (default: no limit)" << endl
-         << "    -S, --sens-step N     decrease kmer size by N bp until alignment succeeds (default: 5)" << endl
          << "    -l, --kmer-min N      give up aligning if kmer size gets below this threshold (default: 8)" << endl
          << "    -F, --prefer-forward  if the forward alignment of the read works, accept it" << endl;
 }
@@ -6926,7 +6961,7 @@ int main_map(int argc, char** argv) {
     string gcsa_name;
     int kmer_size = 0;
     int kmer_stride = 0;
-    int sens_step = 0;
+    int sens_step = 5;
     int best_clusters = 0;
     int cluster_min = 1;
     int max_attempts = 7;
@@ -6946,7 +6981,7 @@ int main_map(int argc, char** argv) {
     string sample_name;
     string read_group;
     string fastq1, fastq2;
-    bool interleaved_fastq = false;
+    bool interleaved_input = false;
     int pair_window = 64; // ~11bp/node
     int band_width = 1000; // anything > 1000bp sequences is difficult to align efficiently
     bool try_both_mates_first = false;
@@ -7021,7 +7056,7 @@ int main_map(int argc, char** argv) {
                 {"debug", no_argument, 0, 'D'},
                 {"min-mem-length", required_argument, 0, 'L'},
                 {"max-mem-length", required_argument, 0, 'Y'},
-                {"mem-threading", no_argument, 0, '2'},
+                {"mem-threading", no_argument, 0, 'a'},
                 {"max-target-x", required_argument, 0, 'H'},
                 {"buffer-size", required_argument, 0, 'Z'},
                 {"match", required_argument, 0, 'q'},
@@ -7031,13 +7066,13 @@ int main_map(int argc, char** argv) {
                 {"qual-adjust", no_argument, 0, '1'},
                 {"pairing-multimaps", required_argument, 0, 'u'},
                 {"map-qual-method", required_argument, 0, 'v'},
-                {"compare", required_argument, 0, 'w'},
+                {"compare", no_argument, 0, 'w'},
                 {"fragment-window", required_argument, 0, 'W'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:w:W:2",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:wW:a",
                          long_options, &option_index);
 
 
@@ -7153,7 +7188,7 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'i':
-            interleaved_fastq = true;
+            interleaved_input = true;
             break;
 
         case 'p':
@@ -7209,7 +7244,7 @@ int main_map(int argc, char** argv) {
             max_mem_length = atoi(optarg);
             break;
 
-        case '2':
+        case 'a':
             mem_threading = true;
             break;
 
@@ -7251,6 +7286,7 @@ int main_map(int argc, char** argv) {
 
         case 'w':
             compare_gam = true;
+            output_json = true;
             break;
 
         case 'W':
@@ -7343,7 +7379,7 @@ int main_map(int argc, char** argv) {
         }
         xindex = new xg::XG(graph->graph);
         assert(kmer_size);
-        int doubling_steps = 2;
+        int doubling_steps = 3;
         graph->build_gcsa_lcp(gcsa, lcp, kmer_size, in_mem_path_only, false, 2);
         delete graph;
     } else {
@@ -7437,7 +7473,7 @@ int main_map(int argc, char** argv) {
         m->max_multimaps = max_multimaps;
         m->debug = debug;
         m->accept_identity = accept_identity;
-        if (sens_step) m->kmer_sensitivity_step = sens_step;
+        m->kmer_sensitivity_step = sens_step;
         m->prefer_forward = prefer_forward;
         m->greedy_accept = greedy_accept;
         m->thread_extension = thread_ex;
@@ -7449,7 +7485,6 @@ int main_map(int argc, char** argv) {
         m->min_identity = min_score;
         m->softclip_threshold = softclip_threshold;
         m->min_mem_length = min_mem_length;
-        m->max_mem_length = max_mem_length;
         m->mem_threading = mem_threading;
         m->max_target_factor = max_target_factor;
         m->set_alignment_scores(match, mismatch, gap_open, gap_extend);
@@ -7470,8 +7505,8 @@ int main_map(int argc, char** argv) {
         if (!qual.empty()) {
             unaligned.set_quality(qual);
         }
-        
-        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
+
+        vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
         if(alignments.size() == 0) {
             // If we didn't have any alignments, report the unaligned alignment
             alignments.push_back(unaligned);
@@ -7506,7 +7541,7 @@ int main_map(int argc, char** argv) {
                     Alignment unaligned;
                     unaligned.set_sequence(line);
 
-                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, band_width);
+                    vector<Alignment> alignments = mapper[tid]->align_multi(unaligned, kmer_size, kmer_stride, max_mem_length, band_width);
                     if(alignments.empty()) {
                         alignments.push_back(unaligned);
                     }
@@ -7528,11 +7563,12 @@ int main_map(int argc, char** argv) {
     if (!hts_file.empty()) {
         function<void(Alignment&)> lambda =
             [&mapper,
-            &output_alignments,
-            &keep_secondary,
-            &kmer_size,
-            &kmer_stride,
-            &band_width]
+             &output_alignments,
+             &keep_secondary,
+             &kmer_size,
+             &kmer_stride,
+             &max_mem_length,
+             &band_width]
                 (Alignment& alignment) {
 
                     if(alignment.is_secondary() && !keep_secondary) {
@@ -7541,7 +7577,7 @@ int main_map(int argc, char** argv) {
                     }
 
                     int tid = omp_get_thread_num();
-                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
                     if(alignments.empty()) {
                         alignments.push_back(alignment);
                     }
@@ -7554,19 +7590,20 @@ int main_map(int argc, char** argv) {
     }
 
     if (!fastq1.empty()) {
-        if (interleaved_fastq) {
+        if (interleaved_input) {
             // paired interleaved
             function<void(Alignment&, Alignment&)> lambda =
                 [&mapper,
-                &output_alignments,
-                &kmer_size,
-                &kmer_stride,
-                &band_width,
-                &pair_window]
+                 &output_alignments,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width,
+                 &pair_window]
                     (Alignment& aln1, Alignment& aln2) {
 
                         int tid = omp_get_thread_num();
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
 
                         // Make sure we have unaligned "alignments" for things that don't align.
                         if(alnp.first.empty()) {
@@ -7585,14 +7622,15 @@ int main_map(int argc, char** argv) {
             // single
             function<void(Alignment&)> lambda =
                 [&mapper,
-                &output_alignments,
-                &kmer_size,
-                &kmer_stride,
-                &band_width]
+                 &output_alignments,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width]
                     (Alignment& alignment) {
 
                         int tid = omp_get_thread_num();
-                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
+                        vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
 
                         if(alignments.empty()) {
                             // Make sure we have a "no alignment" alignment
@@ -7607,15 +7645,16 @@ int main_map(int argc, char** argv) {
             // paired two-file
             function<void(Alignment&, Alignment&)> lambda =
                 [&mapper,
-                &output_alignments,
-                &kmer_size,
-                &kmer_stride,
-                &band_width,
-                &pair_window]
+                 &output_alignments,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width,
+                 &pair_window]
                     (Alignment& aln1, Alignment& aln2) {
 
                         int tid = omp_get_thread_num();
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, band_width, pair_window);
+                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
 
                         // Make sure we have unaligned "alignments" for things that don't align.
                         if(alnp.first.empty()) {
@@ -7633,30 +7672,75 @@ int main_map(int argc, char** argv) {
     }
 
     if (!gam_input.empty()) {
-        function<void(Alignment&)> lambda =
-            [&mapper,
-             &output_alignments,
-             &keep_secondary,
-             &kmer_size,
-             &kmer_stride,
-             &band_width,
-             &compare_gam]
-                (Alignment& alignment) {
-                    int tid = omp_get_thread_num();
-                    vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, band_width);
-                    if(alignments.empty()) {
-                        alignments.push_back(alignment);
-                    }
-                    if (compare_gam) {
-#pragma omp critical (cout)
-                        cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path()) << endl;
-                    } else {
-                        // Output the alignments in JSON or protobuf as appropriate.
-                        output_alignments(alignments);
-                    }
-                };
         ifstream gam_in(gam_input);
-        stream::for_each_parallel(gam_in, lambda);
+        if (interleaved_input) {
+            function<void(Alignment&,Alignment&)> lambda =
+                [&mapper,
+                 &output_alignments,
+                 &keep_secondary,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width,
+                 &compare_gam,
+                 &pair_window]
+                (Alignment& aln1, Alignment& aln2) {
+                int tid = omp_get_thread_num();
+                auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                // Make sure we have unaligned "alignments" for things that don't align.
+                if(alnp.first.empty()) {
+                    alnp.first.push_back(aln1);
+                    auto& aln = alnp.first.back();
+                    aln.clear_path();
+                    aln.clear_score();
+                    aln.clear_identity();
+                }
+                if(alnp.second.empty()) {
+                    alnp.second.push_back(aln2);
+                    auto& aln = alnp.second.back();
+                    aln.clear_path();
+                    aln.clear_score();
+                    aln.clear_identity();
+                }
+                if (compare_gam) {
+#pragma omp critical (cout)
+                    {
+                        cout << aln1.name() << "\t" << overlap(aln1.path(), alnp.first.front().path()) << endl;
+                        cout << aln2.name() << "\t" << overlap(aln2.path(), alnp.second.front().path()) << endl;
+                    }
+                } else {
+                    // Output the alignments in JSON or protobuf as appropriate.
+                    output_alignments(alnp.first);
+                    output_alignments(alnp.second);
+                }
+            };
+            gam_paired_interleaved_for_each_parallel(gam_in, lambda);
+        } else {
+            function<void(Alignment&)> lambda =
+                [&mapper,
+                 &output_alignments,
+                 &keep_secondary,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width,
+                 &compare_gam]
+                (Alignment& alignment) {
+                int tid = omp_get_thread_num();
+                vector<Alignment> alignments = mapper[tid]->align_multi(alignment, kmer_size, kmer_stride, max_mem_length, band_width);
+                if(alignments.empty()) {
+                    alignments.push_back(alignment);
+                }
+                if (compare_gam) {
+#pragma omp critical (cout)
+                    cout << alignment.name() << "\t" << overlap(alignment.path(), alignments.front().path()) << endl;
+                } else {
+                    // Output the alignments in JSON or protobuf as appropriate.
+                    output_alignments(alignments);
+                }
+            };
+            stream::for_each_parallel(gam_in, lambda);
+        }
         gam_in.close();
     }
 
