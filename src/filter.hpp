@@ -11,6 +11,9 @@
 #include "xg.hpp"
 #include "vg.pb.h"
 
+#ifndef FILTER_HPP
+#define FILTER_HPP
+
 /**
  * Provides a way to filter Edits contained
  * within Alignments. This can be used to clean out
@@ -41,6 +44,19 @@ class Filter{
         Alignment path_divergence_filter(Alignment& aln);
         Alignment reversing_filter(Alignment& aln);
         Alignment kmer_filter(Alignment& aln);
+
+        Alignment one_end_anchored_filter(Alignment& aln);
+        Alignment interchromosomal_filter(Alignment& aln);
+        Alignment insert_size_filter(Alignment& aln);
+        Alignment orientation_filter(Alignment& aln);
+
+        /*PE Functions*/
+        pair<Alignment, Alignment> one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Alignment, Alignment> interchromosomal_filter(Alignment& aln_first, Alignment& aln_second);
+        // TODO should give this one an insert size arg
+        pair<Alignment, Alignment> insert_size_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Alignment, Alignment> orientation_filter(Alignment& aln_first, Alignment& aln_second);
+
         void set_min_depth(int depth);
         //void set_min_kmer_depth(int d);
         void set_min_qual(int qual);
@@ -73,7 +89,7 @@ class Filter{
 
     private:
         vg::VG* my_vg;
-        xg::XG* my_xg_idx;
+        xg::XG* my_xg_index;
         //Position: NodeID + offset
         // different edits may be present at each position.
         // is there some way to just hash the mappings?
@@ -93,6 +109,9 @@ class Filter{
         int split_read_limit = -1;
         double min_percent_identity = 0.0;
         double min_avg_qual = 0.0;
+
+        int my_max_distance = 1000;
         };
 }
+
 #endif
