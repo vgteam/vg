@@ -385,6 +385,29 @@ bool ReadFilter::has_repeat(Alignment& aln, int k) {
     return false;
 }
 
+bool ReadFilter::is_valid(xg::XG* index, Alignment& alignment) {
+    if(index == nullptr) {
+        // No reason to believe the read is not valid.
+        return true;
+    }
+    
+    
+    for(size_t i = 0; i + 1 < alignment.path().mapping_size(); i++) {
+        // For each mapping and the one after it
+        auto& pos1 = alignment.path().mapping(i).position();
+        auto& pos2 = alignment.path().mapping(i + 1).position();
+        
+        if(!index->has_edge(pos1.node_id(), pos1.is_reverse(), pos2.node_id(), pos2.is_reverse())) {
+            // We found a skip!
+            cerr << "Warning: read " << alignment.name() << " has an invalid mapping! Removing!" << endl;
+            return false;
+        } 
+    }
+    
+    // No wandering jumps between nodes found
+    return true;
+}
+
 int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
 
     // name helper for output
@@ -545,6 +568,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     size_t max_pri_overhang_count = 0;
     size_t min_sec_mapq_count = 0;
     size_t min_pri_mapq_count = 0;
+    size_t invalid_sec_count = 0;
+    size_t invalid_pri_count = 0;
     size_t repeat_sec_count = 0;
     size_t repeat_pri_count = 0;
     size_t defray_sec_count = 0;
@@ -626,6 +651,10 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 ++min_sec_mapq_count;
                 keep = false;
             }
+            if ((keep || verbose) && !is_valid(xindex, aln)) {
+                ++invalid_sec_count;
+                keep = false;
+            }
             if ((keep || verbose) && has_repeat(aln, repeat_size)) {
                 ++repeat_sec_count;
                 keep = false;
@@ -681,11 +710,15 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 ++min_pri_mapq_count;
                 keep_prev = false;
             }
+            if ((keep_prev || verbose) && !is_valid(xindex, aln)) {
+                ++invalid_pri_count;
+                keep_prev = false;
+            }
             if ((keep_prev || verbose) && has_repeat(aln, repeat_size)) {
                 ++repeat_pri_count;
                 keep_prev = false;
             }
-            if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
+            if ((keep_prev || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
                 ++defray_pri_count;
                 // We keep these, because the alignments get modified.
             }

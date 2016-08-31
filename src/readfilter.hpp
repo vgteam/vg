@@ -86,6 +86,12 @@ private:
      */
     bool trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k);
     
+    /**
+     * Return true if the read only follows edges in the xg index, or if no xg
+     * index is specified, and false otherwise.
+     */
+    bool is_valid(xg::XG* index, Alignment& alignment);
+    
 };
 }
 
