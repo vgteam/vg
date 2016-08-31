@@ -75,7 +75,14 @@ private:
     Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     
     Alignment align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio);
-    vector<Alignment> align_multi_internal(bool compute_unpaired_qualities, const Alignment& aln, int kmer_size, int stride, int band_width, int additional_multimaps = 0, vector<MaximalExactMatch>* restricted_mems = nullptr);
+    vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
+                                           const Alignment& aln,
+                                           int kmer_size,
+                                           int stride,
+                                           int max_mem_length,
+                                           int band_width,
+                                           int additional_multimaps = 0,
+                                           vector<MaximalExactMatch>* restricted_mems = nullptr);
     void compute_mapping_qualities(vector<Alignment>& alns);
     void compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns);
     vector<Alignment> score_sort_and_deduplicate_alignments(vector<Alignment>& all_alns, const Alignment& original_alignment);
@@ -85,6 +92,7 @@ private:
     Alignment align_banded(const Alignment& read,
                            int kmer_size = 0,
                            int stride = 0,
+                           int max_mem_length = 0,
                            int band_width = 1000);
     // alignment based on the MEM approach
     vector<Alignment> align_mem_multi(const Alignment& alignment, vector<MaximalExactMatch>& mems, int additional_multimaps = 0);
@@ -155,17 +163,32 @@ public:
 
     bool adjacent_positions(const Position& pos1, const Position& pos2);
     int64_t get_node_length(int64_t node_id);
-    bool check_alignment(const Alignment& aln);    
+    bool check_alignment(const Alignment& aln);
+    VG alignment_subgraph(const Alignment& aln, int context_size = 1);
     
     // Align the given string and return an Alignment.
-    Alignment align(const string& seq, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    Alignment align(const string& seq,
+                    int kmer_size = 0,
+                    int stride = 0,
+                    int max_mem_length = 0,
+                    int band_width = 1000);
+
     // Align the given read and return an aligned copy. Does not modify the input Alignment.
-    Alignment align(const Alignment& read, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    Alignment align(const Alignment& read,
+                    int kmer_size = 0,
+                    int stride = 0,
+                    int max_mem_length = 0,
+                    int band_width = 1000);
+
     // Align the given read with multi-mapping. Returns the alignments in score
     // order, up to multimaps (or max_multimaps if multimaps is 0). Does not update the alignment passed in.
     // If the sequence is longer than the band_width, will only produce a single best banded alignment.
     // All alignments but the first are marked as secondary.
-    vector<Alignment> align_multi(const Alignment& aln, int kmer_size = 0, int stride = 0, int band_width = 1000);
+    vector<Alignment> align_multi(const Alignment& aln,
+                                  int kmer_size = 0,
+                                  int stride = 0,
+                                  int max_mem_length = 0,
+                                  int band_width = 1000);
     
     // paired-end based
     
@@ -179,6 +202,7 @@ public:
                            const Alignment& read2,
                            int kmer_size = 0,
                            int stride = 0,
+                           int max_mem_length = 0,
                            int band_width = 1000,
                            int pair_window = 64);
     
@@ -189,19 +213,20 @@ public:
                                             const Alignment& read2,
                                             int kmer_size = 0,
                                             int stride = 0,
+                                            int max_mem_length = 0,
                                             int band_width = 1000,
                                             int pair_window = 64);
 
 
     // MEM-based mapping
     // finds absolute super-maximal exact matches
-    vector<MaximalExactMatch> find_smems(const string& seq);
+    vector<MaximalExactMatch> find_smems(const string& seq, int max_length);
     bool get_mem_hits_if_under_max(MaximalExactMatch& mem);
     // debugging, checking of mems using find interface to gcsa
     void check_mems(const vector<MaximalExactMatch>& mems);
     // finds "forward" maximal exact matches of the sequence using the GCSA index
     // stepping step between each one
-    vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1);
+    vector<MaximalExactMatch> find_forward_mems(const string& seq, size_t step = 1, int max_mem_length = 0);
     // use BFS to expand the graph in an attempt to resolve soft clips
     void resolve_softclips(Alignment& aln, VG& graph);
     // use the xg index to get a character at a particular position (rc or foward)
@@ -235,7 +260,7 @@ public:
 
     // mem mapper parameters (it is _much_ simpler)
     //
-    int max_mem_length; // a mem must be <= this length
+    //int max_mem_length; // a mem must be <= this length
     int min_mem_length; // a mem must be >= this length
     int mem_threading; // whether to use the mem threading mapper or not
 
