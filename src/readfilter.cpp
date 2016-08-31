@@ -143,8 +143,11 @@ bool ReadFilter::trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k) 
                 from_length += mapping.edit(j).from_length();
             }
             
-            // Non-leading mappings can't have offsets.
-            assert(mapping.position().offset() == 0);
+            if(mapping.position().offset() != 0) {
+                // Non-leading mappings can't have offsets. That implies
+                // skipping over some ref sequence without an appropriate edit.
+                throw runtime_error("Non leading mapping has offset in alignment: " + pb2json(alignment));
+            }
             
             // Put in the sequence that the mapping visits
             target_sequence_stream << sequence.substr(0, from_length);
