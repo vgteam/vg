@@ -35,7 +35,6 @@
 #include "distributions.hpp"
 #include "unittest/driver.hpp"
 
-
 using namespace std;
 using namespace google::protobuf;
 using namespace vg;
@@ -8908,8 +8907,6 @@ int main(int argc, char *argv[])
         return main_version(argc, argv);
     }  else if (command == "homogenize"){
         return main_homogenize(argc, argv);
-    } else if (command == "test") {
-        return main_test(argc, argv);
     } else if (command == "test") {
         return main_test(argc, argv);
     } else {
