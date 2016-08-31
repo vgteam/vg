@@ -397,9 +397,21 @@ bool ReadFilter::is_valid(xg::XG* index, Alignment& alignment) {
         auto& pos1 = alignment.path().mapping(i).position();
         auto& pos2 = alignment.path().mapping(i + 1).position();
         
-        if(!index->has_edge(pos1.node_id(), pos1.is_reverse(), pos2.node_id(), pos2.is_reverse())) {
+        id_t from_id = pos1.node_id();
+        bool from_start = pos1.is_reverse();
+        id_t to_id = pos2.node_id();
+        bool to_end = pos2.is_reverse();
+        
+        if(from_start && to_end) {
+            from_start = to_end = false;
+            swap(from_id, to_id);
+        }
+        
+        if(!index->has_edge(from_id, from_start, to_id, to_end)) {
             // We found a skip!
-            cerr << "Warning: read " << alignment.name() << " has an invalid mapping! Removing!" << endl;
+            cerr << "Warning: read " << alignment.name() << " has an invalid edge "
+                << from_id << " " << from_start << " " << to_id << " " << to_end
+                << ". Removing!" << endl;
             return false;
         } 
     }
