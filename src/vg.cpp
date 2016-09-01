@@ -6621,9 +6621,9 @@ void VG::to_dot(ostream& out,
             }
             inner_label << "</TD>";
         } else if (simple_mode) {
-            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            //inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << n->id();
-            inner_label << "</TD>";
+            //inner_label << "</TD>";
         } else {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << n->id() << ":" << n->sequence();
@@ -6631,11 +6631,15 @@ void VG::to_dot(ostream& out,
         }
 
         stringstream nlabel;
-        nlabel << "<";
-        nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
-        nlabel << inner_label.str();
-        nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
-        nlabel << ">";
+        if (simple_mode) {
+            nlabel << inner_label.str();
+        } else {
+            nlabel << "<";
+            nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
+            nlabel << inner_label.str();
+            nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
+            nlabel << ">";
+        }
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
