@@ -2370,13 +2370,23 @@ int main_msga(int argc, char** argv) {
 
     // if our graph is empty, we need to take the first sequence and build a graph from it
     if (graph->empty()) {
+        auto build_graph = [&graph](const string& seq, const string& name) {
+            auto node = graph->create_node(seq);
+            Path path;
+            path.set_name(name);
+            auto mapping = path.add_mapping();
+            mapping->mutable_position()->set_node_id(node->id());
+            auto edit = mapping->add_edit();
+            edit->set_from_length(node->sequence().size());
+            edit->set_to_length(node->sequence().size());
+            graph->paths.extend(path);
+        };
         // what's the first sequence?
         if (base_seq_name.empty()) {
-            graph->create_node(strings.begin()->second);
-        } else {
-            // we specified one we wanted to use as the first
-            graph->create_node(strings[base_seq_name]);
+            base_seq_name = names_in_order.front();
         }
+        // we specified one we wanted to use as the first
+        build_graph(strings[base_seq_name], base_seq_name);
     }
 
     size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
@@ -2453,6 +2463,7 @@ int main_msga(int argc, char** argv) {
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& name : names_in_order) {
+        if (!base_seq_name.empty() && name == base_seq_name) continue; // already embedded
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
         auto& seq = strings[name];
@@ -2466,7 +2477,8 @@ int main_msga(int argc, char** argv) {
             // align to the graph
             if (debug) cerr << name << ": aligning sequence of " << seq.size() << "bp against " <<
                 graph->node_count() << " nodes" << endl;
-            Alignment aln = simplify(mapper->align(seq, 0, sens_step, max_mem_length, band_width));
+            Alignment aln =
+                simplify(mapper->align(seq, 0, sens_step, max_mem_length, band_width));
             auto aln_seq = graph->path_string(aln.path());
             if (aln_seq != seq) {
                 cerr << "[vg msga] alignment corrupted, failed to obtain correct banded alignment (alignment seq != input seq)" << endl;
@@ -2508,7 +2520,7 @@ int main_msga(int argc, char** argv) {
             if (circularize) {
                 if (debug) cerr << name << ": circularizing" << endl;
                 graph->circularize({name});
-                graph->serialize_to_file(name + "-post-circularize.vg");
+                //graph->serialize_to_file(name + "-post-circularize.vg");
             }
 
             // the edit needs to cut nodes at mapping starts and ends
@@ -2521,6 +2533,7 @@ int main_msga(int argc, char** argv) {
             graph->paths.to_graph(graph->graph);
             // and rebuild the indexes
             rebuild(graph);
+            //graph->serialize_to_file(name + "-post-index.vg");
 
             // verfy validity of path
             bool is_valid = graph->is_valid();

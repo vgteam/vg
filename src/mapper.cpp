@@ -879,6 +879,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
         if (unique) {
             auto patch = simplify(patch_alignment(partial_alignment));
+            if (debug) { cerr << "patch identity " << patch.identity() << endl; }
             if (patch.identity() > min_identity) {
                 alns.emplace_back(patch);
                 alns.back().set_name(aln.name());
