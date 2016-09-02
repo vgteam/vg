@@ -4845,12 +4845,16 @@ int main_stats(int argc, char** argv) {
         // And substitutions
         size_t total_substitutions = 0;
         size_t total_substituted_bases = 0;
+        // And softclips
+        size_t total_softclips = 0;
+        size_t total_softclipped_bases = 0;
         
         // In verbose mode we want to report details of insertions, deletions,
-        // and substitutions.
+        // and substitutions, and soft clips.
         vector<pair<vg::id_t, Edit>> insertions;
         vector<pair<vg::id_t, Edit>> deletions;
         vector<pair<vg::id_t, Edit>> substitutions;
+        vector<pair<vg::id_t, Edit>> softclips;
         
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             int tid = omp_get_thread_num();
@@ -4897,19 +4901,32 @@ int main_stats(int argc, char** argv) {
                     node_visit_counts[node_id]++;
                     
                     for(size_t j = 0; j < mapping.edit_size(); j++) {
-                        // Go through edits and look for indels.
+                        // Go through edits and look for each type.
                         auto& edit = mapping.edit(j);
                         
                         if(edit.to_length() > edit.from_length()) {
-                            // Record this insertion
-                            #pragma omp critical (total_inserted_bases)
-                            total_inserted_bases += edit.to_length() - edit.from_length();
-                            #pragma omp critical (total_insertions)
-                            total_insertions++;
-                            if(verbose) {
-                                // Record the actual insertion
-                                #pragma omp critical (insertions)
-                                insertions.push_back(make_pair(node_id, edit));
+                            if((j == 0 && i == 0) || (j == mapping.edit_size() - 1 && i == aln.path().mapping_size() - 1)) {
+                                // We're at the very end of the path, so this is a soft clip.
+                                #pragma omp critical (total_softclipped_bases)
+                                total_softclipped_bases += edit.to_length() - edit.from_length();
+                                #pragma omp critical (total_softclips)
+                                total_softclips++;
+                                if(verbose) {
+                                    // Record the actual insertion
+                                    #pragma omp critical (softclips)
+                                    softclips.push_back(make_pair(node_id, edit));
+                                }
+                            } else {
+                                // Record this insertion
+                                #pragma omp critical (total_inserted_bases)
+                                total_inserted_bases += edit.to_length() - edit.from_length();
+                                #pragma omp critical (total_insertions)
+                                total_insertions++;
+                                if(verbose) {
+                                    // Record the actual insertion
+                                    #pragma omp critical (insertions)
+                                    insertions.push_back(make_pair(node_id, edit));
+                                }
                             }
                             
                         } else if(edit.from_length() > edit.to_length()) {
@@ -5036,6 +5053,13 @@ int main_stats(int argc, char** argv) {
         cout << "Substitutions: " << total_substituted_bases << " bp in " << total_substitutions << " read events" << endl;
         if(verbose) {
             for(auto& id_and_edit : substitutions) {
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
+        cout << "Softclips: " << total_softclipped_bases << " bp in " << total_softclips << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : softclips) {
                 cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
                     << " on " << id_and_edit.first << endl;
             }
