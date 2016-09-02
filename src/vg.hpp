@@ -729,6 +729,7 @@ public:
     // Will modify the graph by re-ordering the nodes.
     
     // align without base quality adjusted scores
+    // May add nodes to the graph, but cleans them up afterward
     Alignment align(const string& sequence,
                     Aligner& aligner,
                     size_t max_query_graph_ratio = 0,
@@ -739,6 +740,7 @@ public:
                     bool print_score_matrices = false);
     
     // align with default Aligner
+    // May add nodes to the graph, but cleans them up afterward
     Alignment align(const Alignment& alignment,
                     size_t max_query_graph_ratio = 0,
                     bool print_score_matrices = false);
