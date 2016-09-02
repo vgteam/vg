@@ -1474,6 +1474,7 @@ bool Index::surject_alignment(const Alignment& source,
     // align only does a single oriantation, and we have no idea, even looking
     // at the mappings, which of the orientations will correspond to the one the
     // alignment is actually in.
+
     auto surjection_forward = graph.align(source);
     auto surjection_reverse = graph.align(source_rc);
     
