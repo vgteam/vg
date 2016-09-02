@@ -2534,7 +2534,7 @@ int main_msga(int argc, char** argv) {
             graph->paths.to_graph(graph->graph);
             // and rebuild the indexes
             rebuild(graph);
-            graph->serialize_to_file(name + "-post-index.vg");
+            //graph->serialize_to_file(name + "-post-index.vg");
 
             // verfy validity of path
             bool is_valid = graph->is_valid();
