@@ -6,6 +6,7 @@
 #include "xg.hpp"
 #include "lru_cache.h"
 #include "utility.hpp"
+#include "json2pb.h"
 #include <iostream>
 
 namespace vg {

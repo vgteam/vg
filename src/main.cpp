@@ -2368,7 +2368,7 @@ int main_msga(int argc, char** argv) {
 
     // give a label to sequences passed on the command line
     // use the sha1sum, take the head
-    // collision avoidance pattern ensures we get the same names for the same sequences across multiple runs
+    // collision avoidance with nonce ensures we get the same names for the same sequences across multiple runs
     for (auto& s : sequences) {
         auto name = sha1head(s, 8);
         int nonce = 0;
@@ -2387,13 +2387,23 @@ int main_msga(int argc, char** argv) {
 
     // if our graph is empty, we need to take the first sequence and build a graph from it
     if (graph->empty()) {
+        auto build_graph = [&graph](const string& seq, const string& name) {
+            auto node = graph->create_node(seq);
+            Path path;
+            path.set_name(name);
+            auto mapping = path.add_mapping();
+            mapping->mutable_position()->set_node_id(node->id());
+            auto edit = mapping->add_edit();
+            edit->set_from_length(node->sequence().size());
+            edit->set_to_length(node->sequence().size());
+            graph->paths.extend(path);
+        };
         // what's the first sequence?
         if (base_seq_name.empty()) {
-            graph->create_node(strings.begin()->second);
-        } else {
-            // we specified one we wanted to use as the first
-            graph->create_node(strings[base_seq_name]);
+            base_seq_name = names_in_order.front();
         }
+        // we specified one we wanted to use as the first
+        build_graph(strings[base_seq_name], base_seq_name);
     }
 
     size_t max_query_size = pow(2, doubling_steps) * idx_kmer_size;
@@ -2423,8 +2433,8 @@ int main_msga(int argc, char** argv) {
 
         if (debug) cerr << "building xg index" << endl;
         xgidx = new xg::XG(graph->graph);
+
         if (debug) cerr << "building GCSA2 index" << endl;
-        
         // Configure GCSA2 verbosity so it doesn't spit out loads of extra info
         if(!debug) gcsa::Verbosity::set(gcsa::Verbosity::SILENT);
         
@@ -2452,10 +2462,16 @@ int main_msga(int argc, char** argv) {
             mapper->max_target_factor = max_target_factor;
             mapper->max_multimaps = max_multimaps;
             mapper->accept_identity = accept_identity;
+            mapper->mem_threading = true;
+
+            // set up the multi-threaded alignment interface
+            // TODO abstract this into a single call!!
             mapper->alignment_threads = alignment_threads;
             mapper->aligners.clear(); // number of aligners per mapper depends on thread count
                                       // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
+            mapper->init_node_cache();
+
             mapper->mem_threading = true;
         }
     };
@@ -2466,6 +2482,7 @@ int main_msga(int argc, char** argv) {
     // todo restructure so that we are trying to map everything
     // add alignment score/bp bounds to catch when we get a good alignment
     for (auto& name : names_in_order) {
+        if (!base_seq_name.empty() && name == base_seq_name) continue; // already embedded
         bool incomplete = true; // complete when we've fully included the sequence set
         int iter = 0;
         auto& seq = strings[name];
@@ -2521,16 +2538,20 @@ int main_msga(int argc, char** argv) {
             if (circularize) {
                 if (debug) cerr << name << ": circularizing" << endl;
                 graph->circularize({name});
-                graph->serialize_to_file(name + "-post-circularize.vg");
+                //graph->serialize_to_file(name + "-post-circularize.vg");
             }
 
             // the edit needs to cut nodes at mapping starts and ends
             // thus allowing paths to be included that map directly to entire nodes
             // XXX
 
-            // check that all is well
             //graph->serialize_to_file(name + "-pre-index.vg");
+            // update the paths
+            graph->graph.clear_path();
+            graph->paths.to_graph(graph->graph);
+            // and rebuild the indexes
             rebuild(graph);
+            //graph->serialize_to_file(name + "-post-index.vg");
 
             // verfy validity of path
             bool is_valid = graph->is_valid();
