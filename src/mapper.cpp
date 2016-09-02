@@ -886,7 +886,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }
         }
     }
-
     if (debug) {
         for (auto& aln : alns) {
             cerr << "cluster aln ------- " << pb2json(aln) << endl;
@@ -1923,7 +1922,10 @@ Alignment Mapper::walk_match(const string& seq, pos_t pos) {
     //cerr << "in walk match with " << seq << " " << seq.size() << " " << pos << endl;
     Alignment aln;
     auto alns = walk_match(aln, seq, pos);
-    assert(alns.size());
+    if (!alns.size()) {
+        cerr << "no alignments returned from walk match with " << seq << " " << seq.size() << " " << pos << endl;
+        assert(false);
+    }
     aln = alns.front(); // take the first one we found
     aln.set_sequence(seq);
     assert(alignment_to_length(aln) == alignment_from_length(aln));
@@ -1951,7 +1953,7 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
     size_t match_len = 0;
     for (size_t i = 0; i < seq.size(); ++i) {
         char c = seq[i];
-        //cerr << "on " << c << endl;
+        //cerr << string(base.path().mapping_size(), ' ') << pos << " @ " << i << " on " << c << endl;
         auto nexts = next_pos_chars(pos);
         // we can have a match on the current node
         if (nexts.size() == 1 && id(nexts.begin()->first) == id(pos)) {
@@ -1961,7 +1963,8 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
                 // we can't step, so we break
                 //cerr << "Checking if " << pos_char(npos) << " != " << seq[i+1] << endl;
                 if (pos_char(npos) != seq[i+1]) {
-                    //cerr << "done" << endl;
+                    //cerr << "broke" << endl;
+                    //cerr << "returning ..." << alns.size() << endl;
                     return alns;
                 }
             }
@@ -1985,9 +1988,9 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
             // find the next node that matches our MEM
             bool got_match = false;
             if (i+1 < seq.size()) {
-                //cerr << nexts.size() << endl;
+                //cerr << "nexts @ " << i << " " << nexts.size() << endl;
                 for (auto& p : nexts) {
-                    //cerr << "next : " << p.first << " " << p.second << " (looking for " << seq[i+1] << ")" << endl;
+                    //cerr << " next : " << p.first << " " << p.second << " (looking for " << seq[i+1] << ")" << endl;
                     if (p.second == seq[i+1]) {
                         if (!got_match) {
                             pos = p.first;
@@ -2005,6 +2008,7 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
                     // this matching ends here
                     // and we haven't finished matching
                     // thus this path doesn't contain the match
+                    //cerr << "got no match" << endl;
                     return alns;
                 }
 
@@ -2022,6 +2026,7 @@ vector<Alignment> Mapper::walk_match(const Alignment& base, const string& seq, p
         edit->set_to_length(match_len);
     }
     alns.push_back(aln);
+    //cerr << "returning " << alns.size() << endl;
     return alns;
 }
 
@@ -2415,7 +2420,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             read_pos += edit.to_length();
         }
         //cerr << "growing patched: " << pb2json(patched) << endl;
-
+        /*
         if (debug) {
             patched.set_sequence(aln.sequence().substr(0, read_pos));
             if (!check_alignment(patched)) {
@@ -2423,6 +2428,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 assert(false);
             }
         }
+        */
     }
     // finally, fix up the alignment score
     patched.set_sequence(aln.sequence());
