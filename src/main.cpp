@@ -2955,7 +2955,8 @@ int main_surject(int argc, char** argv) {
                     handle_buffer(buffer[tid]);
 
                 };
-
+            
+            
             // now apply the alignment processor to the stream
             if (file_name == "-") {
                 stream::for_each_parallel(std::cin, lambda);
