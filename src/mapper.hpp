@@ -135,7 +135,7 @@ public:
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
-    map<string, double> alignments_mean_path_positions(const Alignment& aln);
+    map<string, double> alignment_mean_path_positions(const Alignment& aln);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -242,6 +242,9 @@ public:
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
     // Use the GCSA index to look up the sequence
     set<pos_t> sequence_positions(const string& seq);
+
+    // fargment length estimation
+    map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx

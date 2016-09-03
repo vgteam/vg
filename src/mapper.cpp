@@ -239,7 +239,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     delete graph;
 }
 
-map<string, double> Mapper::alignments_mean_path_positions(const Alignment& aln) {
+map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln) {
     map<string, double> mean_pos;
     // Alignments are consistent if their median node id positions are within the fragment_size
     
@@ -554,10 +554,10 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
         map<Alignment*, map<string, double> > aln_pos;
         for (auto& aln : alignments1) {
-            aln_pos[&aln] = alignments_mean_path_positions(aln);
+            aln_pos[&aln] = alignment_mean_path_positions(aln);
         }
         for (auto& aln : alignments2) {
-            aln_pos[&aln] = alignments_mean_path_positions(aln);
+            aln_pos[&aln] = alignment_mean_path_positions(aln);
         }
 
         // Now we want to emit consistent pairs, in order of decreasing total score.
@@ -660,6 +660,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results = make_pair(alignments1, alignments2);
     }
 
+    // change the potential set of MEMs by dropping the maximum MEM size
+    // this tends to slightly boost sensitivity at minimal cost
     if (results.first.empty()
         || results.second.empty()
         || !results.first.front().score()
@@ -677,6 +679,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
 
+    for (int i = 0; i < results.first.size(); ++i) {
+        auto& aln1 = results.first.at(i);
+        auto& aln2 = results.second.at(i);
+        auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
+        for (auto& j : approx_frag_lengths) {
+            Path fragment;
+            fragment.set_name(j.first);
+            fragment.set_length(j.second);
+            *aln1.add_fragment() = fragment;
+            *aln2.add_fragment() = fragment;
+        }
+    }
+    
     return results;
 
 }
@@ -913,6 +928,19 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     xindex->expand_context(graph.graph, max(1, context_size)); // get connected edges
     graph.rebuild_indexes();
     return graph;
+}
+
+map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
+    map<string, int> lengths;
+    auto pos1 = alignment_mean_path_positions(aln1);
+    auto pos2 = alignment_mean_path_positions(aln2);
+    for (auto& p : pos1) {
+        auto x = pos2.find(p.first);
+        if (x != pos2.end()) {
+            lengths[p.first] = abs(p.second - x->second);
+        }
+    }
+    return lengths;
 }
 
 set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
