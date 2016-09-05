@@ -5014,8 +5014,19 @@ int main_stats(int argc, char** argv) {
         size_t unvisited_nodes = 0;
         // And unvisited base count
         size_t unvisited_node_bases = 0;
+        // And nodes that are visited by only one thing (which is useful if
+        // we're checking diploid assembly pairs).
+        size_t single_visited_nodes = 0;
+        size_t single_visited_node_bases = 0;
         // If we're in verbose mode, collect IDs too.
         set<vg::id_t> unvisited_ids;
+        set<vg::id_t> single_visited_ids;
+        // Note that you need to subtract out substituted-away and deleted bases
+        // from the sum of 2 * double- and single-visited bases to get the bases
+        // actually present in reads, because deleted bases are still "visited"
+        // as many times as their nodes are touched. Also note that we ignore
+        // edge effects and a read that stops before the end of a node will
+        // visit the whole node.
         graph->for_each_node_parallel([&](Node* node) {
             // For every node
             if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
@@ -5027,6 +5038,16 @@ int main_stats(int argc, char** argv) {
                 if(verbose) {
                     #pragma omp critical (unvisited_ids)
                     unvisited_ids.insert(node->id());
+                }
+            } else if(node_visit_counts.at(node->id()) == 1) {
+                // If we visited it with only one read, count it.
+                #pragma omp critical (single_visited_nodes)
+                single_visited_nodes++;
+                #pragma omp critical (single_visited_node_bases)
+                single_visited_node_bases += node->sequence().size();
+                if(verbose) {
+                    #pragma omp critical (single_visited_ids)
+                    single_visited_ids.insert(node->id());
                 }
             }
         });
@@ -5071,7 +5092,15 @@ int main_stats(int argc, char** argv) {
             for(auto& id : unvisited_ids) {
                 cout << "\t" << id << endl;
             }
-        }       
+        }
+        
+        cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph->node_count()
+            << " (" << single_visited_node_bases << " bp)" << endl;
+        if(verbose) {
+            for(auto& id : single_visited_ids) {
+                cout << "\t" << id << endl;
+            }
+        }     
         
         cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
         if(total_hets > 0) {
