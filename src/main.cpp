@@ -6683,11 +6683,11 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 if (file_name == "-") {
-                    stream::for_each(std::cin, lambda);
+                    stream::for_each_parallel(std::cin, lambda);
                 } else {
                     ifstream in;
                     in.open(file_name.c_str());
-                    stream::for_each(in, lambda);
+                    stream::for_each_parallel(in, lambda);
                 }
             }
             index.flush();
