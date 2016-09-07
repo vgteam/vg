@@ -752,7 +752,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
  * Trace out the reference path in the given graph named by the given name.
  * Returns a structure with useful indexes of the reference.
  */
-ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName) {
+ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName, bool verbose) {
     // Make sure the reference path is present
     assert(vg.paths.has_path(refPathName));
     
@@ -802,10 +802,12 @@ ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName) {
             
             // TODO: this is a hack to deal with the debruijn-brca1-k63 graph,
             // which leads with an X.
-            
-            std::cerr << "Warning: dropping invalid leading character "
-                << sequence[0] << " from node " << mapping.position().node_id()
-                << std::endl;
+
+            if (verbose) {
+                std::cerr << "Warning: dropping invalid leading character "
+                          << sequence[0] << " from node " << mapping.position().node_id()
+                          << std::endl;
+            }
                 
             sequence.erase(sequence.begin());
         }
@@ -837,10 +839,12 @@ ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName) {
     index.sequence = refSeqStream.str();
     
     // Announce progress.
-    std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
+    if (verbose) {
+        std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
     
-    if(index.sequence.size() < 100) {
-        std::cerr << "Reference sequence: " << index.sequence << std::endl;
+        if(index.sequence.size() < 100) {
+            std::cerr << "Reference sequence: " << index.sequence << std::endl;
+        }
     }
     
     // Give back the indexes we have been making
@@ -929,7 +933,8 @@ void parse_tsv(const std::string& tsvFile,
                std::set<vg::Edge*>& deletionEdges,
                std::map<vg::Node*, std::pair<int64_t, size_t>>& nodeSources,
                std::set<vg::Node*>& knownNodes,
-               std::set<vg::Edge*>& knownEdges) {
+               std::set<vg::Edge*>& knownEdges,
+               bool verbose) {
     
     // Open up the TSV-file
     std::stringstream tsvStream(tsvFile);
@@ -1091,7 +1096,9 @@ void parse_tsv(const std::string& tsvFile,
         }
         
     }
-    std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
+    if (verbose) {
+        std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
+    }
 }
 
 // this was main() in glenn2vcf
@@ -1159,28 +1166,34 @@ int call2vcf(
     size_t max_bubble_paths,
     // what's the minimum minimum allele depth to give a PASS in the filter column
     // (anything below gets FAIL)    
-    size_t min_mad_for_filter) {
+    size_t min_mad_for_filter,
+    // print warnings etc. to stderr
+    bool verbose) {
     
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
     
     if(refPathName.empty()) {
-        std:cerr << "Graph has " << vg.paths.size() << " paths to choose from."
-            << std::endl;
+        if (verbose) {
+          std:cerr << "Graph has " << vg.paths.size() << " paths to choose from."
+                   << std::endl;
+        }
         if(vg.paths.size() == 1) {
             // Autodetect the reference path name as the name of the only path
             refPathName = (*vg.paths._paths.begin()).first;
         } else {
             refPathName = "ref";
         }
-        
-        std::cerr << "Guessed reference path name of " << refPathName
-            << std::endl;
+
+        if (verbose) {
+            std::cerr << "Guessed reference path name of " << refPathName
+                      << std::endl;
+        }
     }
     
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
-    ReferenceIndex index = trace_reference_path(vg, refPathName);  
+    ReferenceIndex index = trace_reference_path(vg, refPathName, verbose);  
     
     // This holds read support, on each strand, for all the nodes we have read
     // support provided for, by the node pointer in the vg graph.
@@ -1211,7 +1224,7 @@ int call2vcf(
     // for nodes and edges.
     parse_tsv(glennFile, vg, nodeReadSupport, edgeReadSupport,
               nodeLikelihood, edgeLikelihood, deletionEdges,
-              nodeSources, knownNodes, knownEdges);
+              nodeSources, knownNodes, knownEdges, verbose);
 
     // Store support binned along reference path;
     // Last bin extended to include remainder
@@ -1257,12 +1270,14 @@ int call2vcf(
             maxBin = i;
         }
     }
-        
-    std::cerr << "Primary path average coverage: " << primaryPathAverageSupport << endl;
-    std::cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
-              << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
-    std::cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
-              << (maxBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+
+    if (verbose) {
+        std::cerr << "Primary path average coverage: " << primaryPathAverageSupport << endl;
+        std::cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
+                  << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+        std::cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
+                  << (maxBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+    }
     
     // If applicable, load the pileup.
     // This will hold pileup records by node ID.
@@ -1361,9 +1376,11 @@ int call2vcf(
                     // processing.
                     site_queue.emplace_back(std::move(child));
                 }
-                
-                std::cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
-                    << site.children.size() << " children" << std::endl; 
+
+                if (verbose) {
+                    std::cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
+                              << site.children.size() << " children" << std::endl;
+                }
                 
             } else {
                 // With no children, site may still be huge, but it doesn't
@@ -1375,16 +1392,20 @@ int call2vcf(
                 
                 if(ref_end > ref_start + max_ref_length) {
                     // This site is big but we left it anyway.
-                    std::cerr << "Left site from " << ref_start << " to " << ref_end << " with "
-                        << site.children.size() << " children" << std::endl;
+                    if (verbose) {
+                        std::cerr << "Left site from " << ref_start << " to " << ref_end << " with "
+                                  << site.children.size() << " children" << std::endl;
+                    }
                 }
                 
                 // Throw it in the final vector of sites we're going to process.
                 sites.emplace_back(std::move(site));
             }                
         }
-        
-        std::cerr << "Found " << sites.size() << " sites" << std::endl;
+
+        if (verbose) {
+            std::cerr << "Found " << sites.size() << " sites" << std::endl;
+        }
         
         // Bubble up nested site nodes and edges
         std::function<void(NestedSite&, NestedSite&)> bubble_up = [&](NestedSite& child, NestedSite& root) {
@@ -1445,7 +1466,9 @@ int call2vcf(
                 if((*found).first > index.byId.at(site.end.node->id()).first) {
                     // The next reference node we can find is out of the space
                     // being replaced. We're done.
-                    cerr << "Stopping for out-of-bounds node" << endl;
+                    if (verbose) {
+                        cerr << "Stopping for out-of-bounds node" << endl;
+                    }
                     break;
                 }
                 
@@ -1610,7 +1633,9 @@ int call2vcf(
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
                     // this material.
-                    cerr << "Warning: No path found for node " << node->id() << endl;
+                    if (verbose) {
+                        cerr << "Warning: No path found for node " << node->id() << endl;
+                    }
                     basesLost += node->sequence().size();
                     // TODO: what if it's already in another bubble/the node is deleted?
                     continue;
@@ -1647,7 +1672,9 @@ int call2vcf(
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
                     // this material.
-                    cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
+                    if (verbose) {
+                        cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
+                    }
                     // TODO: bases lost
                     // TODO: what if it's already in another bubble/the node is deleted?
                     continue;
@@ -2033,7 +2060,9 @@ int call2vcf(
                 // Output the created VCF variant.
                 std::cout << variant << std::endl;
             } else {
-                std::cerr << "Variant is too large" << std::endl;
+                if (verbose) {
+                    std::cerr << "Variant is too large" << std::endl;
+                }
                 // TODO: account for the 1 base we added extra if it was a pure
                 // insert.
                 basesLost += sequences.at(best_allele).size();
@@ -2493,11 +2522,15 @@ int call2vcf(
                         }
                     
                     } else {
-                        std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                        if (verbose) {
+                            std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                        }
                         basesLost += altAllele.size();
                     }
                 } else {
-                    std::cerr << "Variant is too large" << std::endl;
+                    if (verbose) {
+                        std::cerr << "Variant is too large" << std::endl;
+                    }
                     // TODO: account for the 1 base we added extra if it was a pure
                     // insert.
                     basesLost += altAllele.size();
@@ -2557,7 +2590,9 @@ int call2vcf(
                 if(!(fromFirst && toLast)) {
                     // We're not a proper deletion edge in the backwards spelling
                     // Discard the edge
-                    std::cerr << "Improper deletion edge " << edgeName << std::endl;
+                    if (verbose) {
+                        std::cerr << "Improper deletion edge " << edgeName << std::endl;
+                    }
                     basesLost += toBase - fromBase;
                     continue;
                 } else {
@@ -2569,7 +2604,9 @@ int call2vcf(
                 }
             } else if(fromFirst || toLast) {
                 // We aren't a proper deletion edge in the forward spelling either.
-                std::cerr << "Improper deletion edge " << edgeName << std::endl;
+                if (verbose) {
+                    std::cerr << "Improper deletion edge " << edgeName << std::endl;
+                }
                 basesLost += fromBase - toBase;
                 continue;
             }
@@ -2814,11 +2851,15 @@ int call2vcf(
                     }
                 
                 } else {
-                    std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                    if (verbose) {
+                        std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                    }
                     basesLost += altAllele.size();
                 }
             } else {
-                std::cerr << "Variant is too large" << std::endl;
+                if (verbose) {
+                    std::cerr << "Variant is too large" << std::endl;
+                }
                 // TODO: Drop the anchoring base that doesn't really belong to the
                 // deletion, when we can be consistent with inserts.
                 basesLost += altAllele.size();
@@ -2829,7 +2870,9 @@ int call2vcf(
     }
     
     // Announce how much we can't show.
-    std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
+    if (verbose) {
+        std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
+    }
     
     return 0;
 }
