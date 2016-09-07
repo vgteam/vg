@@ -122,14 +122,23 @@ public:
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
     // GSSW aligner(s)
-    vector<QualAdjAligner*> aligners;
-    QualAdjAligner* get_aligner(void);
+    vector<QualAdjAligner*> qual_adj_aligners;
+    vector<Aligner*> regular_aligners;
+    void clear_aligners(void);
+    QualAdjAligner* get_qual_adj_aligner(void);
+    Aligner* get_regular_aligner(void);
 
     // match walking support to prevent repeated calls to the xg index for the same node
     vector<LRUCache<id_t, Node>* > node_cache;
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
-    
+
+    // running estimation of fragment length distribution
+    deque<double> fragment_lengths;
+    void record_fragment_length(int length);
+    double fragment_length_stdev(void);
+    double fragment_length_mean(void);
+
     double estimate_gc_content();
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
@@ -294,7 +303,7 @@ public:
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
     int fragment_size; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
                        // if consistent pairs should be reported
-
+    int fragment_length_cache_size;
 
 };
 

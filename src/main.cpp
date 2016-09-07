@@ -2450,7 +2450,7 @@ int main_msga(int argc, char** argv) {
             // set up the multi-threaded alignment interface
             // TODO abstract this into a single call!!
             mapper->alignment_threads = alignment_threads;
-            mapper->aligners.clear(); // number of aligners per mapper depends on thread count
+            mapper->clear_aligners(); // number of aligners per mapper depends on thread count
                                       // we have to reset this here to re-init scores to the right number
             mapper->set_alignment_scores(match, mismatch, gap_open, gap_extend);
             mapper->init_node_cache();
