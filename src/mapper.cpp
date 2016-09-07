@@ -726,7 +726,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 && results.second.front().identity() == 1) {
                 record_fragment_length(j.second);
             }
-            cerr << "mean " << fragment_length_mean() << " stdev " << fragment_length_stdev() << endl;
+            cerr << "aln\t" << aln1.name() << "\t" << j.first << "\t" << j.second << endl; //fragment_length_mean() << " stdev " << fragment_length_stdev() << endl;
         }
     }
     
