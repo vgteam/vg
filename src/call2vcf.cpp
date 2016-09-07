@@ -1480,10 +1480,44 @@ int call2vcf(
 #endif
             assert(ref_path_for_site.front() == site.start);
             assert(ref_path_for_site.back() == site.end);
+
+            // check if a path is mostly reference for deciding if we add XREF tag
+            auto is_path_known = [&](std::vector<NodeTraversal> path) {
+                bool path_is_known = false;
+                if(path.size() == 2) {
+                    // We just have the anchoring nodes and the edge between them.
+                    // Look at that edge specially.
+                    vg::Edge* edge = vg.get_edge(make_pair(vg::NodeSide(path[0].node->id(), !path[0].backward),
+                                                           vg::NodeSide(path[1].node->id(), path[1].backward)));
+
+                    // The path is known if the edge is known
+                    path_is_known = knownEdges.count(edge);
+                } else {
+                    // How many bases are known (for XREF determination)?
+                    assert(path.size() > 2);
+                    size_t known_bases = 0;
+                    size_t unknown_bases = 0;
+
+                    // don't iterate over referenc anchors at either end
+                    for (int i = 1; i < path.size() - 1; ++i) {
+                        if (knownNodes.count(path[i].node)) {
+                            // This is a reference node.
+                            known_bases += path[i].node->sequence().size();
+                        } else {
+                            unknown_bases += path[i].node->sequence().size();
+                        }
+                    }
+                    // The path is known if more than half of its bases are reference
+                    path_is_known = known_bases > 0 && known_bases >= (known_bases + unknown_bases) / 2;
+                }
+                return path_is_known;
+            };
             
             // We need to know all the full-length traversals we're going to
             // consider. We want them in a set so we can find only unique ones.
-            std::set<std::vector<NodeTraversal>> site_traversal_set;
+            // We also store the XREF state here because we want to compute
+            // it before the extension is done. 
+            std::map<std::vector<NodeTraversal>, bool> site_traversal_set;
             
             // We have this function to extand a partial traversal into a full
             // traversal and add it as a path. The path must already be rooted on
@@ -1492,6 +1526,9 @@ int call2vcf(
                 // Splice the ref path through the site and the bubble's path
                 // through the site together.
                 vector<NodeTraversal> extended_path;
+
+                // Check if the path is xref before adding a bunch of reference stuff to it
+                bool path_known = is_path_known(path);
                 
                 for(auto& traversal : path) {
                     // Make sure the site actually has the nodes we're visiting.
@@ -1547,10 +1584,10 @@ int call2vcf(
                 }
                 
                 // Now add it to the set
-                site_traversal_set.insert(extended_path);
+                site_traversal_set.insert(make_pair(extended_path, path_known));
             
             };
-            
+
             for(Node* node : site.nodes) {
                 // Find the bubble for each node
                 
@@ -1626,7 +1663,7 @@ int call2vcf(
             }
             
             // Make it the first in the ordered alleles
-            std::vector<std::vector<NodeTraversal>> ordered_paths {ref_path_for_site};
+            std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths {make_pair(ref_path_for_site, true)};
             // Then add all the rest
             std::copy(site_traversal_set.begin(), site_traversal_set.end(), std::back_inserter(ordered_paths));
             
@@ -1641,8 +1678,10 @@ int call2vcf(
             std::vector<double> min_likelihoods;
             // Is the path as a whole known or novel?
             std::vector<bool> is_known;
-            for(auto& path : ordered_paths) {
+            for(auto& path_xref : ordered_paths) {
                 // Go through all the paths
+                auto& path = path_xref.first;
+                bool path_is_known = path_xref.second;
                 
                 // We use this to construct the allele sequence
                 std::stringstream sequence_stream;
@@ -1658,14 +1697,7 @@ int call2vcf(
                 
                 // Also, what's the min likelihood
                 double min_likelihood = INFINITY;
-                
-                // How many bases are known (for XREF determination)?
-                size_t known_bases = 0;
-                
-                // Set this if the path is known (either mostly known bases or a
-                // single known edge).
-                bool path_is_known = false;
-                
+                                
                 for(int64_t i = 1; i < path.size() - 1; i++) {
                     // For all but the first and last nodes (which are anchors),
                     // grab their sequences in the correct orientation.
@@ -1712,10 +1744,6 @@ int call2vcf(
                     
                     // TODO: use edge likelihood here too?
                         
-                    if(knownNodes.count(path[i].node)) {
-                        // This is a reference node.
-                        known_bases += path[i].node->sequence().size();
-                    }
                 }
                 
                 if(path.size() == 2) {
@@ -1731,13 +1759,7 @@ int call2vcf(
                     // And the likelihood on the edge
                     min_likelihood = edgeLikelihood.at(edge);
                     
-                    // The path is known if the edge is known
-                    path_is_known = knownEdges.count(edge);
-                } else {
-                    // We already filled in everything else; the path is known if
-                    // most of it is known bases.
-                    path_is_known = known_bases > 0 && known_bases >= sequence_stream.str().size() / 2;
-                }
+                } 
                 
 #ifdef debug
                 std::cerr << "Sequence \"" << sequence_stream.str() << "\" has " << known_bases << " known bases" << std::endl;
