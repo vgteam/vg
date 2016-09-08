@@ -41,6 +41,10 @@ Mapper::Mapper(Index* idex,
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
     , fragment_length_cache_size(1000)
+    , cached_fragment_length_mean(0)
+    , cached_fragment_length_stdev(0)
+    , since_last_fragment_length_estimate(0)
+    , fragment_length_estimate_interval(100)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -720,13 +724,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             fragment.set_length(j.second);
             *aln1.add_fragment() = fragment;
             *aln2.add_fragment() = fragment;
+            // if we have a perfect mapping, and we're under our hard fragment length cutoff
+            // push the result into our deque of fragment lengths
             if (results.first.size() == 1
                 && results.second.size() == 1
                 && results.first.front().identity() == 1
-                && results.second.front().identity() == 1) {
+                && results.second.front().identity() == 1
+                && j.second < 1e4) { // hard cutoff
+                cerr << "aln\tperfect alignments" << endl;
                 record_fragment_length(j.second);
             }
-            cerr << "aln\t" << aln1.name() << "\t" << j.first << "\t" << j.second << endl; //fragment_length_mean() << " stdev " << fragment_length_stdev() << endl;
+            cerr << "aln\t" << aln1.name() << "\t" << j.first << "\t" << j.second << "\t" << cached_fragment_length_mean << "\t" << cached_fragment_length_stdev << endl; //<< fragment_length_mean() << "\t" << fragment_length_stdev() << "\t" 
         }
     }
     
@@ -986,6 +994,11 @@ void Mapper::record_fragment_length(int length) {
     if (fragment_lengths.size() > fragment_length_cache_size) {
         auto last = fragment_lengths.back();
         fragment_lengths.pop_back();
+    }
+    if (++since_last_fragment_length_estimate > fragment_length_estimate_interval) {
+        cached_fragment_length_mean = fragment_length_mean();
+        cached_fragment_length_stdev = fragment_length_stdev();
+        since_last_fragment_length_estimate = 1;
     }
 }
 

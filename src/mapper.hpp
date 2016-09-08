@@ -138,6 +138,10 @@ public:
     void record_fragment_length(int length);
     double fragment_length_stdev(void);
     double fragment_length_mean(void);
+    int cached_fragment_length_mean;
+    int cached_fragment_length_stdev;
+    int since_last_fragment_length_estimate;
+    int fragment_length_estimate_interval;
 
     double estimate_gc_content();
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
