@@ -228,12 +228,14 @@ std::string char_to_string(const char& letter) {
 /**
  * Write a minimal VCF header for a single-sample file.
  */
-void write_vcf_header(std::ostream& stream, std::string& sample_name, std::string& contig_name, size_t contig_size) {
+void write_vcf_header(std::ostream& stream, std::string& sample_name, std::string& contig_name, size_t contig_size,
+                      int min_mad_for_filter) {
     stream << "##fileformat=VCFv4.2" << std::endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << std::endl;
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << std::endl;
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
+    stream << "##FILTER=<ID=FAIL,Description=\"Variant does meat minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
@@ -1306,7 +1308,8 @@ int call2vcf(
     // Handle length override if specified.
     std::stringstream headerStream;
     write_vcf_header(headerStream, sampleName, contigName,
-        lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset));
+                     lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset),
+                     min_mad_for_filter);
     
     // Load the headers into a new VCF file object
     vcflib::VariantCallFile vcf;
