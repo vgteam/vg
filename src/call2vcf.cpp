@@ -228,12 +228,14 @@ std::string char_to_string(const char& letter) {
 /**
  * Write a minimal VCF header for a single-sample file.
  */
-void write_vcf_header(std::ostream& stream, std::string& sample_name, std::string& contig_name, size_t contig_size) {
+void write_vcf_header(std::ostream& stream, std::string& sample_name, std::string& contig_name, size_t contig_size,
+                      int min_mad_for_filter) {
     stream << "##fileformat=VCFv4.2" << std::endl;
     stream << "##ALT=<ID=NON_REF,Description=\"Represents any possible alternative allele at this location\">" << std::endl;
     stream << "##INFO=<ID=XREF,Number=0,Type=Flag,Description=\"Present in original graph\">" << std::endl;
     stream << "##INFO=<ID=XSEE,Number=.,Type=String,Description=\"Original graph node:offset cross-references\">" << std::endl;
     stream << "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">" << std::endl;
+    stream << "##FILTER=<ID=FAIL,Description=\"Variant does meat minimum allele read support threshold of " << min_mad_for_filter << "\">" <<endl;
     stream << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">" << std::endl;
     stream << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << std::endl;
     stream << "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">" << std::endl;
@@ -752,7 +754,7 @@ find_bubble(vg::VG& graph, vg::Node* node, vg::Edge* edge, const ReferenceIndex&
  * Trace out the reference path in the given graph named by the given name.
  * Returns a structure with useful indexes of the reference.
  */
-ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName) {
+ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName, bool verbose) {
     // Make sure the reference path is present
     assert(vg.paths.has_path(refPathName));
     
@@ -802,10 +804,12 @@ ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName) {
             
             // TODO: this is a hack to deal with the debruijn-brca1-k63 graph,
             // which leads with an X.
-            
-            std::cerr << "Warning: dropping invalid leading character "
-                << sequence[0] << " from node " << mapping.position().node_id()
-                << std::endl;
+
+            if (verbose) {
+                std::cerr << "Warning: dropping invalid leading character "
+                          << sequence[0] << " from node " << mapping.position().node_id()
+                          << std::endl;
+            }
                 
             sequence.erase(sequence.begin());
         }
@@ -837,10 +841,12 @@ ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName) {
     index.sequence = refSeqStream.str();
     
     // Announce progress.
-    std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
+    if (verbose) {
+        std::cerr << "Traced " << referenceBase << " bp reference path " << refPathName << "." << std::endl;
     
-    if(index.sequence.size() < 100) {
-        std::cerr << "Reference sequence: " << index.sequence << std::endl;
+        if(index.sequence.size() < 100) {
+            std::cerr << "Reference sequence: " << index.sequence << std::endl;
+        }
     }
     
     // Give back the indexes we have been making
@@ -929,7 +935,8 @@ void parse_tsv(const std::string& tsvFile,
                std::set<vg::Edge*>& deletionEdges,
                std::map<vg::Node*, std::pair<int64_t, size_t>>& nodeSources,
                std::set<vg::Node*>& knownNodes,
-               std::set<vg::Edge*>& knownEdges) {
+               std::set<vg::Edge*>& knownEdges,
+               bool verbose) {
     
     // Open up the TSV-file
     std::stringstream tsvStream(tsvFile);
@@ -1091,7 +1098,9 @@ void parse_tsv(const std::string& tsvFile,
         }
         
     }
-    std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
+    if (verbose) {
+        std::cerr << "Loaded " << lineNumber << " lines from tsv buffer" << endl;
+    }
 }
 
 // this was main() in glenn2vcf
@@ -1159,28 +1168,34 @@ int call2vcf(
     size_t max_bubble_paths,
     // what's the minimum minimum allele depth to give a PASS in the filter column
     // (anything below gets FAIL)    
-    size_t min_mad_for_filter) {
+    size_t min_mad_for_filter,
+    // print warnings etc. to stderr
+    bool verbose) {
     
     vg.paths.sort_by_mapping_rank();
     vg.paths.rebuild_mapping_aux();
     
     if(refPathName.empty()) {
-        std:cerr << "Graph has " << vg.paths.size() << " paths to choose from."
-            << std::endl;
+        if (verbose) {
+          std:cerr << "Graph has " << vg.paths.size() << " paths to choose from."
+                   << std::endl;
+        }
         if(vg.paths.size() == 1) {
             // Autodetect the reference path name as the name of the only path
             refPathName = (*vg.paths._paths.begin()).first;
         } else {
             refPathName = "ref";
         }
-        
-        std::cerr << "Guessed reference path name of " << refPathName
-            << std::endl;
+
+        if (verbose) {
+            std::cerr << "Guessed reference path name of " << refPathName
+                      << std::endl;
+        }
     }
     
     // Follow the reference path and extract indexes we need: index by node ID,
     // index by node start, and the reconstructed path sequence.
-    ReferenceIndex index = trace_reference_path(vg, refPathName);  
+    ReferenceIndex index = trace_reference_path(vg, refPathName, verbose);  
     
     // This holds read support, on each strand, for all the nodes we have read
     // support provided for, by the node pointer in the vg graph.
@@ -1211,7 +1226,7 @@ int call2vcf(
     // for nodes and edges.
     parse_tsv(glennFile, vg, nodeReadSupport, edgeReadSupport,
               nodeLikelihood, edgeLikelihood, deletionEdges,
-              nodeSources, knownNodes, knownEdges);
+              nodeSources, knownNodes, knownEdges, verbose);
 
     // Store support binned along reference path;
     // Last bin extended to include remainder
@@ -1257,12 +1272,14 @@ int call2vcf(
             maxBin = i;
         }
     }
-        
-    std::cerr << "Primary path average coverage: " << primaryPathAverageSupport << endl;
-    std::cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
-              << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
-    std::cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
-              << (maxBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+
+    if (verbose) {
+        std::cerr << "Primary path average coverage: " << primaryPathAverageSupport << endl;
+        std::cerr << "Mininimum binned average coverage: " << binnedSupport[minBin] << " (bin "
+                  << (minBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+        std::cerr << "Maxinimum binned average coverage: " << binnedSupport[maxBin] << " (bin "
+                  << (maxBin + 1) << " / " << binnedSupport.size() << ")" << endl;
+    }
     
     // If applicable, load the pileup.
     // This will hold pileup records by node ID.
@@ -1291,7 +1308,8 @@ int call2vcf(
     // Handle length override if specified.
     std::stringstream headerStream;
     write_vcf_header(headerStream, sampleName, contigName,
-        lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset));
+                     lengthOverride != -1 ? lengthOverride : (index.sequence.size() + variantOffset),
+                     min_mad_for_filter);
     
     // Load the headers into a new VCF file object
     vcflib::VariantCallFile vcf;
@@ -1361,9 +1379,11 @@ int call2vcf(
                     // processing.
                     site_queue.emplace_back(std::move(child));
                 }
-                
-                std::cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
-                    << site.children.size() << " children" << std::endl; 
+
+                if (verbose) {
+                    std::cerr << "Broke up site from " << ref_start << " to " << ref_end << " into "
+                              << site.children.size() << " children" << std::endl;
+                }
                 
             } else {
                 // With no children, site may still be huge, but it doesn't
@@ -1375,16 +1395,20 @@ int call2vcf(
                 
                 if(ref_end > ref_start + max_ref_length) {
                     // This site is big but we left it anyway.
-                    std::cerr << "Left site from " << ref_start << " to " << ref_end << " with "
-                        << site.children.size() << " children" << std::endl;
+                    if (verbose) {
+                        std::cerr << "Left site from " << ref_start << " to " << ref_end << " with "
+                                  << site.children.size() << " children" << std::endl;
+                    }
                 }
                 
                 // Throw it in the final vector of sites we're going to process.
                 sites.emplace_back(std::move(site));
             }                
         }
-        
-        std::cerr << "Found " << sites.size() << " sites" << std::endl;
+
+        if (verbose) {
+            std::cerr << "Found " << sites.size() << " sites" << std::endl;
+        }
         
         // Bubble up nested site nodes and edges
         std::function<void(NestedSite&, NestedSite&)> bubble_up = [&](NestedSite& child, NestedSite& root) {
@@ -1445,7 +1469,9 @@ int call2vcf(
                 if((*found).first > index.byId.at(site.end.node->id()).first) {
                     // The next reference node we can find is out of the space
                     // being replaced. We're done.
-                    cerr << "Stopping for out-of-bounds node" << endl;
+                    if (verbose) {
+                        cerr << "Stopping for out-of-bounds node" << endl;
+                    }
                     break;
                 }
                 
@@ -1480,10 +1506,44 @@ int call2vcf(
 #endif
             assert(ref_path_for_site.front() == site.start);
             assert(ref_path_for_site.back() == site.end);
+
+            // check if a path is mostly reference for deciding if we add XREF tag
+            auto is_path_known = [&](std::vector<NodeTraversal> path) {
+                bool path_is_known = false;
+                if(path.size() == 2) {
+                    // We just have the anchoring nodes and the edge between them.
+                    // Look at that edge specially.
+                    vg::Edge* edge = vg.get_edge(make_pair(vg::NodeSide(path[0].node->id(), !path[0].backward),
+                                                           vg::NodeSide(path[1].node->id(), path[1].backward)));
+
+                    // The path is known if the edge is known
+                    path_is_known = knownEdges.count(edge);
+                } else {
+                    // How many bases are known (for XREF determination)?
+                    assert(path.size() > 2);
+                    size_t known_bases = 0;
+                    size_t unknown_bases = 0;
+
+                    // don't iterate over referenc anchors at either end
+                    for (int i = 1; i < path.size() - 1; ++i) {
+                        if (knownNodes.count(path[i].node)) {
+                            // This is a reference node.
+                            known_bases += path[i].node->sequence().size();
+                        } else {
+                            unknown_bases += path[i].node->sequence().size();
+                        }
+                    }
+                    // The path is known if more than half of its bases are reference
+                    path_is_known = known_bases > 0 && known_bases >= (known_bases + unknown_bases) / 2;
+                }
+                return path_is_known;
+            };
             
             // We need to know all the full-length traversals we're going to
             // consider. We want them in a set so we can find only unique ones.
-            std::set<std::vector<NodeTraversal>> site_traversal_set;
+            // We also store the XREF state here because we want to compute
+            // it before the extension is done. 
+            std::map<std::vector<NodeTraversal>, bool> site_traversal_set;
             
             // We have this function to extand a partial traversal into a full
             // traversal and add it as a path. The path must already be rooted on
@@ -1492,6 +1552,9 @@ int call2vcf(
                 // Splice the ref path through the site and the bubble's path
                 // through the site together.
                 vector<NodeTraversal> extended_path;
+
+                // Check if the path is xref before adding a bunch of reference stuff to it
+                bool path_known = is_path_known(path);
                 
                 for(auto& traversal : path) {
                     // Make sure the site actually has the nodes we're visiting.
@@ -1547,10 +1610,10 @@ int call2vcf(
                 }
                 
                 // Now add it to the set
-                site_traversal_set.insert(extended_path);
+                site_traversal_set.insert(make_pair(extended_path, path_known));
             
             };
-            
+
             for(Node* node : site.nodes) {
                 // Find the bubble for each node
                 
@@ -1573,7 +1636,9 @@ int call2vcf(
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
                     // this material.
-                    cerr << "Warning: No path found for node " << node->id() << endl;
+                    if (verbose) {
+                        cerr << "Warning: No path found for node " << node->id() << endl;
+                    }
                     basesLost += node->sequence().size();
                     // TODO: what if it's already in another bubble/the node is deleted?
                     continue;
@@ -1610,7 +1675,9 @@ int call2vcf(
                 if(path.empty()) {
                     // We couldn't find a path back to the primary path. Discard
                     // this material.
-                    cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
+                    if (verbose) {
+                        cerr << "Warning: No path found for edge " << edge->from() << "," << edge->to() << endl;
+                    }
                     // TODO: bases lost
                     // TODO: what if it's already in another bubble/the node is deleted?
                     continue;
@@ -1626,7 +1693,7 @@ int call2vcf(
             }
             
             // Make it the first in the ordered alleles
-            std::vector<std::vector<NodeTraversal>> ordered_paths {ref_path_for_site};
+            std::vector<std::pair<std::vector<NodeTraversal>, bool>> ordered_paths {make_pair(ref_path_for_site, true)};
             // Then add all the rest
             std::copy(site_traversal_set.begin(), site_traversal_set.end(), std::back_inserter(ordered_paths));
             
@@ -1641,8 +1708,10 @@ int call2vcf(
             std::vector<double> min_likelihoods;
             // Is the path as a whole known or novel?
             std::vector<bool> is_known;
-            for(auto& path : ordered_paths) {
+            for(auto& path_xref : ordered_paths) {
                 // Go through all the paths
+                auto& path = path_xref.first;
+                bool path_is_known = path_xref.second;
                 
                 // We use this to construct the allele sequence
                 std::stringstream sequence_stream;
@@ -1658,14 +1727,7 @@ int call2vcf(
                 
                 // Also, what's the min likelihood
                 double min_likelihood = INFINITY;
-                
-                // How many bases are known (for XREF determination)?
-                size_t known_bases = 0;
-                
-                // Set this if the path is known (either mostly known bases or a
-                // single known edge).
-                bool path_is_known = false;
-                
+                                
                 for(int64_t i = 1; i < path.size() - 1; i++) {
                     // For all but the first and last nodes (which are anchors),
                     // grab their sequences in the correct orientation.
@@ -1712,10 +1774,6 @@ int call2vcf(
                     
                     // TODO: use edge likelihood here too?
                         
-                    if(knownNodes.count(path[i].node)) {
-                        // This is a reference node.
-                        known_bases += path[i].node->sequence().size();
-                    }
                 }
                 
                 if(path.size() == 2) {
@@ -1731,13 +1789,7 @@ int call2vcf(
                     // And the likelihood on the edge
                     min_likelihood = edgeLikelihood.at(edge);
                     
-                    // The path is known if the edge is known
-                    path_is_known = knownEdges.count(edge);
-                } else {
-                    // We already filled in everything else; the path is known if
-                    // most of it is known bases.
-                    path_is_known = known_bases > 0 && known_bases >= sequence_stream.str().size() / 2;
-                }
+                } 
                 
 #ifdef debug
                 std::cerr << "Sequence \"" << sequence_stream.str() << "\" has " << known_bases << " known bases" << std::endl;
@@ -2011,7 +2063,9 @@ int call2vcf(
                 // Output the created VCF variant.
                 std::cout << variant << std::endl;
             } else {
-                std::cerr << "Variant is too large" << std::endl;
+                if (verbose) {
+                    std::cerr << "Variant is too large" << std::endl;
+                }
                 // TODO: account for the 1 base we added extra if it was a pure
                 // insert.
                 basesLost += sequences.at(best_allele).size();
@@ -2471,11 +2525,15 @@ int call2vcf(
                         }
                     
                     } else {
-                        std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                        if (verbose) {
+                            std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                        }
                         basesLost += altAllele.size();
                     }
                 } else {
-                    std::cerr << "Variant is too large" << std::endl;
+                    if (verbose) {
+                        std::cerr << "Variant is too large" << std::endl;
+                    }
                     // TODO: account for the 1 base we added extra if it was a pure
                     // insert.
                     basesLost += altAllele.size();
@@ -2535,7 +2593,9 @@ int call2vcf(
                 if(!(fromFirst && toLast)) {
                     // We're not a proper deletion edge in the backwards spelling
                     // Discard the edge
-                    std::cerr << "Improper deletion edge " << edgeName << std::endl;
+                    if (verbose) {
+                        std::cerr << "Improper deletion edge " << edgeName << std::endl;
+                    }
                     basesLost += toBase - fromBase;
                     continue;
                 } else {
@@ -2547,7 +2607,9 @@ int call2vcf(
                 }
             } else if(fromFirst || toLast) {
                 // We aren't a proper deletion edge in the forward spelling either.
-                std::cerr << "Improper deletion edge " << edgeName << std::endl;
+                if (verbose) {
+                    std::cerr << "Improper deletion edge " << edgeName << std::endl;
+                }
                 basesLost += fromBase - toBase;
                 continue;
             }
@@ -2792,11 +2854,15 @@ int call2vcf(
                     }
                 
                 } else {
-                    std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                    if (verbose) {
+                        std::cerr << "Variant collides with already-emitted variant" << std::endl;
+                    }
                     basesLost += altAllele.size();
                 }
             } else {
-                std::cerr << "Variant is too large" << std::endl;
+                if (verbose) {
+                    std::cerr << "Variant is too large" << std::endl;
+                }
                 // TODO: Drop the anchoring base that doesn't really belong to the
                 // deletion, when we can be consistent with inserts.
                 basesLost += altAllele.size();
@@ -2807,7 +2873,9 @@ int call2vcf(
     }
     
     // Announce how much we can't show.
-    std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
+    if (verbose) {
+        std::cerr << "Had to drop " << basesLost << " bp of unrepresentable variation." << std::endl;
+    }
     
     return 0;
 }

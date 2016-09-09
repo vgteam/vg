@@ -236,10 +236,8 @@ def call_chunk(xg_path, path_name, out_dir, chunks, chunk_i, path_size, overlap,
         offset = xg_path_node_offset(xg_path, chunk[0], chunk[1])
         merged_call_opts = merge_call_opts(chunk[0], offset, path_size,
                                            call_options, sample_name)
-        with open(vcf_path + ".call_log", "w") as vgcall_stderr:
-            run("vg call {} {} -t {} {} > {}".format(
-                vg_path, pu_path, threads, merged_call_opts, vcf_path + ".us"),
-                proc_stderr=vgcall_stderr)
+        run("vg call {} {} -t {} {} > {}".format(
+            vg_path, pu_path, threads, merged_call_opts, vcf_path + ".us"))
         sort_vcf(vcf_path + ".us", vcf_path)
         run("rm {}".format(vcf_path + ".us"))
         run("bgzip {}".format(vcf_path))

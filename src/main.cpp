@@ -1185,6 +1185,7 @@ void help_call(char** argv) {
          << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
+         << "    -v, --verbose              print information and warnings about vcf generation" << endl
          << "    -t, --threads N            number of threads to use" << endl;
 }
 
@@ -1262,6 +1263,7 @@ int main_call(int argc, char** argv) {
     size_t min_mad_for_filter = 5;
 
     bool show_progress = false;
+    bool verbose = false;
     int thread_count = 1;
 
     int c;
@@ -1278,6 +1280,7 @@ int main_call(int argc, char** argv) {
                 {"aug_graph", required_argument, 0, 'A'},
                 {"link-alts", no_argument, 0, 'a'},
                 {"progress", no_argument, 0, 'p'},
+                {"verbose", no_argument, 0, 'v'},
                 {"threads", required_argument, 0, 't'},
                 {"ref", required_argument, 0, 'r'},
                 {"contig", required_argument, 0, 'c'},
@@ -1302,7 +1305,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1413,6 +1416,9 @@ int main_call(int argc, char** argv) {
         case 'p':
             show_progress = true;
             break;
+        case 'v':
+            verbose = true;
+            break;            
         case 't':
             thread_count = atoi(optarg);
             break;
@@ -1548,7 +1554,8 @@ int main_call(int argc, char** argv) {
                         multiallelic_support,
                         max_ref_length,
                         max_bubble_paths,
-                        min_mad_for_filter);
+                        min_mad_for_filter,
+                        verbose);
     
     return 0;
 }
