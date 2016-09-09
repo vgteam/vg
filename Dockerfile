@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM ubuntu:16.04
 
 MAINTAINER Erik Garrison <erik.garrison@gmail.com>
 
@@ -16,8 +16,8 @@ RUN \
     apt-get update && \
     apt-get install -y \
         build-essential \
-        gcc4.9 \
-        g++4.9 \
+        gcc-5-base \
+        libgcc-5-dev \
         pkg-config \
         jq/trusty-backports \
         sudo && \

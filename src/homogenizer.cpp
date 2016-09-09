@@ -96,31 +96,31 @@ void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_i
         }
         cerr << clip_aln.DebugString();
         Path new_aln_p = clip_aln.path();
-        new_p_vec.clear();
+        //new_p_vec.clear();
         new_p_vec.push_back(new_aln_p);
         //for (int i = 0; i < new_aln_p.mapping_size(); i++){
-        vector<Translation> tras = o_graph->edit(new_p_vec);
-        translator.load(tras);
-        o_graph->paths.rebuild_mapping_aux();
+        //vector<Translation> tras = o_graph->edit(new_p_vec);
+        //translator.load(tras);
+        //o_graph->paths.rebuild_mapping_aux();
         //    Edge * e = o_graph->create_edge(x.first, new_aln_p.mapping(i).position().node_id(), false, false);
          //   o_graph->add_edge(*e);
          //   cerr << "Edge made from " << x.first << " to " << new_aln_p.mapping(i).position().node_id() << endl;
         //}
         
         /** Reindex graph and reset mapper **/
-        delete xindex;
-        xindex = new xg::XG(o_graph->graph);
-        delete gcsa_index;
-        delete lcp_index;
-        o_graph->build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, in_mem_path_only, false, 2);
-        delete mapper;
-        mapper = new Mapper(xindex, gcsa_index, lcp_index);
+        //delete xindex;
+        //xindex = new xg::XG(o_graph->graph);
+        //delete gcsa_index;
+        //delete lcp_index;
+        //o_graph->build_gcsa_lcp(gcsa_index, lcp_index, kmer_size, in_mem_path_only, false, 2);
+        //delete mapper;
+        //mapper = new Mapper(xindex, gcsa_index, lcp_index);
 
 
     }
 
-    vector<vg::id_t> after_tips = find_tips(o_graph);
-    cut_tips(after_tips, o_graph);
+    //vector<vg::id_t> after_tips = find_tips(o_graph);
+    //cut_tips(after_tips, o_graph);
 
 
 

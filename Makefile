@@ -171,7 +171,7 @@ $(OBJ_DIR)/sha1.o: $(SHA1_DIR)/sha1.cpp $(SHA1_DIR)/sha1.hpp
 	+$(CXX) $(CXXFLAGS) -c -o $@ $< $(LD_INCLUDE_FLAGS) && cp $(SHA1_DIR)/*.h* $(CWD)/$(INC_DIR)/
 
 # Auto-versioning
-$(INC_DIR)/vg_git_version.hpp: .git
+$(INC_DIR)/vg_git_version.hpp: #.git
 	echo "#define VG_GIT_VERSION \"$(shell git describe --always --tags || echo unknown)\"" > $@
 
 ###################################
