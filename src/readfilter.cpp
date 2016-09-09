@@ -402,13 +402,23 @@ bool ReadFilter::is_valid(xg::XG* index, Alignment& alignment) {
         id_t to_id = pos2.node_id();
         bool to_end = pos2.is_reverse();
         
-        if(from_start && to_end) {
-            from_start = to_end = false;
+        // Can we find the same articulation of the edge as the alignment uses
+        bool found = index->has_edge(from_id, from_start, to_id, to_end);   
+        
+        if(!found) {
+            // Check the other articulation of the edge
             swap(from_id, to_id);
+            swap(from_start, to_end);
+            from_start = !from_start;
+            to_end = !to_end;
+            
+            
+            found = index->has_edge(from_id, from_start, to_id, to_end);
         }
         
-        if(!index->has_edge(from_id, from_start, to_id, to_end)) {
+        if(!found) {
             // We found a skip!
+            // TODO: sometimes alignments can have these on purpose.
             cerr << "Warning: read " << alignment.name() << " has an invalid edge "
                 << from_id << " " << from_start << " " << to_id << " " << to_end
                 << ". Removing!" << endl;
