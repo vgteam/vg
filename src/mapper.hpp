@@ -133,6 +133,9 @@ public:
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
 
+    // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
+    vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
+
     // running estimation of fragment length distribution
     deque<double> fragment_lengths;
     void record_fragment_length(int length);
@@ -215,6 +218,7 @@ public:
     pair<vector<Alignment>, vector<Alignment>> 
         align_paired_multi(const Alignment& read1,
                            const Alignment& read2,
+                           bool& queued_resolve_later,
                            int kmer_size = 0,
                            int stride = 0,
                            int max_mem_length = 0,
@@ -226,6 +230,7 @@ public:
     // read and its corresponding rescue result if rescue was used.
     pair<Alignment, Alignment> align_paired(const Alignment& read1,
                                             const Alignment& read2,
+                                            bool& queued_resolve_later,
                                             int kmer_size = 0,
                                             int stride = 0,
                                             int max_mem_length = 0,
