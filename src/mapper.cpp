@@ -326,8 +326,14 @@ bool Mapper::alignments_consistent(const map<string, double>& pos1,
 }            
 
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
-    const Alignment& read1, const Alignment& read2,
-    int kmer_size, int stride, int max_mem_length, int band_width, int pair_window) {
+    const Alignment& read1,
+    const Alignment& read2,
+    bool& queued_resolve_later,
+    int kmer_size,
+    int stride,
+    int max_mem_length,
+    int band_width,
+    int pair_window) {
 
     // what we *really* should be doing is using paired MEM seeding, so we
     // don't have to make loads of full alignments of each read to search for
@@ -374,12 +380,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     vector<MaximalExactMatch>* pairable_mems_ptr_1 = nullptr;
     vector<MaximalExactMatch>* pairable_mems_ptr_2 = nullptr;
 
-    // TODO
     // sensitivity ramp
     // first try to get a consistent pair
     // if none is found, re-run the MEM generation with a shorter MEM length
     // if still none is found, align independently with full MEMS; report inconsistent pair
-    // optionally use local resolution
+    // optionally use local resolution ...
 
     // wishlist
     // break out the entire MEM determination logic
@@ -707,13 +712,24 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                   (int) (max_mem_length ? max_mem_length : gcsa->order()) - kmer_sensitivity_step);
             if (new_mem_max == min_mem_length) return results;
             //cerr << "trying with " << new_mem_max << endl;
-            return align_paired_multi(read1, read2, kmer_size, stride,
+            return align_paired_multi(read1, read2,
+                                      queued_resolve_later,
+                                      kmer_size, stride,
                                       new_mem_max,
                                       band_width, pair_window);
         }
     }
 
+    // we tried to align
+    // if we don't have a fragment_size yet determined
+    // and we didn't get a perfect, unambiguous hit on both reads
+    // we'll need to try it again later when we do have a fragment_size
+    // so store it in a buffer local to this mapper
+
     // tag the results with their fragment lengths
+    // record the lengths in a deque that we use to keep a running estimate of the fragment length distribution
+    // we then set the fragment_size cutoff using the moments of the estimated distribution
+    bool imperfect_pair = false;
     for (int i = 0; i < results.first.size(); ++i) {
         auto& aln1 = results.first.at(i);
         auto& aln2 = results.second.at(i);
@@ -733,20 +749,41 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 && j.second < 1e4) { // hard cutoff
                 cerr << "aln\tperfect alignments" << endl;
                 record_fragment_length(j.second);
+            } else if (!fragment_size) {
+                imperfect_pair = true;
             }
-            cerr << "aln\t" << aln1.name() << "\t" << j.first << "\t" << j.second << "\t" << cached_fragment_length_mean << "\t" << cached_fragment_length_stdev << endl; //<< fragment_length_mean() << "\t" << fragment_length_stdev() << "\t" 
+            cerr << "aln\t" << aln1.name() << "\t" << j.first << "\t" << j.second << "\t"
+                 << cached_fragment_length_mean << "\t" << cached_fragment_length_stdev << endl;
+            //<< fragment_length_mean() << "\t" << fragment_length_stdev() << "\t" 
         }
+    }
+
+    if (imperfect_pair) {
+        cerr << "saving" << endl;
+        imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
+        results.first.clear();
+        results.second.clear();
+        // we signal the fact that this isn't a perfect pair, so we don't write it out externally?
+        queued_resolve_later = true;
     }
     
     return results;
 
 }
 
-pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Alignment& read2, int kmer_size, int stride,
-                                                int max_mem_length, int band_width, int pair_window) {
+pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1,
+                                                const Alignment& read2,
+                                                bool& queued_resolve_later,
+                                                int kmer_size,
+                                                int stride,
+                                                int max_mem_length,
+                                                int band_width,
+                                                int pair_window) {
 
     pair<vector<Alignment>, vector<Alignment>> multimappings = align_paired_multi(read1, read2,
-        kmer_size, stride, band_width, pair_window);
+                                                                                  queued_resolve_later,
+                                                                                  kmer_size, stride,
+                                                                                  band_width, pair_window);
 
     // Grab the input reads as alignments if nothing was found, and the found alignments otherwise
     Alignment aln1;
@@ -998,6 +1035,8 @@ void Mapper::record_fragment_length(int length) {
     if (++since_last_fragment_length_estimate > fragment_length_estimate_interval) {
         cached_fragment_length_mean = fragment_length_mean();
         cached_fragment_length_stdev = fragment_length_stdev();
+        // set our fragment size cap to the cached mean + 10x the standard deviation
+        fragment_size = cached_fragment_length_mean + 10 * cached_fragment_length_stdev;
         since_last_fragment_length_estimate = 1;
     }
 }

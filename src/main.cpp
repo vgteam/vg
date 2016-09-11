@@ -7625,7 +7625,8 @@ int main_map(int argc, char** argv) {
                     (Alignment& aln1, Alignment& aln2) {
 
                         int tid = omp_get_thread_num();
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                        bool queued_resolve_later = false;
+                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
 
                         // Make sure we have unaligned "alignments" for things that don't align.
                         if(alnp.first.empty()) {
@@ -7676,7 +7677,8 @@ int main_map(int argc, char** argv) {
                     (Alignment& aln1, Alignment& aln2) {
 
                         int tid = omp_get_thread_num();
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                        bool queued_resolve_later = false;
+                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
 
                         // Make sure we have unaligned "alignments" for things that don't align.
                         if(alnp.first.empty()) {
@@ -7696,19 +7698,11 @@ int main_map(int argc, char** argv) {
     if (!gam_input.empty()) {
         ifstream gam_in(gam_input);
         if (interleaved_input) {
-            function<void(Alignment&,Alignment&)> lambda =
-                [&mapper,
-                 &output_alignments,
-                 &keep_secondary,
-                 &kmer_size,
-                 &kmer_stride,
-                 &max_mem_length,
-                 &band_width,
-                 &compare_gam,
-                 &pair_window]
-                (Alignment& aln1, Alignment& aln2) {
-                int tid = omp_get_thread_num();
-                auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+            auto output_func = [&output_alignments,
+                                &compare_gam]
+                (Alignment& aln1,
+                 Alignment& aln2,
+                 pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 // Make sure we have unaligned "alignments" for things that don't align.
                 if(alnp.first.empty()) {
                     alnp.first.push_back(aln1);
@@ -7736,7 +7730,55 @@ int main_map(int argc, char** argv) {
                     output_alignments(alnp.second);
                 }
             };
+            function<void(Alignment&,Alignment&)> lambda =
+                [&mapper,
+                 &output_alignments,
+                 &keep_secondary,
+                 &kmer_size,
+                 &kmer_stride,
+                 &max_mem_length,
+                 &band_width,
+                 &compare_gam,
+                 &pair_window,
+                 &output_func](Alignment& aln1, Alignment& aln2) {
+                auto our_mapper = mapper[omp_get_thread_num()];
+                bool queued_resolve_later = false;
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                if (!queued_resolve_later) {
+                    output_func(aln1, aln2, alnp);
+                    // check if we should try to align the queued alignments
+                    cerr << "doing output!!!" << endl;
+                    if (our_mapper->fragment_size != 0
+                        && !our_mapper->imperfect_pairs_to_retry.empty()) {
+                        cerr << "time to redo alignments" << endl;
+                        int i = 0;
+                        for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                            cerr << "on " << i++ << " of " << our_mapper->imperfect_pairs_to_retry.size() << endl;
+                            auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                                                                       queued_resolve_later, kmer_size,
+                                                                       kmer_stride, max_mem_length,
+                                                                       band_width, pair_window);
+                            output_func(aln1, aln2, alnp);
+                        }
+                        cerr << "done redo alignments" << endl;
+                        our_mapper->imperfect_pairs_to_retry.clear();
+                    }
+                }
+            };
             gam_paired_interleaved_for_each_parallel(gam_in, lambda);
+            {
+                cerr << "in the end" << endl;
+                auto our_mapper = mapper[omp_get_thread_num()];
+                for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                    bool queued_resolve_later = false;
+                    auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                                                               queued_resolve_later, kmer_size,
+                                                               kmer_stride, max_mem_length,
+                                                               band_width, pair_window);
+                    output_func(p.first, p.second, alnp);
+                }
+                our_mapper->imperfect_pairs_to_retry.clear();
+            }
         } else {
             function<void(Alignment&)> lambda =
                 [&mapper,
