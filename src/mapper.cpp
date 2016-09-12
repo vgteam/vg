@@ -148,11 +148,9 @@ Alignment Mapper::align_to_graph(const Alignment& aln, VG& vg, size_t max_query_
     // check if we have a cached aligner for this thread
     auto aligner = get_aligner();
     if (adjust_alignments_for_base_quality) {
-        cerr << "Doing quality-adjusted alignment" << endl;
         return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
     }
     else  {
-        cerr << "Doing ordinary alignment" << endl;
         return vg.align(aln, *aligner, max_query_graph_ratio);
     }
 }
@@ -2603,8 +2601,6 @@ Mapper::mems_id_clusters_to_alignments(const Alignment& alignment, vector<Maxima
             }
         }
         if (rc_mems) {
-            cerr << "Aligning reverse to:" << endl;
-            cerr << pb2json(sub.graph) << endl;
             Alignment aln = align_to_graph(aln_rc, sub, max_query_graph_ratio);
             resolve_softclips(aln, sub);
             alns.push_back(reverse_complement_alignment(aln,
