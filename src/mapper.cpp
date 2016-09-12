@@ -747,19 +747,19 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 && results.first.front().identity() == 1
                 && results.second.front().identity() == 1
                 && j.second < 1e4) { // hard cutoff
-                cerr << "aln\tperfect alignments" << endl;
+                //cerr << "aln\tperfect alignments" << endl;
                 record_fragment_length(j.second);
             } else if (!fragment_size) {
                 imperfect_pair = true;
             }
-            cerr << "aln\t" << aln1.name() << "\t" << j.first << "\t" << j.second << "\t"
-                 << cached_fragment_length_mean << "\t" << cached_fragment_length_stdev << endl;
+            //cerr << "aln\t" << aln1.name() << "\t" << aln2.name() << "\t" << j.first << "\t" << j.second << "\t"
+            //     << cached_fragment_length_mean << "\t" << cached_fragment_length_stdev << endl;
             //<< fragment_length_mean() << "\t" << fragment_length_stdev() << "\t" 
         }
     }
 
     if (imperfect_pair) {
-        cerr << "saving" << endl;
+        //cerr << "saving" << endl;
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
         results.second.clear();
@@ -1538,6 +1538,7 @@ LRUCache<id_t, Node>& Mapper::get_node_cache(void) {
 }
 
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
+    if (alns.empty()) return;
     auto aligner = (alns.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
@@ -1552,6 +1553,7 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
 }
     
 void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns) {
+    if (pair_alns.first.empty() || pair_alns.second.empty()) return;
     auto aligner = (pair_alns.first.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
@@ -2185,7 +2187,7 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
 
 Alignment Mapper::patch_alignment(const Alignment& aln) {
     //cerr << "patching " << pb2json(aln) << endl;
-    //if (!check_alignment(aln)) cerr << "aln is invalid!" << endl;
+    if (!check_alignment(aln)) cerr << "aln is invalid!" << endl;
     Alignment patched;
     int score = 0;
     // walk along the alignment and find the portions that are unaligned
@@ -2226,6 +2228,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 bool go_backward = is_rev(ref_pos);
                 id_t id1 = id(ref_pos);
                 id_t id2 = 0;
+                pos_t after_pos = ref_pos;
                 bool soft_clip_to_left = false;
                 bool soft_clip_to_right = false;
                 // this is a soft clip
@@ -2243,9 +2246,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         go_forward = false;
                         go_backward = true;
                     }
+                } else if (j+1 < mapping.edit_size()) {
+                    id2 = id1;
+                    //cerr << "more edits to go on this node: " << id2 << " " << after_pos << endl;
                 } else if (i+1 < path.mapping().size()) {
+                    // get the next position in the partial alignment we're patching
                     id2 = path.mapping(i+1).position().node_id();
-                    //cerr << "we're up so look for id: " << id2 << endl;
+                    after_pos = make_pos_t(path.mapping(i+1).position());
+                    //cerr << "we're up so look for id: " << id2 << " " << after_pos << endl;
                 } else {
                     //cerr << "last soft clip" << endl;
                     if (is_rev(ref_pos)) {
@@ -2272,29 +2280,18 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // instantiate a translator object (make sure it can handle the deleted bits?)
                 // translate the alignment
 
-                int min_distance = edit.to_length() * 3;
-
-                //cerr << "going at least " << min_distance << endl;
-                VG graph;
-                xindex->get_id_range(id1, id1, graph.graph);
-                xindex->expand_context(graph.graph,
-                                       min_distance,
-                                       false, // don't use steps (use length)
-                                       false, // don't add paths
-                                       go_forward,
-                                       go_backward,
-                                       id2);  // our target node
-                graph.rebuild_indexes();
-                //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-                // now trim the graph to fit by cutting the head/tail node(s)
-                // trim head
                 pos_t first_cut = ref_pos;
                 pos_t second_cut = ref_pos;
-
+                bool insertion_between_mems = false;
                 if (j+1 < mapping.edit_size()) {
                     //pos_t ref_pos = make_pos_t(mapping.position());
-                    get_offset(second_cut) += edit.from_length();
+                    if (edit.from_length()) {
+                        get_offset(second_cut) += edit.from_length();
+                    } else {
+                        insertion_between_mems = true;
+                    }
                 } else if (i+1 < path.mapping_size()) {
+                    //cerr << "lookin to the next mappin" << endl;
                     // we have to look at the next mapping
                     second_cut = make_pos_t(path.mapping(i+1).position());
                 } else {
@@ -2306,6 +2303,24 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 //cerr << "second_cut before " << second_cut << endl;
 
                 // if we get a target graph
+                int min_distance = edit.to_length() * 3;
+
+                //cerr << "going at least " << min_distance << endl;
+                VG graph;
+                if (!insertion_between_mems) {
+                    xindex->get_id_range(id1, id1, graph.graph);
+                    xindex->expand_context(graph.graph,
+                                           min_distance,
+                                           false, // don't use steps (use length)
+                                           false, // don't add paths
+                                           go_forward,
+                                           go_backward,
+                                           id2);  // our target node
+                    graph.rebuild_indexes();
+                    //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                }
+
+                // if we get a target graph
                 bool has_target = true;
                 // we have to remember how much we've trimmed from the first node
                 // so that we can translate it after the fact
@@ -2314,12 +2329,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 int trimmed_length_rev = 0;
 
                 // TODO continue if the graph doesn't have both cut points
-                if (!graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
+                if (insertion_between_mems || !graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
                     // treat the bit as unalignable
                     // has_target = false
                     //if (debug) cerr << "graph does not contain both cut points!" << endl;
                 } else {
 
+                    // now trim the graph to fit by cutting the head/tail node(s)
                     bool align_rc = false;
                     if (is_rev(first_cut) && is_rev(second_cut)) {
                         pos_t tmp_cut = first_cut;
@@ -2444,7 +2460,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     graph.remove_null_nodes_forwarding_edges();
                     graph.remove_orphan_edges();
                     //cerr << "trimmed graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-                    //cerr << "with " << subgraphs.size() << " subgraphs" << endl;
                     // find the subgraph with both of our cut positions
                     // this can be done by going to the first cut position
                     // expanding context until we complete the subgraph it's on

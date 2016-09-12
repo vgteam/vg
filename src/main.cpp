@@ -7747,27 +7747,22 @@ int main_map(int argc, char** argv) {
                 if (!queued_resolve_later) {
                     output_func(aln1, aln2, alnp);
                     // check if we should try to align the queued alignments
-                    cerr << "doing output!!!" << endl;
                     if (our_mapper->fragment_size != 0
                         && !our_mapper->imperfect_pairs_to_retry.empty()) {
-                        cerr << "time to redo alignments" << endl;
                         int i = 0;
                         for (auto p : our_mapper->imperfect_pairs_to_retry) {
-                            cerr << "on " << i++ << " of " << our_mapper->imperfect_pairs_to_retry.size() << endl;
                             auto alnp = our_mapper->align_paired_multi(p.first, p.second,
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window);
                             output_func(aln1, aln2, alnp);
                         }
-                        cerr << "done redo alignments" << endl;
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
                 }
             };
             gam_paired_interleaved_for_each_parallel(gam_in, lambda);
             {
-                cerr << "in the end" << endl;
                 auto our_mapper = mapper[omp_get_thread_num()];
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
