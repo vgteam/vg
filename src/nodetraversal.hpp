@@ -20,7 +20,8 @@ public:
     Node* node;
     bool backward;
 
-    inline NodeTraversal(Node* node, bool backward = false): node(node), backward(backward) {
+    // We don't want Node*s to turn into NodeTraversals when we aren't expecting it.
+    explicit inline NodeTraversal(Node* node, bool backward = false): node(node), backward(backward) {
         // Nothing to do
     }
 

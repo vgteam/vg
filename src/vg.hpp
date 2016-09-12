@@ -206,8 +206,8 @@ public:
     bool is_acyclic(void);
     // removes all elements which are not in a strongly connected component
     void keep_multinode_strongly_connected_components(void);
-    // does the specified node traversal self-loop?
-    bool is_self_looping(NodeTraversal trav);
+    // does the specified node have any self-loops?
+    bool is_self_looping(Node* node);
     // simple cycles following Johnson's elementary cycles algorithm
     set<list<NodeTraversal> > elementary_cycles(void);
     // concatenates the nodes into a new node with the same external linkage as the provided component
@@ -505,11 +505,20 @@ public:
     void for_each_node_parallel(function<void(Node*)> lambda);
     // Go through all the nodes in the same connected component as the given node. Ignores relative orientation.
     void for_each_connected_node(Node* node, function<void(Node*)> lambda);
+    
+    // Do a DFS search of the bidirected graph. A bidirected DFS starts at some
+    // root node, and traverses first all the nodes found reading out the right
+    // of that node in their appropriate relative orientations (including the
+    // root), and then all the nodes found reading left out of that node in
+    // their appropriate orientations (including the root). If any unvisited
+    // nodes are left in other connected components, the process will repeat
+    // from one such node, until all nodes have been visited in each
+    // orientation.
     void dfs(
-        // called when node is first encountered
-        const function<void(Node*)>& node_begin_fn,
-        // called when node goes out of scope
-        const function<void(Node*)>& node_end_fn,
+        // called when node orientattion is first encountered
+        const function<void(NodeTraversal)>& node_begin_fn,
+        // called when node orientation goes out of scope
+        const function<void(NodeTraversal)>& node_end_fn,
         // called to check if we should stop the DFS
         const function<bool(void)>& break_fn,
         // called when an edge is encountered
@@ -521,11 +530,11 @@ public:
         // called when we meet an edge in an already-traversed tree component
         const function<void(Edge*)>& edge_cross_fn);
     // specialization of dfs for only handling nodes
-    void dfs(const function<void(Node*)>& node_begin_fn,
-             const function<void(Node*)>& node_end_fn);
+    void dfs(const function<void(NodeTraversal)>& node_begin_fn,
+             const function<void(NodeTraversal)>& node_end_fn);
     // specialization of dfs for only handling nodes + break function
-    void dfs(const function<void(Node*)>& node_begin_fn,
-             const function<void(Node*)>& node_end_fn,
+    void dfs(const function<void(NodeTraversal)>& node_begin_fn,
+             const function<void(NodeTraversal)>& node_end_fn,
              const function<bool(void)>& break_fn);
 
     // is the graph empty?
@@ -835,7 +844,7 @@ public:
     // (uses set) traversals after this node on the same strand
     set<NodeTraversal> travs_from(NodeTraversal node);
 
-    // traversals before this node on the same strand
+    // traversals either before or after this node on the same strand
     set<NodeTraversal> travs_of(NodeTraversal node);
 
     // Count the nodes attached to the left side of the given NodeTraversal
