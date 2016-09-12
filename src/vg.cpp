@@ -6624,18 +6624,24 @@ void VG::to_dot(ostream& out,
     //        inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
     //        inner_label << n->id();
     //        inner_label << "</TD>";
-        } else {
-            inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
-            inner_label << n->id() << ":" << n->sequence();
-            inner_label << "</TD>";
-        }
-
-        stringstream nlabel;
+            //inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
+            inner_label << n->id();
+            //inner_label << "</TD>";
         //nlabel << "<";
         //nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
         nlabel << inner_label.str();
         //nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
         //nlabel << ">";
+        if (simple_mode) {
+            nlabel << inner_label.str();
+        } else {
+            nlabel << "<";
+            nlabel << "<TABLE BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD PORT=\"nw\"></TD><TD PORT=\"n\"></TD><TD PORT=\"ne\"></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD></TD>";
+            nlabel << inner_label.str();
+            nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
+            nlabel << ">";
+        }
+>>>>>>> 2095926d5ae3a11f301a696c44853f2513243ecf
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";
@@ -7486,6 +7492,10 @@ Alignment VG::align(const Alignment& alignment,
         sort();
         // run the alignment
         do_align(this->graph);
+        
+        // Clean up the node we added. This is important because this graph will
+        // later be extended with more material for softclip handling, and we
+        // might need that node ID.
         destroy_node(root);
 
     } else {
@@ -7544,6 +7554,11 @@ Alignment VG::align(const Alignment& alignment,
                 return get_node(node_id)->sequence().size();
             });
         //check_aln(*this, aln);
+        
+        // Clean up the node we added. This is important because this graph will
+        // later be extended with more material for softclip handling, and we
+        // might need that node ID.
+        destroy_node(root);
 
     }
 
