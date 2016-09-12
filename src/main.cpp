@@ -7684,33 +7684,73 @@ int main_map(int argc, char** argv) {
     if (!fastq1.empty()) {
         if (interleaved_input) {
             // paired interleaved
-            function<void(Alignment&, Alignment&)> lambda =
+            auto output_func = [&output_alignments,
+                                &compare_gam]
+                (Alignment& aln1,
+                 Alignment& aln2,
+                 pair<vector<Alignment>, vector<Alignment>>& alnp) {
+                // Make sure we have unaligned "alignments" for things that don't align.
+                if(alnp.first.empty()) {
+                    alnp.first.push_back(aln1);
+                    auto& aln = alnp.first.back();
+                    aln.clear_path();
+                    aln.clear_score();
+                    aln.clear_identity();
+                }
+                if(alnp.second.empty()) {
+                    alnp.second.push_back(aln2);
+                    auto& aln = alnp.second.back();
+                    aln.clear_path();
+                    aln.clear_score();
+                    aln.clear_identity();
+                }
+                // Output the alignments in JSON or protobuf as appropriate.
+                output_alignments(alnp.first);
+                output_alignments(alnp.second);
+            };
+            function<void(Alignment&,Alignment&)> lambda =
                 [&mapper,
                  &output_alignments,
+                 &keep_secondary,
                  &kmer_size,
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
-                 &pair_window]
-                    (Alignment& aln1, Alignment& aln2) {
-
-                        int tid = omp_get_thread_num();
-                        bool queued_resolve_later = false;
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
-
-                        // Make sure we have unaligned "alignments" for things that don't align.
-                        if(alnp.first.empty()) {
-                            alnp.first.push_back(aln1);
+                 &pair_window,
+                 &output_func](Alignment& aln1, Alignment& aln2) {
+                auto our_mapper = mapper[omp_get_thread_num()];
+                bool queued_resolve_later = false;
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                if (!queued_resolve_later) {
+                    output_func(aln1, aln2, alnp);
+                    // check if we should try to align the queued alignments
+                    if (our_mapper->fragment_size != 0
+                        && !our_mapper->imperfect_pairs_to_retry.empty()) {
+                        int i = 0;
+                        for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                            auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                                                                       queued_resolve_later, kmer_size,
+                                                                       kmer_stride, max_mem_length,
+                                                                       band_width, pair_window);
+                            output_func(aln1, aln2, alnp);
                         }
-                        if(alnp.second.empty()) {
-                            alnp.second.push_back(aln2);
-                        }
-
-                        // Output the alignments in JSON or protobuf as appropriate.
-                        output_alignments(alnp.first);
-                        output_alignments(alnp.second);
-                    };
+                        our_mapper->imperfect_pairs_to_retry.clear();
+                    }
+                }
+            };
             fastq_paired_interleaved_for_each_parallel(fastq1, lambda);
+            {
+                auto our_mapper = mapper[omp_get_thread_num()];
+                for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                    bool queued_resolve_later = false;
+                    auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                                                               queued_resolve_later, kmer_size,
+                                                               kmer_stride, max_mem_length,
+                                                               band_width, pair_window);
+                    output_func(p.first, p.second, alnp);
+                }
+                our_mapper->imperfect_pairs_to_retry.clear();
+            }
         } else if (fastq2.empty()) {
             // single
             function<void(Alignment&)> lambda =
@@ -7736,32 +7776,73 @@ int main_map(int argc, char** argv) {
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
             // paired two-file
-            function<void(Alignment&, Alignment&)> lambda =
+            auto output_func = [&output_alignments,
+                                &compare_gam]
+                (Alignment& aln1,
+                 Alignment& aln2,
+                 pair<vector<Alignment>, vector<Alignment>>& alnp) {
+                // Make sure we have unaligned "alignments" for things that don't align.
+                if(alnp.first.empty()) {
+                    alnp.first.push_back(aln1);
+                    auto& aln = alnp.first.back();
+                    aln.clear_path();
+                    aln.clear_score();
+                    aln.clear_identity();
+                }
+                if(alnp.second.empty()) {
+                    alnp.second.push_back(aln2);
+                    auto& aln = alnp.second.back();
+                    aln.clear_path();
+                    aln.clear_score();
+                    aln.clear_identity();
+                }
+                // Output the alignments in JSON or protobuf as appropriate.
+                output_alignments(alnp.first);
+                output_alignments(alnp.second);
+            };
+            function<void(Alignment&,Alignment&)> lambda =
                 [&mapper,
                  &output_alignments,
+                 &keep_secondary,
                  &kmer_size,
                  &kmer_stride,
                  &max_mem_length,
                  &band_width,
-                 &pair_window]
-                    (Alignment& aln1, Alignment& aln2) {
-
-                        int tid = omp_get_thread_num();
-                        bool queued_resolve_later = false;
-                        auto alnp = mapper[tid]->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
-
-                        // Make sure we have unaligned "alignments" for things that don't align.
-                        if(alnp.first.empty()) {
-                            alnp.first.push_back(aln1);
+                 &pair_window,
+                 &output_func](Alignment& aln1, Alignment& aln2) {
+                auto our_mapper = mapper[omp_get_thread_num()];
+                bool queued_resolve_later = false;
+                auto alnp = our_mapper->align_paired_multi(aln1, aln2, queued_resolve_later, kmer_size, kmer_stride, max_mem_length, band_width, pair_window);
+                if (!queued_resolve_later) {
+                    output_func(aln1, aln2, alnp);
+                    // check if we should try to align the queued alignments
+                    if (our_mapper->fragment_size != 0
+                        && !our_mapper->imperfect_pairs_to_retry.empty()) {
+                        int i = 0;
+                        for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                            auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                                                                       queued_resolve_later, kmer_size,
+                                                                       kmer_stride, max_mem_length,
+                                                                       band_width, pair_window);
+                            output_func(aln1, aln2, alnp);
                         }
-                        if(alnp.second.empty()) {
-                            alnp.second.push_back(aln2);
-                        }
-
-                        output_alignments(alnp.first);
-                        output_alignments(alnp.second);
-                    };
+                        our_mapper->imperfect_pairs_to_retry.clear();
+                    }
+                }
+            };
             fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
+            {
+                auto our_mapper = mapper[omp_get_thread_num()];
+                for (auto p : our_mapper->imperfect_pairs_to_retry) {
+                    bool queued_resolve_later = false;
+                    auto alnp = our_mapper->align_paired_multi(p.first, p.second,
+                                                               queued_resolve_later, kmer_size,
+                                                               kmer_stride, max_mem_length,
+                                                               band_width, pair_window);
+                    output_func(p.first, p.second, alnp);
+                }
+                our_mapper->imperfect_pairs_to_retry.clear();
+            }
         }
     }
 
