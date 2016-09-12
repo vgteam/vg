@@ -4251,12 +4251,8 @@ bool VG::is_acyclic(void) {
                 acyclic = false;
             }
 
-            cerr << "Visiting " << trav << endl;
-
             for (auto& next : travs_from(trav)) {
-                cerr << "\tEdge to " << next << endl;
                 if (seen.count(next)) {
-                    cerr << "\t!!! Was seen!" << endl;
                     acyclic = false;
                     break;
                 }
@@ -7555,7 +7551,6 @@ Alignment VG::align(const Alignment& alignment,
     */
 
     auto do_align = [&](Graph& g) {
-        assert(is_acyclic());
 #ifdef DEBUG
         cerr << "Aligning against final graph:" << endl;
         cerr << pb2json(g) << endl;
@@ -7578,10 +7573,8 @@ Alignment VG::align(const Alignment& alignment,
         cerr << "No need to fix up graph before alignment" << endl;
 #endif
         Node* root = this->join_heads();
-        assert(is_acyclic());
         // graph is a non-inverting DAG, so we just need to sort
         sort();
-        assert(is_acyclic());
         // run the alignment
         do_align(this->graph);
         
@@ -7623,6 +7616,8 @@ Alignment VG::align(const Alignment& alignment,
 #ifdef DEBUG
         cerr << "Dagified graph before alignment." << endl;
 #endif
+
+        assert(dag.is_acyclic());
 
         // run the alignment
         do_align(dag.graph);
