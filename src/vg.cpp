@@ -7453,6 +7453,7 @@ map<id_t, pair<id_t, bool> > VG::overlay_node_translations(const map<id_t, pair<
     return overlay;
 }
 
+#define DEBUG
 Alignment VG::align(const Alignment& alignment,
                     Aligner* aligner,
                     QualAdjAligner* qual_adj_aligner,
@@ -7469,6 +7470,11 @@ Alignment VG::align(const Alignment& alignment,
     */
 
     auto do_align = [&](Graph& g) {
+#ifdef DEBUG
+        cerr << "Aligning against final graph:" << endl;
+        cerr << pb2json(g) << endl;
+#endif
+    
         if (aligner && !qual_adj_aligner) {
             aligner->align(aln, g, print_score_matrices);
         }
@@ -7481,6 +7487,9 @@ Alignment VG::align(const Alignment& alignment,
     };
 
     if (is_acyclic() && !has_inverting_edges()) {
+#ifdef DEBUG
+        cerr << "No need to fix up graph before alignment" << endl;
+#endif
         Node* root = this->join_heads();
         // graph is a non-inverting DAG, so we just need to sort
         sort();
@@ -7522,6 +7531,10 @@ Alignment VG::align(const Alignment& alignment,
         Node* root = dag.join_heads();
         dag.sort();
 
+#ifdef DEBUG
+        cerr << "Dagified graph before alignment." << endl;
+#endif
+
         // run the alignment
         do_align(dag.graph);
 
@@ -7561,6 +7574,7 @@ Alignment VG::align(const Alignment& alignment,
 
     return aln;
 }
+#undef DEBUG
 
 Alignment VG::align(const Alignment& alignment,
                     Aligner& aligner,
