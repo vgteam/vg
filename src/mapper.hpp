@@ -310,8 +310,10 @@ public:
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
+    int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths
     int fragment_size; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
-                       // if consistent pairs should be reported
+                       // if consistent pairs should be reported; dynamically estimated at runtime
+    double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
     int fragment_length_cache_size;
 
 };

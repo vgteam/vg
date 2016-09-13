@@ -7004,7 +7004,8 @@ void help_map(char** argv) {
          << "    -y, --gap-extend N    use this gap extension penalty (default: 1)" << endl
          << "    -1, --qual-adjust     perform base quality adjusted alignments (requires base quality input)" << endl
          << "paired end alignment parameters:" << endl
-         << "    -W, --fragment-window N    report pairs instead of individual alignments and filter to consistent pairings within this fragment-window" << endl
+         << "    -W, --fragment-max N       maximum fragment size to be used for estimating the fragment length distribution (default: 1e5)" << endl
+         << "    -2, --fragment-sigma N     calculate fragment size as mean(buf)+sd(buf)*N where buf is the buffer of perfect pairs we use (default: 10)" << endl 
          << "    -p, --pair-window N        maximum distance between properly paired reads in node ID space" << endl
          << "    -u, --pairing-multimaps N  examine N extra mappings looking for a consistent read pairing (default: 4)" << endl
          << "    -U, --always-rescue        rescue each imperfectly-mapped read in a pair off the other" << endl
@@ -7098,7 +7099,8 @@ int main_map(int argc, char** argv) {
     int method_code = 1;
     string gam_input;
     bool compare_gam = false;
-    int fragment_size = 0;
+    int fragment_max = 1e5;
+    double fragment_sigma = 10;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -7159,12 +7161,13 @@ int main_map(int argc, char** argv) {
                 {"pairing-multimaps", required_argument, 0, 'u'},
                 {"map-qual-method", required_argument, 0, 'v'},
                 {"compare", no_argument, 0, 'w'},
-                {"fragment-window", required_argument, 0, 'W'},
+                {"fragment-max", required_argument, 0, 'W'},
+                {"fragment-sigma", required_argument, 0, '2'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:wW:a",
+        c = getopt_long (argc, argv, "s:I:j:hd:x:g:c:r:m:k:M:t:DX:FS:Jb:KR:N:if:p:B:h:G:C:A:E:Q:n:P:Ul:e:T:VL:Y:H:OZ:q:z:o:y:1u:v:wW:a2:",
                          long_options, &option_index);
 
 
@@ -7382,7 +7385,11 @@ int main_map(int argc, char** argv) {
             break;
 
         case 'W':
-            fragment_size = atoi(optarg);
+            fragment_max = atoi(optarg);
+            break;
+
+        case '2':
+            fragment_sigma = atof(optarg);
             break;
 
         case 'h':
@@ -7584,7 +7591,8 @@ int main_map(int argc, char** argv) {
         m->extra_pairing_multimaps = extra_pairing_multimaps;
         m->mapping_quality_method = mapping_quality_method;
         m->always_rescue = always_rescue;
-        m->fragment_size = fragment_size;
+        m->fragment_max = fragment_max;
+        m->fragment_sigma = fragment_sigma;
         mapper[i] = m;
     }
 
@@ -7732,15 +7740,17 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window);
-                            output_func(aln1, aln2, alnp);
+                            output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
                 }
             };
             fastq_paired_interleaved_for_each_parallel(fastq1, lambda);
-            {
+            { // clean up buffered alignments that weren't perfect
                 auto our_mapper = mapper[omp_get_thread_num()];
+                // if we haven't yet computed these, assume we couldn't get an estimate for fragment size
+                our_mapper->fragment_size = fragment_max;
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
@@ -7776,8 +7786,7 @@ int main_map(int argc, char** argv) {
             fastq_unpaired_for_each_parallel(fastq1, lambda);
         } else {
             // paired two-file
-            auto output_func = [&output_alignments,
-                                &compare_gam]
+            auto output_func = [&output_alignments]
                 (Alignment& aln1,
                  Alignment& aln2,
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
@@ -7824,7 +7833,7 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window);
-                            output_func(aln1, aln2, alnp);
+                            output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
@@ -7833,6 +7842,7 @@ int main_map(int argc, char** argv) {
             fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
+                our_mapper->fragment_size = fragment_max;
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,
@@ -7906,7 +7916,7 @@ int main_map(int argc, char** argv) {
                                                                        queued_resolve_later, kmer_size,
                                                                        kmer_stride, max_mem_length,
                                                                        band_width, pair_window);
-                            output_func(aln1, aln2, alnp);
+                            output_func(p.first, p.second, alnp);
                         }
                         our_mapper->imperfect_pairs_to_retry.clear();
                     }
@@ -7915,6 +7925,7 @@ int main_map(int argc, char** argv) {
             gam_paired_interleaved_for_each_parallel(gam_in, lambda);
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
+                our_mapper->fragment_size = fragment_max;
                 for (auto p : our_mapper->imperfect_pairs_to_retry) {
                     bool queued_resolve_later = false;
                     auto alnp = our_mapper->align_paired_multi(p.first, p.second,

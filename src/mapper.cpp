@@ -38,6 +38,8 @@ Mapper::Mapper(Index* idex,
     , extra_pairing_multimaps(4)
     , always_rescue(false)
     , fragment_size(0)
+    , fragment_max(1e5)
+    , fragment_sigma(10)
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
     , fragment_length_cache_size(1000)
@@ -746,7 +748,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                 && results.second.size() == 1
                 && results.first.front().identity() == 1
                 && results.second.front().identity() == 1
-                && j.second < 1e4) { // hard cutoff
+                && j.second < fragment_max) { // hard cutoff
                 //cerr << "aln\tperfect alignments" << endl;
                 record_fragment_length(j.second);
             } else if (!fragment_size) {
@@ -1036,7 +1038,7 @@ void Mapper::record_fragment_length(int length) {
         cached_fragment_length_mean = fragment_length_mean();
         cached_fragment_length_stdev = fragment_length_stdev();
         // set our fragment size cap to the cached mean + 10x the standard deviation
-        fragment_size = cached_fragment_length_mean + 10 * cached_fragment_length_stdev;
+        fragment_size = cached_fragment_length_mean + fragment_sigma * cached_fragment_length_stdev;
         since_last_fragment_length_estimate = 1;
     }
 }
