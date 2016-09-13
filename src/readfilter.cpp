@@ -385,10 +385,10 @@ bool ReadFilter::has_repeat(Alignment& aln, int k) {
     return false;
 }
 
-bool ReadFilter::is_valid(xg::XG* index, Alignment& alignment) {
+bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
     if(index == nullptr) {
-        // No reason to believe the read is not valid.
-        return true;
+        // Can't tell if the read is split.
+        throw runtime_error("XG index required to check for split reads");
     }
     
     
@@ -418,16 +418,17 @@ bool ReadFilter::is_valid(xg::XG* index, Alignment& alignment) {
         
         if(!found) {
             // We found a skip!
-            // TODO: sometimes alignments can have these on purpose.
-            cerr << "Warning: read " << alignment.name() << " has an invalid edge "
-                << from_id << " " << from_start << " " << to_id << " " << to_end
-                << ". Removing!" << endl;
-            return false;
+            if(verbose) {
+                cerr << "Warning: read " << alignment.name() << " has an unknown edge "
+                    << from_id << " " << from_start << " " << to_id << " " << to_end
+                    << ". Removing!" << endl;
+            }
+            return true;
         } 
     }
     
     // No wandering jumps between nodes found
-    return true;
+    return false;
 }
 
 int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
@@ -590,8 +591,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     size_t max_pri_overhang_count = 0;
     size_t min_sec_mapq_count = 0;
     size_t min_pri_mapq_count = 0;
-    size_t invalid_sec_count = 0;
-    size_t invalid_pri_count = 0;
+    size_t split_sec_count = 0;
+    size_t split_pri_count = 0;
     size_t repeat_sec_count = 0;
     size_t repeat_pri_count = 0;
     size_t defray_sec_count = 0;
@@ -673,8 +674,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 ++min_sec_mapq_count;
                 keep = false;
             }
-            if ((keep || verbose) && !is_valid(xindex, aln)) {
-                ++invalid_sec_count;
+            if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
+                ++split_sec_count;
                 keep = false;
             }
             if ((keep || verbose) && has_repeat(aln, repeat_size)) {
@@ -732,8 +733,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 ++min_pri_mapq_count;
                 keep_prev = false;
             }
-            if ((keep_prev || verbose) && !is_valid(xindex, aln)) {
-                ++invalid_pri_count;
+            if ((keep_prev || verbose) && drop_split && is_split(xindex, aln)) {
+                ++split_pri_count;
                 keep_prev = false;
             }
             if ((keep_prev || verbose) && has_repeat(aln, repeat_size)) {
@@ -778,9 +779,10 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << "Min Delta Filter (secondary):      " << min_sec_delta_count << endl
              << "Max Overhang Filter (primary):     " << max_pri_overhang_count << endl
              << "Max Overhang Filter (secondary):   " << max_sec_overhang_count << endl
-             << "Repeat Ends Filter (primary):     " << repeat_pri_count << endl
-             << "Repeat Ends Filter (secondary):   " << repeat_sec_count << endl
-
+             << "Split Read Filter (primary):       " << split_pri_count << endl
+             << "Split Read Filter (secondary):     " << split_sec_count << endl
+             << "Repeat Ends Filter (primary):      " << repeat_pri_count << endl
+             << "Repeat Ends Filter (secondary):    " << repeat_sec_count << endl
              << endl;
     }
     

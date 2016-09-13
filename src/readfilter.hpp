@@ -37,6 +37,8 @@ public:
     // How far in from the end should we look for ambiguous end alignment to
     // clip off?
     int defray_length = 0;
+    // Should we drop split reads that follow edges not in the graph?
+    bool drop_split = false;
     
     // Extra filename things we need for chunking. TODO: refactor that somehow
     // to maybe be a different class?
@@ -87,10 +89,12 @@ private:
     bool trim_ambiguous_end(xg::XG* index, Alignment& alignment, int k);
     
     /**
-     * Return true if the read only follows edges in the xg index, or if no xg
-     * index is specified, and false otherwise.
+     * Return false if the read only follows edges in the xg index, and true if
+     * the read is split (or just incorrect) and takes edges not in the index.
+     *
+     * Throws an error if no XG index is specified.
      */
-    bool is_valid(xg::XG* index, Alignment& alignment);
+    bool is_split(xg::XG* index, Alignment& alignment);
     
 };
 }

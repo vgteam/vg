@@ -207,7 +207,8 @@ void help_filter(char** argv) {
          << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
-         << "    -x, --xg-name FILE      use this xg index (required for -R)" << endl
+         << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
+         << "    -x, --xg-name FILE      use this xg index (required for -R, -S, and -D)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
@@ -246,6 +247,7 @@ int main_filter(int argc, char** argv) {
                 {"frac-delta", required_argument, 0, 'a'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
+                {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"regions-file",  required_argument, 0, 'R'},
                 {"output-basename",  required_argument, 0, 'B'},
@@ -258,7 +260,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:D:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -291,6 +293,8 @@ int main_filter(int argc, char** argv) {
         case 'o':
             filter.max_overhang = atoi(optarg);
             break;
+        case 'S':
+            filter.drop_split = true;
         case 'x':
             xg_name = optarg;
             break;
