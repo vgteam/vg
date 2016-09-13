@@ -405,7 +405,9 @@ int call2vcf(
     size_t max_bubble_paths,
     // what's the minimum minimum allele depth to give a PASS in the filter column
     // (anything below gets FAIL)    
-    size_t min_mad_for_filter);
+    size_t min_mad_for_filter,
+    // print warnings etc. to stderr
+    bool verbose);
 
 }
 

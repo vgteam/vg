@@ -385,6 +385,52 @@ bool ReadFilter::has_repeat(Alignment& aln, int k) {
     return false;
 }
 
+bool ReadFilter::is_split(xg::XG* index, Alignment& alignment) {
+    if(index == nullptr) {
+        // Can't tell if the read is split.
+        throw runtime_error("XG index required to check for split reads");
+    }
+    
+    
+    for(size_t i = 0; i + 1 < alignment.path().mapping_size(); i++) {
+        // For each mapping and the one after it
+        auto& pos1 = alignment.path().mapping(i).position();
+        auto& pos2 = alignment.path().mapping(i + 1).position();
+        
+        id_t from_id = pos1.node_id();
+        bool from_start = pos1.is_reverse();
+        id_t to_id = pos2.node_id();
+        bool to_end = pos2.is_reverse();
+        
+        // Can we find the same articulation of the edge as the alignment uses
+        bool found = index->has_edge(from_id, from_start, to_id, to_end);   
+        
+        if(!found) {
+            // Check the other articulation of the edge
+            swap(from_id, to_id);
+            swap(from_start, to_end);
+            from_start = !from_start;
+            to_end = !to_end;
+            
+            
+            found = index->has_edge(from_id, from_start, to_id, to_end);
+        }
+        
+        if(!found) {
+            // We found a skip!
+            if(verbose) {
+                cerr << "Warning: read " << alignment.name() << " has an unknown edge "
+                    << from_id << " " << from_start << " " << to_id << " " << to_end
+                    << ". Removing!" << endl;
+            }
+            return true;
+        } 
+    }
+    
+    // No wandering jumps between nodes found
+    return false;
+}
+
 int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
 
     // name helper for output
@@ -545,6 +591,8 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
     size_t max_pri_overhang_count = 0;
     size_t min_sec_mapq_count = 0;
     size_t min_pri_mapq_count = 0;
+    size_t split_sec_count = 0;
+    size_t split_pri_count = 0;
     size_t repeat_sec_count = 0;
     size_t repeat_pri_count = 0;
     size_t defray_sec_count = 0;
@@ -626,6 +674,10 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 ++min_sec_mapq_count;
                 keep = false;
             }
+            if ((keep || verbose) && drop_split && is_split(xindex, aln)) {
+                ++split_sec_count;
+                keep = false;
+            }
             if ((keep || verbose) && has_repeat(aln, repeat_size)) {
                 ++repeat_sec_count;
                 keep = false;
@@ -681,11 +733,15 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
                 ++min_pri_mapq_count;
                 keep_prev = false;
             }
+            if ((keep_prev || verbose) && drop_split && is_split(xindex, aln)) {
+                ++split_pri_count;
+                keep_prev = false;
+            }
             if ((keep_prev || verbose) && has_repeat(aln, repeat_size)) {
                 ++repeat_pri_count;
                 keep_prev = false;
             }
-            if ((keep || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
+            if ((keep_prev || verbose) && defray_length && trim_ambiguous_ends(xindex, aln, defray_length)) {
                 ++defray_pri_count;
                 // We keep these, because the alignments get modified.
             }
@@ -723,9 +779,10 @@ int ReadFilter::filter(istream* alignment_stream, xg::XG* xindex) {
              << "Min Delta Filter (secondary):      " << min_sec_delta_count << endl
              << "Max Overhang Filter (primary):     " << max_pri_overhang_count << endl
              << "Max Overhang Filter (secondary):   " << max_sec_overhang_count << endl
-             << "Repeat Ends Filter (primary):     " << repeat_pri_count << endl
-             << "Repeat Ends Filter (secondary):   " << repeat_sec_count << endl
-
+             << "Split Read Filter (primary):       " << split_pri_count << endl
+             << "Split Read Filter (secondary):     " << split_sec_count << endl
+             << "Repeat Ends Filter (primary):      " << repeat_pri_count << endl
+             << "Repeat Ends Filter (secondary):    " << repeat_sec_count << endl
              << endl;
     }
     
