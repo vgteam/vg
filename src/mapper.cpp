@@ -842,6 +842,22 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
 
+    if (debug) {
+        cerr << "SMEMs by start pos: " << endl;
+        for (auto& seq : by_start_pos) {
+            stringstream seqn;
+            seqn << seq.first.first << ":";
+            if (seq.first.second) seqn << "-"; else seqn << "+";
+            for (auto& pos : seq.second) {
+                cerr << seqn.str() << ":" << pos.first << " ";
+                for (auto& mem : pos.second) {
+                    cerr << mem.first->sequence() << " ";                    
+                }
+                cerr << endl;
+            }
+        }
+    }
+
     // we cluster up the SMEMs here, then convert the clusters to partial alignments
     vector<vector<MaximalExactMatch> > clusters;
     for (auto& b : by_start_pos) {
@@ -946,6 +962,19 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         for (auto& cluster : clusters) {
             cerr << cluster.size() << " SMEMs ";
             for (auto& mem : cluster) {
+                size_t len = mem.begin - mem.end;
+                for (auto& node : mem.nodes) {
+                    id_t id = gcsa::Node::id(node);
+                    size_t offset = gcsa::Node::offset(node);
+                    bool is_rev = gcsa::Node::rc(node);
+                    for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
+                        auto& name = ref.first;
+                        for (auto pos : ref.second) {
+                            cerr << name << (is_rev?"-":"+") << pos + offset << ",";
+                            //by_start_pos[chrom][pos+offset].push_back(make_pair(&mem, node));
+                        }
+                    }
+                }
                 cerr << mem.sequence() << " ";
             }
             cerr << endl;
@@ -2189,8 +2218,10 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
 }
 
 Alignment Mapper::patch_alignment(const Alignment& aln) {
-    //cerr << "patching " << pb2json(aln) << endl;
-    if (!check_alignment(aln)) cerr << "aln is invalid!" << endl;
+    if (debug) {
+        cerr << "patching " << pb2json(aln) << endl;
+        if (!check_alignment(aln)) cerr << "aln is invalid!" << endl;
+    }
     Alignment patched;
     int score = 0;
     // walk along the alignment and find the portions that are unaligned
@@ -2498,7 +2529,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
                 }
                 if (!has_target || graph.empty()) {
-                    if (debug) cerr << "no target for alignment of " << edit.sequence() << endl;
+                    if (debug) {
+                        cerr << "no target for alignment of " << edit.sequence() << endl;
+                        if (graph.empty()) cerr << "graph is empty" << endl;
+                        if (!has_target) cerr << "does not have target" << endl;
+                    }
                     score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
                     *new_mapping->add_edit() = edit;
                 } else {
