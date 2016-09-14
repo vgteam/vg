@@ -6612,6 +6612,7 @@ void VG::to_dot(ostream& out,
         auto node_paths = paths.of_node(n->id());
 
         stringstream inner_label;
+        stringstream nlabel;
         if (superbubble_labeling || cactusbubble_labeling) {
             inner_label << "<TD ROWSPAN=\"3\" BORDER=\"2\" CELLPADDING=\"5\">";
             inner_label << "<FONT COLOR=\"black\">" << n->id() << ":" << n->sequence() << "</FONT> ";
@@ -6632,6 +6633,7 @@ void VG::to_dot(ostream& out,
         nlabel << inner_label.str();
         //nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
         //nlabel << ">";
+        }
         if (simple_mode) {
             nlabel << inner_label.str();
         } else {
@@ -6641,7 +6643,6 @@ void VG::to_dot(ostream& out,
             nlabel << "<TD></TD></TR><TR><TD></TD><TD></TD></TR><TR><TD PORT=\"sw\"></TD><TD PORT=\"s\"></TD><TD PORT=\"se\"></TD></TR></TABLE>";
             nlabel << ">";
         }
->>>>>>> 2095926d5ae3a11f301a696c44853f2513243ecf
 
         if (simple_mode) {
             out << "    " << n->id() << " [label=\"" << nlabel.str() << "\",penwidth=2,shape=circle,";

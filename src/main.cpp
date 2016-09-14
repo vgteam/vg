@@ -479,7 +479,7 @@ void help_scrub(char** argv){
     cerr << "usage: " << argv[0] << " scrub [options] <alignments.gam> > filtered.gam" << endl
         << "Filter alignments by various common metrics." << endl
         << endl
-        << "options: " << endl
+        << "General options: " << endl
         << "  -d --depth <DEPTH>    filter any edits seen fewer than DEPTH times." << endl
         << "  -q --qual <QUAL>      filter edits with a per-base quality below <QUAL>" << endl
         << "  -a --average-qual <AQUAL>  filter alignments with an average quality below <AQUAL>" << endl
@@ -494,6 +494,11 @@ void help_scrub(char** argv){
         << "  -R --reversing        filter alignments that have both forward and reverse segments." << endl
         << "  -C --soft-clip <CLIP>       filter alignments with more than <CLIP> bases hanging off their ends." << endl
         << "  -x --xg-index <INDEX> An xg index, required for path divergence" << endl
+        << "Paired-end specific options: " << endl
+        << "  -o --one-end-anchored filter reads where one mate is mapped." << endl
+        << "  -i --interchromosomal filter reads where mates map to different chromosomes." << endl
+        << "  -D --discordant  <SD>     filter reads where mates are more than <SD> standard deviations more distant" <<
+                        "from each other than would be expected by chance. Requires -M <MEAN> and -Z <SD>." << endl
 
         << endl;
 }
@@ -514,6 +519,11 @@ int main_scrub(int argc, char** argv){
     bool do_reversing = false;
     bool remove_failing_edits  = false;
     bool filter_matches = false;
+
+    bool do_oea = false;
+    bool do_interchromosomal = false;
+    double max_discordant = 0.0;
+
     string xg_name;
     xg::XG* xg_index;
 
@@ -541,11 +551,14 @@ int main_scrub(int argc, char** argv){
             {"window-length", required_argument, 0, 'w'},
             {"threads", required_argument, 0, 't'},
             {"xg-index", required_argument, 0, 'x'},
+            {"discoardant", required_argument, 0, 'D'},
+            {"one-end-anchored", no_argument, 0, 'o'},
+            {"interchromosomal", no_argument, 0, 'i'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "hvmxrRPd:p:q:a:w:C:S:t:",
+        c = getopt_long (argc, argv, "hvmxrRPd:p:q:a:w:C:S:t:oiD:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -600,6 +613,12 @@ int main_scrub(int argc, char** argv){
             case 'v':
                 do_inverse = true;
                 break;
+            case 'i':
+                do_interchromosomal = true;
+            case 'o':
+                do_oea = true;
+            case 'D':
+                max_discordant = stod(optarg);    
             default:
                 abort();
         }

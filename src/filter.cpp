@@ -176,7 +176,7 @@ namespace vg{
     /*PE Functions*/
     pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
         if (aln_first.mapping_quality() == 0 | aln_second.mapping_quality() == 0){
-            return std::make_pair(aln_first, aln_second);
+            return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
         }
         else{
             return std::make_pair(Alignment(), Alignment());
@@ -203,17 +203,30 @@ namespace vg{
         }
     }
     pair<Alignment, Alignment> Filter::orientation_filter(Alignment& aln_first, Alignment& aln_second){
+        
+        bool f_rev = false;
+        bool s_rev = false;
         Path f_path = aln_first.path();
         Path s_path = aln_second.path();
-        
-        bool s_rev;
-        bool f_rev;
+        for (int i = 0; i < f_path.mapping_size(); i++){
+            if (f_path.mapping(i).position().is_reverse()){
+                f_rev = true;
+            }
+        }
 
-        if (s_rev | f_rev){
-            return std::make_pair(Alignment(), Alignment());
+        for (int j = 0; j < s_path.mapping_size(); j++){
+            if (s_path.mapping(j).position().is_reverse()){
+                s_rev = true;
+            }
+        }
+        
+
+
+        if (!s_rev != !f_rev){
+            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(Alignment(), Alignment());
         }
         else{
-            return std::make_pair(aln_first, aln_second);
+            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(aln_first, aln_second);
         }
 
     }
