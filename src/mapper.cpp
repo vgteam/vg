@@ -760,7 +760,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         }
     }
 
-    if (imperfect_pair) {
+    if (imperfect_pair && fragment_max) {
         //cerr << "saving" << endl;
         imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
         results.first.clear();
@@ -1015,6 +1015,7 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     return graph;
 }
 
+// estimate the fragment length as the difference in mean positions of both alignments
 map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
     map<string, int> lengths;
     auto pos1 = alignment_mean_path_positions(aln1);
