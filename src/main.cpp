@@ -2662,7 +2662,7 @@ void help_surject(char** argv) {
         << "Transforms alignments to be relative to particular paths." << endl
         << endl
         << "options:" << endl
-        << "    -d, --db-name DIR       use the graph in this database" << endl
+        << "    -x, --xg-name FILE      use the graph in this xg index" << endl
         << "    -t, --threads N         number of threads to use" << endl
         << "    -p, --into-path NAME    surject into just this path" << endl
         << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
@@ -2671,6 +2671,7 @@ void help_surject(char** argv) {
         // todo, reenable
         // << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
         // << "    -f, --reference FILE    use this file when writing CRAM to rebuild sequence header" << endl
+         << "    -n, --context-depth N     expand this many steps when preparing graph for surjection (default: 3)" << endl
         << "    -b, --bam-output        write BAM to stdout" << endl
         << "    -s, --sam-output        write SAM to stdout" << endl
         << "    -C, --compression N     level for compression [0-9]" << endl
@@ -2684,7 +2685,7 @@ int main_surject(int argc, char** argv) {
         return 1;
     }
 
-    string db_name;
+    string xg_name;
     string path_name;
     string path_prefix;
     string path_file;
@@ -2694,6 +2695,7 @@ int main_surject(int argc, char** argv) {
     int compress_level = 9;
     int window = 5;
     string fasta_filename;
+    int context_depth = 3;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2701,7 +2703,7 @@ int main_surject(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"db-name", required_argument, 0, 'd'},
+            {"xb-name", required_argument, 0, 'x'},
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'i'},
@@ -2713,11 +2715,12 @@ int main_surject(int argc, char** argv) {
             {"header-from", required_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
             {"window", required_argument, 0, 'w'},
+            {"context-depth", required_argument, 0, 'n'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:t:w:f:",
+        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:w:f:n:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -2727,71 +2730,71 @@ int main_surject(int argc, char** argv) {
         switch (c)
         {
 
-            case 'd':
-                db_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'p':
-                path_name = optarg;
-                break;
+        case 'p':
+            path_name = optarg;
+            break;
 
-            case 'i':
-                path_file = optarg;
-                break;
+        case 'i':
+            path_file = optarg;
+            break;
 
-            case 'P':
-                path_prefix = optarg;
-                break;
+        case 'P':
+            path_prefix = optarg;
+            break;
 
-            case 'H':
-                header_file = optarg;
-                break;
+        case 'H':
+            header_file = optarg;
+            break;
 
-            case 'c':
-                output_type = "cram";
-                break;
+        case 'c':
+            output_type = "cram";
+            break;
 
-            case 'f':
-                fasta_filename = optarg;
-                break;
+        case 'f':
+            fasta_filename = optarg;
+            break;
 
-            case 'b':
-                output_type = "bam";
-                break;
+        case 'b':
+            output_type = "bam";
+            break;
 
-            case 's':
-                compress_level = -1;
-                output_type = "sam";
-                break;
+        case 's':
+            compress_level = -1;
+            output_type = "sam";
+            break;
 
-            case 't':
-                omp_set_num_threads(atoi(optarg));
-                break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
 
-            case 'C':
-                compress_level = atoi(optarg);
-                break;
+        case 'C':
+            compress_level = atoi(optarg);
+            break;
 
-            case 'w':
-                window = atoi(optarg);
-                break;
+        case 'w':
+            window = atoi(optarg);
+            break;
 
-            case 'h':
-            case '?':
-                help_surject(argv);
-                exit(1);
-                break;
+        case 'n':
+            context_depth = atoi(optarg);
+            break;
 
-            default:
-                abort ();
+        case 'h':
+        case '?':
+            help_surject(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
     string file_name = argv[optind];
-
-    Index index;
-    // open index
-    index.open_read_only(db_name);
 
     set<string> path_names;
     if (!path_file.empty()){
@@ -2805,12 +2808,41 @@ int main_surject(int argc, char** argv) {
         path_names.insert(path_name);
     }
 
+    xg::XG* xgidx = nullptr;
+    ifstream xg_stream(xg_name);
+    if(xg_stream) {
+        xgidx = new xg::XG(xg_stream);
+    }
+    if (!xg_stream || xgidx == nullptr) {
+        cerr << "[vg sim] error: could not open xg index" << endl;
+        return 1;
+    }
+
+    map<string, int64_t> path_by_id;// = index.paths_by_id();
+    map<string, int64_t> path_length;
+    int num_paths = xgidx->max_path_rank();
+    for (int i = 1; i <= num_paths; ++i) {
+        auto name = xgidx->path_name(i);
+        path_by_id[name] = i;
+        path_length[name] = xgidx->path_length(name);
+    }
+
+    int thread_count = get_thread_count();
+    vector<Mapper*> mapper;
+    mapper.resize(thread_count);
+    for (int i = 0; i < thread_count; ++i) {
+        Mapper* m = new Mapper;
+        m->xindex = xgidx;
+        m->context_depth = context_depth;
+        mapper[i] = m;
+    }
+
     if (input_type == "gam") {
         if (output_type == "gam") {
             int thread_count = get_thread_count();
             vector<vector<Alignment> > buffer;
             buffer.resize(thread_count);
-            function<void(Alignment&)> lambda = [&index, &path_names, &buffer, &window](Alignment& src) {
+            function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &window, &mapper](Alignment& src) {
                 int tid = omp_get_thread_num();
                 Alignment surj;
                 // Since we're outputting full GAM, we ignore all this info
@@ -2819,8 +2851,7 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 bool path_reverse;
-                index.surject_alignment(src, path_names, surj, path_name, path_pos, path_reverse, window);
-                buffer[tid].push_back(surj);
+                buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names,path_name, path_pos, path_reverse, window));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             if (file_name == "-") {
@@ -2854,10 +2885,6 @@ int main_surject(int argc, char** argv) {
                }
                */
             string header;
-            map<string, int64_t> path_by_id = index.paths_by_id();
-            map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> path_layout;
-            map<string, int64_t> path_length;
-            index.path_layout(path_layout, path_length);
             int thread_count = get_thread_count();
             vector<vector<tuple<string, int64_t, bool, Alignment> > > buffer;
             buffer.resize(thread_count);
@@ -2928,24 +2955,24 @@ int main_surject(int argc, char** argv) {
                     }
                 };
 
-            function<void(Alignment&)> lambda = [&index,
-                &path_names,
-                &path_length,
-                &window,
-                &rg_sample,
-                &header,
-                &out,
-                &buffer,
-                &count,
-                &hdr,
-                &out_mode,
-                &handle_buffer](Alignment& src) {
-                    int tid = omp_get_thread_num();
-                    Alignment surj;
+            function<void(Alignment&)> lambda = [&xgidx,
+                                                 &mapper,
+                                                 &path_names,
+                                                 &path_length,
+                                                 &window,
+                                                 &rg_sample,
+                                                 &header,
+                                                 &out,
+                                                 &buffer,
+                                                 &count,
+                                                 &hdr,
+                                                 &out_mode,
+                                                 &handle_buffer](Alignment& src) {
                     string path_name;
                     int64_t path_pos;
                     bool path_reverse;
-                    index.surject_alignment(src, path_names, surj, path_name, path_pos, path_reverse, window);
+                    int tid = omp_get_thread_num();
+                    auto surj = mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse, window);
                     if (!surj.path().mapping_size()) {
                         surj = src;
                     }
@@ -4028,7 +4055,10 @@ int main_sim(int argc, char** argv) {
             size_t iter = 0;
             while (iter++ < max_iter) {
                 if (aln.sequence().size() < read_length) {
-                    aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+                    auto aln_prime = sampler.alignment_with_error(read_length, base_error, indel_error);
+                    if (aln_prime.sequence().size() > aln.sequence().size()) {
+                        aln = aln_prime;
+                    }
                 }
             }
             // write the alignment or its string

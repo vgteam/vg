@@ -219,6 +219,12 @@ public:
                                             int band_width = 1000,
                                             int pair_window = 64);
 
+    Alignment surject_alignment(const Alignment& source,
+                                set<string>& path_names,
+                                string& path_name,
+                                int64_t& path_pos,
+                                bool& path_reverse,
+                                int window);
 
     // MEM-based mapping
     // finds absolute super-maximal exact matches
