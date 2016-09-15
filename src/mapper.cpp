@@ -3499,7 +3499,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
                                     bool& path_reverse,
                                     int window) {
 
-    Alignment surjection;
+    Alignment surjection = source;
+    surjection.clear_mapping_quality();
+    surjection.clear_score();
+    surjection.clear_identity();
+    surjection.clear_path();
+
     // get start and end nodes in path
     // get range between +/- window
     if (!source.has_path() || source.path().mapping_size() == 0) {
@@ -3509,9 +3514,8 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
 
 #endif
-        return source;
+        return surjection;
     }
-    // TODO: replace ID windowing with a real notion of region
 
     set<id_t> nodes;
     for (int i = 0; i < source.path().mapping_size(); ++ i) {
@@ -3522,18 +3526,12 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         *graph.graph.add_node() = xindex->node(node);
     }
     xindex->expand_context(graph.graph, 1, true); // get connected edges and path
+    graph.paths.append(graph.graph);
     graph.rebuild_indexes();
 
     set<string> kept_paths;
     graph.keep_paths(path_names, kept_paths);
-    
-#ifdef debug
 
-#pragma omp critical (cerr)
-        cerr << "Alignment " << source.name() << " should surject into to window from " << from_id << " to " << to_id << " which contains " << graph.size() << " nodes on " << kept_paths.size() << "/" << path_names.size() << " kept paths" << endl;
-
-#endif
-    
     // We need this for inverting mappings to the correct strand
     function<int64_t(id_t)> node_length = [&graph](id_t node) {
         return graph.get_node(node)->sequence().size();
@@ -3544,22 +3542,20 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     // nonexistent nodes.
     // Make sure to copy all the things about the alignment (name, etc.)
 
-    Alignment source_rc = source;
-    source_rc.set_sequence(reverse_complement(source.sequence()));
+    Alignment surjection_rc = surjection;
+    surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
     
     // Align the old alignment to the graph in both orientations. Apparently
     // align only does a single oriantation, and we have no idea, even looking
     // at the mappings, which of the orientations will correspond to the one the
     // alignment is actually in.
 
-    auto surjection_forward = align_to_graph(source, graph, max_query_graph_ratio);
-    auto surjection_reverse = align_to_graph(source_rc, graph, max_query_graph_ratio);
-    
+    auto surjection_forward = align_to_graph(surjection, graph, max_query_graph_ratio);
+    auto surjection_reverse = align_to_graph(surjection_rc, graph, max_query_graph_ratio);
+
 #ifdef debug
-
 #pragma omp critical (cerr)
-        cerr << surjection_forward.score() << " forwards, " << surjection_reverse.score() << " reverse" << endl;
-
+    cerr << surjection.name() << " " << surjection_forward.score() << " forward score, " << surjection_reverse.score() << " reverse score" << endl;
 #endif
     
     if(surjection_reverse.score() > surjection_forward.score()) {
@@ -3584,16 +3580,45 @@ Alignment Mapper::surject_alignment(const Alignment& source,
         path_name = *kept_paths.begin();
 
         int64_t path_id = xindex->path_rank(path_name);
+        auto& first_pos = surjection.path().mapping(0).position();
         int64_t hit_id = surjection.path().mapping(0).position().node_id();
         bool hit_backward = surjection.path().mapping(0).position().is_reverse();
         // we pick up positional information using the index
+
         auto path_posns = xindex->node_positions_in_path(hit_id, path_name);
         if (path_posns.size() > 1) {
             cerr << "[vg map] surject_alignment: warning, multiple positions for node " << hit_id << " in " << path_name << " but will use only first: " << path_posns.front() << endl;
+        } else if (path_posns.size() == 0) {
+            cerr << "[vg map] surject_alignment: error, no positions for alignment " << source.name() << endl;
+            exit(1);
         }
+
+        // if we are reversed
         path_pos = path_posns.front();
-        path_reverse = xindex->mapping_at_path_position(path_name, path_pos).position().is_reverse();
+        bool reversed_path = xindex->mapping_at_path_position(path_name, path_pos).position().is_reverse();
+        if (reversed_path) {
+            // if we got the start of the node position relative to the path
+            // we need to offset to make thinsg right
+            // but which direction
+            if (hit_backward) {
+                path_pos = path_posns.front() + first_pos.offset();
+            } else {
+                auto pos = reverse_complement_alignment(surjection, node_length).path().mapping(0).position();
+                path_pos = xindex->node_positions_in_path(pos.node_id(), path_name).front() + pos.offset();
+            }
+            path_reverse = !hit_backward;
+        } else {
+            if (!hit_backward) {
+                path_pos = path_posns.front() + first_pos.offset();
+            } else {
+                auto pos = reverse_complement_alignment(surjection, node_length).path().mapping(0).position();
+                path_pos = xindex->node_positions_in_path(pos.node_id(), path_name).front() + pos.offset();
+            }
+            path_reverse = hit_backward;
+        }
+
     } else {
+
         surjection = source;
 #ifdef debug
 

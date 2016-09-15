@@ -2894,7 +2894,6 @@ int main_surject(int argc, char** argv) {
                }
                */
             string header;
-            map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> path_layout;
             int thread_count = get_thread_count();
             vector<vector<tuple<string, int64_t, bool, Alignment> > > buffer;
             buffer.resize(thread_count);
