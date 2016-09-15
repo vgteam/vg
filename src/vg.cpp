@@ -4736,98 +4736,30 @@ void VG::remove_orphan_edges(void) {
 }
 
 void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
-    // Strategy:
 
-    // For each node in our graph
-    // If it has node mappings, look at them
-    // For each that occurs along a path we want to include
-    // Mark that path as kept
-    // Mark the node as kept
-    // Peek in the path left and right from that mapping
-    // Mark the edges traversed as kept
-    // Mark all nodes and edges not marked for keeping as for removal
-    // Remove all nodes and edges marked for removal
-    // Drop all paths from the graph not requested to be kept
-
-    // Previous code here would only keep edges between nodes with adjacent IDs
-    // in the set of selected nodes, which is in general incorrect.
-
-    vector<Node*> nodes_to_keep;
-    vector<Node*> nodes_to_remove;
-    // Holds node sides in smaller-to-larger order, so we can search for edges in it.
-    set<pair<NodeSide, NodeSide>> edges_to_keep;
-
-    for_each_node([&](Node* node) {
-        // If we don't see anything about this node in our paths, throw it out.
-        bool to_keep = false;
-
-        if(paths.has_node_mapping(node)) {
-            // This node appears on some paths. Look for appearances on paths we like.
-            for(auto& appearance : paths.get_node_mapping(node)) {
-                if(path_names.count(appearance.first)) {
-                    // We found an appearance of this node on a path we are keeping. It comes with a Mapping*.
-
-                    // Mark the path and node as kept
-                    kept_names.insert(appearance.first);
-                    to_keep = true;
-
-                    // Walk left along the path and keep the edge(s) we traverse.
-                    for (auto* m : appearance.second) {
-                        Mapping* left_neighbor = paths.traverse_left(m);
-
-                        if(left_neighbor != nullptr) {
-                            // We aren't the first thing in the path, we want to keep the edge to our left.
-                            // It may not exist, but we can still ask to keep it.
-
-                            // What other node do we go to?
-                            id_t neighbor_id = left_neighbor->position().node_id();
-
-                            if(has_node(neighbor_id)) {
-                                // Keep the edge if we actually have the other end.
-                                // We know the other end is on this path and will be
-                                // kept.
-
-                                // We attach to the end of the previous node if it isn't
-                                // backward along the path, and the end of this node if
-                                // it is backward along the path.
-                                edges_to_keep.insert(minmax(NodeSide(neighbor_id, !left_neighbor->position().is_reverse()),
-                                                            NodeSide(node->id(), m->position().is_reverse())));
-                            }
-                        }
-                    }
-
-                    // We skip walking right along the path, because if the node
-                    // we would find is in the graph, we're going to walk left
-                    // from it eventually and find the same edge.
+    set<id_t> to_keep;
+    paths.for_each([&](const Path& path) {
+            if (path_names.count(path.name())) {
+                kept_names.insert(path.name());
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    to_keep.insert(path.mapping(i).position().node_id());
                 }
-            }
-        }
-
-        // Actually decide to keep or delete the node. Keep it if we ever saw it on a path.
-        if (to_keep) {
-            nodes_to_keep.push_back(node);
-        } else {
-            nodes_to_remove.push_back(node);
-        }
-
-    });
-
-    // Mark any edges we don't keep for destruction
-    set<pair<NodeSide, NodeSide>> edges_to_destroy;
-    for_each_edge([this, &edges_to_keep, &edges_to_destroy](Edge* edge) {
-            auto ep = NodeSide::pair_from_edge(edge);
-            if (!edges_to_keep.count(ep)) {
-                edges_to_destroy.insert(ep);
             }
         });
 
-    // Destroy all the edges and nodes we don't want
-    for (auto edge : edges_to_destroy) {
-        destroy_edge(edge.first, edge.second);
+    set<id_t> to_remove;
+    for_each_node([&](Node* node) {
+            id_t id = node->id();
+            if (!to_keep.count(id)) {
+                to_remove.insert(id);
+            }
+        });
+
+    for (auto id : to_remove) {
+        destroy_node(id);
     }
-    for (auto node : nodes_to_remove) {
-        destroy_node(node);
-    }
+    // clean up dangling edges
+    remove_orphan_edges();
 
     // Throw out all the paths data for paths we don't want to keep.
     paths.keep_paths(path_names);
