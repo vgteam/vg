@@ -2671,6 +2671,7 @@ void help_surject(char** argv) {
         // todo, reenable
         // << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
         // << "    -f, --reference FILE    use this file when writing CRAM to rebuild sequence header" << endl
+         << "    -n, --context-depth N     expand this many steps when preparing graph for surjection (default: 3)" << endl
         << "    -b, --bam-output        write BAM to stdout" << endl
         << "    -s, --sam-output        write SAM to stdout" << endl
         << "    -C, --compression N     level for compression [0-9]" << endl
@@ -2694,6 +2695,7 @@ int main_surject(int argc, char** argv) {
     int compress_level = 9;
     int window = 5;
     string fasta_filename;
+    int context_depth = 3;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2713,11 +2715,12 @@ int main_surject(int argc, char** argv) {
             {"header-from", required_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
             {"window", required_argument, 0, 'w'},
+            {"context-depth", required_argument, 0, 'n'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:w:f:",
+        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:w:f:n:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -2727,63 +2730,67 @@ int main_surject(int argc, char** argv) {
         switch (c)
         {
 
-            case 'x':
-                xg_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'p':
-                path_name = optarg;
-                break;
+        case 'p':
+            path_name = optarg;
+            break;
 
-            case 'i':
-                path_file = optarg;
-                break;
+        case 'i':
+            path_file = optarg;
+            break;
 
-            case 'P':
-                path_prefix = optarg;
-                break;
+        case 'P':
+            path_prefix = optarg;
+            break;
 
-            case 'H':
-                header_file = optarg;
-                break;
+        case 'H':
+            header_file = optarg;
+            break;
 
-            case 'c':
-                output_type = "cram";
-                break;
+        case 'c':
+            output_type = "cram";
+            break;
 
-            case 'f':
-                fasta_filename = optarg;
-                break;
+        case 'f':
+            fasta_filename = optarg;
+            break;
 
-            case 'b':
-                output_type = "bam";
-                break;
+        case 'b':
+            output_type = "bam";
+            break;
 
-            case 's':
-                compress_level = -1;
-                output_type = "sam";
-                break;
+        case 's':
+            compress_level = -1;
+            output_type = "sam";
+            break;
 
-            case 't':
-                omp_set_num_threads(atoi(optarg));
-                break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
 
-            case 'C':
-                compress_level = atoi(optarg);
-                break;
+        case 'C':
+            compress_level = atoi(optarg);
+            break;
 
-            case 'w':
-                window = atoi(optarg);
-                break;
+        case 'w':
+            window = atoi(optarg);
+            break;
 
-            case 'h':
-            case '?':
-                help_surject(argv);
-                exit(1);
-                break;
+        case 'n':
+            context_depth = atoi(optarg);
+            break;
 
-            default:
-                abort ();
+        case 'h':
+        case '?':
+            help_surject(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
@@ -2826,6 +2833,7 @@ int main_surject(int argc, char** argv) {
     for (int i = 0; i < thread_count; ++i) {
         Mapper* m = new Mapper;
         m->xindex = xgidx;
+        m->context_depth = context_depth;
         mapper[i] = m;
     }
 

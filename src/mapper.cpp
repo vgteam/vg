@@ -3331,7 +3331,7 @@ Alignment Mapper::surject_alignment(const Alignment& source,
     for (auto& node : nodes) {
         *graph.graph.add_node() = xindex->node(node);
     }
-    xindex->expand_context(graph.graph, 1, true); // get connected edges and path
+    xindex->expand_context(graph.graph, context_depth, true); // get connected edges and path
     graph.paths.append(graph.graph);
     graph.rebuild_indexes();
 
