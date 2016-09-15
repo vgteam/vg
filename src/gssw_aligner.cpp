@@ -806,7 +806,7 @@ void QualAdjAligner::align(Alignment& alignment, Graph& g, bool print_score_matr
     const string& quality = alignment.quality();
     
     if (quality.length() != sequence.length()) {
-        cerr << "error:[Aligner] sequence and quality strings different lengths, cannot perform base quality adjusted alignment" << endl;
+        cerr << "error:[Aligner] sequence and quality strings different lengths, cannot perform base quality adjusted alignmenterror:[Aligner] sequence and quality strings different lengths, cannot perform base quality adjusted alignment" << endl;
     }
 
     gssw_graph_fill_qual_adj(graph, sequence.c_str(), quality.c_str(),

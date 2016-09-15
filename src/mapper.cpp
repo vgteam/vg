@@ -38,8 +38,15 @@ Mapper::Mapper(Index* idex,
     , extra_pairing_multimaps(4)
     , always_rescue(false)
     , fragment_size(0)
+    , fragment_max(1e5)
+    , fragment_sigma(10)
     , mapping_quality_method(Approx)
     , adjust_alignments_for_base_quality(false)
+    , fragment_length_cache_size(1000)
+    , cached_fragment_length_mean(0)
+    , cached_fragment_length_stdev(0)
+    , since_last_fragment_length_estimate(0)
+    , fragment_length_estimate_interval(100)
 {
     init_aligner(default_match, default_mismatch, default_gap_open, default_gap_extension);
     init_node_cache();
@@ -81,7 +88,10 @@ Mapper::Mapper(void) : Mapper(nullptr, nullptr, nullptr, nullptr) {
 }
 
 Mapper::~Mapper(void) {
-    for (auto& aligner : aligners) {
+    for (auto& aligner : qual_adj_aligners) {
+        delete aligner;
+    }
+    for (auto& aligner : regular_aligners) {
         delete aligner;
     }
     for (auto& nc : node_cache) {
@@ -119,6 +129,17 @@ void Mapper::init_node_cache(void) {
     }
 }
 
+void Mapper::clear_aligners(void) {
+    for (auto& aligner : qual_adj_aligners) {
+        delete aligner;
+    }
+    qual_adj_aligners.clear();
+    for (auto& aligner : regular_aligners) {
+        delete aligner;
+    }
+    regular_aligners.clear();
+}
+
 void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
     // hacky, find max score so that scaling doesn't change score
     int32_t max_score = match;
@@ -128,26 +149,26 @@ void Mapper::init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int
     
     double gc_content = estimate_gc_content();
 
-    aligners.resize(alignment_threads);
+    qual_adj_aligners.resize(alignment_threads);
+    regular_aligners.resize(alignment_threads);
     for (int i = 0; i < alignment_threads; ++i) {
-        aligners[i] = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
+        qual_adj_aligners[i] = new QualAdjAligner(match, mismatch, gap_open, gap_extend, max_score,
                                          255, gc_content);
+        regular_aligners[i] = new Aligner(match, mismatch, gap_open, gap_extend);
+        regular_aligners[i]->init_mapping_quality(gc_content); // should be done in constructor
     }
 }
 
 void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend) {
-    if (!aligners.empty()) {
-        auto aligner = aligners.front();
+    if (!qual_adj_aligners.empty()) {
+        auto aligner = regular_aligners.front();
         // we've already set the right score
         if (match == aligner->match && mismatch == aligner->mismatch &&
             gap_open == aligner->gap_open && gap_extend == aligner->gap_extension) {
             return;
         }
         // otherwise, destroy them and reset
-        for (auto& a : aligners) {
-            delete aligner;
-        }
-        aligners.clear();
+        clear_aligners();
     }
     // reset the aligners
     init_aligner(match, mismatch, gap_open, gap_extend);
@@ -155,12 +176,16 @@ void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_o
     
 Alignment Mapper::align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio) {
     // check if we have a cached aligner for this thread
-    auto aligner = get_aligner();
-    if (adjust_alignments_for_base_quality) {
-        return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
-    }
-    else  {
+    if (aln.quality().empty()) {
+        auto aligner = get_regular_aligner();
         return vg.align(aln, *aligner, max_query_graph_ratio);
+    } else {
+        auto aligner = get_qual_adj_aligner();
+        if (adjust_alignments_for_base_quality) {
+            return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
+        } else {
+            return vg.align(aln, *aligner, max_query_graph_ratio);
+        }
     }
 }
 
@@ -239,7 +264,7 @@ void Mapper::align_mate_in_window(const Alignment& read1, Alignment& read2, int 
     delete graph;
 }
 
-map<string, double> Mapper::alignments_mean_path_positions(const Alignment& aln) {
+map<string, double> Mapper::alignment_mean_path_positions(const Alignment& aln) {
     map<string, double> mean_pos;
     // Alignments are consistent if their median node id positions are within the fragment_size
     
@@ -303,8 +328,14 @@ bool Mapper::alignments_consistent(const map<string, double>& pos1,
 }            
 
 pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
-    const Alignment& read1, const Alignment& read2,
-    int kmer_size, int stride, int max_mem_length, int band_width, int pair_window) {
+    const Alignment& read1,
+    const Alignment& read2,
+    bool& queued_resolve_later,
+    int kmer_size,
+    int stride,
+    int max_mem_length,
+    int band_width,
+    int pair_window) {
 
     // what we *really* should be doing is using paired MEM seeding, so we
     // don't have to make loads of full alignments of each read to search for
@@ -351,12 +382,11 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     vector<MaximalExactMatch>* pairable_mems_ptr_1 = nullptr;
     vector<MaximalExactMatch>* pairable_mems_ptr_2 = nullptr;
 
-    // TODO
     // sensitivity ramp
     // first try to get a consistent pair
     // if none is found, re-run the MEM generation with a shorter MEM length
     // if still none is found, align independently with full MEMS; report inconsistent pair
-    // optionally use local resolution
+    // optionally use local resolution ...
 
     // wishlist
     // break out the entire MEM determination logic
@@ -550,14 +580,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
 
     bool found_consistent = false;
     
+
     if (fragment_size) {
 
         map<Alignment*, map<string, double> > aln_pos;
         for (auto& aln : alignments1) {
-            aln_pos[&aln] = alignments_mean_path_positions(aln);
+            aln_pos[&aln] = alignment_mean_path_positions(aln);
         }
         for (auto& aln : alignments2) {
-            aln_pos[&aln] = alignments_mean_path_positions(aln);
+            aln_pos[&aln] = alignment_mean_path_positions(aln);
         }
 
         // Now we want to emit consistent pairs, in order of decreasing total score.
@@ -636,7 +667,17 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             consistent_pairs.second[i].mutable_fragment_prev()->set_name(read1.name());
             consistent_pairs.second[i].set_is_secondary(i > 0);
         }
-        results = consistent_pairs;
+
+        if (!consistent_pairs.first.empty()) {
+            results = consistent_pairs;
+        } else {
+            // no consistent pairs found
+            // if we can decrease our MEM size
+            // clear, to trigger size reduction
+
+            // otherwise, yolo
+        }
+
     } else {
 
         // Truncate to max multimaps
@@ -660,6 +701,8 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         results = make_pair(alignments1, alignments2);
     }
 
+    // change the potential set of MEMs by dropping the maximum MEM size
+    // this tends to slightly boost sensitivity at minimal cost
     if (results.first.empty()
         || results.second.empty()
         || !results.first.front().score()
@@ -671,21 +714,103 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
                                   (int) (max_mem_length ? max_mem_length : gcsa->order()) - kmer_sensitivity_step);
             if (new_mem_max == min_mem_length) return results;
             //cerr << "trying with " << new_mem_max << endl;
-            return align_paired_multi(read1, read2, kmer_size, stride,
+            return align_paired_multi(read1, read2,
+                                      queued_resolve_later,
+                                      kmer_size, stride,
                                       new_mem_max,
                                       band_width, pair_window);
         }
+    }
+
+    // we tried to align
+    // if we don't have a fragment_size yet determined
+    // and we didn't get a perfect, unambiguous hit on both reads
+    // we'll need to try it again later when we do have a fragment_size
+    // so store it in a buffer local to this mapper
+
+    // tag the results with their fragment lengths
+    // record the lengths in a deque that we use to keep a running estimate of the fragment length distribution
+    // we then set the fragment_size cutoff using the moments of the estimated distribution
+    bool imperfect_pair = false;
+    for (int i = 0; i < min(results.first.size(), results.second.size()); ++i) {
+        auto& aln1 = results.first.at(i);
+        auto& aln2 = results.second.at(i);
+        auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
+        for (auto& j : approx_frag_lengths) {
+            Path fragment;
+            fragment.set_name(j.first);
+            fragment.set_length(j.second);
+            *aln1.add_fragment() = fragment;
+            *aln2.add_fragment() = fragment;
+            // if we have a perfect mapping, and we're under our hard fragment length cutoff
+            // push the result into our deque of fragment lengths
+            if (results.first.size() == 1
+                && results.second.size() == 1
+                && results.first.front().identity() == 1
+                && results.second.front().identity() == 1
+                && j.second < fragment_max) { // hard cutoff
+                //cerr << "aln\tperfect alignments" << endl;
+                record_fragment_length(j.second);
+            } else if (!fragment_size) {
+                imperfect_pair = true;
+            }
+            //cerr << "aln\t" << aln1.name() << "\t" << aln2.name() << "\t" << j.first << "\t" << j.second << "\t"
+            //     << cached_fragment_length_mean << "\t" << cached_fragment_length_stdev << endl;
+            //<< fragment_length_mean() << "\t" << fragment_length_stdev() << "\t" 
+        }
+    }
+
+    if (imperfect_pair && fragment_max) {
+        //cerr << "saving" << endl;
+        imperfect_pairs_to_retry.push_back(make_pair(read1, read2));
+        results.first.clear();
+        results.second.clear();
+        // we signal the fact that this isn't a perfect pair, so we don't write it out externally?
+        queued_resolve_later = true;
+    }
+
+    if(results.first.empty()) {
+        results.first.push_back(read2);
+        auto& aln = results.first.back();
+        aln.clear_path();
+        aln.clear_score();
+        aln.clear_identity();
+    }
+
+    if(results.second.empty()) {
+        results.second.push_back(read2);
+        auto& aln = results.second.back();
+        aln.clear_path();
+        aln.clear_score();
+        aln.clear_identity();
+    }
+
+    // Make sure to link up alignments even if they aren't mapped.
+    for (auto& aln : results.first) {
+        aln.mutable_fragment_next()->set_name(read2.name());
+    }
+
+    for (auto& aln : results.second) {
+        aln.mutable_fragment_prev()->set_name(read1.name());
     }
 
     return results;
 
 }
 
-pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Alignment& read2, int kmer_size, int stride,
-                                                int max_mem_length, int band_width, int pair_window) {
+pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1,
+                                                const Alignment& read2,
+                                                bool& queued_resolve_later,
+                                                int kmer_size,
+                                                int stride,
+                                                int max_mem_length,
+                                                int band_width,
+                                                int pair_window) {
 
     pair<vector<Alignment>, vector<Alignment>> multimappings = align_paired_multi(read1, read2,
-        kmer_size, stride, band_width, pair_window);
+                                                                                  queued_resolve_later,
+                                                                                  kmer_size, stride,
+                                                                                  band_width, pair_window);
 
     // Grab the input reads as alignments if nothing was found, and the found alignments otherwise
     Alignment aln1;
@@ -693,8 +818,6 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Al
         aln1 = read1;
         aln1.clear_path();
         aln1.set_score(0);
-        // Make sure to link up alignments even if they aren't mapped.
-        aln1.mutable_fragment_next()->set_name(read2.name());
     } else {
         aln1 = multimappings.first[0];
     }
@@ -703,10 +826,13 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1, const Al
         aln2 = read2;
         aln2.clear_path();
         aln2.set_score(0);
-        aln2.mutable_fragment_prev()->set_name(read1.name());
     } else {
         aln2 = multimappings.second[0];
     }
+
+    // Make sure to link up alignments even if they aren't mapped.
+    aln1.mutable_fragment_next()->set_name(read2.name());
+    aln2.mutable_fragment_prev()->set_name(read1.name());
 
     // Stick the alignments together
     return make_pair(aln1, aln2);
@@ -738,6 +864,22 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     auto chrom = make_pair(name, is_rev);
                     by_start_pos[chrom][pos+offset].push_back(make_pair(&mem, node));
                 }
+            }
+        }
+    }
+
+    if (debug) {
+        cerr << "SMEMs by start pos: " << endl;
+        for (auto& seq : by_start_pos) {
+            stringstream seqn;
+            seqn << seq.first.first << ":";
+            if (seq.first.second) seqn << "-"; else seqn << "+";
+            for (auto& pos : seq.second) {
+                cerr << seqn.str() << ":" << pos.first << " ";
+                for (auto& mem : pos.second) {
+                    cerr << mem.first->sequence() << " ";                    
+                }
+                cerr << endl;
             }
         }
     }
@@ -846,6 +988,19 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         for (auto& cluster : clusters) {
             cerr << cluster.size() << " SMEMs ";
             for (auto& mem : cluster) {
+                size_t len = mem.begin - mem.end;
+                for (auto& node : mem.nodes) {
+                    id_t id = gcsa::Node::id(node);
+                    size_t offset = gcsa::Node::offset(node);
+                    bool is_rev = gcsa::Node::rc(node);
+                    for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
+                        auto& name = ref.first;
+                        for (auto pos : ref.second) {
+                            cerr << name << (is_rev?"-":"+") << pos + offset << ",";
+                            //by_start_pos[chrom][pos+offset].push_back(make_pair(&mem, node));
+                        }
+                    }
+                }
                 cerr << mem.sequence() << " ";
             }
             cerr << endl;
@@ -913,6 +1068,44 @@ VG Mapper::alignment_subgraph(const Alignment& aln, int context_size) {
     xindex->expand_context(graph.graph, max(1, context_size)); // get connected edges
     graph.rebuild_indexes();
     return graph;
+}
+
+// estimate the fragment length as the difference in mean positions of both alignments
+map<string, int> Mapper::approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2) {
+    map<string, int> lengths;
+    auto pos1 = alignment_mean_path_positions(aln1);
+    auto pos2 = alignment_mean_path_positions(aln2);
+    for (auto& p : pos1) {
+        auto x = pos2.find(p.first);
+        if (x != pos2.end()) {
+            lengths[p.first] = abs(p.second - x->second);
+        }
+    }
+    return lengths;
+}
+
+void Mapper::record_fragment_length(int length) {
+    fragment_lengths.push_front(length);
+    if (fragment_lengths.size() > fragment_length_cache_size) {
+        auto last = fragment_lengths.back();
+        fragment_lengths.pop_back();
+    }
+    if (++since_last_fragment_length_estimate > fragment_length_estimate_interval) {
+        cached_fragment_length_mean = fragment_length_mean();
+        cached_fragment_length_stdev = fragment_length_stdev();
+        // set our fragment size cap to the cached mean + 10x the standard deviation
+        fragment_size = cached_fragment_length_mean + fragment_sigma * cached_fragment_length_stdev;
+        since_last_fragment_length_estimate = 1;
+    }
+}
+
+double Mapper::fragment_length_stdev(void) {
+    return stdev(fragment_lengths);
+}
+
+double Mapper::fragment_length_mean(void) {
+    double sum = std::accumulate(fragment_lengths.begin(), fragment_lengths.end(), 0.0);
+    return sum / fragment_lengths.size();
 }
 
 set<MaximalExactMatch*> Mapper::resolve_paired_mems(vector<MaximalExactMatch>& mems1,
@@ -1387,9 +1580,14 @@ bool Mapper::adjacent_positions(const Position& pos1, const Position& pos2) {
     return graph.adjacent(pos1, pos2);
 }
 
-QualAdjAligner* Mapper::get_aligner(void) {
-    int tid = aligners.size() > 1 ? omp_get_thread_num() : 0;
-    return aligners[tid];
+QualAdjAligner* Mapper::get_qual_adj_aligner(void) {
+    int tid = qual_adj_aligners.size() > 1 ? omp_get_thread_num() : 0;
+    return qual_adj_aligners[tid];
+}
+
+Aligner* Mapper::get_regular_aligner(void) {
+    int tid = regular_aligners.size() > 1 ? omp_get_thread_num() : 0;
+    return regular_aligners[tid];
 }
 
 LRUCache<id_t, Node>& Mapper::get_node_cache(void) {
@@ -1398,7 +1596,8 @@ LRUCache<id_t, Node>& Mapper::get_node_cache(void) {
 }
 
 void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
-    auto aligner = get_aligner();
+    if (alns.empty()) return;
+    auto aligner = (alns.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_mapping_quality(alns, true);
@@ -1412,7 +1611,8 @@ void Mapper::compute_mapping_qualities(vector<Alignment>& alns) {
 }
     
 void Mapper::compute_mapping_qualities(pair<vector<Alignment>, vector<Alignment>>& pair_alns) {
-    auto aligner = get_aligner();
+    if (pair_alns.first.empty() || pair_alns.second.empty()) return;
+    auto aligner = (pair_alns.first.front().quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
     switch (mapping_quality_method) {
         case Approx:
             aligner->compute_paired_mapping_quality(pair_alns, true);
@@ -2044,14 +2244,17 @@ vector<Alignment> Mapper::mem_to_alignments(MaximalExactMatch& mem) {
 }
 
 Alignment Mapper::patch_alignment(const Alignment& aln) {
-    //cerr << "patching " << pb2json(aln) << endl;
-    //if (!check_alignment(aln)) cerr << "aln is invalid!" << endl;
+    if (debug) {
+        cerr << "patching " << pb2json(aln) << endl;
+        if (!check_alignment(aln)) cerr << "aln is invalid!" << endl;
+    }
     Alignment patched;
     int score = 0;
     // walk along the alignment and find the portions that are unaligned
     int read_pos = 0;
     auto& path = aln.path();
-    auto aligner = get_aligner();
+    auto aligner = aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner();
+    auto qual_adj_aligner = (QualAdjAligner*) aligner;
     for (int i = 0; i < path.mapping_size(); ++i) {
         auto& mapping = path.mapping(i);
         //cerr << "looking at mapping " << pb2json(mapping) << endl;
@@ -2064,7 +2267,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             if (edit_is_match(edit)) {
                 // matches behave as expected
                 if (!aln.quality().empty()) {
-                    score += aligner->score_exact_match(
+                    score += qual_adj_aligner->score_exact_match(
                         aln.sequence().substr(read_pos, edit.to_length()),
                         aln.quality().substr(read_pos, edit.to_length()));
                 } else {
@@ -2085,6 +2288,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 bool go_backward = is_rev(ref_pos);
                 id_t id1 = id(ref_pos);
                 id_t id2 = 0;
+                pos_t after_pos = ref_pos;
                 bool soft_clip_to_left = false;
                 bool soft_clip_to_right = false;
                 // this is a soft clip
@@ -2102,9 +2306,14 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                         go_forward = false;
                         go_backward = true;
                     }
+                } else if (j+1 < mapping.edit_size()) {
+                    id2 = id1;
+                    //cerr << "more edits to go on this node: " << id2 << " " << after_pos << endl;
                 } else if (i+1 < path.mapping().size()) {
+                    // get the next position in the partial alignment we're patching
                     id2 = path.mapping(i+1).position().node_id();
-                    //cerr << "we're up so look for id: " << id2 << endl;
+                    after_pos = make_pos_t(path.mapping(i+1).position());
+                    //cerr << "we're up so look for id: " << id2 << " " << after_pos << endl;
                 } else {
                     //cerr << "last soft clip" << endl;
                     if (is_rev(ref_pos)) {
@@ -2131,29 +2340,18 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 // instantiate a translator object (make sure it can handle the deleted bits?)
                 // translate the alignment
 
-                int min_distance = edit.to_length() * 3;
-
-                //cerr << "going at least " << min_distance << endl;
-                VG graph;
-                xindex->get_id_range(id1, id1, graph.graph);
-                xindex->expand_context(graph.graph,
-                                       min_distance,
-                                       false, // don't use steps (use length)
-                                       false, // don't add paths
-                                       go_forward,
-                                       go_backward,
-                                       id2);  // our target node
-                graph.rebuild_indexes();
-                //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-                // now trim the graph to fit by cutting the head/tail node(s)
-                // trim head
                 pos_t first_cut = ref_pos;
                 pos_t second_cut = ref_pos;
-
+                bool insertion_between_mems = false;
                 if (j+1 < mapping.edit_size()) {
                     //pos_t ref_pos = make_pos_t(mapping.position());
-                    get_offset(second_cut) += edit.from_length();
+                    if (edit.from_length()) {
+                        get_offset(second_cut) += edit.from_length();
+                    } else {
+                        insertion_between_mems = true;
+                    }
                 } else if (i+1 < path.mapping_size()) {
+                    //cerr << "lookin to the next mappin" << endl;
                     // we have to look at the next mapping
                     second_cut = make_pos_t(path.mapping(i+1).position());
                 } else {
@@ -2165,6 +2363,24 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 //cerr << "second_cut before " << second_cut << endl;
 
                 // if we get a target graph
+                int min_distance = edit.to_length() * 3;
+
+                //cerr << "going at least " << min_distance << endl;
+                VG graph;
+                if (!insertion_between_mems) {
+                    xindex->get_id_range(id1, id1, graph.graph);
+                    xindex->expand_context(graph.graph,
+                                           min_distance,
+                                           false, // don't use steps (use length)
+                                           false, // don't add paths
+                                           go_forward,
+                                           go_backward,
+                                           id2);  // our target node
+                    graph.rebuild_indexes();
+                    //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                }
+
+                // if we get a target graph
                 bool has_target = true;
                 // we have to remember how much we've trimmed from the first node
                 // so that we can translate it after the fact
@@ -2173,12 +2389,13 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 int trimmed_length_rev = 0;
 
                 // TODO continue if the graph doesn't have both cut points
-                if (!graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
+                if (insertion_between_mems || !graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
                     // treat the bit as unalignable
                     // has_target = false
                     //if (debug) cerr << "graph does not contain both cut points!" << endl;
                 } else {
 
+                    // now trim the graph to fit by cutting the head/tail node(s)
                     bool align_rc = false;
                     if (is_rev(first_cut) && is_rev(second_cut)) {
                         pos_t tmp_cut = first_cut;
@@ -2303,7 +2520,6 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     graph.remove_null_nodes_forwarding_edges();
                     graph.remove_orphan_edges();
                     //cerr << "trimmed graph " << graph.size() << " " << pb2json(graph.graph) << endl;
-                    //cerr << "with " << subgraphs.size() << " subgraphs" << endl;
                     // find the subgraph with both of our cut positions
                     // this can be done by going to the first cut position
                     // expanding context until we complete the subgraph it's on
@@ -2339,7 +2555,11 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
                 }
                 if (!has_target || graph.empty()) {
-                    if (debug) cerr << "no target for alignment of " << edit.sequence() << endl;
+                    if (debug) {
+                        cerr << "no target for alignment of " << edit.sequence() << endl;
+                        if (graph.empty()) cerr << "graph is empty" << endl;
+                        if (!has_target) cerr << "does not have target" << endl;
+                    }
                     score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
                     *new_mapping->add_edit() = edit;
                 } else {
@@ -3118,7 +3338,7 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
     int thread_ex = thread_extension;
     map<vector<int64_t>*, Alignment> alignments;
-    auto aligner = get_aligner();
+    auto aligner = (alignment.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner());
 
     // collect the nodes from the best N threads by length
     // and expand subgraphs as before
