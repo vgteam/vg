@@ -35,7 +35,7 @@ is $(vg map -s $seq -x x.xg -g x.gcsa | vg view -a - | jq -c '[.score, .sequence
 
 is $(vg map -b small/x.bam -x x.xg -g x.gcsa -J | jq .quality | grep null | wc -l) 0 "alignment from BAM correctly handles qualities"
 
-is $(vg map -s $seq -B 30 -x x.xg -g x.gcsa | vg surject -d x.idx -s - | wc -l) 4 "banded alignment produces a correct alignment"
+is $(vg map -s $seq -B 30 -x x.xg -g x.gcsa | vg surject -x x.xg -s - | wc -l) 4 "banded alignment produces a correct alignment"
 
 scores=$(vg map -s GCACCAGGACCCAGAGAGTTGGAATGCCAGGCATTTCCTCTGTTTTCTTTCACCG -x x.xg -g x.gcsa -J -M 2 | jq -r '.score' | tr '\n' ',')
 is "${scores}" $(printf ${scores} | tr ',' '\n' | sort -nr | tr '\n' ',')  "multiple alignments are returned in descending score order"

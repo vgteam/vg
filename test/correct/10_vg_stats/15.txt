@@ -5,5 +5,7 @@ Total aligned: 100
 Insertions: 0 bp in 0 read events
 Deletions: 0 bp in 0 read events
 Substitutions: 0 bp in 0 read events
+Softclips: 0 bp in 0 read events
 Unvisited nodes: 14/219 (23 bp)
+Single-visited nodes: 15/219 (52 bp)
 Significantly biased heterozygous sites: 1/75 (1.33333%)

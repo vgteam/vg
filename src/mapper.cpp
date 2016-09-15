@@ -3506,6 +3506,158 @@ vector<Alignment> Mapper::align_threaded(const Alignment& alignment, int& kmer_c
 
 }
 
+
+// transform the path into a path relative to another path (defined by path_name)
+// source -> surjection (in path_name coordinate space)
+// the product is equivalent to a pairwise alignment between this path and the other
+
+// new approach
+// get path sequence
+// get graph component overlapping path
+// removing elements which aren't in the path of interest
+// realign to this graph
+// cross fingers
+
+Alignment Mapper::surject_alignment(const Alignment& source,
+                                    set<string>& path_names,
+                                    string& path_name,
+                                    int64_t& path_pos,
+                                    bool& path_reverse,
+                                    int window) {
+
+    Alignment surjection = source;
+    surjection.clear_mapping_quality();
+    surjection.clear_score();
+    surjection.clear_identity();
+    surjection.clear_path();
+
+    // get start and end nodes in path
+    // get range between +/- window
+    if (!source.has_path() || source.path().mapping_size() == 0) {
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " is unmapped and cannot be surjected" << endl;
+
+#endif
+        return surjection;
+    }
+
+    set<id_t> nodes;
+    for (int i = 0; i < source.path().mapping_size(); ++ i) {
+        nodes.insert(source.path().mapping(i).position().node_id());
+    }
+    VG graph;
+    for (auto& node : nodes) {
+        *graph.graph.add_node() = xindex->node(node);
+    }
+    xindex->expand_context(graph.graph, context_depth, true); // get connected edges and path
+    graph.paths.append(graph.graph);
+    graph.rebuild_indexes();
+
+    set<string> kept_paths;
+    graph.keep_paths(path_names, kept_paths);
+
+    // We need this for inverting mappings to the correct strand
+    function<int64_t(id_t)> node_length = [&graph](id_t node) {
+        return graph.get_node(node)->sequence().size();
+    };
+    
+    // What is our alignment to surject spelled the other way around? We can't
+    // just use the normal alignment RC function because the mappings reference
+    // nonexistent nodes.
+    // Make sure to copy all the things about the alignment (name, etc.)
+
+    Alignment surjection_rc = surjection;
+    surjection_rc.set_sequence(reverse_complement(surjection.sequence()));
+    
+    // Align the old alignment to the graph in both orientations. Apparently
+    // align only does a single oriantation, and we have no idea, even looking
+    // at the mappings, which of the orientations will correspond to the one the
+    // alignment is actually in.
+
+    auto surjection_forward = align_to_graph(surjection, graph, max_query_graph_ratio);
+    auto surjection_reverse = align_to_graph(surjection_rc, graph, max_query_graph_ratio);
+
+#ifdef debug
+#pragma omp critical (cerr)
+    cerr << surjection.name() << " " << surjection_forward.score() << " forward score, " << surjection_reverse.score() << " reverse score" << endl;
+#endif
+    
+    if(surjection_reverse.score() > surjection_forward.score()) {
+        // Even if we have to surject backwards, we have to send the same string out as we got in.
+        surjection = reverse_complement_alignment(surjection_reverse, node_length);
+    } else {
+        surjection = surjection_forward;
+    }
+    
+    
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << surjection.path().mapping_size() << " mappings, " << kept_paths.size() << " paths" << endl;
+
+#endif
+
+    if (surjection.path().mapping_size() > 0 && kept_paths.size() == 1) {
+        // determine the paths of the node we mapped into
+        //  ... get the id of the first node, get the paths of it
+        assert(kept_paths.size() == 1);
+        path_name = *kept_paths.begin();
+
+        int64_t path_id = xindex->path_rank(path_name);
+        auto& first_pos = surjection.path().mapping(0).position();
+        int64_t hit_id = surjection.path().mapping(0).position().node_id();
+        bool hit_backward = surjection.path().mapping(0).position().is_reverse();
+        // we pick up positional information using the index
+
+        auto path_posns = xindex->node_positions_in_path(hit_id, path_name);
+        if (path_posns.size() > 1) {
+            cerr << "[vg map] surject_alignment: warning, multiple positions for node " << hit_id << " in " << path_name << " but will use only first: " << path_posns.front() << endl;
+        } else if (path_posns.size() == 0) {
+            cerr << "[vg map] surject_alignment: error, no positions for alignment " << source.name() << endl;
+            exit(1);
+        }
+
+        // if we are reversed
+        path_pos = path_posns.front();
+        bool reversed_path = xindex->mapping_at_path_position(path_name, path_pos).position().is_reverse();
+        if (reversed_path) {
+            // if we got the start of the node position relative to the path
+            // we need to offset to make thinsg right
+            // but which direction
+            if (hit_backward) {
+                path_pos = path_posns.front() + first_pos.offset();
+            } else {
+                auto pos = reverse_complement_alignment(surjection, node_length).path().mapping(0).position();
+                path_pos = xindex->node_positions_in_path(pos.node_id(), path_name).front() + pos.offset();
+            }
+            path_reverse = !hit_backward;
+        } else {
+            if (!hit_backward) {
+                path_pos = path_posns.front() + first_pos.offset();
+            } else {
+                auto pos = reverse_complement_alignment(surjection, node_length).path().mapping(0).position();
+                path_pos = xindex->node_positions_in_path(pos.node_id(), path_name).front() + pos.offset();
+            }
+            path_reverse = hit_backward;
+        }
+
+    } else {
+
+        surjection = source;
+#ifdef debug
+
+#pragma omp critical (cerr)
+        cerr << "Alignment " << source.name() << " did not align to the surjection subgraph" << endl;
+
+#endif
+
+    }
+
+    return surjection;
+}
+
 const int balanced_stride(int read_length, int kmer_size, int stride) {
     double r = read_length;
     double k = kmer_size;

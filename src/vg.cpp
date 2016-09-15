@@ -430,7 +430,7 @@ void VG::edges_of_node(Node* node, vector<Edge*>& edges) {
             exit(1);
         }
         if(edge->from() == edge->to() && edge->from_start() == edge->to_end()) {
-            // This edge touches both out start and our end, so we already
+            // This edge touches both our start and our end, so we already
             // handled it on our start. Don't produce it twice.
             continue;
         }
@@ -3967,10 +3967,10 @@ void VG::sort(void) {
     }
 }
 
-// depth first search across nodes with interface to traversal tree via callback
+// depth first search across node traversals with interface to traversal tree via callback
 void VG::dfs(
-    const function<void(Node*)>& node_begin_fn, // called when node is first encountered
-    const function<void(Node*)>& node_end_fn,   // called when node goes out of scope
+    const function<void(NodeTraversal)>& node_begin_fn, // called when node orientation is first encountered
+    const function<void(NodeTraversal)>& node_end_fn,   // called when node orientation goes out of scope
     const function<bool(void)>& break_fn,       // called to check if we should stop the DFS
     const function<void(Edge*)>& edge_fn,       // called when an edge is encountered
     const function<void(Edge*)>& tree_fn,       // called when an edge forms part of the DFS spanning tree
@@ -3979,94 +3979,133 @@ void VG::dfs(
     ) {
 
     // to maintain search state
-    enum SearchState { PRE, CURR, POST };
-    map<Node*, SearchState> state;
-    for_each_node([&](Node* node) { state[node] = SearchState::PRE; });
+    enum SearchState { PRE = 0, CURR, POST };
+    map<NodeTraversal, SearchState> state; // implicitly constructed entries will be PRE.
 
     // to maintain stack frames
     struct Frame {
-        Node* node;
+        NodeTraversal trav;
         vector<Edge*>::iterator begin, end;
-        Frame(Node* n,
+        Frame(NodeTraversal t,
               vector<Edge*>::iterator b,
               vector<Edge*>::iterator e)
-            : node(n), begin(b), end(e) { }
+            : trav(t), begin(b), end(e) { }
     };
 
-    // maintains edges while the node's frame is on the stack
-    map<Node*, vector<Edge*> > edges;
+    // maintains edges while the node traversal's frame is on the stack
+    map<NodeTraversal, vector<Edge*> > edges;
     // records when we're on the stack
-    set<Node*> in_frame;
+    set<NodeTraversal> in_frame;
 
-    // attempt the search rooted at all nodes
+    // attempt the search rooted at all NodeTraversals
     for (id_t i = 0; i < graph.node_size(); ++i) {
-        Node* root = graph.mutable_node(i);
-        // to store the stack frames
-        deque<Frame> todo;
-        if (state[root] == SearchState::PRE) {
-            state[root] = SearchState::CURR;
-            auto& es = edges[root];
-            es = edges_from(root);
-            todo.push_back(Frame(root, es.begin(), es.end()));
-            // run our discovery-time callback
-            node_begin_fn(root);
-            // and check if we should break
-            if (break_fn()) {
-                break;
-            }
-        }
-        // now begin the search rooted at this node
-        while (!todo.empty()) {
-            // get the frame
-            auto& frame = todo.back();
-            todo.pop_back();
-            // and set up reference to it
-            auto node = frame.node;
-            auto edges_begin = frame.begin;
-            auto edges_end = frame.end;
-            // run through the edges to handle
-            while (edges_begin != edges_end) {
-                auto edge = *edges_begin;
-                // run the edge callback
-                edge_fn(edge);
-                // what's the node we'd get to following this edge
-                auto target = get_node(edge->to());
-                auto search_state = state[target];
-                // if we've not seen it, follow it
-                if (search_state == SearchState::PRE) {
-                    tree_fn(edge);
-                    // save the rest of the search for this node on the stack
-                    todo.push_back(Frame(node, ++edges_begin, edges_end));
-                    // switch our focus to the current node
-                    node = target;
-                    // and store the next node on the stack
-                    state[node] = SearchState::CURR;
-                    auto& es = edges[node];
-                    es = edges_from(node);
-                    edges_begin = es.begin();
-                    edges_end = es.end();
-                    // run our discovery-time callback
-                    node_begin_fn(node);
-                } else if (search_state == SearchState::CURR) {
-                    // if it's on the stack
-                    edge_curr_fn(edge);
-                    ++edges_begin;
-                } else {
-                    // it's already been handled, so in another part of the tree
-                    edge_cross_fn(edge);
-                    ++edges_begin;
+        Node* root_node = graph.mutable_node(i);
+        
+        for(int orientation = 0; orientation < 2; orientation++) {
+            // Try both orientations
+            NodeTraversal root(root_node, (bool)orientation);
+        
+            // to store the stack frames
+            deque<Frame> todo;
+            if (state[root] == SearchState::PRE) {
+                state[root] = SearchState::CURR;
+                
+                // Collect all the edges attached to the outgoing side of the
+                // traversal.
+                auto& es = edges[root];
+                for(auto& next : travs_from(root)) {
+                    // Every NodeTraversal following on from this one has an
+                    // edge we take to get to it.
+                    Edge* edge = get_edge(root, next);
+                    assert(edge != nullptr);
+                    es.push_back(edge);
+                }
+                
+                todo.push_back(Frame(root, es.begin(), es.end()));
+                // run our discovery-time callback
+                node_begin_fn(root);
+                // and check if we should break
+                if (break_fn()) {
+                    break;
                 }
             }
-            state[node] = SearchState::POST;
-            node_end_fn(node);
-            edges.erase(node); // clean up edge cache
+            // now begin the search rooted at this NodeTraversal
+            while (!todo.empty()) {
+                // get the frame
+                auto& frame = todo.back();
+                todo.pop_back();
+                // and set up reference to it
+                auto trav = frame.trav;
+                auto edges_begin = frame.begin;
+                auto edges_end = frame.end;
+                // run through the edges to handle
+                while (edges_begin != edges_end) {
+                    auto edge = *edges_begin;
+                    // run the edge callback
+                    edge_fn(edge);
+                    
+                    // what's the traversal we'd get to following this edge
+                    NodeTraversal target;
+                    if(edge->from() == trav.node->id() && edge->to() != trav.node->id()) {
+                        // We want the to side
+                        target.node = get_node(edge->to());
+                    } else if(edge->to() == trav.node->id() && edge->from() != trav.node->id()) {
+                        // We want the from side
+                        target.node = get_node(edge->from());
+                    } else {
+                        // It's a self loop, because we have to be on at least
+                        // one end of the edge.
+                        target.node = trav.node;
+                    }
+                    // When we follow this edge, do we reverse traversal orientation?
+                    bool is_reversing = (edge->from_start() != edge->to_end());
+                    target.backward = trav.backward != is_reversing;
+                    
+                    auto search_state = state[target];
+                    // if we've not seen it, follow it
+                    if (search_state == SearchState::PRE) {
+                        tree_fn(edge);
+                        // save the rest of the search for this NodeTraversal on the stack
+                        todo.push_back(Frame(trav, ++edges_begin, edges_end));
+                        // switch our focus to the NodeTraversal at the other end of the edge
+                        trav = target;
+                        // and store it on the stack
+                        state[trav] = SearchState::CURR;
+                        auto& es = edges[trav];
+                    
+                        for(auto& next : travs_from(trav)) {
+                            // Every NodeTraversal following on from this one has an
+                            // edge we take to get to it.
+                            Edge* edge = get_edge(trav, next);
+                            assert(edge != nullptr);
+                            es.push_back(edge);
+                        }
+                    
+                        edges_begin = es.begin();
+                        edges_end = es.end();
+                        // run our discovery-time callback
+                        node_begin_fn(trav);
+                    } else if (search_state == SearchState::CURR) {
+                        // if it's on the stack
+                        edge_curr_fn(edge);
+                        ++edges_begin;
+                    } else {
+                        // it's already been handled, so in another part of the tree
+                        edge_cross_fn(edge);
+                        ++edges_begin;
+                    }
+                }
+                state[trav] = SearchState::POST;
+                node_end_fn(trav);
+                edges.erase(trav); // clean up edge cache
+            }
         }
     }
 }
 
 
-void VG::dfs(const function<void(Node*)>& node_begin_fn,
-             const function<void(Node*)>& node_end_fn) {
+void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
+             const function<void(NodeTraversal)>& node_end_fn) {
     auto edge_noop = [](Edge* e) { };
     dfs(node_begin_fn,
         node_end_fn,
@@ -4077,8 +4116,8 @@ void VG::dfs(const function<void(Node*)>& node_begin_fn,
         edge_noop);
 }
 
-void VG::dfs(const function<void(Node*)>& node_begin_fn,
-             const function<void(Node*)>& node_end_fn,
+void VG::dfs(const function<void(NodeTraversal)>& node_begin_fn,
+             const function<void(NodeTraversal)>& node_end_fn,
              const function<bool(void)>& break_fn) {
     auto edge_noop = [](Edge* e) { };
     dfs(node_begin_fn,
@@ -4092,45 +4131,79 @@ void VG::dfs(const function<void(Node*)>& node_begin_fn,
 
 // recursion-free version of Tarjan's strongly connected components algorithm
 // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+// Generalized to bidirected graphs as described (confusingly) in
+// "Decomposition of a bidirected graph into strongly connected components and
+// its signed poset structure", by Kazutoshi Ando, Satoru Fujishige, and Toshio
+// Nemoto. http://www.sciencedirect.com/science/article/pii/0166218X95000683
+
+// The best way to think about that paper is that the edges are vectors in a
+// vector space with number of dimensions equal to the number of nodes in the
+// graph, and an edge attaching to the end a node is the positive unit vector in
+// its dimension, and an edge attaching to the start of node is the negative
+// unit vector in its dimension.
+
+// The basic idea is that you just consider the orientations as different nodes,
+// and the edges as existing between both pairs of orientations they connect,
+// and do connected components on that graph. Since we don't care about
+// "consistent" or "inconsistent" strongly connected components, we just put a
+// node in a component if either orientation is in it. But bear in mind that
+// both orientations of a node might not actually be in the same strongly
+// connected component in a bidirected graph, so now the components may overlap.
 set<set<id_t> > VG::strongly_connected_components(void) {
 
+    // What node visit step are we on?
     int64_t index = 0;
-    map<id_t, id_t> roots;
-    map<id_t, int64_t> discover_idx;
-    deque<id_t> stack;
-    set<id_t> on_stack;
+    // What's the search root from which a node was reached?
+    map<NodeTraversal, NodeTraversal> roots;
+    // At what index step was each node discovered?
+    map<NodeTraversal, int64_t> discover_idx;
+    // We need our own copy of the DFS stack
+    deque<NodeTraversal> stack;
+    // And our own set of nodes already on the stack
+    set<NodeTraversal> on_stack;
+    // What components did we find? Because of the way strongly connected
+    // components generalizes, both orientations of a node always end up in the
+    // same component.
     set<set<id_t> > components;
 
-    dfs([&](Node* node) {
-            const id_t id = node->id();
-            roots[id] = id;
-            discover_idx[id] = index++;
-            stack.push_back(id);
-            on_stack.insert(id);
+    dfs([&](NodeTraversal trav) {
+            // When a NodeTraversal is first visited
+            // It is its own root
+            roots[trav] = trav;
+            // We discovered it at this step
+            discover_idx[trav] = index++;
+            // And it's on the stack
+            stack.push_back(trav);
+            on_stack.insert(trav);
         },
-        [&](Node* node) {
-            const id_t curr = node->id();
-            for (auto side : sides_from(curr)) {
-                const id_t next = side.node;
+        [&](NodeTraversal trav) {
+            // When a NodeTraversal is done being recursed into
+            for (auto next : travs_from(trav)) {
+                // Go through all the NodeTraversals reachable reading onwards from this traversal.
                 if (on_stack.count(next)) {
-                    const id_t node_root = roots[curr];
-                    const id_t next_root = roots[next];
-                    roots[curr] = discover_idx[node_root] <
+                    // If any of those NodeTraversals are on the stack already
+                    auto& node_root = roots[trav];
+                    auto& next_root = roots[next];
+                    // Adopt the root of the NodeTraversal that was discovered first.
+                    roots[trav] = discover_idx[node_root] <
                         discover_idx[next_root] ?
                         node_root :
                         next_root;
                 }
             }
-            if (roots[curr] == curr) {
-                id_t other;
+            if (roots[trav] == trav) {
+                // If we didn't find a better root
+                NodeTraversal other;
                 set<id_t> component;
                 do
                 {
+                    // Grab everything that was put on the DFS stack below us
+                    // and put it in our component.
                     other = stack.back();
                     stack.pop_back();
                     on_stack.erase(other);
-                    component.insert(other);
-                } while (other != curr);
+                    component.insert(other.node->id());
+                } while (other != trav);
                 components.insert(component);
             }
         });
@@ -4170,25 +4243,33 @@ vector<Edge> VG::break_cycles(void) {
 }
 
 bool VG::is_acyclic(void) {
-    set<Node*> seen;
+    set<NodeTraversal> seen;
     bool acyclic = true;
-    dfs([&](Node* node) {
-            if (is_self_looping(node)) {
+    dfs([&](NodeTraversal trav) {
+            // When a node orientation is first visited
+            if (is_self_looping(trav.node)) {
                 acyclic = false;
             }
 
-            for (auto& trav : travs_from(node)) {
-                if (seen.count(trav.node)) {
+            for (auto& next : travs_from(trav)) {
+                if (seen.count(next)) {
                     acyclic = false;
                     break;
                 }
             }
             if (acyclic) {
-                seen.insert(node);
+                seen.insert(trav);
             }
         },
-        [&](Node* node) {
-            seen.erase(node);
+        [&](NodeTraversal trav) {
+            // When we leave a node orientation
+            
+            // Remove it from the seen array. We may later start from a
+            // different root and see a way into this node in this orientation,
+            // but it's only a cycle if there's a way into this node in this
+            // orientation when it's further up the stack from the node
+            // traversal we are finding the way in from.
+            seen.erase(trav);
         },
         [&](void) { // our break function
             return !acyclic;
@@ -4736,98 +4817,30 @@ void VG::remove_orphan_edges(void) {
 }
 
 void VG::keep_paths(set<string>& path_names, set<string>& kept_names) {
-    // Strategy:
 
-    // For each node in our graph
-    // If it has node mappings, look at them
-    // For each that occurs along a path we want to include
-    // Mark that path as kept
-    // Mark the node as kept
-    // Peek in the path left and right from that mapping
-    // Mark the edges traversed as kept
-    // Mark all nodes and edges not marked for keeping as for removal
-    // Remove all nodes and edges marked for removal
-    // Drop all paths from the graph not requested to be kept
-
-    // Previous code here would only keep edges between nodes with adjacent IDs
-    // in the set of selected nodes, which is in general incorrect.
-
-    vector<Node*> nodes_to_keep;
-    vector<Node*> nodes_to_remove;
-    // Holds node sides in smaller-to-larger order, so we can search for edges in it.
-    set<pair<NodeSide, NodeSide>> edges_to_keep;
-
-    for_each_node([&](Node* node) {
-        // If we don't see anything about this node in our paths, throw it out.
-        bool to_keep = false;
-
-        if(paths.has_node_mapping(node)) {
-            // This node appears on some paths. Look for appearances on paths we like.
-            for(auto& appearance : paths.get_node_mapping(node)) {
-                if(path_names.count(appearance.first)) {
-                    // We found an appearance of this node on a path we are keeping. It comes with a Mapping*.
-
-                    // Mark the path and node as kept
-                    kept_names.insert(appearance.first);
-                    to_keep = true;
-
-                    // Walk left along the path and keep the edge(s) we traverse.
-                    for (auto* m : appearance.second) {
-                        Mapping* left_neighbor = paths.traverse_left(m);
-
-                        if(left_neighbor != nullptr) {
-                            // We aren't the first thing in the path, we want to keep the edge to our left.
-                            // It may not exist, but we can still ask to keep it.
-
-                            // What other node do we go to?
-                            id_t neighbor_id = left_neighbor->position().node_id();
-
-                            if(has_node(neighbor_id)) {
-                                // Keep the edge if we actually have the other end.
-                                // We know the other end is on this path and will be
-                                // kept.
-
-                                // We attach to the end of the previous node if it isn't
-                                // backward along the path, and the end of this node if
-                                // it is backward along the path.
-                                edges_to_keep.insert(minmax(NodeSide(neighbor_id, !left_neighbor->position().is_reverse()),
-                                                            NodeSide(node->id(), m->position().is_reverse())));
-                            }
-                        }
-                    }
-
-                    // We skip walking right along the path, because if the node
-                    // we would find is in the graph, we're going to walk left
-                    // from it eventually and find the same edge.
+    set<id_t> to_keep;
+    paths.for_each([&](const Path& path) {
+            if (path_names.count(path.name())) {
+                kept_names.insert(path.name());
+                for (int i = 0; i < path.mapping_size(); ++i) {
+                    to_keep.insert(path.mapping(i).position().node_id());
                 }
-            }
-        }
-
-        // Actually decide to keep or delete the node. Keep it if we ever saw it on a path.
-        if (to_keep) {
-            nodes_to_keep.push_back(node);
-        } else {
-            nodes_to_remove.push_back(node);
-        }
-
-    });
-
-    // Mark any edges we don't keep for destruction
-    set<pair<NodeSide, NodeSide>> edges_to_destroy;
-    for_each_edge([this, &edges_to_keep, &edges_to_destroy](Edge* edge) {
-            auto ep = NodeSide::pair_from_edge(edge);
-            if (!edges_to_keep.count(ep)) {
-                edges_to_destroy.insert(ep);
             }
         });
 
-    // Destroy all the edges and nodes we don't want
-    for (auto edge : edges_to_destroy) {
-        destroy_edge(edge.first, edge.second);
+    set<id_t> to_remove;
+    for_each_node([&](Node* node) {
+            id_t id = node->id();
+            if (!to_keep.count(id)) {
+                to_remove.insert(id);
+            }
+        });
+
+    for (auto id : to_remove) {
+        destroy_node(id);
     }
-    for (auto node : nodes_to_remove) {
-        destroy_node(node);
-    }
+    // clean up dangling edges
+    remove_orphan_edges();
 
     // Throw out all the paths data for paths we don't want to keep.
     paths.keep_paths(path_names);
@@ -7485,6 +7498,7 @@ Alignment VG::align(const Alignment& alignment,
     };
 
     if (is_acyclic() && !has_inverting_edges()) {
+        assert(is_acyclic());
         Node* root = this->join_heads();
         // graph is a non-inverting DAG, so we just need to sort
         sort();
@@ -8923,7 +8937,7 @@ void VG::collect_subgraph(Node* start_node, set<Node*>& subgraph) {
                 checked.insert(node);
             }
             vector<NodeTraversal> prev;
-            nodes_prev(node, prev);
+            nodes_prev(NodeTraversal(node), prev);
             for (vector<NodeTraversal>::iterator p = prev.begin(); p != prev.end(); ++p) {
             // if it's not already been examined, collect its neighborhood
                 if (!subgraph.count((*p).node)) {
@@ -8933,7 +8947,7 @@ void VG::collect_subgraph(Node* start_node, set<Node*>& subgraph) {
             }
             // for each successor of node
             vector<NodeTraversal> next;
-            nodes_next(node, next);
+            nodes_next(NodeTraversal(node), next);
             for (vector<NodeTraversal>::iterator n = next.begin(); n != next.end(); ++n) {
                 if (!subgraph.count((*n).node)) {
                     subgraph.insert((*n).node);
@@ -9507,14 +9521,17 @@ void VG::remove_inverting_edges(void) {
     }
 }
 
-bool VG::is_self_looping(NodeTraversal trav) {
-    for (auto t : nodes_next(trav)) {
-        if (t.node == trav.node) {
+bool VG::is_self_looping(Node* node) {
+    for(auto* edge : edges_of(node)) {
+        // Look at all the edges on the node
+        if(edge->from() == node->id() && edge->to() == node->id()) {
+            // And decide if any of them are self loops.
             return true;
         }
     }
     return false;
 }
+
 
 VG VG::dagify(uint32_t expand_scc_steps,
               map<id_t, pair<id_t, bool> >& node_translation,
@@ -9534,7 +9551,7 @@ VG VG::dagify(uint32_t expand_scc_steps,
         // does this have an inversion as a child?
         // let's add in inversions
         if (component.size() == 1
-            && !is_self_looping(NodeTraversal(get_node(*component.begin())))) {
+            && !is_self_looping(get_node(*component.begin()))) {
             // not part of a SCC
             // copy into the new graph
             id_t id = *component.begin();

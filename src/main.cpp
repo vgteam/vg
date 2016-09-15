@@ -207,7 +207,8 @@ void help_filter(char** argv) {
          << "    -a, --frac-delta        use (secondary / primary) for delta comparisons" << endl
          << "    -u, --substitutions     use substitution count instead of score" << endl
          << "    -o, --max-overhang N    filter reads whose alignments begin or end with an insert > N [default=99999]" << endl
-         << "    -x, --xg-name FILE      use this xg index (required for -R)" << endl
+         << "    -S, --drop-split        remove split reads taking nonexistent edges" << endl
+         << "    -x, --xg-name FILE      use this xg index (required for -R, -S, and -D)" << endl
          << "    -R, --regions-file      only output alignments that intersect regions (BED file with 0-based coordinates expected)" << endl
          << "    -B, --output-basename   output to file(s) (required for -R).  The ith file will correspond to the ith BED region" << endl
          << "    -c, --context STEPS     expand the context of the subgraph this many steps when looking up chunks" << endl
@@ -246,6 +247,7 @@ int main_filter(int argc, char** argv) {
                 {"frac-delta", required_argument, 0, 'a'},
                 {"substitutions", required_argument, 0, 'u'},
                 {"max-overhang", required_argument, 0, 'o'},
+                {"drop-split",  no_argument, 0, 'S'},
                 {"xg-name", required_argument, 0, 'x'},
                 {"regions-file",  required_argument, 0, 'R'},
                 {"output-basename",  required_argument, 0, 'B'},
@@ -258,7 +260,7 @@ int main_filter(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:x:R:B:c:vq:E:D:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -291,6 +293,8 @@ int main_filter(int argc, char** argv) {
         case 'o':
             filter.max_overhang = atoi(optarg);
             break;
+        case 'S':
+            filter.drop_split = true;
         case 'x':
             xg_name = optarg;
             break;
@@ -1186,6 +1190,7 @@ void help_call(char** argv) {
          << "    -E, --min_mad              min. minimum allele depth required to PASS filter [5]" << endl
          << "    -h, --help                 print this help message" << endl
          << "    -p, --progress             show progress" << endl
+         << "    -v, --verbose              print information and warnings about vcf generation" << endl
          << "    -t, --threads N            number of threads to use" << endl;
 }
 
@@ -1263,6 +1268,7 @@ int main_call(int argc, char** argv) {
     size_t min_mad_for_filter = 5;
 
     bool show_progress = false;
+    bool verbose = false;
     int thread_count = 1;
 
     int c;
@@ -1279,6 +1285,7 @@ int main_call(int argc, char** argv) {
                 {"aug_graph", required_argument, 0, 'A'},
                 {"link-alts", no_argument, 0, 'a'},
                 {"progress", no_argument, 0, 'p'},
+                {"verbose", no_argument, 0, 'v'},
                 {"threads", required_argument, 0, 't'},
                 {"ref", required_argument, 0, 'r'},
                 {"contig", required_argument, 0, 'c'},
@@ -1303,7 +1310,7 @@ int main_call(int argc, char** argv) {
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
+        c = getopt_long (argc, argv, "d:e:s:f:q:b:A:apvt:r:c:S:o:D:l:PF:H:R:M:n:B:C:OuIE:h",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -1414,6 +1421,9 @@ int main_call(int argc, char** argv) {
         case 'p':
             show_progress = true;
             break;
+        case 'v':
+            verbose = true;
+            break;            
         case 't':
             thread_count = atoi(optarg);
             break;
@@ -1549,7 +1559,8 @@ int main_call(int argc, char** argv) {
                         multiallelic_support,
                         max_ref_length,
                         max_bubble_paths,
-                        min_mad_for_filter);
+                        min_mad_for_filter,
+                        verbose);
     
     return 0;
 }
@@ -2662,7 +2673,7 @@ void help_surject(char** argv) {
         << "Transforms alignments to be relative to particular paths." << endl
         << endl
         << "options:" << endl
-        << "    -d, --db-name DIR       use the graph in this database" << endl
+        << "    -x, --xg-name FILE      use the graph in this xg index" << endl
         << "    -t, --threads N         number of threads to use" << endl
         << "    -p, --into-path NAME    surject into just this path" << endl
         << "    -i, --into-paths FILE   surject into nonoverlapping path names listed in FILE (one per line)" << endl
@@ -2671,6 +2682,7 @@ void help_surject(char** argv) {
         // todo, reenable
         // << "    -c, --cram-output       write CRAM to stdout (default is vg::Aligment/GAM format)" << endl
         // << "    -f, --reference FILE    use this file when writing CRAM to rebuild sequence header" << endl
+         << "    -n, --context-depth N     expand this many steps when preparing graph for surjection (default: 3)" << endl
         << "    -b, --bam-output        write BAM to stdout" << endl
         << "    -s, --sam-output        write SAM to stdout" << endl
         << "    -C, --compression N     level for compression [0-9]" << endl
@@ -2684,7 +2696,7 @@ int main_surject(int argc, char** argv) {
         return 1;
     }
 
-    string db_name;
+    string xg_name;
     string path_name;
     string path_prefix;
     string path_file;
@@ -2694,6 +2706,7 @@ int main_surject(int argc, char** argv) {
     int compress_level = 9;
     int window = 5;
     string fasta_filename;
+    int context_depth = 3;
 
     int c;
     optind = 2; // force optind past command positional argument
@@ -2701,7 +2714,7 @@ int main_surject(int argc, char** argv) {
         static struct option long_options[] =
         {
             {"help", no_argument, 0, 'h'},
-            {"db-name", required_argument, 0, 'd'},
+            {"xb-name", required_argument, 0, 'x'},
             {"threads", required_argument, 0, 't'},
             {"into-path", required_argument, 0, 'p'},
             {"into-paths", required_argument, 0, 'i'},
@@ -2713,11 +2726,12 @@ int main_surject(int argc, char** argv) {
             {"header-from", required_argument, 0, 'H'},
             {"compress", required_argument, 0, 'C'},
             {"window", required_argument, 0, 'w'},
+            {"context-depth", required_argument, 0, 'n'},
             {0, 0, 0, 0}
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hd:p:i:P:cbsH:C:t:w:f:",
+        c = getopt_long (argc, argv, "hx:p:i:P:cbsH:C:t:w:f:n:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -2727,71 +2741,71 @@ int main_surject(int argc, char** argv) {
         switch (c)
         {
 
-            case 'd':
-                db_name = optarg;
-                break;
+        case 'x':
+            xg_name = optarg;
+            break;
 
-            case 'p':
-                path_name = optarg;
-                break;
+        case 'p':
+            path_name = optarg;
+            break;
 
-            case 'i':
-                path_file = optarg;
-                break;
+        case 'i':
+            path_file = optarg;
+            break;
 
-            case 'P':
-                path_prefix = optarg;
-                break;
+        case 'P':
+            path_prefix = optarg;
+            break;
 
-            case 'H':
-                header_file = optarg;
-                break;
+        case 'H':
+            header_file = optarg;
+            break;
 
-            case 'c':
-                output_type = "cram";
-                break;
+        case 'c':
+            output_type = "cram";
+            break;
 
-            case 'f':
-                fasta_filename = optarg;
-                break;
+        case 'f':
+            fasta_filename = optarg;
+            break;
 
-            case 'b':
-                output_type = "bam";
-                break;
+        case 'b':
+            output_type = "bam";
+            break;
 
-            case 's':
-                compress_level = -1;
-                output_type = "sam";
-                break;
+        case 's':
+            compress_level = -1;
+            output_type = "sam";
+            break;
 
-            case 't':
-                omp_set_num_threads(atoi(optarg));
-                break;
+        case 't':
+            omp_set_num_threads(atoi(optarg));
+            break;
 
-            case 'C':
-                compress_level = atoi(optarg);
-                break;
+        case 'C':
+            compress_level = atoi(optarg);
+            break;
 
-            case 'w':
-                window = atoi(optarg);
-                break;
+        case 'w':
+            window = atoi(optarg);
+            break;
 
-            case 'h':
-            case '?':
-                help_surject(argv);
-                exit(1);
-                break;
+        case 'n':
+            context_depth = atoi(optarg);
+            break;
 
-            default:
-                abort ();
+        case 'h':
+        case '?':
+            help_surject(argv);
+            exit(1);
+            break;
+
+        default:
+            abort ();
         }
     }
 
     string file_name = argv[optind];
-
-    Index index;
-    // open index
-    index.open_read_only(db_name);
 
     set<string> path_names;
     if (!path_file.empty()){
@@ -2805,12 +2819,41 @@ int main_surject(int argc, char** argv) {
         path_names.insert(path_name);
     }
 
+    xg::XG* xgidx = nullptr;
+    ifstream xg_stream(xg_name);
+    if(xg_stream) {
+        xgidx = new xg::XG(xg_stream);
+    }
+    if (!xg_stream || xgidx == nullptr) {
+        cerr << "[vg sim] error: could not open xg index" << endl;
+        return 1;
+    }
+
+    map<string, int64_t> path_by_id;// = index.paths_by_id();
+    map<string, int64_t> path_length;
+    int num_paths = xgidx->max_path_rank();
+    for (int i = 1; i <= num_paths; ++i) {
+        auto name = xgidx->path_name(i);
+        path_by_id[name] = i;
+        path_length[name] = xgidx->path_length(name);
+    }
+
+    int thread_count = get_thread_count();
+    vector<Mapper*> mapper;
+    mapper.resize(thread_count);
+    for (int i = 0; i < thread_count; ++i) {
+        Mapper* m = new Mapper;
+        m->xindex = xgidx;
+        m->context_depth = context_depth;
+        mapper[i] = m;
+    }
+
     if (input_type == "gam") {
         if (output_type == "gam") {
             int thread_count = get_thread_count();
             vector<vector<Alignment> > buffer;
             buffer.resize(thread_count);
-            function<void(Alignment&)> lambda = [&index, &path_names, &buffer, &window](Alignment& src) {
+            function<void(Alignment&)> lambda = [&xgidx, &path_names, &buffer, &window, &mapper](Alignment& src) {
                 int tid = omp_get_thread_num();
                 Alignment surj;
                 // Since we're outputting full GAM, we ignore all this info
@@ -2819,8 +2862,7 @@ int main_surject(int argc, char** argv) {
                 string path_name;
                 int64_t path_pos;
                 bool path_reverse;
-                index.surject_alignment(src, path_names, surj, path_name, path_pos, path_reverse, window);
-                buffer[tid].push_back(surj);
+                buffer[tid].push_back(mapper[tid]->surject_alignment(src, path_names,path_name, path_pos, path_reverse, window));
                 stream::write_buffered(cout, buffer[tid], 100);
             };
             if (file_name == "-") {
@@ -2854,10 +2896,6 @@ int main_surject(int argc, char** argv) {
                }
                */
             string header;
-            map<string, int64_t> path_by_id = index.paths_by_id();
-            map<string, pair<pair<int64_t, bool>, pair<int64_t, bool>>> path_layout;
-            map<string, int64_t> path_length;
-            index.path_layout(path_layout, path_length);
             int thread_count = get_thread_count();
             vector<vector<tuple<string, int64_t, bool, Alignment> > > buffer;
             buffer.resize(thread_count);
@@ -2928,24 +2966,24 @@ int main_surject(int argc, char** argv) {
                     }
                 };
 
-            function<void(Alignment&)> lambda = [&index,
-                &path_names,
-                &path_length,
-                &window,
-                &rg_sample,
-                &header,
-                &out,
-                &buffer,
-                &count,
-                &hdr,
-                &out_mode,
-                &handle_buffer](Alignment& src) {
-                    int tid = omp_get_thread_num();
-                    Alignment surj;
+            function<void(Alignment&)> lambda = [&xgidx,
+                                                 &mapper,
+                                                 &path_names,
+                                                 &path_length,
+                                                 &window,
+                                                 &rg_sample,
+                                                 &header,
+                                                 &out,
+                                                 &buffer,
+                                                 &count,
+                                                 &hdr,
+                                                 &out_mode,
+                                                 &handle_buffer](Alignment& src) {
                     string path_name;
                     int64_t path_pos;
                     bool path_reverse;
-                    index.surject_alignment(src, path_names, surj, path_name, path_pos, path_reverse, window);
+                    int tid = omp_get_thread_num();
+                    auto surj = mapper[tid]->surject_alignment(src, path_names, path_name, path_pos, path_reverse, window);
                     if (!surj.path().mapping_size()) {
                         surj = src;
                     }
@@ -4028,7 +4066,10 @@ int main_sim(int argc, char** argv) {
             size_t iter = 0;
             while (iter++ < max_iter) {
                 if (aln.sequence().size() < read_length) {
-                    aln = sampler.alignment_with_error(read_length, base_error, indel_error);
+                    auto aln_prime = sampler.alignment_with_error(read_length, base_error, indel_error);
+                    if (aln_prime.sequence().size() > aln.sequence().size()) {
+                        aln = aln_prime;
+                    }
                 }
             }
             // write the alignment or its string
@@ -4901,12 +4942,16 @@ int main_stats(int argc, char** argv) {
         // And substitutions
         size_t total_substitutions = 0;
         size_t total_substituted_bases = 0;
+        // And softclips
+        size_t total_softclips = 0;
+        size_t total_softclipped_bases = 0;
         
         // In verbose mode we want to report details of insertions, deletions,
-        // and substitutions.
+        // and substitutions, and soft clips.
         vector<pair<vg::id_t, Edit>> insertions;
         vector<pair<vg::id_t, Edit>> deletions;
         vector<pair<vg::id_t, Edit>> substitutions;
+        vector<pair<vg::id_t, Edit>> softclips;
         
         function<void(Alignment&)> lambda = [&](Alignment& aln) {
             int tid = omp_get_thread_num();
@@ -4953,19 +4998,32 @@ int main_stats(int argc, char** argv) {
                     node_visit_counts[node_id]++;
                     
                     for(size_t j = 0; j < mapping.edit_size(); j++) {
-                        // Go through edits and look for indels.
+                        // Go through edits and look for each type.
                         auto& edit = mapping.edit(j);
                         
                         if(edit.to_length() > edit.from_length()) {
-                            // Record this insertion
-                            #pragma omp critical (total_inserted_bases)
-                            total_inserted_bases += edit.to_length() - edit.from_length();
-                            #pragma omp critical (total_insertions)
-                            total_insertions++;
-                            if(verbose) {
-                                // Record the actual insertion
-                                #pragma omp critical (insertions)
-                                insertions.push_back(make_pair(node_id, edit));
+                            if((j == 0 && i == 0) || (j == mapping.edit_size() - 1 && i == aln.path().mapping_size() - 1)) {
+                                // We're at the very end of the path, so this is a soft clip.
+                                #pragma omp critical (total_softclipped_bases)
+                                total_softclipped_bases += edit.to_length() - edit.from_length();
+                                #pragma omp critical (total_softclips)
+                                total_softclips++;
+                                if(verbose) {
+                                    // Record the actual insertion
+                                    #pragma omp critical (softclips)
+                                    softclips.push_back(make_pair(node_id, edit));
+                                }
+                            } else {
+                                // Record this insertion
+                                #pragma omp critical (total_inserted_bases)
+                                total_inserted_bases += edit.to_length() - edit.from_length();
+                                #pragma omp critical (total_insertions)
+                                total_insertions++;
+                                if(verbose) {
+                                    // Record the actual insertion
+                                    #pragma omp critical (insertions)
+                                    insertions.push_back(make_pair(node_id, edit));
+                                }
                             }
                             
                         } else if(edit.from_length() > edit.to_length()) {
@@ -5053,8 +5111,19 @@ int main_stats(int argc, char** argv) {
         size_t unvisited_nodes = 0;
         // And unvisited base count
         size_t unvisited_node_bases = 0;
+        // And nodes that are visited by only one thing (which is useful if
+        // we're checking diploid assembly pairs).
+        size_t single_visited_nodes = 0;
+        size_t single_visited_node_bases = 0;
         // If we're in verbose mode, collect IDs too.
         set<vg::id_t> unvisited_ids;
+        set<vg::id_t> single_visited_ids;
+        // Note that you need to subtract out substituted-away and deleted bases
+        // from the sum of 2 * double- and single-visited bases to get the bases
+        // actually present in reads, because deleted bases are still "visited"
+        // as many times as their nodes are touched. Also note that we ignore
+        // edge effects and a read that stops before the end of a node will
+        // visit the whole node.
         graph->for_each_node_parallel([&](Node* node) {
             // For every node
             if(!node_visit_counts.count(node->id()) || node_visit_counts.at(node->id()) == 0) {
@@ -5066,6 +5135,16 @@ int main_stats(int argc, char** argv) {
                 if(verbose) {
                     #pragma omp critical (unvisited_ids)
                     unvisited_ids.insert(node->id());
+                }
+            } else if(node_visit_counts.at(node->id()) == 1) {
+                // If we visited it with only one read, count it.
+                #pragma omp critical (single_visited_nodes)
+                single_visited_nodes++;
+                #pragma omp critical (single_visited_node_bases)
+                single_visited_node_bases += node->sequence().size();
+                if(verbose) {
+                    #pragma omp critical (single_visited_ids)
+                    single_visited_ids.insert(node->id());
                 }
             }
         });
@@ -5096,6 +5175,13 @@ int main_stats(int argc, char** argv) {
                     << " on " << id_and_edit.first << endl;
             }
         }
+        cout << "Softclips: " << total_softclipped_bases << " bp in " << total_softclips << " read events" << endl;
+        if(verbose) {
+            for(auto& id_and_edit : softclips) {
+                cout << "\t" << id_and_edit.second.from_length() << " -> " << id_and_edit.second.sequence()
+                    << " on " << id_and_edit.first << endl;
+            }
+        }
         
         cout << "Unvisited nodes: " << unvisited_nodes << "/" << graph->node_count()
             << " (" << unvisited_node_bases << " bp)" << endl;
@@ -5103,7 +5189,15 @@ int main_stats(int argc, char** argv) {
             for(auto& id : unvisited_ids) {
                 cout << "\t" << id << endl;
             }
-        }       
+        }
+        
+        cout << "Single-visited nodes: " << single_visited_nodes << "/" << graph->node_count()
+            << " (" << single_visited_node_bases << " bp)" << endl;
+        if(verbose) {
+            for(auto& id : single_visited_ids) {
+                cout << "\t" << id << endl;
+            }
+        }     
         
         cout << "Significantly biased heterozygous sites: " << significantly_biased_hets << "/" << total_hets;
         if(total_hets > 0) {
@@ -6613,11 +6707,11 @@ int main_index(int argc, char** argv) {
             };
             for (auto& file_name : file_names) {
                 if (file_name == "-") {
-                    stream::for_each(std::cin, lambda);
+                    stream::for_each_parallel(std::cin, lambda);
                 } else {
                     ifstream in;
                     in.open(file_name.c_str());
-                    stream::for_each(in, lambda);
+                    stream::for_each_parallel(in, lambda);
                 }
             }
             index.flush();

@@ -41,6 +41,10 @@ bam_hdr_t* hts_string_header(string& header,
 void write_alignments(std::ostream& out, vector<Alignment>& buf);
 void write_alignment_to_file(const string& file, const Alignment& aln);
 
+void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
+string cigar_string(vector<pair<int, char> >& cigar);
+string mapping_string(const string& source, const Mapping& mapping);
+
 Alignment bam_to_alignment(const bam1_t *b, map<string, string>& rg_sample);
 
 bam1_t* alignment_to_bam(const string& sam_header,
