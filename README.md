@@ -152,7 +152,7 @@ The following example shows how to construct a VCF file from a read alignment an
 
 ```sh
 # filter secondary and ambiguous read mappings out of the gam
-vg filter graph.vg alignment.gam -r 0.90 -afu -s 2 -o 0 > filtered.gam
+vg filter graph.vg alignment.gam -r 0.90 -afu -s 2 -o 0 --defray_ends 999 > filtered.gam
 
 # create pileup for every graph position and edge in the graph
 vg pileup graph.vg filtered.gam -w 40 -m 10 -q 10 > graph.pileup
@@ -160,7 +160,7 @@ vg pileup graph.vg filtered.gam -w 40 -m 10 -q 10 > graph.pileup
 # create "augmented graph" (original graph plus new newly called stuff) and project to calls in vcf format
 vg call graph.vg graph.pileup > calls.vcf
 
-# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases (Note: requires [vt](http://varianttools.sourceforge.net/Association/HomePage)):
+# for comparison purposes, it's very useful to normalize the vcf output, especially for more complex graphs which can make large variant blocks that contain a lot of reference bases (Note: requires [vt](http://genome.sph.umich.edu/wiki/Vt)):
 vt decompose_blocksub -a calls.vcf | vt normalize -r FASTA_FILE - > calls.clean.vcf
 
 ```
