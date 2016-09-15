@@ -732,7 +732,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
     // record the lengths in a deque that we use to keep a running estimate of the fragment length distribution
     // we then set the fragment_size cutoff using the moments of the estimated distribution
     bool imperfect_pair = false;
-    for (int i = 0; i < results.first.size(); ++i) {
+    for (int i = 0; i < min(results.first.size(), results.second.size()); ++i) {
         auto& aln1 = results.first.at(i);
         auto& aln2 = results.second.at(i);
         auto approx_frag_lengths = approx_pair_fragment_length(aln1, aln2);
@@ -768,7 +768,32 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         // we signal the fact that this isn't a perfect pair, so we don't write it out externally?
         queued_resolve_later = true;
     }
-    
+
+    if(results.first.empty()) {
+        results.first.push_back(read2);
+        auto& aln = results.first.back();
+        aln.clear_path();
+        aln.clear_score();
+        aln.clear_identity();
+    }
+
+    if(results.second.empty()) {
+        results.second.push_back(read2);
+        auto& aln = results.second.back();
+        aln.clear_path();
+        aln.clear_score();
+        aln.clear_identity();
+    }
+
+    // Make sure to link up alignments even if they aren't mapped.
+    for (auto& aln : results.first) {
+        aln.mutable_fragment_next()->set_name(read2.name());
+    }
+
+    for (auto& aln : results.second) {
+        aln.mutable_fragment_prev()->set_name(read1.name());
+    }
+
     return results;
 
 }
@@ -793,8 +818,6 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1,
         aln1 = read1;
         aln1.clear_path();
         aln1.set_score(0);
-        // Make sure to link up alignments even if they aren't mapped.
-        aln1.mutable_fragment_next()->set_name(read2.name());
     } else {
         aln1 = multimappings.first[0];
     }
@@ -803,10 +826,13 @@ pair<Alignment, Alignment> Mapper::align_paired(const Alignment& read1,
         aln2 = read2;
         aln2.clear_path();
         aln2.set_score(0);
-        aln2.mutable_fragment_prev()->set_name(read1.name());
     } else {
         aln2 = multimappings.second[0];
     }
+
+    // Make sure to link up alignments even if they aren't mapped.
+    aln1.mutable_fragment_next()->set_name(read2.name());
+    aln2.mutable_fragment_prev()->set_name(read1.name());
 
     // Stick the alignments together
     return make_pair(aln1, aln2);

@@ -7727,21 +7727,6 @@ int main_map(int argc, char** argv) {
                 (Alignment& aln1,
                  Alignment& aln2,
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
-                // Make sure we have unaligned "alignments" for things that don't align.
-                if(alnp.first.empty()) {
-                    alnp.first.push_back(aln1);
-                    auto& aln = alnp.first.back();
-                    aln.clear_path();
-                    aln.clear_score();
-                    aln.clear_identity();
-                }
-                if(alnp.second.empty()) {
-                    alnp.second.push_back(aln2);
-                    auto& aln = alnp.second.back();
-                    aln.clear_path();
-                    aln.clear_score();
-                    aln.clear_identity();
-                }
                 // Output the alignments in JSON or protobuf as appropriate.
                 output_alignments(alnp.first);
                 output_alignments(alnp.second);
@@ -7777,6 +7762,7 @@ int main_map(int argc, char** argv) {
                 }
             };
             fastq_paired_interleaved_for_each_parallel(fastq1, lambda);
+#pragma omp parallel
             { // clean up buffered alignments that weren't perfect
                 auto our_mapper = mapper[omp_get_thread_num()];
                 // if we haven't yet computed these, assume we couldn't get an estimate for fragment size
@@ -7821,20 +7807,6 @@ int main_map(int argc, char** argv) {
                  Alignment& aln2,
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
                 // Make sure we have unaligned "alignments" for things that don't align.
-                if(alnp.first.empty()) {
-                    alnp.first.push_back(aln1);
-                    auto& aln = alnp.first.back();
-                    aln.clear_path();
-                    aln.clear_score();
-                    aln.clear_identity();
-                }
-                if(alnp.second.empty()) {
-                    alnp.second.push_back(aln2);
-                    auto& aln = alnp.second.back();
-                    aln.clear_path();
-                    aln.clear_score();
-                    aln.clear_identity();
-                }
                 // Output the alignments in JSON or protobuf as appropriate.
                 output_alignments(alnp.first);
                 output_alignments(alnp.second);
@@ -7870,6 +7842,7 @@ int main_map(int argc, char** argv) {
                 }
             };
             fastq_paired_two_files_for_each_parallel(fastq1, fastq2, lambda);
+#pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 our_mapper->fragment_size = fragment_max;
@@ -7894,21 +7867,6 @@ int main_map(int argc, char** argv) {
                 (Alignment& aln1,
                  Alignment& aln2,
                  pair<vector<Alignment>, vector<Alignment>>& alnp) {
-                // Make sure we have unaligned "alignments" for things that don't align.
-                if(alnp.first.empty()) {
-                    alnp.first.push_back(aln1);
-                    auto& aln = alnp.first.back();
-                    aln.clear_path();
-                    aln.clear_score();
-                    aln.clear_identity();
-                }
-                if(alnp.second.empty()) {
-                    alnp.second.push_back(aln2);
-                    auto& aln = alnp.second.back();
-                    aln.clear_path();
-                    aln.clear_score();
-                    aln.clear_identity();
-                }
                 if (compare_gam) {
 #pragma omp critical (cout)
                     {
@@ -7953,6 +7911,7 @@ int main_map(int argc, char** argv) {
                 }
             };
             gam_paired_interleaved_for_each_parallel(gam_in, lambda);
+#pragma omp parallel
             {
                 auto our_mapper = mapper[omp_get_thread_num()];
                 our_mapper->fragment_size = fragment_max;
