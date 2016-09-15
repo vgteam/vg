@@ -31,9 +31,6 @@ const std::string sha1head(const std::string& data, size_t head);
 
 bool allATGC(const string& s);
 string nonATGCNtoN(const string& s);
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
-string cigar_string(vector<pair<int, char> >& cigar);
-string mapping_string(const string& source, const Mapping& mapping);
 double median(std::vector<int> &v);
 double stdev(const std::vector<double>& v);
 
