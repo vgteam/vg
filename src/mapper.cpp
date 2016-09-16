@@ -2344,18 +2344,18 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 pos_t second_cut = ref_pos;
                 bool insertion_between_mems = false;
                 if (j+1 < mapping.edit_size()) {
-                    //pos_t ref_pos = make_pos_t(mapping.position());
+                    //cerr << "not the last edit" << endl;
                     if (edit.from_length()) {
                         get_offset(second_cut) += edit.from_length();
-                    } else {
+                    } else if (i != 0 && j != 0) {
                         insertion_between_mems = true;
                     }
                 } else if (i+1 < path.mapping_size()) {
-                    //cerr << "lookin to the next mappin" << endl;
+                    //cerr << "not the last mapping" << endl;
                     // we have to look at the next mapping
                     second_cut = make_pos_t(path.mapping(i+1).position());
                 } else {
-                    // end of alignment
+                    //cerr << "end of alignment" << endl;
                     // nothing to do
                 }
 
@@ -2377,7 +2377,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                            go_backward,
                                            id2);  // our target node
                     graph.rebuild_indexes();
-                    //cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                 }
 
                 // if we get a target graph
