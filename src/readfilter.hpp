@@ -37,6 +37,8 @@ public:
     // How far in from the end should we look for ambiguous end alignment to
     // clip off?
     int defray_length = 0;
+    // Limit defray recursion to visit this many nodes
+    int defray_count = 99999;
     // Should we drop split reads that follow edges not in the graph?
     bool drop_split = false;
     

@@ -215,7 +215,9 @@ void help_filter(char** argv) {
          << "    -v, --verbose           print out statistics on numbers of reads filtered by what." << endl
          << "    -q, --min-mapq N        filter alignments with mapping quality < N" << endl
          << "    -E, --repeat-ends N     filter reads with tandem repeat (motif size <= 2N, spanning >= N bases) at either end" << endl
-         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl;
+         << "    -D, --defray-ends N     clip back the ends of reads that are ambiguously aligned, up to N bases" << endl
+         << "    -C, --defray-count N    stop defraying after N nodes visited (used to keep runtime in check) [default=99999]" << endl;
+    
 }
 
 int main_filter(int argc, char** argv) {
@@ -256,11 +258,12 @@ int main_filter(int argc, char** argv) {
                 {"min-mapq", required_argument, 0, 'q'},
                 {"repeat-ends", required_argument, 0, 'E'},
                 {"defray-ends", required_argument, 0, 'D'},
+                {"defray-count", required_argument, 0, 'C'},
                 {0, 0, 0, 0}
             };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:",
+        c = getopt_long (argc, argv, "s:r:d:e:fauo:Sx:R:B:c:vq:E:D:C:",
                          long_options, &option_index);
 
         /* Detect the end of the options. */
@@ -318,6 +321,9 @@ int main_filter(int argc, char** argv) {
             break;
         case 'D':
             filter.defray_length = atoi(optarg);
+            break;
+        case 'C':
+            filter.defray_count = atoi(optarg);
             break;          
 
         case 'h':
