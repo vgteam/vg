@@ -23,8 +23,8 @@ namespace vg{
         min_percent_identity = pct_id;
     }
 
-    void Filter::set_avg_qual(double avg_qual){
-        min_avg_qual = avg_qual;
+    void Filter::set_avg(bool is_avg){
+        use_avg = is_avg;
     }
 
     void Filter::set_filter_matches(bool fm){
@@ -40,14 +40,6 @@ namespace vg{
 
     void Filter::set_split_read_limit(int sr){
         split_read_limit = sr;
-    }
-
-    void Filter::set_reversing(bool do_rev){
-        this->do_reversing = do_rev;
-    }
-
-    void Filter::set_path_divergence(bool do_pd){
-        do_path_divergence = do_pd;
     }
 
     void Filter::set_window_length(int wind_len){
@@ -66,258 +58,6 @@ namespace vg{
         inverse = do_inv;
     }
 
-    int Filter::get_min_depth(){
-        return min_depth;
-    }
-
-    int Filter::get_min_qual(){
-        return min_qual;
-    }
-
-    int Filter::get_window_length(){
-        return window_length;
-    }
-
-    int Filter::get_soft_clip_limit(){
-        return soft_clip_limit;
-    }
-
-    int Filter::get_split_read_limit(){
-        return split_read_limit;
-    }
-
-    double Filter::get_min_percent_identity(){
-        return min_percent_identity;
-    }
-
-    double Filter::get_min_avg_qual(){
-        return min_avg_qual;
-    }
-
-    bool Filter::get_inverse(){
-        return inverse;
-    }
-
-    bool Filter::get_filter_matches(){
-        return filter_matches;
-    }
-
-    bool Filter::get_remove_failing_edits(){
-        return remove_failing_edits;
-    }
-
-    bool Filter::get_do_path_divergence(){
-        return do_path_divergence;
-    }
-
-    bool Filter::get_do_reversing(){
-        return do_reversing;
-    }
-
-
-    /* PE functions using fragment_prev and fragment_next */
-    Alignment Filter::one_end_anchored_filter(Alignment& aln){
-        if (aln.fragment_prev().name() != ""){
-            if (aln.path().name() == "" || aln.fragment_prev().path().name() == ""){
-                inverse ? Alignment() : aln;
-            }
-            else{
-                inverse ? aln : Alignment();
-            }
-        }
-        else{
-            return inverse ? aln : Alignment();
-        }
-    }
-
-    Alignment Filter::interchromosomal_filter(Alignment& aln){
-        bool fails = aln.path().name() != aln.fragment_prev().path().name();
-        if (fails){
-            return inverse ? Alignment() : aln;
-        }
-        else{
-            return inverse ? aln : Alignment();
-        }
-    }
-
-    Alignment Filter::insert_size_filter(Alignment& aln){
-        // Get mapping distance from XG index
-        // between last node in aln and first node in aln.fragment_prev
-
-    }
-
-    Alignment Filter::orientation_filter(Alignment& aln){
-        bool f_rev = false;
-        bool s_rev = false;
-        Path f_path = aln.path();
-        Path s_path = aln.fragment_prev().path();
-        for (int i = 0; i < f_path.mapping_size(); i++){
-            if (f_path.mapping(i).position().is_reverse()){
-                f_rev = true;
-            }
-        }
-
-        for (int j = 0; j < s_path.mapping_size(); j++){
-            if (s_path.mapping(j).position().is_reverse()){
-                s_rev = true;
-            }
-        }
-        
-        if (f_rev & s_rev){
-            return inverse ? Alignment() : aln;
-        }
-        else{
-            return inverse ? aln : Alignment();
-        }
-    }
-
-
-
-    /*PE Functions*/
-    pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
-        if (aln_first.mapping_quality() == 0 | aln_second.mapping_quality() == 0){
-            return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
-        }
-        else{
-            return std::make_pair(Alignment(), Alignment());
-        }
-    }
-
-    pair<Alignment, Alignment> Filter::interchromosomal_filter(Alignment& aln_first, Alignment& aln_second){
-        if (aln_first.path().name() != aln_second.path().name()){
-            return std::make_pair(aln_first, aln_second);
-        }
-        else{
-            return std::make_pair(Alignment(), Alignment());
-        }
-    }
-
-    pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
-        // TODO: gret positions from aln_first and aln_second
-        int distance = my_xg_index->approx_path_distance(aln_first.path().name(), 1, 1);
-        if (distance > my_max_distance){
-            return std::make_pair(aln_first, aln_second);
-        }
-        else{
-            return std::make_pair(Alignment(), Alignment());
-        }
-    }
-    pair<Alignment, Alignment> Filter::orientation_filter(Alignment& aln_first, Alignment& aln_second){
-        
-        bool f_rev = false;
-        bool s_rev = false;
-        Path f_path = aln_first.path();
-        Path s_path = aln_second.path();
-        for (int i = 0; i < f_path.mapping_size(); i++){
-            if (f_path.mapping(i).position().is_reverse()){
-                f_rev = true;
-            }
-        }
-
-        for (int j = 0; j < s_path.mapping_size(); j++){
-            if (s_path.mapping(j).position().is_reverse()){
-                s_rev = true;
-            }
-        }
-        
-
-
-        if (!s_rev != !f_rev){
-            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(Alignment(), Alignment());
-        }
-        else{
-            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(aln_first, aln_second);
-        }
-
-    }
-
-
-
-    /**
-     *
-     * Looks for alignments that transition from one path to another
-     * over their length. This may occur for one of several reasons:
-     * 1. The read covers a translocation
-     * 2. The read looks a lot like two different (but highly-similar paths)
-     * 3. The read is shattered (e.g. as in chromothripsis)
-     *
-     * Default behavior: if the Alignment is path divergent, return an empty Alignment, else return aln
-     * Inverse behavior: if the Alignment is path divergent, return aln, else return an empty Alignment
-     */
-    Alignment Filter::path_divergence_filter(Alignment& aln){
-        Path path = aln.path();
-        for (int i = 1; i < path.mapping_size(); i++){
-            Mapping mapping = path.mapping(i);
-            Position pos = mapping.position();
-            id_t current_node = pos.node_id();
-            id_t prev_node = path.mapping(i - 1).position().node_id();
-            bool paths_match = false;
-            vector<size_t> paths_of_prev = my_xg_index->paths_of_node(prev_node);
-            for (int i = 0; i < paths_of_prev.size(); i++){
-                string p_name = my_xg_index->path_name(paths_of_prev[i]);
-                if (my_xg_index->path_contains_node(p_name, current_node)){
-                    paths_match = true;
-                }
-            }
-            if (!paths_match){
-                return inverse ? aln : Alignment();
-            }
-
-        }
-        return inverse ? Alignment() : aln;
-    }
-
-    Alignment Filter::kmer_filter(Alignment& aln){
-
-
-        return inverse ? Alignment() : aln;
-    }
-
-    /**
-     * Looks for alignments that change direction over their length.
-     * This may happen because of:
-     * 1. Mapping artifacts
-     * 2. Cycles
-     * 3. Highly repetitive regions
-     * 4. Inversions (if you're lucky enough)
-     *
-     * Default behavior: if the Alignment reverses, return an empty Alignment.
-     * inverse behavior: if the Alignment reverses, return the Alignment.
-     */
-    Alignment Filter::reversing_filter(Alignment& aln){
-
-        Path path = aln.path();
-        bool prev = false;
-
-        for (int i = 1; i < path.mapping_size(); i++){
-            Mapping mapping = path.mapping(i);
-            Position pos = mapping.position();
-            bool prev = path.mapping(i - 1).position().is_reverse();
-            if (prev != pos.is_reverse()){
-                return inverse ? aln : Alignment();
-            }
-
-        }
-        return inverse ? Alignment() : aln;
-
-    }
-
-    /**
-     * Looks for Alignments that have large overhangs at the end of them.
-     *
-     * Default behavior: if an alignment has a right- or left- clip that is longer
-     * than the maximum allowed, return an empty alignment.
-     *
-     * Inverse Behavior: if the alignment has a clip that is larger than the 
-     * maximum allowed at either end, return the alignment.
-     */
-
-
-    /**
-     * CLI: vg filter -d 10 -q 40 -r -R
-     * -r: track depth of both novel variants and those in the graph.
-     * -R: remove edits that fail the filter (otherwise toss the whole alignment)
-     */
     Alignment Filter::depth_filter(Alignment& aln){
         Path path = aln.path();
         //TODO handle reversing mappings
@@ -376,6 +116,248 @@ namespace vg{
     }
 
 
+
+
+    pair<Alignment, Alignment> Filter::depth_filter(Alignment& aln_first, Alignment& aln_second){
+        aln_first = depth_filter(aln_first);
+        aln_second = depth_filter(aln_second);
+        if (aln_first.name() == "" || aln_first.name() == ""){
+            return make_pair(Alignment(), Alignment());
+        }
+        else{
+            return make_pair(aln_first, aln_second);
+        }
+    }
+    pair<Alignment, Alignment> qual_filter(Alignment& aln_first, Alignment& aln_second){
+        if (aln_first.name() == "" || aln_first.name() == ""){
+            return make_pair(Alignment(), Alignment());
+        }
+        else{
+            return make_pair(aln_first, aln_second);
+        }
+
+    }
+    pair<Alignment, Alignment> percent_identity_filter(Alignment& aln_first, Alignment& aln_second){
+        if (aln_first.name() == "" || aln_first.name() == ""){
+            return make_pair(Alignment(), Alignment());
+        }
+        else{
+            return make_pair(aln_first, aln_second);
+        }
+
+    }
+    pair<Alignment, Alignment> soft_clip_filter(Alignment& aln_first, Alignment& aln_second){
+
+    }
+    pair<Alignment, Alignment> split_read_filter(Alignment& aln_first, Alignment& aln_second){
+
+    }
+    pair<Alignment, Alignment> path_divergence_filter(Alignment& aln_first, Alignment& aln_second){
+
+    }
+    pair<Alignment, Alignment> reversing_filter(Alignment& aln, Alignment& aln_second){
+
+    }
+
+
+    /* PE functions using fragment_prev and fragment_next */
+    Alignment Filter::one_end_anchored_filter(Alignment& aln){
+        if (aln.fragment_prev().name() != ""){
+            if (aln.path().name() == "" || aln.fragment_prev().path().name() == ""){
+                inverse ? Alignment() : aln;
+            }
+            else{
+                inverse ? aln : Alignment();
+            }
+        }
+        else{
+            return inverse ? aln : Alignment();
+        }
+    }
+
+    Alignment Filter::interchromosomal_filter(Alignment& aln){
+        bool fails = aln.path().name() != aln.fragment_prev().path().name();
+        if (fails){
+            return inverse ? Alignment() : aln;
+        }
+        else{
+            return inverse ? aln : Alignment();
+        }
+    }
+
+    Alignment Filter::insert_size_filter(Alignment& aln){
+        // Get mapping distance from XG index
+        // between last node in aln and first node in aln.fragment_prev
+
+    }
+
+    Alignment Filter::orientation_filter(Alignment& aln){
+        bool f_rev = false;
+        bool s_rev = false;
+        Path f_path = aln.path();
+        Path s_path = aln.fragment_prev().path();
+        for (int i = 0; i < f_path.mapping_size(); i++){
+            if (f_path.mapping(i).position().is_reverse()){
+                f_rev = true;
+            }
+        }
+
+        for (int j = 0; j < s_path.mapping_size(); j++){
+            if (s_path.mapping(j).position().is_reverse()){
+                s_rev = true;
+            }
+        }
+
+        if (f_rev & s_rev){
+            return inverse ? Alignment() : aln;
+        }
+        else{
+            return inverse ? aln : Alignment();
+        }
+    }
+
+
+
+    /*PE Functions*/
+    pair<Alignment, Alignment> Filter::one_end_anchored_filter(Alignment& aln_first, Alignment& aln_second){
+        if (aln_first.mapping_quality() == 0 | aln_second.mapping_quality() == 0){
+            return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
+        }
+        else{
+            return std::make_pair(Alignment(), Alignment());
+        }
+    }
+
+    pair<Alignment, Alignment> Filter::interchromosomal_filter(Alignment& aln_first, Alignment& aln_second){
+        if (aln_first.path().name() != aln_second.path().name()){
+            return std::make_pair(aln_first, aln_second);
+        }
+        else{
+            return std::make_pair(Alignment(), Alignment());
+        }
+    }
+
+    pair<Alignment, Alignment> Filter::insert_size_filter(Alignment& aln_first, Alignment& aln_second){
+        // TODO: gret positions from aln_first and aln_second
+        int distance = my_xg_index->approx_path_distance(aln_first.path().name(), 1, 1);
+        if (distance > my_max_distance){
+            return std::make_pair(aln_first, aln_second);
+        }
+        else{
+            return std::make_pair(Alignment(), Alignment());
+        }
+    }
+    pair<Alignment, Alignment> Filter::orientation_filter(Alignment& aln_first, Alignment& aln_second){
+
+        bool f_rev = false;
+        bool s_rev = false;
+        Path f_path = aln_first.path();
+        Path s_path = aln_second.path();
+        for (int i = 0; i < f_path.mapping_size(); i++){
+            if (f_path.mapping(i).position().is_reverse()){
+                f_rev = true;
+            }
+        }
+
+        for (int j = 0; j < s_path.mapping_size(); j++){
+            if (s_path.mapping(j).position().is_reverse()){
+                s_rev = true;
+            }
+        }
+
+
+
+        if (!s_rev != !f_rev){
+            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(Alignment(), Alignment());
+        }
+        else{
+            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(aln_first, aln_second);
+        }
+
+    }
+
+
+
+    /**
+     *
+     * Looks for alignments that transition from one path to another
+     * over their length. This may occur for one of several reasons:
+     * 1. The read covers a translocation
+     * 2. The read looks a lot like two different (but highly-similar paths)
+     * 3. The read is shattered (e.g. as in chromothripsis)
+     *
+     * Default behavior: if the Alignment is path divergent, return an empty Alignment, else return aln
+     * Inverse behavior: if the Alignment is path divergent, return aln, else return an empty Alignment
+     */
+    Alignment Filter::path_divergence_filter(Alignment& aln){
+        Path path = aln.path();
+        for (int i = 1; i < path.mapping_size(); i++){
+            Mapping mapping = path.mapping(i);
+            Position pos = mapping.position();
+            id_t current_node = pos.node_id();
+            id_t prev_node = path.mapping(i - 1).position().node_id();
+            bool paths_match = false;
+            vector<size_t> paths_of_prev = my_xg_index->paths_of_node(prev_node);
+            for (int i = 0; i < paths_of_prev.size(); i++){
+                string p_name = my_xg_index->path_name(paths_of_prev[i]);
+                if (my_xg_index->path_contains_node(p_name, current_node)){
+                    paths_match = true;
+                }
+            }
+            if (!paths_match){
+                return inverse ? aln : Alignment();
+            }
+
+        }
+        return inverse ? Alignment() : aln;
+    }
+
+
+    /**
+     * Looks for alignments that change direction over their length.
+     * This may happen because of:
+     * 1. Mapping artifacts
+     * 2. Cycles
+     * 3. Highly repetitive regions
+     * 4. Inversions (if you're lucky enough)
+     *
+     * Default behavior: if the Alignment reverses, return an empty Alignment.
+     * inverse behavior: if the Alignment reverses, return the Alignment.
+     */
+    Alignment Filter::reversing_filter(Alignment& aln){
+
+        Path path = aln.path();
+        bool prev = false;
+
+        for (int i = 1; i < path.mapping_size(); i++){
+            Mapping mapping = path.mapping(i);
+            Position pos = mapping.position();
+            bool prev = path.mapping(i - 1).position().is_reverse();
+            if (prev != pos.is_reverse()){
+                return inverse ? aln : Alignment();
+            }
+
+        }
+        return inverse ? Alignment() : aln;
+
+    }
+
+    /**
+     * Looks for Alignments that have large overhangs at the end of them.
+     *
+     * Default behavior: if an alignment has a right- or left- clip that is longer
+     * than the maximum allowed, return an empty alignment.
+     *
+     * Inverse Behavior: if the alignment has a clip that is larger than the 
+     * maximum allowed at either end, return the alignment.
+     */
+
+
+    /**
+     * CLI: vg filter -d 10 -q 40 -r -R
+     * -r: track depth of both novel variants and those in the graph.
+     * -R: remove edits that fail the filter (otherwise toss the whole alignment)
+     */
     Alignment Filter::qual_filter(Alignment& aln){
         string quals = aln.quality();
         int offset = qual_offset;
@@ -510,6 +492,7 @@ namespace vg{
             id_t top_id = top_pos.node_id();
             id_t bottom_id = bot_pos.node_id();
 
+            // TODO USE THE XG
             if (abs(top_id - bottom_id) > 10){
                 return inverse ? aln : Alignment();
             }

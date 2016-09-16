@@ -1,5 +1,5 @@
 /**
- * unittest/readfilter.cpp: test cases for the read filtering/transforming logic
+ * unittest/sift_test.cpp: tests for both paired and unpaired read filtering
  */
 
 #include "catch.hpp"
@@ -264,8 +264,49 @@ namespace vg {
                 REQUIRE(ret.second.name() == "mate_two");
             }
 
-            SECTION("Discorant read filter returns empty alignments for discordant reads in inverse mode."){
+            SECTION("Discorant read filter returns empty alignments for reads in the <-- <-- orientation in inverse mode."){
+                ff.set_inverse(true);
+            const string mate_one_json = R"(
+                {
+                    "name" : "mate_one",
+                        "sequence" : "AATTGGCCAAGGCA",
+                        "quality" : "MDAwMDAwMDAwMDAwMDAw",
+                        "path" : {
+                            "name": "x",
+                            "mapping" : [
+                                        {"position": {"node_id": 0, "is_reverse" : true}}
+                        ]
+                        },
+                        "fragment_next" : "mate_two",
+                        "mapping_quality": 100
+                }
+                )";
+                const string mate_two_json = R"(
+                {
+                    "name" : "mate_two",
+                        "sequence" : "AATTGGCCAAGGCA",
+                        "quality" : "MDAwMDAwMDAwMDAwMDAw",
+                        "mapping_quality" : 100,
+                        "path" : {
+                            "name": "x",
+                            "mapping" : [
+                                {"position": {"node_id": 0, "is_reverse" : true}}
+                            ]
+                        },
+                        "fragment_next" : "mate_one"
+                }
+                )";
 
+                Alignment uno;
+                Alignment dos;
+                json2pb(uno, mate_one_json.c_str(), mate_one_json.size());
+                json2pb(dos, mate_two_json.c_str(), mate_two_json.size());
+                pair<Alignment, Alignment> ret = ff.orientation_filter(uno, dos);
+
+                // It has to say it didn't
+                // trim it
+                REQUIRE(ret.first.name() == "");
+                REQUIRE(ret.second.name() == "");
             }
         }
     }
