@@ -1240,7 +1240,7 @@ int main_call(int argc, char** argv) {
     // heterozygous if even one read supports each allele.
     double maxHetBias = 3;
     // Like above, but applied to ref / alt ratio (instead of alt / ref)
-    double maxRefBias = 4;
+    double maxRefHetBias = 4;
     // How many times more bias do we allow for indels?
     double indelBiasMultiple = 1;
     // What's the minimum integer number of reads that must support a call? We
@@ -1388,7 +1388,7 @@ int main_call(int argc, char** argv) {
         case 'R':
             // Set max factor between reads on ref and reads on the other
             // alt for calling a homo ref.
-            maxRefBias = std::stod(optarg);
+            maxRefHetBias = std::stod(optarg);
             break;
         case 'M':
             // Set multiplier for bias limits for indels
@@ -1554,7 +1554,7 @@ int main_call(int argc, char** argv) {
                         pileupAnnotate ? pileup_file_name : string(),
                         minFractionForCall,
                         maxHetBias,
-                        maxRefBias,
+                        maxRefHetBias,
                         indelBiasMultiple,
                         minTotalSupportForCall,
                         refBinSize,
