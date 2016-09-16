@@ -31,10 +31,18 @@ const std::string sha1head(const std::string& data, size_t head);
 
 bool allATGC(const string& s);
 string nonATGCNtoN(const string& s);
-void mapping_cigar(const Mapping& mapping, vector<pair<int, char> >& cigar);
-string cigar_string(vector<pair<int, char> >& cigar);
-string mapping_string(const string& source, const Mapping& mapping);
 double median(std::vector<int> &v);
+double stdev(const std::vector<double>& v);
+
+template<typename T>
+double stdev(const T& v) {
+    double sum = std::accumulate(v.begin(), v.end(), 0.0);
+    double mean = sum / v.size();
+    std::vector<double> diff(v.size());
+    std::transform(v.begin(), v.end(), diff.begin(), [mean](double x) { return x - mean; });
+    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+    return std::sqrt(sq_sum / v.size());
+}
 
 // Convert a probability to a natural log probability.
 inline double prob_to_logprob(double prob) {
@@ -215,7 +223,6 @@ struct Tree {
     }
 
 };
-
 
 }
 

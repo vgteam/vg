@@ -122,20 +122,36 @@ public:
     gcsa::GCSA* gcsa;
     gcsa::LCPArray* lcp;
     // GSSW aligner(s)
-    vector<QualAdjAligner*> aligners;
-    QualAdjAligner* get_aligner(void);
+    vector<QualAdjAligner*> qual_adj_aligners;
+    vector<Aligner*> regular_aligners;
+    void clear_aligners(void);
+    QualAdjAligner* get_qual_adj_aligner(void);
+    Aligner* get_regular_aligner(void);
 
     // match walking support to prevent repeated calls to the xg index for the same node
     vector<LRUCache<id_t, Node>* > node_cache;
     LRUCache<id_t, Node>& get_node_cache(void);
     void init_node_cache(void);
-    
+
+    // a collection of read pairs which we'd like to realign once we have estimated the fragment_size
+    vector<pair<Alignment, Alignment> > imperfect_pairs_to_retry;
+
+    // running estimation of fragment length distribution
+    deque<double> fragment_lengths;
+    void record_fragment_length(int length);
+    double fragment_length_stdev(void);
+    double fragment_length_mean(void);
+    int cached_fragment_length_mean;
+    int cached_fragment_length_stdev;
+    int since_last_fragment_length_estimate;
+    int fragment_length_estimate_interval;
+
     double estimate_gc_content();
     void init_aligner(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
     void set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_open, int32_t gap_extend);
 
     // use the xg index to get the mean position of the nodes in the alignent for each reference that it corresponds to
-    map<string, double> alignments_mean_path_positions(const Alignment& aln);
+    map<string, double> alignment_mean_path_positions(const Alignment& aln);
 
     // Return true of the two alignments are consistent for paired reads, and false otherwise
     bool alignments_consistent(const map<string, double>& pos1,
@@ -202,6 +218,7 @@ public:
     pair<vector<Alignment>, vector<Alignment>> 
         align_paired_multi(const Alignment& read1,
                            const Alignment& read2,
+                           bool& queued_resolve_later,
                            int kmer_size = 0,
                            int stride = 0,
                            int max_mem_length = 0,
@@ -213,12 +230,19 @@ public:
     // read and its corresponding rescue result if rescue was used.
     pair<Alignment, Alignment> align_paired(const Alignment& read1,
                                             const Alignment& read2,
+                                            bool& queued_resolve_later,
                                             int kmer_size = 0,
                                             int stride = 0,
                                             int max_mem_length = 0,
                                             int band_width = 1000,
                                             int pair_window = 64);
 
+    Alignment surject_alignment(const Alignment& source,
+                                set<string>& path_names,
+                                string& path_name,
+                                int64_t& path_pos,
+                                bool& path_reverse,
+                                int window);
 
     // MEM-based mapping
     // finds absolute super-maximal exact matches
@@ -242,6 +266,9 @@ public:
     vector<Alignment> mem_to_alignments(MaximalExactMatch& mem);
     // Use the GCSA index to look up the sequence
     set<pos_t> sequence_positions(const string& seq);
+
+    // fargment length estimation
+    map<string, int> approx_pair_fragment_length(const Alignment& aln1, const Alignment& aln2);
     
     bool debug;
     int alignment_threads; // how many threads will *this* mapper use when running banded alignmentsx
@@ -289,9 +316,11 @@ public:
     MappingQualityMethod mapping_quality_method; // how to compute mapping qualities
 
     bool always_rescue; // Should rescue be attempted for all imperfect alignments?
+    int fragment_max; // the maximum length fragment which we will consider when estimating fragment lengths
     int fragment_size; // Used to bound clustering of MEMs during paired end mapping, also acts as sentinel to determine
-                       // if consistent pairs should be reported
-
+                       // if consistent pairs should be reported; dynamically estimated at runtime
+    double fragment_sigma; // the number of times the standard deviation above the mean to set the fragment_size
+    int fragment_length_cache_size;
 
 };
 
