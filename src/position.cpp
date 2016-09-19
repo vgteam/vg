@@ -161,4 +161,77 @@ map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_
     return nexts;
 }
 
+set<pos_t> xg_cached_next_pos(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache) {
+
+    set<pos_t> nexts;
+    // See if the node is cached (did we just visit it?)
+    pair<Node, bool> cached = node_cache.retrieve(id(pos));
+    if(!cached.second) {
+        // If it's not in the cache, put it in
+        cached.first = xgidx->node(id(pos));
+        node_cache.put(id(pos), cached.first);
+    }
+    Node& node = cached.first;
+    // if we are still in the node, return the next position and character
+    if (offset(pos) < node.sequence().size()-1) {
+        ++get_offset(pos);
+        nexts.insert(pos);
+    } else {
+
+        auto is_inverting = [](const Edge& e) {
+            return !(e.from_start() == e.to_end())
+            && (e.from_start() || e.to_end());
+        };
+
+        // look at the next positions we could reach
+
+        if (!is_rev(pos)) {
+            // we are on the forward strand, the next things from this node come off the end
+            for (auto& edge : xgidx->edges_on_end(id(pos))) {
+                id_t nid = (edge.from() == id(pos) ?
+                            edge.to()
+                            : edge.from());
+                nexts.insert(make_pos_t(nid, is_inverting(edge), 0));
+            }
+        } else {
+            // we are on the reverse strand, the next things from this node come off the start
+            for (auto& edge : xgidx->edges_on_start(id(pos))) {
+                id_t nid = (edge.to() == id(pos) ?
+                            edge.from()
+                            : edge.to());
+                nexts.insert(make_pos_t(nid, !is_inverting(edge), 0));
+            }
+        }
+    }
+    return nexts;
+}
+
+int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, int maximum) {
+
+    set<pos_t> seen;
+    set<pos_t> nexts = xg_cached_next_pos(pos1, xgidx, node_cache);
+    int distance = 0;
+    while (!nexts.empty()) {
+        set<pos_t> todo;
+        for (auto& next : nexts) {
+            if (!seen.count(next)) {
+                seen.insert(next);
+                todo.insert(next);
+                if (next == pos2) {
+                    todo.clear();
+                    break;
+                }
+            }
+        }
+        if (distance == maximum) {
+            // reached maximum and didn't find the second position
+            break;
+        }
+        nexts = todo;
+        ++distance;
+    }
+
+    return distance;
+}
+
 }

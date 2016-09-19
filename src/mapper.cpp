@@ -712,13 +712,15 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         if (kmer_sensitivity_step) {
             int new_mem_max = max((int) min_mem_length,
                                   (int) (max_mem_length ? max_mem_length : gcsa->order()) - kmer_sensitivity_step);
-            if (new_mem_max == min_mem_length) return results;
-            //cerr << "trying with " << new_mem_max << endl;
-            return align_paired_multi(read1, read2,
-                                      queued_resolve_later,
-                                      kmer_size, stride,
-                                      new_mem_max,
-                                      band_width, pair_window);
+            if (new_mem_max == min_mem_length) {
+            } else if (new_mem_max > min_mem_length) {
+                //cerr << "trying with " << new_mem_max << endl;
+                return align_paired_multi(read1, read2,
+                                          queued_resolve_later,
+                                          kmer_size, stride,
+                                          new_mem_max,
+                                          band_width, pair_window);
+            }
         }
     }
 
@@ -776,7 +778,6 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
         aln.clear_score();
         aln.clear_identity();
     }
-
     if(results.second.empty()) {
         results.second.push_back(read2);
         auto& aln = results.second.back();
@@ -869,7 +870,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     }
 
     if (debug) {
-        cerr << "SMEMs by start pos: " << endl;
+        cerr << "SMEMs by start pos and node id: " << endl;
         for (auto& seq : by_start_pos) {
             stringstream seqn;
             seqn << seq.first.first << ":";
@@ -877,7 +878,13 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             for (auto& pos : seq.second) {
                 cerr << seqn.str() << ":" << pos.first << " ";
                 for (auto& mem : pos.second) {
-                    cerr << mem.first->sequence() << " ";                    
+                    cerr << mem.first->sequence() << " ";
+                    for (auto& node : mem.first->nodes) {
+                        id_t id = gcsa::Node::id(node);
+                        size_t offset = gcsa::Node::offset(node);
+                        bool is_rev = gcsa::Node::rc(node);
+                        cerr << id << (is_rev ? "-" : "+") << ":" << offset << " ";
+                    }
                 }
                 cerr << endl;
             }
@@ -886,8 +893,10 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
 
     // we cluster up the SMEMs here, then convert the clusters to partial alignments
     vector<vector<MaximalExactMatch> > clusters;
+    // for each path and orientation
     for (auto& b : by_start_pos) {
         auto& seq_map = b.second;
+        // for each position in the path
         for (auto& p : seq_map) {
             auto& pos = p.first;
             clusters.emplace_back();
@@ -898,6 +907,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             while (x != seq_map.end() && x->first - pos < aln.sequence().size()*3) {
                 // greedy heuristic: use the longest SMEM at the position
                 // TODO don't just pick the biggest; for each of the MEMs, start a chain
+                // this will matter for cyclic alignments
                 MaximalExactMatch* mem = nullptr;
                 gcsa::node_type node;
                 for (auto& m : x->second) {
@@ -981,12 +991,12 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
     }
 
-    clusters = kept_clusters;
+    //clusters = kept_clusters;
 
-    if (debug) {
+    auto show_clusters = [&](void) {
         cerr << "clusters: " << endl;
         for (auto& cluster : clusters) {
-            cerr << cluster.size() << " SMEMs ";
+            cerr << cluster.size() << " SMEMs on ";
             for (auto& mem : cluster) {
                 size_t len = mem.begin - mem.end;
                 for (auto& node : mem.nodes) {
@@ -996,8 +1006,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     for (auto& ref : xindex->node_positions_in_paths(id, is_rev)) {
                         auto& name = ref.first;
                         for (auto pos : ref.second) {
-                            cerr << name << (is_rev?"-":"+") << pos + offset << ",";
-                            //by_start_pos[chrom][pos+offset].push_back(make_pair(&mem, node));
+                            cerr << name << (is_rev?"-":"+") << pos + offset;
+                            cerr << "|" << id << (is_rev ? "-" : "+") << ":" << offset << ",";
                         }
                     }
                 }
@@ -1005,6 +1015,16 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
             }
             cerr << endl;
         }
+    };
+
+    if (debug) {
+        cerr << "### raw clusters:" << endl;
+        show_clusters();
+    }
+    clusters = kept_clusters;
+    if (debug) {
+        cerr << "### kept clusters:" << endl;
+        show_clusters();
     }
 
     // by our construction of the local SMEM copies, each has only one match
@@ -1034,6 +1054,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
         }
         if (unique) {
             auto patch = simplify(patch_alignment(partial_alignment));
+            patch.set_score(score_alignment(patch));
             if (debug) { cerr << "patch identity " << patch.identity() << endl; }
             if (patch.identity() > min_identity) {
                 alns.emplace_back(patch);
@@ -2118,6 +2139,10 @@ map<pos_t, char> Mapper::next_pos_chars(pos_t pos) {
     return xg_cached_next_pos_chars(pos, xindex, get_node_cache());
 }
 
+int Mapper::graph_distance(pos_t pos1, pos_t pos2, int maximum) {
+    return xg_cached_distance(pos1, pos2, xindex, get_node_cache(), maximum);
+}
+
 Alignment Mapper::walk_match(const string& seq, pos_t pos) {
     //cerr << "in walk match with " << seq << " " << seq.size() << " " << pos << endl;
     Alignment aln;
@@ -2377,7 +2402,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                                            go_backward,
                                            id2);  // our target node
                     graph.rebuild_indexes();
-                    cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    if (debug) cerr << "got graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                 }
 
                 // if we get a target graph
@@ -2656,7 +2681,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
         patched.set_quality(aln.quality());
     }
     patched.set_identity(identity(patched.path()));
-    patched.set_score(max(0, score)); // todo... re get score?
+    //patched.set_score(max(0, score)); // todo... re get score?
 
     /*
     {
@@ -2679,6 +2704,64 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
     */
 
     return patched;
+}
+
+// generate a score from the alignment without realigning
+// handles split alignments, where gaps of unknown length are
+// by estimating length using the positional paths embedded in the graph
+int32_t Mapper::score_alignment(const Alignment& aln) {
+    int score = 0;
+    int read_pos = 0;
+    auto& path = aln.path();
+    auto aligner = aln.quality().empty() ? get_regular_aligner() : get_qual_adj_aligner();
+    auto qual_adj_aligner = (QualAdjAligner*) aligner;
+    for (int i = 0; i < path.mapping_size(); ++i) {
+        auto& mapping = path.mapping(i);
+        //cerr << "looking at mapping " << pb2json(mapping) << endl;
+        pos_t ref_pos = make_pos_t(mapping.position());
+        for (int j = 0; j < mapping.edit_size(); ++j) {
+            auto& edit = mapping.edit(j);
+            //cerr << "looking at edit " << pb2json(edit) << endl;
+            if (edit_is_match(edit)) {
+                // matches behave as expected
+                if (!aln.quality().empty()) {
+                    score += qual_adj_aligner->score_exact_match(
+                        aln.sequence().substr(read_pos, edit.to_length()),
+                        aln.quality().substr(read_pos, edit.to_length()));
+                } else {
+                    score += edit.from_length()*aligner->match;
+                }
+            } else if (edit_is_deletion(edit)) {
+                // we can't do anything for deletions-- anyway they shouldn't get here if we call this
+                // in the SMEM threading alignment
+                score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
+            } else if (edit_is_insertion(edit)) {
+                // if we're a soft clip, assume local alignment 0 bounding
+                if (i == 0 && j == 0
+                    || i+1 == path.mapping_size() && j+1 == mapping.edit_size()) {
+                    // nothing to do
+                } else {
+                    score -= aligner->gap_open + edit.to_length()*aligner->gap_extension;
+                }
+            }
+        }
+        // score any intervening gaps in mappings using approximate distances
+        if (i+1 < path.mapping_size()) {
+            // what is the distance between the last position of this mapping
+            // and the first of the next
+            Position last_pos = mapping.position();
+            last_pos.set_offset(last_pos.offset() + mapping_from_length(mapping));
+            Position next_pos = path.mapping(i+1).position();
+            //cerr << "gap: " << last_pos << " to " << next_pos << endl;
+            int dist = graph_distance(make_pos_t(last_pos), make_pos_t(next_pos), aln.sequence().size()) - 1;
+            if (debug) cerr << "distance from " << pb2json(last_pos) << " to " << pb2json(next_pos) << " is " << dist << endl;
+            if (dist > 0) {
+                score -= aligner->gap_open + dist * aligner->gap_extension;
+            }
+        }
+    }
+
+    return max(0, score);
 }
 
 // make a perfect-match alignment out of a vector of MEMs which each have only one recorded hit

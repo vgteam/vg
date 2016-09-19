@@ -33,6 +33,7 @@ Position make_position(id_t id, bool is_rev, off_t off);
 size_t xg_cached_node_length(id_t id, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 char xg_cached_pos_char(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
 map<pos_t, char> xg_cached_next_pos_chars(pos_t pos, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache);
+int xg_cached_distance(pos_t pos1, pos_t pos2, xg::XG* xgidx, LRUCache<id_t, Node>& node_cache, int maximum);
 
 }
 
