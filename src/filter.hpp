@@ -41,6 +41,8 @@ class Filter{
         Alignment path_divergence_filter(Alignment& aln);
         Alignment reversing_filter(Alignment& aln);
 
+        Alignment path_length_filter(Alignment& aln);
+
         Alignment one_end_anchored_filter(Alignment& aln);
         Alignment interchromosomal_filter(Alignment& aln);
         Alignment insert_size_filter(Alignment& aln);
@@ -53,6 +55,7 @@ class Filter{
         pair<Alignment, Alignment> insert_size_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Alignment, Alignment> orientation_filter(Alignment& aln_first, Alignment& aln_second);
 
+        pair<Alignment, Alignment> path_length_filter(Alignment& aln_first, Alignment& aln_second);
         // Pair-ified single end functions>
         pair<Alignment, Alignment> depth_filter(Alignment& aln1, Alignment& aln2);
         pair<Alignment, Alignment> qual_filter(Alignment& aln_first, Alignment& aln_second);
@@ -99,6 +102,7 @@ class Filter{
         int split_read_limit = -1;
         double min_percent_identity = 0.0;
         double min_avg_qual = 0.0;
+        int max_path_length = 0;
 
         int my_max_distance = 1000;
         };

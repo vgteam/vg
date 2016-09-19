@@ -127,6 +127,44 @@ namespace vg {
 
             }
 
+            SECTION("Read pairs that are not one-end-anchored are returned in inverse mode.") {
+                ff.set_inverse(true);
+
+                const string mate_one_json = R"(
+                {
+                    "name" : "mate_one",
+                        "sequence" : "AATTGGCCAAGGCA",
+                        "quality" : "MDAwMDAwMDAwMDAwMDAw",
+                        "path" : {"name": "x", "mapping" : []},
+                        "fragment_next" : "mate_two",
+                        "mapping_quality": 100
+                }
+                )";
+                const string mate_two_json = R"(
+                {
+                    "name" : "mate_two",
+                        "sequence" : "AATTGGCCAAGGCA",
+                        "quality" : "MDAwMDAwMDAwMDAwMDAw",
+                        "path" : {},
+                        "mapping_quality" : 100,
+                        "fragment_next" : "mate_one"
+                }
+                )";
+
+                Alignment uno;
+                Alignment dos;
+                json2pb(uno, mate_one_json.c_str(), mate_one_json.size());
+                json2pb(dos, mate_two_json.c_str(), mate_two_json.size());
+                pair<Alignment, Alignment> ret = ff.one_end_anchored_filter(uno, dos);
+
+                // It has to say it didn't
+                // trim it
+                REQUIRE(ret.first.name() == "mate_one");
+                REQUIRE(ret.second.name() == "mate_two");
+                // And it has to not mess it up
+
+
+            }
             SECTION("Discordant orientation filter does not flag reads aligned normally."){
                 ff.set_inverse(false);
                 const string mate_one_json = R"(
@@ -220,7 +258,7 @@ namespace vg {
                 REQUIRE(ret.second.name() == "mate_two");
             }
 
-            SECTION("Discordant orientation filter flags reads that look like <-- <--"){
+            SECTION("Discordant orientation filter returns alignments that look like <-- <--"){
             const string mate_one_json = R"(
                 {
                     "name" : "mate_one",
@@ -303,8 +341,6 @@ namespace vg {
                 json2pb(dos, mate_two_json.c_str(), mate_two_json.size());
                 pair<Alignment, Alignment> ret = ff.orientation_filter(uno, dos);
 
-                // It has to say it didn't
-                // trim it
                 REQUIRE(ret.first.name() == "");
                 REQUIRE(ret.second.name() == "");
             }

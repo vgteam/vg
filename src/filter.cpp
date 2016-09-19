@@ -115,6 +115,31 @@ namespace vg{
 
     }
 
+    Alignment Filter::path_length_filter(Alignment& aln){
+        for (int i = 0; i < aln.fragment_size(); i++){
+            Path t = aln.fragment(i);
+            if (t.length() > this->max_path_length){
+                return inverse ? Alignment() : aln;
+            }
+            else{
+            }
+        }
+
+        return inverse ? aln : Alignment();
+
+    }
+
+    std::pair<Alignment, Alignment> Filter::path_length_filter(Alignment& aln_first, Alignment& aln_second){
+        Alignment x = path_length_filter(aln_first);
+        Alignment y = path_length_filter(aln_second);
+        if (x.name().empty() || y.name().empty()){
+            return inverse ? make_pair(x, y) : make_pair(Alignment(), Alignment());
+        }
+        else{
+            return  inverse ? make_pair(Alignment(), Alignment()) : make_pair(x, y);
+        }
+    }
+
 
 
 
@@ -224,7 +249,7 @@ namespace vg{
             return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
         }
         else{
-            return std::make_pair(Alignment(), Alignment());
+            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(Alignment(), Alignment());
         }
     }
 
@@ -271,7 +296,7 @@ namespace vg{
             return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(Alignment(), Alignment());
         }
         else{
-            return inverse ? std::make_pair(aln_first, aln_second) : std::make_pair(aln_first, aln_second);
+            return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
         }
 
     }
