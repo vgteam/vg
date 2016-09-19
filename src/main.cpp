@@ -8941,11 +8941,11 @@ int main_construct(int argc, char** argv) {
         return 1;
     }
 
-    FastaReference reference;
     if (fasta_file_name.empty()) {
         cerr << "error:[vg construct] a reference is required for graph construction" << endl;
         return 1;
     }
+    FastaReference reference;
     reference.open(fasta_file_name);
 
     // store our reference sequence paths
