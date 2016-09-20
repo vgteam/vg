@@ -3,6 +3,11 @@
 using namespace std;
 using namespace vg;
 
+void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index){
+    
+}
+
+
 void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths, int kmer_size){
 
     bool in_mem_path_only = true;

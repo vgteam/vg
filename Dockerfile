@@ -36,6 +36,13 @@ RUN cd /app && . ./source_me.sh && make -j8
 RUN cd /app && . ./source_me.sh make test
 
 ENV LD_LIBRARY_PATH=/app/lib
+ENV LIBRARY_PATH /app/lib:$LIBRARY_PATH
+ENV LD_LIBRARY_PATH /app/lib:$LD_LIBRARY_PATH
+ENV LD_INCLUDE_PATH /app/include:$LD_INCLUDE_PATH
+ENV C_INCLUDE_PATH /app/include:$C_INCLUDE_PATH
+ENV CPLUS_INCLUDE_PATH /app/include:$CPLUS_INCLUDE_PATH
+ENV INCLUDE_PATH /app/include:$INCLUDE_PATH
 
-ENTRYPOINT ["/app/bin/vg"]
+#ENTRYPOINT ["/app/bin/vg"]
+RUN cp /app/bin/vg /usr/bin
 
