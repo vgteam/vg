@@ -10,9 +10,11 @@ RUN mkdir /app
 WORKDIR /app
 COPY Makefile /app/Makefile
 
+RUN sed -i "s/sudo//g" /app/Makefile
+
 # Install vg dependencies and clear the package index
 RUN \
-    echo "deb http://archive.ubuntu.com/ubuntu trusty-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list && \
+    echo "deb http://archive.ubuntu.com/ubuntu trusty-backports main restricted universe multiverse" | tee -a /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y \
         build-essential \
@@ -20,7 +22,7 @@ RUN \
         libgcc-5-dev \
         pkg-config \
         jq/trusty-backports \
-        sudo && \
+        && \
     make get-deps && \
     rm -rf /var/lib/apt/lists/*
     
@@ -28,10 +30,10 @@ RUN \
 COPY . /app
     
 # Build vg
-RUN . ./source_me.sh && make -j8
+RUN cd /app && . ./source_me.sh && make -j8
 
 # Make tests. We can't do it in parallel since it cleans up the test binary
-RUN make test
+RUN cd /app && . ./source_me.sh make test
 
 ENV LD_LIBRARY_PATH=/app/lib
 
