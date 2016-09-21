@@ -1182,7 +1182,7 @@ void help_call(char** argv) {
          << "    -l, --length INT           override total sequence length in VCF" << endl
          << "    -P, --pileup               write pileup under VCF lines (for debugging, output not valid VCF)" << endl
          << "    -D, --depth INT            maximum depth for path search [default 10 nodes]" << endl
-         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.2]" << endl
+         << "    -F, --min_cov_frac FLOAT   min fraction of average coverage at which to call [0.0]" << endl
          << "    -H, --max_het_bias FLOAT   max imbalance factor between alts to call heterozygous [3]" << endl
          << "    -R, --max_ref_bias FLOAT   max imbalance factor between ref and alts to call heterozygous ref [4]" << endl
          << "    -M, --bias_mult FLOAT      multiplier for bias limits for indels as opposed to substitutions [1]" << endl
@@ -1233,7 +1233,7 @@ int main_call(int argc, char** argv) {
     // What should the total sequence length reported in the VCF header be?
     int64_t lengthOverride = -1;
     // What fraction of average coverage should be the minimum to call a variant (or a single copy)?
-    double minFractionForCall = 0.2;
+    double minFractionForCall = 0;
     // What fraction of the reads supporting an alt are we willing to discount?
     // At 2, if twice the reads support one allele as the other, we'll call
     // homozygous instead of heterozygous. At infinity, every call will be
