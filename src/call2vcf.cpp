@@ -790,6 +790,9 @@ ReferenceIndex trace_reference_path(vg::VG& vg, std::string refPathName, bool ve
             // Make sure ranks are monotonically increasing along the path.
             assert(mapping.rank() > lastRank);
             lastRank = mapping.rank();
+        } else if (verbose) {
+            std::cerr << "Warning: Cycle detected at " << mapping.position().node_id()
+                      << " in reference path " << refPathName << endl;
         }
         
         // Find the node's sequence
