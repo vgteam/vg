@@ -897,14 +897,18 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     for (auto& b : by_start_pos) {
         auto& seq_map = b.second;
         // for each position in the path
+        set<int> used_in_cluster;
         for (auto& p : seq_map) {
             auto& pos = p.first;
+            if (used_in_cluster.count(pos)) continue;
             clusters.emplace_back();
             auto& cluster = clusters.back();
             set<MaximalExactMatch*> in_cluster;
             auto x = seq_map.find(pos);
-            // extend until we hit the end of the chrom or exceed 3x the length of the alignment
+            // extend until we hit the end of the chrom or exceed 3x the length of the alignment sequence
             while (x != seq_map.end() && x->first - pos < aln.sequence().size()*3) {
+                // record that we've walked through here, so we don't start new clusters from here
+                used_in_cluster.insert(x->first);
                 // greedy heuristic: use the longest SMEM at the position
                 // TODO don't just pick the biggest; for each of the MEMs, start a chain
                 // this will matter for cyclic alignments
@@ -912,6 +916,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                 gcsa::node_type node;
                 for (auto& m : x->second) {
                     auto& nmem = m.first;
+                    // gets the longest mem at the site
                     if (mem == nullptr
                         || nmem->length() > mem->length()) {
                         mem = nmem;
@@ -919,8 +924,8 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     }
                 }
                 assert(mem != nullptr);
-                //cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
-                if (!cluster.empty() && cluster.back().end > mem->begin
+                cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
+                if (!cluster.empty() && cluster.back().begin > mem->begin
                     || in_cluster.count(mem)) {
                     ++x; // step to the next position
                 } else {
@@ -930,7 +935,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     cluster.push_back(new_mem);
                     in_cluster.insert(mem);
                     // get the thing at least one past the end of this MEM
-                    x = seq_map.upper_bound(x->first+mem->length());
+                    x = seq_map.upper_bound(x->first);//+mem->length());
                 }
             }
         }
@@ -951,47 +956,6 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                   const vector<MaximalExactMatch>& c2) {
                   return mem_len_sum(c1) > mem_len_sum(c2);
               });
-
-    // remove duplicates by building up a reverse map from MEM to cluster
-    // and adding new clusters by following the reverse map and checking for
-    // containment within the found clusters
-    map<MaximalExactMatch, vector<vector<MaximalExactMatch>*> > mem_to_clusters;
-    vector<vector<MaximalExactMatch>> kept_clusters;
-    //set<vector<MaximalExactMatch>*> _clusters;
-    for (auto& cluster : clusters) {
-        map<vector<MaximalExactMatch>*, int> hits;
-        bool possible_containment = true;
-        for (auto& mem : cluster) {
-            auto f = mem_to_clusters.find(mem);
-            if (f == mem_to_clusters.end()) {
-                possible_containment = false;
-                break;
-            } else {
-                // record hits
-                for (auto& c : f->second) {
-                    hits[c]++;
-                }
-            }
-        }
-        bool drop = false;
-        if (possible_containment) {
-            // if there is a full containment, drop
-            // otherwise, add
-            for (auto& hit : hits) {
-                if (hit.second == cluster.size()) {
-                    drop = true; break;
-                }
-            }
-        }
-        if (!drop) {
-            kept_clusters.push_back(cluster);
-            for (auto& mem : cluster) {
-                mem_to_clusters[mem].push_back(&cluster);
-            }
-        }
-    }
-
-    //clusters = kept_clusters;
 
     auto show_clusters = [&](void) {
         cerr << "clusters: " << endl;
@@ -1018,12 +982,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
     };
 
     if (debug) {
-        cerr << "### raw clusters:" << endl;
-        show_clusters();
-    }
-    clusters = kept_clusters;
-    if (debug) {
-        cerr << "### kept clusters:" << endl;
+        cerr << "### clusters:" << endl;
         show_clusters();
     }
 
