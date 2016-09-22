@@ -1431,7 +1431,7 @@ vector<Alignment> Mapper::align_multi_internal(bool compute_unpaired_quality, co
                                                vector<MaximalExactMatch>* restricted_mems) {
     
     if(debug) {
-        cerr << "align_multi_indernal("
+        cerr << "align_multi_internal("
             << compute_unpaired_quality << ", " 
             << aln.sequence() << ", " 
             << kmer_size << ", " 
