@@ -173,18 +173,39 @@ void Mapper::set_alignment_scores(int32_t match, int32_t mismatch, int32_t gap_o
     // reset the aligners
     init_aligner(match, mismatch, gap_open, gap_extend);
 }
-    
-Alignment Mapper::align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio) {
+
+// todo add options for aligned global and pinned
+Alignment Mapper::align_to_graph(const Alignment& aln,
+                                 VG& vg,
+                                 size_t max_query_graph_ratio,
+                                 int64_t pinned_node_id,
+                                 bool pin_left,
+                                 bool banded_global) {
     // check if we have a cached aligner for this thread
     if (aln.quality().empty()) {
         auto aligner = get_regular_aligner();
-        return vg.align(aln, *aligner, max_query_graph_ratio);
+        return vg.align(aln,
+                        *aligner,
+                        max_query_graph_ratio,
+                        pinned_node_id,
+                        pin_left,
+                        banded_global);
     } else {
         auto aligner = get_qual_adj_aligner();
         if (adjust_alignments_for_base_quality) {
-            return vg.align_qual_adjusted(aln, *aligner, max_query_graph_ratio);
+            return vg.align_qual_adjusted(aln,
+                                          *aligner,
+                                          max_query_graph_ratio,
+                                          pinned_node_id,
+                                          pin_left,
+                                          banded_global);
         } else {
-            return vg.align(aln, *aligner, max_query_graph_ratio);
+            return vg.align(aln,
+                            *aligner,
+                            max_query_graph_ratio,
+                            pinned_node_id,
+                            pin_left,
+                            banded_global);
         }
     }
 }
@@ -2247,7 +2268,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
         *new_mapping->mutable_position() = mapping.position();
         for (int j = 0; j < mapping.edit_size(); ++j) {
             auto& edit = mapping.edit(j);
-            //cerr << "looking at edit " << pb2json(edit) << endl;
+            cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
                 // matches behave as expected
                 if (!aln.quality().empty()) {
@@ -2264,7 +2285,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
                 *new_mapping->add_edit() = edit;
             } else if (edit_is_insertion(edit)) {
-                //cerr << "looking at " << edit.sequence() << endl;
+                cerr << "looking at " << edit.sequence() << endl;
                 // bits to patch in are recorded like insertions
                 // pick up the graph from the start to end where we have an unaligned bit
                 // but bail out if we get a lot of graph
@@ -2376,7 +2397,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 if (insertion_between_mems || !graph.has_node(id(first_cut)) || !graph.has_node(id(second_cut))) {
                     // treat the bit as unalignable
                     // has_target = false
-                    //if (debug) cerr << "graph does not contain both cut points!" << endl;
+                    if (debug) cerr << "graph does not contain both cut points!" << endl;
                 } else {
 
                     // now trim the graph to fit by cutting the head/tail node(s)
@@ -2548,7 +2569,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     *new_mapping->add_edit() = edit;
                 } else {
                     // we've set the graph to the trimmed target
-                    //cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                     //time to try an alignment
                     // if we are walking a reversed path, take the reverse complement
                     // todo:
@@ -2591,7 +2612,10 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
 
                     // append the chunk to patched
-                    //cerr << "patch: " << pb2json(patch) << endl;
+                    cerr << "patch: " << pb2json(patch) << endl;
+                    // todo check for SNP status
+                    // if the graph is just 1bp
+                    // and our 
 
                     patch.clear_sequence(); // we set the whole sequence later
                     if (min_identity && patch.identity() < min_identity
@@ -2644,6 +2668,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
     /*
     {
+        cerr << "patched before realignment " << pb2json(patched) << endl;
         // locally realign
         VG graph = alignment_subgraph(patched, 2);
         if (patched.path().mapping_size() && patched.path().mapping(0).position().is_reverse()) {
@@ -2659,6 +2684,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
             patched = align_to_graph(patched, graph, max_query_graph_ratio);
             resolve_softclips(patched, graph);
         }
+        cerr << "patched after realignment " << pb2json(patched) << endl;
     }
     */
 

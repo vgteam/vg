@@ -74,7 +74,12 @@ private:
     // constructor.
     Mapper(Index* idex, xg::XG* xidex, gcsa::GCSA* g, gcsa::LCPArray* a);
     
-    Alignment align_to_graph(const Alignment& aln, VG& vg, size_t max_query_graph_ratio);
+    Alignment align_to_graph(const Alignment& aln,
+                             VG& vg,
+                             size_t max_query_graph_ratio,
+                             int64_t pinned_node_id = 0,
+                             bool pin_left = false,
+                             bool global = false);
     vector<Alignment> align_multi_internal(bool compute_unpaired_qualities,
                                            const Alignment& aln,
                                            int kmer_size,
