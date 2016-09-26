@@ -7,6 +7,7 @@
 #include <omp.h>
 #include <cstring>
 #include <algorithm>
+#include <numeric>
 #include <unistd.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
