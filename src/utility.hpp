@@ -8,6 +8,7 @@
 #include <cstring>
 #include <algorithm>
 #include <numeric>
+#include <cmath>
 #include <unistd.h>
 #include "vg.pb.h"
 #include "sha1.hpp"
