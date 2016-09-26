@@ -735,6 +735,47 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).to_length() == 6);
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
             }
+            
+            SECTION( "Banded global aligner produces correct alignment when it begins with a deletion that ends at a node boundary",
+                    "[alignment][banded][mapping]" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("A");
+                Node* n1 = graph.create_node("C");
+                
+                graph.create_edge(n0, n1);
+                
+                string read = string("C");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_padding = 1;
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding);
+                
+                const Path& path = aln.path();
+                
+                // is a global alignment
+                REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                REQUIRE(path.mapping(1).position().node_id() == 2);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 0);
+                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                
+                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(1).edit(0).sequence().empty());
+                
+            }
         }
         
         TEST_CASE( "Banded global aligner produces correct alignments with different graph structures",
@@ -792,6 +833,38 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).from_length() == 3);
                 REQUIRE(path.mapping(2).edit(0).to_length() == 3);
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
+            }
+            
+            SECTION( "Banded global aligner produces correct alignment against a singleton graph",
+                    "[alignment][banded][mapping]" ) {
+                
+                VG graph;
+                
+                Aligner aligner;
+                
+                Node* n0 = graph.create_node("C");
+                
+                string read = string("A");
+                Alignment aln;
+                aln.set_sequence(read);
+                
+                int band_padding = 1;
+                
+                aligner.align_global_banded(aln, graph.graph, band_padding);
+                
+                const Path& path = aln.path();
+                
+                // is a global alignment
+                REQUIRE(path.mapping(0).position().offset() == 0);
+                REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == graph.graph.node(path.mapping(path.mapping_size() - 1).position().node_id() - 1).sequence().length());
+                
+                // follows correct path
+                REQUIRE(path.mapping(0).position().node_id() == 1);
+                
+                // has corrects edits
+                REQUIRE(path.mapping(0).edit(0).from_length() == 1);
+                REQUIRE(path.mapping(0).edit(0).to_length() == 1);
+                REQUIRE(path.mapping(0).edit(0).sequence() == "A");
             }
             
             SECTION( "Banded global aligner produces correct alignment when a node is masked" ) {
