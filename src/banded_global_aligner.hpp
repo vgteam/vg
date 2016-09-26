@@ -120,7 +120,8 @@ namespace vg {
         void find_banded_paths(const string& read, bool permissive_banding, vector<vector<int64_t>>& node_edges_in,
                                vector<vector<int64_t>>& node_edges_out, int64_t band_padding,
                                vector<bool>& node_masked, vector<pair<int64_t, int64_t>>& band_ends);
-        void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, vector<int64_t>& seq_lens_out);
+        void shortest_seq_paths(vector<vector<int64_t>>& node_edges_out, vector<int64_t>& seq_lens_out,
+                                unordered_set<Node*> source_nodes);
     };
 
     // the band from the DP matrix for one node in the graph
