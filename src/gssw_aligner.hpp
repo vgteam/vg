@@ -14,14 +14,6 @@
 #include "path.hpp"
 #include "banded_global_aligner.hpp"
 
-static const int8_t default_match = 1;
-static const int8_t default_mismatch = 4;
-static const int8_t default_gap_open = 6;
-static const int8_t default_gap_extension = 1;
-static const int8_t default_max_scaled_score = 6;
-static const uint8_t default_max_qual_score = 255;
-static const double default_gc_content = 0.5;
-
 namespace vg {
 
     static const int8_t default_match = 1;
