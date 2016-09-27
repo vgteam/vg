@@ -146,14 +146,16 @@ namespace vg{
     pair<Alignment, Alignment> Filter::depth_filter(Alignment& aln_first, Alignment& aln_second){
         aln_first = depth_filter(aln_first);
         aln_second = depth_filter(aln_second);
-        if (aln_first.name() == "" || aln_first.name() == ""){
-            return make_pair(Alignment(), Alignment());
+        if (!(aln_first.name() == "") && !(aln_first.name() == "")){
+            return inverse ? make_pair(aln_first, aln_second) : make_pair(Alignment(), Alignment());
         }
         else{
-            return make_pair(aln_first, aln_second);
+            return inverse ? make_pair(Alignment(), Alignment()) : make_pair(aln_first, aln_second);
         }
     }
     pair<Alignment, Alignment> qual_filter(Alignment& aln_first, Alignment& aln_second){
+
+
         if (aln_first.name() == "" || aln_first.name() == ""){
             return make_pair(Alignment(), Alignment());
         }
@@ -163,6 +165,8 @@ namespace vg{
 
     }
     pair<Alignment, Alignment> percent_identity_filter(Alignment& aln_first, Alignment& aln_second){
+
+
         if (aln_first.name() == "" || aln_first.name() == ""){
             return make_pair(Alignment(), Alignment());
         }
@@ -298,6 +302,22 @@ namespace vg{
         else{
             return inverse ? std::make_pair(Alignment(), Alignment()) : std::make_pair(aln_first, aln_second);
         }
+
+    }
+
+    pair<Locus, Locus> Filter::deletion_filter(Alignment& aln_first, Alignment& aln_second){
+
+    }
+    pair<Locus, Locus> Filter::insertion_filter(Alignment& aln_first, Alignment& aln_second){
+
+    }
+    pair<Locus, Locus> Filter::duplication_filter(Alignment& aln_first, Alignment& aln_second){
+
+    }
+    pair<Locus, Locus> Filter::inversion_filter(Alignment& aln_first, Alignment& aln_second){
+
+    }
+    pair<Locus, Locus> Filter::breakend_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
 

@@ -18,22 +18,17 @@ RUN \
     apt-get update && \
     apt-get install -y \
         build-essential \
+        libprotoc-dev \
         gcc-5-base \
         libgcc-5-dev \
         pkg-config \
         jq/trusty-backports \
+        zlib1g-dev \
         && \
-    make get-deps && \
-    rm -rf /var/lib/apt/lists/*
+    make get-deps
     
 # Move in all the other files
-COPY . /app
-    
-# Build vg
-RUN cd /app && . ./source_me.sh && make -j8
-
-# Make tests. We can't do it in parallel since it cleans up the test binary
-RUN cd /app && . ./source_me.sh make test
+COPY . /app 
 
 ENV LD_LIBRARY_PATH=/app/lib
 ENV LIBRARY_PATH /app/lib:$LIBRARY_PATH
@@ -43,6 +38,6 @@ ENV C_INCLUDE_PATH /app/include:$C_INCLUDE_PATH
 ENV CPLUS_INCLUDE_PATH /app/include:$CPLUS_INCLUDE_PATH
 ENV INCLUDE_PATH /app/include:$INCLUDE_PATH
 
-#ENTRYPOINT ["/app/bin/vg"]
-RUN cp /app/bin/vg /usr/bin
+RUN cd /app && . ./source_me.sh && make && make test
+ENTRYPOINT ["/app/bin/vg"]
 

@@ -368,7 +368,7 @@ clean:
 	cd $(DEP_DIR) && cd libVCFH && $(MAKE) clean
 	cd $(DEP_DIR) && cd rocksdb && $(MAKE) clean
 	cd $(DEP_DIR) && cd superbubbles && $(MAKE) clean
-	#rm -R $(RAPTOR_DIR)/build/*
+	rm -R $(RAPTOR_DIR)/build/CMakeCache.txt
 ## TODO vg source code
 ## TODO LRU_CACHE
 ## TODO bash-tap

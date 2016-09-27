@@ -4,8 +4,19 @@ using namespace std;
 using namespace vg;
 
 void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, vg::Index reads_index){
+    /**
+     * Pattern for SV homogenization
+     * 1. Locate SV-indicating reads with Sift. Save them in a gam file
+     * 2. index that gam with index -d dbname -N
+     * 3. Send those reads here - for each possible position
+     *      Find reads supporting that position
+     *      Generate candidate edges and nodes
+     *      Remap reads locally (w/in some subgraph containing the SV)
+     *      Score it somehow
+     *      Check the reads again for SV signatures.
+     */
     
-}
+    }
 
 
 void Homogenizer::homogenize(vg::VG* o_graph, xg::XG* xindex, gcsa::GCSA* gcsa_index, gcsa::LCPArray* lcp_index, Paths cached_paths, int kmer_size){

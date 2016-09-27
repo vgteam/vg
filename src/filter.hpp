@@ -65,6 +65,15 @@ class Filter{
         pair<Alignment, Alignment> path_divergence_filter(Alignment& aln_first, Alignment& aln_second);
         pair<Alignment, Alignment> reversing_filter(Alignment& aln, Alignment& aln_second);
 
+
+        // SV filters
+        // Take in paired GAM and return Locus records
+        pair<Locus, Locus> deletion_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Locus, Locus> insertion_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Locus, Locus> duplication_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Locus, Locus> inversion_filter(Alignment& aln_first, Alignment& aln_second);
+        pair<Locus, Locus> breakend_filter(Alignment& aln_first, Alignment& aln_second);
+
         void set_min_depth(int depth);
         //void set_min_kmer_depth(int d);
 
