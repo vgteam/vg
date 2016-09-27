@@ -9,6 +9,7 @@
 #include <functional>
 #include <omp.h>
 #include "gcsa.h"
+#include "stream.hpp"
 // From gcsa2
 #include "files.h"
 #include "json2pb.h"
@@ -103,6 +104,7 @@ int main_sift(int argc, char** argv){
 
 
 
+
     int c;
     optind = 2; // force optind past command positional argument
     while (true) {
@@ -115,13 +117,13 @@ int main_sift(int argc, char** argv){
             {"paired", no_argument, 0, 'P'},
             {"insert-size", required_argument, 0, 'I'},
             {"insert-size-sigma", required_argument, 0, 'w'},
-            {"soft-clip", required_argument, 0, 's'},
+            {"soft-clip", required_argument, 0, 'c'},
             {"max-path-length", required_argument, 0, 'M'},
             {0, 0, 0, 0}
 
         };
         int option_index = 0;
-        c = getopt_long (argc, argv, "htvM:I:w:ODPFc",
+        c = getopt_long (argc, argv, "htvM:I:w:ODPFc:",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -168,6 +170,9 @@ int main_sift(int argc, char** argv){
                 do_max_path = true;
                 max_path_length = atoi(optarg);
                 break;
+            case 'c':
+                soft_clip_max = atoi(optarg);
+                break;
             default:
                 help_sift(argv);
                 exit(1);
@@ -191,6 +196,10 @@ int main_sift(int argc, char** argv){
     Filter ff;
     ff.set_inverse(inverse);
     ff.max_path_length = max_path_length;
+
+    if (soft_clip_max >= 0){
+        ff.set_soft_clip_limit(soft_clip_max);
+    }
 
     vector<Alignment> buffer;
     static const int buffer_size = 1000; // we let this be off by 1
@@ -245,13 +254,14 @@ int main_sift(int argc, char** argv){
 
 std::function<void(Alignment&, Alignment&)> se_pair_filters = [&](Alignment& alns_first, Alignment& alns_second){
     
+
 };
 
-std::function<Alignment(Alignment&)> single_filters = [&](Alignment& aln){
+std::function<void(Alignment&)> single_filters = [&](Alignment& aln){
     if (soft_clip_max >=0){
-
+        aln = ff.soft_clip_filter(aln);    
     }
-    return Alignment();
+    buffer.push_back(aln);
 };
 
 
@@ -273,6 +283,7 @@ else{
             gam_paired_interleaved_for_each_parallel(in, pair_filters);
         }
         else{
+            stream::for_each_parallel(in, single_filters);
 
         }
     }

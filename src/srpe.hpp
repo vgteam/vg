@@ -18,28 +18,6 @@
 using namespace std;
 namespace vg{
 class SRPE{
-    public:
-        /* Filter an entire GAM, using the index to look for supporting evidence when a signature is seen
-         * in a single Alignment.*/
-        void apply(Alignment& aln, vector<Alignment>& suspect);
-        void apply(Alignment& aln, vector<Position>& suspect);
-        bool in_suspects(Position p);
-        string bucket(Position p);
-        void pre_depth(Alignment& aln);
-        string pos_to_string(Position& p);
-        void call_depth_variants(void);
-        void call(void);
-        
-    private:
-        Filter my_filter;
-        int avg_depth;
-        // int depth_window;
-        // Consider variants within my_pos_window_size of each other on either
-        // side (WITHIN THE SAME NODE) the same variant.
-
-        int my_bucket_size = 50;
-        map<string, int> pos_to_depth;
-        // Use a map and some modulo division to bucket variants.
 
 };
 }

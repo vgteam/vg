@@ -276,6 +276,7 @@ namespace vg{
             return std::make_pair(Alignment(), Alignment());
         }
     }
+
     pair<Alignment, Alignment> Filter::orientation_filter(Alignment& aln_first, Alignment& aln_second){
 
         bool f_rev = false;
@@ -306,8 +307,23 @@ namespace vg{
     }
 
     pair<Locus, Locus> Filter::deletion_filter(Alignment& aln_first, Alignment& aln_second){
+        // path_length, split read
+        // REFINE USING SOFT CLIPS
+        pair<Alignment, Alignment> ret_alns = path_length_filter(aln_first, aln_second);
+        //pair<Alignment, Alignment> x_alns = split_read_filter(ret_alns.first, ret_alns.second);
+        if (ret_alns.first.name() == "" || ret_alns.second.name() == ""){
+            cerr << "CANDIDATE DEL" << endl;
+            string POS = to_string(1);
+            string LEN = to_string(1);
+            string name = "_DEL_" + POS + "_" + LEN;
+            Path p = Path();
+            Support x = Support();
+        }
+        
+        return make_pair(Locus(), Locus());
 
     }
+
     pair<Locus, Locus> Filter::insertion_filter(Alignment& aln_first, Alignment& aln_second){
 
     }
@@ -488,13 +504,15 @@ namespace vg{
             int left_overhang = left_edit.to_length() - left_edit.from_length();
             int right_overhang = right_edit.to_length() - right_edit.from_length();
             if (left_overhang > soft_clip_limit || right_overhang > soft_clip_limit){
-                return inverse ? aln : Alignment();
+                return inverse ? Alignment() : aln;
             }
-            return inverse ? Alignment() : aln;
+            else{
+                return inverse ?  aln : Alignment();
+            }
         }
         else{
             if (aln.sequence().length() > soft_clip_limit){
-                return Alignment();
+                return inverse ? Alignment() : aln;
             }
             cerr << "WARNING: SHORT ALIGNMENT: " << aln.sequence().size() << "bp" << endl
                 << "WITH NO MAPPINGS TO REFERENCE" << endl
