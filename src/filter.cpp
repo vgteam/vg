@@ -59,6 +59,16 @@ namespace vg{
     }
 
     Alignment Filter::depth_filter(Alignment& aln){
+        if (avg && window){
+
+        }
+        else if (avg){
+
+        }
+        else{
+
+        }
+
         Path path = aln.path();
         //TODO handle reversing mappings
         vector<int>* qual_window;
@@ -175,7 +185,16 @@ namespace vg{
         }
 
     }
-    pair<Alignment, Alignment> soft_clip_filter(Alignment& aln_first, Alignment& aln_second){
+    pair<Alignment, Alignment> Filter::soft_clip_filter(Alignment& aln_first, Alignment& aln_second){
+        aln_first = soft_clip_filter(aln_first);
+        aln_second = soft_clip_filter(aln_second);
+
+        if (aln_first.name() == "" || aln_second.name() == ""){
+            return inverse ? make_pair(Alignment(), Alignment()) : make_pair(aln_first, aln_second) ;
+        }
+        else{
+            return inverse ? make_pair(aln_first, aln_second) : make_pair(Alignment(), Alignment()) ;
+        }
 
     }
     pair<Alignment, Alignment> split_read_filter(Alignment& aln_first, Alignment& aln_second){

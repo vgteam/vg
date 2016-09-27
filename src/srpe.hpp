@@ -18,6 +18,10 @@
 using namespace std;
 namespace vg{
 class SRPE{
+    remap();
+
+    private:
+        Filter ff;
 
 };
 }

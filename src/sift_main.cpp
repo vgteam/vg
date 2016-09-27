@@ -102,6 +102,13 @@ int main_sift(int argc, char** argv){
     int max_path_length = 0;
     bool do_max_path = false;
 
+    int split_read_limit = -1;
+    double depth = -1;
+    int window = 0;
+    bool use_avg = false;
+    double pct_id = 0;
+    double quality = 0.0;
+
 
 
 

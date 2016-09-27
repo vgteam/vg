@@ -10,16 +10,22 @@ using namespace std;
 using namespace vg;
 
 void help_srpe(char** argv){
-    cerr << "Usage: " << argv[0] << " srpe [options] <data.gam>" << endl
+    cerr << "Usage: " << argv[0] << " srpe [options] <data.gam> <data.gam.index> <graph.vg>" << endl
         << "Options: " << endl
-        << ""
+        << "-m / --max-iter <MaximumIterations> max number of iterations for homogenization."
         << endl;
 
 }
 
+
+
 int main_srpe(int argc, char** argv){
     string gam_name = "";
     string index_name = "";
+    string graph_name = "";
+    int max_iter = 0;
+    int max_frag_len = -1;
+    int max_softclip = -1;
 
     /*
      * int sc_cutoff
