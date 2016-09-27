@@ -43,6 +43,11 @@ struct Bubble {
     NodeSide start;
     NodeSide end;
     vector<id_t> contents;
+    // cactus now gives us chaining information, stick here for now
+    // so chain_offsets[i]-chain_offsets[i+1] mark the range
+    // of children in chain i.  existing code that doesn't use
+    // chains will be unaffected. 
+    vector<int> chain_offsets;   
 };
 
 typedef Tree<Bubble> BubbleTree;
@@ -67,6 +72,9 @@ void remove_heads_and_tails(VG& graph, pair<NodeSide, NodeSide> source_sink);
 // Return the hierchical cactus decomposition
 // Input graph must be sorted!
 BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink);
+
+// Use the new ultrabubble interface in cactus. will replace above once tested
+BubbleTree cactusbubble_tree_new(VG& graph, pair<NodeSide, NodeSide> source_sink);
 
 // By default, bubble X's contents array doesn't have all the nodes
 // in its children's contents (ie each node only stored in lowest bubble

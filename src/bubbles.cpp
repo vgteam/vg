@@ -115,10 +115,10 @@ static void compute_side_components(VG& graph, pair<NodeSide, NodeSide> source_s
     };
 
     // make component for source--sink edge
-    NodeSide first_side(source_sink.first.node, !source_sink.first.is_end);
-    NodeSide last_side(source_sink.second.node, !source_sink.second.is_end);
-    update_component(first_side, -1);
-    update_component(last_side, 0);
+    //NodeSide first_side(source_sink.first.node, !source_sink.first.is_end);
+    //NodeSide last_side(source_sink.second.node, !source_sink.second.is_end);
+    //update_component(first_side, -1);
+    //update_component(last_side, 0);
     
     // create a connected component of a node side and everything adjancet
     // (if not added already)
@@ -236,11 +236,10 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph, pair<NodeSide, NodeS
         cactus_graph, mergeNodeObjects, cactus_nodes[0]);
 
     // don't worry about bridges
-    stCactusGraph_collapseBridges(
-        cactus_graph, cactus_nodes[0], mergeNodeObjects);
+//    stCactusGraph_collapseBridges(
+//        cactus_graph, cactus_nodes[0], mergeNodeObjects);
 
     return make_pair(cactus_graph, cactus_nodes[0]);
-
 }
 
 pair<NodeSide, NodeSide> get_cactus_source_sink(VG& graph) {
@@ -362,6 +361,7 @@ void remove_heads_and_tails(VG& graph, pair<NodeSide, NodeSide> source_sink) {
     }
 }
 
+
 BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink) {
     
     // convert to cactus
@@ -443,6 +443,144 @@ BubbleTree cactusbubble_tree(VG& graph, pair<NodeSide, NodeSide> source_sink) {
     return out_tree;
 }
 
+BubbleTree cactusbubble_tree_new(VG& graph, pair<NodeSide, NodeSide> source_sink) {
+    
+    // convert to cactus
+    pair<stCactusGraph*, stCactusNode*> cac_pair = vg_to_cactus(graph, source_sink);
+    stCactusGraph* cactus_graph = cac_pair.first;
+    stCactusNode* root_node = cac_pair.second;
+
+    BubbleTree out_tree(new BubbleTree::Node());
+
+    // get the bubble decomposition as a C struct
+    // should we pass a start node? 
+    stList* cactus_chains_list = stCactusGraph_getUltraBubbles(cactus_graph, NULL);
+    
+    // recursive function to walk through the cycles in the cactus graph
+    function<vector<id_t>(stCactusNode*)> cactus_recurse = [&](stCactusNode* cactus_node) {
+
+        // walk through the edges incident with the node and find those that are at the
+        // start of a chain
+        stCactusNodeEdgeEndIt edge_it = stCactusNode_getEdgeEndIt(cactus_node);
+        stCactusEdgeEnd* cactus_edge_end;
+        // A list of all the edges in the superbubble.
+        vector<id_t> edgesVisited;
+        
+        while ((cactus_edge_end = stCactusNodeEdgeEndIt_getNext(&edge_it)) != NULL) {
+            
+            if (stCactusEdgeEnd_isChainEnd(cactus_edge_end) &&
+                stCactusEdgeEnd_getLinkOrientation(cactus_edge_end)) {
+                // Add the edge to those visited
+                CactusSide* side = (CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end);
+                edgesVisited.push_back(side->node);
+                
+                // Walk the chain starting from the first edge in the chain
+                assert(stCactusEdgeEnd_getNode(cactus_edge_end) == cactus_node);
+                stCactusEdgeEnd* cactus_edge_end2 = stCactusEdgeEnd_getLink(
+                    stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge_end));
+                
+                while(cactus_edge_end != cactus_edge_end2) {
+
+                    // Report super bubble!!!!!!!
+                    CactusSide* side1 = (CactusSide*)stCactusEdgeEnd_getObject(cactus_edge_end2);
+                    CactusSide* side2 = (CactusSide*)stCactusEdgeEnd_getObject(
+                        stCactusEdgeEnd_getLink(cactus_edge_end2));
+
+                    // Add the next edge in the chain to the edges visited
+                    edgesVisited.push_back(side2->node);
+                    edgesVisited.push_back(side1->node);
+                    
+                    assert(stCactusEdgeEnd_getNode(cactus_edge_end2) != cactus_node);
+
+                    // This recursive explores the cycles in the subgraph rooted at next_cactus_node.
+                    vector<id_t> recurse_ids = cactus_recurse(stCactusEdgeEnd_getNode(cactus_edge_end2));
+
+                    // Add all the edges in the super bubble to the total list of edges
+                    edgesVisited.insert(edgesVisited.begin(), recurse_ids.begin(), recurse_ids.end());
+
+                    // Get the next link
+                    cactus_edge_end2 = stCactusEdgeEnd_getLink(
+                        stCactusEdgeEnd_getOtherEdgeEnd(cactus_edge_end2));
+                }
+            }
+        }
+
+        return edgesVisited;
+    };
+
+    
+    // copy back to our C++ tree interface (ultra_bubble as added to child_list of out_node)
+    function<void(stCactusNode*, stCactusNode*, stList*, NodeSide, NodeSide, BubbleTree::Node*)> ultra_recurse =
+        [&](stCactusNode* cac_node1, stCactusNode* cac_node2, stList* chains_list, NodeSide side1, NodeSide side2, BubbleTree::Node* out_node) {
+
+        // add the Tree node
+        out_node->v.start = side1;
+        out_node->v.end = side2;
+
+        // only time this won't be true, is for the dummy root node
+        if (cac_node1 != NULL) {
+            out_node->v.contents = vector<id_t>(1, out_node->v.start.node);
+            vector<id_t> contents = cactus_recurse(cac_node1);
+            out_node->v.contents.insert(out_node->v.contents.end(), contents.begin(), contents.end());
+            contents = cactus_recurse(cac_node2);
+            out_node->v.contents.insert(out_node->v.contents.end(), contents.begin(), contents.end());
+            out_node->v.contents.push_back(out_node->v.end.node);
+            // sort start and end like superbubbles does
+            if (out_node->v.start.node > out_node->v.end.node) {
+                swap(out_node->v.start, out_node->v.end);
+            }
+        }
+        
+        int chain_offset = 0;
+        // for each nested chain
+        for (int64_t i = 0; i < stList_length(chains_list); i++) {
+
+            stList* cactus_chain = (stList*)stList_get(chains_list, i);
+            
+            // for each ultra bubble in the chain
+            for (int64_t j = 0; j < stList_length(cactus_chain); j++) {
+
+                // add a new chain offset to our output list, remembering where chain started
+                if (j == 0) {
+                    out_node->v.chain_offsets.push_back(chain_offset);                    
+                }
+                // add a node to our output tree
+                BubbleTree::Node* new_node = new BubbleTree::Node();
+                out_node->children.push_back(new_node);
+            
+                stUltraBubble* child_bubble = (stUltraBubble*)stList_get(cactus_chain, j);
+
+                // scrape the vg coordinate information out of the cactus ends where we stuck
+                // it during cactus construction
+                CactusSide* cac_child_side1 = (CactusSide*)stCactusEdgeEnd_getObject(child_bubble->edgeEnd1);
+                CactusSide* cac_child_side2 = (CactusSide*)stCactusEdgeEnd_getObject(child_bubble->edgeEnd2);
+                NodeSide child_side1(cac_child_side1->node, cac_child_side1->is_end);
+                NodeSide child_side2(cac_child_side2->node, cac_child_side2->is_end);
+
+                // recurse on child_bubble
+                stCactusNode* edge1_node = stCactusEdgeEnd_getNode(child_bubble->edgeEnd1);
+                stCactusNode* edge2_node = stCactusEdgeEnd_getNode(child_bubble->edgeEnd2);
+                
+                ultra_recurse(edge1_node, edge2_node, child_bubble->chains,
+                               child_side1, child_side2, new_node);
+                
+                ++chain_offset;
+            }
+        }
+    };
+
+    // todo tree root (or maybe it makes no sense anymore) (use old source_sink logic for now)
+    ultra_recurse(NULL, NULL, cactus_chains_list, source_sink.first, source_sink.second, out_tree.root);
+    
+    // free the C bubbles
+    stList_destruct(cactus_chains_list);
+
+    // free the cactus graph
+    stCactusGraph_destruct(cactus_graph);
+    
+    return out_tree;
+}
+
 void bubble_up_bubbles(BubbleTree& bubble_tree) {
     bubble_tree.for_each_postorder([&](BubbleTree::Node* node) {
             for (auto& c: node->children) {
@@ -484,7 +622,11 @@ map<pair<id_t, id_t>, vector<id_t> > cactusbubbles(VG& graph) {
     // get endpoints
     pair<NodeSide, NodeSide> source_sink = get_cactus_source_sink(graph);
 
-    BubbleTree bubble_tree = cactusbubble_tree(graph, source_sink);
+    BubbleTree bubble_tree = cactusbubble_tree_new(graph, source_sink);
+    bubble_up_bubbles(bubble_tree);
+    
+    // dirty temp hack to clean up duplicates so tests pass
+    bubble_down_bubbles(bubble_tree);
     bubble_up_bubbles(bubble_tree);
 
     bubble_tree.for_each_preorder([&](BubbleTree::Node* node) {
