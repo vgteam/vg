@@ -7495,10 +7495,8 @@ Alignment VG::align(const Alignment& alignment,
         }
         if (banded_global) {
             if (aligner && !qual_adj_aligner) {
-                cerr << "banded global regular " << pb2json(aln) << " " << pb2json(g) << endl;
                 aligner->align_global_banded(aln, g, 1);
             } else if (qual_adj_aligner && !aligner) {
-                cerr << "banded global qual adjusted " << pb2json(aln) << " " << pb2json(g) << endl;
                 qual_adj_aligner->align_global_banded(aln, g, 1);
             }
         } else if (pinned_node_id) {
