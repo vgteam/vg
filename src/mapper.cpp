@@ -734,6 +734,7 @@ pair<vector<Alignment>, vector<Alignment>> Mapper::align_paired_multi(
             int new_mem_max = max((int) min_mem_length,
                                   (int) (max_mem_length ? max_mem_length : gcsa->order()) - kmer_sensitivity_step);
             if (new_mem_max == min_mem_length) {
+                // do noting
             } else if (new_mem_max > min_mem_length) {
                 //cerr << "trying with " << new_mem_max << endl;
                 return align_paired_multi(read1, read2,
@@ -945,7 +946,7 @@ Mapper::mems_pos_clusters_to_alignments(const Alignment& aln, vector<MaximalExac
                     }
                 }
                 assert(mem != nullptr);
-                cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
+                //cerr << x->first << " " << mem->sequence() << " @ " << mem->begin - aln.sequence().begin() << endl;
                 if (!cluster.empty() && cluster.back().begin > mem->begin
                     || in_cluster.count(mem)) {
                     ++x; // step to the next position
@@ -2268,7 +2269,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
         *new_mapping->mutable_position() = mapping.position();
         for (int j = 0; j < mapping.edit_size(); ++j) {
             auto& edit = mapping.edit(j);
-            cerr << "looking at edit " << pb2json(edit) << endl;
+            //cerr << "looking at edit " << pb2json(edit) << endl;
             if (edit_is_match(edit)) {
                 // matches behave as expected
                 if (!aln.quality().empty()) {
@@ -2285,7 +2286,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                 score -= aligner->gap_open + edit.from_length()*aligner->gap_extension;
                 *new_mapping->add_edit() = edit;
             } else if (edit_is_insertion(edit)) {
-                cerr << "looking at " << edit.sequence() << endl;
+                //cerr << "looking at " << edit.sequence() << endl;
                 // bits to patch in are recorded like insertions
                 // pick up the graph from the start to end where we have an unaligned bit
                 // but bail out if we get a lot of graph
@@ -2569,7 +2570,7 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     *new_mapping->add_edit() = edit;
                 } else {
                     // we've set the graph to the trimmed target
-                    cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
+                    if (debug) cerr << "target graph " << graph.size() << " " << pb2json(graph.graph) << endl;
                     //time to try an alignment
                     // if we are walking a reversed path, take the reverse complement
                     // todo:
@@ -2592,7 +2593,18 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
 
                     //graph.serialize_to_file("aln-" + graph.hash() + ".vg");
                     // do the alignment
-                    patch = align_to_graph(patch, graph, max_query_graph_ratio);
+                    bool banded_global = (!soft_clip_to_left && !soft_clip_to_right);
+                    patch = align_to_graph(patch,
+                                           graph,
+                                           max_query_graph_ratio,
+                                           0, false, banded_global);
+                    // TODO : we want to use the pinning here
+                    // to improve handling of soft clips
+                    /*
+                                           id(first_cut),
+                                           soft_clip_to_left);
+                    */
+
                     // adjust the translated node positions
                     for (int k = 0; k < patch.path().mapping_size(); ++k) {
                         auto* mapping = patch.mutable_path()->mutable_mapping(k);
@@ -2612,11 +2624,8 @@ Alignment Mapper::patch_alignment(const Alignment& aln) {
                     }
 
                     // append the chunk to patched
-                    cerr << "patch: " << pb2json(patch) << endl;
-                    // todo check for SNP status
-                    // if the graph is just 1bp
-                    // and our 
 
+                    if (debug) cerr << "patch: " << pb2json(patch) << endl;
                     patch.clear_sequence(); // we set the whole sequence later
                     if (min_identity && patch.identity() < min_identity
                         || patch.score() == 0) {
