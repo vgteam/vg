@@ -1584,7 +1584,7 @@ void help_genotype(char** argv) {
          << "    -l, --length INT        override total sequence length" << std::endl
          << "    -a, --augmented FILE    dump augmented graph to FILE" << std::endl
          << "    -q, --use_mapq          use mapping qualities" << std::endl
-         << "    -C, --cactus            use cactus for site finding" << std::endl
+         << "    -C, --cactus            use cactus ultrabubbles for site finding" << std::endl
          << "    -S, --subset-graph      only use the reference and areas of the graph with read support" << std::endl
          << "    -i, --realign_indels    realign at indels" << std::endl
          << "    -d, --het_prior_denom   denominator for prior probability of heterozygousness" << std::endl
@@ -4472,7 +4472,7 @@ void help_stats(char** argv) {
          << "    -T, --tails           list the tail nodes of the graph" << endl
          << "    -S, --siblings        describe the siblings of each node" << endl
          << "    -b, --superbubbles    describe the superbubbles of the graph" << endl
-         << "    -C, --cactusbubbles   describe the cactus bubbles of the graph" << endl
+         << "    -u, --ultrabubbles    describe the ultrabubbles of the graph" << endl
          << "    -c, --components      print the strongly connected components of the graph" << endl
          << "    -A, --is-acyclic      print if the graph is acyclic or not" << endl
          << "    -n, --node ID         consider node with the given id" << endl
@@ -4501,7 +4501,7 @@ int main_stats(int argc, char** argv) {
     bool node_count = false;
     bool edge_count = false;
     bool superbubbles = false;
-    bool cactus = false;
+    bool ultrabubbles = false;
     bool verbose = false;
     bool is_acyclic = false;
     set<vg::id_t> ids;
@@ -4528,7 +4528,7 @@ int main_stats(int argc, char** argv) {
             {"to-tail", no_argument, 0, 't'},
             {"node", required_argument, 0, 'n'},
             {"superbubbles", no_argument, 0, 'b'},
-            {"cactusbubbles", no_argument, 0, 'C'},
+            {"ultrabubbles", no_argument, 0, 'u'},
             {"alignments", required_argument, 0, 'a'},
             {"is-acyclic", no_argument, 0, 'A'},
             {"verbose", no_argument, 0, 'v'},
@@ -4536,7 +4536,7 @@ int main_stats(int argc, char** argv) {
         };
 
         int option_index = 0;
-        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbCa:vA",
+        c = getopt_long (argc, argv, "hzlsHTScdtn:NEbua:vA",
                 long_options, &option_index);
 
         // Detect the end of the options.
@@ -4597,8 +4597,8 @@ int main_stats(int argc, char** argv) {
             superbubbles = true;
             break;
 
-        case 'C':
-            cactus = true;
+        case 'u':
+            ultrabubbles = true;
             break;
 
         case 'A':
@@ -4687,8 +4687,8 @@ int main_stats(int argc, char** argv) {
         }
     }
 
-    if (superbubbles || cactus) {
-        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::cactusbubbles(*graph);
+    if (superbubbles || ultrabubbles) {
+        auto bubbles = superbubbles ? vg::superbubbles(*graph) : vg::ultrabubbles(*graph);
         for (auto& i : bubbles) {
             auto b = i.first;
             auto v = i.second;
@@ -7790,7 +7790,7 @@ void help_view(char** argv) {
          << "    -d, --dot            output dot format" << endl
          << "    -S, --simple-dot     simplify the dot output; remove node labels, simplify alignments" << endl
          << "    -B, --bubble-label   label nodes with emoji/colors that correspond to superbubbles" << endl
-         << "    -Y, --cactus-label   same as -Y but using cactus bubbles" << endl
+         << "    -Y, --ultra-label    same as -Y but using ultrabubbles" << endl
          << "    -m, --skip-missing   skip mappings to nodes not in the graph when drawing alignments" << endl
          << "    -C, --color          color nodes that are not in the reference path (DOT OUTPUT ONLY)" << endl
          << "    -p, --show-paths     show paths in dot output" << endl
@@ -7851,7 +7851,7 @@ int main_view(int argc, char** argv) {
     bool color_variants = false;
     bool superbubble_ranking = false;
     bool superbubble_labeling = false;
-    bool cactusbubble_labeling = false;
+    bool ultrabubble_labeling = false;
     bool skip_missing_nodes = false;
 
     int c;
@@ -7889,7 +7889,7 @@ int main_view(int argc, char** argv) {
                 {"simple-dot", no_argument, 0, 'S'},
                 {"color", no_argument, 0, 'C'},
                 {"translation-in", no_argument, 0, 'Z'},
-                {"cactus-label", no_argument, 0, 'Y'},
+                {"ultra-label", no_argument, 0, 'Y'},
                 {"bubble-label", no_argument, 0, 'B'},
                 {"skip-missing", no_argument, 0, 'm'},
                 {"locus-in", no_argument, 0, 'q'},
@@ -7921,7 +7921,7 @@ int main_view(int argc, char** argv) {
             break;
 
         case 'Y':
-            cactusbubble_labeling = true;
+            ultrabubble_labeling = true;
             break;
 
         case 'B':
@@ -8371,7 +8371,7 @@ int main_view(int argc, char** argv) {
                       color_variants,
                       superbubble_ranking,
                       superbubble_labeling,
-                      cactusbubble_labeling,
+                      ultrabubble_labeling,
                       skip_missing_nodes,
                       seed_val);
     } else if (output_type == "json") {
