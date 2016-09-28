@@ -354,7 +354,7 @@ BubbleTree* ultrabubble_tree(VG& graph) {
 
     // get the bubble decomposition as a C struct
     // should we pass a start node? 
-    stList* cactus_chains_list = stCactusGraph_getUltraBubbles(cactus_graph, NULL);
+    stList* cactus_chains_list = stCactusGraph_getUltraBubbles(cactus_graph, root_node);
 
     // copy back to our C++ tree interface (ultrabubble as added to child_list of out_node)
     // in to new ultrabubble code, we no longer have tree root.  instead, we shoehorn
