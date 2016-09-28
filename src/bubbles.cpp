@@ -233,11 +233,17 @@ pair<stCactusGraph*, stCactusNode*> vg_to_cactus(VG& graph) {
 // fill in the "acyclic" and "contents" field of a bubble by doing a depth first search
 // between its bounding sides (start and end)
 static void fill_ultrabubble_contents(VG& graph, Bubble& bubble) {
-    
+
+    // orient out from source
     NodeTraversal source(graph.get_node(bubble.start.node), !bubble.start.is_end);
-    NodeTraversal sink(graph.get_node(bubble.end.node), !bubble.start.is_end);
     vector<NodeTraversal> sources = {source};
-    set<NodeTraversal> sinks = {sink};
+    // but never walk "through" sink in any direction
+    // note we treat the source in the opposite direction as a sink here to prevent leaving
+    // the bubble in a loop
+    id_t sink_id = bubble.end.node;
+    set<NodeTraversal> sinks = {NodeTraversal(graph.get_node(bubble.start.node), bubble.start.is_end),
+                                NodeTraversal(graph.get_node(sink_id), !bubble.start.is_end),
+                                NodeTraversal(graph.get_node(sink_id), bubble.start.is_end)};
 
     // remember unique node ids we've visited 
     set<id_t> contents_set;
@@ -250,12 +256,12 @@ static void fill_ultrabubble_contents(VG& graph, Bubble& bubble) {
     graph.dfs([&](NodeTraversal trav) {
 
             // self loops on bubble end points considered degenerate
-            if (trav.node->id() != source.node->id() && trav.node->id() != sink.node->id() &&
+            if (trav.node->id() != source.node->id() && trav.node->id() != sink_id &&
                 graph.is_self_looping(trav.node)) {
                 bubble.acyclic = false;
             }
             // don't step past the sink once we've reached it
-            if (trav != sink) {
+            if (sinks.count(trav) == false) {
                 for (auto& next : graph.travs_from(trav)) {
                     // filter out self loop on bubble endpoints like above
                     if (trav.node->id() != source.node->id() && next.node->id() != trav.node->id() &&
