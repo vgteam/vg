@@ -242,22 +242,33 @@ static void fill_ultrabubble_contents(VG& graph, Bubble& bubble) {
     // remember unique node ids we've visited 
     set<id_t> contents_set;
     
-    // the acyclic logic copied from vg::is_acyclic()
+    // the acyclic logic derived from vg::is_acyclic()
+    // but changed to make sure we only ever touch the ends of the
+    // source and sink (never loop over body of the node)
     set<NodeTraversal> seen;
     bubble.acyclic = true;
     graph.dfs([&](NodeTraversal trav) {
-            if (graph.is_self_looping(trav.node)) {
+
+            // self loops on bubble end points considered degenerate
+            if (trav.node->id() != source.node->id() && trav.node->id() != sink.node->id() &&
+                graph.is_self_looping(trav.node)) {
                 bubble.acyclic = false;
             }
-            for (auto& next : graph.travs_from(trav)) {
-                if (seen.count(next)) {
-                    bubble.acyclic = false;
-                    break;
+            // don't step past the sink once we've reached it
+            if (trav != sink) {
+                for (auto& next : graph.travs_from(trav)) {
+                    // filter out self loop on bubble endpoints like above
+                    if (trav.node->id() != source.node->id() && next.node->id() != trav.node->id() &&
+                        seen.count(next)) {
+                        bubble.acyclic = false;
+                        break;
+                    }
                 }
             }
             if (bubble.acyclic) {
                 seen.insert(trav);
             }
+
             contents_set.insert(trav.node->id());
         },
         [&](NodeTraversal trav) {
